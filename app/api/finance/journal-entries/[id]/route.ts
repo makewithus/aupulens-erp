@@ -1,0 +1,193 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import dbConnect from "@/lib/db";
+import JournalEntry from "@/models/JournalEntry";
+import {
+  DOCUMENT_STATUS,
+  isValidVoucherTransition,
+  VOUCHER_STATUS,
+  type VoucherStatus,
+} from "@/lib/constants/statuses";
+import {
+  requiresBalancedJournal,
+  validateJournalLinesForPosting,
+} from "@/lib/accounting/journal-validation";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await auth();
+    if (!session)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id } = await params;
+    const tenantId = (session.user as any).tenantId || "default-tenant";
+    await dbConnect();
+
+    const item = await JournalEntry.findOne({ _id: id, tenantId })
+      .populate("lineIds.accountId")
+      .populate("lineIds.partnerId");
+
+    if (!item)
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+
+    return NextResponse.json(item);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await auth();
+    if (!session)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id } = await params;
+    const body = await req.json();
+    const userId = (session.user as any).id;
+    const tenantId = (session.user as any).tenantId || "default-tenant";
+
+    await dbConnect();
+
+    const existing = await JournalEntry.findOne({ _id: id, tenantId });
+    if (!existing)
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+
+    // ─── Voucher status transition handling ───
+    if (body.voucherStatus && body.voucherStatus !== existing.voucherStatus) {
+      const currentStatus = existing.voucherStatus as VoucherStatus;
+      const nextStatus = body.voucherStatus as VoucherStatus;
+
+      if (!isValidVoucherTransition(currentStatus, nextStatus)) {
+        return NextResponse.json(
+          {
+            error: `Invalid status transition: ${currentStatus} → ${nextStatus}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (nextStatus === VOUCHER_STATUS.VALIDATED) {
+        body.validatedAt = new Date();
+        body.validatedBy = userId;
+      }
+
+      // Approval
+      if (nextStatus === VOUCHER_STATUS.APPROVED) {
+        body.approvalDetails = {
+          ...existing.approvalDetails,
+          approvedBy: userId,
+          approvedAt: new Date(),
+        };
+      }
+
+      // Rejection
+      if (nextStatus === VOUCHER_STATUS.REJECTED) {
+        body.approvalDetails = {
+          ...existing.approvalDetails,
+          rejectedBy: userId,
+          rejectedAt: new Date(),
+          reason: body.rejectionReason || "",
+        };
+      }
+
+      // Post → update ledger timestamp, sync document status
+      if (nextStatus === VOUCHER_STATUS.POSTED) {
+        body.ledgerUpdatedAt = new Date();
+        body.status = DOCUMENT_STATUS.POSTED;
+      }
+
+      // Re-draft on rejection
+      if (nextStatus === VOUCHER_STATUS.DRAFT && currentStatus === VOUCHER_STATUS.REJECTED) {
+        body.validatedAt = null;
+        body.validatedBy = null;
+        body.approvalDetails = {};
+      }
+    }
+
+    // Prevent edits on posted vouchers (except chatter)
+    if (
+      (existing.voucherStatus === VOUCHER_STATUS.POSTED ||
+        existing.status === DOCUMENT_STATUS.POSTED) &&
+      !body.voucherStatus
+    ) {
+      return NextResponse.json(
+        { error: "Posted vouchers are immutable" },
+        { status: 400 },
+      );
+    }
+
+    const nextVoucherStatus = body.voucherStatus || existing.voucherStatus;
+    const nextStatus = body.status || existing.status;
+    if (
+      body.status === DOCUMENT_STATUS.POSTED &&
+      existing.status !== DOCUMENT_STATUS.POSTED
+    ) {
+      body.ledgerUpdatedAt = body.ledgerUpdatedAt || new Date();
+    }
+    if (
+      requiresBalancedJournal({
+        status: nextStatus,
+        voucherStatus: nextVoucherStatus,
+      })
+    ) {
+      const lines = body.lineIds || existing.lineIds || [];
+      const validationError = validateJournalLinesForPosting(lines);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
+    }
+
+    const item = await JournalEntry.findOneAndUpdate(
+      { _id: id, tenantId },
+      { $set: body },
+      { new: true },
+    );
+
+    return NextResponse.json(item);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await auth();
+    if (!session)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id } = await params;
+    const tenantId = (session.user as any).tenantId || "default-tenant";
+    await dbConnect();
+
+    const existing = await JournalEntry.findOne({ _id: id, tenantId });
+    if (!existing)
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+
+    // Prevent deleting posted/validated vouchers
+    if (
+      existing.voucherStatus === VOUCHER_STATUS.POSTED ||
+      existing.voucherStatus === VOUCHER_STATUS.APPROVED
+    ) {
+      return NextResponse.json(
+        { error: "Cannot delete posted or approved entries" },
+        { status: 400 },
+      );
+    }
+
+    await JournalEntry.findOneAndDelete({ _id: id, tenantId });
+
+    return NextResponse.json({ message: "Entry deleted" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

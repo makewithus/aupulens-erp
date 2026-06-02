@@ -1,0 +1,466 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { ModularModal } from "@/components/dashboard/ModularModal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import {
+  Search,
+  Plus,
+  Trash2,
+  Eye,
+  Edit,
+  Building2,
+  Users,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+
+interface Department {
+  _id: string;
+  name: string;
+  code: string;
+  description?: string;
+  headOfDepartment?: { _id: string; firstName: string; lastName: string; employeeCode?: string };
+  parentDepartmentId?: { _id: string; name: string; code?: string };
+  costCenter?: string;
+  isActive: boolean;
+  employeeCount?: number;
+}
+
+export default function DepartmentsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+  const [formData, setFormData] = useState<any>({});
+
+  const filtered = departments.filter((d) => {
+    const textMatch =
+      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.code.toLowerCase().includes(searchQuery.toLowerCase());
+    const statusMatch =
+      filterStatus === "all" ||
+      (filterStatus === "active" && d.isActive) ||
+      (filterStatus === "inactive" && !d.isActive);
+    return textMatch && statusMatch;
+  });
+
+  const totalDepts = departments.length;
+  const activeDepts = departments.filter((d) => d.isActive).length;
+  const inactiveDepts = departments.filter((d) => !d.isActive).length;
+  const totalEmployeesInDepts = departments.reduce((s, d) => s + (d.employeeCount || 0), 0);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [deptRes, empRes] = await Promise.all([
+        fetch("/api/hr/departments"),
+        fetch("/api/hr/employees"),
+      ]);
+      const deptJson = await deptRes.json();
+      const empJson = await empRes.json();
+      setDepartments(deptJson.items || []);
+      setEmployees(empJson.items || []);
+    } catch {
+      toast.error("Failed to load departments");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") router.push("/auth/hr");
+    if (status === "authenticated") load();
+  }, [status, router, load]);
+
+  const handleOpenCreate = () => {
+    setModalMode("create");
+    setFormData({ name: "", code: "", description: "", headOfDepartment: "", parentDepartmentId: "", costCenter: "", isActive: true });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (dept: Department) => {
+    setModalMode("edit");
+    setFormData({
+      ...dept,
+      _id: dept._id,
+      headOfDepartment: dept.headOfDepartment?._id || "",
+      parentDepartmentId: dept.parentDepartmentId?._id || "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenView = (dept: Department) => {
+    setModalMode("view");
+    setFormData(dept);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this department?")) return;
+    try {
+      const res = await fetch(`/api/hr/departments/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Department deleted");
+        load();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Delete failed");
+      }
+    } catch {
+      toast.error("Delete error");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.code) {
+      toast.error("Name and code are required");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const isUpdate = modalMode === "edit" && formData._id;
+      const url = isUpdate ? `/api/hr/departments/${formData._id}` : "/api/hr/departments";
+      const method = isUpdate ? "PATCH" : "POST";
+      const payload = { ...formData };
+      // Clean empty optional refs
+      if (!payload.headOfDepartment) delete payload.headOfDepartment;
+      if (!payload.parentDepartmentId) delete payload.parentDepartmentId;
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(isUpdate ? "Department updated" : "Department created");
+        setIsModalOpen(false);
+        load();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Operation failed");
+      }
+    } catch {
+      toast.error("Submission error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <DashboardLayout
+      sidebarSections={hrSidebarConfig}
+      dashboardTitle="HR & Payroll"
+      pageName="Departments"
+      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Departments" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={session?.user?.role}
+      profilePath="/hr/profile"
+      onRefresh={load}
+    >
+      <div className="space-y-8 max-w-8xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Departments</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage organisational departments and cost centres</p>
+        </div>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="border-border/40">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Building2 className="h-8 w-8 text-primary" />
+              <div>
+                <p className="text-2xl font-black">{totalDepts}</p>
+                <p className="text-xs text-muted-foreground">Total Departments</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/40">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle className="h-8 w-8 text-green-500" />
+              <div>
+                <p className="text-2xl font-black">{activeDepts}</p>
+                <p className="text-xs text-muted-foreground">Active</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/40">
+            <CardContent className="p-4 flex items-center gap-3">
+              <XCircle className="h-8 w-8 text-red-500" />
+              <div>
+                <p className="text-2xl font-black">{inactiveDepts}</p>
+                <p className="text-xs text-muted-foreground">Inactive</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/40">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Users className="h-8 w-8 text-blue-500" />
+              <div>
+                <p className="text-2xl font-black">{totalEmployeesInDepts}</p>
+                <p className="text-xs text-muted-foreground">Assigned Employees</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex gap-3 flex-1 flex-wrap">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <TableSkeleton rows={7} columns={7} />
+        ) : filtered.length === 0 ? (
+          <Card className="border-border/40">
+            <CardContent className="p-12 text-center">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="font-bold text-lg">No departments found</h3>
+              <p className="text-sm text-muted-foreground">Create departments to organise your workforce</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border/40">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/40 bg-muted/30">
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Code</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Head</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Parent</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Employees</th>
+                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((dept) => (
+                      <tr key={dept._id} className="border-b border-border/20 hover:bg-muted/20">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{dept.name}</div>
+                          {dept.description && (
+                            <div className="text-xs text-muted-foreground line-clamp-1">{dept.description}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {dept.headOfDepartment ? (
+                            <div>
+                              <div className="font-medium text-xs">{dept.headOfDepartment.firstName} {dept.headOfDepartment.lastName}</div>
+                              {dept.headOfDepartment.employeeCode && (
+                                <div className="text-xs text-muted-foreground font-mono">{dept.headOfDepartment.employeeCode}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {dept.parentDepartmentId ? (
+                            <span className="text-xs">{dept.parentDepartmentId.name}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className="font-mono">
+                            {dept.employeeCount || 0}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={
+                              dept.isActive
+                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                            }
+                          >
+                            {dept.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => handleOpenView(dept)} className="h-7 w-7">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(dept)} className="h-7 w-7">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dept._id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <ModularModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        title={modalMode === "create" ? "Add Department" : modalMode === "edit" ? "Edit Department" : formData.name || "Department"}
+      >
+        <div className="space-y-4 p-1">
+          {modalMode === "view" ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Name</label>
+                <p className="font-bold">{formData.name}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Code</label>
+                <p className="font-mono">{formData.code}</p>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Description</label>
+                <p className="text-sm">{formData.description || "N/A"}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Head</label>
+                <p>{formData.headOfDepartment ? `${formData.headOfDepartment.firstName} ${formData.headOfDepartment.lastName}` : "N/A"}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Cost Centre</label>
+                <p>{formData.costCenter || "N/A"}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Status</label>
+                <Badge className={formData.isActive ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"}>
+                  {formData.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Parent</label>
+                <p>{formData.parentDepartmentId?.name || "None"}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Employees</label>
+                <p className="font-bold">{formData.employeeCount || 0}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Name *</label>
+                  <Input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Code *</label>
+                  <Input value={formData.code || ""} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Description</label>
+                  <Input value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Head of Department</label>
+                  <Select value={formData.headOfDepartment || "none"} onValueChange={(v) => setFormData({ ...formData, headOfDepartment: v === "none" ? "" : v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp._id} value={emp._id}>
+                          {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Parent Department</label>
+                  <Select value={formData.parentDepartmentId || "none"} onValueChange={(v) => setFormData({ ...formData, parentDepartmentId: v === "none" ? "" : v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {departments.filter((d) => d._id !== formData._id).map((d) => (
+                        <SelectItem key={d._id} value={d._id}>
+                          {d.name} ({d.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Cost Centre</label>
+                  <Input value={formData.costCenter || ""} onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })} />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive !== false}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <label className="text-sm font-medium">Active</label>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : modalMode === "edit" ? "Update" : "Create"}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </ModularModal>
+    </DashboardLayout>
+  );
+}
