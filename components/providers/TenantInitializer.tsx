@@ -11,7 +11,11 @@ function getTenantFromHost(hostname: string): string | null {
   // Handles generic subdomain extraction
   if (hostParts.length >= 3) {
     // Check if first part is not 'www' or shared infrastructure
-    if (hostParts[0] !== "www" && hostParts[0] !== "localhost") {
+    if (
+      hostParts[0] !== "www" &&
+      hostParts[0] !== "localhost" &&
+      hostParts[0] !== "aupulens-erp"
+    ) {
       return hostParts[0];
     }
   }

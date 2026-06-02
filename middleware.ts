@@ -10,7 +10,11 @@ function getTenantFromHost(hostname: string): string | null {
 
   // For companyx.aupulens.online, extract 'companyx'
   if (hostParts.length >= 3) {
-    if (hostParts[0] !== "www" && hostParts[0] !== "localhost") {
+    if (
+      hostParts[0] !== "www" &&
+      hostParts[0] !== "localhost" &&
+      hostParts[0] !== "aupulens-erp"
+    ) {
       return hostParts[0];
     }
   }
