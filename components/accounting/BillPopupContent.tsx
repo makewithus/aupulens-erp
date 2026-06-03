@@ -47,27 +47,31 @@ export default function BillPopupContent({
   const [accounts, setAccounts] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
 
   useEffect(() => {
     let active = true;
     const loadData = async () => {
       try {
-        const [accRes, vendorRes, productRes] = await Promise.all([
+        const [accRes, vendorRes, productRes, poRes] = await Promise.all([
           fetch("/api/accounting/accounts"),
           fetch("/api/sales/customers"),
           fetch("/api/sales/products"),
+          fetch("/api/finance/purchase-orders"),
         ]);
 
-        const [accData, vendorData, productData] = await Promise.all([
+        const [accData, vendorData, productData, poData] = await Promise.all([
           accRes.json(),
           vendorRes.json(),
           productRes.json(),
+          poRes.json(),
         ]);
 
         if (!active) return;
         setAccounts(accData.items || []);
         setVendors(vendorData.items || []);
         setProducts(productData.items || []);
+        setPurchaseOrders(poData.items || []);
       } catch (e) {
         console.error("Fetch bill popup resources error:", e);
       }
@@ -82,6 +86,39 @@ export default function BillPopupContent({
   const updateField = (field: string, value: any) => {
     if (isViewOnly && field !== "chatter") return;
     setFormData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSelectPO = (poName: string) => {
+    const po = purchaseOrders.find((p) => p.name === poName);
+    if (!po) {
+      updateField("poReference", poName);
+      return;
+    }
+
+    const updatedLines = po.orderLines.map((line: any) => ({
+      productId: line.productId?._id || line.productId,
+      name: line.name,
+      quantity: line.productQty,
+      priceUnit: line.priceUnit,
+      priceSubtotal: line.priceSubtotal,
+    }));
+
+    const untaxed = updatedLines.reduce(
+      (acc: number, line: any) => acc + (line.priceSubtotal || 0),
+      0,
+    );
+    const tax = untaxed * 0.18;
+
+    setFormData((prev: any) => ({
+      ...prev,
+      poReference: po.name,
+      partnerId: po.partnerId?._id || po.partnerId,
+      invoiceLines: updatedLines,
+      amountUntaxed: untaxed,
+      amountTax: prev.isTaxIncluded ? 0 : tax,
+      amountTotal: prev.isTaxIncluded ? untaxed : untaxed + tax,
+      sourceDocument: po.name,
+    }));
   };
 
   const calculateTotals = (lines: any[]) => {
@@ -233,12 +270,24 @@ export default function BillPopupContent({
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                       PO Reference
                     </Label>
-                    <Input
-                      value={formData.poReference || ""}
-                      onChange={(e) => updateField("poReference", e.target.value)}
-                      placeholder="PO Number"
-                      className="none-xl border-2 h-12"
-                    />
+                    {isViewOnly ? (
+                      <Input
+                        value={formData.poReference || ""}
+                        readOnly
+                        className="none-xl border-2 h-12"
+                      />
+                    ) : (
+                      <SelectSearchAdd
+                        items={purchaseOrders}
+                        value={formData.poReference}
+                        onValueChange={handleSelectPO}
+                        placeholder="Select Purchase Order"
+                        keyField="name"
+                        labelField="name"
+                        secondaryField="totals.amountTotal"
+                        className="none-xl border-2 h-12 font-black text-xs"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">

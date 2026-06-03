@@ -1,6 +1,7 @@
 import PurchaseOrder from "@/models/PurchaseOrder";
 import Invoice from "@/models/Invoice";
 import StockMove from "@/models/StockMove";
+import StockTransfer from "@/models/StockTransfer";
 import mongoose from "mongoose";
 
 export async function runPOMatching(invoiceId: string, tenantId: string) {
@@ -136,6 +137,50 @@ export async function matchStockMoveToPO(stockMoveId: string, tenantId: string) 
     if (poLine) {
       // Add the done quantity from goods receipt
       poLine.receivedQty = (poLine.receivedQty || 0) + (moveLine.done || moveLine.demand || 0);
+    }
+  }
+
+  await po.save();
+
+  // Run matching on any existing invoices linked to this PO to resolve mismatch if goods have now arrived
+  const linkedInvoices = await Invoice.find({
+    tenantId,
+    poReference: poRef,
+    moveType: "in_invoice",
+    poMatchStatus: "mismatch",
+  });
+
+  for (const inv of linkedInvoices) {
+    await runPOMatching(String(inv._id), tenantId);
+  }
+}
+
+export async function matchStockTransferToPO(stockTransferId: string, tenantId: string) {
+  const transfer = await StockTransfer.findOne({ _id: stockTransferId, tenantId });
+  if (!transfer || transfer.header.operationType !== "incoming") {
+    return;
+  }
+
+  const poRef = transfer.header.sourceDocument?.trim();
+  if (!poRef) return;
+
+  const po = await PurchaseOrder.findOne({ name: poRef, tenantId });
+  if (!po) return;
+
+  // Link StockTransfer to PO if not already linked
+  if (!po.stockTransferIds) po.stockTransferIds = [];
+  if (!po.stockTransferIds.some((id: any) => id.toString() === transfer._id.toString())) {
+    po.stockTransferIds.push(transfer._id as mongoose.Types.ObjectId);
+  }
+
+  // Update received quantities on PO lines
+  for (const opLine of transfer.operations_tab) {
+    const poLine = po.orderLines.find(
+      (line) => line.productId.toString() === opLine.productId.toString()
+    );
+    if (poLine) {
+      // Add the done quantity from goods receipt
+      poLine.receivedQty = (poLine.receivedQty || 0) + (opLine.done || opLine.demand || 0);
     }
   }
 

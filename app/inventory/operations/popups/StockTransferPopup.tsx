@@ -41,6 +41,52 @@ export function StockTransferPopup({
 }) {
   const [activeTab, setActiveTab] = useState("operations");
   const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPOs = async () => {
+      try {
+        const res = await fetch("/api/finance/purchase-orders");
+        if (res.ok) {
+          const data = await res.json();
+          setPurchaseOrders(data.items || []);
+        }
+      } catch (e) {
+        console.error("Failed to fetch purchase orders", e);
+      }
+    };
+    fetchPOs();
+  }, []);
+
+  const handleSelectPO = (poName: string) => {
+    const po = purchaseOrders.find((p) => p.name === poName);
+    if (!po) {
+      setFormData((prev: any) => ({
+        ...prev,
+        header: {
+          ...prev.header,
+          sourceDocument: poName,
+        },
+      }));
+      return;
+    }
+
+    const updatedLines = po.orderLines.map((line: any) => ({
+      productId: line.productId?._id || line.productId,
+      demand: line.productQty,
+      done: 0,
+    }));
+
+    setFormData((prev: any) => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        sourceDocument: po.name,
+        partnerId: po.partnerId?._id || po.partnerId,
+      },
+      operations_tab: updatedLines,
+    }));
+  };
 
   // Fetch stock levels for products (only for outgoing transfers)
   useEffect(() => {
@@ -217,20 +263,23 @@ export function StockTransferPopup({
 
             <div className="space-y-2">
               <Label>Source Document</Label>
-              <Input
-                value={formData.header?.sourceDocument || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    header: {
-                      ...formData.header,
-                      sourceDocument: e.target.value,
-                    },
-                  })
-                }
-                placeholder="e.g. PO0032"
-                disabled={isViewOnly}
-              />
+              {isViewOnly ? (
+                <Input
+                  value={formData.header?.sourceDocument || ""}
+                  disabled
+                />
+              ) : (
+                <SelectSearchAdd
+                  items={purchaseOrders}
+                  value={formData.header?.sourceDocument}
+                  onValueChange={handleSelectPO}
+                  placeholder="Select Source PO..."
+                  keyField="name"
+                  labelField="name"
+                  secondaryField="totals.amountTotal"
+                  className={isViewOnly ? "pointer-events-none opacity-80" : ""}
+                />
+              )}
             </div>
           </div>
 

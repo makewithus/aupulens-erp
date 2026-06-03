@@ -31,6 +31,7 @@ export interface IPurchaseOrder extends mongoose.Document {
   status: DocumentStatus;
   invoiceIds?: mongoose.Types.ObjectId[];
   stockMoveIds?: mongoose.Types.ObjectId[];
+  stockTransferIds?: mongoose.Types.ObjectId[];
   chatter: any[];
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -75,6 +76,7 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     },
     invoiceIds: [{ type: Schema.Types.ObjectId, ref: "Invoice" }],
     stockMoveIds: [{ type: Schema.Types.ObjectId, ref: "StockMove" }],
+    stockTransferIds: [{ type: Schema.Types.ObjectId, ref: "StockTransfer" }],
     chatter: [MessageSchema],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },

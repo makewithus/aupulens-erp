@@ -488,6 +488,16 @@ export async function PATCH(
     }
 
     await existing.save();
+
+    if (existing.status === DOCUMENT_STATUS.POSTED && existing.header.operationType === "incoming") {
+      try {
+        const { matchStockTransferToPO } = await import("@/lib/accounting/matching");
+        await matchStockTransferToPO(String(existing._id), tenantId);
+      } catch (matchError) {
+        console.error("Auto-matching failed on stock transfer save:", matchError);
+      }
+    }
+
     const refreshed = await StockTransfer.findOne({ _id: id, tenantId })
       .populate("chatter.authorId", "name image")
       .populate("operations_tab.productId", "header.name");
