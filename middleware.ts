@@ -46,7 +46,7 @@ export default auth(async (req) => {
 
   const isApiRoute = pathname.startsWith("/api");
   const isAuthApi = pathname.startsWith("/api/auth");
-  const isPublicApi = pathname === "/api/tenant/status";
+  const isPublicApi = pathname === "/api/tenant/status" || pathname === "/api/debug-db";
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
