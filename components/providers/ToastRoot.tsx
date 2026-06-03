@@ -10,7 +10,7 @@ export default function ToastRoot({ children }: { children: React.ReactNode }) {
     <ToastProvider>
       {children}
       <Toaster />
-      <SonnerToaster position="bottom-right" />
+      <SonnerToaster position="top-right" richColors />
     </ToastProvider>
   );
 }

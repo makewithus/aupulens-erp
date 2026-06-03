@@ -28,7 +28,9 @@ export function SignInForm() {
     if (errorParam) {
       const errorMap: Record<string, string> = {
         Configuration:
-          "There is a problem with the server configuration. Please contact the administrator.",
+          "Invalid email, password, or organization domain.",
+        CredentialsSignin:
+          "Invalid email or password.",
         AccessDenied:
           "Access denied. You do not have permission to log in here.",
         Verification:
@@ -39,15 +41,11 @@ export function SignInForm() {
           "Could not create your account through the third-party provider.",
         EmailSignin: "The verification email could not be sent.",
         SessionRequired: "Please sign in to access this page.",
-        Default: "An unexpected authentication error occurred.",
+        Default: "Invalid email, password, or organization domain.",
       };
 
-      let message = errorMap[errorParam] || errorMap.Default;
+      const message = errorMap[errorParam] || errorMap.Default;
       setError(message);
-      if (message === "Configuration") {
-        message = "Invalid Credentials";
-      }
-      console.log(message);
       toast.error(message);
     }
   }, [searchParams]);
@@ -67,10 +65,10 @@ export function SignInForm() {
       });
 
       if (result?.error) {
-        // If it's a generic CredentialsSignin, show standard message, otherwise show the specific error
+        // If it's a credentials error, show a clean message, otherwise show specific error or fallback
         const errorMessage =
-          result.error === "CredentialsSignin"
-            ? "Invalid email or password"
+          result.error === "CredentialsSignin" || result.error === "Configuration"
+            ? "Invalid email, password, or organization domain."
             : result.error;
 
         setError(errorMessage);
@@ -92,12 +90,7 @@ export function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Error state kept for accessibility/persistence if toast missed */}
-      {error && (
-        <div className="p-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 rounded-none border border-red-200 dark:border-red-900/50">
-          {error}
-        </div>
-      )}
+
 
       <div className="space-y-2">
         <Label
