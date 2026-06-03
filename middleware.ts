@@ -46,6 +46,7 @@ export default auth(async (req) => {
 
   const isApiRoute = pathname.startsWith("/api");
   const isAuthApi = pathname.startsWith("/api/auth");
+  const isPublicApi = pathname === "/api/tenant/status";
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
@@ -97,8 +98,8 @@ export default auth(async (req) => {
     return NextResponse.redirect(new URL(getRoleDashboard(role), req.url));
   };
 
-  // Central Session Check for API routes (exclude auth endpoints)
-  if (isApiRoute && !isAuthApi && !user) {
+  // Central Session Check for API routes (exclude auth endpoints and public APIs)
+  if (isApiRoute && !isAuthApi && !isPublicApi && !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

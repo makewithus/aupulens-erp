@@ -1,5 +1,13 @@
 import type { NextAuthConfig } from "next-auth";
 
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET || "5e4f8b3a7c1d9e2f6a8b0c4d7e9f1a3b5c7d8e0f2a4b6c8d1e3f5a7b9c0d2e4";
+}
+
+if (!process.env.AUTH_TRUST_HOST) {
+  process.env.AUTH_TRUST_HOST = "true";
+}
+
 export const authConfig = {
   pages: {
     signIn: "/auth/admin",

@@ -4,7 +4,7 @@ import Organization from "@/models/Organization";
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = req.nextUrl;
     const subdomain = searchParams.get("subdomain");
 
     if (!subdomain || subdomain === "default" || subdomain === "default-tenant") {
