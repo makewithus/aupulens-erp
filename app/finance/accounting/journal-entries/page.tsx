@@ -97,19 +97,22 @@ export default function JournalEntriesPage() {
   };
 
   const handleSubmit = async (newStatus?: string) => {
-    // Basic balancing check
-    const totalDebit = (formData.lineIds || []).reduce(
-      (sum: number, l: any) => sum + (parseFloat(l.debit) || 0),
-      0,
-    );
-    const totalCredit = (formData.lineIds || []).reduce(
-      (sum: number, l: any) => sum + (parseFloat(l.credit) || 0),
-      0,
-    );
+    const isDraft = !newStatus || newStatus === "draft";
 
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      toast.error("Journal entry must be balanced!");
-      return;
+    // Only enforce balancing when POSTING, not for drafts
+    if (!isDraft) {
+      const totalDebit = (formData.lineIds || []).reduce(
+        (sum: number, l: any) => sum + (parseFloat(l.debit) || 0),
+        0,
+      );
+      const totalCredit = (formData.lineIds || []).reduce(
+        (sum: number, l: any) => sum + (parseFloat(l.credit) || 0),
+        0,
+      );
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        toast.error("Journal entry must be balanced before posting!");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -119,8 +122,22 @@ export default function JournalEntriesPage() {
         ? `/api/finance/journal-entries/${formData._id}`
         : "/api/finance/journal-entries";
 
+      // Normalize populated objects → plain ObjectId strings
+      const normalizeId = (v: any) => {
+        if (!v) return "";
+        if (typeof v === "string") return v;
+        return v._id ? String(v._id) : "";
+      };
+
+      const normalizedLines = (formData.lineIds || []).map((l: any) => ({
+        ...l,
+        accountId: normalizeId(l.accountId),
+        partnerId: normalizeId(l.partnerId),
+      }));
+
       const payload = {
         ...formData,
+        lineIds: normalizedLines,
         status: newStatus || formData.status || "draft",
       };
 
@@ -130,11 +147,14 @@ export default function JournalEntriesPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Failed to save entry");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to save entry");
+      }
 
       toast.success(
         payload.status === "posted"
-          ? "Journal entry posted"
+          ? "Journal entry posted successfully"
           : "Journal entry saved as draft",
       );
       setIsModalOpen(false);
@@ -145,6 +165,7 @@ export default function JournalEntriesPage() {
       setIsSubmitting(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;

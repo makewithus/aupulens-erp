@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { signOut } from "next-auth/react";
 import { useTenantStore } from "./useTenantStore";
 import { useThemeStore } from "./themeStore";
@@ -38,21 +37,32 @@ interface AuthStore {
 }
 
 export const clearAllStores = () => {
-  console.log("[AuthStore] clearing all stores, localStorage and cookies");
 
   // 1. Reset Zustand Stores
   useAuthStore.getState().setUser(null);
   useTenantStore.getState().setTenantId(null);
   useThemeStore.getState().setTheme("dark");
 
-  // 2. Wipe Storage
+  // 2. Wipe Storage (localStorage + sessionStorage)
   if (typeof window !== "undefined") {
     try {
-      localStorage.removeItem("auth-storage");
-      localStorage.clear();
-      sessionStorage.clear();
+      // Remove all known auth/session keys (including legacy persist key)
+      const AUTH_KEYS = [
+        "auth-storage",
+        "tenant-storage",
+        "theme-storage",
+        "next-auth.session-token",
+        "next-auth.csrf-token",
+        "next-auth.callback-url",
+      ];
+      AUTH_KEYS.forEach((k) => {
+        try { localStorage.removeItem(k); } catch (_) {}
+        try { sessionStorage.removeItem(k); } catch (_) {}
+      });
+      // Belt-and-suspenders: wipe everything
+      try { localStorage.clear(); } catch (_) {}
+      try { sessionStorage.clear(); } catch (_) {}
     } catch (e) {
-      console.error("[AuthStore] Error clearing storage:", e);
     }
 
     // 3. Clear Cookies
@@ -86,66 +96,49 @@ export const clearAllStores = () => {
 };
 
 export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      isLoading: false,
-      setUser: (user) => set({ user }),
-      logout: async () => {
-        clearAllStores();
-      },
-      checkSession: async (force = false) => {
-        const { user } = get();
-        if (user && !force) return; // If user exists in store, don't fetch unless forced
-
-        set({ isLoading: true });
-        try {
-          // Only fetch if missing
-          const res = await fetch("/api/auth/session");
-          if (res.ok) {
-            const session = await res.json();
-            console.log(
-              "[AuthStore] session check result:",
-              session?.user ? "Authenticated" : "Unauthenticated",
-            );
-            if (session?.user) {
-              const sessionTenantId = session.user.tenantId || "default-tenant";
-              const currentTenantId = useTenantStore.getState().tenantId;
-
-              // Logout if tenant IDs don't match
-              if (
-                currentTenantId &&
-                sessionTenantId !== currentTenantId &&
-                sessionTenantId !== "default" &&
-                currentTenantId !== "default-tenant"
-              ) {
-                console.warn(
-                  `Tenant mismatch: Session(${sessionTenantId}) vs Store(${currentTenantId}). Logging out.`,
-                );
-                clearAllStores();
-                signOut({ callbackUrl: "/auth/admin" });
-                return;
-              }
-
-              // The API returns 'user', we set it.
-              set({ user: session.user as User });
-            }
-          }
-        } catch (error) {
-          console.error("Session fetch failed", error);
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-    }),
-    {
-      name: "auth-storage",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ user: state.user }), // Don't persist isLoading
-      version: 1,
-      migrate: (persistedState: any, version: number) => {
-        return persistedState as AuthStore;
-      },
+  (set, get) => ({
+    user: null,
+    isLoading: false,
+    setUser: (user) => set({ user }),
+    logout: async () => {
+      clearAllStores();
     },
-  ),
+    checkSession: async (force = false) => {
+      const { user } = get();
+      if (user && !force) return;
+
+      set({ isLoading: true });
+      try {
+        const res = await fetch("/api/auth/session");
+        if (res.ok) {
+          const session = await res.json();
+          if (session?.user) {
+            const sessionTenantId = session.user.tenantId || "default-tenant";
+            const currentTenantId = useTenantStore.getState().tenantId;
+
+            if (
+              currentTenantId &&
+              sessionTenantId !== currentTenantId &&
+              sessionTenantId !== "default" &&
+              currentTenantId !== "default-tenant"
+            ) {
+              clearAllStores();
+              signOut({ callbackUrl: "/auth/admin" });
+              return;
+            }
+
+            set({ user: session.user as User });
+          } else {
+            set({ user: null });
+          }
+        } else {
+          set({ user: null });
+        }
+      } catch {
+        set({ user: null });
+      } finally {
+        set({ isLoading: false });
+      }
+    },
+  }),
 );

@@ -37,26 +37,19 @@ export default function TenantInitializer() {
   useEffect(() => {
     const initializeTenant = async () => {
       if (typeof window !== "undefined") {
-        console.log("[TenantInitializer] Initializing...");
-        // Force session check to verify tenant matching
-        await checkSession(true);
-
         const hostname = window.location.hostname;
         const extractedTenant = getTenantFromHost(hostname) || "default-tenant";
-        console.log(`[TenantInitializer] Extracted tenant: ${extractedTenant}`);
 
-        // Update tenantId if changed
-        if (tenantId !== extractedTenant) {
-          setTenantId(extractedTenant);
-          console.log(`[TenantStore] Tenant updated: ${extractedTenant}`);
-        }
+        setTenantId(extractedTenant);
+
+        // Fetch session once on mount
+        await checkSession(false);
 
         if (extractedTenant === "default-tenant") {
           setIsActive(true);
           return;
         }
 
-        // Always verify active status on initialization or tenant change
         try {
           const res = await fetch(
             `/api/tenant/status?subdomain=${extractedTenant}`,
@@ -65,25 +58,19 @@ export default function TenantInitializer() {
             const data = await res.json();
             setIsActive(data.isActive);
           } else if (res.status === 404) {
-            // Tenant not found in DB
             setIsActive(false);
             window.location.href = "https://aupulens.online";
-            console.log(
-              `[TenantStore] Tenant ${extractedTenant} not found in database.`,
-            );
           } else {
-            // Other errors
             setIsActive(false);
           }
         } catch (error) {
-          console.error("[TenantStore] Failed to fetch tenant status:", error);
-          setIsActive(true); // Fallback to active to avoid locking out on network issues
+          setIsActive(true);
         }
       }
     };
 
     initializeTenant();
-  }, [tenantId, setTenantId, setIsActive, checkSession]);
+  }, [setTenantId, setIsActive, checkSession]);
 
   return null;
 }

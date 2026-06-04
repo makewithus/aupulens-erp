@@ -297,17 +297,22 @@ export default function VouchersPage() {
   };
 
   const handleSave = async (saveStatus?: string) => {
-    const totalDebit = (formData.lineIds || []).reduce(
-      (sum: number, l: any) => sum + (parseFloat(l.debit) || 0),
-      0,
-    );
-    const totalCredit = (formData.lineIds || []).reduce(
-      (sum: number, l: any) => sum + (parseFloat(l.credit) || 0),
-      0,
-    );
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      toast.error("Voucher must be balanced!");
-      return;
+    const isDraft = saveStatus === "draft" || !saveStatus;
+
+    // Only enforce balance for posting, not drafts
+    if (!isDraft) {
+      const totalDebit = (formData.lineIds || []).reduce(
+        (sum: number, l: any) => sum + (parseFloat(l.debit) || 0),
+        0,
+      );
+      const totalCredit = (formData.lineIds || []).reduce(
+        (sum: number, l: any) => sum + (parseFloat(l.credit) || 0),
+        0,
+      );
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        toast.error("Voucher must be balanced before posting!");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -317,8 +322,22 @@ export default function VouchersPage() {
         ? `/api/finance/journal-entries/${formData._id}`
         : "/api/finance/journal-entries";
 
+      // Normalize populated objects → plain ObjectId strings
+      const normalizeId = (v: any) => {
+        if (!v) return "";
+        if (typeof v === "string") return v;
+        return v._id ? String(v._id) : "";
+      };
+
+      const normalizedLines = (formData.lineIds || []).map((l: any) => ({
+        ...l,
+        accountId: normalizeId(l.accountId),
+        partnerId: normalizeId(l.partnerId),
+      }));
+
       const payload = {
         ...formData,
+        lineIds: normalizedLines,
         status: saveStatus || formData.status || "draft",
         voucherStatus: saveStatus
           ? VOUCHER_STATUS.DRAFT
@@ -332,7 +351,7 @@ export default function VouchersPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to save");
       }
 
@@ -345,6 +364,7 @@ export default function VouchersPage() {
       setIsSubmitting(false);
     }
   };
+
 
   const handleAdvance = async (
     id: string,

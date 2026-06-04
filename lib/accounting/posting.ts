@@ -46,7 +46,27 @@ function roundCurrency(value: number) {
   return Number(value.toFixed(2));
 }
 
-function normalizeLine(line: any) {
+export function sanitizeLineIds(lines: any[] = []) {
+  return lines
+    .map((line: any) => {
+      const cleaned = { ...line };
+      if (cleaned.accountId === "") delete cleaned.accountId;
+      if (cleaned.partnerId === "") delete cleaned.partnerId;
+      if (cleaned.taxId === "") delete cleaned.taxId;
+      if (cleaned.sourceId === "") delete cleaned.sourceId;
+      return cleaned;
+    })
+    .filter((line: any) => {
+      const hasAccount = !!line.accountId;
+      const hasPartner = !!line.partnerId;
+      const hasLabel = !!line.label && String(line.label).trim() !== "";
+      const hasDebit = !!line.debit && Number(line.debit) !== 0;
+      const hasCredit = !!line.credit && Number(line.credit) !== 0;
+      return hasAccount || hasPartner || hasLabel || hasDebit || hasCredit;
+    });
+}
+
+export function normalizeLine(line: any) {
   const debit = roundCurrency(Number(line.debit) || 0);
   const credit = roundCurrency(Number(line.credit) || 0);
 
@@ -101,7 +121,7 @@ export async function buildJournalEntryPayload(input: JournalPostingInput) {
     voucherStatus === VOUCHER_STATUS.POSTED
       ? DOCUMENT_STATUS.POSTED
       : input.status || DOCUMENT_STATUS.DRAFT;
-  const lineIds = (input.lineIds || []).map(normalizeLine);
+  const lineIds = sanitizeLineIds(input.lineIds || []).map(normalizeLine);
 
   if (requiresBalancedJournal({ status, voucherStatus })) {
     const validationError = validateJournalLinesForPosting(lineIds);

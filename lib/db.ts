@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error('Please define the MONGODB_URI environment variable inside .env');
 }
 
 interface MongooseCache {
@@ -11,7 +11,6 @@ interface MongooseCache {
   promise: Promise<typeof mongoose> | null;
 }
 
-// Use globalThis instead of global for better compatibility
 declare global {
   var mongoose: MongooseCache | undefined;
 }
@@ -30,11 +29,15 @@ async function connectDB() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      // Connection pool — keep up to 10 connections warm for fast concurrent requests
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      // Fail fast if server is unreachable
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 30000,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => m);
   }
 
   try {
