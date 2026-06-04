@@ -322,7 +322,7 @@ function SignInContent() {
           {/* Testimonial carousel */}
           <div className="mt-8">
             <div className="p-5 rounded-2xl bg-white/10 backdrop-blur border border-white/20 transition-all duration-500">
-              <p className="text-white text-sm leading-relaxed italic">"{testimonial.quote}"</p>
+              <p className="text-white text-sm leading-relaxed italic">&ldquo;{testimonial.quote}&rdquo;</p>
               <div className="flex items-center gap-3 mt-4">
                 <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${testimonial.color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
                   {testimonial.initials}
