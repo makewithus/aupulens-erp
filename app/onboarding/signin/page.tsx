@@ -99,6 +99,9 @@ function SignInContent() {
       });
       if (result?.ok) {
         toast.success("Welcome back!");
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("session_active", "true");
+        }
         router.push("/");
         router.refresh();
       } else {

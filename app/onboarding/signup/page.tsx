@@ -170,6 +170,9 @@ export default function SignUpPage() {
       });
 
       if (result?.ok) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("session_active", "true");
+        }
         router.push("/");
       } else {
         router.push("/auth/admin");

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
+import { signOut } from "next-auth/react";
 
 function getTenantFromHost(hostname: string): string | null {
   const hostParts = hostname.split(".");
@@ -42,8 +43,23 @@ export default function TenantInitializer() {
 
         setTenantId(extractedTenant);
 
+        const path = window.location.pathname;
+        const isAuthPage = path.startsWith("/auth") || path.startsWith("/onboarding");
+
         // Fetch session once on mount
         await checkSession(false);
+
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser && !isAuthPage) {
+          const isSessionActive = sessionStorage.getItem("session_active") === "true";
+          if (!isSessionActive) {
+            // Fresh tab or browser load, but session cookie was preserved.
+            // Log out immediately to require login credentials!
+            useAuthStore.getState().logout();
+            await signOut({ callbackUrl: "/auth/admin" });
+            return;
+          }
+        }
 
         if (extractedTenant === "default-tenant") {
           setIsActive(true);

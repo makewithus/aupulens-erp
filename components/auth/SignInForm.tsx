@@ -75,6 +75,9 @@ export function SignInForm() {
         toast.error(errorMessage);
       } else if (result?.ok) {
         toast.success("Login successful! Redirecting...");
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("session_active", "true");
+        }
         // Force session check to sync user store including tenantId
         await checkSession(true);
         router.push("/");
