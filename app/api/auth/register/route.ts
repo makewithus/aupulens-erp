@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
       companyName,
       subdomain,
       tenantId: bodyTenantId,
+      country,
+      state,
+      industry,
+      isGstRegistered,
+      enabledModules,
     } = body;
 
     if (!name || !email || !phone || !password) {
@@ -108,6 +113,16 @@ export async function POST(req: NextRequest) {
           name: companyName || `${name}'s Organization`,
           subdomain: tenantId,
           ownerUserId: temporaryOwnerUserId,
+          settings: {
+            themeColor: "#3b82f6",
+            timezone: "Asia/Kolkata",
+            currency: "INR",
+            country: country || "India",
+            state: state || "",
+            industry: industry || "",
+            isGstRegistered: !!isGstRegistered,
+            enabledModules: enabledModules || [],
+          },
         });
       }
     }
