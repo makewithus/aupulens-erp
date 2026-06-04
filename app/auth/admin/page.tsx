@@ -6,6 +6,7 @@ import { SignInForm } from "@/components/auth/SignInForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 function AuthContent() {
   const router = useRouter();
@@ -149,6 +150,13 @@ function AuthContent() {
 
                 {/* Auth Form */}
                 <SignInForm />
+
+                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
+                  New to Aupulens?{" "}
+                  <Link href="/onboarding/signup" className="text-blue-700 dark:text-blue-400 font-semibold hover:underline">
+                    Create an organization &rarr;
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

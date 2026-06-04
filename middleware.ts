@@ -107,7 +107,7 @@ export default auth(async (req) => {
   if (pathname === "/") {
     return NextResponse.redirect(
       new URL(
-        user ? getRoleDashboard(user.role as string) : "/auth/admin",
+        user ? getRoleDashboard(user.role as string) : "/onboarding/signup",
         req.url,
       ),
     );
