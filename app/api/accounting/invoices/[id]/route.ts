@@ -6,12 +6,14 @@ import JournalEntry from "@/models/JournalEntry";
 import Account from "@/models/Account";
 import {
   DOCUMENT_STATUS,
+  PAYMENT_STATE,
   VOUCHER_STATUS,
   VOUCHER_TYPE,
   isValidTransition,
   type DocumentStatus,
 } from "@/lib/constants/statuses";
 import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validation";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createJournalEntry } from "@/lib/accounting/posting";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
@@ -19,12 +21,24 @@ const roundCurrency = (value: number) => Number(value.toFixed(2));
 const normalizeAccountingData = async (
   invoice: any,
   tenantId: string,
+  createdByUserId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> => {
   if (!invoice.invoiceLines?.length) {
     return {
       ok: false,
       error: "At least one invoice line is required before posting.",
     };
+  }
+
+  await ensureChartOfAccounts(tenantId, createdByUserId);
+
+  if (
+    Number(invoice.amountTotal) > 0 &&
+    Number(invoice.amountResidual) <= 0 &&
+    invoice.paymentState !== PAYMENT_STATE.PAID
+  ) {
+    invoice.amountResidual = invoice.amountTotal;
+    invoice.paymentState = PAYMENT_STATE.NOT_PAID;
   }
 
   if (invoice.moveType === "out_invoice" && !invoice.receivableAccountId) {
@@ -295,7 +309,11 @@ export async function PATCH(
       body.state === DOCUMENT_STATUS.APPROVED ||
       body.state === DOCUMENT_STATUS.POSTED
     ) {
-      const normalizeResult = await normalizeAccountingData(invoice, tenantId);
+      const normalizeResult = await normalizeAccountingData(
+        invoice,
+        tenantId,
+        session.user.id,
+      );
       if (normalizeResult.ok === false) {
         return NextResponse.json({ error: normalizeResult.error }, { status: 400 });
       }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/Invoice";
-import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
       createdBy: session.user.id,
       name: body.name || "Draft",
       state: body.state || DOCUMENT_STATUS.DRAFT,
+      amountResidual:
+        body.amountResidual !== undefined
+          ? Number(body.amountResidual)
+          : Number(body.amountTotal) || 0,
+      paymentState: body.paymentState || PAYMENT_STATE.NOT_PAID,
     });
 
     await newInvoice.save();

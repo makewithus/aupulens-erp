@@ -2,6 +2,7 @@ import type mongoose from "mongoose";
 import Account from "@/models/Account";
 import JournalEntry from "@/models/JournalEntry";
 import { VOUCHER_TYPE } from "@/lib/constants/statuses";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 type InventoryAccountRole = "inventory" | "grni" | "cogs" | "equity";
@@ -11,6 +12,13 @@ type StockMoveAccountingResult = {
   debitAccount?: string;
   creditAccount?: string;
   totalValue: number;
+};
+
+const preferredAccountCodes: Record<InventoryAccountRole, string[]> = {
+  inventory: ["1300"],
+  grni: ["2200"],
+  cogs: ["5100"],
+  equity: ["3100", "3200"],
 };
 
 const accountPreference: Record<InventoryAccountRole, string[]> = {
@@ -25,8 +33,15 @@ function roundCurrency(value: number) {
 }
 
 async function resolveAccount(tenantId: string, role: InventoryAccountRole) {
+  for (const code of preferredAccountCodes[role]) {
+    const account = await Account.findOne({ tenantId, code });
+    if (account) return account;
+  }
+
   for (const account_type of accountPreference[role]) {
-    const account = await Account.findOne({ tenantId, account_type });
+    const account = await Account.findOne({ tenantId, account_type }).sort({
+      code: 1,
+    });
     if (account) return account;
   }
 
@@ -48,10 +63,14 @@ function getMoveValue(move: any) {
 export async function postStockMoveAccounting({
   move,
   tenantId,
+  createdBy,
 }: {
   move: any;
   tenantId: string;
+  createdBy: string;
 }): Promise<StockMoveAccountingResult> {
+  await ensureChartOfAccounts(tenantId, createdBy);
+
   if (move.accounting?.journalEntryId) {
     return {
       journalEntryId: move.accounting.journalEntryId,
@@ -153,6 +172,7 @@ export async function postStockMoveAccounting({
       amountTax: 0,
       amountTotal: totalValue,
     },
+    createdBy,
   });
 
   return {

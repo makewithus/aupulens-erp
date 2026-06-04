@@ -36,49 +36,71 @@ export async function seedChartOfAccounts(tenantId: string, createdByUserId: str
   // Check if tenant already has accounts
   const existingCount = await Account.countDocuments({ tenantId });
   if (existingCount > 0) {
-    return { message: "Chart of Accounts already exists for this tenant", count: existingCount };
+    const result = await ensureChartOfAccounts(tenantId, createdByUserId);
+    return {
+      message:
+        result.created > 0
+          ? "Added missing default accounts to existing Chart of Accounts"
+          : "Chart of Accounts already exists for this tenant",
+      count: result.count,
+      created: result.created,
+    };
+  }
+
+  const result = await ensureChartOfAccounts(tenantId, createdByUserId);
+  return {
+    message: "Successfully seeded Chart of Accounts",
+    count: result.count,
+    created: result.created,
+  };
+}
+
+export async function ensureChartOfAccounts(
+  tenantId: string,
+  createdByUserId: string,
+) {
+  if (!mongoose.Types.ObjectId.isValid(createdByUserId)) {
+    throw new Error("A valid user is required to initialize Chart of Accounts.");
   }
 
   const createdAccountsMap = new Map<string, any>();
+  let created = 0;
 
-  // 1. Create root accounts (those without parentCode)
-  const roots = DEFAULT_ACCOUNTS.filter(acc => !acc.parentCode);
-  for (const root of roots) {
-    const accDoc = await Account.create({
-      tenantId,
-      code: root.code,
-      name: root.name,
-      account_type: root.account_type,
-      internal_group: root.internal_group,
-      reconcile: root.reconcile || false,
-      createdBy: new mongoose.Types.ObjectId(createdByUserId),
-      parentCode: null,
-      parentId: null,
-    });
-    createdAccountsMap.set(root.code, accDoc);
-  }
+  for (const account of DEFAULT_ACCOUNTS) {
+    const parentDoc = account.parentCode
+      ? createdAccountsMap.get(account.parentCode) ||
+        (await Account.findOne({ tenantId, code: account.parentCode }))
+      : null;
 
-  // 2. Create child accounts level by level or with simple loop since we know parents are created first
-  const children = DEFAULT_ACCOUNTS.filter(acc => !!acc.parentCode);
-  for (const child of children) {
-    const parentDoc = createdAccountsMap.get(child.parentCode!);
-    if (!parentDoc) {
-      console.warn(`Parent account with code ${child.parentCode} not found for child ${child.code}`);
+    let accountDoc = await Account.findOne({ tenantId, code: account.code });
+
+    if (!accountDoc) {
+      try {
+        accountDoc = await Account.create({
+          tenantId,
+          code: account.code,
+          name: account.name,
+          account_type: account.account_type,
+          internal_group: account.internal_group,
+          reconcile: account.reconcile || false,
+          createdBy: new mongoose.Types.ObjectId(createdByUserId),
+          parentCode: account.parentCode,
+          parentId: parentDoc?._id || null,
+        });
+        created += 1;
+      } catch (error: any) {
+        if (error?.code !== 11000) {
+          throw error;
+        }
+        accountDoc = await Account.findOne({ tenantId, code: account.code });
+      }
     }
 
-    const accDoc = await Account.create({
-      tenantId,
-      code: child.code,
-      name: child.name,
-      account_type: child.account_type,
-      internal_group: child.internal_group,
-      reconcile: child.reconcile || false,
-      createdBy: new mongoose.Types.ObjectId(createdByUserId),
-      parentCode: child.parentCode,
-      parentId: parentDoc ? parentDoc._id : null,
-    });
-    createdAccountsMap.set(child.code, accDoc);
+    createdAccountsMap.set(account.code, accountDoc);
   }
 
-  return { message: "Successfully seeded Chart of Accounts", count: DEFAULT_ACCOUNTS.length };
+  return {
+    count: await Account.countDocuments({ tenantId }),
+    created,
+  };
 }

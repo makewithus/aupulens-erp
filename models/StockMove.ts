@@ -76,7 +76,7 @@ const StockMoveLineSchema = new Schema({
 const StockMoveSchema = new Schema<IStockMove>(
   {
     tenantId: { type: String, required: true, index: true },
-    reference: { type: String, required: true, unique: true },
+    reference: { type: String, required: true },
     moveType: {
       type: String,
       enum: ["internal", "incoming", "outgoing", "adjustment"],
@@ -125,10 +125,11 @@ const StockMoveSchema = new Schema<IStockMove>(
   { timestamps: true },
 );
 
-StockMoveSchema.index({ moveStatus: 1 });
-StockMoveSchema.index({ moveType: 1 });
-StockMoveSchema.index({ "sourceLocation.warehouseId": 1 });
-StockMoveSchema.index({ "destinationLocation.warehouseId": 1 });
+StockMoveSchema.index({ tenantId: 1, reference: 1 }, { unique: true });
+StockMoveSchema.index({ tenantId: 1, moveStatus: 1 });
+StockMoveSchema.index({ tenantId: 1, moveType: 1 });
+StockMoveSchema.index({ tenantId: 1, "sourceLocation.warehouseId": 1 });
+StockMoveSchema.index({ tenantId: 1, "destinationLocation.warehouseId": 1 });
 
 const StockMove: Model<IStockMove> =
   (mongoose.models.StockMove as Model<IStockMove>) ||

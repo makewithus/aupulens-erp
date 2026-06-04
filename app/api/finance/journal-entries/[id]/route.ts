@@ -59,6 +59,24 @@ export async function PATCH(
     if (!existing)
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
 
+    const existingIsPosted =
+      existing.voucherStatus === VOUCHER_STATUS.POSTED ||
+      existing.status === DOCUMENT_STATUS.POSTED;
+    if (
+      existingIsPosted &&
+      Object.keys(body).some((key) => key !== "chatter")
+    ) {
+      return NextResponse.json(
+        { error: "Posted vouchers are immutable. Create a reversal entry instead." },
+        { status: 400 },
+      );
+    }
+
+    const quickPostRequested =
+      body.status === DOCUMENT_STATUS.POSTED &&
+      !body.voucherStatus &&
+      !existingIsPosted;
+
     // ─── Voucher status transition handling ───
     if (body.voucherStatus && body.voucherStatus !== existing.voucherStatus) {
       const currentStatus = existing.voucherStatus as VoucherStatus;
@@ -111,16 +129,12 @@ export async function PATCH(
       }
     }
 
-    // Prevent edits on posted vouchers (except chatter)
-    if (
-      (existing.voucherStatus === VOUCHER_STATUS.POSTED ||
-        existing.status === DOCUMENT_STATUS.POSTED) &&
-      !body.voucherStatus
-    ) {
-      return NextResponse.json(
-        { error: "Posted vouchers are immutable" },
-        { status: 400 },
-      );
+    if (quickPostRequested) {
+      body.voucherStatus = VOUCHER_STATUS.POSTED;
+      body.status = DOCUMENT_STATUS.POSTED;
+      body.ledgerUpdatedAt = body.ledgerUpdatedAt || new Date();
+      body.validatedAt = body.validatedAt || new Date();
+      body.validatedBy = body.validatedBy || userId;
     }
 
     const nextVoucherStatus = body.voucherStatus || existing.voucherStatus;

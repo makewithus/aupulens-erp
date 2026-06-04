@@ -19,6 +19,7 @@ import {
   Shuffle,
   FileCheck,
   CalendarDays,
+  Scale,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -105,6 +106,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         title: "Balance Sheet",
         href: "/finance/accounting/balance-sheet",
         icon: PieChart,
+      },
+      {
+        title: "Trial Balance",
+        href: "/finance/accounting/trial-balance",
+        icon: Scale,
       },
     ],
   },

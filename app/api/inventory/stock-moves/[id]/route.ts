@@ -225,6 +225,7 @@ export async function PATCH(
             valuation: body.valuation || (existing as any).valuation,
           },
           tenantId: (existing as any).tenantId,
+          createdBy: session.user.id,
         });
 
         body.accounting = {

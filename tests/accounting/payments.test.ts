@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { PAYMENT_STATE } from "@/lib/constants/statuses";
-import { derivePaymentState } from "@/lib/accounting/payments";
+import {
+  derivePaymentState,
+  getPaymentResidualForPosting,
+} from "@/lib/accounting/payments";
 
 describe("payment state derivation", () => {
   it("marks invoices paid when residual is effectively zero", () => {
@@ -49,5 +52,25 @@ describe("payment state derivation", () => {
     ).toBe(PAYMENT_STATE.NOT_PAID);
 
     vi.useRealTimers();
+  });
+
+  it("repairs legacy unpaid invoices that stored zero residual", () => {
+    expect(
+      getPaymentResidualForPosting({
+        amountResidual: 0,
+        amountTotal: 750,
+        paymentState: PAYMENT_STATE.NOT_PAID,
+      }),
+    ).toBe(750);
+  });
+
+  it("keeps paid invoices closed even when total is positive", () => {
+    expect(
+      getPaymentResidualForPosting({
+        amountResidual: 0,
+        amountTotal: 750,
+        paymentState: PAYMENT_STATE.PAID,
+      }),
+    ).toBe(0);
   });
 });

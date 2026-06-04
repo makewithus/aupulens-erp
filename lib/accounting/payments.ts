@@ -7,6 +7,7 @@ import {
   VOUCHER_TYPE,
   type PaymentState,
 } from "@/lib/constants/statuses";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 type InvoiceDocument = InstanceType<typeof Invoice>;
@@ -39,6 +40,31 @@ export function derivePaymentState({
   }
 
   return PAYMENT_STATE.NOT_PAID;
+}
+
+export function getPaymentResidualForPosting({
+  amountResidual,
+  amountTotal,
+  paymentState,
+}: {
+  amountResidual?: number;
+  amountTotal: number;
+  paymentState?: PaymentState;
+}) {
+  const total = roundCurrency(Number(amountTotal) || 0);
+  const storedResidual = roundCurrency(
+    Number(amountResidual ?? amountTotal) || 0,
+  );
+
+  if (
+    paymentState !== PAYMENT_STATE.PAID &&
+    storedResidual <= 0.01 &&
+    total > 0
+  ) {
+    return total;
+  }
+
+  return storedResidual;
 }
 
 async function getDefaultAccount({
@@ -133,10 +159,14 @@ export async function postInvoicePayment({
     throw new Error("Invoice or bill must be posted before payment.");
   }
 
+  await ensureChartOfAccounts(tenantId, createdBy);
+
   const total = roundCurrency(Number(invoice.amountTotal) || 0);
-  const currentResidual = roundCurrency(
-    Number(invoice.amountResidual ?? invoice.amountTotal) || 0,
-  );
+  const currentResidual = getPaymentResidualForPosting({
+    amountResidual: Number(invoice.amountResidual),
+    amountTotal: total,
+    paymentState: invoice.paymentState,
+  });
 
   if (currentResidual <= 0.01) {
     invoice.amountResidual = 0;

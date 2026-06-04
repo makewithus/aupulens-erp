@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/Invoice";
 import SaleOrder from "@/models/SaleOrder";
+import StockMove from "@/models/StockMove";
 import User from "@/models/User";
 import { requireMaintenanceAccess } from "@/lib/api/maintenance-guard";
 
@@ -60,6 +61,18 @@ export async function GET() {
     );
     results.push("Ensured tenant-scoped saleOrders.header.name index");
 
+    const stockMoveIndexes = await StockMove.collection.indexes();
+    if (stockMoveIndexes.find((i) => i.name === "reference_1")) {
+      await StockMove.collection.dropIndex("reference_1");
+      results.push("Dropped legacy global stockMoves.reference index");
+    }
+
+    await StockMove.collection.createIndex(
+      { tenantId: 1, reference: 1 },
+      { unique: true, name: "tenantId_1_reference_1" },
+    );
+    results.push("Ensured tenant-scoped stockMoves.reference index");
+
     return NextResponse.json({
       message: "Index Check Complete",
       changes: results,
@@ -67,6 +80,7 @@ export async function GET() {
         invoices: indexes,
         users: userIndexes,
         saleOrders: saleOrderIndexes,
+        stockMoves: stockMoveIndexes,
       },
     });
   } catch (e: any) {

@@ -1,6 +1,6 @@
 # Aupulens ERP Phase 1 System Audit
 
-Audit date: 2026-06-01
+Audit date: 2026-06-04
 Repository root: `/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main`
 
 This report documents the current architecture, module status, production-readiness risks, and remediation plan before large functional refactors.
@@ -58,7 +58,7 @@ This report documents the current architecture, module status, production-readin
 
 Command: `npx tsc --noEmit --pretty false`
 
-Status: passing as of 2026-06-01 remediation pass.
+Status: passing as of 2026-06-04 remediation pass.
 
 Resolved error groups:
 
@@ -74,7 +74,7 @@ Resolved error groups:
 
 Command: `npm run lint`
 
-Status: passing as of 2026-06-01 remediation pass.
+Status: passing as of 2026-06-04 remediation pass.
 
 Resolved error groups:
 
@@ -90,7 +90,7 @@ Resolved error groups:
 
 Command: `npm run build`
 
-Status: passing with strict Next validation enabled.
+Status: passing with strict Next validation enabled as of the 2026-06-04 validation run.
 
 ### Dependency audit
 
@@ -124,14 +124,14 @@ Security dependency fixes:
 - User identity is now tenant-scoped at the schema and API level. `User.email` and `User.employeeId` use tenant compound uniqueness, registration creates users with `tenantId`, and credentials login searches inside the selected tenant before password validation.
 - Public registration is limited to tenant bootstrap unless `ALLOW_PUBLIC_REGISTRATION=true`, preventing arbitrary admin creation in existing organizations.
 - Tenant admins can no longer update another user's `tenantId`, `_id`, password, or created metadata through the user update API, and role updates reject non-tenant roles such as `master-admin`.
-- The guarded `/api/debug/fix-indices` maintenance route now includes an explicit user index migration path: drop legacy global `email_1` / `employeeId_1` indexes and ensure tenant-scoped compound replacements.
+- The guarded `/api/debug/fix-indices` maintenance route now includes explicit migration paths for legacy global user, sale order, and stock move indexes.
 
 ### Remaining risks
 
 - API authorization is still inconsistent. Some routes only check authentication, and granular role/permission enforcement is incomplete.
 - Debug/admin repair APIs under `/api/debug` and `/api/admin/fix-accounting` are now guarded by maintenance access and hidden in production unless `ALLOW_MAINTENANCE_ROUTES=true`.
 - Role-based permissions exist as a `permissions` field, but granular permission enforcement is not implemented.
-- Existing databases that already created global unique indexes for `users.email` or `users.employeeId` must run the guarded index maintenance route during a controlled maintenance window before duplicate emails/employee IDs can be reused across different tenants.
+- Existing databases that already created global unique indexes for `users.email`, `users.employeeId`, `saleOrders.header.name`, or `stockMoves.reference` must run the guarded index maintenance route during a controlled maintenance window before tenant-scoped duplicates can be reused.
 
 ## 4. Finance and Accounting Audit
 
@@ -150,6 +150,11 @@ Security dependency fixes:
 - Journal-entry create/update flows now validate debit total equals credit total before posting and treat posted entries as immutable except through reversal-style workflows.
 - Customer receipt and vendor payment actions now create posted receipt/payment journal entries, reduce invoice/bill residuals, and update payment state from the accounting workflow.
 - Finance invoice/bill APIs now accept legacy receivable/payable UI payloads while persisting to the current `Invoice` schema.
+- Tenant chart of accounts initialization is now idempotent and self-healing. Invoice, bill, payment, expense, and stock-move posting paths initialize missing default accounts before resolving receivable, payable, cash, inventory, GRNI, COGS, and equity accounts.
+- Accounting invoice creation and posting now preserve unpaid residuals correctly, including legacy invoices that had a zero residual but were not paid.
+- Receivable and payable list APIs now derive overdue status from posted, unpaid due dates at read time.
+- Manual journal quick-posting now normalizes entries to posted journal vouchers, and posted journal update attempts are blocked except chatter updates.
+- A ledger-based Trial Balance API and Finance UI page now exist at `/api/finance/reports/trial-balance` and `/finance/accounting/trial-balance`.
 - Finance summary, analytics, visualization, and finance AI endpoints now use posted journal lines for cash flow, income/expense series, ledger history, and category breakdowns.
 - Journal creation for live accounting flows is now centralized through `lib/accounting/posting.ts`, which standardizes voucher numbering, posted status synchronization, ledger timestamps, rounded debit/credit lines, and balanced-line validation.
 - Invoice, bill, payment, expense, asset depreciation, payroll, stock-move, and guarded accounting-repair workflows now create journal entries through the shared posting helper.
@@ -158,12 +163,12 @@ Security dependency fixes:
 
 - Finance is closer to the source of truth for reports, but operational workflows still do not consistently post every transaction through a central journal service.
 - `Transaction` remains a legacy parallel ledger-like model. Core finance dashboards no longer depend on it, but the model and API should be retired or converted to a compatibility view.
-- Journal posting now has a shared application service, but it still needs database-level safeguards, transaction/session support, reversal helpers, and full adoption for every future posting path.
+- Journal posting now has a shared application service, but it still needs database-level safeguards, MongoDB transaction/session support, and full adoption for every future posting path.
 - Payment workflow is partially implemented. Direct invoice/bill payment actions create double-entry journal entries and update residuals, but there is not yet a full bank-payment allocation/reconciliation UI for partial and multi-document payments.
-- Sales invoices and finance invoices are split across `/api/accounting/invoices` and `/api/finance/invoices`, so workflow ownership remains unclear.
+- Sales invoices and finance invoices are split across `/api/accounting/invoices` and `/api/finance/invoices`, so workflow ownership remains unclear even though payment and residual behavior has been stabilized.
 - AP bill posting now posts payable accrual before payment, but the purchase/procurement workflow still needs PO/GRN/Bill matching and unpaid-bill controls.
 - Tax lines, bank transfer, and reversal workflows are not fully modeled. COGS/GRNI inventory accounting now exists for the `StockMove` accounting step, but `StockTransfer` and manufacturing flows still need unification.
-- The chart of accounts is not hierarchical yet; there is no parent account field or seeded tenant COA.
+- The chart of accounts supports hierarchy and default tenant seeding, but there is not yet a full COA setup/import UI or migration framework for complex real-world charts.
 
 ## 5. Sales and CRM Audit
 
@@ -196,6 +201,8 @@ Security dependency fixes:
 - `StockMove` supports a staged move workflow with valuation/accounting metadata.
 - `Warehouse`, `Batch`, inventory analytics, stock pages, receipt/delivery screens, returns, and stock levels endpoints exist.
 - `StockMove` now creates posted accounting entries on the Accounting Created step: incoming moves debit Inventory and credit GRNI, outgoing moves debit COGS and credit Inventory, and valuation must be positive before posting.
+- Stock move accounting now prefers the seeded Inventory (`1300`), GRNI (`2200`), and COGS (`5100`) accounts instead of accidentally posting to root account groups.
+- `StockMove.reference` is now tenant-scoped through the schema and guarded index maintenance route.
 
 ### Missing or broken
 
@@ -218,8 +225,8 @@ Security dependency fixes:
 
 ### Missing
 
-- No Purchase Order model/API/page was found.
-- No dedicated Goods Receipt model linked to PO/bill; `StockTransfer` has GRN fields but no PO matching foundation.
+- A `PurchaseOrder` model and finance purchase-order API exist, and AP bills include PO matching metadata.
+- There is still no dedicated Goods Receipt model linked cleanly to PO/bill; `StockMove` and `StockTransfer` provide receipt-like behavior, but procurement needs one canonical PO -> receipt -> bill chain.
 - Vendor payment workflow is not fully modeled as a bank/payment voucher.
 - Procurement -> stock receipt -> vendor bill -> vendor payment is incomplete.
 
@@ -261,6 +268,7 @@ Security dependency fixes:
 - Balance Sheet route reads posted journal entries and validates the accounting equation with current-year earnings.
 - Generic finance report route reads posted journal entries for balance sheet, income statement, and cash-flow style summaries.
 - Aged receivable/payable route reads posted journal entries and allocates unapplied credits against oldest open items.
+- Trial Balance route reads posted journal entries and validates raw debit/credit totals plus account-level debit/credit balances.
 - Finance dashboard/analytics/visualization routes read posted journal entries for cash flow, income/expense, debit/credit, and category data.
 - Admin report generator builds HTML from invoices, stock transfers, assets, etc.
 - Finance ledger/voucher UI exists around journal entries.
@@ -285,7 +293,7 @@ All financial reports must be generated from posted `JournalEntry.lineIds`, not 
 
 ### Risks
 
-- Many uniqueness constraints are global instead of tenant-scoped: examples include sale order names, stock move references, bill numbers, delivery challan numbers. User email and employee ID have been converted to tenant-scoped compound indexes in the schema, but existing MongoDB deployments need legacy index cleanup.
+- Many uniqueness constraints are still global instead of tenant-scoped: examples include bill numbers and delivery challan numbers. User email, employee ID, sale order names, and stock move references have been converted to tenant-scoped compound indexes in the schema, but existing MongoDB deployments need legacy index cleanup.
 - Raw `findById`, `findByIdAndUpdate`, or `findByIdAndDelete` usage has been removed from tenant-owned API routes; master-admin tenant administration still uses global ID operations intentionally.
 - Cached Mongoose model deletion was removed from the reviewed models; exports now use stable cached models with explicit typing.
 - Operational documents store references as strings or mixed types in important areas (`warehouse`, pricelist/payment terms, vendor ids, stock references).
@@ -328,14 +336,14 @@ Current automated coverage:
 
 - Journal line totals, balance detection, and posting validation.
 - Shared journal posting payload normalization for posted vouchers.
-- Invoice/bill payment-state derivation for paid, partial, overdue, and not-paid cases.
+- Invoice/bill payment-state derivation for paid, partial, overdue, not-paid, and legacy zero-residual cases.
 - CRM lead/opportunity transition rules and probability clamping.
 
 Required coverage still absent for:
 
 - Multi-tenant access isolation.
 - Role and permission enforcement.
-- Journal entry balancing and immutability.
+- Journal entry API immutability and reversal behavior.
 - Invoice/payment/AP/AR workflows.
 - Inventory receipt/delivery/transfer valuation.
 - Manufacturing component/finished-goods accounting.
@@ -354,10 +362,12 @@ Cleared readiness gates:
 - Dependency audit reports 0 vulnerabilities.
 - Tenant-owned API routes no longer use raw ID updates/deletes without tenant filters in the reviewed route set.
 - Core financial reports now read posted journal entries.
-- Direct customer receipt and vendor payment actions now post balanced journal entries.
+- Direct customer receipt and vendor payment actions now post balanced journal entries and repair legacy zero-residual unpaid invoices before payment allocation.
 - Finance dashboards and analytics no longer rely on the legacy `Transaction` collection for cash flow and income/expense metrics.
 - Debug and accounting repair endpoints are production-hidden behind a shared maintenance guard.
 - Stock Move accounting now posts balanced Inventory/GRNI or COGS/Inventory journal entries from move valuation.
+- Trial Balance is available from posted journal entries and exposed in the Finance sidebar.
+- Stock move references are tenant-scoped at the schema level, with maintenance index migration support.
 - User registration, login lookup, owner creation, and employee/user uniqueness are now tenant-scoped, and public registration is blocked for non-empty tenants unless explicitly enabled.
 - All direct `JournalEntry.create` / `new JournalEntry` usage in application and maintenance routes has been replaced by the shared accounting posting service.
 - Vitest is configured and the first accounting/CRM invariant tests pass.
@@ -371,7 +381,7 @@ Remaining blockers:
 - Automated tests exist but remain narrow.
 - Some admin/operational reports do not yet reconcile from accounting records.
 - Debug and repair endpoints are still present but production-hidden; they should eventually move to a signed maintenance job or migration framework.
-- Tenant-scoped user uniqueness requires the guarded MongoDB index maintenance route to be run for existing databases that already have global unique `email_1` or `employeeId_1` indexes.
+- Tenant-scoped user/sale-order/stock-move uniqueness requires the guarded MongoDB index maintenance route to be run for existing databases that already have global unique indexes.
 
 ## 16. Prioritized Remediation Plan
 
@@ -391,9 +401,9 @@ Remaining blockers:
 1. Create a central journal posting service. Status: completed for discovered direct journal creation paths.
 2. Enforce balanced journal entries before create/post. Status: completed in shared posting service and journal-entry routes.
 3. Make posted entries immutable outside reversal entries. Status: partially complete in journal-entry update routes; reversal workflow still needed.
-4. Seed hierarchical tenant chart of accounts.
-5. Move all financial reports to posted journal lines.
-6. Standardize invoice, bill, receipt, payment, expense, payroll, asset, and inventory posting through the journal service.
+4. Seed hierarchical tenant chart of accounts. Status: completed for default COA seed/repair; full COA setup UI is still pending.
+5. Move all financial reports to posted journal lines. Status: completed for Finance P&L, Balance Sheet, Trial Balance, AR/AP aging, generic reports, dashboard analytics, and visualization routes.
+6. Standardize invoice, bill, receipt, payment, expense, payroll, asset, and inventory posting through the journal service. Status: completed for discovered live posting paths; future modules must keep using the service.
 
 ### P2 - Inventory engine
 
@@ -413,7 +423,7 @@ Remaining blockers:
 ### P4 - Testing and deployment readiness
 
 1. Add unit tests for accounting and inventory services.
-   Status: started for accounting journal validation, posting payloads, and payment-state derivation.
+   Status: started for accounting journal validation, posting payloads, payment residual/state derivation, PO matching, and CRM workflow transitions.
 2. Add API integration tests for tenant/role isolation.
 3. Add workflow tests for sales, procurement, inventory, manufacturing, HR, and finance.
 4. Add report reconciliation tests.
@@ -473,7 +483,7 @@ Remaining blockers:
 
 - `npx tsc --noEmit --pretty false`: passed.
 - `npm run lint`: passed.
-- `npm test`: passed, 3 test files / 11 tests.
+- `npm test`: passed, 4 test files / 16 tests.
 - `npm audit --json`: 0 vulnerabilities.
 - `npm run build`: passed on Next.js 15.5.18 with strict lint/type validation.
 
@@ -485,6 +495,41 @@ Remaining blockers:
 - Retire or quarantine the legacy `Transaction` API/model after remaining consumers are converted.
 - Unify `StockTransfer` and `StockMove` so all inventory receipts, issues, transfers, and adjustments post through one stock and accounting service.
 - Wire CRM Lead and Opportunity UI screens to the new backend workflow.
-- Add Purchase Order and PO -> GRN -> Bill -> Payment matching.
+- Complete Purchase Order UI/workflow integration and PO -> GRN -> Bill -> Payment matching.
 - Unify inventory movement and valuation posting with GL.
 - Add automated tests for accounting invariants, tenant isolation, and end-to-end module workflows.
+
+## 18. Remediation Log - 2026-06-04
+
+### Root causes addressed
+
+- Finance summary activity used stale `Expense` field names (`amount` / `date`) while the current schema stores `total` / `expenseDate`.
+- Posting workflows assumed the tenant's default chart of accounts had already been created by visiting the accounts screen.
+- Accounting invoices could be created with `amountResidual = 0`, causing unpaid posted invoices to behave as already settled during payment posting.
+- Manual journal quick-posting updated document status without normalizing voucher status, leaving posted ledger entries that still looked like draft vouchers.
+- The journal-entry update route could be bypassed by sending voucher status fields in the patch body.
+- Receivable/payable APIs depended on stored overdue payment states instead of deriving overdue status from due dates.
+- Inventory accounting resolved accounts by broad account type, which could select root account groups instead of the intended Inventory, GRNI, or COGS accounts.
+- `StockMove.reference` uniqueness was global instead of tenant-scoped.
+
+### Fixes implemented
+
+- Fixed finance summary recent expenses and returns date/amount mapping.
+- Made chart-of-accounts initialization idempotent and able to repair missing default accounts for existing tenants.
+- Called chart-of-accounts initialization from invoice, bill, payment, expense, and stock-move posting workflows.
+- Added Trial Balance API and Finance UI page based entirely on posted journal entries.
+- Ensured accounting invoice creation and posting keep unpaid residuals aligned to invoice totals.
+- Made payment posting repair legacy unpaid invoices with zero residual before allocating payment.
+- Added payment residual tests.
+- Derived overdue receivable/payable status from posted unpaid due dates in list APIs.
+- Normalized manual journal quick-posts into posted journal vouchers and strengthened posted-entry immutability.
+- Updated inventory accounting to prefer seeded account codes for Inventory, GRNI, COGS, and Equity, and to initialize COA before posting.
+- Scoped stock move references by tenant in the schema and extended the guarded index repair route to drop legacy global `reference_1` and create `tenantId_1_reference_1`.
+
+### Validation
+
+- `npx tsc --noEmit --pretty false`: passing.
+- `npm test`: passing, 4 files / 16 tests.
+- `npm run lint`: passing.
+- `npm audit --json`: 0 vulnerabilities.
+- `npm run build`: passing, including `/api/finance/reports/trial-balance` and `/finance/accounting/trial-balance`.

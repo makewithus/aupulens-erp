@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import Expense from "@/models/Expense";
 import Account from "@/models/Account";
 import { DOCUMENT_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 export async function GET(
@@ -77,6 +78,8 @@ export async function PATCH(
 
     // If status is being updated to "posted", handle Journal Entry creation
     if (body.status === DOCUMENT_STATUS.POSTED && expense.status !== DOCUMENT_STATUS.POSTED) {
+      await ensureChartOfAccounts(tenantId, session.user.id);
+
       // 1. Find suitable credit account
       let creditAccountId = body.paymentAccountId || expense.paymentAccountId;
 
@@ -137,6 +140,7 @@ export async function PATCH(
           amountTax: expense.taxAmount || 0,
           amountTotal: expense.total,
         },
+        createdBy: session.user.id,
       });
 
       body.journalEntryId = journalEntry._id;

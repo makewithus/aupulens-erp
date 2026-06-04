@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import JournalEntry from "@/models/JournalEntry";
-import { VOUCHER_STATUS } from "@/lib/constants/statuses";
+import {
+  DOCUMENT_STATUS,
+  VOUCHER_STATUS,
+  VOUCHER_TYPE,
+} from "@/lib/constants/statuses";
 import { createJournalEntry } from "@/lib/accounting/posting";
 
 export async function GET(req: NextRequest) {
@@ -46,8 +50,14 @@ export async function POST(req: NextRequest) {
 
     const entry = await createJournalEntry({
       ...body,
-      voucherStatus: body.voucherStatus || VOUCHER_STATUS.DRAFT,
+      voucherType: body.voucherType || VOUCHER_TYPE.JOURNAL,
+      voucherStatus:
+        body.voucherStatus ||
+        (body.status === DOCUMENT_STATUS.POSTED
+          ? VOUCHER_STATUS.POSTED
+          : VOUCHER_STATUS.DRAFT),
       tenantId,
+      createdBy: session.user.id,
     });
 
     return NextResponse.json(entry);

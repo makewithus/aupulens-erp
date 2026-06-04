@@ -12,10 +12,15 @@ import {
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
+  const isOverdue =
+    bill.paymentState !== PAYMENT_STATE.PAID &&
+    bill.state === DOCUMENT_STATUS.POSTED &&
+    bill.dueDate &&
+    new Date(bill.dueDate).getTime() < Date.now();
   const paymentStatus =
     bill.paymentState === PAYMENT_STATE.PAID
       ? "paid"
-      : bill.paymentState === PAYMENT_STATE.OVERDUE
+      : bill.paymentState === PAYMENT_STATE.OVERDUE || isOverdue
         ? "overdue"
         : bill.state === DOCUMENT_STATUS.POSTED
           ? "posted"
@@ -45,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const partnerId = searchParams.get("partnerId");
-    const state = searchParams.get("state");
+    const state = searchParams.get("state") || searchParams.get("status");
 
     const query: any = {
       tenantId,
@@ -55,9 +60,15 @@ export async function GET(req: NextRequest) {
     if (partnerId) query.partnerId = partnerId;
     if (state === "pending") {
       query.state = DOCUMENT_STATUS.PENDING_APPROVAL;
-    } else if (state && PAYMENT_STATE_VALUES.includes(state as any)) {
-      query.paymentState = state;
     } else if (state === "paid" || state === "overdue") {
+      if (state === "paid") {
+        query.paymentState = PAYMENT_STATE.PAID;
+      } else {
+        query.state = DOCUMENT_STATUS.POSTED;
+        query.paymentState = { $ne: PAYMENT_STATE.PAID };
+        query.dueDate = { $lt: new Date() };
+      }
+    } else if (state && PAYMENT_STATE_VALUES.includes(state as any)) {
       query.paymentState = state;
     } else if (state && DOCUMENT_STATUS_VALUES.includes(state as any)) {
       query.state = state;
@@ -86,6 +97,8 @@ export async function POST(req: NextRequest) {
 
     const tenantId = (session.user as any).tenantId || "default-tenant";
     const body = await req.json();
+
+    await dbConnect();
 
     let partnerId = body.partnerId;
     if (!partnerId && (body.vendorName || body.vendorEmail)) {
@@ -121,8 +134,6 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-
-    await dbConnect();
 
     // Auto-generate name logic (e.g. BILL/25-26/01/0001)
     const date = new Date();

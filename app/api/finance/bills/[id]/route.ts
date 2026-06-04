@@ -13,15 +13,22 @@ import {
   type DocumentStatus,
 } from "@/lib/constants/statuses";
 import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validation";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postInvoicePayment } from "@/lib/accounting/payments";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
-async function ensureBillPostingJournal(currentBill: any, tenantId: string) {
+async function ensureBillPostingJournal(
+  currentBill: any,
+  tenantId: string,
+  createdByUserId: string,
+) {
   if (!currentBill.invoiceLines?.length) {
     throw new Error("At least one bill line is required before posting.");
   }
+
+  await ensureChartOfAccounts(tenantId, createdByUserId);
 
   let payableAccountId = currentBill.payableAccountId;
   if (!payableAccountId) {
@@ -103,6 +110,11 @@ async function ensureBillPostingJournal(currentBill: any, tenantId: string) {
   });
 
   if (existingEntry) {
+    if (existingEntry.status === DOCUMENT_STATUS.POSTED) {
+      currentBill.journalId = existingEntry._id;
+      return existingEntry;
+    }
+
     existingEntry.lineIds = lineIds;
     existingEntry.totals = {
       amountUntaxed: currentBill.amountUntaxed,
@@ -133,6 +145,7 @@ async function ensureBillPostingJournal(currentBill: any, tenantId: string) {
       amountTax: currentBill.amountTax,
       amountTotal: currentBill.amountTotal,
     },
+    createdBy: createdByUserId,
   });
 
   currentBill.journalId = journalEntry._id;
@@ -249,7 +262,7 @@ export async function PATCH(
         );
       }
 
-      await ensureBillPostingJournal(currentBill, tenantId);
+      await ensureBillPostingJournal(currentBill, tenantId, session.user.id);
       currentBill.state = DOCUMENT_STATUS.POSTED;
       await currentBill.save();
       body.state = DOCUMENT_STATUS.POSTED;
@@ -270,7 +283,7 @@ export async function PATCH(
           );
         }
 
-        await ensureBillPostingJournal(currentBill, tenantId);
+        await ensureBillPostingJournal(currentBill, tenantId, session.user.id);
         currentBill.state = DOCUMENT_STATUS.POSTED;
       }
 
