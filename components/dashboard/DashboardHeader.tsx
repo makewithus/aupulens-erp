@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import { Logo } from "@/components/Logo";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -306,13 +307,11 @@ export function DashboardHeader({
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
             {/* Company Logo + Name */}
             <div className="flex items-center gap-2 sm:gap-3 group">
-              <Image
-                src="/logo.svg"
-                alt="Aupulens"
+              <Logo
                 width={112}
                 height={32}
                 priority
-                className="h-8 w-auto object-contain brightness-0 dark:brightness-100 transition-all duration-300"
+                className="h-8 w-auto object-contain transition-all duration-300"
               />
             </div>
 

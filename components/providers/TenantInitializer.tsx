@@ -38,6 +38,15 @@ export default function TenantInitializer() {
   useEffect(() => {
     const initializeTenant = async () => {
       if (typeof window !== "undefined") {
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get("session_active") === "true") {
+          sessionStorage.setItem("session_active", "true");
+          searchParams.delete("session_active");
+          const queryStr = searchParams.toString();
+          const newUrl = window.location.pathname + (queryStr ? `?${queryStr}` : "") + window.location.hash;
+          window.history.replaceState({}, "", newUrl);
+        }
+
         const hostname = window.location.hostname;
         const extractedTenant = getTenantFromHost(hostname) || "default-tenant";
 

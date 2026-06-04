@@ -12,6 +12,29 @@ if (!process.env.AUTH_TRUST_HOST) {
 
 const isProd = process.env.NODE_ENV === "production";
 
+// Get base domain for session cookie sharing
+const getCookieDomain = () => {
+  if (!isProd) {
+    return ".localhost";
+  }
+  const appUrl = process.env.COOKIE_DOMAIN || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      const hostname = new URL(appUrl).hostname;
+      const parts = hostname.split(".");
+      if (parts.length >= 2) {
+        return `.${parts.slice(-2).join(".")}`;
+      }
+    } catch {
+      const parts = appUrl.replace(/^https?:\/\//, "").split("/")[0].split(".");
+      if (parts.length >= 2) {
+        return `.${parts.slice(-2).join(".")}`;
+      }
+    }
+  }
+  return ".aupulens.online";
+};
+
 export const authConfig = {
   pages: {
     signIn: "/auth/admin",
@@ -58,6 +81,7 @@ export const authConfig = {
         sameSite: "lax" as const,
         path: "/",
         secure: isProd,
+        domain: getCookieDomain(),
         // maxAge intentionally OMITTED → browser treats this as a session cookie
         // and deletes it when the browser closes.
       },

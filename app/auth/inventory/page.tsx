@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
+import { Logo } from "@/components/Logo";
 
 function AuthContent() {
   const router = useRouter();
@@ -61,13 +62,11 @@ function AuthContent() {
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-16">
           <div>
             <div className="mb-4">
-  <Image
-    src="/logo.svg"
-    alt="Aupulens"
+  <Logo
     width={140}
     height={40}
     priority
-    className="h-10 w-auto object-contain brightness-0 dark:brightness-100 transition-all duration-300"
+    className="h-10 w-auto object-contain transition-all duration-300"
   />
 </div>
           </div>
@@ -126,13 +125,11 @@ function AuthContent() {
             {/* Mobile Header */}
             <div className="lg:hidden text-center mb-8">
               <div className="flex justify-center mb-3">
-  <Image
-    src="/logo.svg"
-    alt="Aupulens"
+  <Logo
     width={112}
     height={32}
     priority
-    className="h-8 w-auto object-contain brightness-0 dark:brightness-100 transition-all duration-300"
+    className="h-8 w-auto object-contain transition-all duration-300"
   />
 </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 tracking-wide">

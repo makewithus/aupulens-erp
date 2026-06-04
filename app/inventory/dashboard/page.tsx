@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Logo } from "@/components/Logo";
 
 export default function InventoryDashboardPage() {
   const { data: session, status } = useSession();
@@ -27,9 +28,7 @@ export default function InventoryDashboardPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center justify-center">
-        <Image
-          src="/logo.svg"
-          alt="Loading"
+        <Logo
           width={250}
           height={250}
           className="opacity-20 animate-pulse"

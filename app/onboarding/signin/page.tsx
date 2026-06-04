@@ -107,16 +107,15 @@ function SignInContent() {
             const hostname = window.location.hostname;
             const port = window.location.port;
             const protocol = window.location.protocol;
+            const cleanHost = hostname.replace(/^www\./, "");
 
             if (hostname === "localhost" || hostname === "127.0.0.1") {
               const targetHost = `${sub}.localhost${port ? `:${port}` : ""}`;
-              window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+              window.location.href = `${protocol}//${targetHost}/admin/dashboard?session_active=true`;
               return;
             } else {
-              const hostParts = hostname.split(".");
-              const baseDomain = hostParts.slice(-2).join(".");
-              const targetHost = `${sub}.${baseDomain}${port ? `:${port}` : ""}`;
-              window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+              const targetHost = `${sub}.${cleanHost}${port ? `:${port}` : ""}`;
+              window.location.href = `${protocol}//${targetHost}/admin/dashboard?session_active=true`;
               return;
             }
           }
