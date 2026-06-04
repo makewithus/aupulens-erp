@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "next-auth/react";
+import { useAuthStore } from "@/store/authStore";
 
 const FEATURES = [
   { icon: BarChart3, label: "Finance & Accounting", desc: "Invoices, P&L, Balance Sheet, GST" },
@@ -48,6 +49,7 @@ export default function SignUpPage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { checkSession } = useAuthStore();
 
   // Unified state form
   const [form, setForm] = useState({
@@ -172,8 +174,23 @@ export default function SignUpPage() {
       if (result?.ok) {
         if (typeof window !== "undefined") {
           sessionStorage.setItem("session_active", "true");
+          
+          await checkSession(true);
+
+          const hostname = window.location.hostname;
+          const port = window.location.port;
+          const protocol = window.location.protocol;
+
+          if (hostname === "localhost" || hostname === "127.0.0.1") {
+            const targetHost = `${form.subdomain}.localhost${port ? `:${port}` : ""}`;
+            window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+          } else {
+            const hostParts = hostname.split(".");
+            const baseDomain = hostParts.slice(-2).join(".");
+            const targetHost = `${form.subdomain}.${baseDomain}${port ? `:${port}` : ""}`;
+            window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+          }
         }
-        router.push("/");
       } else {
         router.push("/auth/admin");
       }

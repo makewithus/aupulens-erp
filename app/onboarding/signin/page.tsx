@@ -101,6 +101,25 @@ function SignInContent() {
         toast.success("Welcome back!");
         if (typeof window !== "undefined") {
           sessionStorage.setItem("session_active", "true");
+          
+          const sub = form.subdomain ? form.subdomain.trim().toLowerCase() : "";
+          if (sub && sub !== "default-tenant" && sub !== "default") {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const protocol = window.location.protocol;
+
+            if (hostname === "localhost" || hostname === "127.0.0.1") {
+              const targetHost = `${sub}.localhost${port ? `:${port}` : ""}`;
+              window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+              return;
+            } else {
+              const hostParts = hostname.split(".");
+              const baseDomain = hostParts.slice(-2).join(".");
+              const targetHost = `${sub}.${baseDomain}${port ? `:${port}` : ""}`;
+              window.location.href = `${protocol}//${targetHost}/admin/dashboard`;
+              return;
+            }
+          }
         }
         router.push("/");
         router.refresh();
