@@ -21,12 +21,19 @@ const getCookieDomain = () => {
   if (appUrl) {
     try {
       const hostname = new URL(appUrl).hostname;
+      if (hostname.endsWith(".vercel.app")) {
+        return undefined;
+      }
       const parts = hostname.split(".");
       if (parts.length >= 2) {
         return `.${parts.slice(-2).join(".")}`;
       }
     } catch {
-      const parts = appUrl.replace(/^https?:\/\//, "").split("/")[0].split(".");
+      const cleaned = appUrl.replace(/^https?:\/\//, "").split("/")[0];
+      if (cleaned.endsWith(".vercel.app")) {
+        return undefined;
+      }
+      const parts = cleaned.split(".");
       if (parts.length >= 2) {
         return `.${parts.slice(-2).join(".")}`;
       }

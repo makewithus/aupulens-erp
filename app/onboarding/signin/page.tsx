@@ -108,8 +108,12 @@ function SignInContent() {
             const port = window.location.port;
             const protocol = window.location.protocol;
             const cleanHost = hostname.replace(/^www\./, "");
+            const isVercelDefaultDomain = hostname.endsWith(".vercel.app");
 
-            if (hostname === "localhost" || hostname === "127.0.0.1") {
+            if (isVercelDefaultDomain) {
+              window.location.href = `${protocol}//${hostname}/admin/dashboard?session_active=true`;
+              return;
+            } else if (hostname === "localhost" || hostname === "127.0.0.1") {
               const targetHost = `${sub}.localhost${port ? `:${port}` : ""}`;
               window.location.href = `${protocol}//${targetHost}/admin/dashboard?session_active=true`;
               return;
