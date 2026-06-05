@@ -87,8 +87,9 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantUserCount = await User.countDocuments({ tenantId });
+    // Default to true to allow registration of test accounts/users in prod/dev unless explicitly set to "false"
     const allowPublicRegistration =
-      process.env.ALLOW_PUBLIC_REGISTRATION === "true";
+      process.env.ALLOW_PUBLIC_REGISTRATION !== "false";
 
     if (tenantUserCount > 0 && !allowPublicRegistration) {
       return NextResponse.json(
