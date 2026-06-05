@@ -304,7 +304,7 @@ function SignInContent() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-10">
               {[
-                { stat: "2,000+", label: "Businesses" },
+                { stat: "1st", label: "Fully Automated ERP" },
                 { stat: "99.9%", label: "Uptime" },
                 { stat: "4.8★", label: "Rating" },
               ].map(({ stat, label }) => (

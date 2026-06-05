@@ -239,7 +239,7 @@ export default function SignUpPage() {
               <div className="space-y-10">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white/80 text-xs font-medium">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Trusted by 2,000+ businesses
+                    <ShieldCheck className="h-3.5 w-3.5" /> {"World's first fully automated ERP"}
                   </div>
                   <h1 className="text-4xl font-bold text-white leading-tight">
                     One platform for your entire business
