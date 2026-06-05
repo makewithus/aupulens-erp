@@ -9,6 +9,7 @@ import {
   Building2, BarChart3, Users, Package, ShieldCheck, Zap,
   Globe, Landmark, Check
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -232,11 +233,15 @@ export default function SignUpPage() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/3" />
 
             <div className="relative z-10 flex flex-col justify-between h-full px-16 py-14">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-white text-xl font-semibold tracking-tight">Aupulens</span>
+              <div className="flex items-center">
+                <Image
+                  src="/logo-white(1).png"
+                  alt="Aupulens"
+                  width={140}
+                  height={40}
+                  priority
+                  className="h-10 w-auto object-contain"
+                />
               </div>
 
               <div className="space-y-10">
@@ -293,9 +298,23 @@ export default function SignUpPage() {
 
           {/* Right panel (Forms for step 1, 2, 3) */}
           <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-16 xl:px-24">
-            <div className="lg:hidden mb-10 flex items-center gap-2">
-              <Zap className="h-6 w-6 text-blue-700" />
-              <span className="text-xl font-semibold text-gray-900 dark:text-white">Aupulens</span>
+            <div className="lg:hidden mb-10 flex items-center">
+              <Image
+                src="/logo-dark.png"
+                alt="Aupulens"
+                width={120}
+                height={34}
+                priority
+                className="h-8 w-auto object-contain dark:hidden"
+              />
+              <Image
+                src="/logo-white(1).png"
+                alt="Aupulens"
+                width={120}
+                height={34}
+                priority
+                className="h-8 w-auto object-contain hidden dark:block"
+              />
             </div>
 
             <div className="max-w-[440px] w-full mx-auto">
@@ -642,12 +661,16 @@ export default function SignUpPage() {
             </div>
 
             <div className="relative z-10 space-y-10">
-              {/* App Icon */}
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <Landmark className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Aupulens ERP</span>
+              {/* App Logo */}
+              <div className="flex items-center">
+                <Image
+                  src="/logo-dark.png"
+                  alt="Aupulens"
+                  width={140}
+                  height={40}
+                  priority
+                  className="h-10 w-auto object-contain"
+                />
               </div>
 
               {/* Title */}

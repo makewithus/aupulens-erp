@@ -81,7 +81,23 @@ export function SignInForm() {
         }
         // Force session check to sync user store including tenantId
         await checkSession(true);
-        router.push("/");
+
+        // Redirect to role-based dashboard directly instead of "/" to avoid
+        // middleware sending unauthenticated-looking requests to /onboarding/signup
+        const role = useAuthStore.getState().user?.role;
+        const getRoleDashboard = (r: string | undefined) => {
+          switch (r) {
+            case "admin": return "/admin/dashboard";
+            case "master-admin": return "/master-admin";
+            case "finance": return "/finance/summary";
+            case "sales": return "/sales/summary";
+            case "inventory": return "/inventory/dashboard";
+            case "manufacturing": return "/manufacturing/dashboard";
+            case "hr": return "/hr/dashboard";
+            default: return "/admin/dashboard";
+          }
+        };
+        router.push(getRoleDashboard(role));
         router.refresh();
       }
     } catch {
