@@ -50,16 +50,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           const requestedTenantId =
             (credentials.tenantId as string) || "default-tenant";
-          const expectedTenantId =
+          let expectedTenantId =
             requestedTenantId === "default"
               ? "default-tenant"
               : requestedTenantId;
           const email = (credentials.email as string).toLowerCase();
           const portal = (credentials.portal as string) || "";
 
-          const user = portal.includes("/auth/master")
-            ? await User.findOne({ email, role: "master-admin" })
-            : await User.findOne({ email, tenantId: expectedTenantId });
+          let user = null;
+          if (portal.includes("/auth/master")) {
+            user = await User.findOne({ email, role: "master-admin" });
+          } else {
+            user = await User.findOne({ email, tenantId: expectedTenantId });
+            if (!user && expectedTenantId === "default-tenant") {
+              user = await User.findOne({ email });
+              if (user) {
+                expectedTenantId = user.tenantId;
+              }
+            }
+          }
 
           if (!user) {
             return null;
