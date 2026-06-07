@@ -19,12 +19,23 @@ function AutoLoginContent() {
     const autologin = searchParams.get("autologin");
     const email = searchParams.get("email");
 
-    if (autologin && email && !autologinAttempted.current) {
-      autologinAttempted.current = true;
+    if (!autologin || !email) {
+      router.push("/auth/admin");
+      return;
+    }
 
-      const performAutoLogin = async () => {
-        try {
-          const result = await signIn("credentials", {
+    if (!tenantId) {
+      return; // Wait for TenantInitializer to populate tenantId
+    }
+
+    if (autologinAttempted.current) {
+      return;
+    }
+    autologinAttempted.current = true;
+
+    const performAutoLogin = async () => {
+      try {
+        const result = await signIn("credentials", {
             email: email,
             password: autologin,
             tenantId: tenantId || "default",
@@ -63,14 +74,7 @@ function AutoLoginContent() {
         }
       };
 
-      // Wait a moment for tenantId state to be initialized by TenantInitializer
-      const timer = setTimeout(() => {
-        performAutoLogin();
-      }, 500);
-      return () => clearTimeout(timer);
-    } else if (!autologin || !email) {
-      router.push("/auth/admin");
-    }
+      performAutoLogin();
   }, [searchParams, tenantId, router, checkSession]);
 
   return (

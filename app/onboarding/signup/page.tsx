@@ -660,7 +660,15 @@ export default function SignUpPage() {
                   width={140}
                   height={40}
                   priority
-                  className="h-10 w-auto object-contain"
+                  className="h-10 w-auto object-contain dark:hidden"
+                />
+                <Image
+                  src="/logo-white(1).png"
+                  alt="Aupulens"
+                  width={140}
+                  height={40}
+                  priority
+                  className="h-10 w-auto object-contain hidden dark:block"
                 />
               </div>
 
