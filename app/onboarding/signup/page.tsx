@@ -165,38 +165,29 @@ export default function SignUpPage() {
 
       toast.success("Account created successfully!");
       
-      const result = await signIn("credentials", {
-        email: form.email,
-        password: form.password,
-        tenantId: form.subdomain,
-        portal: "/auth/admin",
-        redirect: false,
-      });
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("session_active", "true");
 
-      if (result?.ok) {
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("session_active", "true");
-          
-          await checkSession(true);
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        const protocol = window.location.protocol;
+        const cleanHost = hostname.replace(/^www\./, "");
+        const isVercelDefaultDomain = hostname.endsWith(".vercel.app");
 
-          const hostname = window.location.hostname;
-          const port = window.location.port;
-          const protocol = window.location.protocol;
-          const cleanHost = hostname.replace(/^www\./, "");
-          const isVercelDefaultDomain = hostname.endsWith(".vercel.app");
+        const queryParams = `?autologin=${data.tempToken}&email=${encodeURIComponent(form.email)}&session_active=true`;
+        let redirectUrl = "";
 
-          if (isVercelDefaultDomain) {
-            window.location.href = `${protocol}//${hostname}/admin/dashboard?session_active=true`;
-          } else if (hostname === "localhost" || hostname === "127.0.0.1") {
-            const targetHost = `${form.subdomain}.localhost${port ? `:${port}` : ""}`;
-            window.location.href = `${protocol}//${targetHost}/admin/dashboard?session_active=true`;
-          } else {
-            const targetHost = `${form.subdomain}.${cleanHost}${port ? `:${port}` : ""}`;
-            window.location.href = `${protocol}//${targetHost}/admin/dashboard?session_active=true`;
-          }
+        if (isVercelDefaultDomain) {
+          redirectUrl = `${protocol}//${hostname}/autologin${queryParams}`;
+        } else if (hostname === "localhost" || hostname === "127.0.0.1") {
+          const targetHost = `${form.subdomain}.localhost${port ? `:${port}` : ""}`;
+          redirectUrl = `${protocol}//${targetHost}/autologin${queryParams}`;
+        } else {
+          const targetHost = `${form.subdomain}.${cleanHost}${port ? `:${port}` : ""}`;
+          redirectUrl = `${protocol}//${targetHost}/autologin${queryParams}`;
         }
-      } else {
-        router.push("/auth/admin");
+
+        window.location.href = redirectUrl;
       }
     } catch (err: any) {
       toast.error(err.message);

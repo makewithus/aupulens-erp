@@ -14,14 +14,15 @@ const isProd = process.env.NODE_ENV === "production";
 
 // Get base domain for session cookie sharing
 const getCookieDomain = () => {
-  if (!isProd) {
-    return ".localhost";
-  }
   const appUrl = process.env.COOKIE_DOMAIN || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
   if (appUrl) {
     try {
       const hostname = new URL(appUrl).hostname;
-      if (hostname.endsWith(".vercel.app")) {
+      if (
+        hostname.includes("localhost") ||
+        hostname === "127.0.0.1" ||
+        hostname.endsWith(".vercel.app")
+      ) {
         return undefined;
       }
       const parts = hostname.split(".");
@@ -29,8 +30,12 @@ const getCookieDomain = () => {
         return `.${parts.slice(-2).join(".")}`;
       }
     } catch {
-      const cleaned = appUrl.replace(/^https?:\/\//, "").split("/")[0];
-      if (cleaned.endsWith(".vercel.app")) {
+      const cleaned = appUrl.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
+      if (
+        cleaned.includes("localhost") ||
+        cleaned === "127.0.0.1" ||
+        cleaned.endsWith(".vercel.app")
+      ) {
         return undefined;
       }
       const parts = cleaned.split(".");
@@ -38,6 +43,10 @@ const getCookieDomain = () => {
         return `.${parts.slice(-2).join(".")}`;
       }
     }
+  }
+
+  if (!isProd) {
+    return undefined; // Default to host-only cookie for localhost in local dev
   }
   return ".aupulens.online";
 };

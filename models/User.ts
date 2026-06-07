@@ -30,6 +30,8 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   createdBy?: mongoose.Types.ObjectId;
+  tempToken?: string;
+  tempTokenExpiry?: Date;
 }
 
 const UserSchema: Schema<IUser> = new Schema(
@@ -72,6 +74,8 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     permissions: { type: [String], default: [] },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    tempToken: { type: String },
+    tempTokenExpiry: { type: Date },
   },
   { timestamps: true }
 );

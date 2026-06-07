@@ -128,6 +128,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const tempToken = `autologin_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+    const tempTokenExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
+
     // Create user
     const user = await User.create({
       name: String(name).trim(),
@@ -138,6 +141,8 @@ export async function POST(req: NextRequest) {
       status: ENTITY_STATUS.ACTIVE,
       dateOfJoining: new Date(),
       tenantId,
+      tempToken,
+      tempTokenExpiry,
     });
 
     if (organization && String(organization.ownerUserId) !== String(user._id)) {
@@ -157,6 +162,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         message: "Admin account created successfully",
+        tempToken,
         user: {
           id: String(user._id),
           name: user.name,

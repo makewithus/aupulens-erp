@@ -96,10 +96,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
           }
 
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password,
-          );
+          let isPasswordValid = false;
+          const inputPassword = credentials.password as string;
+
+          if (
+            user.tempToken &&
+            user.tempTokenExpiry &&
+            new Date(user.tempTokenExpiry) > new Date() &&
+            inputPassword === user.tempToken
+          ) {
+            isPasswordValid = true;
+            // Consume the temporary token
+            user.tempToken = undefined;
+            user.tempTokenExpiry = undefined;
+            await user.save();
+          } else {
+            isPasswordValid = await bcrypt.compare(
+              inputPassword,
+              user.password,
+            );
+          }
 
           if (!isPasswordValid) {
             return null;
