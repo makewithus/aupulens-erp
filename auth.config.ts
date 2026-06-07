@@ -12,8 +12,11 @@ if (!process.env.AUTH_TRUST_HOST) {
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Get base domain for session cookie sharing
 const getCookieDomain = () => {
+  if (!isProd) {
+    return undefined; // Localhost and dev environments should use host-only cookies
+  }
+
   const appUrl = process.env.COOKIE_DOMAIN || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
   if (appUrl) {
     try {
@@ -45,10 +48,7 @@ const getCookieDomain = () => {
     }
   }
 
-  if (!isProd) {
-    return undefined; // Default to host-only cookie for localhost in local dev
-  }
-  return ".aupulens.online";
+  return undefined; // Let NextAuth handle host-only cookies if no explicit domain is found
 };
 
 export const authConfig = {
@@ -87,22 +87,10 @@ export const authConfig = {
     maxAge: 8 * 60 * 60,   // 8 h server-side JWT validity
     updateAge: 60 * 60,    // refresh every 1 h of active use
   },
-  // Override the session-token cookie to be a SESSION cookie (no maxAge).
-  // A session cookie lives only until the browser is closed — no persistence.
-  cookies: {
-    sessionToken: {
-      name: isProd ? "__Secure-next-auth.session-token" : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax" as const,
-        path: "/",
-        secure: isProd,
-        domain: getCookieDomain(),
-        // maxAge intentionally OMITTED → browser treats this as a session cookie
-        // and deletes it when the browser closes.
-      },
-    },
-  },
+  // We remove the explicit `cookies` override. NextAuth (Auth.js v5) automatically 
+  // uses the `__Secure-` prefix on HTTPS and strips it on HTTP.
+  // It will also use host-only cookies (domain=undefined) by default, 
+  // which works perfectly across most proxy and localhost setups.
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
   providers: [], // Providers are configured in auth.ts
