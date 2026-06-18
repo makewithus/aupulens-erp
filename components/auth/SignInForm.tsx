@@ -85,8 +85,10 @@ export function SignInForm() {
         // Force session check to sync user store including tenantId
         await checkSession(true);
 
-        // Redirect to role-based dashboard directly instead of "/" to avoid
-        // middleware sending unauthenticated-looking requests to /onboarding/signup
+        // Use hard redirect (window.location.href) so the browser sends the
+        // freshly set session cookie with the next request. router.push() is
+        // a client-side navigation that runs BEFORE the cookie is committed,
+        // causing middleware to see no session and redirect to /onboarding/signup.
         const role = useAuthStore.getState().user?.role;
         const getRoleDashboard = (r: string | undefined) => {
           switch (r) {
@@ -100,8 +102,7 @@ export function SignInForm() {
             default: return "/admin/dashboard";
           }
         };
-        router.push(getRoleDashboard(role));
-        router.refresh();
+        window.location.href = getRoleDashboard(role);
       }
     } catch {
       setError("Something went wrong. Please try again.");

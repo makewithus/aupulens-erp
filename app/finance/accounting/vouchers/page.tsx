@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -181,7 +183,7 @@ function VoucherActions({
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => {
+            onClick={async () => {
               const reason = prompt("Rejection reason:");
               if (reason !== null) {
                 onAdvance(item._id, VOUCHER_STATUS.REJECTED, reason);
@@ -396,7 +398,7 @@ export default function VouchersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this voucher?")) return;
+    if (!await confirmDialog({ title: "Delete this voucher?" })) return;
     try {
       const res = await fetch(`/api/finance/journal-entries/${id}`, {
         method: "DELETE",

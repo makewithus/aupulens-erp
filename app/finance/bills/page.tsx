@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import React, { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -153,7 +155,7 @@ export default function VendorBillsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this bill?")) return;
+    if (!await confirmDialog({ title: "Delete this bill?" })) return;
     try {
       const res = await fetch(`/api/finance/bills/${id}`, { method: "DELETE" });
       if (res.ok) {

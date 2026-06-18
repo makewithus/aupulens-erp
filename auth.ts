@@ -122,30 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Role vs Portal Security Check
-          if (user.role === "admin" && !portal.includes("/auth/admin")) {
-            throw new Error("Invalid credentials");
-          }
-          if (user.role === "finance" && !portal.includes("/auth/finance")) {
-            throw new Error("Invalid credentials");
-          }
-          if (
-            user.role === "inventory" &&
-            !portal.includes("/auth/inventory")
-          ) {
-            throw new Error("Invalid credentials");
-          }
-          if (user.role === "sales" && !portal.includes("/auth/sales")) {
-            throw new Error("Invalid credentials");
-          }
-          if (
-            user.role === "manufacturing" &&
-            !portal.includes("/auth/manufacturing")
-          ) {
-            throw new Error("Invalid credentials");
-          }
-          if (user.role === "hr" && !portal.includes("/auth/hr")) {
-            throw new Error("Invalid credentials");
-          }
+          // Removed to allow unified login from onboarding and automatic routing via middleware.
           if (
             user.role === "master-admin" &&
             !portal.includes("/auth/master")

@@ -33,6 +33,7 @@ interface Item {
   value: string;
   label: string;
   code?: string;
+  badge?: string;
 }
 
 interface SelectSearchAddProps {
@@ -50,6 +51,7 @@ interface SelectSearchAddProps {
   keyField?: string;
   labelField?: string;
   secondaryField?: string;
+  badgeField?: string;
   defaultAccountType?: string;
   disabled?: boolean;
 }
@@ -69,6 +71,7 @@ export function SelectSearchAdd({
   keyField = "value",
   labelField = "label",
   secondaryField = "code",
+  badgeField = "badge",
   defaultAccountType = "income",
   disabled = false,
 }: SelectSearchAddProps) {
@@ -86,8 +89,9 @@ export function SelectSearchAdd({
       value: getValue(item, keyField),
       label: getValue(item, labelField),
       code: getValue(item, secondaryField),
+      badge: getValue(item, badgeField),
     }));
-  }, [items, keyField, labelField, secondaryField]);
+  }, [items, keyField, labelField, secondaryField, badgeField]);
 
   // New Account State
   const [newAccount, setNewAccount] = React.useState({
@@ -185,6 +189,11 @@ export function SelectSearchAdd({
                       <span className="text-muted-foreground">
                         {item.label}
                       </span>
+                      {item.badge && (
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
+                          {item.badge}
+                        </span>
+                      )}
                     </div>
                   </CommandItem>
                 ))}

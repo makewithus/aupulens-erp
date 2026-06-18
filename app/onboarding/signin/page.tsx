@@ -101,7 +101,7 @@ function SignInContent() {
         toast.success("Welcome back!");
         if (typeof window !== "undefined") {
           sessionStorage.setItem("session_active", "true");
-          
+
           const sub = form.subdomain ? form.subdomain.trim().toLowerCase() : "";
           if (sub && sub !== "default-tenant" && sub !== "default") {
             const hostname = window.location.hostname;
@@ -123,8 +123,15 @@ function SignInContent() {
               return;
             }
           }
+
+          // No subdomain — hard redirect so the session cookie is fully
+          // committed before the middleware runs. router.push("/") races
+          // the cookie and middleware sends the user to /onboarding/signup.
+          window.location.href = "/admin/dashboard";
+          return;
         }
-        router.push("/");
+        // SSR fallback (should not reach here in practice)
+        router.push("/admin/dashboard");
         router.refresh();
       } else {
         setError("Invalid email, password, or organization domain.");

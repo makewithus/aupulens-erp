@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -270,7 +272,7 @@ export default function PeriodClosingPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this period?")) return;
+    if (!await confirmDialog({ title: "Delete this period?" })) return;
     try {
       const res = await fetch(`/api/finance/period-closing/${id}`, {
         method: "DELETE",

@@ -38,6 +38,16 @@ export function AddUserDialog({
 }: AddUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/hr/departments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.items) setDepartments(data.items);
+      })
+      .catch((err) => console.error("Failed to load departments", err));
+  }, []);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -327,18 +337,37 @@ export function AddUserDialog({
                 Department
               </Label>
               <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="department"
-                  type="text"
-                  placeholder="Sales"
+                <Select
                   value={formData.department}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
+                  onValueChange={(value) => {
+                    const selectedDept = departments.find(d => d.name === value);
+                    let suggestedRole = formData.role;
+                    if (selectedDept) {
+                      const code = selectedDept.code.toUpperCase();
+                      if (code.includes('FIN')) suggestedRole = 'finance';
+                      else if (code.includes('SAL')) suggestedRole = 'sales';
+                      else if (code.includes('HR')) suggestedRole = 'hr';
+                      else if (code.includes('INV')) suggestedRole = 'inventory';
+                      else if (code.includes('MFG')) suggestedRole = 'manufacturing';
+                      else if (code.includes('PROJ')) suggestedRole = 'project';
+                      else if (code.includes('ADMIN')) suggestedRole = 'admin';
+                    }
+                    setFormData({ ...formData, department: value, role: suggestedRole });
+                  }}
                   disabled={isLoading}
-                  className="pl-10 none-xl h-11 border-2 font-bold"
-                />
+                >
+                  <SelectTrigger className="none-xl h-11 border-2 font-bold bg-background pl-10">
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept._id} value={dept.name}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

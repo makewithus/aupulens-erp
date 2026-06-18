@@ -113,8 +113,8 @@ export default auth(async (req) => {
     );
   }
 
-  // Redirect authenticated users away from auth pages
-  if (pathname.startsWith("/auth") && user) {
+  // Redirect authenticated users away from auth and onboarding pages
+  if ((pathname.startsWith("/auth") || pathname.startsWith("/onboarding")) && user) {
     return NextResponse.redirect(
       new URL(getRoleDashboard(user.role as string), req.url),
     );

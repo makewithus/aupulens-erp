@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -168,7 +170,7 @@ export default function JournalEntriesPage() {
 
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this entry?")) return;
+    if (!await confirmDialog({ title: "Are you sure you want to delete this entry?" })) return;
     try {
       const res = await fetch(`/api/finance/journal-entries/${id}`, {
         method: "DELETE",

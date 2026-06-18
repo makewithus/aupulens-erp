@@ -1,24 +1,55 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {
-  OPPORTUNITY_STAGE,
-  OPPORTUNITY_STAGE_VALUES,
-  type OpportunityStage,
-} from "@/lib/crm/workflow";
+
+export const FORECAST_CATEGORIES = ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"] as const;
+export type ForecastCategory = typeof FORECAST_CATEGORIES[number];
 
 export interface IOpportunity extends Document {
   tenantId: string;
-  name: string;
+  name: string; // deal_name
+  account_id?: mongoose.Types.ObjectId; // linked_account (Account)
+  contacts?: mongoose.Types.ObjectId[]; // linked_contacts
+  ownerId?: mongoose.Types.ObjectId; // owner
+  stage: string;
+  probability: number;
+  amount: number;
+  expected_close_date?: Date;
+  source?: string;
+  product_service_line?: string;
+  competitors?: string[];
+  priority?: "Low" | "Medium" | "High";
+  next_action?: string;
+  win_reason?: string;
+  loss_reason?: string;
+  forecast_category?: ForecastCategory;
+  
+  stakeholders?: {
+    contactId: mongoose.Types.ObjectId;
+    role: string;
+  }[];
+  
+  stage_history?: {
+    stage: string;
+    enteredAt: Date;
+    exitedAt?: Date;
+    durationMs?: number;
+    changedBy?: mongoose.Types.ObjectId;
+  }[];
+  
+  attachments?: {
+    name: string;
+    url: string;
+    uploadedAt: Date;
+  }[];
+  
+  tags?: string[];
+
+  // Legacy/Backwards compatibility fields
   companyName?: string;
   contactName?: string;
   email?: string;
   phone?: string;
-  amount: number;
-  probability: number;
-  stage: OpportunityStage;
-  expectedCloseDate?: Date;
   sourceLeadId?: mongoose.Types.ObjectId;
   customerId?: mongoose.Types.ObjectId;
-  ownerId?: mongoose.Types.ObjectId;
   notes: {
     body: string;
     authorId?: mongoose.Types.ObjectId;
@@ -41,22 +72,60 @@ const OpportunitySchema = new Schema<IOpportunity>(
   {
     tenantId: { type: String, required: true, index: true },
     name: { type: String, required: true, trim: true },
+    account_id: { type: Schema.Types.ObjectId, ref: "Account", index: true },
+    contacts: [{ type: Schema.Types.ObjectId, ref: "Contact" }],
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    stage: {
+      type: String,
+      default: "Prospecting",
+      required: true,
+    },
+    probability: { type: Number, default: 10, min: 0, max: 100 },
+    amount: { type: Number, default: 0, min: 0 },
+    expected_close_date: { type: Date },
+    source: { type: String, trim: true },
+    product_service_line: { type: String, trim: true },
+    competitors: [{ type: String }],
+    priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
+    next_action: { type: String, trim: true },
+    win_reason: { type: String },
+    loss_reason: { type: String },
+    forecast_category: { type: String, enum: FORECAST_CATEGORIES, default: "Pipeline" },
+    
+    stakeholders: [
+      {
+        contactId: { type: Schema.Types.ObjectId, ref: "Contact" },
+        role: { type: String },
+      }
+    ],
+    
+    stage_history: [
+      {
+        stage: { type: String, required: true },
+        enteredAt: { type: Date, default: Date.now },
+        exitedAt: { type: Date },
+        durationMs: { type: Number },
+        changedBy: { type: Schema.Types.ObjectId, ref: "User" },
+      }
+    ],
+    
+    attachments: [
+      {
+        name: { type: String },
+        url: { type: String },
+        uploadedAt: { type: Date, default: Date.now },
+      }
+    ],
+    
+    tags: [{ type: String }],
+
+    // Legacy fields
     companyName: { type: String, trim: true },
     contactName: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
     phone: { type: String, trim: true },
-    amount: { type: Number, default: 0, min: 0 },
-    probability: { type: Number, default: 0, min: 0, max: 100 },
-    stage: {
-      type: String,
-      enum: OPPORTUNITY_STAGE_VALUES,
-      default: OPPORTUNITY_STAGE.QUALIFICATION,
-      required: true,
-    },
-    expectedCloseDate: { type: Date },
     sourceLeadId: { type: Schema.Types.ObjectId, ref: "Lead" },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
-    ownerId: { type: Schema.Types.ObjectId, ref: "User" },
     notes: [
       {
         body: { type: String, required: true, trim: true },
@@ -79,10 +148,8 @@ const OpportunitySchema = new Schema<IOpportunity>(
   { timestamps: true },
 );
 
-OpportunitySchema.index({ tenantId: 1, stage: 1, updatedAt: -1 });
-OpportunitySchema.index({ tenantId: 1, ownerId: 1 });
-OpportunitySchema.index({ tenantId: 1, sourceLeadId: 1 });
-OpportunitySchema.index({ tenantId: 1, customerId: 1 });
+OpportunitySchema.index({ tenantId: 1, stage: 1 });
+OpportunitySchema.index({ tenantId: 1, expected_close_date: 1 });
 
 const Opportunity: Model<IOpportunity> =
   (mongoose.models.Opportunity as Model<IOpportunity>) ||

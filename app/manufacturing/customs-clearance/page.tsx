@@ -1,4 +1,6 @@
 'use client';
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
@@ -148,7 +150,7 @@ export default function CustomsClearancePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this customs clearance?')) return;
+    if (!await confirmDialog({ title: 'Are you sure you want to delete this customs clearance?' })) return;
     
     try {
       const res = await fetch(`/api/manufacturing/customs-clearance/${id}`, {

@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -145,7 +147,7 @@ export default function AttendancePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this attendance record?")) return;
+    if (!await confirmDialog({ title: "Delete this attendance record?" })) return;
     try {
       const res = await fetch(`/api/hr/attendance/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -161,7 +163,7 @@ export default function AttendancePage() {
   };
 
   const handleLockAttendance = async () => {
-    if (!confirm(`Lock all attendance for ${filterDate}? Locked records cannot be edited.`)) return;
+    if (!await confirmDialog({ title: `Lock all attendance for ${filterDate}? Locked records cannot be edited.` })) return;
     try {
       const res = await fetch("/api/hr/attendance/lock", {
         method: "POST",

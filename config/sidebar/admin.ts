@@ -27,16 +27,6 @@ export const adminSidebarConfig: SidebarSection[] = [
         href: "/admin/dashboard",
         icon: LayoutDashboard,
       },
-      // {
-      //   title: "Analytics",
-      //   href: "/admin/analytics",
-      //   icon: BarChart3,
-      // },
-      {
-        title: "AI Assistant",
-        href: "/admin/ai-assistant",
-        icon: Sparkles,
-      },
     ],
   },
   // {

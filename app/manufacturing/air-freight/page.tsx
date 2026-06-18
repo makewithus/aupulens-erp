@@ -1,4 +1,6 @@
 'use client';
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
@@ -196,7 +198,7 @@ export default function AirFreightPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this air freight?')) return;
+    if (!await confirmDialog({ title: 'Are you sure you want to delete this air freight?' })) return;
 
     try {
       setIsLoading(true);
@@ -297,7 +299,7 @@ export default function AirFreightPage() {
             </Button>
             <Button 
               className="bg-blue-800 hover:bg-blue-700 text-white"
-              onClick={() => {
+              onClick={async () => {
                 setEditingFreight(null);
                 setFormData({
                   flightNumber: '',

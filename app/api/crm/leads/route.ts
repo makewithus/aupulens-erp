@@ -1,112 +1,84 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDB from "@/lib/db";
-import Lead from "@/models/Lead";
-import {
-  LEAD_STATUS,
-  LEAD_STATUS_VALUES,
-  normalizeProbability,
-} from "@/lib/crm/workflow";
-import {
-  hasCrmAccess,
-  normalizeFollowUps,
-  normalizeNotes,
-  normalizeOptionalEmail,
-  normalizeOptionalString,
-} from "@/lib/crm/api";
+import dbConnect from "@/lib/db";
+import CrmLead from "@/models/crm/Lead";
+import CrmActivity from "@/models/crm/Activity";
+import { calculateLeadScore } from "@/lib/crm/leadScoring";
+import { requireRole } from "@/lib/crm/rbac";
 
-export async function GET(request: Request) {
-  try {
-    const session = await auth();
-    if (!session || !hasCrmAccess(session.user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const tenantId = session.user.tenantId || "default-tenant";
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-    const ownerId = searchParams.get("ownerId");
-    const query = searchParams.get("q");
-
-    await connectDB();
-
-    const filter: Record<string, any> = { tenantId };
-    if (status) {
-      const statuses = status.split(",").filter((value) =>
-        LEAD_STATUS_VALUES.includes(value as any),
-      );
-      if (statuses.length) filter.status = { $in: statuses };
-    }
-    if (ownerId) filter.ownerId = ownerId;
-    if (query) {
-      filter.$or = [
-        { name: { $regex: query, $options: "i" } },
-        { companyName: { $regex: query, $options: "i" } },
-        { email: { $regex: query, $options: "i" } },
-      ];
-    }
-
-    const items = await Lead.find(filter)
-      .sort({ updatedAt: -1 })
-      .populate("ownerId", "name email")
-      .populate("convertedOpportunityId", "name stage amount")
-      .populate("convertedCustomerId", "header.name contact_details.email")
-      .lean();
-
-    return NextResponse.json({ items });
-  } catch (error: any) {
-    console.error("CRM leads GET error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  requireRole(session, ['lead.view', 'lead.read']);
+  
+  await dbConnect();
+  const { searchParams } = new URL(req.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '25');
+  const search = searchParams.get('search');
+  
+  const query: any = { tenantId: session.user.tenantId };
+  if (search) {
+    query.$or = [
+      { lead_name: { $regex: search, $options: 'i' } },
+      { company_name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } }
+    ];
   }
+  
+  const total = await CrmLead.countDocuments(query);
+  const leads = await CrmLead.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate('owner_id', 'name email')
+    .lean();
+    
+  return NextResponse.json({ success: true, data: { leads, total, page, totalPages: Math.ceil(total / limit) } });
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  requireRole(session, ['lead.create', 'lead.write']);
+  
+  await dbConnect();
   try {
-    const session = await auth();
-    if (!session || !hasCrmAccess(session.user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const body = await req.json();
+    if (!body.lead_name || !body.source || !body.owner_id) {
+      return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
-
-    const tenantId = session.user.tenantId || "default-tenant";
-    const body = await request.json();
-
-    if (!body.name?.trim()) {
-      return NextResponse.json(
-        { error: "Lead name is required" },
-        { status: 400 },
-      );
+    
+    if (body.email || body.phone) {
+      const orConditions: any[] = [];
+      if (body.email) orConditions.push({ email: body.email });
+      if (body.phone) orConditions.push({ phone: body.phone });
+      
+      const duplicate = await CrmLead.findOne({ tenantId: session.user.tenantId, $or: orConditions });
+      if (duplicate) {
+        return NextResponse.json({ success: false, duplicate: true, matches: [duplicate] }, { status: 409 });
+      }
     }
-
-    await connectDB();
-
-    const lead = await Lead.create({
-      tenantId,
-      name: String(body.name).trim(),
-      companyName: normalizeOptionalString(body.companyName),
-      email: normalizeOptionalEmail(body.email),
-      phone: normalizeOptionalString(body.phone),
-      source: normalizeOptionalString(body.source),
-      status: body.status || LEAD_STATUS.NEW,
-      score: normalizeProbability(body.score),
-      estimatedValue: Number(body.estimatedValue) || 0,
-      expectedCloseDate: body.expectedCloseDate
-        ? new Date(body.expectedCloseDate)
-        : undefined,
-      ownerId: body.ownerId || session.user.id,
-      notes: normalizeNotes(body.notes, session.user.id),
-      followUps: normalizeFollowUps(body.followUps),
+    
+    body.tenantId = session.user.tenantId;
+    body.createdBy = session.user.id;
+    body.lead_score = calculateLeadScore(body);
+    
+    const lead = await CrmLead.create(body);
+    
+    await CrmActivity.create({
+      tenantId: session.user.tenantId,
+      type: 'Note',
+      subject: `Lead Created: ${lead.lead_name}`,
+      linked_lead_id: lead._id,
+      performed_by_id: session.user.id,
       createdBy: session.user.id,
+      activity_date: new Date()
     });
 
-    return NextResponse.json({ lead }, { status: 201 });
+    return NextResponse.json({ success: true, data: lead });
   } catch (error: any) {
-    console.error("CRM leads POST error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }

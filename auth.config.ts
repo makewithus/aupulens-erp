@@ -1,9 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
 
-if (!process.env.AUTH_SECRET) {
-  process.env.AUTH_SECRET =
-    process.env.NEXTAUTH_SECRET ||
-    "5e4f8b3a7c1d9e2f6a8b0c4d7e9f1a3b5c7d8e0f2a4b6c8d1e3f5a7b9c0d2e4";
+import crypto from "crypto";
+
+if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be set in production");
+  } else {
+    // Generate a secure random secret on the fly for development so nothing is hardcoded in Git.
+    process.env.AUTH_SECRET = crypto.randomBytes(32).toString("hex");
+  }
+} else if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET;
 }
 
 if (!process.env.AUTH_TRUST_HOST) {

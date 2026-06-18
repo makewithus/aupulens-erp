@@ -7,6 +7,8 @@ import { SessionProvider } from "next-auth/react";
 import ToastRoot from "@/components/providers/ToastRoot";
 import TenantInitializer from "@/components/providers/TenantInitializer";
 import TenantWrapper from "@/components/providers/TenantWrapper";
+import { ConfirmProvider } from "@/providers/confirm-provider";
+import ConfirmRoot from "@/components/providers/ConfirmRoot";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -36,8 +38,10 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider>
             <ToastRoot>
-              <TenantInitializer />
-              <TenantWrapper>{children}</TenantWrapper>
+              <ConfirmRoot>
+                <TenantInitializer />
+                <TenantWrapper>{children}</TenantWrapper>
+              </ConfirmRoot>
             </ToastRoot>
           </ThemeProvider>
         </SessionProvider>

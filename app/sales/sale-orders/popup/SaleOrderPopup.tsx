@@ -295,6 +295,7 @@ export function SaleOrderPopupContent({
                             items={products.map((p: any) => ({
                               value: p._id,
                               label: p.header.name,
+                              badge: `${p.inventoryQty || 0} in stock`,
                             }))}
                             value={line.productId}
                             onValueChange={(v) =>

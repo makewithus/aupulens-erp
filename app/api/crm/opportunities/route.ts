@@ -1,131 +1,164 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import Opportunity from "@/models/Opportunity";
-import {
-  OPPORTUNITY_STAGE,
-  OPPORTUNITY_STAGE_VALUES,
-  normalizeProbability,
-} from "@/lib/crm/workflow";
-import {
-  hasCrmAccess,
-  normalizeFollowUps,
-  normalizeNotes,
-  normalizeOptionalEmail,
-  normalizeOptionalString,
-} from "@/lib/crm/api";
+import dbConnect from "@/lib/db";
+import CrmOpportunity from "@/models/crm/Opportunity";
+import CrmAuditLog from "@/models/crm/CrmAuditLog";
+import { requireRole } from "@/lib/crm/rbac";
+import { logSystemActivity } from "@/lib/crm/activityLogger";
+import "@/models/crm/Account";
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || !hasCrmAccess(session.user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    requireRole(session, ['opportunity.view', 'opportunity.read']);
 
-    const tenantId = session.user.tenantId || "default-tenant";
-    const { searchParams } = new URL(request.url);
-    const stage = searchParams.get("stage");
-    const ownerId = searchParams.get("ownerId");
-    const customerId = searchParams.get("customerId");
-    const query = searchParams.get("q");
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const tenantId = session.user.tenantId;
 
-    await connectDB();
+    // Filters
+    const query: any = { tenantId };
+    if (searchParams.get('account_id')) query.account_id = searchParams.get('account_id');
+    if (searchParams.get('stage')) query.stage = searchParams.get('stage');
+    if (searchParams.get('owner_id')) query.ownerId = searchParams.get('owner_id');
+    if (searchParams.get('source')) query.source = searchParams.get('source');
+    if (searchParams.get('priority')) query.priority = searchParams.get('priority');
+    if (searchParams.get('risk_level')) query.risk_level = searchParams.get('risk_level');
 
-    const filter: Record<string, any> = { tenantId };
-    if (stage) {
-      const stages = stage.split(",").filter((value) =>
-        OPPORTUNITY_STAGE_VALUES.includes(value as any),
-      );
-      if (stages.length) filter.stage = { $in: stages };
-    }
-    if (ownerId) filter.ownerId = ownerId;
-    if (customerId) filter.customerId = customerId;
-    if (query) {
-      filter.$or = [
-        { name: { $regex: query, $options: "i" } },
-        { companyName: { $regex: query, $options: "i" } },
-        { contactName: { $regex: query, $options: "i" } },
-        { email: { $regex: query, $options: "i" } },
+    // Search
+    const search = searchParams.get('search');
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { deal_name: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } },
       ];
     }
 
-    const items = await Opportunity.find(filter)
+    const opps = await CrmOpportunity.find(query)
       .sort({ updatedAt: -1 })
-      .populate("ownerId", "name email")
-      .populate("sourceLeadId", "name companyName email")
-      .populate("customerId", "header.name contact_details.email")
+      .populate('account_id', 'company_name industry')
+      .populate('owner_id', 'name email')
       .lean();
 
-    return NextResponse.json({ items });
-  } catch (error: any) {
-    console.error("CRM opportunities GET error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    // Generate KPIs
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
-export async function POST(request: Request) {
-  try {
-    const session = await auth();
-    if (!session || !hasCrmAccess(session.user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    let totalPipelineValue = 0;
+    let weightedPipelineValue = 0;
+    let openOpps = 0;
+    let dealsAtRisk = 0;
+    let closingThisMonth = 0;
+    let closedWonThisMonth = 0;
+    let closedLostThisMonth = 0;
 
-    const tenantId = session.user.tenantId || "default-tenant";
-    const body = await request.json();
+    for (const opp of opps) {
+      const isClosedWon = opp.stage === 'Closed Won';
+      const isClosedLost = opp.stage === 'Closed Lost';
+      const isOpen = !isClosedWon && !isClosedLost;
 
-    if (!body.name?.trim()) {
-      return NextResponse.json(
-        { error: "Opportunity name is required" },
-        { status: 400 },
-      );
-    }
+      if (isOpen) {
+        totalPipelineValue += opp.amount || 0;
+        weightedPipelineValue += (opp.amount || 0) * ((opp.probability || 0) / 100);
+        openOpps++;
 
-    await connectDB();
+        if (opp.risk_level === 'High' || opp.risk_level === 'Critical' || opp.is_at_risk) {
+          dealsAtRisk++;
+        }
 
-    if (body.customerId) {
-      const customer = await Customer.exists({
-        _id: body.customerId,
-        tenantId,
-      });
-      if (!customer) {
-        return NextResponse.json(
-          { error: "Customer not found for this tenant" },
-          { status: 404 },
-        );
+        if (opp.expected_close_date) {
+          const closeDate = new Date(opp.expected_close_date);
+          if (closeDate.getMonth() === currentMonth && closeDate.getFullYear() === currentYear) {
+            closingThisMonth++;
+          }
+        }
+      } else {
+        // Closed logic
+        if (opp.stage_history) {
+          // Look for entry into closed status
+          const closedStatus = opp.stage_history.find((s: any) => s.stage === opp.stage);
+          if (closedStatus && closedStatus.entered_at) {
+            const entered = new Date(closedStatus.entered_at);
+            if (entered.getMonth() === currentMonth && entered.getFullYear() === currentYear) {
+              if (isClosedWon) closedWonThisMonth++;
+              if (isClosedLost) closedLostThisMonth++;
+            }
+          } else {
+            // Fallback to updatedAt
+            const updated = new Date(opp.updatedAt);
+            if (updated.getMonth() === currentMonth && updated.getFullYear() === currentYear) {
+               if (isClosedWon) closedWonThisMonth++;
+               if (isClosedLost) closedLostThisMonth++;
+            }
+          }
+        }
       }
     }
 
-    const opportunity = await Opportunity.create({
-      tenantId,
-      name: String(body.name).trim(),
-      companyName: normalizeOptionalString(body.companyName),
-      contactName: normalizeOptionalString(body.contactName),
-      email: normalizeOptionalEmail(body.email),
-      phone: normalizeOptionalString(body.phone),
-      amount: Number(body.amount) || 0,
-      probability: normalizeProbability(body.probability),
-      stage: body.stage || OPPORTUNITY_STAGE.QUALIFICATION,
-      expectedCloseDate: body.expectedCloseDate
-        ? new Date(body.expectedCloseDate)
-        : undefined,
-      sourceLeadId: body.sourceLeadId || undefined,
-      customerId: body.customerId || undefined,
-      ownerId: body.ownerId || session.user.id,
-      notes: normalizeNotes(body.notes, session.user.id),
-      followUps: normalizeFollowUps(body.followUps),
-      createdBy: session.user.id,
+    const avgDealSize = openOpps > 0 ? totalPipelineValue / openOpps : 0;
+
+    const kpis = {
+      totalPipelineValue,
+      weightedPipelineValue,
+      openOpportunities: openOpps,
+      dealsAtRisk,
+      closingThisMonth,
+      closedWonThisMonth,
+      closedLostThisMonth,
+      avgDealSize
+    };
+
+    return NextResponse.json({ success: true, data: opps, kpis });
+  } catch (error: any) {
+    console.error("GET Opportunities Error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    requireRole(session, ['opportunity.create']);
+
+    await dbConnect();
+    const body = await req.json();
+    body.tenantId = session.user.tenantId;
+    body.createdBy = session.user.id;
+    // Handle both legacy and new fields
+    body.name = body.name || body.deal_name;
+    body.deal_name = body.deal_name || body.name;
+    body.owner_id = body.owner_id || session.user.id;
+    body.ownerId = body.ownerId || body.owner_id;
+    
+    body.stage = body.stage || 'Prospecting';
+    body.stage_history = [{ stage: body.stage, entered_at: new Date() }];
+
+    const opp = await CrmOpportunity.create(body);
+
+    await CrmAuditLog.create({
+      tenantId: session.user.tenantId,
+      user_id: session.user.id,
+      action: 'created',
+      record_type: 'Opportunity',
+      record_id: opp._id,
+      timestamp: new Date()
     });
 
-    return NextResponse.json({ opportunity }, { status: 201 });
+    await logSystemActivity({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      subject: `Opportunity Created: ${opp.deal_name}`,
+      linked_opportunity_id: opp._id.toString(),
+      linked_account_id: opp.account_id?.toString()
+    });
+
+    return NextResponse.json({ success: true, data: opp });
   } catch (error: any) {
-    console.error("CRM opportunities POST error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 },
-    );
+    console.error("POST Opportunity Error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }

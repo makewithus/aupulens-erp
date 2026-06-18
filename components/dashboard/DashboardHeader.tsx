@@ -16,6 +16,7 @@ import {
   Factory,
   ShieldCheck,
   Users,
+  Sparkles,
 } from "lucide-react";
 
 const robotoMono = Roboto_Mono({
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -38,6 +40,7 @@ import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { crmSidebarConfig } from "@/config/sidebar/crm";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
@@ -80,6 +83,12 @@ const MASTER_MODULES = [
     icon: ShieldCheck,
     config: adminSidebarConfig,
   },
+  {
+    id: "crm",
+    title: "CRM",
+    icon: Users,
+    config: crmSidebarConfig,
+  },
 ];
 
 interface BreadcrumbItem {
@@ -113,6 +122,7 @@ interface DashboardHeaderProps {
   className?: string;
   profilePath?: string;
   sidebarConfig?: SidebarSection[];
+  onToggleAi?: () => void;
 }
 
 export function DashboardHeader({
@@ -128,6 +138,7 @@ export function DashboardHeader({
   className,
   profilePath,
   sidebarConfig = [],
+  onToggleAi,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -306,14 +317,14 @@ export function DashboardHeader({
           {/* LEFT SECTION: logo + module + top links */}
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
             {/* Company Logo + Name */}
-            <div className="flex items-center gap-2 sm:gap-3 group">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
               <Logo
                 width={112}
                 height={32}
                 priority
                 className="h-8 w-auto object-contain transition-all duration-300"
               />
-            </div>
+            </Link>
 
             {/* Module Dropdown */}
             <div className="lg:hidden">
@@ -442,100 +453,6 @@ export function DashboardHeader({
                   </div>
                 )}
               </div>
-
-              {/* Dynamic Navbar: Sections as Top-level Dropdowns */}
-              <div className="flex items-center gap-1">
-                {sidebarConfig.map((section, idx) => {
-                  const hasMultiple = section.items.length > 1;
-                  const isSingle = section.items.length === 1;
-
-                  if (isSingle) {
-                    const item = section.items[0];
-                    const isActive = pathname === item.href;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => router.push(item.href)}
-                        className={cn(
-                          "text-[12px] font-bold px-3 py-1.5 rounded-none transition-all uppercase tracking-tight",
-                          isActive
-                            ? "text-primary bg-primary/5 border-b-2 border-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-                        )}
-                      >
-                        {section.title || item.title}
-                      </button>
-                    );
-                  }
-
-                  if (hasMultiple) {
-                    const isAnyActive = section.items.some(
-                      (it) => pathname === it.href,
-                    );
-                    return (
-                      <div
-                        key={idx}
-                        className="relative"
-                        ref={(el) => {
-                          dropdownRefs.current[idx] = el;
-                        }}
-                        onMouseEnter={() => setActiveDropdown(idx)}
-                        onMouseLeave={() => setActiveDropdown(null)}
-                      >
-                        <button
-                          className={cn(
-                            "flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-none transition-all uppercase tracking-tight",
-                            isAnyActive
-                              ? "text-primary border-b-2 border-primary"
-                              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-                            activeDropdown === idx && "bg-accent/30",
-                          )}
-                        >
-                          {section.title}
-                          <ChevronDown
-                            className={cn(
-                              "h-3 w-3 transition-transform duration-200",
-                              activeDropdown === idx && "rotate-180",
-                            )}
-                          />
-                        </button>
-
-                        <div
-                          className={cn(
-                            "absolute left-0 top-full pt-1 w-48 z-50 transition-all duration-200 origin-top",
-                            activeDropdown === idx
-                              ? "opacity-100 translate-y-0 scale-100"
-                              : "opacity-0 -translate-y-2 scale-95 pointer-events-none",
-                          )}
-                        >
-                          <div className="bg-black border border-border/40 shadow-xl p-1.5 grid gap-0.5">
-                            {section.items.map((it) => (
-                              <button
-                                key={it.href}
-                                onClick={() => {
-                                  setActiveDropdown(null);
-                                  router.push(it.href);
-                                }}
-                                className={cn(
-                                  "w-full text-left px-3 py-2 text-[11px] font-bold uppercase transition-colors flex items-center gap-2.5",
-                                  pathname === it.href
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-muted-foreground/90 hover:bg-muted/50 hover:text-foreground",
-                                )}
-                              >
-                                {it.icon && <it.icon className="h-3.5 w-3.5" />}
-                                <span className="truncate">{it.title}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })}
-              </div>
             </div>
 
             {/* Breadcrumbs removed per header simplification */}
@@ -659,6 +576,17 @@ export function DashboardHeader({
               />
             </Button>
 
+            {/* AI Assistant Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleAi}
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-none hover:bg-accent transition-all duration-200 hover:shadow-sm hover:scale-105"
+              title="Aupulens Copilot"
+            >
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground hover:text-primary transition-all duration-300" />
+            </Button>
+
             {/* Theme Toggle
             <div className="hover:scale-105 transition-transform duration-200">
               <ThemeToggle />
@@ -692,9 +620,37 @@ export function DashboardHeader({
       {isMobileNavOpen && (
         <div
           ref={mobileNavRef}
-          className="lg:hidden absolute left-0 right-0 top-full z-50 bg-background shadow-lg border-t border-border/40 p-3"
+          className="lg:hidden absolute left-0 right-0 top-full z-50 bg-background shadow-lg border-t border-border/40 p-3 max-h-[85vh] overflow-y-auto"
         >
-          {sidebarConfig.map((section, si) => (
+          {(userRole === "master-admin" || userRole === "admin") && (
+            <div className="mb-4 pb-4 border-b border-border/50">
+              <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
+                Modules
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {MASTER_MODULES.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setPreviewModuleId(m.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded border transition-all",
+                      previewModuleId === m.id
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/40 bg-muted/20 text-muted-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <m.icon className="h-5 w-5 mb-1" />
+                    <span className="text-[10px] font-semibold uppercase">{m.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(userRole === "master-admin" || userRole === "admin"
+            ? currentPreviewConfig
+            : sidebarConfig
+          ).map((section, si) => (
             <div key={si} className="mb-3">
               {section.title && (
                 <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">

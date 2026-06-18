@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -176,7 +178,7 @@ export default function LeavePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this leave request?")) return;
+    if (!await confirmDialog({ title: "Delete this leave request?" })) return;
     try {
       const res = await fetch(`/api/hr/leave/${id}`, { method: "DELETE" });
       if (res.ok) {

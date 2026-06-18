@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -81,7 +83,7 @@ export default function HRAIAssistantPage() {
 
   const deleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this chat?")) return;
+    if (!await confirmDialog({ title: "Delete this chat?" })) return;
     try {
       const res = await fetch(`/api/hr/chat-history?chatId=${chatId}`, { method: "DELETE" });
       if (res.ok) {
@@ -284,7 +286,7 @@ export default function HRAIAssistantPage() {
                       <button
                         key={q}
                         className="text-xs text-left px-3 py-2 rounded-md border border-border/40 hover:bg-muted transition-colors"
-                        onClick={() => {
+                        onClick={async () => {
                           setInput(q);
                           textareaRef.current?.focus();
                         }}

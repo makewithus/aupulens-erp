@@ -1,4 +1,6 @@
 'use client';
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useState, useRef, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
@@ -130,7 +132,7 @@ export default function ManufacturingAIAssistant() {
     
     if (deletingChatId) return;
     
-    if (!window.confirm('Are you sure you want to delete this chat?')) {
+    if (!await confirmDialog({ title: 'Are you sure you want to delete this chat?' })) {
       return;
     }
 

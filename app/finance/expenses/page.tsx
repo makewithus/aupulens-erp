@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -158,7 +160,7 @@ export default function ExpensesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!await confirmDialog({ title: "Are you sure?" })) return;
     try {
       const res = await fetch(`/api/finance/expenses/${id}`, {
         method: "DELETE",

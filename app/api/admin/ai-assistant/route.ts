@@ -675,9 +675,14 @@ function generateSimpleResponse(data: any, intent: QueryIntent): string {
     return resp;
   }
 
-  return `Overview:\n\n• Total Users: ${
-    data.summary?.totalUsers || 0
-  }\n• Total Orders: ${
-    data.summary?.totalOrders || 0
-  }\n• Total Inventory Items: ${data.summary?.totalInventoryItems || 0}`;
+  return `I am currently operating in basic mode without an active LLM key.
+
+To test my UI, you can ask me specific questions about:
+• Finance
+• Sales
+• Inventory
+• Manufacturing
+• Users
+
+Once my backend is fully activated with a valid API key, I will be able to perform deep, conversational analysis of your ERP data.`;
 }

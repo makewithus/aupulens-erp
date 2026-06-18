@@ -1,4 +1,6 @@
 'use client';
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
@@ -118,7 +120,7 @@ export default function HSCodesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this HS code?')) return;
+    if (!await confirmDialog({ title: 'Are you sure you want to delete this HS code?' })) return;
     
     try {
       const res = await fetch(`/api/manufacturing/hs-codes/${id}`, {

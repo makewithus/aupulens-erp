@@ -65,6 +65,16 @@ export function EditUserDialog({
     password: "",
     confirmPassword: "",
   });
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/hr/departments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.items) setDepartments(data.items);
+      })
+      .catch((err) => console.error("Failed to load departments", err));
+  }, []);
 
   const roles = [
     { value: "admin", label: "Admin" },
@@ -333,17 +343,37 @@ export function EditUserDialog({
                 Department
               </Label>
               <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="edit-department"
+                <Select
                   value={formData.department}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
-                  placeholder="e.g., Engineering, Sales"
+                  onValueChange={(value) => {
+                    const selectedDept = departments.find(d => d.name === value);
+                    let suggestedRole = formData.role;
+                    if (selectedDept) {
+                      const code = selectedDept.code.toUpperCase();
+                      if (code.includes('FIN')) suggestedRole = 'finance';
+                      else if (code.includes('SAL')) suggestedRole = 'sales';
+                      else if (code.includes('HR')) suggestedRole = 'hr';
+                      else if (code.includes('INV')) suggestedRole = 'inventory';
+                      else if (code.includes('MFG')) suggestedRole = 'manufacturing';
+                      else if (code.includes('PROJ')) suggestedRole = 'project';
+                      else if (code.includes('ADMIN')) suggestedRole = 'admin';
+                    }
+                    setFormData({ ...formData, department: value, role: suggestedRole });
+                  }}
                   disabled={loading}
-                  className="pl-10 none-xl h-11 border-2 font-bold"
-                />
+                >
+                  <SelectTrigger className="none-xl h-11 border-2 font-bold bg-background pl-10">
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept._id} value={dept.name}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

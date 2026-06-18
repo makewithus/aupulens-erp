@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -227,7 +229,7 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
+    if (!await confirmDialog({ title: "Are you sure you want to delete this employee?" })) return;
     try {
       const res = await fetch(`/api/hr/employees/${id}`, {
         method: "DELETE",

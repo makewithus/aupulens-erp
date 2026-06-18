@@ -1,4 +1,6 @@
 "use client";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+
 
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -139,7 +141,7 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!await confirmDialog({ title: "Are you sure you want to delete this user?" })) return;
 
     try {
       const res = await fetch(`/api/users/${userId}`, {

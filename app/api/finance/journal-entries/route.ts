@@ -46,6 +46,34 @@ export async function POST(req: NextRequest) {
     const tenantId = (session.user as any).tenantId || "default-tenant";
     const body = await req.json();
 
+    if (body.lineIds && Array.isArray(body.lineIds)) {
+      let totalDebit = 0;
+      let totalCredit = 0;
+
+      for (const line of body.lineIds) {
+        const debit = Number(line.debit) || 0;
+        const credit = Number(line.credit) || 0;
+
+        if (debit < 0 || credit < 0) {
+          return NextResponse.json(
+            { error: "Negative values are not allowed for debit or credit." },
+            { status: 400 }
+          );
+        }
+        
+        totalDebit += debit;
+        totalCredit += credit;
+      }
+
+      // Prevent unbalanced entries (allowing tiny float precision variances)
+      if (Math.abs(totalDebit - totalCredit) > 0.001) {
+        return NextResponse.json(
+          { error: `Unbalanced journal entry: Total Debit (${totalDebit.toFixed(2)}) must exactly equal Total Credit (${totalCredit.toFixed(2)}).` },
+          { status: 400 }
+        );
+      }
+    }
+
     await dbConnect();
 
     const entry = await createJournalEntry({

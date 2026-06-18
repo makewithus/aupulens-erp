@@ -1,7 +1,9 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
+import InventoryItem from "@/models/InventoryItem";
 
 export async function GET(req: any) {
   try {
@@ -46,8 +48,31 @@ export async function GET(req: any) {
       Product.countDocuments(filter),
     ]);
 
+    // Attach inventory info
+    const enrichedProducts = await Promise.all(
+      products.map(async (product: any) => {
+        const code = product.tab_general_information?.default_code;
+        let inventoryQty = 0;
+        let inventoryStatus = "out_of_stock";
+        
+        if (code) {
+          const invItem = await InventoryItem.findOne({ tenantId, itemCode: code }).lean();
+          if (invItem) {
+            inventoryQty = invItem.quantity || 0;
+            inventoryStatus = invItem.status || "out_of_stock";
+          }
+        }
+        
+        return {
+          ...product,
+          inventoryQty,
+          inventoryStatus,
+        };
+      })
+    );
+
     return NextResponse.json({
-      items: products,
+      items: enrichedProducts,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -88,6 +113,33 @@ export async function POST(request: Request) {
       tenantId: session.user.tenantId || "default-tenant",
       createdBy: session.user.id,
     });
+
+    const productType = body.tab_general_information?.type || "consu";
+    
+    // Auto-create InventoryItem for non-service products
+    if (productType !== "service") {
+      try {
+        const itemCode = body.tab_general_information?.default_code || product._id.toString();
+        await InventoryItem.create({
+          tenantId: session.user.tenantId || "default-tenant",
+          itemCode: itemCode,
+          name: body.header.name,
+          description: body.tab_general_information?.description || "",
+          category: "General",
+          unit: "Unit",
+          quantity: 0,
+          reorderLevel: 10,
+          reorderQuantity: 20,
+          unitCost: body.tab_general_information?.standard_price || 0,
+          totalValue: 0,
+          warehouse: "Main Warehouse",
+          status: "out_of_stock",
+          createdBy: session.user.id,
+        });
+      } catch (err) {
+        console.error("Warning: Failed to auto-create inventory mapping", err);
+      }
+    }
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

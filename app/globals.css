@@ -321,3 +321,31 @@
     background-color: rgba(127, 42, 242, 0.6);
   }
 }
+
+/* Recharts Dark Mode Visibility Fix */
+.dark .recharts-text {
+  fill: #f2f2f2 !important;
+}
+.dark .recharts-cartesian-axis-tick-value {
+  fill: #a3a3a3 !important;
+}
+.dark .recharts-cartesian-axis-tick-line {
+  stroke: #272727 !important;
+}
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #272727 !important;
+}
+.dark .recharts-legend-item-text {
+  color: #f2f2f2 !important;
+}
+.dark .recharts-default-tooltip {
+  background-color: #161616 !important;
+  border-color: #272727 !important;
+}
+.dark .recharts-tooltip-item-name,
+.dark .recharts-tooltip-item-value,
+.dark .recharts-tooltip-label {
+  color: #f2f2f2 !important;
+}
+
