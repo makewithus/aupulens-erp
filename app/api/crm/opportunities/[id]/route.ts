@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: params.id }).sort({ activity_date: -1 }).lean();
   
   const health = evaluateOpportunityHealth(
-    opp,
+    opp as any,
     lastActivity ? lastActivity.activity_date : null,
     0, // Mock closeDateChangesCount
     50 // Mock engagementScore
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   const dynamicRisk = health.level;
   
-  return NextResponse.json({ success: true, data: { ...opp.toObject(), dynamicRisk, healthFlags: health.flags } });
+  return NextResponse.json({ success: true, data: { ...(opp as any), dynamicRisk, healthFlags: health.flags } });
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
