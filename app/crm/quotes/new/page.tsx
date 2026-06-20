@@ -62,6 +62,7 @@ function SearchSelect({
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, fetchUrl]);
 
   const selected = options.find((o) => o._id === value);

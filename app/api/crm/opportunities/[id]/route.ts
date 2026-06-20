@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!opp) return NextResponse.json({ success: false }, { status: 404 });
 
   // Calculate dynamic risk
-  const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: opp._id }).sort({ activity_date: -1 }).lean();
+  const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: params.id }).sort({ activity_date: -1 }).lean();
   
   const health = evaluateOpportunityHealth(
     opp,
