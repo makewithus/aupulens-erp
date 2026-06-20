@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, props: RouteProps) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
-  const comm = await CrmCommunication.findOne({ _id: id, tenantId: session.user.tenantId });
+  const comm = await CrmCommunication.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
   if (!comm) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
 
   return NextResponse.json({ success: true, data: comm });

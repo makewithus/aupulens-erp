@@ -49,9 +49,9 @@ export async function GET() {
       // Check if JE exists by name/ref
       const jeName = `JE/${inv.name}`;
       const existingJE = await JournalEntry.findOne({
-        tenantId,
-        "header.name": jeName,
-      });
+              tenantId,
+              "header.name": jeName,
+            }).lean();
 
       if (!existingJE) {
         try {
@@ -158,9 +158,9 @@ export async function GET() {
       // Check by Name convention just in case
       const entryName = `EXP/${exp._id.toString().slice(-6).toUpperCase()}`;
       const existingJE = await JournalEntry.findOne({
-        tenantId,
-        "header.name": entryName,
-      });
+              tenantId,
+              "header.name": entryName,
+            }).lean();
 
       if (!existingJE) {
         try {

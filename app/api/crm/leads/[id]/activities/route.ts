@@ -11,8 +11,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   await dbConnect();
   const activities = await CrmActivity.find({ linked_lead_id: params.id, tenantId: session.user.tenantId })
-    .sort({ activity_date: -1 })
-    .populate('performed_by_id', 'name');
+      .sort({ activity_date: -1 })
+      .populate('performed_by_id', 'name').lean();
     
   return NextResponse.json({ success: true, data: activities });
 }

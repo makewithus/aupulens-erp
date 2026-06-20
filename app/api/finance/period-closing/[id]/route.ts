@@ -22,12 +22,12 @@ export async function GET(
     await dbConnect();
 
     const item = await PeriodClosing.findOne({ _id: id, tenantId })
-      .populate("lockedBy", "name email")
-      .populate("accrualsPostedBy", "name email")
-      .populate("reconciledBy", "name email")
-      .populate("closedBy", "name email")
-      .populate("statementsGeneratedBy", "name email")
-      .populate("createdBy", "name email");
+          .populate("lockedBy", "name email")
+          .populate("accrualsPostedBy", "name email")
+          .populate("reconciledBy", "name email")
+          .populate("closedBy", "name email")
+          .populate("statementsGeneratedBy", "name email")
+          .populate("createdBy", "name email").lean();
 
     if (!item)
       return NextResponse.json({ error: "Period not found" }, { status: 404 });

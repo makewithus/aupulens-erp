@@ -10,6 +10,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   await dbConnect();
   const field = 'account_id';
-  const items = await CrmCase.find({ [field]: params.id, tenantId: session.user.tenantId });
+  const items = await CrmCase.find({ [field]: params.id, tenantId: session.user.tenantId }).lean();
   return NextResponse.json({ success: true, data: items });
 }

@@ -38,7 +38,7 @@ export function DashboardSidebar({ sections, className }: DashboardSidebarProps)
           'w-[60px] hover:w-64 transition-all duration-300 ease-in-out overflow-hidden group shadow-[4px_0_24px_rgba(0,0,0,0.5)]'
         )}
       >
-        <div className="flex-1 w-full overflow-y-auto no-scrollbar flex flex-col gap-4">
+        <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-4">
           {sections.map((section, sectionIndex) => (
             <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
               {section.title && (

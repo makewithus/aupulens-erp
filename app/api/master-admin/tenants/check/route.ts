@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const existingOrg = await Organization.findOne({
-      subdomain: subdomain.toLowerCase(),
-    });
+          subdomain: subdomain.toLowerCase(),
+        }).lean();
     const isAvailable = !existingOrg;
 
     let suggestions: string[] = [];
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       ];
 
       for (const opt of options) {
-        const taken = await Organization.findOne({ subdomain: opt });
+        const taken = await Organization.findOne({ subdomain: opt }).lean();
         if (!taken) {
           suggestions.push(opt);
         }

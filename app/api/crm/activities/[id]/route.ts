@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   await dbConnect();
   
-  const activity = await CrmActivity.findOne({ _id: params.id, tenantId: session.user.tenantId }).populate('performed_by_id', 'name');
+  const activity = await CrmActivity.findOne({ _id: params.id, tenantId: session.user.tenantId }).populate('performed_by_id', 'name').lean();
   if (!activity) return NextResponse.json({ success: false }, { status: 404 });
   return NextResponse.json({ success: true, data: activity });
 }

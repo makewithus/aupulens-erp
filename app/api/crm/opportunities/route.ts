@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         // Closed logic
         if (opp.stage_history) {
           // Look for entry into closed status
-          const closedStatus = opp.stage_history.find((s: any) => s.stage === opp.stage);
+          const closedStatus = opp.stage_history.find((s: any) => s.stage === opp.stage).lean();
           if (closedStatus && closedStatus.entered_at) {
             const entered = new Date(closedStatus.entered_at);
             if (entered.getMonth() === currentMonth && entered.getFullYear() === currentYear) {

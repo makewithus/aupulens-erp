@@ -248,9 +248,9 @@ export async function GET(
     const { id } = await params;
 
     const invoice = await Invoice.findOne({
-      _id: id,
-      tenantId,
-    }).populate("partnerId");
+          _id: id,
+          tenantId,
+        }).populate("partnerId").lean();
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

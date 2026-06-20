@@ -43,5 +43,8 @@ const AccountSchema = new Schema<IAccount>({
 }, { timestamps: true });
 
 AccountSchema.index({ tenantId: 1 });
+AccountSchema.index({ tenantId: 1, owner_id: 1 });
+AccountSchema.index({ tenantId: 1, type: 1 });
+AccountSchema.index({ tenantId: 1, createdAt: -1 });
 
 export default (mongoose.models.CrmAccount as Model<IAccount>) || mongoose.model<IAccount>("CrmAccount", AccountSchema);

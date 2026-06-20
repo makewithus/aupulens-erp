@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     await dbConnect();
 
     const items = await Asset.find({ tenantId })
-      .populate("accounts.assetAccountId")
-      .populate("accounts.depreciationAccountId");
+          .populate("accounts.assetAccountId")
+          .populate("accounts.depreciationAccountId").lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {

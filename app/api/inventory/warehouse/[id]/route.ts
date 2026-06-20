@@ -16,7 +16,7 @@ export async function GET(
     const tenantId = (session.user as any).tenantId || "default-tenant";
     const { id } = await params;
     await connectDB();
-    const warehouse = await Warehouse.findOne({ _id: id, tenantId });
+    const warehouse = await Warehouse.findOne({ _id: id, tenantId }).lean();
     if (!warehouse)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ warehouse });

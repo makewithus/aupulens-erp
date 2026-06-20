@@ -20,10 +20,10 @@ export async function GET(req: NextRequest, props: RouteProps) {
   await dbConnect();
 
   const quote = await CrmQuote.findOne({ _id: id, tenantId: session.user.tenantId })
-    .populate("account_id", "company_name billing_address phone email")
-    .populate("opportunity_id", "deal_name amount stage")
-    .populate("owner_id", "name email")
-    .populate("approved_by_id", "name email");
+      .populate("account_id", "company_name billing_address phone email")
+      .populate("opportunity_id", "deal_name amount stage")
+      .populate("owner_id", "name email")
+      .populate("approved_by_id", "name email").lean();
 
   if (!quote)
     return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });

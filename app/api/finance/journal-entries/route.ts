@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
     if (voucherStatus) filter.voucherStatus = voucherStatus;
 
     const items = await JournalEntry.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("lineIds.accountId")
-      .populate("lineIds.partnerId");
+          .sort({ createdAt: -1 })
+          .populate("lineIds.accountId")
+          .populate("lineIds.partnerId").lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {

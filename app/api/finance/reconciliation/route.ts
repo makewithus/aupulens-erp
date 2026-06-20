@@ -41,10 +41,10 @@ export async function GET() {
 
     // Explicitly cast the DB result to your defined type
     const reconciliations = (await BankReconciliation.find({
-      tenantId,
-    })
-      .sort({ bankStatementDate: -1 })
-      .populate("createdBy reconciledBy", "name email")) as unknown as Reconciliation[];
+          tenantId,
+        })
+          .sort({ bankStatementDate: -1 })
+          .populate("createdBy reconciledBy", "name email").lean()) as unknown as Reconciliation[];
 
     // Safely transform data for frontend
     const transformedReconciliations = reconciliations.map((recon) => {

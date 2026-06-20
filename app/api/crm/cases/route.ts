@@ -22,11 +22,11 @@ export async function GET(req: NextRequest) {
   
   const total = await CrmCase.countDocuments(query);
   const cases = await CrmCase.find(query)
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate('account_id', 'company_name')
-    .populate('owner_id', 'name email');
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('account_id', 'company_name')
+      .populate('owner_id', 'name email').lean();
     
   return NextResponse.json({ success: true, data: { cases, total, page } });
 }

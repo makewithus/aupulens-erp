@@ -29,9 +29,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const tenantId = session.user.tenantId;
 
   const account = await CrmAccount.findOne({ _id: id, tenantId }).populate(
-    "owner_id",
-    "name email"
-  );
+      "owner_id",
+      "name email"
+    ).lean();
   if (!account)
     return NextResponse.json({ success: false, message: "Account not found" }, { status: 404 });
 

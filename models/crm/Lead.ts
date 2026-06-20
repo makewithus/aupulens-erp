@@ -75,5 +75,8 @@ const LeadSchema = new Schema<ILead>({
 }, { timestamps: true });
 
 LeadSchema.index({ tenantId: 1 });
+LeadSchema.index({ tenantId: 1, owner_id: 1 });
+LeadSchema.index({ tenantId: 1, status: 1 });
+LeadSchema.index({ tenantId: 1, createdAt: -1 });
 
 export default (mongoose.models.CrmLead as Model<ILead>) || mongoose.model<ILead>("CrmLead", LeadSchema);

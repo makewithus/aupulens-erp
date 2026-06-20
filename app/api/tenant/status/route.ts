@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
     const org = await Organization.findOne({
-      subdomain: subdomain.toLowerCase(),
-    }).select("isActive name");
+          subdomain: subdomain.toLowerCase(),
+        }).select("isActive name").lean();
 
     if (!org) {
       return NextResponse.json(

@@ -16,11 +16,11 @@ export async function GET(req: NextRequest, props: RouteProps) {
   await dbConnect();
 
   const contract = await CrmContract.findOne({ _id: id, tenantId: session.user.tenantId })
-    .populate("account_id", "company_name billing_address phone email account_health_score status")
-    .populate("owner_id", "name email")
-    .populate("opportunity_id", "deal_name amount stage")
-    .populate("quote_id", "quote_number grand_total status")
-    .populate("renewal_opportunity_id", "deal_name amount stage probability");
+      .populate("account_id", "company_name billing_address phone email account_health_score status")
+      .populate("owner_id", "name email")
+      .populate("opportunity_id", "deal_name amount stage")
+      .populate("quote_id", "quote_number grand_total status")
+      .populate("renewal_opportunity_id", "deal_name amount stage probability").lean();
 
   if (!contract)
     return NextResponse.json({ success: false, message: "Contract not found" }, { status: 404 });

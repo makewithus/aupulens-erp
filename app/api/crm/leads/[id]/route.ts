@@ -16,11 +16,11 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   await dbConnect();
   const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId })
-    .populate('owner_id', 'name')
-    .populate('campaign_id', 'name')
-    .populate('converted_account_id', 'company_name')
-    .populate('converted_contact_id', 'first_name last_name')
-    .populate('converted_opportunity_id', 'deal_name');
+      .populate('owner_id', 'name')
+      .populate('campaign_id', 'name')
+      .populate('converted_account_id', 'company_name')
+      .populate('converted_contact_id', 'first_name last_name')
+      .populate('converted_opportunity_id', 'deal_name').lean();
     
   if (!lead) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
   return NextResponse.json({ success: true, data: lead });

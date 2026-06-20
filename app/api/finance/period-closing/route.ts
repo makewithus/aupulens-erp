@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
     await dbConnect();
 
     const items = await PeriodClosing.find({ tenantId })
-      .sort({ fiscalYear: -1, month: -1 })
-      .populate("lockedBy", "name email")
-      .populate("closedBy", "name email");
+          .sort({ fiscalYear: -1, month: -1 })
+          .populate("lockedBy", "name email")
+          .populate("closedBy", "name email").lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {

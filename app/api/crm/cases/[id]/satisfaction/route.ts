@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
-  const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId }).select('satisfaction_score satisfaction_comment satisfaction_submitted_at');
+  const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId }).select('satisfaction_score satisfaction_comment satisfaction_submitted_at').lean();
   
   if (!crmCase) return NextResponse.json({ success: false }, { status: 404 });
   return NextResponse.json({ success: true, data: crmCase });

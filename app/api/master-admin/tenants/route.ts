@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     }
 
     const organizations = await Organization.find()
-      .populate("ownerUserId", "email name phone")
-      .sort({ createdAt: -1 });
+          .populate("ownerUserId", "email name phone")
+          .sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({ organizations }, { status: 200 });
   } catch (error: unknown) {

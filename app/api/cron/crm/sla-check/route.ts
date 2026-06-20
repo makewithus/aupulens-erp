@@ -14,10 +14,10 @@ export async function GET(req: NextRequest) {
   await dbConnect();
   
   const breachedCases = await CrmCase.find({
-    sla_target_at: { $lt: new Date() },
-    sla_breached: false,
-    status: { $nin: ['Resolved', 'Closed'] }
-  });
+      sla_target_at: { $lt: new Date() },
+      sla_breached: false,
+      status: { $nin: ['Resolved', 'Closed'] }
+    }).lean();
 
   const updates = [];
   for (const c of breachedCases) {

@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     if (status) query.status = status;
 
     const items = await BankStatement.find(query)
-      .sort({ createdAt: -1 })
-      .populate("header.journalId");
+          .sort({ createdAt: -1 })
+          .populate("header.journalId").lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {

@@ -14,7 +14,7 @@ export async function GET() {
 
     const tenantId = (session.user as any).tenantId || "default-tenant";
     await connectDB();
-    const airFreights = await AirFreight.find({ tenantId }).sort({ departureTime: -1 });
+    const airFreights = await AirFreight.find({ tenantId }).sort({ departureTime: -1 }).lean();
     return NextResponse.json(airFreights);
   } catch (error) {
     console.error('Error fetching air freights:', error);

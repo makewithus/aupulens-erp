@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, props: RouteProps) {
   await dbConnect();
 
   const doc = await CrmDocument.findOne({ _id: id, tenantId: session.user.tenantId })
-    .populate("uploaded_by_id", "name email");
+      .populate("uploaded_by_id", "name email").lean();
 
   if (!doc)
     return NextResponse.json({ success: false, message: "Document not found" }, { status: 404 });

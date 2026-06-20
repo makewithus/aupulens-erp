@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const journalEntries = await JournalEntry.find({
-      tenantId,
-      status: DOCUMENT_STATUS.POSTED,
-    }).populate("lineIds.accountId");
+          tenantId,
+          status: DOCUMENT_STATUS.POSTED,
+        }).populate("lineIds.accountId").lean();
 
     const debugData = journalEntries.map((entry) => ({
       name: entry.header.name,

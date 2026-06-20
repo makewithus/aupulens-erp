@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, props: RouteProps) {
 
   await dbConnect();
   const campaign = await CrmCampaign.findOne({ _id: id, tenantId: session.user.tenantId })
-    .populate("owner_id", "name email");
+      .populate("owner_id", "name email").lean();
 
   if (!campaign) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
 

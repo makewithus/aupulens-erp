@@ -13,14 +13,14 @@ export async function GET(req: NextRequest) {
     await dbConnect();
 
     const items = await Expense.find({ tenantId })
-      .populate("employeeId", "name image")
-      .populate("accountId", "name code")
-      .populate({
-        path: "chatter.authorId",
-        select: "name image",
-        strictPopulate: false,
-      })
-      .sort({ createdAt: -1 });
+          .populate("employeeId", "name image")
+          .populate("accountId", "name code")
+          .populate({
+            path: "chatter.authorId",
+            select: "name image",
+            strictPopulate: false,
+          })
+          .sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({ items });
   } catch (error: any) {

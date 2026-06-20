@@ -41,10 +41,10 @@ export async function GET(req: Request) {
 
     const total = await Transaction.countDocuments(query);
     const transactions = await Transaction.find(query)
-      .sort({ date: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate("createdBy", "name email");
+          .sort({ date: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .populate("createdBy", "name email").lean();
 
     return NextResponse.json({
       transactions,

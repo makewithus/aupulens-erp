@@ -22,9 +22,9 @@ export async function GET(req: NextRequest) {
     }
 
     const entries = await JournalEntry.find(query)
-      .sort({ "header.date": -1 })
-      .populate("lineIds.accountId")
-      .populate("lineIds.partnerId");
+          .sort({ "header.date": -1 })
+          .populate("lineIds.accountId")
+          .populate("lineIds.partnerId").lean();
 
     const flattenedLines: any[] = [];
     entries.forEach((entry) => {

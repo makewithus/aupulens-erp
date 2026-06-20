@@ -21,13 +21,13 @@ export async function GET(
     await dbConnect();
 
     const expense = await Expense.findOne({ _id: id, tenantId })
-      .populate("employeeId", "name image")
-      .populate("accountId", "name code")
-      .populate({
-        path: "chatter.authorId",
-        select: "name image",
-        strictPopulate: false,
-      });
+          .populate("employeeId", "name image")
+          .populate("accountId", "name code")
+          .populate({
+            path: "chatter.authorId",
+            select: "name image",
+            strictPopulate: false,
+          }).lean();
 
     if (!expense)
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });

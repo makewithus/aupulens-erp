@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   await dbConnect();
   
-  const task = await CrmTask.findOne({ _id: params.id, tenantId: session.user.tenantId }).populate('assigned_to_id', 'name');
+  const task = await CrmTask.findOne({ _id: params.id, tenantId: session.user.tenantId }).populate('assigned_to_id', 'name').lean();
   if (!task) return NextResponse.json({ success: false }, { status: 404 });
   return NextResponse.json({ success: true, data: task });
 }

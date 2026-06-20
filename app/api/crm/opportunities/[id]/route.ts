@@ -20,14 +20,14 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   await dbConnect();
     const opp = await CrmOpportunity.findOne({ _id: params.id, tenantId: session.user.tenantId })
-      .populate('account_id', 'company_name')
-      .populate('owner_id', 'name')
-      .populate('stakeholders.contact_id', 'first_name last_name email mobile');
+          .populate('account_id', 'company_name')
+          .populate('owner_id', 'name')
+          .populate('stakeholders.contact_id', 'first_name last_name email mobile').lean();
     
   if (!opp) return NextResponse.json({ success: false }, { status: 404 });
 
   // Calculate dynamic risk
-  const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: opp._id }).sort({ activity_date: -1 });
+  const lastActivity = await CrmActivity.findOne({ linked_opportunity_id: opp._id }).sort({ activity_date: -1 }).lean();
   
   const health = evaluateOpportunityHealth(
     opp,

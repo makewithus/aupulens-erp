@@ -12,9 +12,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   
   await dbConnect();
   const crmCase = await CrmCase.findOne({ _id: params.id, tenantId: session.user.tenantId })
-    .populate('account_id', 'company_name')
-    .populate('contact_id', 'first_name last_name')
-    .populate('owner_id', 'name');
+      .populate('account_id', 'company_name')
+      .populate('contact_id', 'first_name last_name')
+      .populate('owner_id', 'name').lean();
     
   if (!crmCase) return NextResponse.json({ success: false }, { status: 404 });
   return NextResponse.json({ success: true, data: crmCase });

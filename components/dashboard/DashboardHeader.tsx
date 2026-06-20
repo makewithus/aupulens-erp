@@ -150,7 +150,9 @@ export function DashboardHeader({
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { tenantId } = useTenantStore();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
+  
+  const activeUserRole = userRole || user?.role;
 
   const handleSignOut = async () => {
     console.log("[DashboardHeader] Sign out triggered");
@@ -252,7 +254,7 @@ export function DashboardHeader({
 
   // Initialize preview module based on dashboardTitle or pathname
   useEffect(() => {
-    if (userRole === "master-admin" || userRole === "admin") {
+    if (activeUserRole === "master-admin" || activeUserRole === "admin") {
       const currentMod = MASTER_MODULES.find(
         (m) =>
           dashboardTitle?.toLowerCase().includes(m.id) ||
@@ -260,7 +262,7 @@ export function DashboardHeader({
       );
       setPreviewModuleId(currentMod?.id || "admin");
     }
-  }, [userRole, dashboardTitle, pathname]);
+  }, [activeUserRole, dashboardTitle, pathname]);
 
   const currentPreviewConfig =
     MASTER_MODULES.find((m) => m.id === previewModuleId)?.config ||
@@ -345,7 +347,7 @@ export function DashboardHeader({
                   onClick={() => setIsModuleOpen(!isModuleOpen)}
                   className="flex items-center gap-2 px-4 py-1.5 rounded-none bg-primary/5 hover:bg-primary/10 transition-all text-[11px] font-black border-r border-primary/20 shadow-sm uppercase tracking-widest text-primary"
                 >
-                  {userRole === "master-admin" || userRole === "admin"
+                  {activeUserRole === "master-admin" || activeUserRole === "admin"
                     ? "MODULES"
                     : dashboardTitle || "MODULE"}
                   <ChevronDown className="h-3.5 w-3.5 opacity-50" />
@@ -356,7 +358,7 @@ export function DashboardHeader({
                     className="absolute left-0 top-full mt-2 w-[400px]
   rounded-none border-2 border-primary/20 bg-black p-0 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden"
                   >
-                    {(userRole === "master-admin" || userRole === "admin") && (
+                    {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
                       <div className="flex border-b border-white/10 bg-white/5">
                         {MASTER_MODULES.map((m) => (
                           <button
@@ -389,7 +391,7 @@ export function DashboardHeader({
                     )}
 
                     <div className="p-3 max-h-[70vh] overflow-y-auto youtube-scrollbar">
-                      {(userRole === "master-admin" || userRole === "admin"
+                      {(activeUserRole === "master-admin" || activeUserRole === "admin"
                         ? currentPreviewConfig
                         : sidebarConfig
                       ).map((section, si) => (
@@ -622,7 +624,7 @@ export function DashboardHeader({
           ref={mobileNavRef}
           className="lg:hidden absolute left-0 right-0 top-full z-50 bg-background shadow-lg border-t border-border/40 p-3 max-h-[85vh] overflow-y-auto"
         >
-          {(userRole === "master-admin" || userRole === "admin") && (
+          {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
             <div className="mb-4 pb-4 border-b border-border/50">
               <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
                 Modules
@@ -647,7 +649,7 @@ export function DashboardHeader({
             </div>
           )}
 
-          {(userRole === "master-admin" || userRole === "admin"
+          {(activeUserRole === "master-admin" || activeUserRole === "admin"
             ? currentPreviewConfig
             : sidebarConfig
           ).map((section, si) => (

@@ -37,5 +37,8 @@ const ContactSchema = new Schema<IContact>({
 }, { timestamps: true });
 
 ContactSchema.index({ tenantId: 1 });
+ContactSchema.index({ tenantId: 1, account_id: 1 });
+ContactSchema.index({ tenantId: 1, createdAt: -1 });
+ContactSchema.index({ tenantId: 1, email: 1 });
 
 export default (mongoose.models.CrmContact as Model<IContact>) || mongoose.model<IContact>("CrmContact", ContactSchema);

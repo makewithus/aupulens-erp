@@ -15,18 +15,18 @@ export async function GET() {
     const indexes = await Invoice.collection.indexes();
     const results = [];
 
-    if (indexes.find((i) => i.name === "invoiceNumber_1")) {
+    if (indexes.find((i) => i.name === "invoiceNumber_1").lean()) {
       await Invoice.collection.dropIndex("invoiceNumber_1");
       results.push("Dropped invoiceNumber_1");
     }
 
     const userIndexes = await User.collection.indexes();
-    if (userIndexes.find((i) => i.name === "email_1")) {
+    if (userIndexes.find((i) => i.name === "email_1").lean()) {
       await User.collection.dropIndex("email_1");
       results.push("Dropped legacy global users.email index");
     }
 
-    if (userIndexes.find((i) => i.name === "employeeId_1")) {
+    if (userIndexes.find((i) => i.name === "employeeId_1").lean()) {
       await User.collection.dropIndex("employeeId_1");
       results.push("Dropped legacy global users.employeeId index");
     }
@@ -50,7 +50,7 @@ export async function GET() {
     results.push("Ensured tenant-scoped users.employeeId index");
 
     const saleOrderIndexes = await SaleOrder.collection.indexes();
-    if (saleOrderIndexes.find((i) => i.name === "header.name_1")) {
+    if (saleOrderIndexes.find((i) => i.name === "header.name_1").lean()) {
       await SaleOrder.collection.dropIndex("header.name_1");
       results.push("Dropped legacy global saleOrders.header.name index");
     }
@@ -62,7 +62,7 @@ export async function GET() {
     results.push("Ensured tenant-scoped saleOrders.header.name index");
 
     const stockMoveIndexes = await StockMove.collection.indexes();
-    if (stockMoveIndexes.find((i) => i.name === "reference_1")) {
+    if (stockMoveIndexes.find((i) => i.name === "reference_1").lean()) {
       await StockMove.collection.dropIndex("reference_1");
       results.push("Dropped legacy global stockMoves.reference index");
     }

@@ -27,8 +27,8 @@ export async function GET(
     await dbConnect();
 
     const item = await JournalEntry.findOne({ _id: id, tenantId })
-      .populate("lineIds.accountId")
-      .populate("lineIds.partnerId");
+          .populate("lineIds.accountId")
+          .populate("lineIds.partnerId").lean();
 
     if (!item)
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });

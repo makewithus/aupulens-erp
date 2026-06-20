@@ -22,10 +22,10 @@ export async function GET(req: NextRequest) {
     targetEnd.setHours(23,59,59,999);
 
     const expiringContracts = await CrmContract.find({
-      end_date: { $gte: targetStart, $lte: targetEnd },
-      status: { $in: ['Active', 'Expiring Soon'] },
-      renewal_status: { $in: ['Not Started'] }
-    });
+          end_date: { $gte: targetStart, $lte: targetEnd },
+          status: { $in: ['Active', 'Expiring Soon'] },
+          renewal_status: { $in: ['Not Started'] }
+        }).lean();
 
     for (const contract of expiringContracts) {
       if (days <= 30 && contract.status === 'Active') {

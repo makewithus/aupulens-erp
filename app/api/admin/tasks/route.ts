@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     const tasks = await Task.find({
-      tenantId,
-    })
-      .populate("assignee", "name email")
-      .sort({ createdAt: -1 });
+          tenantId,
+        })
+          .populate("assignee", "name email")
+          .sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({ tasks });
   } catch (error) {

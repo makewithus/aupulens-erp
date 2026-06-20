@@ -167,9 +167,9 @@ export async function GET(
     await dbConnect();
 
     const item = await Invoice.findOne({ _id: id, tenantId }).populate(
-      "partnerId",
-      "header.name contact_details.email",
-    );
+          "partnerId",
+          "header.name contact_details.email",
+        ).lean();
 
     if (!item) {
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });

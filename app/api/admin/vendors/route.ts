@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     const vendors = await Vendor.find({
-      tenantId,
-    }).sort({ createdAt: -1 });
+          tenantId,
+        }).sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({ vendors });
   } catch (error) {
