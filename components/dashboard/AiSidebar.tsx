@@ -81,7 +81,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     <aside 
       className={cn(
         "bg-neutral-950 flex flex-col flex-shrink-0 animate-in slide-in-from-right transition-all duration-300 ease-in-out shadow-2xl",
-        "w-[350px] h-full border-l border-white/5"
+        "absolute inset-y-0 right-0 z-50 w-full max-w-[400px] sm:relative sm:w-[350px] sm:max-w-none h-full border-l border-white/5"
       )}
     >
       {/* Header */}
@@ -126,7 +126,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className={cn(
-              'px-4 py-3 text-[13px] leading-relaxed max-w-[85%] shadow-sm', 
+              'px-4 py-3 text-[13px] leading-relaxed max-w-[90%] sm:max-w-[85%] shadow-sm', 
               msg.role === 'user' 
                 ? 'bg-neutral-800 text-neutral-100 rounded-2xl rounded-tr-sm border border-neutral-700/50' 
                 : 'bg-neutral-900/80 text-neutral-300 rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
@@ -147,8 +147,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-white/5 bg-neutral-950 shrink-0">
-        <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="relative flex items-center">
+      <div className="p-4 border-t border-white/5 bg-neutral-950 shrink-0 w-full">
+        <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="relative flex items-center w-full">
           <Input 
             value={input} 
             onChange={e => setInput(e.target.value)}

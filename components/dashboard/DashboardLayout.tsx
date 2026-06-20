@@ -104,7 +104,7 @@ export function DashboardLayout({
         onToggleAi={() => setIsAiSidebarOpen(!isAiSidebarOpen)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {sections.length > 0 && <DashboardSidebar sections={sections} />}
 
         <main

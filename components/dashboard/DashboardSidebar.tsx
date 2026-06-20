@@ -31,7 +31,7 @@ export function DashboardSidebar({ sections, className }: DashboardSidebarProps)
   const pathname = usePathname();
 
   return (
-    <div className={cn("relative h-full flex-shrink-0 w-[60px] z-40", className)}>
+    <div className={cn("hidden lg:block relative h-full flex-shrink-0 w-[60px] z-40", className)}>
       <aside
         className={cn(
           'absolute left-0 top-0 h-full bg-neutral-950 border-r border-border/40 flex flex-col py-4',

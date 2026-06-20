@@ -251,6 +251,16 @@
     width: 8px;
   }
 
+  @media (max-width: 640px) {
+    .youtube-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .youtube-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+
   .youtube-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
