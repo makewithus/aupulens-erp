@@ -13,9 +13,12 @@ import CrmOpportunity from "@/models/crm/Opportunity";
  * - task_overdue
  */
 export async function POST(req: NextRequest) {
-  // Normally protected by a secret key in production CRON services
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET || "dev-cron-secret"}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 

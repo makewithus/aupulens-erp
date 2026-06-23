@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import SalesOrder from '@/models/SalesOrder';
+import SaleOrder from '@/models/SaleOrder';
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 export async function GET() {
@@ -22,7 +22,7 @@ await connectDB();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     // Aggregate orders count by month
-    const ordersData = await SalesOrder.aggregate([
+    const ordersData = await SaleOrder.aggregate([
       {
         $match: {
           createdAt: { $gte: sixMonthsAgo }
@@ -41,7 +41,7 @@ await connectDB();
     ]);
 
     // Aggregate revenue by month
-    const revenueData = await SalesOrder.aggregate([
+    const revenueData = await SaleOrder.aggregate([
       {
         $match: {
           createdAt: { $gte: sixMonthsAgo },
@@ -54,24 +54,24 @@ await connectDB();
             month: { $month: '$createdAt' },
             year: { $year: '$createdAt' }
           },
-          amount: { $sum: '$totalAmount' }
+          amount: { $sum: '$totals.amountTotal' }
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
     ]);
 
     // Get top products
-    const topProducts = await SalesOrder.aggregate([
+    const topProducts = await SaleOrder.aggregate([
       {
         $match: {
           createdAt: { $gte: sixMonthsAgo }
         }
       },
-      { $unwind: '$items' },
+      { $unwind: '$orderLines' },
       {
         $group: {
-          _id: '$items.name',
-          value: { $sum: '$items.quantity' }
+          _id: '$orderLines.name',
+          value: { $sum: '$orderLines.productQty' }
         }
       },
       { $sort: { value: -1 } },

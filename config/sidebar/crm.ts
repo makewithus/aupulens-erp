@@ -106,7 +106,7 @@ export const crmSidebarConfig: SidebarSection[] = [
       },
       {
         title: "Audit Logs",
-        href: "/crm/audit-logs",
+        href: "/crm/audit",
         icon: ClipboardList,
       },
     ],

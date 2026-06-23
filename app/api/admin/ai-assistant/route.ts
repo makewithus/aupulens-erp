@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SalesOrder from "@/models/SalesOrder";
+import SaleOrder from "@/models/SaleOrder";
 import InventoryItem from "@/models/InventoryItem";
 import Transaction from "@/models/Transaction";
 import Invoice from "@/models/Invoice";
@@ -318,7 +318,7 @@ async function fetchFinanceData() {
 
 async function fetchSalesData() {
   // Recent orders for quick display
-  const orders = await (SalesOrder as any)
+  const orders = await (SaleOrder as any)
     .find({})
     .sort({ createdAt: -1 })
     .limit(20)
@@ -326,16 +326,16 @@ async function fetchSalesData() {
 
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce(
-    (sum: number, order: any) => sum + (order.total || 0),
+    (sum: number, order: any) => sum + (order.totals?.amountTotal || 0),
     0
   );
 
   // Get top products
   const productCounts: { [key: string]: number } = {};
   orders.forEach((order: any) => {
-    order.items?.forEach((item: any) => {
-      const name = item.productName || item.description || "Unknown";
-      productCounts[name] = (productCounts[name] || 0) + (item.quantity || 1);
+    order.orderLines?.forEach((item: any) => {
+      const name = item.name || "Unknown";
+      productCounts[name] = (productCounts[name] || 0) + (item.productQty || 1);
     });
   });
 
@@ -348,7 +348,7 @@ async function fetchSalesData() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  const monthlyAgg = await SalesOrder.aggregate([
+  const monthlyAgg = await SaleOrder.aggregate([
     {
       $match: {
         createdAt: { $gte: start },
@@ -357,7 +357,7 @@ async function fetchSalesData() {
     {
       $group: {
         _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-        total: { $sum: { $ifNull: ["$total", 0] } },
+        total: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
       },
     },
     { $sort: { "_id.year": 1, "_id.month": 1 } },
@@ -473,7 +473,7 @@ async function fetchUsersData() {
 async function fetchGeneralData() {
   const [users, orders, items] = await Promise.all([
     User.countDocuments(),
-    SalesOrder.countDocuments(),
+    SaleOrder.countDocuments(),
     InventoryItem.countDocuments(),
   ]);
 

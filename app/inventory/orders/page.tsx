@@ -90,6 +90,10 @@ export default function OrdersPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [stockItems, setStockItems] = useState<InventoryItem[]>([]);
   const [error, setError] = useState("");
@@ -125,18 +129,19 @@ export default function OrdersPage() {
     }
   }, [status, router, session]);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (currentPage = 1) => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== "all")
-        params.append("status", statusFilter);
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
 
       const res = await fetch(`/api/inventory/orders?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch orders");
 
       const data = await res.json();
-      setOrders(data.orders);
+      setOrders(data.orders ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       console.error("Error fetching orders:", err);
       setError("Failed to load orders");
@@ -193,11 +198,11 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchOrders();
+      fetchOrders(page);
       fetchWarehouses();
       fetchStockItems();
     }
-  }, [status, fetchOrders, fetchWarehouses, fetchStockItems]);
+  }, [status, fetchOrders, fetchWarehouses, fetchStockItems, page]);
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -836,6 +841,24 @@ export default function OrdersPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

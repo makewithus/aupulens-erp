@@ -136,6 +136,11 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
 
 InvoiceSchema.index({ tenantId: 1, name: 1 });
 InvoiceSchema.index({ partnerId: 1 });
+InvoiceSchema.index({ tenantId: 1, moveType: 1 });
+InvoiceSchema.index({ tenantId: 1, state: 1 });
+InvoiceSchema.index({ tenantId: 1, paymentState: 1 });
+InvoiceSchema.index({ tenantId: 1, moveType: 1, state: 1 });
+InvoiceSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Invoice: Model<IInvoice> =
   (mongoose.models.Invoice as Model<IInvoice>) ||

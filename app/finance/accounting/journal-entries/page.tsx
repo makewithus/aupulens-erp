@@ -47,18 +47,25 @@ export default function JournalEntriesPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<any>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = 1) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/journal-entries");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      const res = await fetch(`/api/finance/journal-entries?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages ?? 1);
     } catch (error) {
       toast.error("Failed to load journal entries");
     } finally {
@@ -68,8 +75,8 @@ export default function JournalEntriesPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/finance");
-    if (status === "authenticated") load();
-  }, [status, router, load]);
+    if (status === "authenticated") load(page);
+  }, [status, router, load, page]);
 
   const handleOpenCreate = () => {
     setFormData({
@@ -338,6 +345,24 @@ export default function JournalEntriesPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

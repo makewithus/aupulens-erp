@@ -51,7 +51,7 @@ export default function ExportDocsPage() {
       if (response.ok) {
         const data = await response.json();
         // Only show shipped and delivered orders for export docs
-        const exportableOrders = data.orders.filter((order: SalesOrder) => 
+        const exportableOrders = (data.items || []).filter((order: SalesOrder) =>
           ['shipped', 'delivered'].includes(order.status)
         );
         setOrders(exportableOrders);

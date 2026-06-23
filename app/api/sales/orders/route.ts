@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SalesOrder from "@/models/SalesOrder";
+import SaleOrder from "@/models/SaleOrder";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (
@@ -15,16 +15,22 @@ export async function GET() {
     }
 
     const tenantId = (session.user as any).tenantId || "default-tenant";
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const skip = (page - 1) * limit;
+
+    const query: any = { tenantId };
+    const status = searchParams.get("status");
+    if (status) query.status = status;
 
     await connectDB();
-    const items = await SalesOrder.find({
-      tenantId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [total, items] = await Promise.all([
+      SaleOrder.countDocuments(query),
+      SaleOrder.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    ]);
 
-    console.log(items);
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error("Error fetching sales orders:", error);
     return NextResponse.json(
@@ -51,30 +57,23 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (
-      !body.orderNumber ||
-      !body.customer ||
-      !body.items ||
-      body.items.length === 0
+      !body.header?.name ||
+      !body.header?.partnerId ||
+      !body.orderLines?.length
     ) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: header.name, header.partnerId, orderLines" },
         { status: 400 },
       );
     }
 
-    const order = await SalesOrder.create({
-      orderNumber: body.orderNumber,
-      customer: body.customer,
-      customerEmail: body.customerEmail,
-      items: body.items,
-      subtotal: body.subtotal,
-      taxRate: body.taxRate,
-      taxAmount: body.taxAmount,
-      total: body.total,
-      status: body.status || DOCUMENT_STATUS.DRAFT,
-      shippingAddress: body.shippingAddress,
-      notes: body.notes,
+    const order = await SaleOrder.create({
       tenantId,
+      header: body.header,
+      orderLines: body.orderLines,
+      otherInfo: body.otherInfo,
+      totals: body.totals,
+      status: body.status || DOCUMENT_STATUS.DRAFT,
     });
 
     return NextResponse.json({ order }, { status: 201 });

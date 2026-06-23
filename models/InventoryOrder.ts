@@ -5,7 +5,7 @@ import {
   type DocumentStatus,
 } from '@/lib/constants/statuses';
 
-export interface IOrderItem {
+export interface IInventoryOrderItem {
   itemCode: string;
   itemName: string;
   quantity: number;
@@ -14,14 +14,14 @@ export interface IOrderItem {
   totalPrice: number;
 }
 
-export interface IOrder extends Document {
-  tenantId: string; // NEW: Multi-tenant support
+export interface IInventoryOrder extends Document {
+  tenantId: string;
   orderNumber: string;
   customerName: string;
   customerEmail?: string;
   orderDate: Date;
   expectedDeliveryDate: Date;
-  items: IOrderItem[];
+  items: IInventoryOrderItem[];
   totalAmount: number;
   status: DocumentStatus;
   warehouse: string;
@@ -33,10 +33,10 @@ export interface IOrder extends Document {
   updatedAt: Date;
 }
 
-const OrderSchema: Schema<IOrder> = new Schema(
+const InventoryOrderSchema: Schema<IInventoryOrder> = new Schema(
   {
-    tenantId: { type: String, required: true, index: true }, // NEW: Multi-tenant support
-    orderNumber: { type: String, required: true, unique: true, trim: true },
+    tenantId: { type: String, required: true, index: true },
+    orderNumber: { type: String, required: true, trim: true },
     customerName: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },
     orderDate: { type: Date, required: true, default: Date.now },
@@ -66,11 +66,14 @@ const OrderSchema: Schema<IOrder> = new Schema(
   { timestamps: true }
 );
 
-OrderSchema.index({ status: 1 });
-OrderSchema.index({ orderDate: 1 });
+// Compound unique index — replaces the old bare orderNumber_1 index (see MEMORY.md Deployment Steps)
+InventoryOrderSchema.index({ tenantId: 1, orderNumber: 1 }, { unique: true });
+InventoryOrderSchema.index({ status: 1 });
+InventoryOrderSchema.index({ orderDate: 1 });
 
-const Order =
-  (mongoose.models?.Order as mongoose.Model<IOrder>) ||
-  mongoose.model<IOrder>('Order', OrderSchema);
+// Keep collection name 'orders' to preserve existing MongoDB data
+const InventoryOrder =
+  (mongoose.models?.InventoryOrder as mongoose.Model<IInventoryOrder>) ||
+  mongoose.model<IInventoryOrder>('InventoryOrder', InventoryOrderSchema, 'orders');
 
-export default Order;
+export default InventoryOrder;

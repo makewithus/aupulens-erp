@@ -20,7 +20,7 @@ export interface IPurchaseOrderLine {
 export interface IPurchaseOrder extends mongoose.Document {
   tenantId: string;
   name: string; // PO/2026/0001
-  partnerId: mongoose.Types.ObjectId; // Vendor
+  partnerId: mongoose.Types.ObjectId; // Supplier stored as Customer doc (Odoo res.partner pattern)
   dateOrder: Date;
   orderLines: IPurchaseOrderLine[];
   totals: {
@@ -42,6 +42,9 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   {
     tenantId: { type: String, required: true, index: true },
     name: { type: String, required: true },
+    // Vendors/suppliers are stored as Customer documents (Odoo res.partner pattern).
+    // Do NOT change this ref to "Vendor" — the admin Vendor model is a separate entity
+    // and all .populate("partnerId") calls expect Customer's field paths (header.name, etc.).
     partnerId: {
       type: Schema.Types.ObjectId,
       ref: "Customer",

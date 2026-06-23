@@ -66,6 +66,10 @@ export default function LeavePage() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,10 +86,10 @@ export default function LeavePage() {
     return nameMatch && statusMatch;
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = 1) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (filterStatus) params.set("status", filterStatus);
       const [leaveRes, empRes] = await Promise.all([
         fetch(`/api/hr/leave?${params.toString()}`),
@@ -94,6 +98,8 @@ export default function LeavePage() {
       const leaveJson = await leaveRes.json();
       const empJson = await empRes.json();
       setRequests(leaveJson.items || []);
+      setTotal(leaveJson.total ?? 0);
+      setTotalPages(leaveJson.totalPages ?? 1);
       setEmployees(empJson.items || []);
     } catch {
       toast.error("Failed to load leave requests");
@@ -104,8 +110,8 @@ export default function LeavePage() {
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/hr");
-    if (status === "authenticated") load();
-  }, [status, router, load]);
+    if (status === "authenticated") load(page);
+  }, [status, router, load, page]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -362,6 +368,24 @@ export default function LeavePage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

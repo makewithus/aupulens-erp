@@ -95,6 +95,10 @@ export default function EmployeesPage() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">(
@@ -105,11 +109,12 @@ export default function EmployeesPage() {
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = 1) => {
     setIsLoading(true);
     try {
+      const empParams = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       const [empRes, deptRes] = await Promise.all([
-        fetch("/api/hr/employees"),
+        fetch(`/api/hr/employees?${empParams.toString()}`),
         fetch("/api/hr/departments"),
       ]);
       const empJson = await empRes.json();
@@ -117,6 +122,8 @@ export default function EmployeesPage() {
       const items = empJson.items || [];
       setEmployees(items);
       setFilteredEmployees(items);
+      setTotal(empJson.total ?? 0);
+      setTotalPages(empJson.totalPages ?? 1);
       setDepartments(deptJson.items || []);
     } catch (error) {
       toast.error("Failed to load employees");
@@ -134,9 +141,9 @@ export default function EmployeesPage() {
     ) {
       router.push("/auth/hr");
     } else if (status === "authenticated") {
-      load();
+      load(page);
     }
-  }, [status, session, router, load]);
+  }, [status, session, router, load, page]);
 
   useEffect(() => {
     let filtered = employees;
@@ -658,6 +665,24 @@ export default function EmployeesPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

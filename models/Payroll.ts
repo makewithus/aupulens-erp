@@ -1,16 +1,10 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { JournalLineSchema, MonetarySummarySchema } from "./sub/FinanceBase";
-
-export type PayrollStatus =
-  | "draft"
-  | "attendance_locked"
-  | "computed"
-  | "reviewed"
-  | "approved"
-  | "disbursed"
-  | "posted_to_gl"
-  | "rejected"
-  | "cancelled";
+import {
+  PAYROLL_STATUS,
+  PAYROLL_STATUS_VALUES,
+  type PayrollStatus,
+} from "@/lib/constants/statuses";
 
 export interface IPayrollLineItem {
   employeeId: mongoose.Types.ObjectId;
@@ -137,18 +131,8 @@ const PayrollSchema = new Schema<IPayroll>(
     },
     status: {
       type: String,
-      enum: [
-        "draft",
-        "attendance_locked",
-        "computed",
-        "reviewed",
-        "approved",
-        "disbursed",
-        "posted_to_gl",
-        "rejected",
-        "cancelled",
-      ],
-      default: "draft",
+      enum: PAYROLL_STATUS_VALUES,
+      default: PAYROLL_STATUS.DRAFT,
     },
     attendanceLockedAt: { type: Date },
     attendanceLockedBy: { type: Schema.Types.ObjectId, ref: "User" },

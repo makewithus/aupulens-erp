@@ -48,3 +48,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Internal tooling & AI context — never expose to public repos
+CLAUDE.md
+docs/_context/
+docs/_planning/
+amastermds/
+.claude/
+*.claude
+add-lean.js
+fix_lean.js
+check-electron-setup.bat
+start-electron.bat

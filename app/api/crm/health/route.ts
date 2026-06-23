@@ -28,22 +28,23 @@ export async function GET(req: NextRequest) {
   }
 
   // Tenant-wide distribution
-  const distribution = await CrmAccount.aggregate([
-    { $match: { tenantId: session.user.tenantId } },
-    {
-      $bucket: {
-        groupBy: "$account_health_score",
-        boundaries: [0, 25, 50, 75, 101],
-        default: "Unknown",
-        output: { count: { $sum: 1 } },
+  const [distribution, accounts] = await Promise.all([
+    CrmAccount.aggregate([
+      { $match: { tenantId: session.user.tenantId } },
+      {
+        $bucket: {
+          groupBy: "$account_health_score",
+          boundaries: [0, 25, 50, 75, 101],
+          default: "Unknown",
+          output: { count: { $sum: 1 } },
+        },
       },
-    },
+    ]),
+    CrmAccount.find({ tenantId: session.user.tenantId })
+      .select("company_name account_health_score status")
+      .sort({ account_health_score: 1 })
+      .lean()
   ]);
-
-  const accounts = await CrmAccount.find({ tenantId: session.user.tenantId })
-    .select("company_name account_health_score status")
-    .sort({ account_health_score: 1 })
-    .lean();
 
   return NextResponse.json({
     success: true,

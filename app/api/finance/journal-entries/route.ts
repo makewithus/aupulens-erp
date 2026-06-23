@@ -22,16 +22,26 @@ export async function GET(req: NextRequest) {
     const voucherType = searchParams.get("voucherType");
     const voucherStatus = searchParams.get("voucherStatus");
 
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const skip = (page - 1) * limit;
+
     const filter: any = { tenantId };
     if (voucherType) filter.voucherType = voucherType;
     if (voucherStatus) filter.voucherStatus = voucherStatus;
 
-    const items = await JournalEntry.find(filter)
-          .sort({ createdAt: -1 })
-          .populate("lineIds.accountId")
-          .populate("lineIds.partnerId").lean();
+    const [total, items] = await Promise.all([
+      JournalEntry.countDocuments(filter),
+      JournalEntry.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("lineIds.accountId", "code name account_type")
+        .populate("lineIds.partnerId", "header.name contact_details.email")
+        .lean(),
+    ]);
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

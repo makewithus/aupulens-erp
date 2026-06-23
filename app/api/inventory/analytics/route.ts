@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryItem from '@/models/InventoryItem';
-import Order from '@/models/Order';
+import InventoryOrder from '@/models/InventoryOrder';
 
 export async function GET() {
   try {
@@ -32,7 +32,7 @@ await connectDB();
     ]);
 
     // Get order movements
-    const movementsData = await Order.aggregate([
+    const movementsData = await InventoryOrder.aggregate([
       {
         $match: {
           createdAt: { $gte: sixMonthsAgo }

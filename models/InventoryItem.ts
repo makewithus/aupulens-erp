@@ -31,7 +31,7 @@ export interface IInventoryItem extends Document {
 const InventoryItemSchema: Schema<IInventoryItem> = new Schema(
   {
     tenantId: { type: String, required: true, index: true }, // NEW
-    itemCode: { type: String, required: true, unique: true, trim: true },
+    itemCode: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     category: { type: String, required: true, trim: true },
@@ -56,6 +56,7 @@ const InventoryItemSchema: Schema<IInventoryItem> = new Schema(
   { timestamps: true }
 );
 
+InventoryItemSchema.index({ tenantId: 1, itemCode: 1 }, { unique: true });
 InventoryItemSchema.index({ status: 1 });
 InventoryItemSchema.index({ category: 1 });
 

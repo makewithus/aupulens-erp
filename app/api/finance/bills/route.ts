@@ -74,14 +74,26 @@ export async function GET(req: NextRequest) {
       query.state = state;
     }
 
-    const items = await Invoice.find(query)
-      .populate("partnerId", "header.name contact_details.email")
-      .sort({ createdAt: -1 })
-      .lean();
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const skip = (page - 1) * limit;
+
+    const [total, items] = await Promise.all([
+      Invoice.countDocuments(query),
+      Invoice.find(query)
+        .populate("partnerId", "header.name contact_details.email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
 
     return NextResponse.json({
       items,
       bills: items.map(serializeBill),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

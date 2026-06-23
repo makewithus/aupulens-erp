@@ -29,7 +29,7 @@ export interface IWarehouse extends Document {
 const WarehouseSchema: Schema<IWarehouse> = new Schema(
   {
     tenantId: { type: String, required: true, index: true },
-    warehouseCode: { type: String, required: true, unique: true, trim: true },
+    warehouseCode: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     location: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
@@ -55,6 +55,8 @@ const WarehouseSchema: Schema<IWarehouse> = new Schema(
   },
   { timestamps: true }
 );
+
+WarehouseSchema.index({ tenantId: 1, warehouseCode: 1 }, { unique: true });
 
 const Warehouse =
   (mongoose.models?.Warehouse as mongoose.Model<IWarehouse>) ||

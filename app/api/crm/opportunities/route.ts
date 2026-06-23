@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const tenantId = session.user.tenantId;
 
-    // Filters
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
+    const skip = (page - 1) * limit;
+
     const query: any = { tenantId };
     if (searchParams.get('account_id')) query.account_id = searchParams.get('account_id');
     if (searchParams.get('stage')) query.stage = searchParams.get('stage');
@@ -26,7 +29,6 @@ export async function GET(req: NextRequest) {
     if (searchParams.get('priority')) query.priority = searchParams.get('priority');
     if (searchParams.get('risk_level')) query.risk_level = searchParams.get('risk_level');
 
-    // Search
     const search = searchParams.get('search');
     if (search) {
       query.$or = [
@@ -36,82 +38,18 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const opps = await CrmOpportunity.find(query)
-      .sort({ updatedAt: -1 })
-      .populate('account_id', 'company_name industry')
-      .populate('owner_id', 'name email')
-      .lean();
+    const [total, data] = await Promise.all([
+      CrmOpportunity.countDocuments(query),
+      CrmOpportunity.find(query)
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('account_id', 'company_name industry')
+        .populate('owner_id', 'name email')
+        .lean(),
+    ]);
 
-    // Generate KPIs
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    let totalPipelineValue = 0;
-    let weightedPipelineValue = 0;
-    let openOpps = 0;
-    let dealsAtRisk = 0;
-    let closingThisMonth = 0;
-    let closedWonThisMonth = 0;
-    let closedLostThisMonth = 0;
-
-    for (const opp of opps) {
-      const isClosedWon = opp.stage === 'Closed Won';
-      const isClosedLost = opp.stage === 'Closed Lost';
-      const isOpen = !isClosedWon && !isClosedLost;
-
-      if (isOpen) {
-        totalPipelineValue += opp.amount || 0;
-        weightedPipelineValue += (opp.amount || 0) * ((opp.probability || 0) / 100);
-        openOpps++;
-
-        if (opp.risk_level === 'High' || opp.risk_level === 'Critical' || opp.is_at_risk) {
-          dealsAtRisk++;
-        }
-
-        if (opp.expected_close_date) {
-          const closeDate = new Date(opp.expected_close_date);
-          if (closeDate.getMonth() === currentMonth && closeDate.getFullYear() === currentYear) {
-            closingThisMonth++;
-          }
-        }
-      } else {
-        // Closed logic
-        if (opp.stage_history) {
-          // Look for entry into closed status
-          const closedStatus = opp.stage_history.find((s: any) => s.stage === opp.stage).lean();
-          if (closedStatus && closedStatus.entered_at) {
-            const entered = new Date(closedStatus.entered_at);
-            if (entered.getMonth() === currentMonth && entered.getFullYear() === currentYear) {
-              if (isClosedWon) closedWonThisMonth++;
-              if (isClosedLost) closedLostThisMonth++;
-            }
-          } else {
-            // Fallback to updatedAt
-            const updated = new Date(opp.updatedAt);
-            if (updated.getMonth() === currentMonth && updated.getFullYear() === currentYear) {
-               if (isClosedWon) closedWonThisMonth++;
-               if (isClosedLost) closedLostThisMonth++;
-            }
-          }
-        }
-      }
-    }
-
-    const avgDealSize = openOpps > 0 ? totalPipelineValue / openOpps : 0;
-
-    const kpis = {
-      totalPipelineValue,
-      weightedPipelineValue,
-      openOpportunities: openOpps,
-      dealsAtRisk,
-      closingThisMonth,
-      closedWonThisMonth,
-      closedLostThisMonth,
-      avgDealSize
-    };
-
-    return NextResponse.json({ success: true, data: opps, kpis });
+    return NextResponse.json({ success: true, data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("GET Opportunities Error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

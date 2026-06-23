@@ -192,8 +192,6 @@ export async function computeAndStoreChurnRisk(
   return { level: level as ChurnRiskResult["level"], score, reasons, daysSinceLastActivity };
 }
 
-// ─── Tenant-wide churn risk scan ─────────────────────────────────────────────
-
 export interface ChurnRiskSummary {
   low: number;
   medium: number;
@@ -207,12 +205,40 @@ export async function scanTenantChurnRisk(
   systemUserId?: string
 ): Promise<ChurnRiskSummary> {
   await dbConnect();
-  const accounts = await CrmAccount.find({
-    tenantId,
-    status: { $ne: "Churned" },
-  })
-    .select("_id company_name")
-    .lean();
+  
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  // Bulk fetch everything in 4 parallel queries
+  const [accounts, activities, cases, contracts] = await Promise.all([
+    CrmAccount.find({ tenantId, status: { $ne: "Churned" } }).select("_id company_name").lean(),
+    CrmActivity.find({ tenantId, activity_date: { $gte: ninetyDaysAgo } }).select("linked_account_id activity_date").lean(),
+    CrmCase.find({ tenantId, status: { $nin: ["Resolved", "Closed"] } }).select("account_id sla_breached createdAt").lean(),
+    CrmContract.find({ tenantId }).select("account_id renewal_status status").lean()
+  ]);
+
+  // Group data by account_id for O(1) access
+  const actMap: Record<string, any[]> = {};
+  const caseMap: Record<string, any[]> = {};
+  const contractMap: Record<string, any[]> = {};
+
+  for (const act of activities) {
+    const id = String((act as any).linked_account_id);
+    if (!actMap[id]) actMap[id] = [];
+    actMap[id].push(act);
+  }
+  for (const c of cases) {
+    const id = String((c as any).account_id);
+    if (!caseMap[id]) caseMap[id] = [];
+    caseMap[id].push(c);
+  }
+  for (const c of contracts) {
+    const id = String((c as any).account_id);
+    if (!contractMap[id]) contractMap[id] = [];
+    contractMap[id].push(c);
+  }
 
   const summary: ChurnRiskSummary = {
     low: 0,
@@ -222,32 +248,53 @@ export async function scanTenantChurnRisk(
     criticalAccounts: [],
   };
 
+  const nowTime = Date.now();
+
   for (const acct of accounts) {
-    try {
-      const result = await computeAndStoreChurnRisk(
-        String(acct._id),
-        tenantId,
-        systemUserId
-      );
-      const lvl = result.level.toLowerCase() as keyof Omit<
-        ChurnRiskSummary,
-        "criticalAccounts"
-      >;
-      summary[lvl]++;
-      if (result.level === "Critical" || result.level === "High") {
-        summary.criticalAccounts.push({
-          _id: String(acct._id),
-          company_name: (acct as any).company_name,
-          score: result.score,
-          reasons: result.reasons,
-        });
-      }
-    } catch {
-      // Continue
+    const acctId = String(acct._id);
+    const acctActs = actMap[acctId] || [];
+    const acctCases = caseMap[acctId] || [];
+    const acctContracts = contractMap[acctId] || [];
+
+    const recentActivities = acctActs.filter(a => new Date((a as any).activity_date) >= thirtyDaysAgo).length;
+    let lastActivityDate = 0;
+    for (const a of acctActs) {
+      const t = new Date((a as any).activity_date).getTime();
+      if (t > lastActivityDate) lastActivityDate = t;
+    }
+    const daysSinceLastActivity = lastActivityDate > 0 ? Math.ceil((nowTime - lastActivityDate) / 86_400_000) : 9999;
+
+    const openCases = acctCases.length;
+    const slaBreaches = acctCases.filter(c => (c as any).sla_breached && new Date((c as any).createdAt) >= ninetyDaysAgo).length;
+
+    const renewedContracts = acctContracts.filter(c => (c as any).renewal_status === "Renewed").length;
+    const expiringContracts = acctContracts.filter(c => 
+      ((c as any).status === "Renewal Due" || (c as any).status === "Expiring") && 
+      (c as any).renewal_status === "Not Started"
+    ).length;
+
+    const { level, score, reasons } = calculateChurnRisk({
+      activityFrequency: recentActivities,
+      openCases,
+      slaBreaches,
+      renewalsCompleted: renewedContracts,
+      expiringContracts,
+      daysSinceLastActivity,
+    });
+
+    const lvl = level.toLowerCase() as keyof Omit<ChurnRiskSummary, "criticalAccounts">;
+    summary[lvl]++;
+    
+    if (level === "Critical" || level === "High") {
+      summary.criticalAccounts.push({
+        _id: acctId,
+        company_name: (acct as any).company_name,
+        score,
+        reasons,
+      });
     }
   }
 
-  // Sort critical/high accounts by score descending
   summary.criticalAccounts.sort((a, b) => b.score - a.score);
   return summary;
 }

@@ -44,6 +44,10 @@ export default function VendorBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,15 +58,19 @@ export default function VendorBillsPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
 
-  const load = async () => {
+  const load = async (currentPage = 1) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/bills");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      const [res, cRes] = await Promise.all([
+        fetch(`/api/finance/bills?${params.toString()}`),
+        fetch("/api/sales/customers"),
+      ]);
       const data = await res.json();
-      setBills(data.items || []);
-
-      const cRes = await fetch("/api/sales/customers");
       const cData = await cRes.json();
+      setBills(data.items || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
       setCustomers(cData.items || []);
     } catch (error) {
       toast.error("Failed to load resources");
@@ -72,8 +80,8 @@ export default function VendorBillsPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    load(page);
+  }, [page]);
 
   const filteredBills = useMemo(() => {
     return bills.filter(
@@ -496,6 +504,24 @@ export default function VendorBillsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

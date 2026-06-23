@@ -34,6 +34,28 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    const pageParam = searchParams.get("page");
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+
+    if (pageParam) {
+      // Paginated mode: only when caller explicitly passes ?page=
+      const page = Math.max(1, parseInt(pageParam));
+      const skip = (page - 1) * limit;
+      const [total, employees] = await Promise.all([
+        Employee.countDocuments(query),
+        Employee.find(query)
+          .populate("departmentId", "name code")
+          .populate("reportingManagerId", "firstName lastName employeeCode")
+          .populate("userId", "name email role status")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+      return NextResponse.json({ items: employees, total, page, totalPages: Math.ceil(total / limit) });
+    }
+
+    // No ?page= → return all (backward-compat for dropdowns and cross-module consumers)
     const employees = await Employee.find(query)
       .populate("departmentId", "name code")
       .populate("reportingManagerId", "firstName lastName employeeCode")
@@ -41,7 +63,7 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ items: employees });
+    return NextResponse.json({ items: employees, total: employees.length, page: 1, totalPages: 1 });
   } catch (error: any) {
     console.error("Get Employees Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -35,6 +35,7 @@ async function connectDB() {
       // Fail fast if server is unreachable
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 30000,
+      family: 4, // Force IPv4 to prevent Node.js IPv6 resolution hangs
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => m);

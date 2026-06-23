@@ -27,7 +27,11 @@ export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [kpis, setKpis] = useState<any>({});
   const [loading, setLoading] = useState(true);
-  
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 25;
+
   // Toolbar state
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -57,24 +61,37 @@ export default function OpportunitiesPage() {
   // Reference lookups (Mocking this part for UI, in real app fetched from APIs)
   const [accounts, setAccounts] = useState<any[]>([]);
 
-  const fetchOpportunities = async () => {
+  const fetchOpportunities = async (currentPage = page) => {
     setLoading(true);
-    let url = "/api/crm/opportunities?";
-    if (search) url += `search=${encodeURIComponent(search)}&`;
-    if (stageFilter && stageFilter !== "all") url += `stage=${encodeURIComponent(stageFilter)}&`;
-    if (riskFilter && riskFilter !== "all") url += `risk_level=${encodeURIComponent(riskFilter)}&`;
+    const params = new URLSearchParams();
+    params.set('page', String(currentPage));
+    params.set('limit', String(LIMIT));
+    if (search) params.set('search', search);
+    if (stageFilter && stageFilter !== "all") params.set('stage', stageFilter);
+    if (riskFilter && riskFilter !== "all") params.set('risk_level', riskFilter);
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(`/api/crm/opportunities?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setOpportunities(data.data);
-        setKpis(data.kpis);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
       }
     } catch (err) {
       toast.error("Failed to load opportunities.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchKpis = async () => {
+    try {
+      const res = await fetch("/api/crm/opportunities/kpis");
+      const data = await res.json();
+      if (data.success) setKpis(data.kpis);
+    } catch {
+      // non-critical; KPI cards remain empty
     }
   };
 
@@ -90,14 +107,21 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     fetchLookups();
+    fetchKpis();
   }, []);
 
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
-      fetchOpportunities();
+      setPage(1);
+      fetchOpportunities(1);
+      fetchKpis();
     }, 300);
     return () => clearTimeout(delayDebounce);
   }, [search, stageFilter, riskFilter]);
+
+  useEffect(() => {
+    fetchOpportunities(page);
+  }, [page]);
 
   const handleCreateOpportunity = async () => {
     if (!formData.deal_name || !formData.account_id || !formData.amount || !formData.expected_close_date) {
@@ -360,6 +384,34 @@ export default function OpportunitiesPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-800">
+            <p className="text-sm text-muted-foreground">
+              Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">Page {page} of {totalPages}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 

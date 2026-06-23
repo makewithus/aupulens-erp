@@ -133,16 +133,27 @@ export async function PATCH(
         let totalOvertime = 0;
         let totalLOP = 0;
 
+        // Batch-fetch all attendance records for the period in one query
+        const empIds = employees.map((e) => e._id);
+        const allAttendance = await Attendance.find({
+          tenantId,
+          employeeId: { $in: empIds },
+          date: {
+            $gte: payroll.payrollPeriod.startDate,
+            $lte: payroll.payrollPeriod.endDate,
+          },
+        }).lean();
+
+        // Group by employeeId string for O(1) lookup
+        const attendanceByEmp = new Map<string, typeof allAttendance>();
+        for (const rec of allAttendance) {
+          const key = String(rec.employeeId);
+          if (!attendanceByEmp.has(key)) attendanceByEmp.set(key, []);
+          attendanceByEmp.get(key)!.push(rec);
+        }
+
         for (const emp of employees) {
-          // Get attendance for this employee during the period
-          const attendance = await Attendance.find({
-            tenantId,
-            employeeId: emp._id,
-            date: {
-              $gte: payroll.payrollPeriod.startDate,
-              $lte: payroll.payrollPeriod.endDate,
-            },
-          }).lean();
+          const attendance = attendanceByEmp.get(String(emp._id)) ?? [];
 
           const totalWorkingDays = 26; // standard working days
           const daysPresent = attendance.filter(

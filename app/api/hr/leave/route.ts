@@ -22,18 +22,27 @@ export async function GET(req: NextRequest) {
     if (status) query.status = status;
     if (employeeId) query.employeeId = employeeId;
 
-    const leaves = await LeaveRequest.find(query)
-      .populate({
-        path: "employeeId",
-        select: "firstName lastName employeeCode departmentId designation",
-        populate: { path: "departmentId", select: "name code" },
-      })
-      .populate("approvedBy", "name")
-      .populate("rejectedBy", "name")
-      .sort({ createdAt: -1 })
-      .lean();
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const skip = (page - 1) * limit;
 
-    return NextResponse.json({ items: leaves });
+    const [total, leaves] = await Promise.all([
+      LeaveRequest.countDocuments(query),
+      LeaveRequest.find(query)
+        .populate({
+          path: "employeeId",
+          select: "firstName lastName employeeCode departmentId designation",
+          populate: { path: "departmentId", select: "name code" },
+        })
+        .populate("approvedBy", "name")
+        .populate("rejectedBy", "name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    return NextResponse.json({ items: leaves, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

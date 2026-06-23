@@ -166,8 +166,9 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
 
 SaleOrderSchema.index({ tenantId: 1, "header.name": 1 }, { unique: true });
 SaleOrderSchema.index({ "header.partnerId": 1 });
-SaleOrderSchema.index({ status: 1 });
-SaleOrderSchema.index({ q2cStatus: 1 });
+SaleOrderSchema.index({ tenantId: 1, status: 1 });
+SaleOrderSchema.index({ tenantId: 1, q2cStatus: 1 });
+SaleOrderSchema.index({ tenantId: 1, createdAt: -1 });
 
 const SaleOrder: Model<ISaleOrder> =
   (models.SaleOrder as Model<ISaleOrder>) ||

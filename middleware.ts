@@ -98,6 +98,11 @@ export default auth(async (req) => {
     return NextResponse.redirect(new URL(getRoleDashboard(role), req.url));
   };
 
+  // Block all /api/debug/* routes — removed from codebase, always 404
+  if (pathname.startsWith("/api/debug")) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   // Central Session Check for API routes (exclude auth endpoints and public APIs)
   if (isApiRoute && !isAuthApi && !isPublicApi && !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -156,6 +161,15 @@ export default auth(async (req) => {
       user.role !== "master-admin"
     ) {
       return handleForbidden(isApiRoute, user.role as string);
+    }
+  }
+
+  // Check if user is accessing CRM routes / APIs
+  // Any authenticated user may enter CRM; fine-grained RBAC is enforced
+  // per-handler via lib/crm/rbac.ts (requireRole with permission strings).
+  if (pathname.startsWith("/crm") || pathname.startsWith("/api/crm")) {
+    if (!user) {
+      return handleUnauthorized(isApiRoute, "/auth/admin");
     }
   }
 

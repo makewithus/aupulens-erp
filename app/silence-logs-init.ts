@@ -1,4 +1,4 @@
-if (process.env.NEXT_PUBLIC_DEBUG !== "true") {
+if (process.env.NODE_ENV !== "development") {
   console.log = () => {};
   console.info = () => {};
   console.debug = () => {};
