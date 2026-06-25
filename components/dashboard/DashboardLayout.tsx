@@ -52,6 +52,7 @@ export function DashboardLayout({
   const mainScrollRef = useRef<HTMLElement>(null);
   const mainScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -102,10 +103,14 @@ export function DashboardLayout({
         profilePath={profile}
         sidebarConfig={sections}
         onToggleAi={() => setIsAiSidebarOpen(!isAiSidebarOpen)}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
-        {sections.length > 0 && <DashboardSidebar sections={sections} />}
+        {sections.length > 0 && isSidebarOpen && (
+          <DashboardSidebar sections={sections} onClose={() => setIsSidebarOpen(false)} />
+        )}
 
         <main
           ref={mainScrollRef}

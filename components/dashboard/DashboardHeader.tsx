@@ -123,6 +123,8 @@ interface DashboardHeaderProps {
   profilePath?: string;
   sidebarConfig?: SidebarSection[];
   onToggleAi?: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export function DashboardHeader({
@@ -139,6 +141,8 @@ export function DashboardHeader({
   profilePath,
   sidebarConfig = [],
   onToggleAi,
+  isSidebarOpen = true,
+  onToggleSidebar,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -342,6 +346,17 @@ export function DashboardHeader({
             </div>
             {/* Module Dropdown and Top-Links (desktop) */}
             <div className="hidden lg:flex items-center gap-4">
+              {sidebarConfig.length > 0 && onToggleSidebar && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onToggleSidebar}
+                  title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                  className="h-8 w-8 text-neutral-400 hover:text-foreground hover:bg-neutral-800/50 transition-all rounded-lg"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              )}
               <div className="relative" ref={moduleRef}>
                 <button
                   onClick={() => setIsModuleOpen(!isModuleOpen)}

@@ -183,7 +183,7 @@ export default function UsersPage() {
           </div>
           <Button
             onClick={() => setIsAddUserOpen(true)}
-            className="none-xl h-12 px-6 font-black uppercase text-xs tracking-widest bg-primary shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add New User
