@@ -59,7 +59,7 @@ export function UsersTable({
   getRoleBadgeColor,
 }: UsersTableProps) {
   return (
-    <Card className="overflow-hidden border-border/40 shadow-none">
+    <Card className="overflow-hidden border-border/40 shadow-none bg-background">
       {/* Header */}
       <div className="border-b border-border/20 px-8 py-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

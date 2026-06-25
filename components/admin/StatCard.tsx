@@ -2,19 +2,20 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
+import { UsersGraph } from "./graphics/UsersGraph";
 
 interface StatCardProps {
   title: string;
   value: number;
-  icon: LucideIcon;
   subtitle?: string;
+  graphic?:React.ReactNode,
 }
 
 export function StatCard({
   title,
   value,
-  icon: Icon,
   subtitle,
+  graphic,
 }: StatCardProps) {
   return (
     <Card
@@ -27,37 +28,29 @@ export function StatCard({
         border-0
       "
     >
-      <CardContent className="flex min-h-[220px] flex-col justify-between p-8">
-        {/* Icons */}
-        <div className="flex items-start justify-between">
-          {/* <Icon
-            className={`h-7 w-7 opacity-60 transition-all duration-500 group-hover:opacity-50`}
-          /> */}
+      <CardContent className="p-8">
+  <div className="flex items-end justify-between">
+    <div className="space-y-4">
+      <p className="font-mono text-[11px] text-muted-foreground/60">
+        {title}
+      </p>
 
-          {/* <Icon
-            className={`h-8 w-8 opacity-10 transition-all duration-500 group-hover:opacity-20`}
-          /> */}
-        </div>
+      <h2 className="text-[56px] font-black leading-none tracking-tighter transition-all duration-500 group-hover:opacity-80">
+        {value}
+      </h2>
 
-        {/* Content */}
-        <div>
-          <p className="mb-3 font-mono text-[11px] text-muted-foreground/60">
-            {title}
-          </p>
+      {subtitle && (
+        <p className="text-sm text-muted-foreground/50">
+          {subtitle}
+        </p>
+      )}
+    </div>
 
-          <h2
-            className={`text-[56px] transition-all duration-500 font-black leading-none tracking-tighter group-hover:opacity-80`}
-          >
-            {value}
-          </h2>
-
-          {/* {subtitle && (
-            <p className="mt-4 font-mono text-xs text-muted-foreground">
-              {subtitle}
-            </p>
-          )} */}
-        </div>
-      </CardContent>
+    <div className="pointer-events-none self-center opacity-100 transition-opacity duration-500 group-hover:opacity-70">
+      {graphic}
+    </div>
+  </div>
+</CardContent>
     </Card>
   );
 }

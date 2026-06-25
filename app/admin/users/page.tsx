@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { EditUserDialog } from "@/components/admin/EditUserDialog";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 
 interface User {
   _id: string;
@@ -202,21 +205,21 @@ export default function UsersPage() {
           <StatCard
             title="Total Users"
             value={users.length}
-            icon={UsersIcon}
+            graphic={<UsersGraph/>}
             subtitle="Registered users"
           />
 
           <StatCard
             title="Active Users"
             value={users.filter((u) => u.status === "active").length}
-            icon={CheckCircle}
+            graphic={<ActivePulse/>}
             subtitle="Currently active"
           />
 
           <StatCard
             title="Inactive Users"
             value={users.filter((u) => u.status === "inactive").length}
-            icon={XCircle}
+            graphic={<InactiveOrbit/>}
             subtitle="Currently inactive"
           />
         </div>
