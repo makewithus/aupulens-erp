@@ -3,7 +3,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Briefcase,
   Mail,
   Phone,
   Pencil,
@@ -38,121 +37,129 @@ export function UserRow({
   getRoleBadgeColor,
 }: UserRowProps) {
   return (
-    <tr className="hover:bg-primary/5 transition-colors group">
-      <td className="p-6">
-        <div className="flex items-center gap-3">
-          {/* <div className="h-10 w-10 none-full bg-primary/10 flex items-center justify-center">
-            <span className="text-sm font-black text-primary">
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-          </div> */}
-
-          <div>
-            <p className="font-black text-sm">{user.name}</p>
-
-            {user.designation && (
-              <p className="text-xs text-muted-foreground font-bold">
-                {user.designation}
-              </p>
-            )}
-          </div>
-        </div>
-      </td>
-
-      <td className="p-6">
+    <tr className="group transition-colors duration-300 hover:bg-white/[0.015]">
+      {/* USER */}
+      <td className="px-8 py-7">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <Mail className="h-3 w-3 text-muted-foreground" />
-            {user.email}
+          <h3 className="text-[18px] font-medium tracking-[-0.03em]">
+            {user.name}
+          </h3>
+
+          {user.designation && (
+            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground/55">
+              {user.designation}
+            </p>
+          )}
+        </div>
+      </td>
+
+      {/* CONTACT */}
+      <td className="px-8 py-7">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Mail className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <span>{user.email}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-            <Phone className="h-3 w-3" />
-            {user.phone}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <span>{user.phone}</span>
           </div>
         </div>
       </td>
 
-      <td className="p-6">
-        {user.employeeId ? (
-          <Badge className="none-full px-3 py-1 uppercase text-[9px] font-black border-2 bg-muted/50">
-            {user.employeeId}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-xs font-bold">
-            N/A
-          </span>
-        )}
+      {/* EMPLOYEE */}
+      <td className="px-8 py-7">
+        <span className="font-mono text-sm text-muted-foreground">
+          {user.employeeId ?? "—"}
+        </span>
       </td>
 
-      <td className="p-6">
+      {/* ROLE */}
+      <td className="px-8 py-7">
         <Badge
-          className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${getRoleBadgeColor(
-            user.role
-          )}`}
+          className={`
+            rounded-none
+            border-0
+            bg-transparent
+            px-0
+            font-mono
+            text-[12px]
+            uppercase
+            tracking-[0.12em]
+            hover:bg-transparent
+            shadow-none
+            ${getRoleBadgeColor(user.role)}
+          `}
         >
           {user.role}
         </Badge>
       </td>
 
-      <td className="p-6">
-        {user.department ? (
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <Briefcase className="h-3 w-3 text-muted-foreground" />
-            {user.department}
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-xs font-bold">
-            N/A
+      {/* DEPARTMENT */}
+      <td className="px-8 py-7">
+        <span className="text-sm text-muted-foreground">
+          {user.department ?? "—"}
+        </span>
+      </td>
+
+      {/* STATUS */}
+      <td className="px-8 py-7">
+        <div className="flex items-center justify-center gap-2">
+          <div
+            className={`h-2 w-2 rounded-full ${
+              user.status === "active"
+                ? "bg-[#8AE06C]"
+                : "bg-[#F56868]"
+            }`}
+          />
+
+          <span
+            className={`font-mono text-[11px] uppercase tracking-[0.15em] ${
+              user.status === "active"
+                ? "text-[#8AE06C]"
+                : "text-[#F56868]"
+            }`}
+          >
+            {user.status}
           </span>
-        )}
+        </div>
       </td>
 
-      <td className="p-6 text-center">
-        <Badge
-          className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${
-            user.status === "active"
-              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-              : "bg-rose-500/10 text-rose-600 border-rose-500/20"
-          }`}
-        >
-          {user.status}
-        </Badge>
-      </td>
-
-      <td className="p-6 text-right">
-        <div className="flex items-center justify-end gap-2">
+      {/* ACTIONS */}
+      <td className="px-8 py-7">
+        <div className="flex justify-end gap-1">
           <Button
-            size="icon"
             variant="ghost"
+            size="icon"
             onClick={() => onEdit(user)}
-            className="h-9 w-9 none-xl hover:bg-primary/10"
+            className="h-8 w-8 rounded-none hover:bg-white/5"
           >
             <Pencil className="h-4 w-4" />
           </Button>
 
           <Button
-            size="sm"
-            variant="outline"
+            variant="ghost"
+            size="icon"
             onClick={() =>
               onToggleActive(user._id, user.status)
             }
-            className={`none-xl h-9 px-4 font-black text-[9px] uppercase tracking-widest ${
-              user.status === "active"
-                ? "border-rose-500/20 text-rose-600 hover:bg-rose-500/10"
-                : "border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
-            }`}
+            className="h-8 w-8 rounded-none hover:bg-white/5"
           >
-            {user.status === "active"
-              ? "Deactivate"
-              : "Activate"}
+            <div
+              className={`h-2 w-2 rounded-full ${
+                user.status === "active"
+                  ? "bg-[#F56868]"
+                  : "bg-[#8AE06C]"
+              }`}
+            />
           </Button>
 
           <Button
-            size="icon"
             variant="ghost"
+            size="icon"
             onClick={() => onDelete(user._id)}
-            className="h-9 w-9 none-xl text-rose-600 hover:bg-rose-500/10"
+            className="h-8 w-8 rounded-none text-[#F56868] hover:bg-white/5"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
