@@ -346,7 +346,7 @@ export function DashboardHeader({
             </div>
             {/* Module Dropdown and Top-Links (desktop) */}
             <div className="hidden lg:flex items-center gap-4">
-              {sidebarConfig.length > 0 && onToggleSidebar && (
+              {/* {sidebarConfig.length > 0 && onToggleSidebar && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -356,7 +356,7 @@ export function DashboardHeader({
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
-              )}
+              )} */}
               <div className="relative" ref={moduleRef}>
                 <button
                   onClick={() => setIsModuleOpen(!isModuleOpen)}

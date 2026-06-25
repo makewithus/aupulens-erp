@@ -41,11 +41,11 @@ export function UserRow({
     <tr className="hover:bg-primary/5 transition-colors group">
       <td className="p-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 none-full bg-primary/10 flex items-center justify-center">
+          {/* <div className="h-10 w-10 none-full bg-primary/10 flex items-center justify-center">
             <span className="text-sm font-black text-primary">
               {user.name.charAt(0).toUpperCase()}
             </span>
-          </div>
+          </div> */}
 
           <div>
             <p className="font-black text-sm">{user.name}</p>

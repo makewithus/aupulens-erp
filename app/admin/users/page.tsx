@@ -2,7 +2,6 @@
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 import { StatCard } from "@/components/admin/StatCard";
-import { UsersFilters } from "@/components/admin/UsersFilters";
 import { UsersTable } from "@/components/admin/UsersTable";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -190,6 +189,7 @@ export default function UsersPage() {
           </Button>
         </div>
 
+        <div className="space-y-1">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-1 md:grid-cols-3">          
           <StatCard
@@ -214,27 +214,29 @@ export default function UsersPage() {
           />
         </div>
 
-        {/* Filters Card */}
-        <UsersFilters
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          roleFilter={roleFilter}
-          setRoleFilter={setRoleFilter}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-        />
-
-        {/* User Table */}
         <UsersTable
           users={filteredUsers}
           isLoading={isLoading}
+
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+
+          roleFilter={roleFilter}
+          setRoleFilter={setRoleFilter}
+
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+
           hasFilters={hasFilters}
+
           onEdit={handleEditUser}
           onDelete={handleDeleteUser}
           onToggleActive={handleToggleActive}
+
           getRoleBadgeColor={getRoleBadgeColor}
-        />
+      />
       </div>
+    </div>
 
       <AddUserDialog
         open={isAddUserOpen}
