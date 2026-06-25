@@ -7,43 +7,56 @@ interface StatCardProps {
   title: string;
   value: number;
   icon: LucideIcon;
-  iconContainerClassName?: string;
-  iconClassName?: string;
-  valueClassName?: string;
+  subtitle?: string;
 }
 
 export function StatCard({
   title,
   value,
   icon: Icon,
-  iconContainerClassName = "bg-primary/5 group-hover:bg-primary",
-  iconClassName = "",
-  valueClassName = "",
+  subtitle,
 }: StatCardProps) {
   return (
-    <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div
-            className={`h-12 w-12 none-xl flex items-center justify-center transition-all ${iconContainerClassName}`}
-          >
-            <Icon
-              className={`h-6 w-6 group-hover:text-white transition-colors ${iconClassName}`}
-            />
-          </div>
+    <Card
+      className="
+        group
+        overflow-hidden
+        shadow-none
+        transition-all
+        duration-500
+        border-0
+      "
+    >
+      <CardContent className="flex min-h-[220px] flex-col justify-between p-8">
+        {/* Icons */}
+        <div className="flex items-start justify-between">
+          {/* <Icon
+            className={`h-7 w-7 opacity-60 transition-all duration-500 group-hover:opacity-50`}
+          /> */}
 
-          <Icon className={`h-8 w-8 opacity-10 ${iconClassName}`} />
+          {/* <Icon
+            className={`h-8 w-8 opacity-10 transition-all duration-500 group-hover:opacity-20`}
+          /> */}
         </div>
 
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-          {title}
-        </p>
+        {/* Content */}
+        <div>
+          <p className="mb-3 font-mono text-[11px] text-muted-foreground/60">
+            {title}
+          </p>
 
-        <h3
-          className={`text-3xl font-black tracking-tighter ${valueClassName}`}
-        >
-          {value}
-        </h3>
+          <h2
+            className={`text-[56px] transition-all duration-500 font-black leading-none tracking-tighter group-hover:opacity-80`}
+          >
+            {value}
+          </h2>
+
+          {/* {subtitle && (
+            <p className="mt-4 font-mono text-xs text-muted-foreground">
+              {subtitle}
+            </p>
+          )} */}
+        </div>
       </CardContent>
     </Card>
   );

@@ -177,12 +177,9 @@ export default function UsersPage() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               User Directory
             </h1>
-            <p className="text-sm font-bold text-muted-foreground uppercase opacity-60 tracking-wider">
-              Manage system access and user permissions
-            </p>
           </div>
           <Button
             onClick={() => setIsAddUserOpen(true)}
@@ -194,29 +191,26 @@ export default function UsersPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-1 md:grid-cols-3">          
           <StatCard
             title="Total Users"
             value={users.length}
             icon={UsersIcon}
+            subtitle="Registered users"
           />
 
           <StatCard
             title="Active Users"
             value={users.filter((u) => u.status === "active").length}
             icon={CheckCircle}
-            iconContainerClassName="bg-emerald-500/5 group-hover:bg-emerald-500"
-            iconClassName="text-emerald-600"
-            valueClassName="text-emerald-600"
+            subtitle="Currently active"
           />
 
           <StatCard
             title="Inactive Users"
             value={users.filter((u) => u.status === "inactive").length}
             icon={XCircle}
-            iconContainerClassName="bg-rose-500/5 group-hover:bg-rose-500"
-            iconClassName="text-rose-600"
-            valueClassName="text-rose-600"
+            subtitle="Currently inactive"
           />
         </div>
 
