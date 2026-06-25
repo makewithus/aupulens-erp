@@ -1,42 +1,23 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
-
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersFilters } from "@/components/admin/UsersFilters";
+import { UsersTable } from "@/components/admin/UsersTable";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Users as UsersIcon,
   UserPlus,
-  Pencil,
-  Trash2,
-  Search,
-  Filter,
-  Eye,
   CheckCircle,
   XCircle,
-  Shield,
-  Mail,
-  Phone,
-  Briefcase,
-  Calendar,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { EditUserDialog } from "@/components/admin/EditUserDialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { TableSkeleton } from "@/components/ui/loading-skeletons";
 
 interface User {
   _id: string;
@@ -170,6 +151,11 @@ export default function UsersPage() {
     return colors[role] || "bg-muted text-muted-foreground border-border";
   };
 
+  const hasFilters =
+    !!searchQuery ||
+    roleFilter !== "all" ||
+    statusFilter !== "all";
+
   return (
     <DashboardLayout
       sidebarSections={adminSidebarConfig}
@@ -209,279 +195,51 @@ export default function UsersPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
-                  <UsersIcon className="h-6 w-6" />
-                </div>
-                <Shield className="h-8 w-8 opacity-10" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Total Users
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter">
-                {users.length}
-              </h3>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Users"
+            value={users.length}
+            icon={UsersIcon}
+          />
 
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-emerald-500/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <CheckCircle className="h-6 w-6 text-emerald-600 group-hover:text-white" />
-                </div>
-                <CheckCircle className="h-8 w-8 opacity-10 text-emerald-600" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Active Users
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-emerald-600">
-                {users.filter((u) => u.status === "active").length}
-              </h3>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Active Users"
+            value={users.filter((u) => u.status === "active").length}
+            icon={CheckCircle}
+            iconContainerClassName="bg-emerald-500/5 group-hover:bg-emerald-500"
+            iconClassName="text-emerald-600"
+            valueClassName="text-emerald-600"
+          />
 
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-rose-500/5 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all">
-                  <XCircle className="h-6 w-6 text-rose-600 group-hover:text-white" />
-                </div>
-                <XCircle className="h-8 w-8 opacity-10 text-rose-600" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Inactive Users
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-rose-600">
-                {users.filter((u) => u.status === "inactive").length}
-              </h3>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Inactive Users"
+            value={users.filter((u) => u.status === "inactive").length}
+            icon={XCircle}
+            iconContainerClassName="bg-rose-500/5 group-hover:bg-rose-500"
+            iconClassName="text-rose-600"
+            valueClassName="text-rose-600"
+          />
         </div>
 
         {/* Filters Card */}
-        <Card className="none-4xl border-2 shadow-xl">
-          <div className="p-6 border-b-2 bg-muted/30 flex items-center gap-3">
-            <Filter className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-black uppercase tracking-tight">
-              Search & Filters
-            </h3>
-          </div>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, email, phone, ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 none-xl h-11 border-2 font-bold text-sm uppercase placeholder:normal-case"
-                />
-              </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="none-xl h-11 border-2 font-bold text-sm uppercase">
-                  <SelectValue placeholder="Filter by role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="master-admin">Master Admin</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="inventory">Inventory</SelectItem>
-                  <SelectItem value="project">Project</SelectItem>
-                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="none-xl h-11 border-2 font-bold text-sm uppercase">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        <UsersFilters
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          roleFilter={roleFilter}
+          setRoleFilter={setRoleFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+        />
 
         {/* User Table */}
-        <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-          <div className="p-6 border-b-2 bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <UsersIcon className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight">
-                  All Users
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                  {filteredUsers.length} user
-                  {filteredUsers.length !== 1 ? "s" : ""} found
-                </p>
-              </div>
-            </div>
-          </div>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <TableSkeleton rows={5} columns={7} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b-2">
-                    <tr className="text-left text-[10px] font-black uppercase tracking-widest opacity-40">
-                      <th className="p-6">User</th>
-                      <th className="p-6">Contact</th>
-                      <th className="p-6">Employee ID</th>
-                      <th className="p-6">Role</th>
-                      <th className="p-6">Department</th>
-                      <th className="p-6 text-center">Status</th>
-                      <th className="p-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y-2 border-primary/5">
-                    {filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-20 text-center opacity-20">
-                          <UsersIcon className="h-20 w-20 mx-auto mb-4" />
-                          <p className="font-black uppercase tracking-widest">
-                            {searchQuery ||
-                            roleFilter !== "all" ||
-                            statusFilter !== "all"
-                              ? "No users match your filters"
-                              : "No users found"}
-                          </p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <tr
-                          key={user._id}
-                          className="hover:bg-primary/5 transition-colors group"
-                        >
-                          <td className="p-6">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 none-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-sm font-black text-primary">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-black text-sm">
-                                  {user.name}
-                                </p>
-                                {user.designation && (
-                                  <p className="text-xs text-muted-foreground font-bold">
-                                    {user.designation}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-xs font-bold">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
-                                {user.email}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-                                {user.phone}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            {user.employeeId ? (
-                              <Badge className="none-full px-3 py-1 uppercase text-[9px] font-black border-2 bg-muted/50">
-                                {user.employeeId}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs font-bold">
-                                N/A
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-6">
-                            <Badge
-                              className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${getRoleBadgeColor(user.role)}`}
-                            >
-                              {user.role}
-                            </Badge>
-                          </td>
-                          <td className="p-6">
-                            {user.department ? (
-                              <div className="flex items-center gap-2 text-xs font-bold">
-                                <Briefcase className="h-3 w-3 text-muted-foreground" />
-                                {user.department}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs font-bold">
-                                N/A
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-6 text-center">
-                            <Badge
-                              className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${
-                                user.status === "active"
-                                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                  : "bg-rose-500/10 text-rose-600 border-rose-500/20"
-                              }`}
-                            >
-                              {user.status}
-                            </Badge>
-                          </td>
-                          <td className="p-6 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleEditUser(user)}
-                                className="h-9 w-9 none-xl hover:bg-primary/10 transition-all"
-                                title="Edit user"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleToggleActive(user._id, user.status)
-                                }
-                                className={`none-xl h-9 px-4 font-black text-[9px] uppercase tracking-widest ${
-                                  user.status === "active"
-                                    ? "border-rose-500/20 text-rose-600 hover:bg-rose-500/10"
-                                    : "border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
-                                }`}
-                              >
-                                {user.status === "active"
-                                  ? "Deactivate"
-                                  : "Activate"}
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleDeleteUser(user._id)}
-                                className="h-9 w-9 none-xl text-rose-600 hover:bg-rose-500/10 transition-all"
-                                title="Delete user"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <UsersTable
+          users={filteredUsers}
+          isLoading={isLoading}
+          hasFilters={hasFilters}
+          onEdit={handleEditUser}
+          onDelete={handleDeleteUser}
+          onToggleActive={handleToggleActive}
+          getRoleBadgeColor={getRoleBadgeColor}
+        />
       </div>
 
       <AddUserDialog
