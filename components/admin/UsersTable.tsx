@@ -61,27 +61,30 @@ export function UsersTable({
   return (
     <Card className="overflow-hidden border-border/40 shadow-none">
       {/* Header */}
-      <div className="flex items-end justify-between border-b border-border/40 px-8 py-6">
-        <div>
-          <h2 className="text-[24px] font-medium tracking-[-0.04em]">
-            All Users
-          </h2>
+      <div className="border-b border-border/20 px-8 py-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="shrink-0">
+            <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+              All Users
+            </h2>
 
-          <p className="mt-1 text-xs text-muted-foreground">
-            {users.length} user{users.length !== 1 ? "s" : ""}
-          </p>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+              {users.length} {users.length === 1 ? "User" : "Users"}
+            </p>
+          </div>
+
+          <div className="w-full max-w-3xl">
+            <UsersToolbar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              roleFilter={roleFilter}
+              setRoleFilter={setRoleFilter}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
+          </div>
         </div>
       </div>
-
-      {/* Toolbar */}
-      <UsersToolbar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        roleFilter={roleFilter}
-        setRoleFilter={setRoleFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-      />
 
       <CardContent className="p-0">
         {isLoading ? (
@@ -91,31 +94,31 @@ export function UsersTable({
             <table className="w-full">
               <thead className="border-b border-border/40">
                 <tr className="text-left">
-                  <th className="px-8 py-5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     User
                   </th>
 
-                  <th className="px-8 py-5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Contact
                   </th>
 
-                  <th className="px-8 py-5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Employee ID
                   </th>
 
-                  <th className="px-8 py-5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Role
                   </th>
 
-                  <th className="px-8 py-5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Department
                   </th>
 
-                  <th className="px-8 py-5 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Status
                   </th>
 
-                  <th className="px-8 py-5 text-right font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/50">
+                  <th className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                     Actions
                   </th>
                 </tr>
