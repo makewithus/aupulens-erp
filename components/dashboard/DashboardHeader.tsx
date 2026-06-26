@@ -3,15 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Roboto_Mono } from "next/font/google";
 import {
-  Menu,
-  ChevronDown,
   DollarSign,
   ShoppingCart,
   Package,
   Factory,
   ShieldCheck,
   Users,
-  Sparkles,
 } from "lucide-react";
 
 const robotoMono = Roboto_Mono({
@@ -37,6 +34,7 @@ import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
 import { HeaderActions } from "./HeaderActions";
 import { GlobalSearch } from "./GlobalSearch";
+import { ModuleTabs } from "./ModuleTabs";
 
 // Master Admin Module Switching
 const MASTER_MODULES = [
@@ -81,6 +79,44 @@ const MASTER_MODULES = [
     title: "CRM",
     icon: Users,
     config: crmSidebarConfig,
+  },
+];
+
+const MODULES = [
+  {
+    id: "sales",
+    title: "Sales",
+    href: "/sales/pipeline",
+  },
+  {
+    id: "inventory",
+    title: "Inventory",
+    href: "/inventory/summary",
+  },
+  {
+    id: "finance",
+    title: "Finance",
+    href: "/finance/summary",
+  },
+  {
+    id: "manufacturing",
+    title: "Manufacturing",
+    href: "/manufacturing/dashboard",
+  },
+  {
+    id: "hr",
+    title: "HR",
+    href: "/hr/dashboard",
+  },
+  {
+    id: "admin",
+    title: "Admin",
+    href: "/admin/dashboard",
+  },
+  {
+    id: "crm",
+    title: "CRM",
+    href: "/crm/dashboard",
   },
 ];
 
@@ -241,6 +277,10 @@ export function DashboardHeader({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  const activeModule =
+  MODULES.find((m) => pathname.startsWith(`/${m.id}`))?.id ??
+  "admin";
+
   return (
     <header
       className={cn(
@@ -265,7 +305,7 @@ export function DashboardHeader({
             </Link>
 
             {/* Module Dropdown */}
-            <div className="lg:hidden">
+            {/* <div className="lg:hidden">
               <Button
                 size="icon"
                 variant="ghost"
@@ -276,8 +316,9 @@ export function DashboardHeader({
                 <Menu className="h-4 w-4" />
               </Button>
             </div>
+            
             {/* Module Dropdown and Top-Links (desktop) */}
-            <div className="hidden lg:flex items-center gap-1">
+            {/* <div className="hidden lg:flex items-center gap-1">
               {(activeUserRole === "master-admin" || activeUserRole === "admin") ? (
                 MASTER_MODULES.map((m, index) => {
                   const isDropdownActive = activeDropdown === index;
@@ -329,9 +370,9 @@ export function DashboardHeader({
                                     }}
                                     className="w-full text-left px-2 py-1.5 rounded-none hover:bg-primary/5 hover:text-primary transition duration-150 flex items-center gap-2.5 text-xs text-foreground/80 tracking-wider"
                                   >
-                                    {/* {it.icon && (
+                                    {it.icon && (
                                       <it.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
-                                    )} */}
+                                    )}
                                     <span className="truncate">{it.title}</span>
                                   </button>
                                 ))}
@@ -387,9 +428,16 @@ export function DashboardHeader({
                   </div>
                 )
               )}
-            </div>
+            </div> */}
 
-            {/* Breadcrumbs removed per header simplification */}
+            {(activeUserRole === "master-admin" ||
+              activeUserRole === "admin") && (
+              <ModuleTabs
+                modules={MODULES}
+                activeModule={activeModule}
+                onNavigate={(href) => router.push(href)}
+              />
+            )}
           </div>
 
           {/* RIGHT SECTION */}
