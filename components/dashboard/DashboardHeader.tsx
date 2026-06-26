@@ -3,11 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Roboto_Mono } from "next/font/google";
 import {
-  RefreshCw,
-  ChevronRight,
-  Home,
-  Search,
-  X,
   Menu,
   ChevronDown,
   DollarSign,
@@ -24,14 +19,10 @@ const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserNav } from "./UserNav";
+
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
@@ -44,6 +35,8 @@ import { crmSidebarConfig } from "@/config/sidebar/crm";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
+import { HeaderActions } from "./HeaderActions";
+import { GlobalSearch } from "./GlobalSearch";
 
 // Master Admin Module Switching
 const MASTER_MODULES = [
@@ -146,12 +139,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { tenantId } = useTenantStore();
   const { logout, user } = useAuthStore();
@@ -184,30 +172,6 @@ export function DashboardHeader({
     })),
   );
 
-  // Filter pages based on search query
-  const filteredPages = searchQuery.trim()
-    ? allPages.filter(
-        (page) =>
-          page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          page.section.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : [];
-
-  // Close search results when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      ) {
-        setShowSearchResults(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // Close mobile nav when clicking outside
   const mobileNavRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -232,17 +196,6 @@ export function DashboardHeader({
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
-  };
-
-  const handleSearchSelect = (href: string) => {
-    router.push(href);
-    setSearchQuery("");
-    setShowSearchResults(false);
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setShowSearchResults(value.trim().length > 0);
   };
 
   // Simplified header left content: Logo, Module dropdown, and top-level links
@@ -287,27 +240,6 @@ export function DashboardHeader({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
-
-  // Derive a few important top-level links by scanning available pages
-  const messagesPage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("message") ||
-        p.href.includes("/messages"),
-    )?.href || "/messages";
-  const analyticsPage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("analytics") ||
-        p.href.includes("/analytics"),
-    )?.href || "/admin/analytics";
-  const intelligencePage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("intelligence") ||
-        p.href.includes("ai") ||
-        p.href.includes("assistant"),
-    )?.href || "/admin/ai-assistant";
 
   return (
     <header
@@ -462,154 +394,23 @@ export function DashboardHeader({
 
           {/* RIGHT SECTION */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Search Bar - Hidden on mobile, visible on md+ */}
-            {sidebarConfig.length > 0 && (
-              <div ref={searchRef} className="relative hidden lg:block">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    onFocus={() => searchQuery && setShowSearchResults(true)}
-                    className="w-48 xl:w-64 pl-9 pr-9 h-9  bg-muted/50 border-border/60 focus:bg-background rounded-none focus:ring-0 focus:border-primary"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setShowSearchResults(false);
-                      }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
+            <GlobalSearch sidebarConfig={sidebarConfig} />
 
-                {showSearchResults && filteredPages.length > 0 && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-none shadow-lg overflow-hidden z-50">
-                    <div
-                      className={cn(
-                        "max-h-96 overflow-y-auto youtube-scrollbar",
-                        isScrolling && "is-scrolling",
-                      )}
-                      onScroll={(e) => {
-                        setIsScrolling(true);
-                        if (scrollTimeoutRef.current) {
-                          clearTimeout(scrollTimeoutRef.current);
-                        }
-                        scrollTimeoutRef.current = setTimeout(() => {
-                          setIsScrolling(false);
-                        }, 1000);
-                      }}
-                    >
-                      {filteredPages.map((page, index) => {
-                        const Icon = page.icon;
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleSearchSelect(page.href)}
-                            className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left border-b border-border/40 last:border-0"
-                          >
-                            {Icon && (
-                              <div className="shrink-0 w-8 h-8 rounded-none bg-primary/10 flex items-center justify-center">
-                                <Icon className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm text-foreground truncate">
-                                {page.title}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {page.section}
-                              </div>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+            <HeaderActions
+              isRefreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              onToggleAi={onToggleAi}
+              userName={userName}
+              userEmail={userEmail}
+              userRole={userRole}
+              profilePath={profilePath}
+              onSignOut={handleSignOut}
+            />
 
-                {/* No Results */}
-                {showSearchResults &&
-                  searchQuery &&
-                  filteredPages.length === 0 && (
-                    <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-none shadow-lg p-4 z-50">
-                      <p className="text-sm text-muted-foreground text-center">
-                        No pages found for &quot;{searchQuery}&quot;
-                      </p>
-                    </div>
-                  )}
-              </div>
-            )}
-
-            {sidebarConfig.length > 0 && (
-              <Separator
-                orientation="vertical"
-                className="hidden sm:block h-6 bg-border/60"
-              />
-            )}
-
-            {/* Refresh Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className={cn(
-                "h-8 w-8 sm:h-9 sm:w-9 rounded-none hover:bg-accent transition-all duration-200",
-                "hover:shadow-sm hover:scale-105",
-                "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
-              )}
-              title="Refresh page"
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground transition-all duration-500",
-                  isRefreshing && "animate-spin text-primary",
-                  !isRefreshing && "hover:text-foreground",
-                )}
-              />
-            </Button>
-
-            {/* AI Assistant Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleAi}
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-none hover:bg-accent transition-all duration-200 hover:shadow-sm hover:scale-105"
-              title="Aupulens Copilot"
-            >
-              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground hover:text-primary transition-all duration-300" />
-            </Button>
-
-            {/* Theme Toggle
-            <div className="hover:scale-105 transition-transform duration-200">
+            {/* <div className="hover:scale-105 transition-transform duration-200">
               <ThemeToggle />
             </div> */}
 
-            {/* Separator - Hidden on mobile */}
-            <Separator
-              orientation="vertical"
-              className="hidden sm:block h-6 bg-border/60"
-            />
-
-            {/* User Nav */}
-            {userName && (
-              <UserNav
-                userName={userName}
-                userEmail={userEmail}
-                userRole={userRole}
-                onSignOut={() => handleSignOut()}
-                profilePath={profilePath}
-              />
-            )}
           </div>
         </div>
 
