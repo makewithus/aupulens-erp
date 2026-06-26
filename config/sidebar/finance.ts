@@ -32,11 +32,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         href: "/finance/summary",
         icon: LayoutDashboard,
       },
-      {
-        title: "AI Assistant",
-        href: "/finance/ai-assistant",
-        icon: Sparkles,
-      },
+      // {
+      //   title: "AI Assistant",
+      //   href: "/finance/ai-assistant",
+      //   icon: Sparkles,
+      // },
     ],
   },
   {

@@ -26,11 +26,11 @@ export const inventorySidebarConfig = [
       //   href: "/inventory/analytics",
       //   icon: BarChart3,
       // },
-      {
-        title: "AI Assistant",
-        href: "/inventory/ai-assistant",
-        icon: Sparkles,
-      },
+      // {
+      //   title: "AI Assistant",
+      //   href: "/inventory/ai-assistant",
+      //   icon: Sparkles,
+      // },
     ],
   },
   {
