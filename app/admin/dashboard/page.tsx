@@ -38,6 +38,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { DashboardStats } from "@/components/admin/DashboardStats";
+import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 
 interface DashboardSummary {
   finance: {
@@ -485,85 +486,10 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Additional Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="none-3xl border-2 p-6 hover:border-primary/20 transition-all group">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 none-xl bg-muted flex items-center justify-center group-hover:bg-primary/5">
-                <Wallet className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  Net Income
-                </p>
-                <p className="text-2xl font-black tracking-tight my-1">
-                  {formatCurrency(summary.finance.netIncome)}
-                </p>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-40">
-                  Revenue - Expenses
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="none-3xl border-2 p-6 hover:border-primary/20 transition-all group">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 none-xl bg-muted flex items-center justify-center group-hover:bg-primary/5">
-                <FileText className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  Transactions
-                </p>
-                <p className="text-2xl font-black tracking-tight my-1">
-                  {summary.finance.totalTransactions}
-                </p>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-40">
-                  Payment Records
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="none-3xl border-2 p-6 hover:border-primary/20 transition-all group">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 none-xl bg-muted flex items-center justify-center group-hover:bg-primary/5">
-                <Activity className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  Stock Transfers
-                </p>
-                <p className="text-2xl font-black tracking-tight my-1">
-                  {summary.inventory.totalStockTransfers}
-                </p>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-40">
-                  Receipts & Deliveries
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="none-3xl border-2 p-6 hover:border-primary/20 transition-all group">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 none-xl bg-muted flex items-center justify-center group-hover:bg-primary/5">
-                <DollarSign className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  Total Expenses
-                </p>
-                <p className="text-2xl font-black tracking-tight my-1">
-                  {formatCurrency(summary.finance.totalExpenses)}
-                </p>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-40">
-                  {formatCurrency(summary.finance.expensesCurrentMonth)} this
-                  month
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <DashboardMetrics
+          summary={summary}
+          formatCurrency={formatCurrency}
+        />
       </div>
     </DashboardLayout>
   );
