@@ -35,27 +35,27 @@ export function DashboardStats({
         value={formatCurrency(summary.finance.totalRevenue)}
         subtitle={`${formatCurrency(summary.finance.revenueCurrentMonth)} this month`}
         rightContent={
-            <div
+          <div
             className={`${revenueIndicator.bg} ${revenueIndicator.color} flex items-center gap-1 px-2 py-1 text-[10px] font-medium`}
-            >
+          >
             <revenueIndicator.icon className="h-3 w-3" />
             {Math.abs(summary.finance.revenueChange).toFixed(1)}%
-            </div>
+          </div>
         }
         footer={
-            summary.finance.totalRevenue === 0 ? (
+          summary.finance.totalRevenue === 0 ? (
             <div className="border border-amber-500/20 bg-amber-500/10 px-3 py-2">
-                <p className="text-[10px] font-medium text-amber-600">
+              <p className="text-[10px] font-medium text-amber-600">
                 {summary.finance.draftInvoices > 0
-                    ? `⚠ ${summary.finance.draftInvoices} draft invoices need posting`
-                    : summary.sales.totalOrders > 0
+                  ? `⚠ ${summary.finance.draftInvoices} draft invoices need posting`
+                  : summary.sales.totalOrders > 0
                     ? `⚠ ${summary.sales.totalOrders} orders pending invoicing`
                     : "⚠ No revenue data"}
-                </p>
+              </p>
             </div>
-            ) : null
+          ) : null
         }
-        />
+      />
 
       {/* Orders */}
       <StatCard
@@ -63,14 +63,14 @@ export function DashboardStats({
         value={summary.sales.totalOrders}
         subtitle={`${summary.sales.ordersCurrentMonth} this month`}
         rightContent={
-            <div
+          <div
             className={`${ordersIndicator.bg} ${ordersIndicator.color} flex items-center gap-1 px-2 py-1 text-[10px] font-medium`}
-            >
+          >
             <ordersIndicator.icon className="h-3 w-3" />
             {Math.abs(summary.sales.ordersChange).toFixed(1)}%
-            </div>
+          </div>
         }
-        />
+      />
 
       {/* Customers */}
       <StatCard

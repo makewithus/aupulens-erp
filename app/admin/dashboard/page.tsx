@@ -198,7 +198,7 @@ export default function AdminDashboard() {
           </h1>
         </div>
 
-        <DashboardStats
+        {/* <DashboardStats
           summary={summary}
           formatCurrency={formatCurrency}
           revenueIndicator={revenueIndicator}
@@ -218,7 +218,7 @@ export default function AdminDashboard() {
         <DashboardMetrics
           summary={summary}
           formatCurrency={formatCurrency}
-        />
+        /> */}
       </div>
     </DashboardLayout>
   );
