@@ -3,42 +3,19 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import {
-  Users,
-  DollarSign,
-  ShoppingCart,
-  Package,
   TrendingUp,
   TrendingDown,
-  Factory,
-  CheckCircle,
-  XCircle,
-  FileText,
-  Wallet,
-  ShoppingBag,
   Activity,
 } from "lucide-react";
 import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 import { DashboardStats } from "@/components/admin/DashboardStats";
 import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
+import { NetProfitCard } from "@/components/admin/NetProfitCard";
+import { DashboardCharts } from "@/components/admin/DashboardCharts";
 
 interface DashboardSummary {
   finance: {
@@ -214,14 +191,13 @@ export default function AdminDashboard() {
       profilePath="/admin/profile"
     >
       <div className="space-y-6">
-        {/* Header */}
+
         <div className="space-y-1">
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             System Overview
           </h1>
         </div>
 
-        {/* Main Stats Grid - 6 cards */}
         <DashboardStats
           summary={summary}
           formatCurrency={formatCurrency}
@@ -229,262 +205,15 @@ export default function AdminDashboard() {
           ordersIndicator={ordersIndicator}
         />
 
-        {/* Net Profit/Loss Card - Prominent */}
-        <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-          <div
-            className={`p-6 border-b-2 flex items-center gap-3 ${
-              summary.finance.netIncome >= 0
-                ? "bg-emerald-500/5"
-                : "bg-rose-500/5"
-            }`}
-          >
-            <Wallet
-              className={`h-5 w-5 ${
-                summary.finance.netIncome >= 0
-                  ? "text-emerald-600"
-                  : "text-rose-600"
-              }`}
-            />
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-tight">
-                Net Profit / Loss
-              </h3>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                Revenue - Expenses
-              </p>
-            </div>
-          </div>
-          <CardContent className="p-6">
-            <div className="text-center mb-6">
-              <p
-                className={`text-5xl font-black tracking-tighter ${
-                  summary.finance.netIncome >= 0
-                    ? "text-emerald-600"
-                    : "text-rose-600"
-                }`}
-              >
-                {formatCurrency(summary.finance.netIncome)}
-              </p>
-              <p className="text-xs font-bold text-muted-foreground mt-2 uppercase">
-                {summary.finance.netIncome >= 0 ? "PROFIT" : "LOSS"} this period
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 none-xl bg-emerald-500/5 border-2 border-emerald-500/20">
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">
-                  Revenue
-                </p>
-                <p className="text-xl font-black text-emerald-600">
-                  {formatCurrency(summary.finance.totalRevenue)}
-                </p>
-              </div>
-              <div className="p-4 none-xl bg-rose-500/5 border-2 border-rose-500/20">
-                <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-1">
-                  Expenses
-                </p>
-                <p className="text-xl font-black text-rose-600">
-                  {formatCurrency(summary.finance.totalExpenses)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <NetProfitCard
+          summary={summary}
+          formatCurrency={formatCurrency}
+        />
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profit/Loss Pie Chart */}
-          <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-            <div className="p-6 border-b-2 bg-muted/30 flex items-center gap-3">
-              <Activity className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight">
-                  Financial Breakdown
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                  Revenue vs Expenses
-                </p>
-              </div>
-            </div>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      {
-                        name: "Revenue",
-                        value: summary.finance.totalRevenue,
-                        color: "hsl(142, 76%, 36%)",
-                      },
-                      {
-                        name: "Expenses",
-                        value: summary.finance.totalExpenses,
-                        color: "hsl(0, 84%, 60%)",
-                      },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry: { name?: string; value?: number }) =>
-                      `${entry.name}: ${formatCurrency(entry.value ?? 0)}`
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {[
-                      {
-                        name: "Revenue",
-                        value: summary.finance.totalRevenue,
-                        color: "hsl(142, 76%, 36%)",
-                      },
-                      {
-                        name: "Expenses",
-                        value: summary.finance.totalExpenses,
-                        color: "hsl(0, 84%, 60%)",
-                      },
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "2px solid hsl(var(--border))",
-                      backgroundColor: "hsl(var(--background))",
-                    }}
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                  <Legend
-                    wrapperStyle={{
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      textTransform: "uppercase",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Revenue Trend Chart */}
-          <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-            <div className="p-6 border-b-2 bg-muted/30 flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight">
-                  Revenue Trend
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                  Last 6 months performance
-                </p>
-              </div>
-            </div>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={summary.chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    fontWeight="bold"
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    fontWeight="bold"
-                    tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "2px solid hsl(var(--border))",
-                      backgroundColor: "hsl(var(--background))",
-                    }}
-                    formatter={(value: number) => [
-                      formatCurrency(value),
-                      "Revenue",
-                    ]}
-                  />
-                  <Legend
-                    wrapperStyle={{
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      textTransform: "uppercase",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="hsl(142, 76%, 36%)"
-                    strokeWidth={3}
-                    dot={{ fill: "hsl(142, 76%, 36%)", r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Orders Bar Chart */}
-          <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-            <div className="p-6 border-b-2 bg-muted/30 flex items-center gap-3">
-              <ShoppingCart className="h-5 w-5 text-blue-600" />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight">
-                  Orders Volume
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                  Monthly order count
-                </p>
-              </div>
-            </div>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={summary.chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    fontWeight="bold"
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    fontWeight="bold"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "2px solid hsl(var(--border))",
-                      backgroundColor: "hsl(var(--background))",
-                    }}
-                    formatter={(value: number) => [value, "Orders"]}
-                  />
-                  <Legend
-                    wrapperStyle={{
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      textTransform: "uppercase",
-                    }}
-                  />
-                  <Bar
-                    dataKey="orders"
-                    fill="hsl(217, 91%, 60%)"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
+        <DashboardCharts
+          summary={summary}
+          formatCurrency={formatCurrency}
+        />
 
         <DashboardMetrics
           summary={summary}
