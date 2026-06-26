@@ -345,131 +345,116 @@ export function DashboardHeader({
               </Button>
             </div>
             {/* Module Dropdown and Top-Links (desktop) */}
-            <div className="hidden lg:flex items-center gap-4">
-              {/* {sidebarConfig.length > 0 && onToggleSidebar && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onToggleSidebar}
-                  title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-                  className="h-8 w-8 text-neutral-400 hover:text-foreground hover:bg-neutral-800/50 transition-all rounded-lg"
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-              )} */}
-              <div className="relative" ref={moduleRef}>
-                <button
-                  onClick={() => setIsModuleOpen(!isModuleOpen)}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-none bg-primary/5 hover:bg-primary/10 transition-all text-[11px] font-black border-r border-primary/20 shadow-sm uppercase tracking-widest text-primary"
-                >
-                  {activeUserRole === "master-admin" || activeUserRole === "admin"
-                    ? "MODULES"
-                    : dashboardTitle || "MODULE"}
-                  <ChevronDown className="h-3.5 w-3.5 opacity-50" />
-                </button>
+            <div className="hidden lg:flex items-center gap-1">
+              {(activeUserRole === "master-admin" || activeUserRole === "admin") ? (
+                MASTER_MODULES.map((m, index) => {
+                  const isDropdownActive = activeDropdown === index;
+                  return (
+                    <div
+                      key={m.id}
+                      className="relative"
+                      ref={(el) => {
+                        dropdownRefs.current[index] = el;
+                      }}
+                    >
+                      <button
+                        onClick={() => setActiveDropdown(isDropdownActive ? null : index)}
+                        className={cn(
+                          "flex items-center gap-1 px-2 xl:px-3 py-1.5 rounded-none transition-all text-[10px] xl:text-[11px] border-r border-primary/20 shadow-sm tracking-widest",
+                          isDropdownActive
+                            ? "bg-primary/10 text-primary border-primary/40"
+                            : "bg-primary/5 text-primary/80 hover:bg-primary/10 hover:text-primary"
+                        )}
+                      >
+                        <m.icon className="h-3 w-3 xl:h-3.5 xl:w-3.5 opacity-70" />
+                        <span>{m.title}</span>
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3 opacity-50 transition-transform duration-200",
+                            isDropdownActive && "rotate-180"
+                          )}
+                        />
+                      </button>
 
-                {isModuleOpen && (
-                  <div
-                    className="absolute left-0 top-full mt-2 w-[400px]
-  rounded-none border-2 border-primary/20 bg-black p-0 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden"
-                  >
-                    {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
-                      <div className="flex border-b border-white/10 bg-white/5">
-                        {MASTER_MODULES.map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => setPreviewModuleId(m.id)}
-                            className={cn(
-                              "flex-1 py-3 px-2 flex flex-col items-center gap-1.5 transition-all relative group",
-                              previewModuleId === m.id
-                                ? "text-primary bg-primary/10"
-                                : "text-muted-foreground hover:text-foreground hover:bg-white/5",
-                            )}
-                          >
-                            <m.icon
-                              className={cn(
-                                "h-4 w-4",
-                                previewModuleId === m.id
-                                  ? "text-primary"
-                                  : "opacity-40 group-hover:opacity-100",
+                      {isDropdownActive && (
+                        <div
+                          className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar"
+                        >
+                          {m.config.map((section, si) => (
+                            <div key={si} className="mb-3 last:mb-0">
+                              {section.title && (
+                                <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                                  {section.title}
+                                </div>
                               )}
-                            />
-                            <span className="text-[9px] font-black uppercase tracking-tight">
-                              {m.title}
-                            </span>
-                            {previewModuleId === m.id && (
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="p-3 max-h-[70vh] overflow-y-auto youtube-scrollbar">
-                      {(activeUserRole === "master-admin" || activeUserRole === "admin"
-                        ? currentPreviewConfig
-                        : sidebarConfig
-                      ).map((section, si) => (
-                        <div key={si} className="mb-2 last:mb-0">
-                          {/* Section header (accordion trigger) */}
-                          <button
-                            onClick={() =>
-                              setOpenSectionIndex(
-                                openSectionIndex === si ? null : si,
-                              )
-                            }
-                            className="w-full flex items-center justify-between px-3 py-2 bg-transparent hover:bg-muted/50 transition-colors rounded-none"
-                            aria-expanded={openSectionIndex === si}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-                                {section.title}
-                              </span>
+                              <div className="grid grid-cols-1 gap-0.5">
+                                {section.items.map((it: any) => (
+                                  <button
+                                    key={it.href}
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      router.push(it.href);
+                                    }}
+                                    className="w-full text-left px-2 py-1.5 rounded-none hover:bg-primary/5 hover:text-primary transition duration-150 flex items-center gap-2.5 text-xs text-foreground/80 tracking-wider"
+                                  >
+                                    {/* {it.icon && (
+                                      <it.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                    )} */}
+                                    <span className="truncate">{it.title}</span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 transition-transform duration-300",
-                                openSectionIndex === si
-                                  ? "rotate-180 text-primary"
-                                  : "text-muted-foreground",
-                              )}
-                            />
-                          </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                sidebarConfig.length > 0 && (
+                  <div className="relative" ref={moduleRef}>
+                    <button
+                      onClick={() => setIsModuleOpen(!isModuleOpen)}
+                      className="flex items-center gap-2 px-4 py-1.5 rounded-none bg-primary/5 hover:bg-primary/10 transition-all text-[11px] font-black border-r border-primary/20 shadow-sm uppercase tracking-widest text-primary"
+                    >
+                      {dashboardTitle || "MODULE"}
+                      <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                    </button>
 
-                          {/* Submenu - collapsed/expanded with smooth animation */}
-                          <div
-                            className={cn(
-                              "overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out",
-                              openSectionIndex === si
-                                ? "max-h-96 opacity-100"
-                                : "max-h-0 opacity-0",
+                    {isModuleOpen && (
+                      <div className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar">
+                        {sidebarConfig.map((section, si) => (
+                          <div key={si} className="mb-3 last:mb-0">
+                            {section.title && (
+                              <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                                {section.title}
+                              </div>
                             )}
-                          >
-                            <div className="mt-2 grid grid-cols-1 gap-1">
+                            <div className="grid grid-cols-1 gap-0.5">
                               {section.items.map((it: any) => (
                                 <button
                                   key={it.href}
                                   onClick={() => {
                                     setIsModuleOpen(false);
-                                    setOpenSectionIndex(null);
                                     router.push(it.href);
                                   }}
-                                  className="w-full text-left px-3 py-2 rounded-none hover:bg-muted/60 transition transform duration-200 flex items-center gap-3 text-sm text-foreground/90 hover:shadow-sm uppercase"
+                                  className="w-full text-left px-2 py-1.5 rounded-none hover:bg-primary/5 hover:text-primary transition duration-150 flex items-center gap-2.5 text-xs text-foreground/80 uppercase tracking-wider"
                                 >
                                   {it.icon && (
-                                    <it.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                                    <it.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
                                   )}
                                   <span className="truncate">{it.title}</span>
                                 </button>
                               ))}
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                )
+              )}
             </div>
 
             {/* Breadcrumbs removed per header simplification */}
