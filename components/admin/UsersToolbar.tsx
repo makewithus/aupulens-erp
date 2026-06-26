@@ -42,7 +42,7 @@ export function UsersToolbar({
             className="
               h-11
               rounded-none
-              border-border/20
+              border-border/40
               bg-transparent
               pl-11
               pr-4
@@ -54,7 +54,7 @@ export function UsersToolbar({
               transition-all
               duration-300
 
-              placeholder:text-muted-foreground/30
+              placeholder:text-muted-foreground/60
 
               hover:border-border/40
 
