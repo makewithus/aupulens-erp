@@ -203,7 +203,12 @@ export function GlobalSearch({
         filteredPages.length === 0 && (
           <div className="absolute right-0 top-full z-50 mt-2 w-80 border border-border bg-background p-4 shadow-lg">
             <p className="text-center text-sm text-muted-foreground">
-              No pages found for "{searchQuery}"
+              <>
+                No pages found for{" "}
+                <span className="text-foreground">
+                    &quot;{searchQuery}&quot;
+                </span>
+              </>
             </p>
           </div>
         )}
