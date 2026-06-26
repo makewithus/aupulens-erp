@@ -205,21 +205,21 @@ export default function UsersPage() {
           <StatCard
             title="Total Users"
             value={users.length}
-            graphic={<UsersGraph/>}
+            visual={<UsersGraph/>}
             subtitle="Registered users"
           />
 
           <StatCard
             title="Active Users"
             value={users.filter((u) => u.status === "active").length}
-            graphic={<ActivePulse/>}
+            visual={<ActivePulse/>}
             subtitle="Currently active"
           />
 
           <StatCard
             title="Inactive Users"
             value={users.filter((u) => u.status === "inactive").length}
-            graphic={<InactiveOrbit/>}
+            visual={<InactiveOrbit/>}
             subtitle="Currently inactive"
           />
         </div>

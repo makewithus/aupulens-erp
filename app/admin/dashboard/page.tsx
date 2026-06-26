@@ -37,6 +37,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { DashboardStats } from "@/components/admin/DashboardStats";
 
 interface DashboardSummary {
   finance: {
@@ -214,161 +215,18 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-1">
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             System Overview
           </h1>
-          <p className="text-sm font-bold text-muted-foreground uppercase opacity-60 tracking-wider">
-            Real-time metrics across all ERP modules
-          </p>
         </div>
 
         {/* Main Stats Grid - 6 cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Revenue */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-emerald-500/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <DollarSign className="h-6 w-6 text-emerald-600 group-hover:text-white" />
-                </div>
-                <div
-                  className={`flex items-center gap-1 px-2 py-1 none-lg ${revenueIndicator.bg} ${revenueIndicator.color} text-[10px] font-black`}
-                >
-                  <revenueIndicator.icon className="h-3 w-3" />
-                  {Math.abs(summary.finance.revenueChange).toFixed(1)}%
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Total Revenue
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-emerald-600">
-                {formatCurrency(summary.finance.totalRevenue)}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                {formatCurrency(summary.finance.revenueCurrentMonth)} this month
-              </p>
-              {summary.finance.totalRevenue === 0 && (
-                <div className="mt-3 p-2 none-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-[9px] font-bold text-amber-600 uppercase">
-                    {summary.finance.draftInvoices > 0
-                      ? `⚠️ ${summary.finance.draftInvoices} draft invoices need posting`
-                      : summary.sales.totalOrders > 0
-                        ? `⚠️ ${summary.sales.totalOrders} orders pending invoicing`
-                        : "⚠️ No revenue data"}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Orders */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-blue-500/5 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
-                  <ShoppingCart className="h-6 w-6 text-blue-600 group-hover:text-white" />
-                </div>
-                <div
-                  className={`flex items-center gap-1 px-2 py-1 none-lg ${ordersIndicator.bg} ${ordersIndicator.color} text-[10px] font-black`}
-                >
-                  <ordersIndicator.icon className="h-3 w-3" />
-                  {Math.abs(summary.sales.ordersChange).toFixed(1)}%
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Sales Orders
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-blue-600">
-                {summary.sales.totalOrders}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                {summary.sales.ordersCurrentMonth} this month
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Customers */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-purple-500/5 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
-                  <ShoppingBag className="h-6 w-6 text-purple-600 group-hover:text-white" />
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Total Customers
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-purple-600">
-                {summary.sales.totalCustomers}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                +{summary.sales.newCustomersThisMonth} new this month
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Products */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-amber-500/5 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
-                  <Package className="h-6 w-6 text-amber-600 group-hover:text-white" />
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Product Catalog
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-amber-600">
-                {summary.inventory.totalProducts}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                {summary.inventory.publishedProducts} published ·{" "}
-                {summary.inventory.draftProducts} draft
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Manufacturing */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-indigo-500/5 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                  <Factory className="h-6 w-6 text-indigo-600 group-hover:text-white" />
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Manufacturing Orders
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-indigo-600">
-                {summary.manufacturing.totalManufacturingOrders}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                Production & Assembly
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Users */}
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
-                  <Users className="h-6 w-6 text-primary group-hover:text-white" />
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                System Users
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter">
-                {summary.users.totalUsers}
-              </h3>
-              <p className="text-xs font-bold text-muted-foreground mt-2">
-                {summary.users.activeUsers} active ·{" "}
-                {summary.users.inactiveUsers} inactive
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <DashboardStats
+          summary={summary}
+          formatCurrency={formatCurrency}
+          revenueIndicator={revenueIndicator}
+          ordersIndicator={ordersIndicator}
+        />
 
         {/* Net Profit/Loss Card - Prominent */}
         <Card className="none-4xl border-2 shadow-xl overflow-hidden">
