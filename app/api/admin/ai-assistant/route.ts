@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
-import InventoryItem from "@/models/InventoryItem";
-import Transaction from "@/models/Transaction";
-import Invoice from "@/models/Invoice";
-import User from "@/models/User";
-import Shipment from "@/models/Shipment";
+import {
+  fetchAdminFinanceData,
+  fetchAdminSalesData,
+  fetchAdminInventoryData,
+  fetchAdminManufacturingData,
+  fetchAdminUsersData,
+  fetchAdminGeneralData,
+} from "@/lib/ai/adminDataFetcher";
 
 // Replace with your actual Gemini API key
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -30,8 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
     const { message } = await request.json();
 
     if (!message) {
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
     const intent = await analyzeQueryIntent(message);
 
     // Fetch relevant data from database based on intent
-    const data = await fetchDataBasedOnIntent(intent);
+    const data = await fetchDataBasedOnIntent(intent, tenantId);
 
     // If financial modeling is requested, perform simulation
     let simulationResult = null;
@@ -269,221 +274,28 @@ function formatCurrency(num: number) {
   );
 }
 
-async function fetchDataBasedOnIntent(intent: QueryIntent): Promise<any> {
+async function fetchDataBasedOnIntent(intent: QueryIntent, tenantId: string): Promise<any> {
   try {
     await connectDB();
 
     switch (intent.category) {
       case "finance":
-        return await fetchFinanceData();
+        return await fetchAdminFinanceData(tenantId);
       case "sales":
-        return await fetchSalesData();
+        return await fetchAdminSalesData(tenantId);
       case "inventory":
-        return await fetchInventoryData();
+        return await fetchAdminInventoryData(tenantId);
       case "manufacturing":
-        return await fetchManufacturingData();
+        return await fetchAdminManufacturingData(tenantId);
       case "users":
-        return await fetchUsersData();
+        return await fetchAdminUsersData(tenantId);
       default:
-        return await fetchGeneralData();
+        return await fetchAdminGeneralData(tenantId);
     }
   } catch (error) {
     console.error("Data fetch error:", error);
     return { error: "Failed to fetch data" };
   }
-}
-
-async function fetchFinanceData() {
-  const [transactions, invoices] = await Promise.all([
-    (Transaction as any).find({}).sort({ createdAt: -1 }).limit(10).lean(),
-    (Invoice as any).find({}).sort({ createdAt: -1 }).limit(10).lean(),
-  ]);
-
-  const totalRevenue = invoices.reduce(
-    (sum, inv) => sum + (inv.totalAmount || 0),
-    0
-  );
-  const totalTransactions = transactions.length;
-
-  return {
-    summary: {
-      totalRevenue,
-      totalTransactions,
-      recentInvoices: invoices.length,
-    },
-    recentTransactions: transactions.slice(0, 5),
-    recentInvoices: invoices.slice(0, 5),
-  };
-}
-
-async function fetchSalesData() {
-  // Recent orders for quick display
-  const orders = await (SaleOrder as any)
-    .find({})
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
-
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce(
-    (sum: number, order: any) => sum + (order.totals?.amountTotal || 0),
-    0
-  );
-
-  // Get top products
-  const productCounts: { [key: string]: number } = {};
-  orders.forEach((order: any) => {
-    order.orderLines?.forEach((item: any) => {
-      const name = item.name || "Unknown";
-      productCounts[name] = (productCounts[name] || 0) + (item.productQty || 1);
-    });
-  });
-
-  const topProducts = Object.entries(productCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([name, count]) => ({ name, count }));
-
-  // Aggregate monthly totals for last 12 months (year and month as labels)
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-
-  const monthlyAgg = await SaleOrder.aggregate([
-    {
-      $match: {
-        createdAt: { $gte: start },
-      },
-    },
-    {
-      $group: {
-        _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-        total: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
-      },
-    },
-    { $sort: { "_id.year": 1, "_id.month": 1 } },
-  ]).exec();
-
-  // Build a map for months
-  const monthlyMap: Record<string, number> = {};
-  monthlyAgg.forEach((m: any) => {
-    const key = `${m._id.year}-${String(m._id.month).padStart(2, "0")}`;
-    monthlyMap[key] = m.total;
-  });
-
-  // Build ordered monthly totals for the last 12 months
-  const monthlyTotals: {
-    label: string;
-    year: number;
-    month: number;
-    total: number;
-  }[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}`;
-    monthlyTotals.push({
-      label: d.toLocaleString("default", { month: "short", year: "numeric" }),
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      total: monthlyMap[key] || 0,
-    });
-  }
-
-  return {
-    summary: {
-      totalOrders,
-      totalRevenue,
-      averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-    },
-    topProducts,
-    recentOrders: orders.slice(0, 5),
-    monthlyTotals,
-  };
-}
-
-async function fetchInventoryData() {
-  const items = await InventoryItem.find({}).lean();
-
-  const totalItems = items.length;
-  const lowStockItems = items.filter(
-    (item: any) => item.quantity <= (item.reorderPoint || 10)
-  );
-  const outOfStock = items.filter((item: any) => item.quantity === 0);
-
-  return {
-    summary: {
-      totalItems,
-      lowStockCount: lowStockItems.length,
-      outOfStockCount: outOfStock.length,
-      totalValue: items.reduce(
-        (sum: number, item: any) =>
-          sum + (item.quantity || 0) * (item.unitPrice || 0),
-        0
-      ),
-    },
-    lowStockItems: lowStockItems.slice(0, 10),
-    recentItems: items.slice(0, 5),
-  };
-}
-
-async function fetchManufacturingData() {
-  const shipments = await (Shipment as any)
-    .find({})
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
-
-  const totalShipments = shipments.length;
-  const statusCounts: { [key: string]: number } = {};
-
-  shipments.forEach((shipment: any) => {
-    const status = shipment.status || "Unknown";
-    statusCounts[status] = (statusCounts[status] || 0) + 1;
-  });
-
-  return {
-    summary: {
-      totalShipments,
-      statusBreakdown: statusCounts,
-    },
-    recentShipments: shipments.slice(0, 5),
-  };
-}
-
-async function fetchUsersData() {
-  const users = await (User as any).find({}).select("-password").lean();
-
-  const roleCounts: { [key: string]: number } = {};
-  users.forEach((user: any) => {
-    const role = user.role || "Unknown";
-    roleCounts[role] = (roleCounts[role] || 0) + 1;
-  });
-
-  return {
-    summary: {
-      totalUsers: users.length,
-      roleBreakdown: roleCounts,
-    },
-    recentUsers: users.slice(0, 5),
-  };
-}
-
-async function fetchGeneralData() {
-  const [users, orders, items] = await Promise.all([
-    User.countDocuments(),
-    SaleOrder.countDocuments(),
-    InventoryItem.countDocuments(),
-  ]);
-
-  return {
-    summary: {
-      totalUsers: users,
-      totalOrders: orders,
-      totalInventoryItems: items,
-    },
-  };
 }
 
 async function generateResponseWithGemini(
