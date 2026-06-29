@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
+import { randomUUID } from 'crypto';
 import JournalEntry from '@/models/JournalEntry';
 import Invoice from '@/models/Invoice';
 import {
@@ -8,8 +9,8 @@ import {
   buildPostedJournalReport,
 } from '@/lib/accounting/reports';
 import { DOCUMENT_STATUS } from '@/lib/constants/statuses';
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+import { callClaude, callClaudeWithHistory, type ChatTurn } from '@/lib/ai/claude';
+import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,46 +20,77 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
-    const { message } = await request.json();
+    const body = await request.json();
+    const { message, conversationId: incomingConversationId } = body;
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
     await connectDB();
 
-    // Fetch finance-specific data
+    const conversationId: string = incomingConversationId || randomUUID();
+    const userId = (session.user as any).id as string;
+
+    // Restore prior turns for multi-turn context
+    const existingHistory = await ChatHistory.findOne(
+      { tenantId, conversationId },
+      { messages: 1 }
+    ).lean();
+    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
+      (m: any) => ({ role: m.role, content: m.content })
+    );
+
     const data = await fetchFinanceData(tenantId);
+    const response = await generateResponse(message, data, priorTurns);
 
-    // Generate response
-    const response = await generateResponse(message, data);
+    // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
+    const now = new Date();
+    await ChatHistory.findOneAndUpdate(
+      { tenantId, conversationId },
+      {
+        $setOnInsert: {
+          tenantId,
+          conversationId,
+          userId,
+          module: 'finance',
+          title: message.slice(0, 80),
+        },
+        $push: {
+          messages: {
+            $each: [
+              { role: 'user', content: message, timestamp: now },
+              { role: 'assistant', content: response, timestamp: new Date(now.getTime() + 1) },
+            ],
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    return NextResponse.json({ response });
+    return NextResponse.json({ response, conversationId });
   } catch (error) {
     console.error('Finance AI Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }
 
 async function fetchFinanceData(tenantId: string) {
   const [transactions, invoices, bills, ledgerReport] = await Promise.all([
     JournalEntry.find({ tenantId, status: DOCUMENT_STATUS.POSTED })
-      .sort({ "header.date": -1 })
+      .sort({ 'header.date': -1 })
       .limit(20)
       .lean(),
-    Invoice.find({ tenantId, moveType: "out_invoice" })
+    Invoice.find({ tenantId, moveType: 'out_invoice' })
       .sort({ createdAt: -1 })
       .limit(20)
       .lean(),
-    Invoice.find({ tenantId, moveType: "in_invoice" })
+    Invoice.find({ tenantId, moveType: 'in_invoice' })
       .sort({ createdAt: -1 })
       .limit(20)
       .lean(),
@@ -68,14 +100,13 @@ async function fetchFinanceData(tenantId: string) {
   const totalRevenue = ledgerReport.income.total;
   const totalExpenses = ledgerReport.expense.total;
 
-  // Monthly aggregation for last 12 months
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   const incomeExpenseSeries = await buildPostedIncomeExpenseSeries({
     tenantId,
     startDate: start,
-    groupBy: "month",
+    groupBy: 'month',
   });
 
   const monthlyRevenue = incomeExpenseSeries.map((item, index) => ({
@@ -96,7 +127,7 @@ async function fetchFinanceData(tenantId: string) {
       transactionCount: transactions.length,
       invoiceCount: invoices.length,
       billCount: bills.length,
-      accountingBasis: "posted_journal_entries",
+      accountingBasis: 'posted_journal_entries',
     },
     recentTransactions: transactions.slice(0, 5),
     recentInvoices: invoices.slice(0, 5),
@@ -105,10 +136,12 @@ async function fetchFinanceData(tenantId: string) {
   };
 }
 
-async function generateResponse(message: string, data: any): Promise<string> {
-  try {
-    // Create rich context prompt for Gemini
-    const contextPrompt = `You are an expert finance AI assistant for an ERP system. 
+async function generateResponse(
+  message: string,
+  data: any,
+  priorTurns: ChatTurn[] = []
+): Promise<string> {
+  const prompt = `You are an expert finance AI assistant for an ERP system.
 
 User Question: "${message}"
 
@@ -121,47 +154,27 @@ ${JSON.stringify(data, null, 2)}
 Instructions:
 1. Analyze the user's question carefully
 2. Use the provided data to give accurate, specific answers
-3. Format currency values with $ and proper thousand separators
+3. Format currency values with ₹ and proper thousand separators (Indian ERP)
 4. Provide insights and actionable recommendations
 5. Be conversational and helpful
 6. If you detect forecast/prediction requests, analyze trends and provide predictions
 7. If data is missing, acknowledge it and provide what's available
 8. Use bullet points for clarity
 9. Add business context and interpretation
-10. Keep responses concise but comprehensive
+10. Keep responses concise but comprehensive`;
 
-Please provide a detailed, helpful response based on the data and user's question.`;
+  const opts = {
+    systemPrompt:
+      'You are a precise finance analytics assistant. Use only the provided data. Never invent numbers.',
+    maxTokens: 1024,
+  };
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-
-    const geminiResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: contextPrompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024
-        }
-      }),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!geminiResponse.ok) {
-      throw new Error('Gemini API request failed');
+  try {
+    if (priorTurns.length > 0) {
+      return await callClaudeWithHistory(priorTurns, prompt, opts);
     }
-
-    const geminiData = await geminiResponse.json();
-    const generatedText =
-      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      'Sorry, I could not generate a response';
-
-    return generatedText;
-  } catch (error) {
-    console.error('Error generating Gemini response:', error);
-    // Fallback to simple response
+    return await callClaude(prompt, opts);
+  } catch {
     return generateSimpleResponse(message, data);
   }
 }
@@ -169,7 +182,6 @@ Please provide a detailed, helpful response based on the data and user's questio
 function generateSimpleResponse(message: string, data: any): string {
   const lowerMessage = message.toLowerCase();
 
-  // Check if predictive query
   const isPredictive =
     lowerMessage.includes('next month') ||
     lowerMessage.includes('predict') ||
@@ -177,27 +189,25 @@ function generateSimpleResponse(message: string, data: any): string {
 
   if (isPredictive && data.monthlyRevenue?.length > 0) {
     const prediction = predictNextMonth(data.monthlyRevenue);
-    return `Finance forecast for next month:\n\n• Predicted Revenue: ${formatCurrency(
-      prediction.predicted
-    )}\n• Current Month: ${formatCurrency(
-      data.summary.totalRevenue
-    )}\n• Expected Change: ${prediction.changePct.toFixed(
-      1
-    )}%\n\nAnalysis: Based on the last 12 months of data, the model projects ${formatCurrency(
-      prediction.predicted
-    )} in revenue for next month.`;
+    return (
+      `Finance forecast for next month:\n\n` +
+      `• Predicted Revenue: ${formatCurrency(prediction.predicted)}\n` +
+      `• Current Month: ${formatCurrency(data.summary.totalRevenue)}\n` +
+      `• Expected Change: ${prediction.changePct.toFixed(1)}%\n\n` +
+      `Analysis: Based on the last 12 months of data, the model projects ` +
+      `${formatCurrency(prediction.predicted)} in revenue for next month.`
+    );
   }
 
-  // Default response
-  return `Finance Overview:\n\n• Total Revenue: ${formatCurrency(
-    data.summary.totalRevenue
-  )}\n• Total Expenses: ${formatCurrency(
-    data.summary.totalExpenses
-  )}\n• Net Income: ${formatCurrency(
-    data.summary.netIncome
-  )}\n• Transactions: ${data.summary.transactionCount}\n• Invoices: ${
-    data.summary.invoiceCount
-  }\n• Bills: ${data.summary.billCount}`;
+  return (
+    `Finance Overview:\n\n` +
+    `• Total Revenue: ${formatCurrency(data.summary.totalRevenue)}\n` +
+    `• Total Expenses: ${formatCurrency(data.summary.totalExpenses)}\n` +
+    `• Net Income: ${formatCurrency(data.summary.netIncome)}\n` +
+    `• Transactions: ${data.summary.transactionCount}\n` +
+    `• Invoices: ${data.summary.invoiceCount}\n` +
+    `• Bills: ${data.summary.billCount}`
+  );
 }
 
 function predictNextMonth(monthlyData: any[]) {
@@ -206,10 +216,10 @@ function predictNextMonth(monthlyData: any[]) {
   if (n === 0) return { predicted: 0, changePct: 0 };
 
   const xs = vals.map((_, i) => i);
-  const sumX = xs.reduce((a, b) => a + b, 0);
-  const sumY = vals.reduce((a, b) => a + b, 0);
-  const sumXY = xs.reduce((s, x, i) => s + x * vals[i], 0);
-  const sumXX = xs.reduce((s, x) => s + x * x, 0);
+  const sumX = xs.reduce((a: number, b: number) => a + b, 0);
+  const sumY = vals.reduce((a: number, b: number) => a + b, 0);
+  const sumXY = xs.reduce((s: number, x: number, i: number) => s + x * vals[i], 0);
+  const sumXX = xs.reduce((s: number, x: number) => s + x * x, 0);
 
   const denom = n * sumXX - sumX * sumX;
   let slope = 0;
@@ -224,8 +234,5 @@ function predictNextMonth(monthlyData: any[]) {
 }
 
 function formatCurrency(num: number) {
-  return (
-    '$' +
-    Number(num || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  );
+  return '₹' + Number(num || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
