@@ -1302,3 +1302,24 @@ export const ATTENDANCE_STATUS_COLORS: Record<
     text: "text-slate-600 dark:text-slate-400",
   },
 };
+
+// --------------- Organization Tier ---------------------------
+// Subscription tiers that gate feature access and usage limits.
+// The tier→limits map lives in lib/constants/tiers.ts (Step 4).
+
+export const ORGANIZATION_TIER = {
+  STARTER:      "starter",
+  PROFESSIONAL: "professional",
+  ENTERPRISE:   "enterprise",
+} as const;
+
+export const ORGANIZATION_TIER_VALUES = Object.values(ORGANIZATION_TIER);
+
+export type OrganizationTier =
+  (typeof ORGANIZATION_TIER)[keyof typeof ORGANIZATION_TIER];
+
+export const ORGANIZATION_TIER_LABELS: Record<OrganizationTier, string> = {
+  [ORGANIZATION_TIER.STARTER]:      "Starter",
+  [ORGANIZATION_TIER.PROFESSIONAL]: "Professional",
+  [ORGANIZATION_TIER.ENTERPRISE]:   "Enterprise",
+};
