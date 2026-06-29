@@ -9,9 +9,7 @@ import {
   fetchAdminUsersData,
   fetchAdminGeneralData,
 } from "@/lib/ai/adminDataFetcher";
-
-// Replace with your actual Gemini API key
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+import { callClaude } from "@/lib/ai/claude";
 
 interface QueryIntent {
   category: string;
@@ -19,7 +17,7 @@ interface QueryIntent {
   filters?: any;
   financialParams?: {
     metric: string;
-    change: number; // percentage or absolute
+    change: number;
     target: string;
   };
 }
@@ -46,23 +44,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Analyze the query using Gemini to determine what data to fetch
+    // Classify the query to decide which data set to fetch
     const intent = await analyzeQueryIntent(message);
 
-    // Fetch relevant data from database based on intent
+    // Fetch tenant-scoped data for the relevant category
     const data = await fetchDataBasedOnIntent(intent, tenantId);
 
-    // If financial modeling is requested, perform simulation
+    // Optional financial simulation for "what-if" queries
     let simulationResult = null;
     if (intent.action === "model" && intent.financialParams) {
-      simulationResult = performFinancialSimulation(
-        data,
-        intent.financialParams
-      );
+      simulationResult = performFinancialSimulation(data, intent.financialParams);
     }
 
-    // Generate response using Gemini with the fetched data
-    const response = await generateResponseWithGemini(
+    // Generate the natural-language response via Claude
+    const response = await generateResponseWithClaude(
       message,
       data,
       intent,
@@ -79,142 +74,99 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ─── Intent Classification ────────────────────────────────────────────────────
+
 async function analyzeQueryIntent(message: string): Promise<QueryIntent> {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "") {
-    return simpleIntentAnalysis(message);
-  }
-
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const prompt = `Analyze this ERP business query and reply ONLY with a valid JSON object. No prose, no markdown fences.
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Analyze this business query. Reply ONLY with a JSON object.
 Format:
 {
   "category": "finance|sales|inventory|manufacturing|users|general",
-  "action": "summary|list|count|trend|specific|model",
+  "action": "summary|list|count|trend|specific|model|predict",
   "filters": { "dateRange": "last_month|this_year|etc", "entity": "product_name" },
-  "financialParams": { "metric": "price|cost|volume", "change": 0.10, "target": "revenue|profit" } (ONLY if action is 'model')
+  "financialParams": { "metric": "price|cost|volume", "change": 0.10, "target": "revenue|profit" }
 }
 
-Query: "${message}"`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+Include "financialParams" only when action is "model". Omit "filters" when not applicable.
 
-    clearTimeout(timeoutId);
+Query: "${message}"`;
 
-    if (!response.ok) {
-      return simpleIntentAnalysis(message);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const text = await callClaude(prompt, {
+      systemPrompt:
+        "You are an ERP query classifier. Reply only with the JSON object — no explanation, no markdown.",
+      maxTokens: 256,
+    });
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonMatch[0]) as QueryIntent;
     }
-
     return simpleIntentAnalysis(message);
-  } catch (error) {
-    console.error("Intent analysis error:", error);
+  } catch {
     return simpleIntentAnalysis(message);
   }
 }
 
 function simpleIntentAnalysis(message: string): QueryIntent {
-  const lowerMessage = message.toLowerCase();
+  const lower = message.toLowerCase();
 
-  if (
-    lowerMessage.includes("what if") ||
-    lowerMessage.includes("scenario") ||
-    lowerMessage.includes("simulate")
-  ) {
-    return {
-      category: "sales",
-      action: "model",
-      financialParams: { metric: "price", change: 0.1, target: "revenue" },
-    };
+  if (lower.includes("what if") || lower.includes("scenario") || lower.includes("simulate")) {
+    return { category: "sales", action: "model", financialParams: { metric: "price", change: 0.1, target: "revenue" } };
   }
-
-  if (
-    lowerMessage.includes("next month") ||
-    lowerMessage.includes("predict") ||
-    lowerMessage.includes("forecast")
-  ) {
+  if (lower.includes("next month") || lower.includes("predict") || lower.includes("forecast")) {
     return { category: "sales", action: "predict" };
   }
-
-  if (
-    lowerMessage.includes("revenue") ||
-    lowerMessage.includes("finance") ||
-    lowerMessage.includes("expense") ||
-    lowerMessage.includes("transaction")
-  ) {
+  if (lower.includes("revenue") || lower.includes("finance") || lower.includes("expense") || lower.includes("transaction")) {
     return { category: "finance", action: "summary" };
   }
-
-  if (
-    lowerMessage.includes("sales") ||
-    lowerMessage.includes("order") ||
-    lowerMessage.includes("product") ||
-    lowerMessage.includes("customer")
-  ) {
+  if (lower.includes("sales") || lower.includes("order") || lower.includes("product") || lower.includes("customer")) {
     return { category: "sales", action: "summary" };
   }
-
-  if (
-    lowerMessage.includes("inventory") ||
-    lowerMessage.includes("stock") ||
-    lowerMessage.includes("warehouse")
-  ) {
+  if (lower.includes("inventory") || lower.includes("stock") || lower.includes("warehouse")) {
     return { category: "inventory", action: "summary" };
   }
-
-  if (
-    lowerMessage.includes("shipment") ||
-    lowerMessage.includes("manufacturing") ||
-    lowerMessage.includes("freight")
-  ) {
+  if (lower.includes("shipment") || lower.includes("manufacturing") || lower.includes("freight")) {
     return { category: "manufacturing", action: "summary" };
   }
-
-  if (lowerMessage.includes("user") || lowerMessage.includes("employee")) {
+  if (lower.includes("user") || lower.includes("employee")) {
     return { category: "users", action: "count" };
   }
-
   return { category: "general", action: "summary" };
 }
 
+// ─── Data Fetching ────────────────────────────────────────────────────────────
+
+async function fetchDataBasedOnIntent(intent: QueryIntent, tenantId: string): Promise<any> {
+  try {
+    await connectDB();
+
+    switch (intent.category) {
+      case "finance":      return await fetchAdminFinanceData(tenantId);
+      case "sales":        return await fetchAdminSalesData(tenantId);
+      case "inventory":    return await fetchAdminInventoryData(tenantId);
+      case "manufacturing": return await fetchAdminManufacturingData(tenantId);
+      case "users":        return await fetchAdminUsersData(tenantId);
+      default:             return await fetchAdminGeneralData(tenantId);
+    }
+  } catch (error) {
+    console.error("Data fetch error:", error);
+    return { error: "Failed to fetch data" };
+  }
+}
+
+// ─── Financial Simulation ─────────────────────────────────────────────────────
+
 function performFinancialSimulation(data: any, params: any) {
-  // Simple simulation logic
   const currentRevenue = data.summary?.totalRevenue || 0;
-  const currentCost = currentRevenue * 0.6; // Assumption: 60% cost
+  const currentCost = currentRevenue * 0.6;
   const currentProfit = currentRevenue - currentCost;
 
   let newRevenue = currentRevenue;
   let newCost = currentCost;
 
   if (params.metric === "price") {
-    // Price change affects revenue directly, assume slight volume drop if price increases (elasticity)
-    const elasticity = 0.5;
-    const volumeChange = -(params.change * elasticity);
+    const volumeChange = -(params.change * 0.5);
     newRevenue = currentRevenue * (1 + params.change) * (1 + volumeChange);
   } else if (params.metric === "cost") {
     newCost = currentCost * (1 + params.change);
@@ -224,277 +176,76 @@ function performFinancialSimulation(data: any, params: any) {
   }
 
   const newProfit = newRevenue - newCost;
-
   return {
     original: { revenue: currentRevenue, profit: currentProfit },
     simulated: { revenue: newRevenue, profit: newProfit },
     change: {
-      revenue: ((newRevenue - currentRevenue) / currentRevenue) * 100,
-      profit: ((newProfit - currentProfit) / currentProfit) * 100,
+      revenue: currentRevenue ? ((newRevenue - currentRevenue) / currentRevenue) * 100 : 0,
+      profit: currentProfit ? ((newProfit - currentProfit) / currentProfit) * 100 : 0,
     },
   };
 }
 
-// Helper: simple linear regression predictor for time-series monthly totals
-function predictNextMonthFromMonthlyTotals(monthlyTotals: { total: number }[]) {
-  const vals = monthlyTotals.map((m) => m.total || 0);
-  const n = vals.length;
-  if (n === 0) return { predicted: 0, slope: 0, intercept: 0 };
+// ─── Response Generation (Claude) ────────────────────────────────────────────
 
-  const xs = vals.map((_, i) => i);
-  const sumX = xs.reduce((a, b) => a + b, 0);
-  const sumY = vals.reduce((a, b) => a + b, 0);
-  const sumXY = xs.reduce((s, x, i) => s + x * vals[i], 0);
-  const sumXX = xs.reduce((s, x) => s + x * x, 0);
-
-  const denom = n * sumXX - sumX * sumX;
-  let slope = 0;
-  if (denom !== 0) slope = (n * sumXY - sumX * sumY) / denom;
-  const intercept = (sumY - slope * sumX) / n;
-
-  const predicted = intercept + slope * n; // next index
-
-  // compute avg growth percent (based on last value)
-  const last = vals[n - 1] || 0;
-  const prev = vals[n - 2] || 0;
-  const monthOverMonth = prev > 0 ? (last - prev) / prev : 0;
-
-  return {
-    predicted: Math.max(0, predicted),
-    slope,
-    intercept,
-    monthOverMonth,
-  };
-}
-
-function formatCurrency(num: number) {
-  return (
-    "$" +
-    Number(num || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  );
-}
-
-async function fetchDataBasedOnIntent(intent: QueryIntent, tenantId: string): Promise<any> {
-  try {
-    await connectDB();
-
-    switch (intent.category) {
-      case "finance":
-        return await fetchAdminFinanceData(tenantId);
-      case "sales":
-        return await fetchAdminSalesData(tenantId);
-      case "inventory":
-        return await fetchAdminInventoryData(tenantId);
-      case "manufacturing":
-        return await fetchAdminManufacturingData(tenantId);
-      case "users":
-        return await fetchAdminUsersData(tenantId);
-      default:
-        return await fetchAdminGeneralData(tenantId);
-    }
-  } catch (error) {
-    console.error("Data fetch error:", error);
-    return { error: "Failed to fetch data" };
-  }
-}
-
-async function generateResponseWithGemini(
+async function generateResponseWithClaude(
   message: string,
   data: any,
   intent: QueryIntent,
   simulationResult: any
 ): Promise<string> {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "") {
-    return generateSimpleResponse(data, intent);
+  if (data.error) {
+    return "I encountered an error while fetching your data. Please try again.";
   }
+
+  const simulationSection = simulationResult
+    ? `\nFINANCIAL SIMULATION RESULT:\n${JSON.stringify(simulationResult, null, 2)}\n`
+    : "";
+
+  const prompt = `You are an expert business intelligence assistant for an ERP system.
+
+USER QUESTION: "${message}"
+DATA CATEGORY: ${intent.category}
+ACTION: ${intent.action}
+
+LIVE ERP DATA:
+${JSON.stringify(data, null, 2)}
+${simulationSection}
+INSTRUCTIONS:
+1. Answer the question using the provided data only. Do not hallucinate figures.
+2. Format currency values with the ₹ symbol (this is an Indian ERP).
+3. If a financial simulation was run, explain what would change and by how much.
+4. Use bullet points for clarity. Be concise but complete.
+5. If data is missing or insufficient, say so clearly.`;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    // Create a rich context prompt with the data and question
-    const contextPrompt = `You are an expert business intelligence assistant for an ERP system.
-
-USER'S QUESTION: "${message}"
-
-DATA CATEGORY: ${intent.category}
-ACTION TYPE: ${intent.action}
-
-RETRIEVED DATA:
-${JSON.stringify(data, null, 2)}
-
-${
-  simulationResult
-    ? `FINANCIAL SIMULATION RESULT:
-${JSON.stringify(simulationResult, null, 2)}
-`
-    : ""
-}
-
-INSTRUCTIONS:
-1. Analyze the user's question carefully.
-2. Use the provided data to answer accurately.
-3. If a financial simulation was run, explain the results clearly (e.g., "If you increase price by 10%, revenue might increase by X% but profit...").
-4. Format numbers as currency where appropriate.
-5. Provide actionable insights.
-6. Be conversational and professional.
-7. Highlight key findings with bullet points.
-8. Keep the response concise but comprehensive.
-
-Please provide a detailed, intelligent response.`;
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: contextPrompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          },
-        }),
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.error("Gemini API error:", response.status, response.statusText);
-      return generateSimpleResponse(data, intent);
-    }
-
-    const result = await response.json();
-    const geminiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (geminiResponse) {
-      return geminiResponse;
-    }
-
-    return generateSimpleResponse(data, intent);
-  } catch (error) {
-    console.error("Gemini API error:", error);
-    return generateSimpleResponse(data, intent);
+    return await callClaude(prompt, {
+      systemPrompt: "You are a precise ERP analytics assistant. Use only the data provided. Never invent numbers.",
+      maxTokens: 1024,
+    });
+  } catch {
+    return generateSimpleFallback(data, intent);
   }
 }
 
-function generateSimpleResponse(data: any, intent: QueryIntent): string {
-  if (data.error) {
-    return "I encountered an error while fetching the data. Please try again.";
-  }
+function generateSimpleFallback(data: any, intent: QueryIntent): string {
+  const fmt = (n: number) =>
+    "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
   if (intent.category === "finance") {
-    return `Finance summary — concise and actionable:\n\n• Total Revenue: ${formatCurrency(
-      data.summary?.totalRevenue
-    )}\n• Total Transactions: ${
-      data.summary?.totalTransactions || 0
-    }\n• Recent Invoices: ${data.summary?.recentInvoices || 0}`;
+    return `Finance summary:\n\n• Total Revenue: ${fmt(data.summary?.totalRevenue)}\n• Total Transactions: ${data.summary?.totalTransactions || 0}\n• Recent Invoices: ${data.summary?.recentInvoices || 0}`;
   }
-
   if (intent.category === "sales") {
-    const wantsPrediction = intent.action === "predict";
-
-    let response = `Sales overview — short analysis:\n\n• Total Orders (sample): ${
-      data.summary?.totalOrders || 0
-    }\n• Total Revenue (sample): ${formatCurrency(
-      data.summary?.totalRevenue
-    )}\n• Average Order Value: ${formatCurrency(
-      data.summary?.averageOrderValue || 0
-    )}\n`;
-
-    if (data.topProducts?.length > 0) {
-      response += `\nTop products:\n`;
-      response += data.topProducts
-        .map((p: any) => `• ${p.name}: ${p.count} units`)
-        .join("\n");
-      response += "\n";
-    }
-
-    if (wantsPrediction && data.monthlyTotals?.length > 0) {
-      const monthly = data.monthlyTotals as { label: string; total: number }[];
-      const { predicted, slope, monthOverMonth } =
-        predictNextMonthFromMonthlyTotals(monthly);
-      const last = monthly[monthly.length - 1]?.total || 0;
-      const changePct = last > 0 ? ((predicted - last) / last) * 100 : 0;
-
-      response += `\nPrediction for next month:\n• Predicted Sales: ${formatCurrency(
-        predicted
-      )}\n`;
-      response += `• Last month: ${formatCurrency(last)} (${(
-        monthOverMonth * 100
-      ).toFixed(1)}% MoM)\n`;
-      response += `• Expected change vs last month: ${changePct.toFixed(1)}%\n`;
-
-      const confidence =
-        Math.abs(slope) < Math.max(1, last * 0.1)
-          ? "moderate"
-          : "low-to-moderate";
-      response += `\nInterpretation: Based on the last ${
-        monthly.length
-      } months, the model projects ${formatCurrency(
-        predicted
-      )} for next month. Confidence: ${confidence}.`;
-    }
-
-    return response;
+    return `Sales overview:\n\n• Total Orders: ${data.summary?.totalOrders || 0}\n• Total Revenue: ${fmt(data.summary?.totalRevenue)}\n• Avg Order Value: ${fmt(data.summary?.averageOrderValue || 0)}`;
   }
-
   if (intent.category === "inventory") {
-    return `Inventory snapshot:\n\n• Total Items: ${
-      data.summary?.totalItems || 0
-    }\n• Low Stock Items: ${
-      data.summary?.lowStockCount || 0
-    }\n• Out of Stock: ${
-      data.summary?.outOfStockCount || 0
-    }\n• Total Inventory Value: ${formatCurrency(data.summary?.totalValue)}`;
+    return `Inventory:\n\n• Total Items: ${data.summary?.totalItems || 0}\n• Low Stock: ${data.summary?.lowStockCount || 0}\n• Out of Stock: ${data.summary?.outOfStockCount || 0}`;
   }
-
   if (intent.category === "manufacturing") {
-    let resp = `Manufacturing snapshot:\n\n• Total Shipments: ${
-      data.summary?.totalShipments || 0
-    }\n`;
-    if (data.summary?.statusBreakdown) {
-      resp += "\nStatus breakdown:\n";
-      resp += Object.entries(data.summary.statusBreakdown)
-        .map(([status, count]) => `• ${status}: ${count}`)
-        .join("\n");
-    }
-    return resp;
+    return `Manufacturing:\n\n• Total Shipments: ${data.summary?.totalShipments || 0}`;
   }
-
   if (intent.category === "users") {
-    let resp = `User statistics:\n\n• Total Users: ${
-      data.summary?.totalUsers || 0
-    }\n`;
-    if (data.summary?.roleBreakdown) {
-      resp += "\nBy role:\n";
-      resp += Object.entries(data.summary.roleBreakdown)
-        .map(([role, count]) => `• ${role}: ${count}`)
-        .join("\n");
-    }
-    return resp;
+    return `Users:\n\n• Total: ${data.summary?.totalUsers || 0}`;
   }
-
-  return `I am currently operating in basic mode without an active LLM key.
-
-To test my UI, you can ask me specific questions about:
-• Finance
-• Sales
-• Inventory
-• Manufacturing
-• Users
-
-Once my backend is fully activated with a valid API key, I will be able to perform deep, conversational analysis of your ERP data.`;
+  return `ERP Overview:\n\n• Users: ${data.summary?.totalUsers || 0}\n• Orders: ${data.summary?.totalOrders || 0}\n• Inventory Items: ${data.summary?.totalInventoryItems || 0}`;
 }
