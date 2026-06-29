@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
+import { randomUUID } from 'crypto';
 import SaleOrder from '@/models/SaleOrder';
 import SalesQuotation from '@/models/SalesQuotation';
 import DeliveryChallan from '@/models/DeliveryChallan';
+import { callClaude, callClaudeWithHistory, type ChatTurn } from '@/lib/ai/claude';
+import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,29 +16,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
-    const { message } = await request.json();
+    const body = await request.json();
+    const { message, conversationId: incomingConversationId } = body;
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
     await connectDB();
 
-    const data = await fetchSalesData(tenantId);
-    const response = await generateResponse(message, data);
+    const conversationId: string = incomingConversationId || randomUUID();
+    const userId = (session.user as any).id as string;
 
-    return NextResponse.json({ response });
+    // Restore prior turns for multi-turn context
+    const existingHistory = await ChatHistory.findOne(
+      { tenantId, conversationId },
+      { messages: 1 }
+    ).lean();
+    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
+      (m: any) => ({ role: m.role, content: m.content })
+    );
+
+    const data = await fetchSalesData(tenantId);
+    const response = await generateResponse(message, data, priorTurns);
+
+    // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
+    const now = new Date();
+    await ChatHistory.findOneAndUpdate(
+      { tenantId, conversationId },
+      {
+        $setOnInsert: {
+          tenantId,
+          conversationId,
+          userId,
+          module: 'sales',
+          title: message.slice(0, 80),
+        },
+        $push: {
+          messages: {
+            $each: [
+              { role: 'user', content: message, timestamp: now },
+              { role: 'assistant', content: response, timestamp: new Date(now.getTime() + 1) },
+            ],
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    return NextResponse.json({ response, conversationId });
   } catch (error) {
     console.error('Sales AI Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }
 
@@ -65,7 +102,6 @@ async function fetchSalesData(tenantId: string) {
     .slice(0, 5)
     .map(([name, count]) => ({ name, count }));
 
-  // Monthly aggregation
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
@@ -97,7 +133,41 @@ async function fetchSalesData(tenantId: string) {
   };
 }
 
-async function generateResponse(message: string, data: any): Promise<string> {
+async function generateResponse(
+  message: string,
+  data: any,
+  priorTurns: ChatTurn[] = []
+): Promise<string> {
+  const prompt = `You are an expert sales AI assistant for an ERP system.
+
+User Question: "${message}"
+
+Available Sales Data:
+${JSON.stringify(data, null, 2)}
+
+Instructions:
+1. Answer using the provided data only. Do not invent numbers.
+2. Format currency values with ₹ (Indian ERP).
+3. If the user asks for forecasts or predictions, analyze monthly trends and extrapolate.
+4. Use bullet points for clarity. Be concise but complete.
+5. If data is missing or insufficient, say so clearly.`;
+
+  const opts = {
+    systemPrompt: "You are a precise sales analytics assistant. Use only the provided data. Never invent numbers.",
+    maxTokens: 1024,
+  };
+
+  try {
+    if (priorTurns.length > 0) {
+      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    }
+    return await callClaude(prompt, opts);
+  } catch {
+    return generateSimpleResponse(message, data);
+  }
+}
+
+function generateSimpleResponse(message: string, data: any): string {
   const lowerMessage = message.toLowerCase();
 
   const isPredictive =
@@ -107,29 +177,23 @@ async function generateResponse(message: string, data: any): Promise<string> {
 
   if (isPredictive && data.monthlyTotals?.length > 0) {
     const prediction = predictNextMonth(data.monthlyTotals);
-    return `Sales forecast for next month:\n\n• Predicted Sales: ${formatCurrency(
-      prediction.predicted
-    )}\n• Current Revenue: ${formatCurrency(
-      data.summary.totalRevenue
-    )}\n• Expected Change: ${prediction.changePct.toFixed(
-      1
-    )}%\n\nTop Products:\n${data.topProducts
-      .map((p: any) => `• ${p.name}: ${p.count} units`)
-      .join('\n')}`;
+    return (
+      `Sales forecast for next month:\n\n` +
+      `• Predicted Sales: ${formatCurrency(prediction.predicted)}\n` +
+      `• Current Revenue: ${formatCurrency(data.summary.totalRevenue)}\n` +
+      `• Expected Change: ${prediction.changePct.toFixed(1)}%\n\n` +
+      `Top Products:\n${data.topProducts.map((p: any) => `• ${p.name}: ${p.count} units`).join('\n')}`
+    );
   }
 
-  let response = `Sales Overview:\n\n• Total Orders: ${
-    data.summary.totalOrders
-  }\n• Total Revenue: ${formatCurrency(
-    data.summary.totalRevenue
-  )}\n• Average Order Value: ${formatCurrency(
-    data.summary.averageOrderValue
-  )}`;
+  let response =
+    `Sales Overview:\n\n` +
+    `• Total Orders: ${data.summary.totalOrders}\n` +
+    `• Total Revenue: ${formatCurrency(data.summary.totalRevenue)}\n` +
+    `• Average Order Value: ${formatCurrency(data.summary.averageOrderValue)}`;
 
   if (data.topProducts?.length > 0) {
-    response += `\n\nTop Products:\n${data.topProducts
-      .map((p: any) => `• ${p.name}: ${p.count} units`)
-      .join('\n')}`;
+    response += `\n\nTop Products:\n${data.topProducts.map((p: any) => `• ${p.name}: ${p.count} units`).join('\n')}`;
   }
 
   return response;
@@ -141,10 +205,10 @@ function predictNextMonth(monthlyData: any[]) {
   if (n === 0) return { predicted: 0, changePct: 0 };
 
   const xs = vals.map((_, i) => i);
-  const sumX = xs.reduce((a, b) => a + b, 0);
-  const sumY = vals.reduce((a, b) => a + b, 0);
-  const sumXY = xs.reduce((s, x, i) => s + x * vals[i], 0);
-  const sumXX = xs.reduce((s, x) => s + x * x, 0);
+  const sumX = xs.reduce((a: number, b: number) => a + b, 0);
+  const sumY = vals.reduce((a: number, b: number) => a + b, 0);
+  const sumXY = xs.reduce((s: number, x: number, i: number) => s + x * vals[i], 0);
+  const sumXX = xs.reduce((s: number, x: number) => s + x * x, 0);
 
   const denom = n * sumXX - sumX * sumX;
   let slope = 0;
@@ -159,8 +223,5 @@ function predictNextMonth(monthlyData: any[]) {
 }
 
 function formatCurrency(num: number) {
-  return (
-    '$' +
-    Number(num || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  );
+  return '₹' + Number(num || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }

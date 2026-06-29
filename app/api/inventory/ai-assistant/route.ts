@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
+import { randomUUID } from 'crypto';
 import InventoryItem from '@/models/InventoryItem';
 import Batch from '@/models/Batch';
+import { callClaude, callClaudeWithHistory, type ChatTurn } from '@/lib/ai/claude';
+import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,29 +15,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
-    const { message } = await request.json();
+    const body = await request.json();
+    const { message, conversationId: incomingConversationId } = body;
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
     await connectDB();
 
-    const data = await fetchInventoryData(tenantId);
-    const response = await generateResponse(message, data);
+    const conversationId: string = incomingConversationId || randomUUID();
+    const userId = (session.user as any).id as string;
 
-    return NextResponse.json({ response });
+    // Restore prior turns for multi-turn context
+    const existingHistory = await ChatHistory.findOne(
+      { tenantId, conversationId },
+      { messages: 1 }
+    ).lean();
+    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
+      (m: any) => ({ role: m.role, content: m.content })
+    );
+
+    const data = await fetchInventoryData(tenantId);
+    const response = await generateResponse(message, data, priorTurns);
+
+    // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
+    const now = new Date();
+    await ChatHistory.findOneAndUpdate(
+      { tenantId, conversationId },
+      {
+        $setOnInsert: {
+          tenantId,
+          conversationId,
+          userId,
+          module: 'inventory',
+          title: message.slice(0, 80),
+        },
+        $push: {
+          messages: {
+            $each: [
+              { role: 'user', content: message, timestamp: now },
+              { role: 'assistant', content: response, timestamp: new Date(now.getTime() + 1) },
+            ],
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    return NextResponse.json({ response, conversationId });
   } catch (error) {
     console.error('Inventory AI Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }
 
@@ -65,7 +102,41 @@ async function fetchInventoryData(tenantId: string) {
   };
 }
 
-async function generateResponse(message: string, data: any): Promise<string> {
+async function generateResponse(
+  message: string,
+  data: any,
+  priorTurns: ChatTurn[] = []
+): Promise<string> {
+  const prompt = `You are an expert inventory AI assistant for an ERP system.
+
+User Question: "${message}"
+
+Available Inventory Data:
+${JSON.stringify(data, null, 2)}
+
+Instructions:
+1. Answer using the provided data only. Do not invent numbers.
+2. Format currency values with ₹ (Indian ERP).
+3. Highlight low stock and out-of-stock items proactively.
+4. Use bullet points for clarity. Be concise but complete.
+5. If data is missing or insufficient, say so clearly.`;
+
+  const opts = {
+    systemPrompt: "You are a precise inventory analytics assistant. Use only the provided data. Never invent numbers.",
+    maxTokens: 1024,
+  };
+
+  try {
+    if (priorTurns.length > 0) {
+      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    }
+    return await callClaude(prompt, opts);
+  } catch {
+    return generateSimpleResponse(message, data);
+  }
+}
+
+function generateSimpleResponse(message: string, data: any): string {
   const lowerMessage = message.toLowerCase();
 
   if (
@@ -78,26 +149,22 @@ async function generateResponse(message: string, data: any): Promise<string> {
     if (data.lowStockItems?.length > 0) {
       response += `\n\nItems Needing Attention:\n${data.lowStockItems
         .slice(0, 5)
-        .map(
-          (item: any) =>
-            `• ${item.name || item.sku || 'Unknown'}: ${item.quantity || 0} units`
-        )
+        .map((item: any) => `• ${item.name || item.sku || 'Unknown'}: ${item.quantity || 0} units`)
         .join('\n')}`;
     }
 
     return response;
   }
 
-  return `Inventory Overview:\n\n• Total Items: ${
-    data.summary.totalItems
-  }\n• Low Stock Items: ${data.summary.lowStockCount}\n• Out of Stock: ${
-    data.summary.outOfStockCount
-  }\n• Total Inventory Value: ${formatCurrency(data.summary.totalValue)}`;
+  return (
+    `Inventory Overview:\n\n` +
+    `• Total Items: ${data.summary.totalItems}\n` +
+    `• Low Stock Items: ${data.summary.lowStockCount}\n` +
+    `• Out of Stock: ${data.summary.outOfStockCount}\n` +
+    `• Total Inventory Value: ${formatCurrency(data.summary.totalValue)}`
+  );
 }
 
 function formatCurrency(num: number) {
-  return (
-    '$' +
-    Number(num || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
-  );
+  return '₹' + Number(num || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
