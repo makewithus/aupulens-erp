@@ -4,9 +4,7 @@ import connectDB from '@/lib/db';
 import Shipment from '@/models/Shipment';
 import AirFreight from '@/models/AirFreight';
 import HSCode from '@/models/HSCode';
-
-// Gemini API integration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+import { callClaude } from '@/lib/ai/claude';
 
 interface TaskIntent {
   intent: string;
@@ -25,7 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { message, confirmAction, actionData, currentTask, cancelAction } = await request.json();
 
     if (!message) {
@@ -216,19 +217,7 @@ async function generateResponse(message: string, data: any): Promise<string> {
 
 // Task Analysis Functions
 async function analyzeIntentAndExtractData(message: string, missingFields?: string[]): Promise<{ intent: TaskIntent; extractedData?: Record<string, any> }> {
-  // Use Gemini to understand the user's intent and extract data in one call
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === '') {
-    // Fallback: Simple keyword matching if no API key
-    const intent = simpleTaskAnalysis(message);
-    const extractedData = missingFields ? extractDataFromMessage(message, missingFields) : undefined;
-    return { intent, extractedData };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-    let prompt = `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
+  let prompt = `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
 {
   "intent": "create_hs_code|update_hs_code|delete_hs_code|create_air_freight|update_air_freight|delete_air_freight|create_shipment|update_shipment|delete_shipment|none",
   "entity": "hs_code|air_freight|shipment",
@@ -249,8 +238,8 @@ For update/delete operations, extract the record ID from patterns like:
 
 Extract any data values mentioned in the message and put them in the "data" object, including the ID for updates/deletes.`;
 
-    if (missingFields && missingFields.length > 0) {
-      prompt += `
+  if (missingFields && missingFields.length > 0) {
+    prompt += `
 
 Additionally, extract the following missing fields from the user's response: ${missingFields.join(', ')}
 
@@ -284,42 +273,17 @@ For items field, parse natural language descriptions like:
 - "5 laptops (SKU: LT-001) and 3 monitors (SKU: MN-002)" → [{"description": "laptops", "quantity": 5, "hsCode": "LT-001"}, {"description": "monitors", "quantity": 3, "hsCode": "MN-002"}]
 
 Include the extracted missing fields in the "data" object as well.`;
-    }
+  }
 
-    prompt += `
+  prompt += `
 
 Query: "${message}"`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const intent = simpleTaskAnalysis(message);
-      const extractedData = missingFields ? extractDataFromMessage(message, missingFields) : undefined;
-      return { intent, extractedData };
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  try {
+    const text = await callClaude(prompt, {
+      systemPrompt: 'You are a manufacturing ERP task classifier. Reply only with the JSON object — no explanation, no markdown.',
+      maxTokens: 512,
+    });
 
     // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -333,7 +297,7 @@ Query: "${message}"`;
         data: parsed.data || {}
       };
 
-      // If Gemini is unsure (low confidence) or returns 'none', fallback to simple analysis
+      // Fall back to simple analysis when model is unsure
       if (!parsedIntent.intent || parsedIntent.intent === 'none' || (parsedIntent.confidence && parsedIntent.confidence < 0.6)) {
         const intent = simpleTaskAnalysis(message);
         const extractedData = missingFields ? extractDataFromMessage(message, missingFields) : undefined;
@@ -357,8 +321,7 @@ Query: "${message}"`;
     const intent = simpleTaskAnalysis(message);
     const extractedData = missingFields ? extractDataFromMessage(message, missingFields) : undefined;
     return { intent, extractedData };
-  } catch (error) {
-    console.error('Combined analysis error:', error);
+  } catch {
     const intent = simpleTaskAnalysis(message);
     const extractedData = missingFields ? extractDataFromMessage(message, missingFields) : undefined;
     return { intent, extractedData };
@@ -366,28 +329,7 @@ Query: "${message}"`;
 }
 
 async function analyzeTaskIntent(message: string): Promise<TaskIntent> {
-  // Use Gemini to understand the user's intent for manufacturing tasks
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === '') {
-    // Fallback: Simple keyword matching if no API key
-    return simpleTaskAnalysis(message);
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
+  const prompt = `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
 {
   "intent": "create_hs_code|update_hs_code|delete_hs_code|create_air_freight|update_air_freight|delete_air_freight|create_shipment|update_shipment|delete_shipment|none",
   "entity": "hs_code|air_freight|shipment",
@@ -408,25 +350,14 @@ For update/delete operations, extract the record ID from patterns like:
 
 Extract any data values mentioned in the message and put them in the "data" object, including the ID for updates/deletes.
 
-Query: "${message}"`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+Query: "${message}"`;
 
-    clearTimeout(timeoutId);
+  try {
+    const text = await callClaude(prompt, {
+      systemPrompt: 'You are a manufacturing ERP task classifier. Reply only with the JSON object — no explanation, no markdown.',
+      maxTokens: 256,
+    });
 
-    if (!response.ok) {
-      return simpleTaskAnalysis(message);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
-    // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -438,7 +369,6 @@ Query: "${message}"`,
         data: parsed.data || {}
       };
 
-      // If Gemini is unsure (low confidence) or returns 'none', fallback to simple analysis
       if (!parsedIntent.intent || parsedIntent.intent === 'none' || (parsedIntent.confidence && parsedIntent.confidence < 0.6)) {
         return simpleTaskAnalysis(message);
       }
@@ -447,8 +377,7 @@ Query: "${message}"`,
     }
 
     return simpleTaskAnalysis(message);
-  } catch (error) {
-    console.error('Task analysis error:', error);
+  } catch {
     return simpleTaskAnalysis(message);
   }
 }
@@ -586,29 +515,8 @@ function getTaskRequirements(intent: string) {
   }
 }
 
-async function extractDataWithGemini(message: string, missingFields: string[]): Promise<Record<string, any>> {
-  // Use Gemini to intelligently extract data from user responses
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === '') {
-    // Fallback to regex extraction if no API key
-    return extractDataFromMessage(message, missingFields);
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Extract the following fields from this user message. Return ONLY a valid JSON object with the extracted values. If a field cannot be found, omit it from the JSON. Do not include explanations or additional text.
+async function extractDataWithClaude(message: string, missingFields: string[]): Promise<Record<string, any>> {
+  const prompt = `Extract the following fields from this user message. Return ONLY a valid JSON object with the extracted values. If a field cannot be found, omit it from the JSON. Do not include explanations or additional text.
 
 Fields to extract: ${missingFields.join(', ')}
 
@@ -641,71 +549,51 @@ For items field, parse natural language descriptions like:
 - "10 water cooler and 20 bottles" → [{"description": "water cooler", "quantity": 10}, {"description": "bottles", "quantity": 20}]
 - "5 laptops (SKU: LT-001) and 3 monitors (SKU: MN-002)" → [{"description": "laptops", "quantity": 5, "hsCode": "LT-001"}, {"description": "monitors", "quantity": 3, "hsCode": "MN-002"}]
 
-User message: "${message}"`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+User message: "${message}"`;
 
-    console.log("Gemini res: " , response)
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return extractDataFromMessage(message, missingFields);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  try {
+    const text = await callClaude(prompt, {
+      systemPrompt: 'You are a data extraction assistant. Reply only with the JSON object — no explanation, no markdown.',
+      maxTokens: 512,
+    });
 
     // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
 
-        // Validate and clean the extracted data
-        const cleanedData: Record<string, any> = {};
+      // Validate and clean the extracted data
+      const cleanedData: Record<string, any> = {};
 
-        for (const [key, value] of Object.entries(parsed)) {
-          if (missingFields.includes(key) && value !== null && value !== undefined && value !== '') {
-            // Type validation and conversion
-            if (key === 'weight' || key === 'volume' || key === 'totalValue' || key === 'dutyRate' || key === 'taxRate') {
-              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-              if (!isNaN(numValue)) {
-                cleanedData[key] = numValue;
-              }
-            } else if (key === 'items' && Array.isArray(value)) {
-              // Validate items array
-              const validItems = value.filter((item: any) =>
-                item && typeof item === 'object' && item.description && typeof item.quantity === 'number'
-              );
-              if (validItems.length > 0) {
-                cleanedData[key] = validItems;
-              }
-            } else if (key === 'currency' && typeof value === 'string') {
-              cleanedData[key] = value.toUpperCase();
-            } else if (key === 'status' && typeof value === 'string') {
-              cleanedData[key] = value.toLowerCase().replace(/\s+/g, '_');
-            } else if (typeof value === 'string' || typeof value === 'boolean') {
-              cleanedData[key] = value;
+      for (const [key, value] of Object.entries(parsed)) {
+        if (missingFields.includes(key) && value !== null && value !== undefined && value !== '') {
+          if (key === 'weight' || key === 'volume' || key === 'totalValue' || key === 'dutyRate' || key === 'taxRate') {
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+            if (!isNaN(numValue)) {
+              cleanedData[key] = numValue;
             }
+          } else if (key === 'items' && Array.isArray(value)) {
+            const validItems = value.filter((item: any) =>
+              item && typeof item === 'object' && item.description && typeof item.quantity === 'number'
+            );
+            if (validItems.length > 0) {
+              cleanedData[key] = validItems;
+            }
+          } else if (key === 'currency' && typeof value === 'string') {
+            cleanedData[key] = value.toUpperCase();
+          } else if (key === 'status' && typeof value === 'string') {
+            cleanedData[key] = value.toLowerCase().replace(/\s+/g, '_');
+          } else if (typeof value === 'string' || typeof value === 'boolean') {
+            cleanedData[key] = value;
           }
         }
-
-        return cleanedData;
-      } catch (parseError) {
-        console.error('Error parsing Gemini response:', parseError);
-        return extractDataFromMessage(message, missingFields);
       }
+
+      return cleanedData;
     }
 
     return extractDataFromMessage(message, missingFields);
-  } catch (error) {
-    console.error('Gemini data extraction error:', error);
+  } catch {
     return extractDataFromMessage(message, missingFields);
   }
 }
