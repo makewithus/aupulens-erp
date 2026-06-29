@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
+import { randomUUID } from "crypto";
 import {
   fetchAdminFinanceData,
   fetchAdminSalesData,
@@ -9,7 +10,8 @@ import {
   fetchAdminUsersData,
   fetchAdminGeneralData,
 } from "@/lib/ai/adminDataFetcher";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaude, callClaudeWithHistory, type ChatTurn } from "@/lib/ai/claude";
+import ChatHistory from "@/models/ChatHistory";
 
 interface QueryIntent {
   category: string;
@@ -35,7 +37,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { message } = await request.json();
+    const body = await request.json();
+    const { message, conversationId: incomingConversationId } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -43,6 +46,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await connectDB();
+
+    // Resolve or create a conversationId
+    const conversationId: string = incomingConversationId || randomUUID();
+    const userId = (session.user as any).id as string;
+
+    // Restore prior turns for multi-turn context
+    const existingHistory = await ChatHistory.findOne(
+      { tenantId, conversationId },
+      { messages: 1 }
+    ).lean();
+    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
+      (m: any) => ({ role: m.role, content: m.content })
+    );
 
     // Classify the query to decide which data set to fetch
     const intent = await analyzeQueryIntent(message);
@@ -56,15 +74,40 @@ export async function POST(request: NextRequest) {
       simulationResult = performFinancialSimulation(data, intent.financialParams);
     }
 
-    // Generate the natural-language response via Claude
+    // Generate the natural-language response via Claude (with conversation history)
     const response = await generateResponseWithClaude(
       message,
       data,
       intent,
-      simulationResult
+      simulationResult,
+      priorTurns
     );
 
-    return NextResponse.json({ response });
+    // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
+    const now = new Date();
+    await ChatHistory.findOneAndUpdate(
+      { tenantId, conversationId },
+      {
+        $setOnInsert: {
+          tenantId,
+          conversationId,
+          userId,
+          module: "admin",
+          title: message.slice(0, 80),
+        },
+        $push: {
+          messages: {
+            $each: [
+              { role: "user",      content: message,  timestamp: now },
+              { role: "assistant", content: response, timestamp: new Date(now.getTime() + 1) },
+            ],
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    return NextResponse.json({ response, conversationId });
   } catch (error) {
     console.error("AI Assistant Error:", error);
     return NextResponse.json(
@@ -139,8 +182,6 @@ function simpleIntentAnalysis(message: string): QueryIntent {
 
 async function fetchDataBasedOnIntent(intent: QueryIntent, tenantId: string): Promise<any> {
   try {
-    await connectDB();
-
     switch (intent.category) {
       case "finance":      return await fetchAdminFinanceData(tenantId);
       case "sales":        return await fetchAdminSalesData(tenantId);
@@ -192,7 +233,8 @@ async function generateResponseWithClaude(
   message: string,
   data: any,
   intent: QueryIntent,
-  simulationResult: any
+  simulationResult: any,
+  priorTurns: ChatTurn[] = []
 ): Promise<string> {
   if (data.error) {
     return "I encountered an error while fetching your data. Please try again.";
@@ -218,11 +260,16 @@ INSTRUCTIONS:
 4. Use bullet points for clarity. Be concise but complete.
 5. If data is missing or insufficient, say so clearly.`;
 
+  const opts = {
+    systemPrompt: "You are a precise ERP analytics assistant. Use only the data provided. Never invent numbers.",
+    maxTokens: 1024,
+  };
+
   try {
-    return await callClaude(prompt, {
-      systemPrompt: "You are a precise ERP analytics assistant. Use only the data provided. Never invent numbers.",
-      maxTokens: 1024,
-    });
+    if (priorTurns.length > 0) {
+      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    }
+    return await callClaude(prompt, opts);
   } catch {
     return generateSimpleFallback(data, intent);
   }
