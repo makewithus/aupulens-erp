@@ -1323,3 +1323,19 @@ export const ORGANIZATION_TIER_LABELS: Record<OrganizationTier, string> = {
   [ORGANIZATION_TIER.PROFESSIONAL]: "Professional",
   [ORGANIZATION_TIER.ENTERPRISE]:   "Enterprise",
 };
+
+// --------------- Org Invite Status ---------------------------
+// Lifecycle of a workspace invitation token.
+// No state-machine transitions here — invites move forward only.
+
+export const INVITE_STATUS = {
+  PENDING:  "pending",
+  ACCEPTED: "accepted",
+  EXPIRED:  "expired",
+  REVOKED:  "revoked",
+} as const;
+
+export const INVITE_STATUS_VALUES = Object.values(INVITE_STATUS);
+
+export type InviteStatus =
+  (typeof INVITE_STATUS)[keyof typeof INVITE_STATUS];
