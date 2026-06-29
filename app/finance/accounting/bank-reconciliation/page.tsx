@@ -166,7 +166,7 @@ export default function BankReconciliationPage() {
       <div className="space-y-6 max-h-[calc(100vh-120px)] flex flex-col">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Bank Reconciliation
             </h1>
             <p className="text-sm text-muted-foreground">

@@ -157,7 +157,7 @@ export default function FinanceDashboard() {
     >
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             Finance Dashboard
           </h1>
           <p className="mt-2 text-muted-foreground">

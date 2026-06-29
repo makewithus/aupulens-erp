@@ -443,7 +443,7 @@ export default function VouchersPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Vouchers
             </h1>
             <p className="text-sm text-muted-foreground">

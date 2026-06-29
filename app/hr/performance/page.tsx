@@ -128,8 +128,7 @@ export default function PerformancePage() {
     >
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Performance Reviews</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track and manage employee performance evaluations</p>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Performance Reviews</h1>
         </div>
 
         {/* Summary */}

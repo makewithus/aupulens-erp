@@ -216,7 +216,7 @@ export default function LeavePage() {
     >
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Leave Requests</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Leave Requests</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage employee leave applications</p>
         </div>
 

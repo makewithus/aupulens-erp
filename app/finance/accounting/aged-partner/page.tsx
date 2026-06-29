@@ -63,7 +63,7 @@ export default function AgedPartnerReportPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Aged Partner Balance
             </h1>
             <p className="text-sm text-muted-foreground">

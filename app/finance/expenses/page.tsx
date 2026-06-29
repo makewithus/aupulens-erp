@@ -187,7 +187,7 @@ export default function ExpensesPage() {
     >
       <div className="p-8 space-y-8 max-w-8xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             Employee Expenses
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

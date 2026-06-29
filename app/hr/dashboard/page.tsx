@@ -219,10 +219,10 @@ export default function HRDashboardPage() {
           </div>
         </div> */}
 
-        <DepartmentDistribution
+        {/* <DepartmentDistribution
           loading={loading}
           departments={data?.departmentDistribution ?? []}
-        />
+        /> */}
 
           <WorkforceOverview
             loading={loading}
@@ -230,10 +230,10 @@ export default function HRDashboardPage() {
             hires={data?.recentHires ?? []}
         />
 
-        {/* <DepartmentDistribution
+        <DepartmentDistribution
           loading={loading}
           departments={data?.departmentDistribution ?? []}
-      /> exchacnge both later ketaa*/}
+      />
       </div>
     </DashboardLayout>
   );

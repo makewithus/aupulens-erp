@@ -222,7 +222,7 @@ export default function JournalEntriesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Journal Entries
             </h1>
             <p className="text-sm text-muted-foreground">

@@ -110,7 +110,7 @@ export default function TrialBalancePage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Trial Balance
             </h1>
             <p className="text-sm text-muted-foreground">
