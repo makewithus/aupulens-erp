@@ -161,7 +161,7 @@ export default function ProformaInvoicesPage() {
       const res = await fetch(`/api/accounting/invoices/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: "posted" }),
+        body: JSON.stringify({ state: "posted", approvalRequired: false }),
       });
 
       if (!res.ok) throw new Error("Failed to confirm invoice");

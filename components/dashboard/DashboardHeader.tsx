@@ -26,6 +26,7 @@ const robotoMono = Roboto_Mono({
 });
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserNav } from "./UserNav";
+import { CommandCenterInput } from "./CommandCenterInput";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -462,92 +463,8 @@ export function DashboardHeader({
 
           {/* RIGHT SECTION */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Search Bar - Hidden on mobile, visible on md+ */}
-            {sidebarConfig.length > 0 && (
-              <div ref={searchRef} className="relative hidden lg:block">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    onFocus={() => searchQuery && setShowSearchResults(true)}
-                    className="w-48 xl:w-64 pl-9 pr-9 h-9  bg-muted/50 border-border/60 focus:bg-background rounded-none focus:ring-0 focus:border-primary"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setShowSearchResults(false);
-                      }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-
-                {showSearchResults && filteredPages.length > 0 && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-none shadow-lg overflow-hidden z-50">
-                    <div
-                      className={cn(
-                        "max-h-96 overflow-y-auto youtube-scrollbar",
-                        isScrolling && "is-scrolling",
-                      )}
-                      onScroll={(e) => {
-                        setIsScrolling(true);
-                        if (scrollTimeoutRef.current) {
-                          clearTimeout(scrollTimeoutRef.current);
-                        }
-                        scrollTimeoutRef.current = setTimeout(() => {
-                          setIsScrolling(false);
-                        }, 1000);
-                      }}
-                    >
-                      {filteredPages.map((page, index) => {
-                        const Icon = page.icon;
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleSearchSelect(page.href)}
-                            className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left border-b border-border/40 last:border-0"
-                          >
-                            {Icon && (
-                              <div className="shrink-0 w-8 h-8 rounded-none bg-primary/10 flex items-center justify-center">
-                                <Icon className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm text-foreground truncate">
-                                {page.title}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {page.section}
-                              </div>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* No Results */}
-                {showSearchResults &&
-                  searchQuery &&
-                  filteredPages.length === 0 && (
-                    <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-none shadow-lg p-4 z-50">
-                      <p className="text-sm text-muted-foreground text-center">
-                        No pages found for &quot;{searchQuery}&quot;
-                      </p>
-                    </div>
-                  )}
-              </div>
-            )}
+            {/* Global AI Command Center */}
+            <CommandCenterInput />
 
             {sidebarConfig.length > 0 && (
               <Separator

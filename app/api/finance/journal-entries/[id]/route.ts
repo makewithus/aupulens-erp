@@ -12,6 +12,7 @@ import {
   requiresBalancedJournal,
   validateJournalLinesForPosting,
 } from "@/lib/accounting/journal-validation";
+import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 
 export async function GET(
   req: NextRequest,
@@ -82,6 +83,12 @@ export async function PATCH(
     }
 
     await dbConnect();
+    
+    // Apply Smart Rules
+    const classification = await applySemanticRulesAndClassify(body, tenantId);
+    if (!classification.ok) {
+      return NextResponse.json({ error: classification.error }, { status: 400 });
+    }
 
     const existing = await JournalEntry.findOne({ _id: id, tenantId });
     if (!existing)

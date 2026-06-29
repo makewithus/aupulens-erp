@@ -76,7 +76,7 @@ export default function QuotesPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
-    const res = await fetch(`/api/crm/quotes?${params}`);
+    const res = await fetch(`/api/crm/quotes?${params}`, { cache: "no-store" });
     const data = await res.json();
     if (data.success) setQuotes(data.data.quotes || []);
     setLoading(false);

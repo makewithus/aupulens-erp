@@ -111,7 +111,7 @@ export default function QuoteDetailPage(props: {
   const [actionPending, setActionPending] = useState(false);
 
   const fetchQuote = async () => {
-    const res = await fetch(`/api/crm/quotes/${id}`);
+    const res = await fetch(`/api/crm/quotes/${id}`, { cache: "no-store" });
     const d = await res.json();
     if (d.success) setData(d.data);
     setLoading(false);

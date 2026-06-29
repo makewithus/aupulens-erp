@@ -245,32 +245,7 @@ export function JournalEntryPopupContent({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <FileText className="h-3 w-3" /> Journal Type
-          </Label>
-          <Select
-            value={formData.header?.journalType || "general"}
-            onValueChange={(v) =>
-              setFormData({
-                ...formData,
-                header: { ...formData.header, journalType: v },
-              })
-            }
-            disabled={isViewOnly}
-          >
-            <SelectTrigger className="rounded-none border-t-0 border-x-0 border-b-2 bg-transparent focus:ring-0 px-0 h-9 font-medium">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sale">Sale</SelectItem>
-              <SelectItem value="purchase">Purchase</SelectItem>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="bank">Bank</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
       </div>
 
       {/* Journal Lines */}
@@ -380,7 +355,7 @@ export function JournalEntryPopupContent({
                         )
                       }
                       disabled={isViewOnly}
-                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono"
+                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="px-2 py-2">
@@ -395,7 +370,7 @@ export function JournalEntryPopupContent({
                         )
                       }
                       disabled={isViewOnly}
-                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono"
+                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                   </td>
                   {!isViewOnly && (

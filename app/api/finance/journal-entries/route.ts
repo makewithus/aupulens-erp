@@ -8,6 +8,7 @@ import {
   VOUCHER_TYPE,
 } from "@/lib/constants/statuses";
 import { createJournalEntry } from "@/lib/accounting/posting";
+import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 
 export async function GET(req: NextRequest) {
   try {
@@ -85,6 +86,12 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect();
+    
+    // Apply Smart Rules
+    const classification = await applySemanticRulesAndClassify(body, tenantId);
+    if (!classification.ok) {
+      return NextResponse.json({ error: classification.error }, { status: 400 });
+    }
 
     const entry = await createJournalEntry({
       ...body,

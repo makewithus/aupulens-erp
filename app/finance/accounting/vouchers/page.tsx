@@ -26,6 +26,7 @@ import {
   BookOpen,
   Ban,
   RotateCcw,
+  Minus,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { JournalEntryPopupContent } from "@/components/accounting/JournalEntryPopupContent";
@@ -263,24 +264,16 @@ export default function VouchersPage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
-  const handleOpenCreate = (vType: VoucherType) => {
-    // Map voucher type → journal type
-    const journalTypeMap: Record<VoucherType, string> = {
-      payment: "cash",
-      receipt: "cash",
-      contra: "bank",
-      journal: "general",
-      sales: "sale",
-      purchase: "purchase",
-    };
+  const handleOpenAction = (actionName: string) => {
     setFormData({
       header: {
         name: "",
         date: new Date(),
         ref: "",
-        journalType: journalTypeMap[vType],
+        journalType: "general",
       },
-      voucherType: vType,
+      voucherType: "journal", // System will auto-classify
+      actionName, // Pass actionName to set a more intuitive title
       voucherStatus: VOUCHER_STATUS.DRAFT,
       approvalRequired: false,
       lineIds: [
@@ -444,12 +437,12 @@ export default function VouchersPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
-              Vouchers
+              Transactions
             </h1>
             <p className="text-sm text-muted-foreground">
               Tally-inspired voucher-driven accounting ·{" "}
               <span className="font-medium text-primary">
-                Draft → Validate → Approve → Post → Ledger
+                Smart Accounting Engine · Just enter what happened
               </span>
             </p>
           </div>
@@ -493,18 +486,23 @@ export default function VouchersPage() {
         </div>
 
         {/* Quick-create voucher type cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {VOUCHER_TYPE_VALUES.map((vt) => {
-            const colors = VOUCHER_TYPE_COLORS[vt];
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { id: "Record Expense", icon: FileText, color: "bg-orange-100 text-orange-700 hover:border-orange-500" },
+            { id: "Receive Payment", icon: Plus, color: "bg-green-100 text-green-700 hover:border-green-500" },
+            { id: "Make Payment", icon: Send, color: "bg-blue-100 text-blue-700 hover:border-blue-500" },
+            { id: "Manual Journal", icon: BookOpen, color: "bg-purple-100 text-purple-700 hover:border-purple-500" },
+          ].map((action) => {
+            const Icon = action.icon;
             return (
               <button
-                key={vt}
-                onClick={() => handleOpenCreate(vt)}
-                className={`p-4 rounded-xl border-2 border-dashed hover:border-solid transition-all text-center group ${colors.bg} ${colors.text} hover:shadow-md`}
+                key={action.id}
+                onClick={() => handleOpenAction(action.id)}
+                className={`p-4 rounded-xl border-2 border-dashed transition-all text-center group ${action.color} hover:shadow-md`}
               >
-                <Plus className="h-5 w-5 mx-auto mb-1 opacity-60 group-hover:opacity-100" />
-                <span className="text-xs font-bold uppercase tracking-wide">
-                  {VOUCHER_TYPE_LABELS[vt]}
+                <Icon className="h-5 w-5 mx-auto mb-1 opacity-80 group-hover:opacity-100" />
+                <span className="text-xs font-bold tracking-wide">
+                  {action.id}
                 </span>
               </button>
             );
@@ -619,9 +617,10 @@ export default function VouchersPage() {
         onOpenChange={setIsModalOpen}
         title={
           formData?.header?.name ||
-          (formData?.voucherType
+          formData?.actionName ||
+          (formData?.voucherType && formData.voucherType !== "journal"
             ? `New ${VOUCHER_TYPE_LABELS[formData.voucherType as VoucherType]}`
-            : "New Voucher")
+            : "New Transaction")
         }
         className="max-w-[90vw] w-full"
         footer={
@@ -667,7 +666,7 @@ export default function VouchersPage() {
           <div className="space-y-4">
             {/* Voucher type + approval badge */}
             <div className="flex items-center gap-3 px-1">
-              {formData.voucherType && (
+              {formData._id && formData.voucherType && (
                 <Badge
                   className={`${VOUCHER_TYPE_COLORS[formData.voucherType as VoucherType]?.bg} ${VOUCHER_TYPE_COLORS[formData.voucherType as VoucherType]?.text} capitalize`}
                 >
