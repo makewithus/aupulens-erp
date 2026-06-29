@@ -7,6 +7,7 @@ import OrgInvite from "@/models/OrgInvite";
 import User from "@/models/User";
 import { INVITE_STATUS } from "@/lib/constants/statuses";
 import { requireOrgAdmin } from "@/lib/org/rbac";
+import { getTierLimits } from "@/lib/constants/tiers";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -57,13 +58,13 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Read maxUsers off the Organization doc.
-    // TODO (Step 4): replace with TIER_LIMITS[org.tier].maxUsers once the
-    // tier→limits constants map is built in lib/constants/tiers.ts.
     const org = await Organization.findOne({ subdomain: tenantId }).lean();
     if (!org) {
       return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
     }
+
+    // Tier-derived cap — single source of truth (lib/constants/tiers.ts).
+    const { maxUsers } = getTierLimits(org.tier);
 
     const memberCount = await User.countDocuments({ tenantId });
 
@@ -74,11 +75,11 @@ export async function POST(req: NextRequest) {
       email: { $ne: normalizedEmail },
     });
 
-    if (memberCount + pendingCount >= org.maxUsers) {
+    if (memberCount + pendingCount >= maxUsers) {
       return NextResponse.json(
         {
           success: false,
-          message: `Your ${org.tier} plan allows ${org.maxUsers} members. Upgrade to invite more.`,
+          message: `Your ${org.tier} plan allows ${maxUsers} members. Upgrade to invite more.`,
           upgradeRequired: true,
         },
         { status: 403 }

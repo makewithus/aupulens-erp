@@ -5,6 +5,7 @@ import Organization from "@/models/Organization";
 import OrgInvite from "@/models/OrgInvite";
 import User from "@/models/User";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
+import { getTierLimits } from "@/lib/constants/tiers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -91,7 +92,6 @@ export async function POST(req: NextRequest) {
 
     // Re-check maxUsers at accept time — members could have been added between
     // invite creation and acceptance (invites may temporarily outpace seats).
-    // TODO (Step 4): replace with TIER_LIMITS[org.tier].maxUsers.
     const org = await Organization.findOne({ subdomain: targetTenantId }).lean();
     if (!org) {
       return NextResponse.json(
@@ -100,12 +100,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Tier-derived cap — single source of truth (lib/constants/tiers.ts).
+    const { maxUsers } = getTierLimits(org.tier);
     const memberCount = await User.countDocuments({ tenantId: targetTenantId });
-    if (memberCount >= org.maxUsers) {
+    if (memberCount >= maxUsers) {
       return NextResponse.json(
         {
           success: false,
-          message: `This organization has reached its ${org.tier} plan member limit (${org.maxUsers}). Ask an admin to upgrade.`,
+          message: `This organization has reached its ${org.tier} plan member limit (${maxUsers}). Ask an admin to upgrade.`,
           upgradeRequired: true,
         },
         { status: 403 }

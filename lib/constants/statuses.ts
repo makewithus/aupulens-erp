@@ -1339,3 +1339,22 @@ export const INVITE_STATUS_VALUES = Object.values(INVITE_STATUS);
 
 export type InviteStatus =
   (typeof INVITE_STATUS)[keyof typeof INVITE_STATUS];
+
+// --------------- Subscription Event Type ----------------------
+// Append-only billing history event types.
+// Payment-provider integration (Stripe/Razorpay webhooks) is deferred.
+
+export const SUBSCRIPTION_EVENT_TYPE = {
+  CREATED:           "created",
+  UPGRADED:          "upgraded",
+  DOWNGRADED:        "downgraded",
+  RENEWED:           "renewed",
+  PAYMENT_SUCCEEDED: "payment_succeeded",
+  PAYMENT_FAILED:    "payment_failed",
+  CANCELED:          "canceled",
+} as const;
+
+export const SUBSCRIPTION_EVENT_TYPE_VALUES = Object.values(SUBSCRIPTION_EVENT_TYPE);
+
+export type SubscriptionEventType =
+  (typeof SUBSCRIPTION_EVENT_TYPE)[keyof typeof SUBSCRIPTION_EVENT_TYPE];
