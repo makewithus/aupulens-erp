@@ -63,7 +63,7 @@ export const financeSidebarConfig: SidebarSection[] = [
     title: "Accounting",
     items: [
       {
-        title: "Vouchers",
+        title: "Transactions",
         href: "/finance/accounting/vouchers",
         icon: FileCheck,
       },

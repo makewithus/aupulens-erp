@@ -1302,3 +1302,5 @@ export const ATTENDANCE_STATUS_COLORS: Record<
     text: "text-slate-600 dark:text-slate-400",
   },
 };
+export const INVITE_STATUS = { PENDING: 'pending', ACCEPTED: 'accepted', EXPIRED: 'expired' };
+export type OrganizationTier = 'starter' | 'pro' | 'enterprise';
