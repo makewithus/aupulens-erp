@@ -23,7 +23,6 @@ export default function CommunicationCenter({ recordId, recordType }: Communicat
 
   useEffect(() => {
     fetchComms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordId]);
 
   const fetchComms = async () => {

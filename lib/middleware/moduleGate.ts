@@ -45,9 +45,9 @@ export const UNGATED_PREFIXES = [
 ];
 
 export function getModuleFromPath(pathname: string): string | null {
-  for (const [prefix, module] of MODULE_PATH_MAP) {
+  for (const [prefix, moduleName] of MODULE_PATH_MAP) {
     if (pathname === prefix || pathname.startsWith(prefix + "/")) {
-      return module;
+      return moduleName;
     }
   }
   return null;
@@ -65,24 +65,24 @@ export function isPathAllowlisted(pathname: string): boolean {
 // When orgEnabledModules is empty (default for orgs created before Step 5) the
 // org check is skipped and only the tier ceiling applies — migration safety.
 export function isModuleAccessible(
-  module: string,
+  moduleName: string,
   tier: OrganizationTier | string | undefined | null,
   orgEnabledModules: string[]
 ): boolean {
   const { enabledModules: tierModules } = getTierLimits(tier);
-  const inTier = (tierModules as readonly string[]).includes(module);
-  const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(module);
+  const inTier = (tierModules as readonly string[]).includes(moduleName);
+  const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   return inTier && inOrg;
 }
 
 export function buildGateDeniedResponse(
-  module: string,
+  moduleName: string,
   tier: string
 ): Record<string, unknown> {
   return {
-    error: `The ${module} module is not available on your ${tier} plan`,
+    error: `The ${moduleName} module is not available on your ${tier} plan`,
     code: "MODULE_NOT_AVAILABLE",
-    module,
+    module: moduleName,
     currentTier: tier,
     requiredAction: "upgrade",
   };
@@ -112,16 +112,16 @@ export async function applyModuleGating(
   // Defence-in-depth: explicit allowlist before path-to-module mapping
   if (isPathAllowlisted(pathname)) return null;
 
-  const module = getModuleFromPath(pathname);
-  if (!module) return null; // not a module route
+  const moduleName = getModuleFromPath(pathname);
+  if (!moduleName) return null; // not a module route
 
   const orgData = await getOrgData(tenantId);
   // Org lookup failed → fail open; the route handler or DB layer will surface the error.
   if (!orgData) return null;
 
-  if (!isModuleAccessible(module, orgData.tier, orgData.enabledModules)) {
+  if (!isModuleAccessible(moduleName, orgData.tier, orgData.enabledModules)) {
     return NextResponse.json(
-      buildGateDeniedResponse(module, orgData.tier ?? "starter"),
+      buildGateDeniedResponse(moduleName, orgData.tier ?? "starter"),
       { status: 403 }
     );
   }

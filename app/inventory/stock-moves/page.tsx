@@ -194,7 +194,6 @@ export default function StockMovesPage() {
       fetchMoves();
       fetchResources();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   // ── Fetch stock moves ──
