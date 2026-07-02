@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AccountingSubNav } from "@/components/finance/accounting/AccountingSubNav";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,133 +19,132 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { useSession } from "next-auth/react";
 import { Lightbulb } from "lucide-react";
+import { DateField } from "@/components/finance/accounting/DateField";
+
+interface JournalLineRow {
+  id: number;
+  accountId: string;
+  description: string;
+  contactId: string;
+  debit: string;
+  credit: string;
+}
+
+const emptyLine = (id: number): JournalLineRow => ({ id, accountId: "", description: "", contactId: "", debit: "", credit: "" });
+
+const REPORTING_METHODS = [
+  { value: "accrual_and_cash", label: "Accrual and Cash" },
+  { value: "accrual_only", label: "Accrual Only" },
+  { value: "cash_only", label: "Cash Only" },
+];
 
 const JournalForm = ({ accounts }: { accounts: any[] }) => {
-  const [viewMode, setViewMode] = useState<"journal" | "template">("journal");
-  const [rows, setRows] = useState([{ id: 1 }, { id: 2 }]);
-  const [enterAmount, setEnterAmount] = useState(false);
+  const router = useRouter();
+  const todayIso = new Date().toISOString().slice(0, 10);
 
-  if (viewMode === "template") {
-    return (
-      <div className="bg-card text-card-foreground p-8 rounded-lg shadow-sm border max-w-6xl mx-auto">
-        <div className="mb-8 pb-4">
-          <h2 className="text-2xl font-semibold tracking-tight">New Template</h2>
-        </div>
+  const [date, setDate] = useState(todayIso);
+  const [reverseJournalDate, setReverseJournalDate] = useState("");
+  const [publishReverseOnDate, setPublishReverseOnDate] = useState(false);
+  const [journalNumber, setJournalNumber] = useState("");
+  const [reference, setReference] = useState("");
+  const [notes, setNotes] = useState("");
+  const [reportingMethod, setReportingMethod] = useState("accrual_and_cash");
+  const [currency, setCurrency] = useState("INR");
+  const [rows, setRows] = useState<JournalLineRow[]>([emptyLine(1), emptyLine(2)]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [saving, setSaving] = useState<"draft" | "posted" | null>(null);
 
-        <div className="grid grid-cols-[200px_1fr] gap-y-6 items-start max-w-3xl">
-          <label className="text-sm font-medium text-red-500 pt-2">Template Name*</label>
-          <Input className="max-w-[400px]" />
+  useEffect(() => {
+    fetch("/api/sales/customers")
+      .then((r) => r.json())
+      .then((d) => setCustomers(d.items || []))
+      .catch(() => {});
+    fetch("/api/finance/accounting/journal-templates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setTemplates(d.data);
+      })
+      .catch(() => {});
+  }, []);
 
-          <label className="text-sm font-medium text-muted-foreground pt-2">Reference#</label>
-          <Input className="max-w-[400px]" />
+  const updateRow = (id: number, patch: Partial<JournalLineRow>) => setRows(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const addRow = () => setRows([...rows, emptyLine(Date.now())]);
+  const removeRow = (id: number) => rows.length > 2 && setRows(rows.filter((r) => r.id !== id));
 
-          <label className="text-sm font-medium text-red-500 pt-2">Notes*</label>
-          <Textarea placeholder="Max. 500 characters" className="max-w-[400px] h-24 resize-none" />
+  const applyTemplate = (tpl: any) => {
+    setNotes(tpl.notes || "");
+    setReportingMethod(tpl.reportingMethod || "accrual_and_cash");
+    setCurrency(tpl.currency || "INR");
+    setReference(tpl.referenceNumber || "");
+    if (tpl.lines?.length) {
+      setRows(
+        tpl.lines.map((l: any, i: number) => ({
+          id: Date.now() + i,
+          accountId: l.accountId?._id || l.accountId || "",
+          description: l.description || "",
+          contactId: l.contactId || "",
+          debit: "",
+          credit: "",
+        })),
+      );
+    }
+    toast.success(`Applied template "${tpl.templateName}"`);
+  };
 
-          <label className="text-sm font-medium text-muted-foreground pt-2">Reporting Method <span className="text-muted-foreground opacity-70">ⓘ</span></label>
-          <div className="flex items-center space-x-6 pt-2">
-            <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting_tpl" className="accent-primary" defaultChecked /><span>Accrual and Cash</span></label>
-            <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting_tpl" className="accent-primary" /><span>Accrual Only</span></label>
-            <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting_tpl" className="accent-primary" /><span>Cash Only</span></label>
-          </div>
+  const subTotalDebit = rows.reduce((s, r) => s + (Number(r.debit) || 0), 0);
+  const subTotalCredit = rows.reduce((s, r) => s + (Number(r.credit) || 0), 0);
+  const difference = Number((subTotalDebit - subTotalCredit).toFixed(2));
 
-          <label className="text-sm font-medium text-muted-foreground pt-2">Currency</label>
-          <Select defaultValue="inr">
-            <SelectTrigger className="max-w-[400px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="inr">INR - Indian Rupee</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+  const resetForm = () => {
+    setDate(todayIso);
+    setReverseJournalDate("");
+    setPublishReverseOnDate(false);
+    setJournalNumber("");
+    setReference("");
+    setNotes("");
+    setReportingMethod("accrual_and_cash");
+    setRows([emptyLine(1), emptyLine(2)]);
+  };
 
-        <div className="mt-12">
-          <div className="flex justify-end mb-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox id="enter_amount" checked={enterAmount} onCheckedChange={(c) => setEnterAmount(!!c)} />
-              <label htmlFor="enter_amount" className="text-sm text-muted-foreground font-medium">Enter an amount</label>
-            </div>
-          </div>
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
-                <tr>
-                  <th className="py-3 px-4 font-medium w-8"></th>
-                  <th className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</th>
-                  <th className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</th>
-                  <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT (INR)</th>
-                  {enterAmount ? (
-                    <>
-                      <th className="py-3 px-4 text-right font-medium border-r w-[15%]">DEBITS</th>
-                      <th className="py-3 px-4 text-right font-medium w-[15%]">CREDITS</th>
-                    </>
-                  ) : (
-                    <th className="py-3 px-4 text-left font-medium">TYPE</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
-                    <td className="p-2 text-center text-muted-foreground cursor-move">⣿</td>
-                    <td className="p-0 border-r">
-                      <Select>
-                        <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select an account" /></SelectTrigger>
-                        <SelectContent>
-                          {accounts.map(a => <SelectItem key={a._id} value={a._id}>{a.accountName}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-0 border-r">
-                      <Input placeholder="Description" className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent" />
-                    </td>
-                    <td className="p-0 border-r">
-                      <Select>
-                        <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select Contact" /></SelectTrigger>
-                        <SelectContent><SelectItem value="none">None</SelectItem></SelectContent>
-                      </Select>
-                    </td>
-                    {enterAmount ? (
-                      <>
-                        <td className="p-0 border-r">
-                          <Input className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent" />
-                        </td>
-                        <td className="p-0">
-                          <Input className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent" />
-                        </td>
-                      </>
-                    ) : (
-                      <td className="p-0">
-                        <Select>
-                          <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select Type" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="debit">Debit</SelectItem>
-                            <SelectItem value="credit">Credit</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="mt-6">
-            <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-medium px-2" onClick={() => setRows([...rows, { id: Date.now() }])}>
-              <div className="bg-primary/20 rounded-full p-0.5 mr-2"><Plus className="h-4 w-4" /></div> Add New Row
-            </Button>
-          </div>
-        </div>
+  const handleSave = async (status: "draft" | "posted") => {
+    if (!notes.trim()) return toast.error("Notes is required");
+    const validLines = rows.filter((r) => r.accountId && (Number(r.debit) > 0 || Number(r.credit) > 0));
+    if (validLines.length < 2) return toast.error("At least two lines with an account and amount are required");
+    if (status === "posted" && difference !== 0) {
+      return toast.error(`Unbalanced journal: debit ${subTotalDebit.toFixed(2)} must equal credit ${subTotalCredit.toFixed(2)}`);
+    }
 
-        <div className="mt-12 pt-6 border-t border-border flex space-x-3 bg-muted/50 -mx-8 -mb-8 px-8 py-4 rounded-b-lg">
-          <Button className="font-medium px-6">Save</Button>
-          <Button variant="outline" className="font-medium px-6 bg-background" onClick={() => setViewMode("journal")}>Cancel</Button>
-        </div>
-      </div>
-    );
-  }
+    setSaving(status);
+    try {
+      const res = await fetch("/api/finance/journal-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          header: { name: journalNumber || undefined, date, ref: reference, journalType: "general" },
+          lineIds: validLines.map((r) => ({
+            accountId: r.accountId,
+            label: r.description,
+            debit: Number(r.debit) || 0,
+            credit: Number(r.credit) || 0,
+            partnerId: r.contactId || undefined,
+          })),
+          voucherType: "journal",
+          voucherStatus: status,
+          status,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed to save journal");
+      toast.success(status === "posted" ? "Journal published" : "Journal saved as draft");
+      resetForm();
+      router.push("/finance/accounting/journal-entries");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save journal");
+    } finally {
+      setSaving(null);
+    }
+  };
 
   return (
     <div className="bg-card text-card-foreground p-8 rounded-lg shadow-sm border max-w-6xl mx-auto">
@@ -156,50 +155,61 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
             <Button variant="link" className="text-primary hover:underline text-sm font-medium px-0">Choose Template ▾</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setViewMode("template")} className="cursor-pointer">New Template</DropdownMenuItem>
+            {templates.map((t) => (
+              <DropdownMenuItem key={t._id} onClick={() => applyTemplate(t)} className="cursor-pointer">
+                {t.templateName}
+              </DropdownMenuItem>
+            ))}
+            {templates.length > 0 && <div className="h-px bg-border my-1" />}
+            <DropdownMenuItem onClick={() => router.push("/finance/accounting/journals/templates/new")} className="cursor-pointer text-primary">
+              + New Template
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       <div className="grid grid-cols-[200px_1fr] gap-y-6 items-start max-w-3xl">
         <label className="text-sm font-medium text-red-500 pt-2">Date*</label>
-        <Input type="date" defaultValue="2026-07-02" className="max-w-[300px]" />
+        <DateField value={date} onChange={setDate} className="max-w-[300px]" />
 
         <label className="text-sm font-medium text-muted-foreground pt-2">Reverse Journal Date</label>
         <div className="space-y-2">
-          <Input type="date" className="max-w-[300px]" />
+          <DateField value={reverseJournalDate} onChange={setReverseJournalDate} className="max-w-[300px]" />
           <div className="flex items-center space-x-2">
-            <Checkbox id="publish_reverse" />
+            <Checkbox id="publish_reverse" checked={publishReverseOnDate} onCheckedChange={(c) => setPublishReverseOnDate(!!c)} />
             <label htmlFor="publish_reverse" className="text-sm text-muted-foreground">Publish reverse journal only on the reverse journal date <span className="opacity-70">ⓘ</span></label>
           </div>
         </div>
 
-        <label className="text-sm font-medium text-red-500 pt-2">Journal#*</label>
+        <label className="text-sm font-medium text-muted-foreground pt-2">Journal# <span className="opacity-70">(auto if blank)</span></label>
         <div className="flex items-center max-w-[300px]">
-          <Input defaultValue="1" className="rounded-r-none focus-visible:ring-0 border-r-0" />
-          <Button variant="outline" className="rounded-l-none border-l-0 px-3 text-primary hover:bg-transparent"><SettingsIcon className="h-4 w-4" /></Button>
+          <Input value={journalNumber} onChange={(e) => setJournalNumber(e.target.value)} placeholder="Auto-generated" className="rounded-r-none focus-visible:ring-0 border-r-0" />
+          <Button variant="outline" className="rounded-l-none border-l-0 px-3 text-primary hover:bg-transparent" type="button"><SettingsIcon className="h-4 w-4" /></Button>
         </div>
 
         <label className="text-sm font-medium text-muted-foreground pt-2">Reference#</label>
-        <Input className="max-w-[300px]" />
+        <Input value={reference} onChange={(e) => setReference(e.target.value)} className="max-w-[300px]" />
 
         <label className="text-sm font-medium text-red-500 pt-2">Notes*</label>
-        <Textarea placeholder="Max. 500 characters" className="max-w-[400px] h-24 resize-none" />
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Max. 500 characters" maxLength={500} className="max-w-[400px] h-24 resize-none" />
 
         <label className="text-sm font-medium text-muted-foreground pt-2">Reporting Method <span className="opacity-70">ⓘ</span></label>
         <div className="flex items-center space-x-6 pt-2">
-          <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting" className="accent-primary" defaultChecked /><span>Accrual and Cash</span></label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting" className="accent-primary" /><span>Accrual Only</span></label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer"><input type="radio" name="reporting" className="accent-primary" /><span>Cash Only</span></label>
+          {REPORTING_METHODS.map((m) => (
+            <label key={m.value} className="flex items-center space-x-2 text-sm cursor-pointer">
+              <input type="radio" name="reporting" className="accent-primary" checked={reportingMethod === m.value} onChange={() => setReportingMethod(m.value)} />
+              <span>{m.label}</span>
+            </label>
+          ))}
         </div>
 
         <label className="text-sm font-medium text-muted-foreground pt-2">Currency</label>
-        <Select defaultValue="inr">
+        <Select value={currency} onValueChange={setCurrency}>
           <SelectTrigger className="max-w-[300px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="inr">INR - Indian Rupee</SelectItem>
+            <SelectItem value="INR">INR - Indian Rupee</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -212,17 +222,17 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                 <th className="py-3 px-4 font-medium w-8"></th>
                 <th className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</th>
                 <th className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</th>
-                <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT (INR)</th>
+                <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</th>
                 <th className="py-3 px-4 text-right font-medium border-r">DEBITS</th>
                 <th className="py-3 px-4 text-right font-medium">CREDITS</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => (
+              {rows.map((row) => (
                 <tr key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
-                  <td className="p-2 text-center text-muted-foreground cursor-move">⣿</td>
+                  <td className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeRow(row.id)}>✕</td>
                   <td className="p-0 border-r">
-                    <Select>
+                    <Select value={row.accountId} onValueChange={(v) => updateRow(row.id, { accountId: v })}>
                       <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select an account" /></SelectTrigger>
                       <SelectContent>
                         {accounts.map(a => <SelectItem key={a._id} value={a._id}>{a.accountName}</SelectItem>)}
@@ -230,65 +240,78 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                     </Select>
                   </td>
                   <td className="p-0 border-r">
-                    <Input placeholder="Description" className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent" />
+                    <Input
+                      value={row.description}
+                      onChange={(e) => updateRow(row.id, { description: e.target.value })}
+                      placeholder="Description"
+                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent"
+                    />
                   </td>
                   <td className="p-0 border-r">
-                    <Select>
+                    <Select value={row.contactId || "none"} onValueChange={(v) => updateRow(row.id, { contactId: v === "none" ? "" : v })}>
                       <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select Contact" /></SelectTrigger>
-                      <SelectContent><SelectItem value="none">None</SelectItem></SelectContent>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {customers.map((c) => (
+                          <SelectItem key={c._id} value={c._id}>{c.header?.name || c.name || "Unnamed"}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </td>
                   <td className="p-0 border-r">
-                    <Input className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent" />
+                    <Input
+                      type="number"
+                      value={row.debit}
+                      onChange={(e) => updateRow(row.id, { debit: e.target.value, credit: e.target.value ? "" : row.credit })}
+                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
+                    />
                   </td>
                   <td className="p-0">
-                    <Input className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent" />
+                    <Input
+                      type="number"
+                      value={row.credit}
+                      onChange={(e) => updateRow(row.id, { credit: e.target.value, debit: e.target.value ? "" : row.debit })}
+                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        
+
         <div className="mt-6 flex justify-between items-start">
-          <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-medium px-2" onClick={() => setRows([...rows, { id: Date.now() }])}>
+          <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-medium px-2" onClick={addRow} type="button">
             <div className="bg-primary/20 rounded-full p-0.5 mr-2"><Plus className="h-4 w-4" /></div> Add New Row
           </Button>
 
           <div className="w-[450px] bg-muted/50 rounded-lg p-6 space-y-4">
             <div className="flex justify-between text-sm items-center">
               <span className="font-medium text-foreground">Sub Total</span>
-              <div className="flex space-x-12 font-medium text-foreground"><span className="w-20 text-right">0.00</span><span className="w-20 text-right">0.00</span></div>
+              <div className="flex space-x-12 font-medium text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
             </div>
             <div className="flex justify-between text-base items-center">
-              <span className="font-bold text-foreground">Total (₹)</span>
-              <div className="flex space-x-12 font-bold text-foreground"><span className="w-20 text-right">0.00</span><span className="w-20 text-right">0.00</span></div>
+              <span className="font-bold text-foreground">Total ({currency})</span>
+              <div className="flex space-x-12 font-bold text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
             </div>
-            <div className="flex justify-between text-sm text-red-500 items-center">
+            <div className="flex justify-between text-sm items-center" style={{ color: difference === 0 ? undefined : "#ef4444" }}>
               <span>Difference</span>
-              <span className="font-medium pr-2">0.00</span>
+              <span className="font-medium pr-2">{difference.toFixed(2)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-8">
-        <label className="text-sm font-medium text-muted-foreground block mb-2">Attachments</label>
-        <div className="w-48 border rounded-md border-border">
-          <Button variant="ghost" className="w-full justify-between text-muted-foreground font-normal hover:bg-muted/50"><span className="flex items-center"><Upload className="h-4 w-4 mr-2" /> Upload File</span> ▾</Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2 opacity-70">You can upload a maximum of 5 files, 10MB each</p>
-      </div>
-
       <div className="mt-12 pt-6 border-t border-border flex justify-between items-center bg-muted/30 -mx-8 -mb-8 px-8 py-4 rounded-b-lg">
         <div className="space-x-3">
-          <Button className="font-medium px-6">Save and Publish</Button>
-          <Button variant="outline" className="font-medium px-6 bg-background">Save as Draft</Button>
-          <Button variant="ghost" className="font-medium">Cancel</Button>
+          <Button className="font-medium px-6" onClick={() => handleSave("posted")} disabled={!!saving}>
+            {saving === "posted" ? "Publishing..." : "Save and Publish"}
+          </Button>
+          <Button variant="outline" className="font-medium px-6 bg-background" onClick={() => handleSave("draft")} disabled={!!saving}>
+            {saving === "draft" ? "Saving..." : "Save as Draft"}
+          </Button>
+          <Button variant="ghost" className="font-medium" onClick={resetForm} disabled={!!saving} type="button">Cancel</Button>
         </div>
-        <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-medium">
-          <ArrowLeft className="h-4 w-4 mr-2 rotate-180" /> Make Recurring
-        </Button>
       </div>
     </div>
   );

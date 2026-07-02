@@ -82,12 +82,24 @@ export function AccountingSubNav() {
         Chart of Accounts
       </Link>
 
-      <Link
-        href="/finance/accounting/chart-of-accounts?tab=Journals"
-        className={tabClass(false)}
-      >
-        Journals
-      </Link>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className={tabClass(isActive("/finance/accounting/journals"))}>
+            Journals <span className="text-xs align-middle">▾</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/chart-of-accounts?tab=Journals">Manual Journals</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/journals/templates">Journal Templates</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/journals/currency-adjustments">Currency Adjustments</Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

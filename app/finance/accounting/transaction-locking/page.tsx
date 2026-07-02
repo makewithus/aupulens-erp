@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Lock, Unlock, Users, Info, ShoppingCart, Landmark, Receipt, UserCog, ArrowRight } from "lucide-react";
+import { DateField } from "@/components/finance/accounting/DateField";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 const MODULES: { key: string; title: string; icon: any; tooltip: string }[] = [
@@ -231,7 +232,7 @@ export default function TransactionLockingPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Lock Date*</label>
-              <Input type="date" value={lockDate} onChange={(e) => setLockDate(e.target.value)} />
+              <DateField value={lockDate} onChange={setLockDate} />
               <p className="text-xs text-muted-foreground">Transactions on or before this date cannot be created, edited, or deleted.</p>
             </div>
             <div className="space-y-2">
