@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Landmark, CreditCard, Wallet, ArrowLeft, ChevronRight } from "lucide-react";
 import { MultiAccountPicker } from "@/components/finance/accounting/AccountPicker";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 type View = "loading" | "empty" | "connect" | "manual" | "list";
 
@@ -30,14 +31,14 @@ export default function BankingLandingPage() {
     aggregatorBanks: [],
     isLiveConfigured: false,
   });
-  const [currencies, setCurrencies] = useState<{ code: string; symbol: string; name: string }[]>([{ code: "INR", symbol: "₹", name: "Indian Rupee" }]);
+  const { baseCurrency, enabledCurrencies: currencies, fetchCurrency } = useAccountingCurrencyStore();
   const [users, setUsers] = useState<{ _id: string; name: string }[]>([]);
 
   const [form, setForm] = useState({
     accountType: "bank",
     accountName: "",
     accountCode: "",
-    currency: "INR",
+    currency: baseCurrency,
     accountNumber: "",
     bankName: "",
     ifsc: "",
@@ -63,12 +64,7 @@ export default function BankingLandingPage() {
       setView(hasAccounts ? "list" : "empty");
     })();
 
-    fetch("/api/finance/accounting/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data?.currency?.enabledCurrencies?.length) setCurrencies(d.data.currency.enabledCurrencies);
-      })
-      .catch(() => {});
+    fetchCurrency();
 
     fetch("/api/users")
       .then((r) => r.json())
@@ -107,7 +103,7 @@ export default function BankingLandingPage() {
       accountType: "bank",
       accountName: "",
       accountCode: "",
-      currency: currencies[0]?.code || "INR",
+      currency: baseCurrency,
       accountNumber: "",
       bankName: "",
       ifsc: "",

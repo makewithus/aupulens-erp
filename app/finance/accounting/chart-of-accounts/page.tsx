@@ -20,6 +20,7 @@ import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { useSession } from "next-auth/react";
 import { Lightbulb } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 interface JournalLineRow {
   id: number;
@@ -41,6 +42,7 @@ const REPORTING_METHODS = [
 const JournalForm = ({ accounts }: { accounts: any[] }) => {
   const router = useRouter();
   const todayIso = new Date().toISOString().slice(0, 10);
+  const { baseCurrency, enabledCurrencies, fetchCurrency } = useAccountingCurrencyStore();
 
   const [date, setDate] = useState(todayIso);
   const [reverseJournalDate, setReverseJournalDate] = useState("");
@@ -49,11 +51,19 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [reportingMethod, setReportingMethod] = useState("accrual_and_cash");
-  const [currency, setCurrency] = useState("INR");
+  const [currency, setCurrency] = useState(baseCurrency);
   const [rows, setRows] = useState<JournalLineRow[]>([emptyLine(1), emptyLine(2)]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [saving, setSaving] = useState<"draft" | "posted" | null>(null);
+
+  useEffect(() => {
+    fetchCurrency();
+  }, [fetchCurrency]);
+
+  useEffect(() => {
+    setCurrency(baseCurrency);
+  }, [baseCurrency]);
 
   useEffect(() => {
     fetch("/api/sales/customers")
@@ -209,7 +219,11 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+            {enabledCurrencies.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.code} - {c.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

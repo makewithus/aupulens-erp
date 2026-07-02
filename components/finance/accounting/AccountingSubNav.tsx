@@ -7,12 +7,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, ChevronDown, ChevronRight } from "lucide-react";
 
 const SETUP_GROUPS: { title: string; items: { label: string; href: string }[] }[] = [
   {
@@ -56,6 +54,7 @@ const SETUP_GROUPS: { title: string; items: { label: string; href: string }[] }[
 export function AccountingSubNav() {
   const pathname = usePathname();
   const [setupSearch, setSetupSearch] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const filteredSetupGroups = useMemo(() => {
     if (!setupSearch.trim()) return SETUP_GROUPS;
@@ -65,6 +64,14 @@ export function AccountingSubNav() {
       items: g.items.filter((i) => i.label.toLowerCase().includes(q) || g.title.toLowerCase().includes(q)),
     })).filter((g) => g.items.length > 0);
   }, [setupSearch]);
+
+  const toggleGroup = (title: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
 
   const isActive = (matcher: string) => pathname?.startsWith(matcher);
 
@@ -141,32 +148,45 @@ export function AccountingSubNav() {
             Setup <span className="text-xs align-middle">▾</span>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[560px] max-h-[70vh] overflow-y-auto p-3">
+        <DropdownMenuContent align="start" className="w-72 max-h-[70vh] overflow-y-auto p-2">
           <div className="flex items-center border rounded-md px-2 mb-2 bg-background">
-            <Search className="h-4 w-4 text-muted-foreground mr-2" />
+            <Search className="h-4 w-4 text-muted-foreground mr-2 shrink-0" />
             <Input
               value={setupSearch}
               onChange={(e) => setSetupSearch(e.target.value)}
-              placeholder="Search settings..."
+              placeholder="Search"
               className="border-0 focus-visible:ring-0 shadow-none px-0 h-9"
               onKeyDown={(e) => e.stopPropagation()}
             />
           </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-            {filteredSetupGroups.map((group) => (
-              <div key={group.title}>
-                <DropdownMenuLabel className="text-xs text-muted-foreground px-0 py-1">
-                  {group.title}
-                </DropdownMenuLabel>
-                {group.items.map((item) => (
-                  <DropdownMenuItem key={item.href} asChild className="cursor-pointer">
-                    <Link href={item.href}>{item.label}</Link>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            ))}
+          <div>
+            {filteredSetupGroups.map((group) => {
+              const isCollapsed = collapsedGroups.has(group.title);
+              return (
+                <div key={group.title}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleGroup(group.title);
+                    }}
+                    className="w-full flex items-center gap-1.5 px-2 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/50 rounded-sm"
+                  >
+                    {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {group.title}
+                  </button>
+                  {!isCollapsed &&
+                    group.items.map((item) => (
+                      <DropdownMenuItem key={item.href} asChild className="cursor-pointer pl-8">
+                        <Link href={item.href}>{item.label}</Link>
+                      </DropdownMenuItem>
+                    ))}
+                </div>
+              );
+            })}
             {filteredSetupGroups.length === 0 && (
-              <div className="col-span-2 text-sm text-muted-foreground py-4 text-center">No settings found</div>
+              <div className="text-sm text-muted-foreground py-4 text-center">No settings found</div>
             )}
           </div>
         </DropdownMenuContent>

@@ -5,9 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAccountingSettings } from "./useAccountingSettings";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 export function TdsSettingsPanel() {
   const { settings, loading, saving, save } = useAccountingSettings();
+  const { baseCurrencySymbol, fetchCurrency } = useAccountingCurrencyStore();
+  useEffect(() => {
+    fetchCurrency();
+  }, [fetchCurrency]);
   const [enabled, setEnabled] = useState(false);
   const [defaultSectionCode, setDefaultSectionCode] = useState("");
   const [thresholdAmount, setThresholdAmount] = useState(0);
@@ -35,7 +40,7 @@ export function TdsSettingsPanel() {
         <Input value={defaultSectionCode} onChange={(e) => setDefaultSectionCode(e.target.value)} placeholder="194C" className="w-40" />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Threshold Amount (₹)</label>
+        <label className="text-sm font-medium">Threshold Amount ({baseCurrencySymbol})</label>
         <Input type="number" value={thresholdAmount} onChange={(e) => setThresholdAmount(Number(e.target.value) || 0)} className="w-40" />
         <p className="text-xs text-muted-foreground">TDS applies only when the transaction amount exceeds this threshold.</p>
       </div>

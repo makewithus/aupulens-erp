@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Users } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -32,8 +33,8 @@ export default function CurrencyAdjustmentsPage() {
   const [filter, setFilter] = useState("this_month");
   const [accountantsOpen, setAccountantsOpen] = useState(false);
 
-  const [currencies, setCurrencies] = useState<{ code: string; symbol: string; name: string }[]>([]);
-  const [baseCurrency, setBaseCurrency] = useState("INR");
+  const { baseCurrency, enabledCurrencies, fetchCurrency } = useAccountingCurrencyStore();
+  const currencies = enabledCurrencies.filter((c) => c.code !== baseCurrency);
   const [modalOpen, setModalOpen] = useState(false);
   const [currency, setCurrency] = useState("");
   const [dateOfAdjustment, setDateOfAdjustment] = useState(new Date().toISOString().slice(0, 10));
@@ -59,18 +60,12 @@ export default function CurrencyAdjustmentsPage() {
   }, [filter]);
 
   useEffect(() => {
-    fetch("/api/finance/accounting/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          const list = (d.data?.currency?.enabledCurrencies || []).filter((c: any) => c.code !== d.data.currency.baseCurrency);
-          setCurrencies(list);
-          setBaseCurrency(d.data.currency.baseCurrency);
-          if (list.length) setCurrency(list[0].code);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    fetchCurrency();
+  }, [fetchCurrency]);
+
+  useEffect(() => {
+    if (currencies.length && !currency) setCurrency(currencies[0].code);
+  }, [currencies, currency]);
 
   const handleSave = async () => {
     if (!currency || !dateOfAdjustment || !exchangeRate || !notes.trim()) {

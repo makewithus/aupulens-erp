@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, X } from "lucide-react";
 import { AccountPicker, type PickerAccount } from "@/components/finance/accounting/AccountPicker";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 interface Line {
   id: number;
@@ -31,6 +32,7 @@ const REPORTING_METHODS = [
 export default function NewJournalTemplatePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { baseCurrency, enabledCurrencies, fetchCurrency } = useAccountingCurrencyStore();
 
   const [accounts, setAccounts] = useState<PickerAccount[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -38,8 +40,17 @@ export default function NewJournalTemplatePage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [reportingMethod, setReportingMethod] = useState("accrual_and_cash");
+  const [currency, setCurrency] = useState(baseCurrency);
   const [lines, setLines] = useState<Line[]>([{ id: 1, accountId: "", description: "", contactId: "", type: "debit" }]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchCurrency();
+  }, [fetchCurrency]);
+
+  useEffect(() => {
+    setCurrency(baseCurrency);
+  }, [baseCurrency]);
 
   useEffect(() => {
     fetch("/api/finance/accounting/accounts?view=active")
@@ -72,7 +83,7 @@ export default function NewJournalTemplatePage() {
           referenceNumber,
           notes,
           reportingMethod,
-          currency: "INR",
+          currency,
           lines: validLines.map((l) => ({ accountId: l.accountId, description: l.description, contactId: l.contactId || undefined, type: l.type })),
         }),
       });
@@ -148,12 +159,16 @@ export default function NewJournalTemplatePage() {
             </div>
 
             <label className="text-sm font-medium text-muted-foreground pt-2">Currency</label>
-            <Select defaultValue="inr">
+            <Select value={currency} onValueChange={setCurrency}>
               <SelectTrigger className="max-w-[400px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="inr">INR - Indian Rupee</SelectItem>
+                {enabledCurrencies.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.code} - {c.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -166,7 +181,7 @@ export default function NewJournalTemplatePage() {
                     <th className="py-3 px-4 font-medium w-8"></th>
                     <th className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</th>
                     <th className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</th>
-                    <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT (INR)</th>
+                    <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</th>
                     <th className="py-3 px-4 text-left font-medium">TYPE</th>
                   </tr>
                 </thead>

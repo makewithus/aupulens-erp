@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { useAccountingSettings } from "./useAccountingSettings";
+import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 type Currency = { code: string; symbol: string; name: string; exchangeRate: number };
 
@@ -50,12 +51,16 @@ export function CurrencyPanel() {
 
   const available = CURRENCY_CATALOG.filter((c) => !enabledCurrencies.some((e) => e.code === c.code));
 
-  const persist = (patch: Partial<{ baseCurrency: string; enabledCurrencies: Currency[]; exchangeRateFeedsEnabled: boolean }>) =>
-    save("currency", {
+  const persist = async (patch: Partial<{ baseCurrency: string; enabledCurrencies: Currency[]; exchangeRateFeedsEnabled: boolean }>) => {
+    const ok = await save("currency", {
       baseCurrency: patch.baseCurrency ?? baseCurrency,
       enabledCurrencies: patch.enabledCurrencies ?? enabledCurrencies,
       exchangeRateFeedsEnabled: patch.exchangeRateFeedsEnabled ?? feedsEnabled,
     });
+    // Refresh the shared store so every other accounting screen picks up the change immediately.
+    if (ok) await useAccountingCurrencyStore.getState().fetchCurrency(true);
+    return ok;
+  };
 
   const addCurrency = async () => {
     const curr = CURRENCY_CATALOG.find((c) => c.code === addCode);
