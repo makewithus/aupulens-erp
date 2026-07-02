@@ -14,12 +14,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
+interface AiActionProposalSummary {
+  id: string;
+  actionType: string;
+  preview: { summary?: string; [key: string]: unknown };
+  status?: 'pending' | 'confirmed' | 'rejected';
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
   isLoading?: boolean;
+  proposal?: AiActionProposalSummary;
 }
 
 interface ChatHistoryItem {
@@ -279,7 +287,8 @@ export default function FinanceAIAssistantPage() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.response || 'I apologize, but I encountered an error processing your request.',
-        timestamp: new Date()
+        timestamp: new Date(),
+        proposal: data.proposal ? { ...data.proposal, status: 'pending' } : undefined
       };
 
       setMessages(prev => prev.filter(msg => !msg.isLoading).concat(assistantMessage));
@@ -326,6 +335,25 @@ export default function FinanceAIAssistantPage() {
       }));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleProposalDecision = async (messageId: string, proposalId: string, decision: 'confirm' | 'reject') => {
+    try {
+      const res = await fetch(`/api/finance/accounting/ai-actions/${proposalId}/${decision}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || `Failed to ${decision} action`);
+
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === messageId && m.proposal
+            ? { ...m, proposal: { ...m.proposal, status: decision === 'confirm' ? 'confirmed' : 'rejected' } }
+            : m
+        )
+      );
+      toast({ title: decision === 'confirm' ? 'Action applied' : 'Action cancelled' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || `Failed to ${decision} action`, variant: 'destructive' });
     }
   };
 
@@ -578,6 +606,33 @@ export default function FinanceAIAssistantPage() {
                            <div className="whitespace-pre-wrap">{message.content}</div>
                         )}
                       </div>
+
+                      {message.proposal && !message.isLoading && (
+                        <div className="mt-3 border border-amber-500/40 bg-amber-500/10 rounded-lg p-3 max-w-md">
+                          <p className="text-xs text-amber-400 font-medium mb-2">Confirmation required — this action has not been applied yet.</p>
+                          {message.proposal.status === 'pending' ? (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleProposalDecision(message.id, message.proposal!.id, 'confirm')}
+                                className="text-xs font-medium px-3 py-1.5 rounded bg-white text-black hover:bg-gray-200"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleProposalDecision(message.id, message.proposal!.id, 'reject')}
+                                className="text-xs font-medium px-3 py-1.5 rounded border border-gray-500 text-gray-300 hover:bg-white/5"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 capitalize">{message.proposal.status}</p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Divider after user messages to visually separate question from AI response */}
                       {message.role === 'user' && !message.isLoading && (
                         <div className="mt-2">

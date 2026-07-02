@@ -11,6 +11,9 @@ import {
 import { DOCUMENT_STATUS } from '@/lib/constants/statuses';
 import { callClaude, callClaudeWithHistory, type ChatTurn } from '@/lib/ai/claude';
 import ChatHistory from '@/models/ChatHistory';
+import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
+import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
+import AiActionProposal from '@/models/AiActionProposal';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +49,35 @@ export async function POST(request: NextRequest) {
       (m: any) => ({ role: m.role, content: m.content })
     );
 
+    // AI never auto-commits financial actions: if the message matches a known
+    // destructive/financial intent, propose it and require explicit user
+    // confirmation via /api/finance/accounting/ai-actions/[id]/confirm instead
+    // of executing it here.
+    const intent = detectAccountingActionIntent(message);
+    if (intent) {
+      try {
+        const preview = await buildActionPreview(intent.actionType, intent.params, tenantId);
+        const proposal = await AiActionProposal.create({
+          tenantId,
+          userId,
+          module: 'finance',
+          actionType: intent.actionType,
+          params: intent.params,
+          preview,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        });
+
+        return NextResponse.json({
+          response: `${preview.summary}\n\nThis requires your confirmation before it's applied.`,
+          proposal: { id: proposal._id, actionType: intent.actionType, preview },
+        });
+      } catch (intentError: any) {
+        const msg = intentError instanceof AiActionError ? intentError.message : 'Failed to prepare that action.';
+        return NextResponse.json({ response: `I couldn't prepare that action: ${msg}` });
+      }
+    }
+
+    // Fetch finance-specific data
     const data = await fetchFinanceData(tenantId);
     const response = await generateResponse(message, data, priorTurns);
 
