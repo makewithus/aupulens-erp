@@ -16,6 +16,7 @@ import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validat
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postInvoicePayment } from "@/lib/accounting/payments";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
+import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
@@ -203,6 +204,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
     }
 
+    try {
+      await assertTransactionNotLocked(tenantId, "purchases", currentBill.invoiceDate);
+      if (body.invoiceDate) {
+        await assertTransactionNotLocked(tenantId, "purchases", body.invoiceDate);
+      }
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
+    }
+
     if (body.poMatchStatus === "mismatch") {
       body.manualReviewRequired = true;
       body.state = DOCUMENT_STATUS.DRAFT;
@@ -346,6 +359,18 @@ export async function DELETE(
     const tenantId = (session.user as any).tenantId || "default-tenant";
     const { id } = await params;
     await dbConnect();
+
+    const existingBill = await Invoice.findOne({ _id: id, tenantId });
+    if (existingBill) {
+      try {
+        await assertTransactionNotLocked(tenantId, "purchases", existingBill.invoiceDate);
+      } catch (lockError) {
+        if (lockError instanceof TransactionLockError) {
+          return NextResponse.json({ error: lockError.message }, { status: 403 });
+        }
+        throw lockError;
+      }
+    }
 
     const bill = await Invoice.findOneAndDelete({ _id: id, tenantId });
 

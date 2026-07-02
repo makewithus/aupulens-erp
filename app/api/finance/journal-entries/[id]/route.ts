@@ -13,6 +13,7 @@ import {
   validateJournalLinesForPosting,
 } from "@/lib/accounting/journal-validation";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
+import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 
 export async function GET(
   req: NextRequest,
@@ -93,6 +94,18 @@ export async function PATCH(
     const existing = await JournalEntry.findOne({ _id: id, tenantId });
     if (!existing)
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+
+    try {
+      await assertTransactionNotLocked(tenantId, "accountant", existing.header?.date);
+      if (body.header?.date) {
+        await assertTransactionNotLocked(tenantId, "accountant", body.header.date);
+      }
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
+    }
 
     const existingIsPosted =
       existing.voucherStatus === VOUCHER_STATUS.POSTED ||
@@ -231,6 +244,15 @@ export async function DELETE(
         { error: "Cannot delete posted or approved entries" },
         { status: 400 },
       );
+    }
+
+    try {
+      await assertTransactionNotLocked(tenantId, "accountant", existing.header?.date);
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
     }
 
     await JournalEntry.findOneAndDelete({ _id: id, tenantId });

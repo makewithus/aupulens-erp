@@ -10,6 +10,7 @@ import {
   type DocumentStatus,
   type PaymentState,
 } from '@/lib/constants/statuses';
+import { assertTransactionNotLocked, TransactionLockError } from '@/lib/accounting/transactionLock';
 
 export async function PATCH(
   req: Request,
@@ -31,6 +32,18 @@ export async function PATCH(
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    }
+
+    try {
+      await assertTransactionNotLocked(tenantId, 'sales', invoice.invoiceDate);
+      if (body.invoiceDate) {
+        await assertTransactionNotLocked(tenantId, 'sales', body.invoiceDate);
+      }
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
     }
 
     const paymentState = (body.paymentState ||
@@ -110,6 +123,15 @@ export async function DELETE(
         { error: 'Only draft invoices can be deleted' },
         { status: 400 },
       );
+    }
+
+    try {
+      await assertTransactionNotLocked(tenantId, 'sales', invoice.invoiceDate);
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
     }
 
     await Invoice.deleteOne({ _id: id, tenantId });

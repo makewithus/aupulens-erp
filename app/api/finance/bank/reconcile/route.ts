@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import BankStatement from "@/models/BankStatement";
 import JournalEntry from "@/models/JournalEntry";
+import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -34,6 +35,14 @@ export async function PATCH(req: NextRequest) {
     // 2. Mark journal entry line as reconciled
     const entry = await JournalEntry.findOne({ _id: journalEntryId, tenantId });
     if (entry) {
+      try {
+        await assertTransactionNotLocked(tenantId, "banking", entry.header?.date);
+      } catch (lockError) {
+        if (lockError instanceof TransactionLockError) {
+          return NextResponse.json({ error: lockError.message }, { status: 403 });
+        }
+        throw lockError;
+      }
       const line = entry.lineIds.find(
         (l: any) => l._id.toString() === journalLineId,
       );

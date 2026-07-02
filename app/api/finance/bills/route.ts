@@ -9,6 +9,7 @@ import {
   PAYMENT_STATE,
   PAYMENT_STATE_VALUES,
 } from "@/lib/constants/statuses";
+import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
@@ -174,6 +175,15 @@ export async function POST(req: NextRequest) {
     const amountTax = Number(body.amountTax ?? body.taxAmount) || 0;
     const amountTotal =
       Number(body.amountTotal ?? body.total) || amountUntaxed + amountTax;
+
+    try {
+      await assertTransactionNotLocked(tenantId, "purchases", body.invoiceDate);
+    } catch (lockError) {
+      if (lockError instanceof TransactionLockError) {
+        return NextResponse.json({ error: lockError.message }, { status: 403 });
+      }
+      throw lockError;
+    }
 
     const bill = await Invoice.create({
       ...body,
