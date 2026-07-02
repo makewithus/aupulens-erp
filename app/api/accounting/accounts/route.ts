@@ -42,7 +42,9 @@ export async function GET() {
     if (accounts.length === 0) {
       try {
         const { seedChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
+        const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
         await seedChartOfAccounts(tenantId, session.user.id);
+        await seedNewChartOfAccounts(tenantId, session.user.id);
         accounts = await Account.find({
           tenantId,
         })

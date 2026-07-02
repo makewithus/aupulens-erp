@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onKeyDown, onChange, min, ...props }, ref) => {
     return (
       <input
         type={type}
@@ -14,6 +14,19 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        min={type === "number" && min === undefined ? "0" : min}
+        onKeyDown={(e) => {
+          if (type === "number" && (e.key === "-" || e.key === "e" || e.key === "E")) {
+            e.preventDefault();
+          }
+          if (onKeyDown) onKeyDown(e);
+        }}
+        onChange={(e) => {
+          if (type === "number" && parseFloat(e.target.value) < 0) {
+            e.target.value = "0";
+          }
+          if (onChange) onChange(e);
+        }}
         {...props}
       />
     )
