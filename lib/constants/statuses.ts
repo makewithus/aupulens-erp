@@ -218,3 +218,46 @@ export const AI_ACTION_TYPE = {
 } as const;
 export const AI_ACTION_TYPE_VALUES = Object.values(AI_ACTION_TYPE);
 export type AiActionType = (typeof AI_ACTION_TYPE)[keyof typeof AI_ACTION_TYPE];
+
+// ============================================================
+//  BANK ACCOUNTS (manual + connected feeds)
+// ============================================================
+
+export const BANK_ACCOUNT_TYPE = {
+  BANK: "bank",
+  CREDIT_CARD: "credit_card",
+} as const;
+export const BANK_ACCOUNT_TYPE_VALUES = Object.values(BANK_ACCOUNT_TYPE);
+export type BankAccountType = (typeof BANK_ACCOUNT_TYPE)[keyof typeof BANK_ACCOUNT_TYPE];
+
+export const BANK_ACCOUNT_CONNECTION_STATUS = {
+  MANUAL: "manual",
+  PENDING: "pending",
+  CONNECTED: "connected",
+} as const;
+export const BANK_ACCOUNT_CONNECTION_STATUS_VALUES = Object.values(BANK_ACCOUNT_CONNECTION_STATUS);
+export type BankAccountConnectionStatus =
+  (typeof BANK_ACCOUNT_CONNECTION_STATUS)[keyof typeof BANK_ACCOUNT_CONNECTION_STATUS];
+
+// ============================================================
+//  JOURNAL TEMPLATES & CURRENCY ADJUSTMENTS
+// ============================================================
+
+export const JOURNAL_REPORTING_METHOD = {
+  ACCRUAL_AND_CASH: "accrual_and_cash",
+  ACCRUAL_ONLY: "accrual_only",
+  CASH_ONLY: "cash_only",
+} as const;
+export const JOURNAL_REPORTING_METHOD_VALUES = Object.values(JOURNAL_REPORTING_METHOD);
+export type JournalReportingMethod =
+  (typeof JOURNAL_REPORTING_METHOD)[keyof typeof JOURNAL_REPORTING_METHOD];
+
+export const CURRENCY_ADJUSTMENT_FILTER = {
+  ALL: "all",
+  TODAY: "today",
+  THIS_WEEK: "this_week",
+  THIS_MONTH: "this_month",
+  THIS_QUARTER: "this_quarter",
+  THIS_YEAR: "this_year",
+} as const;
+export const CURRENCY_ADJUSTMENT_FILTER_VALUES = Object.values(CURRENCY_ADJUSTMENT_FILTER);

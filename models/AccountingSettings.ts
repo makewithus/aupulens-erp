@@ -24,7 +24,8 @@ export interface IAccountingSettings extends Document {
   };
   currency: {
     baseCurrency: string;
-    enabledCurrencies: { code: string; symbol: string; name: string }[];
+    enabledCurrencies: { code: string; symbol: string; name: string; exchangeRate: number }[];
+    exchangeRateFeedsEnabled: boolean;
   };
   taxSettings: {
     pricesIncludeTax: boolean;
@@ -68,9 +69,10 @@ const AccountingSettingsSchema: Schema<IAccountingSettings> = new Schema(
     currency: {
       baseCurrency: { type: String, default: "INR" },
       enabledCurrencies: {
-        type: [{ code: String, symbol: String, name: String }],
-        default: [{ code: "INR", symbol: "₹", name: "Indian Rupee" }],
+        type: [{ code: String, symbol: String, name: String, exchangeRate: { type: Number, default: 1 } }],
+        default: [{ code: "INR", symbol: "₹", name: "Indian Rupee", exchangeRate: 1 }],
       },
+      exchangeRateFeedsEnabled: { type: Boolean, default: true },
     },
     taxSettings: {
       pricesIncludeTax: { type: Boolean, default: false },
