@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -22,6 +21,7 @@ import {
   Ban,
   Circle,
 } from "lucide-react";
+import type { ManufacturingOrder } from "@/types/manufacturing";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ import {
   type ProductionStatus,
   getNextProductionStatuses,
 } from "@/lib/constants/statuses";
+import { ManufacturingList } from "@/components/inventory/manufacturing/ManufacturingList";
 
 /* ---- Step icon map ---- */
 const STEP_ICONS: Record<string, any> = {
@@ -191,6 +192,71 @@ export default function ManufacturingPage() {
     }
   };
 
+const workflowSteps = [
+  {
+    key: PRODUCTION_STATUS.DEMAND_FORECAST,
+    label: "Forecast",
+  },
+  {
+    key: PRODUCTION_STATUS.PRODUCTION_ORDER,
+    label: "Order",
+  },
+  {
+    key: PRODUCTION_STATUS.MATERIAL_RESERVED,
+    label: "Reserve",
+  },
+  {
+    key: PRODUCTION_STATUS.MATERIAL_ISSUED,
+    label: "Issue",
+  },
+  {
+    key: PRODUCTION_STATUS.IN_PRODUCTION,
+    label: "Production",
+  },
+  {
+    key: PRODUCTION_STATUS.QC_PENDING,
+    label: "QC",
+  },
+  {
+    key: PRODUCTION_STATUS.FINISHED,
+    label: "Finished",
+  },
+];
+
+const workflowIndex: Record<string, number> = {
+  [PRODUCTION_STATUS.DEMAND_FORECAST]: 0,
+  [PRODUCTION_STATUS.PRODUCTION_ORDER]: 1,
+  [PRODUCTION_STATUS.MATERIAL_RESERVED]: 2,
+  [PRODUCTION_STATUS.MATERIAL_ISSUED]: 3,
+  [PRODUCTION_STATUS.IN_PRODUCTION]: 4,
+
+  // QC states all map to the QC step
+  [PRODUCTION_STATUS.QC_PENDING]: 5,
+  [PRODUCTION_STATUS.QC_PASSED]: 5,
+  [PRODUCTION_STATUS.QC_FAILED]: 5,
+  [PRODUCTION_STATUS.REWORK]: 5,
+
+  [PRODUCTION_STATUS.FINISHED]: 6,
+
+  // Cancelled stays wherever it was
+  [PRODUCTION_STATUS.CANCELLED]: 0,
+};
+
+const getCurrentStep = (order: any) =>
+  workflowIndex[order.productionStatus] ?? 0;
+
+const getNextAction = (order: ManufacturingOrder) => {
+  const next = getNextProductionStatuses(
+    order.productionStatus as ProductionStatus
+  ).filter(
+    (status) => status !== PRODUCTION_STATUS.CANCELLED
+  )[0];
+
+  return next
+    ? PRODUCTION_STATUS_LABELS[next]
+    : undefined;
+};
+
   return (
     <DashboardLayout
       sidebarSections={inventorySidebarConfig}
@@ -210,117 +276,37 @@ export default function ManufacturingPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">Manufacturing Orders</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Demand &rarr; Order &rarr; Reserve &rarr; Issue &rarr; Produce
-              &rarr; QC &rarr; Finished Goods
-            </p>
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Manufacturing Orders</h1>
           </div>
           <Button onClick={() => handleAction(null, "create")}>
             <Plus className="h-4 w-4 mr-2" /> Create MO
           </Button>
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <TableSkeleton rows={5} columns={6} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="p-3">Reference</th>
-                      <th className="p-3">Product</th>
-                      <th className="p-3 text-right">Qty</th>
-                      <th className="p-3">Production Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((o) => {
-                      const ps = (o.productionStatus ||
-                        PRODUCTION_STATUS.DEMAND_FORECAST) as ProductionStatus;
-                      const nextStatuses = getNextProductionStatuses(ps);
-                      return (
-                        <tr
-                          key={o._id}
-                          className="border-b hover:bg-muted/20"
-                        >
-                          <td className="p-3 font-medium">
-                            {o.header.name}
-                          </td>
-                          <td className="p-3">
-                            {o.header?.productId?.header?.name || "-"}
-                          </td>
-                          <td className="p-3 text-right">
-                            {o.header.quantity}
-                          </td>
-                          <td className="p-3">
-                            <ProductionBadge status={ps} />
-                            {o.reworkCount > 0 && (
-                              <span className="ml-2 text-[10px] text-orange-600 dark:text-orange-400">
-                                <RotateCcw className="inline h-3 w-3 mr-0.5" />
-                                x{o.reworkCount}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right flex justify-end gap-1 flex-wrap">
-                            {nextStatuses
-                              .filter(
-                                (ns) =>
-                                  ns !== PRODUCTION_STATUS.CANCELLED,
-                              )
-                              .slice(0, 2)
-                              .map((ns) => (
-                                <Button
-                                  key={ns}
-                                  size="sm"
-                                  variant={
-                                    ns === PRODUCTION_STATUS.QC_FAILED
-                                      ? "destructive"
-                                      : "outline"
-                                  }
-                                  className="text-xs"
-                                  onClick={() =>
-                                    advanceProductionStatus(o._id, ns)
-                                  }
-                                >
-                                  {PRODUCTION_STATUS_LABELS[ns]}
-                                </Button>
-                              ))}
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleAction(o, "view")}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {ps !== PRODUCTION_STATUS.FINISHED &&
-                              ps !== PRODUCTION_STATUS.CANCELLED && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => handleAction(o, "edit")}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {orders.length === 0 && (
-                  <div className="p-6 text-center text-muted-foreground">
-                    No manufacturing orders.
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {loading ? (
+          <TableSkeleton rows={4} columns={2} />
+        ) : (
+          <ManufacturingList
+            orders={orders}
+            workflowSteps={workflowSteps}
+            statusLabels={PRODUCTION_STATUS_LABELS}
+            getCurrentStep={getCurrentStep}
+            getNextAction={getNextAction}
+            onView={(order) => handleAction(order, "view")}
+            onContinue={(order) => {
+              const next = getNextProductionStatuses(
+                order.productionStatus as ProductionStatus
+              )
+                .filter(
+                  (status) => status !== PRODUCTION_STATUS.CANCELLED
+                )[0];
+
+              if (next) {
+                advanceProductionStatus(order._id, next);
+              }
+            }}
+          />
+        )}
       </div>
 
       <ModularModal
