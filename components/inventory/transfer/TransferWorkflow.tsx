@@ -12,7 +12,7 @@ interface ReceiptWorkflowProps {
   steps: Step[];
 }
 
-export function ReceiptWorkflow({
+export function TransferWorkflow({
   currentStep,
   steps,
 }: ReceiptWorkflowProps) {

@@ -241,7 +241,7 @@ export default function DeliveriesPage() {
     >
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Deliveries (Outgoing)</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Deliveries</h1>
           <Button onClick={() => handleAction(null, "create")}>
             <Plus className="h-4 w-4 mr-2" /> New Delivery
           </Button>

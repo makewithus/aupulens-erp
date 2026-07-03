@@ -30,7 +30,8 @@ import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTrans
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
-import { ReceiptList } from "@/components/inventory/receipts/ReceiptList";
+import type { InventoryTransfer } from "@/types/inventory";
+import { TransferList } from "@/components/inventory/transfer/TransferList";
 
 export default function ReceiptsPage() {
   const { data: session, status } = useSession();
@@ -160,6 +161,73 @@ export default function ReceiptsPage() {
     toast.info("Created Return Draft. Please Review and Save.");
   };
 
+  const workflowSteps = [
+  { key: "draft", label: "Draft" },
+  { key: "pending_approval", label: "Receive" },
+  { key: "qc", label: "QC" },
+  { key: "approved", label: "GRN" },
+  { key: "posted", label: "Stock" },
+  { key: "closed", label: "Close" },
+];
+
+const statusLabels = {
+  draft: "Draft",
+  pending_approval: "Pending Approval",
+  approved: "Approved",
+  posted: "Stock Updated",
+  closed: "Closed",
+};
+
+const getCurrentStep = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return 0;
+
+    case "pending_approval":
+      return 2;
+
+    case "approved":
+      return 3;
+
+    case "posted":
+      return 4;
+
+    case "closed":
+      return 5;
+
+    default:
+      return 0;
+  }
+};
+
+const getNextAction = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return "Receive Goods";
+
+    case "pending_approval":
+      if (transfer.qcStatus === "pending")
+        return "Pass QC";
+
+      if (transfer.qcStatus === "passed")
+        return "Generate GRN";
+
+      if (transfer.qcStatus === "failed")
+        return "Retry QC";
+
+      return undefined;
+
+    case "approved":
+      return "Update Stock";
+
+    case "posted":
+      return "Close Receipt";
+
+    default:
+      return undefined;
+  }
+};
+
   const saveTransfer = async (statusOverride?: string) => {
     setIsSubmitting(true);
     try {
@@ -280,9 +348,21 @@ export default function ReceiptsPage() {
       {loading ? (
         <TableSkeleton rows={4} columns={1} />
       ) : (
-        <ReceiptList
+        <TransferList
+          title="Incoming Receipt"
+          partnerLabel="Vendor"
+          emptyTitle="No incoming receipts"
+          emptyDescription="Create a receipt to begin receiving inventory."
+
           transfers={transfers}
+
+          workflowSteps={workflowSteps}
+          statusLabels={statusLabels}
+          getCurrentStep={getCurrentStep}
+          getNextAction={getNextAction}
+
           onView={handleView}
+
           onContinue={(transfer) => {
             switch (transfer.status) {
               case "draft":

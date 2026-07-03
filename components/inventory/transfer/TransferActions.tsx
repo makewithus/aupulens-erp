@@ -11,7 +11,7 @@ interface ReceiptActionsProps {
   onContinue: () => void;
 }
 
-export function ReceiptActions({
+export function TransferActions({
   showContinue,
   continueLabel,
   onView,
