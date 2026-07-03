@@ -4,27 +4,16 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Plus,
-  Eye,
-  Edit2,
-  CheckCircle,
-  Clock,
-  Undo2,
-  PackageCheck,
-  Package,
-  Truck,
-  ClipboardCheck,
-  ArrowRight,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTransferPopup";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { TransferList } from "@/components/inventory/transfer/TransferList";
 
 export default function DeliveriesPage() {
   const { data: session, status } = useSession();
@@ -200,6 +189,75 @@ export default function DeliveriesPage() {
     }
   };
 
+  const getNextAction = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return "Reserve Inventory";
+
+    case "pending_approval":
+      if (transfer.pickStatus !== "picked")
+        return "Confirm Pick";
+
+      if (transfer.qcStatus !== "packed")
+        return "Confirm Pack";
+
+      return "Approve";
+
+    case "approved":
+      return "Dispatch";
+
+    case "posted":
+      return "Close Delivery";
+
+    default:
+      return undefined;
+  }
+};
+
+const getCurrentStep = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return 0;
+
+    case "pending_approval":
+      if (transfer.pickStatus !== "picked") return 2;
+
+      if (transfer.qcStatus !== "packed") return 3;
+
+      return 4;
+
+    case "approved":
+      return 4;
+
+    case "posted":
+      return 5;
+
+    case "closed":
+      return 6;
+
+    default:
+      return 0;
+  }
+};
+
+const statusLabels = {
+  draft: "Draft",
+  pending_approval: "Picking & Packing",
+  approved: "Approved",
+  posted: "Dispatched",
+  closed: "Delivered",
+};
+
+const workflowSteps = [
+  { key: "draft", label: "Draft" },
+  { key: "reserve", label: "Reserve" },
+  { key: "pick", label: "Pick" },
+  { key: "pack", label: "Pack" },
+  { key: "approved", label: "Approve" },
+  { key: "posted", label: "Dispatch" },
+  { key: "closed", label: "Close" },
+];
+
   const handleSavePartner = async () => {
     try {
       const res = await fetch("/api/sales/customers", {
@@ -247,189 +305,54 @@ export default function DeliveriesPage() {
           </Button>
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <TableSkeleton rows={5} columns={5} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="p-3">Reference</th>
-                      <th className="p-3">Customer</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transfers.map((t) => (
-                      <tr key={t._id} className="border-b hover:bg-muted/20">
-                        <td className="p-3 font-medium">{t.header.name}</td>
-                        <td className="p-3">
-                          {t.header.partnerId?.header?.name ||
-                            t.header.partnerId?.name ||
-                            t.header.partnerName ||
-                            "-"}
-                        </td>
-                        <td className="p-3">
-                          {new Date(
-                            t.header.scheduledDate,
-                          ).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            variant={
-                              t.status === "closed"
-                                ? "default"
-                                : t.status === "posted"
-                                  ? "default"
-                                  : t.status === "approved"
-                                    ? "outline"
-                                    : "secondary"
-                            }
-                          >
-                            {t.status === "pending_approval"
-                              ? `Pending (Pick: ${t.pickStatus || "pending"}, Pack: ${t.packStatus || "pending"})`
-                              : t.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right flex justify-end gap-1 flex-wrap">
-                          {/* ① Draft → Check & Reserve Inventory */}
-                          {t.status === "draft" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() =>
-                                updateStatus(t._id, "pending_approval")
-                              }
-                            >
-                              <ClipboardCheck className="h-3 w-3 mr-1" /> Check
-                              & Reserve
-                            </Button>
-                          )}
+{loading ? (
+  <TableSkeleton rows={4} columns={1} />
+) : (
+  <TransferList
+    partnerLabel="Customer"
+    emptyTitle="No outgoing deliveries"
+    emptyDescription="Create a delivery to begin shipping products."
 
-                          {/* ② pending_approval → Confirm Picked */}
-                          {t.status === "pending_approval" &&
-                            t.pickStatus !== "picked" && (
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
-                                onClick={() =>
-                                  updateSubStatus(t._id, {
-                                    pickStatus: "picked",
-                                  })
-                                }
-                              >
-                                <PackageCheck className="h-3 w-3 mr-1" />{" "}
-                                Confirm Picked
-                              </Button>
-                            )}
+    transfers={transfers}
 
-                          {/* ③ pending_approval + picked → Confirm Packed */}
-                          {t.status === "pending_approval" &&
-                            t.pickStatus === "picked" &&
-                            t.packStatus !== "packed" && (
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white"
-                                onClick={() =>
-                                  updateSubStatus(t._id, {
-                                    packStatus: "packed",
-                                  })
-                                }
-                              >
-                                <Package className="h-3 w-3 mr-1" /> Confirm
-                                Packed
-                              </Button>
-                            )}
+    workflowSteps={workflowSteps}
+    statusLabels={statusLabels}
+    getCurrentStep={getCurrentStep}
+    getNextAction={getNextAction}
 
-                          {/* ④ pending_approval + picked + packed → Approve */}
-                          {t.status === "pending_approval" &&
-                            t.pickStatus === "picked" &&
-                            t.packStatus === "packed" && (
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={() =>
-                                  updateStatus(t._id, "approved")
-                                }
-                              >
-                                <CheckCircle className="h-3 w-3 mr-1" />{" "}
-                                Approve
-                              </Button>
-                            )}
+    onView={(transfer) => handleAction(transfer, "view")}
 
-                          {/* ⑤ approved → Dispatch */}
-                          {t.status === "approved" && (
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => updateStatus(t._id, "posted")}
-                            >
-                              <Truck className="h-3 w-3 mr-1" /> Dispatch
-                            </Button>
-                          )}
+    onContinue={(transfer) => {
+      switch (transfer.status) {
+        case "draft":
+          updateStatus(transfer._id, "pending_approval");
+          break;
 
-                          {/* ⑥ posted → Close & Reduce Stock */}
-                          {t.status === "posted" && (
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white"
-                              onClick={() => updateStatus(t._id, "closed")}
-                            >
-                              <ArrowRight className="h-3 w-3 mr-1" /> Close &
-                              Reduce Stock
-                            </Button>
-                          )}
+        case "pending_approval":
+          if (transfer.pickStatus !== "picked") {
+            updateSubStatus(transfer._id, {
+              pickStatus: "picked",
+            });
+          } else if (transfer.packStatus !== "packed") {
+            updateSubStatus(transfer._id, {
+              packStatus: "packed",
+            });
+          } else {
+            updateStatus(transfer._id, "approved");
+          }
+          break;
 
-                          {/* Return (only when closed) */}
-                          {t.status === "closed" && (
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() => handleReturn(t)}
-                              title="Return"
-                            >
-                              <Undo2 className="h-4 w-4" />
-                            </Button>
-                          )}
+        case "approved":
+          updateStatus(transfer._id, "posted");
+          break;
 
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => handleAction(t, "view")}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {t.status !== "closed" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => handleAction(t, "edit")}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {transfers.length === 0 && (
-                  <div className="p-6 text-center text-muted-foreground">
-                    No deliveries found.
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        case "posted":
+          updateStatus(transfer._id, "closed");
+          break;
+      }
+    }}
+  />
+)}
       </div>
 
       <ModularModal

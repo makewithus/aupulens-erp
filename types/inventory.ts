@@ -1,4 +1,4 @@
-export interface InventoryTransfer {
+interface InventoryTransfer {
   _id: string;
   status: string;
   qcStatus?: string;

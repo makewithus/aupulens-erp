@@ -7,30 +7,15 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Search,
   Plus,
-  Eye,
-  Edit2,
-  Trash2,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Undo2,
-  ShieldCheck,
-  ShieldX,
-  FileText,
-  PackageCheck,
-  BellRing,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTransferPopup";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
-import type { InventoryTransfer } from "@/types/inventory";
 import { TransferList } from "@/components/inventory/transfer/TransferList";
 
 export default function ReceiptsPage() {
@@ -349,7 +334,6 @@ const getNextAction = (transfer: InventoryTransfer) => {
         <TableSkeleton rows={4} columns={1} />
       ) : (
         <TransferList
-          title="Incoming Receipt"
           partnerLabel="Vendor"
           emptyTitle="No incoming receipts"
           emptyDescription="Create a receipt to begin receiving inventory."

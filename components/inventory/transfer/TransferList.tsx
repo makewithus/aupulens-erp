@@ -6,6 +6,8 @@ interface InventoryTransfer {
   _id: string;
   status: string;
   qcStatus?: string;
+  pickStatus?: string;
+  packStatus?: string;
 
   header: {
     name: string;
@@ -22,14 +24,10 @@ interface InventoryTransfer {
 }
 
 interface TransferListProps {
-  title: string;
   partnerLabel: string;
-
   emptyTitle: string;
   emptyDescription: string;
-
   transfers: InventoryTransfer[];
-
   workflowSteps: {
     key: string;
     label: string;
@@ -38,13 +36,11 @@ interface TransferListProps {
   getCurrentStep: (transfer: InventoryTransfer) => number;
   getNextAction: (transfer: InventoryTransfer) => string | undefined;
   statusLabels: Record<string, string>;
-
   onView: (transfer: InventoryTransfer) => void;
   onContinue: (transfer: InventoryTransfer) => void;
 }
 
 export function TransferList({
-  title,
   partnerLabel,
   emptyTitle,
   emptyDescription,
@@ -61,7 +57,7 @@ export function TransferList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div className="grid grid-cols-1 gap-1 xl:grid-cols-2">
       {transfers.map((transfer) => {
         const partner =
           transfer.header.partnerId?.header?.name ||
@@ -72,7 +68,6 @@ export function TransferList({
         return (
           <TransferCard
             key={transfer._id}
-            title={title}
             reference={transfer.header.name}
             partnerLabel={partnerLabel}
             partnerName={partner}

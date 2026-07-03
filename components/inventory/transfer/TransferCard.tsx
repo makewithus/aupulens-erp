@@ -6,7 +6,6 @@ import { TransferWorkflow } from "./TransferWorkflow";
 import { TransferActions } from "./TransferActions";
 
 interface TransferCardProps {
-  title: string;
   reference: string;
 
   partnerLabel: string;
@@ -32,7 +31,6 @@ interface TransferCardProps {
 }
 
 export function TransferCard({
-  title,
   reference,
   partnerLabel,
   partnerName,
@@ -55,18 +53,11 @@ export function TransferCard({
             <h2 className="text-[28px] font-medium tracking-[-0.04em] transition-opacity duration-500 group-hover:opacity-80">
               {reference}
             </h2>
-
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground/45">
-              {title}
-            </p>
           </div>
 
           <div className="text-right">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/45">
-              Status
-            </p>
 
-            <p className="mt-1 text-sm font-medium uppercase tracking-wide">
+            <p className="mt-1 text-sm font-medium tracking-wide">
               {statusLabel}
             </p>
           </div>
