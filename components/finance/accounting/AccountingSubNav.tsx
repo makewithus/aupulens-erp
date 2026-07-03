@@ -136,10 +136,10 @@ export function AccountingSubNav() {
       </Link>
 
       <Link
-        href="/finance/accounting/period-end-closing"
-        className={tabClass(isActive("/finance/accounting/period-end-closing"))}
+        href="/finance/accounting/period-closing"
+        className={tabClass(isActive("/finance/accounting/period-closing"))}
       >
-        Period End Closing
+        Period Closing
       </Link>
 
       <DropdownMenu>
