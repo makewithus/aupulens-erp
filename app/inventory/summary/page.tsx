@@ -13,12 +13,15 @@ import {
   AlertCircle,
   ShoppingCart,
   Warehouse,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   StatsRowSkeleton,
   TableSkeleton,
 } from "@/components/ui/loading-skeletons";
 import { AIAssistantWidget } from "@/components/dashboard/AIAssistantWidget";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 
 interface InventorySummary {
   totalItems: {
@@ -145,12 +148,9 @@ export default function InventorySummaryPage() {
     >
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             Inventory Summary
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Overview of your inventory and warehouse operations
-          </p>
         </div>
 
         {error && (
@@ -163,126 +163,70 @@ export default function InventorySummaryPage() {
           <StatsRowSkeleton count={3} />
         ) : summary ? (
           <>
-            {/* General Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total Items
-                  </CardTitle>
-                  <Package className="h-4 w-4 text-blue-800" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {summary.totalItems?.current.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Total Products
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
+              <StatCard
+                title="Total Items"
+                value={summary.totalItems?.current.toLocaleString()}
+                visual={<UsersGraph/>}
+                subtitle="Products in inventory"
+              />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total Asset Value
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatCurrency(summary.totalValue?.current)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Based on standard cost
-                  </div>
-                </CardContent>
-              </Card>
+              <StatCard
+                title="Inventory Value"
+                value={formatCurrency(summary.totalValue?.current)}
+                subtitle="Based on standard cost"
+                visual={<UsersGraph/>}
+              />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Low Stock Alerts
-                  </CardTitle>
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {summary.lowStock?.current}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Items below reorder level (5)
-                  </div>
-                </CardContent>
-              </Card>
+              <StatCard
+                title="Low Stock"
+                value={summary.lowStock?.current}
+                subtitle="Below threshold"
+                visual={<UsersGraph/>}
+              />
             </div>
 
             {/* Operations Metrics */}
-            <h2 className="text-xl font-semibold mt-6 mb-4">
-              Operations to Process
+            <h2 className="mt-6 text-[30px] font-medium tracking-[-0.05em]">
+              Operations
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => router.push("/inventory/operations/receipts")}
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Receipts
-                  </CardTitle>
-                  <Warehouse className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {summary.operations?.receipts}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Incoming transfers pending
-                  </div>
-                </CardContent>
-              </Card>
 
-              <Card
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => router.push("/inventory/operations/deliveries")}
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Deliveries
-                  </CardTitle>
-                  <ShoppingCart className="h-4 w-4 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {summary.operations?.deliveries}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Outgoing transfers pending
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
+              <div onClick={() => router.push("/inventory/operations/receipts")}>
+                <StatCard
+                  className="cursor-pointer hover:bg-muted/20"
+                  title="Receipts"
+                  value={summary.operations?.receipts}
+                  subtitle="Awaiting processing"
+                  rightContent={
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  }
+                />
+              </div>
 
-              <Card
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() =>
-                  router.push("/inventory/operations/manufacturing")
-                }
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Manufacturing
-                  </CardTitle>
-                  <Package className="h-4 w-4 text-amber-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {summary.operations?.manufacturing}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Orders in progress/confirmed
-                  </div>
-                </CardContent>
-              </Card>
+              <div onClick={() => router.push("/inventory/operations/deliveries")}>
+                <StatCard
+                  className="cursor-pointer hover:bg-muted/20"
+                  title="Deliveries"
+                  value={summary.operations?.deliveries}
+                  subtitle="Ready for dispatch"
+                  rightContent={
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  }
+                />
+              </div>
+
+              <div onClick={() => router.push("/inventory/operations/manufacturing")}>
+                <StatCard
+                  className="cursor-pointer hover:bg-muted/20"
+                  title="Manufacturing"
+                  value={summary.operations?.manufacturing}
+                  subtitle="Orders awaiting production"
+                  rightContent={
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  }
+                />
+              </div>
             </div>
           </>
         ) : (
