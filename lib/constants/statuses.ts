@@ -1628,6 +1628,28 @@ export const INVOICE_TEMPLATE_CATEGORY_VALUES = Object.values(
 export type InvoiceTemplateCategory =
   (typeof INVOICE_TEMPLATE_CATEGORY)[keyof typeof INVOICE_TEMPLATE_CATEGORY];
 
+// ============================================================
+//  E-INVOICING (NIC/GSP integration)
+// ============================================================
+
+export const EINVOICE_STATUS = {
+  SUCCESS: "success",
+  PENDING: "pending",
+  FAILED: "failed",
+  CANCELLED: "cancelled",
+} as const;
+export const EINVOICE_STATUS_VALUES = Object.values(EINVOICE_STATUS);
+export type EinvoiceStatus = (typeof EINVOICE_STATUS)[keyof typeof EINVOICE_STATUS];
+
+export const GSP_CONNECTION_STATUS = {
+  NOT_CONNECTED: "not_connected",
+  CONNECTED: "connected",
+  FAILED: "failed",
+} as const;
+export const GSP_CONNECTION_STATUS_VALUES = Object.values(GSP_CONNECTION_STATUS);
+export type GspConnectionStatus =
+  (typeof GSP_CONNECTION_STATUS)[keyof typeof GSP_CONNECTION_STATUS];
+
 // The 14 original invoice template layouts (see docs/_context/ERP.md Sales section)
 export const INVOICE_TEMPLATE_KEY = {
   MODERN: "modern",

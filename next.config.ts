@@ -23,6 +23,7 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
       "connect-src 'self' https://api.anthropic.com",
+      "frame-src 'self' https://www.youtube.com",
       "frame-ancestors 'none'",
     ].join("; "),
   },

@@ -66,7 +66,6 @@ export const salesSidebarConfig: SidebarSection[] = [
         title: "E-Invoices",
         href: "/sales/e-invoices",
         icon: FileText,
-        disabled: true,
       },
       {
         title: "Subscriptions",
