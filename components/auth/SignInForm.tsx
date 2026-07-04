@@ -1,26 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  ArrowRight,
+} from "lucide-react";
+
 import { toast } from "sonner";
+
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
 
-import { useRef } from "react";
-
 export function SignInForm() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/60" />
+      </div>
+    }>
+      <SignInFormContent />
+    </Suspense>
+  );
+}
+
+function SignInFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const { tenantId } = useTenantStore();
   const { checkSession } = useAuthStore();
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -28,6 +49,7 @@ export function SignInForm() {
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
+
     if (errorParam) {
       const errorMap: Record<string, string> = {
         Configuration:
@@ -38,151 +60,239 @@ export function SignInForm() {
           "Access denied. You do not have permission to log in here.",
         Verification:
           "Verification failed. The link may have expired or already been used.",
-        OAuthSignin: "The authentication provider could not be started.",
-        OAuthCallback: "The authentication provider returned an error.",
+        OAuthSignin:
+          "The authentication provider could not be started.",
+        OAuthCallback:
+          "The authentication provider returned an error.",
         OAuthCreateAccount:
           "Could not create your account through the third-party provider.",
-        EmailSignin: "The verification email could not be sent.",
-        SessionRequired: "Please sign in to access this page.",
-        Default: "Invalid email, password, or organization domain.",
+        EmailSignin:
+          "The verification email could not be sent.",
+        SessionRequired:
+          "Please sign in to access this page.",
+        Default:
+          "Invalid email, password, or organization domain.",
       };
 
-      const message = errorMap[errorParam] || errorMap.Default;
+      const message =
+        errorMap[errorParam] ||
+        errorMap.Default;
+
       setError(message);
       toast.error(message);
     }
   }, [searchParams]);
 
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
+
     setIsLoading(true);
     setError("");
 
     try {
-      const result = await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
-        tenantId: tenantId || "default",
-        portal: window.location.pathname,
-        redirect: false,
-      });
+      const result = await signIn(
+        "credentials",
+        {
+          email: formData.email,
+          password: formData.password,
+          tenantId:
+            tenantId || "default",
+          portal:
+            window.location.pathname,
+          redirect: false,
+        }
+      );
 
       if (result?.error) {
-        // If it's a credentials error, show a clean message, otherwise show specific error or fallback
         const errorMessage =
-          result.error === "CredentialsSignin" || result.error === "Configuration"
+          result.error ===
+            "CredentialsSignin" ||
+          result.error ===
+            "Configuration"
             ? "Invalid email, password, or organization domain."
             : result.error;
 
         setError(errorMessage);
         toast.error(errorMessage);
       } else if (result?.ok) {
-        toast.success("Login successful! Redirecting...");
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("session_active", "true");
+        toast.success(
+          "Login successful! Redirecting..."
+        );
+
+        if (
+          typeof window !==
+          "undefined"
+        ) {
+          sessionStorage.setItem(
+            "session_active",
+            "true"
+          );
         }
-        // Force session check to sync user store including tenantId
+
         await checkSession(true);
 
-        // Use hard redirect (window.location.href) so the browser sends the
-        // freshly set session cookie with the next request. router.push() is
-        // a client-side navigation that runs BEFORE the cookie is committed,
-        // causing middleware to see no session and redirect to /onboarding/signup.
-        const role = useAuthStore.getState().user?.role;
-        const getRoleDashboard = (r: string | undefined) => {
+        const role =
+          useAuthStore.getState().user
+            ?.role;
+
+        const getRoleDashboard = (
+          r: string | undefined
+        ) => {
           switch (r) {
-            case "admin": return "/admin/dashboard";
-            case "master-admin": return "/master-admin";
-            case "finance": return "/finance/summary";
-            case "sales": return "/sales/summary";
-            case "inventory": return "/inventory/dashboard";
-            case "manufacturing": return "/manufacturing/dashboard";
-            case "hr": return "/hr/dashboard";
-            default: return "/admin/dashboard";
+            case "admin":
+              return "/admin/dashboard";
+
+            case "master-admin":
+              return "/master-admin";
+
+            case "finance":
+              return "/finance/summary";
+
+            case "sales":
+              return "/sales/summary";
+
+            case "inventory":
+              return "/inventory/dashboard";
+
+            case "manufacturing":
+              return "/manufacturing/dashboard";
+
+            case "hr":
+              return "/hr/dashboard";
+
+            default:
+              return "/admin/dashboard";
           }
         };
-        window.location.href = getRoleDashboard(role);
+
+        window.location.href =
+          getRoleDashboard(role);
       }
     } catch {
-      setError("Something went wrong. Please try again.");
-      toast.error("Something went wrong. Please try again.");
+      setError(
+        "Something went wrong. Please try again."
+      );
+
+      toast.error(
+        "Something went wrong. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-8"
+    >
+      {error && (
+        <div className="text-xs text-destructive bg-destructive/10 p-3 font-mono">
+          {error}
+        </div>
+      )}
 
-
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label
           htmlFor="email"
-          className="text-sm font-medium text-gray-900 dark:text-white"
+          className="font-mono text-[11px] text-muted-foreground/60"
         >
           Email Address
         </Label>
+
         <Input
           id="email"
           type="email"
           placeholder="admin@aupulens.com"
           value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              email: e.target.value,
+            })
+          }
           required
           disabled={isLoading}
-          className="h-12 px-4 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 focus:border-gray-900 dark:focus:border-gray-100 transition-colors"
+          className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none"
         />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label
           htmlFor="password"
-          className="text-sm font-medium text-gray-900 dark:text-white"
+          className="font-mono text-[11px] text-muted-foreground/60"
         >
           Password
         </Label>
+
         <div className="relative">
           <Input
             id="password"
-            type={showPassword ? "text" : "password"}
+            type={
+              showPassword
+                ? "text"
+                : "password"
+            }
             placeholder="••••••••"
             value={formData.password}
             onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
+              setFormData({
+                ...formData,
+                password:
+                  e.target.value,
+              })
             }
             required
             disabled={isLoading}
-            className="h-12 pl-4 pr-10 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 focus:border-gray-900 dark:focus:border-gray-100 transition-colors w-full"
+            className="h-10 pl-0 pr-10 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 w-full shadow-none"
           />
+
           <button
             type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+            onClick={() =>
+              setShowPassword(
+                !showPassword
+              )
+            }
+            className="absolute right-0 bottom-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? (
-              <EyeOff className="h-5 w-5" />
+              <EyeOff className="h-4 w-4" />
             ) : (
-              <Eye className="h-5 w-5" />
+              <Eye className="h-4 w-4" />
             )}
           </button>
         </div>
       </div>
 
-      <Button
-        type="submit"
-        className="w-full h-12 bg-blue-800 hover:bg-blue-900 dark:bg-blue-800 dark:hover:bg-blue-900 text-white font-medium transition-colors"
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Signing in...
-          </>
-        ) : (
-          "Sign In"
-        )}
-      </Button>
+      <div className="flex items-center justify-between pt-6">
+        <Link
+          href="/onboarding/signup"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Create organization
+        </Link>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80 disabled:opacity-50"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Signing In...
+            </>
+          ) : (
+            <>
+              Sign In
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </>
+          )}
+        </button>
+      </div>
     </form>
   );
 }
