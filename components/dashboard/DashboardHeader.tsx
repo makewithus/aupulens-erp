@@ -194,7 +194,7 @@ export function DashboardHeader({
     // 2. Fallback: Default native sign out behavior
     console.log("[DashboardHeader] Using native signOut fallback");
     clearAllStores();
-    await signOut({ callbackUrl: "/auth/admin" });
+    await signOut({ callbackUrl: "/auth" });
   };
 
   const pathname = usePathname();

@@ -20,7 +20,7 @@ function AutoLoginContent() {
     const email = searchParams.get("email");
 
     if (!autologin || !email) {
-      router.push("/auth/admin");
+      router.push("/auth");
       return;
     }
 
@@ -45,7 +45,7 @@ function AutoLoginContent() {
 
           if (result?.error) {
             toast.error("Auto-login failed. Please sign in manually.");
-            router.push("/auth/admin");
+            router.push("/auth");
           } else if (result?.ok) {
             toast.success("Welcome to your workspace! Logging you in...");
             if (typeof window !== "undefined") {
@@ -70,7 +70,7 @@ function AutoLoginContent() {
           }
         } catch {
           toast.error("Auto-login failed. Please sign in manually.");
-          router.push("/auth/admin");
+          router.push("/auth");
         }
       };
 

@@ -65,7 +65,7 @@ export default function TenantInitializer() {
             // Fresh tab or browser load, but session cookie was preserved.
             // Log out immediately to require login credentials!
             useAuthStore.getState().logout();
-            await signOut({ callbackUrl: "/auth/admin" });
+            await signOut({ callbackUrl: "/auth" });
             return;
           }
         }

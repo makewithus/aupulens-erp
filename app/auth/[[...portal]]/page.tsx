@@ -1,17 +1,36 @@
 "use client";
-
 import { Suspense, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Toaster } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
-import Image from "next/image";
 import { Logo } from "@/components/Logo";
+import Link from "next/link";
+
+const VALID_PORTALS = ["admin", "finance", "hr", "inventory", "manufacturing", "sales"];
+
+const PORTAL_CONFIGS: Record<string, { title: string; subtitle: string }> = {
+  admin: { title: "Admin Portal", subtitle: "System Administration Access" },
+  finance: { title: "Finance Portal", subtitle: "Financial Management Access" },
+  hr: { title: "HR & Payroll Portal", subtitle: "Human Resources Access" },
+  inventory: { title: "Inventory Portal", subtitle: "Inventory & Warehouse Access" },
+  manufacturing: { title: "Manufacturing Portal", subtitle: "Manufacturing Operations Access" },
+  sales: { title: "Sales Portal", subtitle: "Sales & CRM Access" },
+};
 
 function AuthContent() {
   const router = useRouter();
+  const params = useParams();
   const mouseGlowRef = useRef<HTMLDivElement>(null);
+
+  const rawPortal = params.portal;
+  const portalName = Array.isArray(rawPortal) ? rawPortal[0] : rawPortal;
+
+  useEffect(() => {
+    if (portalName && !VALID_PORTALS.includes(portalName)) {
+      router.replace("/auth");
+    }
+  }, [portalName, router]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -24,25 +43,10 @@ function AuthContent() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  const switchToAdmin = () => {
-    router.push("/auth/admin");
-  };
-
-  const switchToFinance = () => {
-    router.push("/auth/finance");
-  };
-
-  const switchToInventory = () => {
-    router.push("/auth/inventory");
-  };
-
-  const switchToSales = () => {
-    router.push("/auth/sales");
-  };
-
-  const switchToManufacturing = () => {
-    router.push("/auth/manufacturing");
-  };
+  // Use the configuration for the active portal suffix, or a generic default for "/auth"
+  const activeConfig = (portalName && VALID_PORTALS.includes(portalName))
+    ? PORTAL_CONFIGS[portalName]
+    : { title: "ERP Portal", subtitle: "Enterprise Resource Planning Access" };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white dark:bg-gray-950">
@@ -62,50 +66,36 @@ function AuthContent() {
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-16">
           <div>
             <div className="mb-4">
-  <Logo
-    width={140}
-    height={40}
-    priority
-    className="h-10 w-auto object-contain transition-all duration-300"
-  />
-</div>
+              <Logo
+                width={140}
+                height={40}
+                priority
+                className="h-10 w-auto object-contain transition-all duration-300"
+              />
+            </div>
           </div>
 
           <div className="space-y-6">
-            {/* Portal Switcher */}
+            {/* Unified portal links */}
             <div className="space-y-3">
               <p className="text-xs text-gray-500 dark:text-gray-500 font-medium tracking-wider uppercase">
-                Other Portals
+                Workspaces
               </p>
 
               <div className="flex flex-wrap gap-x-6 gap-y-2">
-                <button
-                  onClick={switchToAdmin}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-800 transition-colors duration-200 hover:underline underline-offset-4"
-                >
-                  Admin
-                </button>
-
-                <button
-                  onClick={switchToFinance}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-800 transition-colors duration-200 hover:underline underline-offset-4"
-                >
-                  Finance
-                </button>
-
-                <button
-                  onClick={switchToSales}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-800 transition-colors duration-200 hover:underline underline-offset-4"
-                >
-                  Sales
-                </button>
-
-                <button
-                  onClick={switchToManufacturing}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-800 transition-colors duration-200 hover:underline underline-offset-4"
-                >
-                  Manufacturing
-                </button>
+                {VALID_PORTALS.map((portal) => (
+                  <button
+                    key={portal}
+                    onClick={() => router.push(`/auth/${portal}`)}
+                    className={`text-sm transition-colors duration-200 hover:underline underline-offset-4 capitalize ${
+                      portalName === portal
+                        ? "text-blue-800 dark:text-blue-800 font-semibold"
+                        : "text-gray-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-800"
+                    }`}
+                  >
+                    {portal === "hr" ? "HR & Payroll" : portal}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -125,13 +115,13 @@ function AuthContent() {
             {/* Mobile Header */}
             <div className="lg:hidden text-center mb-8">
               <div className="flex justify-center mb-3">
-  <Logo
-    width={112}
-    height={32}
-    priority
-    className="h-8 w-auto object-contain transition-all duration-300"
-  />
-</div>
+                <Logo
+                  width={112}
+                  height={32}
+                  priority
+                  className="h-8 w-auto object-contain transition-all duration-300"
+                />
+              </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 tracking-wide">
                 ENTERPRISE RESOURCE PLANNING
               </p>
@@ -142,26 +132,32 @@ function AuthContent() {
               <div className="relative bg-white dark:bg-gray-900 rounded-none border border-gray-200 dark:border-gray-800 p-12">
                 <div className="mb-10">
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Inventory Portal
+                    {activeConfig.title}
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Inventory Management Access
+                    {activeConfig.subtitle}
                   </p>
                 </div>
 
                 {/* Auth Form */}
                 <SignInForm />
+
+                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
+                  New to Aupulens?{" "}
+                  <Link href="/onboarding/signup" className="text-blue-700 dark:text-blue-400 font-semibold hover:underline">
+                    Create an organization &rarr;
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <Toaster />
     </div>
   );
 }
 
-export default function AuthPage() {
+export default function UnifiedAuthPage() {
   return (
     <Suspense
       fallback={

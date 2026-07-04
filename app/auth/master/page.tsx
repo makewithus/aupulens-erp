@@ -24,7 +24,7 @@ function AuthContent() {
   }, []);
 
   const switchToAdmin = () => {
-    router.push("/auth/admin");
+    router.push("/auth");
   };
 
   return (

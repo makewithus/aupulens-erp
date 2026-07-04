@@ -55,7 +55,7 @@ export default auth(async (req) => {
       if (isApiRoute) {
         return NextResponse.json({ error: "Forbidden: Tenant mismatch" }, { status: 403 });
       }
-      const loginUrl = new URL(`/auth/${user.role || "admin"}`, req.url);
+      const loginUrl = new URL(user.role === "master-admin" ? "/auth/master" : "/auth", req.url);
       loginUrl.searchParams.set("error", "TenantMismatch");
       return NextResponse.redirect(loginUrl);
     }
@@ -79,7 +79,7 @@ export default auth(async (req) => {
       case "hr":
         return "/hr/dashboard";
       default:
-        return role === "master-admin" ? "/master-admin" : "/auth/admin";
+        return role === "master-admin" ? "/master-admin" : "/auth";
     }
   };
 
@@ -128,7 +128,7 @@ export default auth(async (req) => {
   // Check if user is accessing admin routes / user management APIs
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/users") || pathname.startsWith("/api/admin")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/admin");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (user.role !== "admin" && user.role !== "master-admin") {
       return handleForbidden(isApiRoute, user.role as string);
@@ -153,7 +153,7 @@ export default auth(async (req) => {
   // Check if user is accessing finance routes / APIs
   if (pathname.startsWith("/finance") || pathname.startsWith("/api/finance")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/finance");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (
       user.role !== "finance" &&
@@ -169,14 +169,14 @@ export default auth(async (req) => {
   // per-handler via lib/crm/rbac.ts (requireRole with permission strings).
   if (pathname.startsWith("/crm") || pathname.startsWith("/api/crm")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/admin");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
   }
 
   // Check if user is accessing sales routes / APIs
   if (pathname.startsWith("/sales") || pathname.startsWith("/api/sales")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/sales");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (
       user.role !== "sales" &&
@@ -190,7 +190,7 @@ export default auth(async (req) => {
   // Check if user is accessing inventory routes / APIs
   if (pathname.startsWith("/inventory") || pathname.startsWith("/api/inventory")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/inventory");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (
       user.role !== "inventory" &&
@@ -205,7 +205,7 @@ export default auth(async (req) => {
   // Check if user is accessing manufacturing routes / APIs
   if (pathname.startsWith("/manufacturing") || pathname.startsWith("/api/manufacturing")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/manufacturing");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (
       user.role !== "manufacturing" &&
@@ -219,7 +219,7 @@ export default auth(async (req) => {
   // Check if user is accessing HR routes / APIs
   if (pathname.startsWith("/hr") || pathname.startsWith("/api/hr")) {
     if (!user) {
-      return handleUnauthorized(isApiRoute, "/auth/hr");
+      return handleUnauthorized(isApiRoute, "/auth");
     }
     if (
       user.role !== "hr" &&

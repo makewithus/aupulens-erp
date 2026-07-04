@@ -124,7 +124,7 @@ export function DashboardLayout({
           console.log("[DashboardLayout] Sign out started, clearing state...");
           clearAllStores();
           console.log("[DashboardLayout] Invoking native signOut...");
-          await signOut({ callbackUrl: "/auth/admin", redirect: true });
+          await signOut({ callbackUrl: "/auth", redirect: true });
         }}
         onRefresh={onRefresh}
         profilePath={profile}

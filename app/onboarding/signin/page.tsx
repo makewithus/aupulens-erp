@@ -94,7 +94,7 @@ function SignInContent() {
         email: form.email,
         password: form.password,
         tenantId: form.subdomain || "default-tenant",
-        portal: "/auth/admin",
+        portal: "/auth",
         redirect: false,
       });
       if (result?.ok) {
