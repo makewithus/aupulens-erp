@@ -1650,6 +1650,53 @@ export const GSP_CONNECTION_STATUS_VALUES = Object.values(GSP_CONNECTION_STATUS)
 export type GspConnectionStatus =
   (typeof GSP_CONNECTION_STATUS)[keyof typeof GSP_CONNECTION_STATUS];
 
+// ============================================================
+//  SALES MODULE REVAMP (Customers / Quotes / Views / Import-Export)
+// ============================================================
+
+export const CUSTOMER_TYPE = {
+  BUSINESS: "business",
+  INDIVIDUAL: "individual",
+} as const;
+export const CUSTOMER_TYPE_VALUES = Object.values(CUSTOMER_TYPE);
+export type CustomerType = (typeof CUSTOMER_TYPE)[keyof typeof CUSTOMER_TYPE];
+
+export const QUOTE_STATUS = {
+  DRAFT: "draft",
+  SENT: "sent",
+  ACCEPTED: "accepted",
+  REJECTED: "rejected",
+  INVOICED: "invoiced",
+} as const;
+export const QUOTE_STATUS_VALUES = Object.values(QUOTE_STATUS);
+export type QuoteStatus = (typeof QUOTE_STATUS)[keyof typeof QUOTE_STATUS];
+
+export const SALES_VIEW_VISIBILITY = {
+  ONLY_ME: "only_me",
+  SELECTED: "selected",
+  EVERYONE: "everyone",
+} as const;
+export const SALES_VIEW_VISIBILITY_VALUES = Object.values(SALES_VIEW_VISIBILITY);
+export type SalesViewVisibility =
+  (typeof SALES_VIEW_VISIBILITY)[keyof typeof SALES_VIEW_VISIBILITY];
+
+export const IMPORT_DUPLICATE_HANDLING = {
+  SKIP: "skip",
+  OVERWRITE: "overwrite",
+  ADD_AS_NEW: "add_as_new",
+} as const;
+export const IMPORT_DUPLICATE_HANDLING_VALUES = Object.values(IMPORT_DUPLICATE_HANDLING);
+export type ImportDuplicateHandling =
+  (typeof IMPORT_DUPLICATE_HANDLING)[keyof typeof IMPORT_DUPLICATE_HANDLING];
+
+export const EXPORT_FILE_FORMAT = {
+  CSV: "csv",
+  XLS: "xls",
+  XLSX: "xlsx",
+} as const;
+export const EXPORT_FILE_FORMAT_VALUES = Object.values(EXPORT_FILE_FORMAT);
+export type ExportFileFormat = (typeof EXPORT_FILE_FORMAT)[keyof typeof EXPORT_FILE_FORMAT];
+
 // The 14 original invoice template layouts (see docs/_context/ERP.md Sales section)
 export const INVOICE_TEMPLATE_KEY = {
   MODERN: "modern",

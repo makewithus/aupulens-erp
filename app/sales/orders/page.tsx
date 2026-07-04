@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
+import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -600,6 +601,7 @@ export default function SalesOrdersPage() {
       onRefresh={load}
     >
       <div className="space-y-6">
+        <SalesTabNav />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Sales Orders</h1>

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
+import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { Button } from "@/components/ui/button";
 import { Check, Settings, LayoutGrid, Plus, MoreHorizontal, Search, FileText } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -110,6 +111,7 @@ export default function SalesInvoicesLandingPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <SalesTabNav />
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             Invoices

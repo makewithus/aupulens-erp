@@ -14,6 +14,7 @@ import {
   Banknote,
   FileMinus,
   Repeat,
+  CreditCard,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -32,8 +33,8 @@ export const salesSidebarConfig: SidebarSection[] = [
     title: "Orders",
     items: [
       {
-        title: "Quotations",
-        href: "/sales/quotations",
+        title: "Quotes",
+        href: "/sales/quotes",
         icon: ClipboardList,
       },
       {
@@ -71,7 +72,11 @@ export const salesSidebarConfig: SidebarSection[] = [
         title: "Subscriptions",
         href: "/sales/subscriptions",
         icon: Repeat,
-        disabled: true,
+      },
+      {
+        title: "Payments",
+        href: "/sales/payments",
+        icon: CreditCard,
       },
     ],
   },
