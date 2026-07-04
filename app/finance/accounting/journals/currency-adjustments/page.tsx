@@ -64,7 +64,11 @@ export default function CurrencyAdjustmentsPage() {
   }, [fetchCurrency]);
 
   useEffect(() => {
-    if (currencies.length && !currency) setCurrency(currencies[0].code);
+    if (currencies.length > 0 && !currency) {
+      setCurrency(currencies[0].code);
+    } else if (currencies.length === 0 && !currency) {
+      setCurrency("AED");
+    }
   }, [currencies, currency]);
 
   const handleSave = async () => {
@@ -111,7 +115,7 @@ export default function CurrencyAdjustmentsPage() {
             <Button variant="outline" size="sm" onClick={() => setAccountantsOpen(true)}>
               <Users className="h-4 w-4 mr-2" /> Find Accountants
             </Button>
-            <Button onClick={() => setModalOpen(true)} disabled={currencies.length === 0}>
+            <Button onClick={() => setModalOpen(true)}>
               + New
             </Button>
           </div>
@@ -190,11 +194,15 @@ export default function CurrencyAdjustmentsPage() {
                   <SelectValue placeholder="Select a currency" />
                 </SelectTrigger>
                 <SelectContent>
-                  {currencies.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.code}- {c.name}
-                    </SelectItem>
-                  ))}
+                  {currencies.length > 0 ? (
+                    currencies.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code}- {c.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="AED">AED- UAE Dirham</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -1477,6 +1477,8 @@ export type CustomFieldType =
 export const CUSTOM_FIELD_APPLIES_TO = {
   ACCOUNT: "account",
   JOURNAL: "journal",
+  // Additive: Sales module custom fields on the invoice document (Document Settings > Custom Fields)
+  INVOICE: "invoice",
 } as const;
 export const CUSTOM_FIELD_APPLIES_TO_VALUES = Object.values(
   CUSTOM_FIELD_APPLIES_TO,
@@ -1568,3 +1570,82 @@ export const CURRENCY_ADJUSTMENT_FILTER = {
 export const CURRENCY_ADJUSTMENT_FILTER_VALUES = Object.values(
   CURRENCY_ADJUSTMENT_FILTER,
 );
+
+// ============================================================
+//  SALES INVOICE STATUS
+// ============================================================
+
+export const SALES_INVOICE_STATUS = {
+  DRAFT: "draft",
+  SAVED: "saved",
+  PARTIALLY_PAID: "partially_paid",
+  PAID: "paid",
+  OVERDUE: "overdue",
+  CANCELLED: "cancelled",
+} as const;
+export const SALES_INVOICE_STATUS_VALUES = Object.values(SALES_INVOICE_STATUS);
+export type SalesInvoiceStatus =
+  (typeof SALES_INVOICE_STATUS)[keyof typeof SALES_INVOICE_STATUS];
+
+// ============================================================
+//  SALES DOCUMENT TYPE (prefixes/suffixes, notes/terms, custom fields)
+// ============================================================
+
+export const SALES_DOCUMENT_TYPE = {
+  INVOICE: "invoice",
+  PURCHASE: "purchase",
+  SALES_RETURN: "salesReturn",
+  PURCHASE_RETURN: "purchaseReturn",
+  PURCHASE_ORDER: "purchaseOrder",
+  DELIVERY_CHALLAN: "deliveryChallan",
+  SALES_ORDER: "salesOrder",
+  QUOTATION: "quotation",
+} as const;
+export const SALES_DOCUMENT_TYPE_VALUES = Object.values(SALES_DOCUMENT_TYPE);
+export type SalesDocumentType =
+  (typeof SALES_DOCUMENT_TYPE)[keyof typeof SALES_DOCUMENT_TYPE];
+
+export const DOCUMENT_PREFIX_KIND = {
+  PREFIX: "prefix",
+  SUFFIX: "suffix",
+} as const;
+export const DOCUMENT_PREFIX_KIND_VALUES = Object.values(DOCUMENT_PREFIX_KIND);
+export type DocumentPrefixKind =
+  (typeof DOCUMENT_PREFIX_KIND)[keyof typeof DOCUMENT_PREFIX_KIND];
+
+// ============================================================
+//  INVOICE TEMPLATE CATALOG
+// ============================================================
+
+export const INVOICE_TEMPLATE_CATEGORY = {
+  INVOICE: "invoice",
+  PURCHASE: "purchase",
+  QUOTATION: "quotation",
+} as const;
+export const INVOICE_TEMPLATE_CATEGORY_VALUES = Object.values(
+  INVOICE_TEMPLATE_CATEGORY,
+);
+export type InvoiceTemplateCategory =
+  (typeof INVOICE_TEMPLATE_CATEGORY)[keyof typeof INVOICE_TEMPLATE_CATEGORY];
+
+// The 14 original invoice template layouts (see docs/_context/ERP.md Sales section)
+export const INVOICE_TEMPLATE_KEY = {
+  MODERN: "modern",
+  VINTAGE: "vintage",
+  MRP_DISCOUNT: "mrp_discount",
+  ELEGANT: "elegant",
+  SERVICE: "service",
+  LANDSCAPE: "landscape",
+  EVERGREEN: "evergreen",
+  ELEGANT_IMAGES: "elegant_images",
+  CLASSIC: "classic",
+  COMPACT: "compact",
+  BILL_SHIP: "bill_ship",
+  LEGEND: "legend",
+  SERVICE_2: "service_2",
+  GENZ: "genz",
+} as const;
+export const INVOICE_TEMPLATE_KEY_VALUES = Object.values(INVOICE_TEMPLATE_KEY);
+export type InvoiceTemplateKey =
+  (typeof INVOICE_TEMPLATE_KEY)[keyof typeof INVOICE_TEMPLATE_KEY];
+

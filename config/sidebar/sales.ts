@@ -11,6 +11,9 @@ import {
   Tag,
   Users,
   GitBranch,
+  Banknote,
+  FileMinus,
+  Repeat,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -42,6 +45,34 @@ export const salesSidebarConfig: SidebarSection[] = [
         title: "Pro Forma Invoices",
         href: "/sales/proforma-invoices",
         icon: FileText,
+      },
+    ],
+  },
+  {
+    title: "Sales",
+    items: [
+      {
+        title: "Invoices",
+        href: "/sales/invoices",
+        icon: Banknote,
+      },
+      {
+        title: "Credit Notes",
+        href: "/sales/credit-notes",
+        icon: FileMinus,
+        disabled: true,
+      },
+      {
+        title: "E-Invoices",
+        href: "/sales/e-invoices",
+        icon: FileText,
+        disabled: true,
+      },
+      {
+        title: "Subscriptions",
+        href: "/sales/subscriptions",
+        icon: Repeat,
+        disabled: true,
       },
     ],
   },

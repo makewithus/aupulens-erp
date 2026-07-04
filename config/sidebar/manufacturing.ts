@@ -12,6 +12,7 @@ import {
   Activity,
   Sparkles,
   Factory,
+  Tag,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -28,6 +29,16 @@ export const manufacturingSidebarConfig: SidebarSection[] = [
         title: "AI Assistant",
         href: "/manufacturing/ai-assistant",
         icon: Sparkles,
+      },
+    ],
+  },
+  {
+    title: "Items",
+    items: [
+      {
+        title: "Items",
+        href: "/manufacturing/items",
+        icon: Tag,
       },
     ],
   },

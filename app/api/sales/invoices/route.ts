@@ -1,0 +1,141 @@
+import { NextRequest, NextResponse } from "next/server";
+import connectDB from "@/lib/db";
+import { auth } from "@/auth";
+import { SalesInvoice } from "@/models/SalesInvoice";
+import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
+import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
+import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
+import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import Organization from "@/models/Organization";
+import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "25", 10);
+    const skip = (page - 1) * limit;
+
+    const query: any = { tenantId: session.user.tenantId };
+
+    const search = searchParams.get("search");
+    if (search) {
+      query.number = { $regex: search, $options: "i" };
+    }
+
+    const status = searchParams.get("status");
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    const [total, invoices] = await Promise.all([
+      SalesInvoice.countDocuments(query),
+      (SalesInvoice as any)
+        .find(query)
+        .populate("customerId", "header contact_details")
+        .sort({ invoiceDate: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: invoices,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error: any) {
+    console.error("Sales Invoices GET error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    await connectDB();
+    const tenantId = session.user.tenantId;
+    const body = await request.json();
+    const isDraft = body.status === SALES_INVOICE_STATUS.DRAFT;
+
+    if (!isDraft) {
+      if (!body.customerId) {
+        return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+      }
+      if (!Array.isArray(body.lineItems) || body.lineItems.length === 0) {
+        return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
+      }
+    }
+
+    const org = await Organization.findOne({ subdomain: tenantId }).lean();
+    const sellerState = (org as any)?.settings?.state;
+
+    const totals = computeInvoiceTotals({
+      lineItems: body.lineItems || [],
+      itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,
+      additionalCharges: body.additionalCharges || [],
+      extraDiscount: body.extraDiscount || 0,
+      extraDiscountMode: "amount",
+      roundOff: !!body.roundOff,
+      sellerState,
+      placeOfSupply: body.placeOfSupply,
+      tdsRate: body.taxes?.tds || 0,
+      tcsRate: body.taxes?.tcs || 0,
+    });
+
+    let number = body.number;
+    if (!number) {
+      const generated = await generateInvoiceNumber(tenantId, body.prefix);
+      number = generated.number;
+    }
+
+    const status = resolveInvoiceStatus({
+      requestedStatus: body.status || SALES_INVOICE_STATUS.SAVED,
+      totalAmount: totals.totalAmount,
+      payments: body.payments || [],
+      markedFullyPaid: body.markedFullyPaid,
+      dueDate: body.dueDate,
+    });
+
+    const newInvoice = new SalesInvoice({
+      ...body,
+      tenantId,
+      number,
+      taxableAmount: totals.taxableAmount,
+      totalDiscount: totals.totalDiscount,
+      totalAmount: totals.totalAmount,
+      taxes: {
+        tds: body.taxes?.tds || 0,
+        tcs: body.taxes?.tcs || 0,
+        gstBreakup: totals.gstBreakup,
+      },
+      status,
+      createdBy: session.user.id,
+    });
+
+    await newInvoice.save();
+
+    return NextResponse.json({ success: true, data: newInvoice }, { status: 201 });
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      return NextResponse.json(
+        { success: false, message: "That invoice number is already in use. Please choose another." },
+        { status: 409 },
+      );
+    }
+    console.error("Sales Invoices POST error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}

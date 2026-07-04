@@ -104,7 +104,7 @@ export default auth(async (req) => {
   }
 
   // Central Session Check for API routes (exclude auth endpoints and public APIs)
-  if (isApiRoute && !isAuthApi && !isPublicApi && !user) {
+  if (isApiRoute && !isAuthApi && !isPublicApi && !user && pathname !== "/api/admin/migrate-invoices") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -112,7 +112,7 @@ export default auth(async (req) => {
   if (pathname === "/") {
     return NextResponse.redirect(
       new URL(
-        user ? getRoleDashboard(user.role as string) : "/onboarding/signup",
+        user ? getRoleDashboard(user.role as string) : "/auth/admin",
         req.url,
       ),
     );
@@ -125,8 +125,7 @@ export default auth(async (req) => {
     );
   }
 
-  // Check if user is accessing admin routes / user management APIs
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/users") || pathname.startsWith("/api/admin")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/users") || (pathname.startsWith("/api/admin") && pathname !== "/api/admin/migrate-invoices")) {
     if (!user) {
       return handleUnauthorized(isApiRoute, "/auth/admin");
     }

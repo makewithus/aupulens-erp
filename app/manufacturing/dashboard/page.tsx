@@ -20,7 +20,7 @@ import {
   FlaskConical,
   RotateCcw,
 } from "lucide-react";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { StatCard } from "@/components/manufacturing/StatCard";
 import { ManufacturingVisualization } from "@/components/manufacturing/ManufacturingVisualization";
 import { useToast } from "@/components/ui/use-toast";
@@ -157,7 +157,11 @@ export default function ManufacturingDashboard() {
     }
   }, [fetchSummary, router, session, status]);
 
-  if (status === "loading" || isLoading) {
+  if (status === "loading" || status === "unauthenticated") {
+    return <FullPageLoadingSkeleton />;
+  }
+
+  if (isLoading) {
     return (
       <DashboardLayout
         sidebarSections={manufacturingSidebarConfig}

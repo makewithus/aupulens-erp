@@ -20,7 +20,8 @@ export async function GET() {
     console.log(tenantId)
 
     const [
-      Invoice,
+      SalesInvoice,
+      Bill,
       SaleOrder,
       Product,
       Customer,
@@ -30,7 +31,8 @@ export async function GET() {
       Expense,
       Transaction,
     ] = await Promise.all([
-      import("@/models/Invoice").then((m) => m.default),
+      import("@/models/SalesInvoice").then((m) => m.SalesInvoice),
+      import("@/models/Bill").then((m) => m.default),
       import("@/models/SaleOrder").then((m) => m.default),
       import("@/models/Product").then((m) => m.default),
       import("@/models/Customer").then((m) => m.default),
@@ -47,81 +49,54 @@ export async function GET() {
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
     const lastSixMonths = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    // Finance: Revenue (using same pattern as finance summary API)
-    const outInvoices = await Invoice.find({
-      moveType: "out_invoice",
-      tenantId,
-    }).lean();
-
-    console.log(
-      `[Admin Dashboard] Total out_invoices found: ${outInvoices.length}`,
-    );
-    console.log(
-      `[Admin Dashboard] Posted out_invoices: ${outInvoices.filter((inv: any) => inv.state === DOCUMENT_STATUS.POSTED).length}`,
-    );
-
+    // Finance: Revenue (using SalesInvoice)
+    const outInvoices = await (SalesInvoice as any).find({ tenantId }).lean();
+    
+    // Valid finalized statuses for SalesInvoice
+    const isPostedSales = (inv: any) => ["saved", "partially_paid", "paid", "overdue"].includes(inv.status);
+    
     const totalRevenue = outInvoices
-      .filter((inv: any) => inv.state === DOCUMENT_STATUS.POSTED)
-      .reduce((sum, inv: any) => {
-        const amount = Number(inv.amountTotal) || 0;
-        console.log(`[Admin Dashboard] Invoice ${inv.name}: ${amount}`);
-        return sum + amount;
-      }, 0);
-
-    console.log(`[Admin Dashboard] Total Revenue Calculated: ${totalRevenue}`);
-
+      .filter(isPostedSales)
+      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
+      
     const draftInvoices = outInvoices.filter(
-      (inv: any) => inv.state === DOCUMENT_STATUS.DRAFT,
+      (inv: any) => inv.status === "draft",
     ).length;
-
+    
     const revenueCurrentMonth = outInvoices
       .filter(
         (inv: any) =>
-          inv.state === DOCUMENT_STATUS.POSTED &&
+          isPostedSales(inv) &&
           inv.invoiceDate &&
           new Date(inv.invoiceDate) >= currentMonthStart,
       )
-      .reduce((sum, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
-
+      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
+      
     const revenuePreviousMonth = outInvoices
       .filter(
         (inv: any) =>
-          inv.state === DOCUMENT_STATUS.POSTED &&
+          isPostedSales(inv) &&
           inv.invoiceDate &&
           new Date(inv.invoiceDate) >= prevMonthStart &&
           new Date(inv.invoiceDate) <= prevMonthEnd,
       )
-      .reduce((sum, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
+      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
 
-    // Finance: Expenses (using same pattern as finance summary API)
-    const inInvoices = await Invoice.find({
-      moveType: "in_invoice",
-      tenantId,
-    }).lean();
-
-    console.log(
-      `[Admin Dashboard] Total in_invoices found: ${inInvoices.length}`,
-    );
-    console.log(
-      `[Admin Dashboard] Posted in_invoices: ${inInvoices.filter((inv: any) => inv.state === DOCUMENT_STATUS.POSTED).length}`,
-    );
-
+    // Finance: Expenses (using Bill)
+    const inInvoices = await (Bill as any).find({ tenantId }).lean();
+    
     const totalExpenses = inInvoices
-      .filter((inv: any) => inv.state === DOCUMENT_STATUS.POSTED)
-      .reduce((sum, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
-
+      .filter((inv: any) => inv.status === DOCUMENT_STATUS.POSTED || inv.status === "paid")
+      .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
+      
     const expensesCurrentMonth = inInvoices
       .filter(
         (inv: any) =>
-          inv.state === DOCUMENT_STATUS.POSTED &&
-          inv.invoiceDate &&
-          new Date(inv.invoiceDate) >= currentMonthStart,
+          (inv.status === DOCUMENT_STATUS.POSTED || inv.status === "paid") &&
+          inv.issueDate &&
+          new Date(inv.issueDate) >= currentMonthStart,
       )
-      .reduce((sum, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
-
-    console.log(
-      `[Admin Dashboard] Total Expenses: ${totalExpenses}, Current Month: ${expensesCurrentMonth}`,
-    );
+      .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
 
     // Sales: Orders
     const [
@@ -212,12 +187,12 @@ export async function GET() {
       const monthRevenue = outInvoices
         .filter(
           (inv: any) =>
-            inv.state === DOCUMENT_STATUS.POSTED &&
+            isPostedSales(inv) &&
             inv.invoiceDate &&
             new Date(inv.invoiceDate) >= monthStart &&
             new Date(inv.invoiceDate) <= monthEnd,
         )
-        .reduce((sum, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
+        .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
 
       const monthOrders = await SaleOrder.countDocuments({
         createdAt: { $gte: monthStart, $lte: monthEnd },

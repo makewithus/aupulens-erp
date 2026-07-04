@@ -16,7 +16,7 @@ import {
   PlusCircle,
   Activity,
 } from "lucide-react";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { SalesVisualization } from "@/components/sales/SalesVisualization";
 import { useToast } from "@/components/ui/toast";
 import { StatCard } from "@/components/dashboard/summary/StatCard";
@@ -75,7 +75,11 @@ export default function SalesSummaryPage() {
     return val > 0 ? `+${val}% last 30d` : `${val}% last 30d`;
   };
 
-  if (status === "loading" || isLoading) {
+  if (status === "loading" || status === "unauthenticated") {
+    return <FullPageLoadingSkeleton />;
+  }
+
+  if (isLoading) {
     return (
       <DashboardLayout
         sidebarSections={salesSidebarConfig}

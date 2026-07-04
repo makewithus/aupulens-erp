@@ -82,12 +82,24 @@ export function AccountingSubNav() {
 
   return (
     <div className="flex space-x-6 border-b pb-2">
-      <Link
-        href="/finance/accounting/chart-of-accounts"
-        className={tabClass(pathname === "/finance/accounting/chart-of-accounts" && !pathname.includes("account-types"))}
-      >
-        Chart of Accounts
-      </Link>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className={tabClass(isActive("/finance/accounting/chart-of-accounts"))}>
+            Chart of Accounts <span className="text-xs align-middle">▾</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/chart-of-accounts">Chart of Accounts</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/chart-of-accounts/account-types">Account Types</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/finance/accounting/chart-of-accounts/bulk-update">Bulk Update</Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

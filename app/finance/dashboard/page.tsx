@@ -15,7 +15,7 @@ import {
   Building2,
 } from "lucide-react";
 import { AIAssistantWidget } from "@/components/dashboard/AIAssistantWidget";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 interface FinancialSummary {
   totalRevenue: number;
@@ -66,56 +66,8 @@ export default function FinanceDashboard() {
     return `₹${(amount ?? 0).toLocaleString("en-IN").toString()}`;
   };
 
-  if (status === "loading") {
-    return (
-      <DashboardLayout
-        sidebarSections={financeSidebarConfig}
-        companyName="Aupulens"
-        dashboardTitle="Finance"
-        pageName="Dashboard Overview"
-        profilePath="/finance/profile"
-        userName="Finance User"
-        userEmail=""
-        userRole="finance"
-        onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      >
-        <div className="space-y-6">
-          <StatsRowSkeleton count={6} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <div className="h-6 w-40 bg-muted animate-pulse rounded" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-20 bg-muted animate-pulse rounded"
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <div className="h-6 w-40 bg-muted animate-pulse rounded" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-20 bg-muted animate-pulse rounded"
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
+  if (status === "loading" || status === "unauthenticated") {
+    return <FullPageLoadingSkeleton />;
   }
 
   if (isLoading) {

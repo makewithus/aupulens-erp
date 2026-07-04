@@ -153,7 +153,9 @@ export async function POST(req: NextRequest) {
     // Seed default hierarchical Chart of Accounts for this tenant
     try {
       const { seedChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
+      const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
       await seedChartOfAccounts(tenantId, String(user._id));
+      await seedNewChartOfAccounts(tenantId, String(user._id));
     } catch (coaError) {
       console.error("Failed to seed Chart of Accounts on registration:", coaError);
       // We do not fail the registration if COA seeding fails, but log it

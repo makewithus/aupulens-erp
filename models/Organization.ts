@@ -30,6 +30,11 @@ export interface IOrganization extends Document {
     state?: string;
     industry?: string;
     isGstRegistered?: boolean;
+    gstin?: string; // Additive — Sales invoice seller block
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    pincode?: string;
     enabledModules?: string[];
     // Per-workspace AI preferences
     ai?: {
@@ -90,6 +95,11 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
       state: { type: String },
       industry: { type: String },
       isGstRegistered: { type: Boolean, default: false },
+      gstin: { type: String, trim: true, uppercase: true },
+      addressLine1: { type: String },
+      addressLine2: { type: String },
+      city: { type: String },
+      pincode: { type: String },
       enabledModules: { type: [String], default: [] },
       // Per-workspace AI preferences (Phase 2 — Step 7)
       ai: {

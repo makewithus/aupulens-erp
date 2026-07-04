@@ -906,9 +906,9 @@ function ChartOfAccountsPageInner() {
                 </div>
                 <h3 className="font-semibold text-gray-800 mb-4">Drag and drop file to import</h3>
                 <input type="file" id="import-file" className="hidden" accept=".csv,.xlsx,.xls" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
-                <label htmlFor="import-file" className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                <button type="button" onClick={() => document.getElementById('import-file')?.click()} className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                   {importFile ? importFile.name : "Choose File ▾"}
-                </label>
+                </button>
                 <p className="text-xs text-gray-400 mt-4">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
               </div>
 

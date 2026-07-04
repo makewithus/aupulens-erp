@@ -17,6 +17,7 @@ import {
 import {
   StatsRowSkeleton,
   TableSkeleton,
+  FullPageLoadingSkeleton,
 } from "@/components/ui/loading-skeletons";
 import { AIAssistantWidget } from "@/components/dashboard/AIAssistantWidget";
 
@@ -93,37 +94,8 @@ export default function InventorySummaryPage() {
     return `${sign}${value.toFixed(1)}%`;
   };
 
-  if (status === "loading") {
-    return (
-      <DashboardLayout
-        sidebarSections={inventorySidebarConfig}
-        companyName="Aupulens"
-        dashboardTitle="Inventory Dashboard"
-        pageName="Inventory Summary"
-        profilePath="/inventory/profile"
-        userName="Inventory User"
-        userEmail=""
-        userRole="inventory"
-        onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
-      >
-        <div className="space-y-6">
-          <div>
-            <div className="h-9 w-72 bg-muted animate-pulse rounded mb-2" />
-            <div className="h-5 w-96 bg-muted animate-pulse rounded" />
-          </div>
-          <StatsRowSkeleton count={3} />
-          <StatsRowSkeleton count={3} />
-          <Card>
-            <CardHeader>
-              <div className="h-6 w-48 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent>
-              <TableSkeleton rows={5} columns={3} />
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
+  if (status === "loading" || status === "unauthenticated") {
+    return <FullPageLoadingSkeleton />;
   }
 
   return (

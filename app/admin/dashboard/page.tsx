@@ -21,7 +21,7 @@ import {
   ShoppingBag,
   Activity,
 } from "lucide-react";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import {
   LineChart,
   Line,
@@ -142,7 +142,11 @@ export default function AdminDashboard() {
     };
   };
 
-  if (status === "loading" || isLoading) {
+  if (status === "loading" || status === "unauthenticated") {
+    return <FullPageLoadingSkeleton />;
+  }
+
+  if (isLoading) {
     return (
       <DashboardLayout
         sidebarSections={adminSidebarConfig}

@@ -23,6 +23,17 @@ export interface ICustomer extends Document {
     zip?: string;
     state_id?: number;
     country_id?: number;
+    state_name?: string; // Additive: free-text state name for GST place-of-supply comparison
+  };
+  // Additive — Sales invoice feature (GSTIN search + Bill To/Ship To)
+  gstin?: string;
+  tags?: string[];
+  shipping_address?: {
+    street?: string;
+    street2?: string;
+    city?: string;
+    zip?: string;
+    state_name?: string;
   };
   sales_purchase_tab: {
     user_id?: mongoose.Types.ObjectId;
@@ -65,6 +76,16 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
       zip: { type: String },
       state_id: { type: Number },
       country_id: { type: Number },
+      state_name: { type: String, trim: true },
+    },
+    gstin: { type: String, trim: true, uppercase: true },
+    tags: [{ type: String, trim: true }],
+    shipping_address: {
+      street: { type: String },
+      street2: { type: String },
+      city: { type: String },
+      zip: { type: String },
+      state_name: { type: String, trim: true },
     },
     sales_purchase_tab: {
       user_id: { type: Schema.Types.ObjectId, ref: "User" },
