@@ -4,11 +4,8 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
 import SalesView from "@/models/SalesView";
-import {
-  SYSTEM_VIEW_DEFINITIONS,
-  buildMongoFilterFromCriteria,
-  resolveSpecialFilter,
-} from "@/lib/sales/customerViews";
+import { SYSTEM_VIEW_DEFINITIONS, buildMongoFilterFromCriteria } from "@/lib/sales/customerViews";
+import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
 
 async function ensureSystemViews(tenantId: string) {
   const existing = await SalesView.countDocuments({ tenantId, entityType: "customers", isSystem: true });

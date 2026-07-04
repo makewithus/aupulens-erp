@@ -1,5 +1,7 @@
-import { SalesInvoice } from "@/models/SalesInvoice";
-import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+// Client-safe: no Mongoose model imports here. Server-only cross-collection
+// filtering (resolveSpecialFilter) lives in lib/sales/customerViews.server.ts
+// so this file can be imported from client components (e.g. the Customers
+// list page) without pulling Mongoose into the browser bundle.
 
 export const DEFAULT_CUSTOMER_COLUMNS = [
   "header.displayName",
@@ -25,7 +27,7 @@ export const AVAILABLE_CUSTOMER_COLUMNS = [
 // Seeded once per tenant on first list load — mirrors Zoho's default view set.
 // Every entry maps to a real, working filter: either a plain Mongo `criteria`
 // row the generic interpreter below understands, or a `specialFilter` that
-// needs a cross-collection (SalesInvoice) lookup.
+// needs a cross-collection (SalesInvoice) lookup, resolved server-side.
 export const SYSTEM_VIEW_DEFINITIONS: {
   name: string;
   criteria?: { field: string; comparator: string; value: string }[];
@@ -97,49 +99,4 @@ export function buildMongoFilterFromCriteria(
     }
   }
   return query;
-}
-
-// Returns a Mongo filter fragment ({ _id: { $in: [...] } }) for the two filters
-// that need a cross-collection SalesInvoice lookup, since Customer alone
-// doesn't know its own receivables/overdue state.
-export async function resolveSpecialFilter(
-  specialFilter: string,
-  tenantId: string,
-  CustomerModel: any,
-): Promise<Record<string, any>> {
-  if (specialFilter === "overdue") {
-    const customerIds = await (SalesInvoice as any).distinct("customerId", {
-      tenantId,
-      status: SALES_INVOICE_STATUS.OVERDUE,
-    });
-    return { _id: { $in: customerIds } };
-  }
-
-  if (specialFilter === "unpaid") {
-    const customerIds = await (SalesInvoice as any).distinct("customerId", {
-      tenantId,
-      status: {
-        $in: [SALES_INVOICE_STATUS.SAVED, SALES_INVOICE_STATUS.PARTIALLY_PAID, SALES_INVOICE_STATUS.OVERDUE],
-      },
-    });
-    return { _id: { $in: customerIds } };
-  }
-
-  if (specialFilter === "duplicate") {
-    const dupes = await CustomerModel.aggregate([
-      { $match: { tenantId } },
-      {
-        $group: {
-          _id: { $toLower: { $ifNull: ["$contact_details.email", "$header.displayName"] } },
-          ids: { $push: "$_id" },
-          count: { $sum: 1 },
-        },
-      },
-      { $match: { count: { $gt: 1 } } },
-    ]);
-    const ids = dupes.flatMap((d: any) => d.ids);
-    return { _id: { $in: ids } };
-  }
-
-  return {};
 }

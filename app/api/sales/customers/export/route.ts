@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
 import SalesView from "@/models/SalesView";
-import { buildMongoFilterFromCriteria, resolveSpecialFilter, AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
+import { buildMongoFilterFromCriteria, AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
+import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
 import * as XLSX from "xlsx";
 
 const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
