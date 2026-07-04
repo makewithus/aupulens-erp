@@ -24,6 +24,7 @@ export interface ISalesView extends Document {
   sharedWithUserIds?: mongoose.Types.ObjectId[];
   isFavorite: boolean;
   isSystem: boolean; // seeded default views (All Customers, Active Customers, ...)
+  specialFilter?: string; // "duplicate" | "overdue" | "unpaid" — cross-collection filters the generic criteria interpreter can't express
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +51,7 @@ const SalesViewSchema: Schema<ISalesView> = new Schema(
     sharedWithUserIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     isFavorite: { type: Boolean, default: false },
     isSystem: { type: Boolean, default: false },
+    specialFilter: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },

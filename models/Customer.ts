@@ -96,6 +96,7 @@ export interface ICustomer extends Document {
   customFields?: Record<string, string>;
   reportingTags?: string[];
   remarks?: string;
+  isActive?: boolean; // Additive — drives the "Active/Inactive Customers" system views
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -204,6 +205,7 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
     customFields: { type: Schema.Types.Mixed, default: {} },
     reportingTags: [{ type: String, trim: true }],
     remarks: { type: String, maxlength: 2000 },
+    isActive: { type: Boolean, default: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },
