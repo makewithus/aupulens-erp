@@ -2,7 +2,7 @@ import DocumentPrefix from "@/models/DocumentPrefix";
 import { DOCUMENT_PREFIX_KIND, SALES_DOCUMENT_TYPE } from "@/lib/constants/statuses";
 
 /** Default PREFIX value seeded per document type when a tenant has none yet. */
-const DEFAULT_PREFIX_BY_DOCUMENT_TYPE: Record<string, string> = {
+export const DEFAULT_PREFIX_BY_DOCUMENT_TYPE: Record<string, string> = {
   [SALES_DOCUMENT_TYPE.INVOICE]: "INV-",
   [SALES_DOCUMENT_TYPE.PURCHASE]: "PUR-",
   [SALES_DOCUMENT_TYPE.SALES_RETURN]: "SR-",
@@ -11,6 +11,7 @@ const DEFAULT_PREFIX_BY_DOCUMENT_TYPE: Record<string, string> = {
   [SALES_DOCUMENT_TYPE.DELIVERY_CHALLAN]: "DC-",
   [SALES_DOCUMENT_TYPE.SALES_ORDER]: "SO-",
   [SALES_DOCUMENT_TYPE.QUOTATION]: "QUO-",
+  [SALES_DOCUMENT_TYPE.SUBSCRIPTION]: "SUB-",
 };
 
 // Caller must have already called connectDB().

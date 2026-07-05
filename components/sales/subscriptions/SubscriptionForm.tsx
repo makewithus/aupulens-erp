@@ -1,0 +1,599 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Plus, Trash2, GripVertical, X, Settings, Paperclip } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
+import { SUBSCRIPTION_BILLING_FREQUENCY } from "@/lib/constants/statuses";
+
+interface LineItem {
+  itemId?: string;
+  name: string;
+  qty: number;
+  unitPrice: number;
+  discount: number;
+  discountMode: "percent" | "amount";
+  taxRate: number;
+}
+
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
+function fileToDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function SubscriptionForm() {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [taxRates, setTaxRates] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const [customerId, setCustomerId] = useState("");
+  const [planName, setPlanName] = useState("");
+  const [displayNumber, setDisplayNumber] = useState("");
+  const [manualNumber, setManualNumber] = useState(false);
+  const [numberModalOpen, setNumberModalOpen] = useState(false);
+  const [numberMode, setNumberMode] = useState<"auto" | "manual">("auto");
+  const [prefixInput, setPrefixInput] = useState("SUB-");
+  const [nextNumberInput, setNextNumberInput] = useState("1");
+  const [restartFiscalYear, setRestartFiscalYear] = useState(false);
+  const [savingNumberSettings, setSavingNumberSettings] = useState(false);
+
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0 },
+  ]);
+  const [billingFrequency, setBillingFrequency] = useState<string>(SUBSCRIPTION_BILLING_FREQUENCY.MONTHLY);
+  const [neverExpires, setNeverExpires] = useState(true);
+  const [expiresAfterCycles, setExpiresAfterCycles] = useState("");
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [trialDays, setTrialDays] = useState("");
+
+  const [extraDiscount, setExtraDiscount] = useState(0);
+  const [extraDiscountMode, setExtraDiscountMode] = useState<"percent" | "amount">("amount");
+  const [taxMode, setTaxMode] = useState<"none" | "tds" | "tcs">("none");
+  const [taxId, setTaxId] = useState("");
+  const [taxRate, setTaxRate] = useState(0);
+  const [adjustment, setAdjustment] = useState(0);
+
+  const [salesperson, setSalesperson] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [customerNotes, setCustomerNotes] = useState("Looking forward to your continued business.");
+  const [terms, setTerms] = useState("");
+  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/sales/customers")
+      .then((r) => r.json())
+      .then((d) => setCustomers(d.items || []));
+    fetch("/api/sales/products")
+      .then((r) => r.json())
+      .then((d) => setProducts(d.items || []));
+    fetch("/api/finance/accounting/tax-rates")
+      .then((r) => r.json())
+      .then((d) => setTaxRates(d.data || []));
+    fetch("/api/sales/subscriptions/next-number")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setDisplayNumber(d.data.number);
+          setPrefixInput(d.data.prefix);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!salesperson && session?.user?.name) setSalesperson(session.user.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.name]);
+
+  const updateLine = (i: number, patch: Partial<LineItem>) =>
+    setLineItems((items) => items.map((li, idx) => (idx === i ? { ...li, ...patch } : li)));
+  const addLine = () =>
+    setLineItems((items) => [...items, { name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0 }]);
+  const removeLine = (i: number) => setLineItems((items) => items.filter((_, idx) => idx !== i));
+
+  const totals = useMemo(() => {
+    const items: InvoiceLineInput[] = lineItems.map((li) => ({
+      qty: li.qty,
+      unitPrice: li.unitPrice,
+      discount: li.discount,
+      discountMode: li.discountMode,
+      taxRate: li.taxRate,
+      name: li.name,
+    }));
+    return computeInvoiceTotals({
+      lineItems: items,
+      extraDiscount,
+      extraDiscountMode,
+      tdsRate: taxMode === "tds" ? taxRate : 0,
+      tcsRate: taxMode === "tcs" ? taxRate : 0,
+    });
+  }, [lineItems, extraDiscount, extraDiscountMode, taxMode, taxRate]);
+
+  const grandTotal = totals.totalAmount + (Number(adjustment) || 0);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files) return;
+    const incoming = Array.from(files);
+    if (attachments.length + incoming.length > MAX_ATTACHMENTS) {
+      toast.error(`You can upload a maximum of ${MAX_ATTACHMENTS} files`);
+      return;
+    }
+    const oversized = incoming.find((f) => f.size > MAX_ATTACHMENT_SIZE);
+    if (oversized) {
+      toast.error(`${oversized.name} exceeds the 10MB per-file limit`);
+      return;
+    }
+    const converted = await Promise.all(
+      incoming.map(async (f) => ({ name: f.name, url: await fileToDataUri(f) })),
+    );
+    setAttachments((a) => [...a, ...converted]);
+  };
+
+  const handleSaveNumberSettings = async () => {
+    if (numberMode === "manual") {
+      setManualNumber(true);
+      setNumberModalOpen(false);
+      return;
+    }
+    setSavingNumberSettings(true);
+    try {
+      const res = await fetch("/api/sales/subscriptions/number-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to save number preferences");
+      setManualNumber(false);
+      setDisplayNumber(`${prefixInput}${String(nextNumberInput).padStart(6, "0")}`);
+      toast.success("Subscription number preferences saved");
+      setNumberModalOpen(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingNumberSettings(false);
+    }
+  };
+
+  const handleSave = async (activate: boolean) => {
+    if (!customerId) {
+      toast.error("Customer is required");
+      return;
+    }
+    if (!planName.trim()) {
+      toast.error("Plan Name is required");
+      return;
+    }
+    if (lineItems.some((li) => !li.name.trim())) {
+      toast.error("Every line item needs a name");
+      return;
+    }
+    setSaving(true);
+    try {
+      const body: any = {
+        customerId,
+        profileName: planName.trim(),
+        lineItems,
+        billingFrequency,
+        startDate,
+        trialDays: Number(trialDays) || 0,
+        neverExpires,
+        expiresAfterCycles: neverExpires ? undefined : Number(expiresAfterCycles) || undefined,
+        extraDiscount,
+        extraDiscountMode,
+        taxMode,
+        taxId: taxId || undefined,
+        taxRate,
+        adjustment,
+        salesperson,
+        referenceNumber,
+        customerNotes,
+        terms,
+        attachments,
+        activate,
+      };
+      if (manualNumber) body.number = displayNumber;
+      const res = await fetch("/api/sales/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to save subscription");
+      toast.success(activate ? "Subscription created and activated" : "Subscription saved as draft");
+      router.push("/sales/subscriptions");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6 pb-24">
+      <div className="flex items-center justify-between border-b pb-3">
+        <h1 className="text-lg font-semibold">New Subscription</h1>
+        <button onClick={() => router.push("/sales/subscriptions")}>
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
+        <Label>
+          Customer Name <span className="text-red-500">*</span>
+        </Label>
+        <Select value={customerId} onValueChange={setCustomerId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select or add a customer" />
+          </SelectTrigger>
+          <SelectContent>
+            {customers.map((c: any) => (
+              <SelectItem key={c._id} value={c._id}>
+                {c.header?.displayName || c.header?.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Label>
+          Plan Name <span className="text-red-500">*</span>
+        </Label>
+        <Input value={planName} onChange={(e) => setPlanName(e.target.value)} placeholder="e.g. Gold Plan - Monthly" />
+
+        <Label>
+          Subscription# <span className="text-red-500">*</span>
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input value={displayNumber} disabled={!manualNumber} onChange={(e) => setDisplayNumber(e.target.value)} />
+          <button
+            onClick={() => {
+              setNumberMode(manualNumber ? "manual" : "auto");
+              setNumberModalOpen(true);
+            }}
+            title="Configure Subscription# Preferences"
+          >
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <Label>Reference#</Label>
+        <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+
+        <Label>
+          Start Date <span className="text-red-500">*</span>
+        </Label>
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+
+        <Label>Trial Period</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            className="w-24"
+            min={0}
+            value={trialDays}
+            onChange={(e) => setTrialDays(e.target.value)}
+            placeholder="0"
+          />
+          <span className="text-sm text-muted-foreground">day(s)</span>
+        </div>
+
+        <Label>
+          Billing Frequency <span className="text-red-500">*</span>
+        </Label>
+        <Select value={billingFrequency} onValueChange={setBillingFrequency}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SUBSCRIPTION_BILLING_FREQUENCY.WEEKLY}>Weekly</SelectItem>
+            <SelectItem value={SUBSCRIPTION_BILLING_FREQUENCY.MONTHLY}>Monthly</SelectItem>
+            <SelectItem value={SUBSCRIPTION_BILLING_FREQUENCY.QUARTERLY}>Quarterly</SelectItem>
+            <SelectItem value={SUBSCRIPTION_BILLING_FREQUENCY.HALF_YEARLY}>Half-Yearly</SelectItem>
+            <SelectItem value={SUBSCRIPTION_BILLING_FREQUENCY.YEARLY}>Yearly</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Label>Billing Cycles</Label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={neverExpires} onCheckedChange={(v) => setNeverExpires(!!v)} />
+            Never Expires
+          </label>
+          <Input
+            type="number"
+            className="w-24"
+            disabled={neverExpires}
+            value={expiresAfterCycles}
+            onChange={(e) => setExpiresAfterCycles(e.target.value)}
+            placeholder="cycles"
+          />
+        </div>
+
+        <Label>Salesperson</Label>
+        <Input
+          placeholder="Select or Add Salesperson"
+          value={salesperson}
+          onChange={(e) => setSalesperson(e.target.value)}
+        />
+      </div>
+
+      <div className="border rounded-none">
+        <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+          <span className="font-semibold text-sm">Item Table</span>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ITEM DETAILS</TableHead>
+              <TableHead className="w-24">QUANTITY</TableHead>
+              <TableHead className="w-28">RATE</TableHead>
+              <TableHead className="w-28 text-right">AMOUNT</TableHead>
+              <TableHead className="w-10" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {lineItems.map((li, i) => {
+              const computed = totals.computedLines[i];
+              return (
+                <TableRow key={i}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <Input
+                        list={`sub-items-list-${i}`}
+                        placeholder="Type or click to select an item."
+                        value={li.name}
+                        onChange={(e) => {
+                          const match = products.find((p: any) => p.header?.name === e.target.value);
+                          updateLine(i, {
+                            name: e.target.value,
+                            unitPrice: match ? match.tab_general_information?.list_price ?? li.unitPrice : li.unitPrice,
+                            itemId: match?._id,
+                          });
+                        }}
+                      />
+                      <datalist id={`sub-items-list-${i}`}>
+                        {products.map((p: any) => (
+                          <option key={p._id} value={p.header?.name} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Input type="number" value={li.qty} onChange={(e) => updateLine(i, { qty: Number(e.target.value) })} />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={li.unitPrice}
+                      onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {(computed?.lineTotal ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>
+                    <button onClick={() => removeLine(i)}>
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        <div className="p-3">
+          <Button variant="outline" size="sm" onClick={addLine}>
+            <Plus className="w-4 h-4 mr-1" /> Add New Row
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Customer Notes</Label>
+            <Textarea value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} rows={3} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Terms &amp; Conditions</Label>
+            <Textarea
+              placeholder="Enter the terms and conditions of your business to be displayed in your transaction"
+              value={terms}
+              onChange={(e) => setTerms(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Attach File(s)</Label>
+            <label className="flex items-center gap-2 border rounded-none px-3 py-2 text-sm cursor-pointer w-fit">
+              <Paperclip className="w-4 h-4" /> Upload File
+              <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            </label>
+            <p className="text-xs text-muted-foreground">
+              You can upload a maximum of {MAX_ATTACHMENTS} files, 10MB each
+            </p>
+            {attachments.length > 0 && (
+              <ul className="text-xs space-y-1">
+                {attachments.map((a, i) => (
+                  <li key={i} className="flex items-center justify-between border rounded-none px-2 py-1">
+                    <span className="truncate">{a.name}</span>
+                    <button onClick={() => setAttachments((arr) => arr.filter((_, idx) => idx !== i))}>
+                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="border rounded-none p-4 space-y-3 text-sm h-fit">
+          <div className="flex justify-between">
+            <span>Sub Total</span>
+            <span>{totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="flex justify-between items-center gap-2">
+            <span>Discount</span>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                className="w-24 h-8"
+                value={extraDiscount}
+                onChange={(e) => setExtraDiscount(Number(e.target.value))}
+              />
+              <Select value={extraDiscountMode} onValueChange={(v) => setExtraDiscountMode(v as any)}>
+                <SelectTrigger className="w-16 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percent">%</SelectItem>
+                  <SelectItem value="amount">₹</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <RadioGroup value={taxMode} onValueChange={(v) => setTaxMode(v as any)} className="flex gap-4">
+              <label className="flex items-center gap-1 text-xs">
+                <RadioGroupItem value="none" /> None
+              </label>
+              <label className="flex items-center gap-1 text-xs">
+                <RadioGroupItem value="tds" /> TDS
+              </label>
+              <label className="flex items-center gap-1 text-xs">
+                <RadioGroupItem value="tcs" /> TCS
+              </label>
+            </RadioGroup>
+            {taxMode !== "none" && (
+              <Select
+                value={taxId}
+                onValueChange={(v) => {
+                  setTaxId(v);
+                  setTaxRate(taxRates.find((t: any) => t._id === v)?.ratePercent || 0);
+                }}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Select a Tax" />
+                </SelectTrigger>
+                <SelectContent>
+                  {taxRates.map((t: any) => (
+                    <SelectItem key={t._id} value={t._id}>
+                      {t.name} ({t.ratePercent}%)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <div className="flex justify-between">
+              <span>{taxMode.toUpperCase() || "Tax"}</span>
+              <span>
+                {taxMode === "tds" ? "- " : ""}
+                {(taxMode === "tds" ? totals.tdsAmount : taxMode === "tcs" ? totals.tcsAmount : 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center gap-2">
+            <span>Adjustment</span>
+            <Input
+              type="number"
+              className="w-24 h-8"
+              value={adjustment}
+              onChange={(e) => setAdjustment(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="flex justify-between font-bold text-base pt-2 border-t">
+            <span>Total (₹)</span>
+            <span>{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center gap-3">
+        <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+          Save as Draft
+        </Button>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleSave(true)} disabled={saving}>
+          {saving ? "Saving..." : "Save and Activate"}
+        </Button>
+        <Button variant="outline" onClick={() => router.push("/sales/subscriptions")}>
+          Cancel
+        </Button>
+      </div>
+
+      <Dialog open={numberModalOpen} onOpenChange={setNumberModalOpen}>
+        <DialogContent className="max-w-lg">
+          <h2 className="text-lg font-semibold mb-4">Configure Sales Subscription# Preferences</h2>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your subscription numbers are set on auto-generate mode to save your time. Are you sure about changing
+              this setting?
+            </p>
+            <RadioGroup value={numberMode} onValueChange={(v) => setNumberMode(v as any)} className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <RadioGroupItem value="auto" /> Continue auto-generating subscription numbers
+              </label>
+              {numberMode === "auto" && (
+                <div className="ml-6 grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Prefix</Label>
+                    <Input value={prefixInput} onChange={(e) => setPrefixInput(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Next Number</Label>
+                    <Input value={nextNumberInput} onChange={(e) => setNextNumberInput(e.target.value)} />
+                  </div>
+                  <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox checked={restartFiscalYear} onCheckedChange={(v) => setRestartFiscalYear(!!v)} />
+                    Restart numbering for subscriptions at the start of each fiscal year.
+                  </label>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <RadioGroupItem value="manual" /> Enter subscription numbers manually
+              </label>
+            </RadioGroup>
+          </div>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button variant="outline" onClick={() => setNumberModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleSaveNumberSettings}
+              disabled={savingNumberSettings}
+            >
+              {savingNumberSettings ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import Counter from "@/models/Counter";
 import DocumentPrefix from "@/models/DocumentPrefix";
 import { SALES_DOCUMENT_TYPE, DOCUMENT_PREFIX_KIND } from "@/lib/constants/statuses";
+import { DEFAULT_PREFIX_BY_DOCUMENT_TYPE } from "@/lib/sales/documentPrefixes";
 
 // Caller must have already called connectDB().
 
@@ -15,7 +16,11 @@ export async function getDefaultPrefix(
     isDefault: true,
   }).lean();
   if (doc) return (doc as any).value;
-  return documentType === SALES_DOCUMENT_TYPE.INVOICE ? "INV-" : "DOC-";
+  // No DocumentPrefix row has been seeded for this tenant/documentType yet
+  // (ensureDefaultPrefixes only runs when the Document Settings page is
+  // visited) — fall back to the same per-document-type default it would
+  // have seeded, instead of a generic "DOC-" that only ever matched INVOICE.
+  return DEFAULT_PREFIX_BY_DOCUMENT_TYPE[documentType] || "DOC-";
 }
 
 /**

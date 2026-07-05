@@ -1602,6 +1602,7 @@ export const SALES_DOCUMENT_TYPE = {
   DELIVERY_CHALLAN: "deliveryChallan",
   SALES_ORDER: "salesOrder",
   QUOTATION: "quotation",
+  SUBSCRIPTION: "subscription",
 } as const;
 export const SALES_DOCUMENT_TYPE_VALUES = Object.values(SALES_DOCUMENT_TYPE);
 export type SalesDocumentType =
@@ -1709,13 +1710,39 @@ export const SUBSCRIPTION_BILL_UNIT_VALUES = Object.values(SUBSCRIPTION_BILL_UNI
 export type SubscriptionBillUnit = (typeof SUBSCRIPTION_BILL_UNIT)[keyof typeof SUBSCRIPTION_BILL_UNIT];
 
 export const SALES_SUBSCRIPTION_STATUS = {
+  DRAFT: "draft",
+  TRIAL: "trial",
   ACTIVE: "active",
+  NON_RENEWING: "non_renewing",
+  UNPAID: "unpaid",
+  DUNNING: "dunning",
   CANCELLED: "cancelled",
   EXPIRED: "expired",
 } as const;
 export const SALES_SUBSCRIPTION_STATUS_VALUES = Object.values(SALES_SUBSCRIPTION_STATUS);
 export type SalesSubscriptionStatus =
   (typeof SALES_SUBSCRIPTION_STATUS)[keyof typeof SALES_SUBSCRIPTION_STATUS];
+
+export const SUBSCRIPTION_BILLING_FREQUENCY = {
+  WEEKLY: "weekly",
+  MONTHLY: "monthly",
+  QUARTERLY: "quarterly",
+  HALF_YEARLY: "half_yearly",
+  YEARLY: "yearly",
+} as const;
+export const SUBSCRIPTION_BILLING_FREQUENCY_VALUES = Object.values(SUBSCRIPTION_BILLING_FREQUENCY);
+export type SubscriptionBillingFrequency =
+  (typeof SUBSCRIPTION_BILLING_FREQUENCY)[keyof typeof SUBSCRIPTION_BILLING_FREQUENCY];
+
+// Months added per billing cycle for each frequency (used to compute
+// nextBillingOn / expiresOn without a full calendar recurrence library).
+export const SUBSCRIPTION_FREQUENCY_MONTHS: Record<SubscriptionBillingFrequency, number> = {
+  [SUBSCRIPTION_BILLING_FREQUENCY.WEEKLY]: 0, // handled as +7 days, see subscriptionBilling.ts
+  [SUBSCRIPTION_BILLING_FREQUENCY.MONTHLY]: 1,
+  [SUBSCRIPTION_BILLING_FREQUENCY.QUARTERLY]: 3,
+  [SUBSCRIPTION_BILLING_FREQUENCY.HALF_YEARLY]: 6,
+  [SUBSCRIPTION_BILLING_FREQUENCY.YEARLY]: 12,
+};
 
 // The 14 original invoice template layouts (see docs/_context/ERP.md Sales section)
 export const INVOICE_TEMPLATE_KEY = {
