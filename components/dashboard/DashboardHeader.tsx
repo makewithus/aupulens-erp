@@ -53,6 +53,9 @@ const MASTER_MODULES = [
     title: "Sales",
     icon: ShoppingCart,
     config: salesSidebarConfig,
+    // Selecting the module jumps straight into its tabbed interface
+    // (Customers selected) instead of just previewing the sidebar sections.
+    landingHref: "/sales/customers",
   },
   {
     id: "inventory",
@@ -65,6 +68,9 @@ const MASTER_MODULES = [
     title: "Finance",
     icon: DollarSign,
     config: financeSidebarConfig,
+    // Selecting the module jumps straight into Chart of Accounts instead of
+    // just previewing the sidebar sections.
+    landingHref: "/finance/accounting",
   },
   {
     id: "manufacturing",
@@ -364,7 +370,14 @@ export function DashboardHeader({
                         {MASTER_MODULES.map((m) => (
                           <button
                             key={m.id}
-                            onClick={() => setPreviewModuleId(m.id)}
+                            onClick={() => {
+                              setPreviewModuleId(m.id);
+                              if (m.landingHref) {
+                                setIsModuleOpen(false);
+                                setOpenSectionIndex(null);
+                                router.push(m.landingHref);
+                              }
+                            }}
                             className={cn(
                               "flex-1 py-3 px-2 flex flex-col items-center gap-1.5 transition-all relative group",
                               previewModuleId === m.id
@@ -550,7 +563,13 @@ export function DashboardHeader({
                 {MASTER_MODULES.map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => setPreviewModuleId(m.id)}
+                    onClick={() => {
+                      setPreviewModuleId(m.id);
+                      if (m.landingHref) {
+                        setIsMobileNavOpen(false);
+                        router.push(m.landingHref);
+                      }
+                    }}
                     className={cn(
                       "flex flex-col items-center justify-center p-2 rounded border transition-all",
                       previewModuleId === m.id
