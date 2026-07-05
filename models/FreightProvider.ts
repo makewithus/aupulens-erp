@@ -32,7 +32,7 @@ export interface IFreightProvider extends mongoose.Document {
 const FreightProviderSchema = new Schema<IFreightProvider>({
   tenantId: { type: String, required: true, index: true },
   providerName: { type: String, required: true },
-  providerCode: { type: String, required: true, unique: true },
+  providerCode: { type: String, required: true },
   providerType: { type: String, enum: ['air', 'sea', 'road', 'rail', 'multimodal'], required: true },
   contactPerson: { type: String, required: true },
   contactEmail: { type: String, required: true },
@@ -50,6 +50,10 @@ const FreightProviderSchema = new Schema<IFreightProvider>({
   rating: { type: Number, min: 0, max: 5 },
   notes: { type: String },
 }, { timestamps: true });
+
+// Compound with tenantId per Golden Rule #7 — provider codes only need to be
+// unique within a tenant, not globally across the whole platform.
+FreightProviderSchema.index({ tenantId: 1, providerCode: 1 }, { unique: true });
 
 const FreightProvider: Model<IFreightProvider> =
   (models.FreightProvider as Model<IFreightProvider>) ||

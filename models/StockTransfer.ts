@@ -52,7 +52,7 @@ export interface IStockTransfer extends Document {
 const StockTransferSchema: Schema<IStockTransfer> = new Schema(
   {
     header: {
-      name: { type: String, required: true, unique: true },
+      name: { type: String, required: true },
       partnerId: { type: Schema.Types.ObjectId, ref: "Customer" }, // Vendor or Customer
       operationType: {
         type: String,
@@ -132,6 +132,10 @@ const StockTransferSchema: Schema<IStockTransfer> = new Schema(
   },
   { timestamps: true },
 );
+
+// Compound with tenantId per Golden Rule #7 — transfer reference names only
+// need to be unique within a tenant, not globally across the whole platform.
+StockTransferSchema.index({ tenantId: 1, "header.name": 1 }, { unique: true });
 
 const StockTransfer: Model<IStockTransfer> =
   (mongoose.models.StockTransfer as Model<IStockTransfer>) ||

@@ -53,3 +53,39 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const body = await request.json();
+    const { _id, ...updateData } = body;
+
+    if (!_id) {
+      return NextResponse.json({ error: "Vendor ID is required" }, { status: 400 });
+    }
+
+    await connectDB();
+    const vendor = await Vendor.findOneAndUpdate(
+      { _id, tenantId },
+      { $set: updateData },
+      { new: true },
+    );
+
+    if (!vendor) {
+      return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ vendor });
+  } catch (error) {
+    console.error("Update vendor error:", error);
+    return NextResponse.json(
+      { error: "Failed to update vendor" },
+      { status: 500 },
+    );
+  }
+}

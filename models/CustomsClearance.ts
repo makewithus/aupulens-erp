@@ -43,7 +43,7 @@ export interface ICustomsClearance extends mongoose.Document {
 
 const CustomsClearanceSchema = new Schema<ICustomsClearance>({
   tenantId: { type: String, required: true, index: true },
-  clearanceNumber: { type: String, required: true, unique: true },
+  clearanceNumber: { type: String, required: true },
   shipmentId: { type: Schema.Types.ObjectId, ref: 'Shipment' },
   shipmentNumber: { type: String, required: true },
   customsOffice: { type: String, required: true },
@@ -78,6 +78,10 @@ const CustomsClearanceSchema = new Schema<ICustomsClearance>({
   remarks: { type: String },
   notes: { type: String },
 }, { timestamps: true });
+
+// Compound with tenantId per Golden Rule #7 — clearance numbers only need to
+// be unique within a tenant, not globally across the whole platform.
+CustomsClearanceSchema.index({ tenantId: 1, clearanceNumber: 1 }, { unique: true });
 
 const CustomsClearance: Model<ICustomsClearance> =
   (models.CustomsClearance as Model<ICustomsClearance>) ||

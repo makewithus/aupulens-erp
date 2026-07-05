@@ -7,9 +7,9 @@ import {
   applyAllocationsToInvoices,
   reverseAllocationsOnInvoices,
 } from "@/lib/sales/paymentAllocation";
-import { PAYMENT_STATUS } from "@/lib/constants/statuses";
+import { PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import "@/models/Customer";
-import "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/SalesInvoice";
 import "@/models/Account";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -85,6 +85,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
     } catch (e: any) {
       return NextResponse.json({ success: false, message: e.message }, { status: 400 });
+    }
+
+    const wantsPaid = body.status === PAYMENT_STATUS.PAID;
+    if (wantsPaid && allocations.length) {
+      // Same guard as the create route: a draft/cancelled invoice's status
+      // never auto-derives from resolveInvoiceStatus, so allowing it here
+      // would silently attach a "paid" payment with no visible effect.
+      const invoiceIds = allocations.map((a: any) => a.invoiceId);
+      const targetInvoices = await (SalesInvoice as any)
+        .find({ _id: { $in: invoiceIds }, tenantId })
+        .select("_id number status")
+        .lean();
+      const blocked = targetInvoices.find(
+        (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
+      );
+      if (blocked) {
+        return NextResponse.json(
+          { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
+          { status: 400 },
+        );
+      }
     }
 
     payment.customerId = body.customerId || payment.customerId;

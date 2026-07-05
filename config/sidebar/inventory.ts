@@ -10,6 +10,9 @@ import {
   ArrowDownToLine,
   Shuffle,
   ArrowLeftRight,
+  ClipboardList,
+  AlertTriangle,
+  FileBarChart,
 } from "lucide-react";
 
 export const inventorySidebarConfig = [
@@ -80,6 +83,26 @@ export const inventorySidebarConfig = [
         title: "Stock Moves",
         href: "/inventory/stock-moves",
         icon: ArrowLeftRight,
+      },
+      {
+        title: "Orders",
+        href: "/inventory/orders",
+        icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    title: "Insights",
+    items: [
+      {
+        title: "Alerts",
+        href: "/inventory/alerts",
+        icon: AlertTriangle,
+      },
+      {
+        title: "Reports",
+        href: "/inventory/reports",
+        icon: FileBarChart,
       },
     ],
   },

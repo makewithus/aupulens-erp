@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const clearance = await CustomsClearance.create(body);
+    const clearance = await CustomsClearance.create({ ...body, tenantId });
     
     return NextResponse.json({ clearance }, { status: 201 });
   } catch (error) {

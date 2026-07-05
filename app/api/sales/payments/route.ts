@@ -7,9 +7,9 @@ import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
-import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
+import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import "@/models/Customer";
-import "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/SalesInvoice";
 import "@/models/Account";
 
 export async function GET(request: NextRequest) {
@@ -101,6 +101,28 @@ export async function POST(request: NextRequest) {
       unusedAmount = validateAllocations(allocations, amountReceived, bankCharges, tdsAmount);
     } catch (e: any) {
       return NextResponse.json({ success: false, message: e.message }, { status: 400 });
+    }
+
+    if (allocations.length) {
+      // Draft/cancelled invoices are excluded from the real Record Payment
+      // form's invoice picker (it queries status=saved) — reject them here
+      // too so a direct API call can't silently create a "paid" payment
+      // that has no visible effect, since resolveInvoiceStatus deliberately
+      // never auto-transitions a draft/cancelled invoice off that status.
+      const invoiceIds = allocations.map((a) => a.invoiceId);
+      const targetInvoices = await (SalesInvoice as any)
+        .find({ _id: { $in: invoiceIds }, tenantId })
+        .select("_id number status")
+        .lean();
+      const blocked = targetInvoices.find(
+        (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
+      );
+      if (blocked) {
+        return NextResponse.json(
+          { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
+          { status: 400 },
+        );
+      }
     }
 
     let paymentNumber = body.paymentNumber;

@@ -31,7 +31,7 @@ export interface IBatch extends Document {
 const BatchSchema: Schema<IBatch> = new Schema(
   {
     tenantId: { type: String, required: true, index: true },
-    batchNumber: { type: String, required: true, unique: true, trim: true },
+    batchNumber: { type: String, required: true, trim: true },
     lotNumber: { type: String, required: true, trim: true },
     itemCode: { type: String, required: true, trim: true },
     itemName: { type: String, required: true, trim: true },
@@ -56,6 +56,10 @@ const BatchSchema: Schema<IBatch> = new Schema(
   },
   { timestamps: true }
 );
+
+// Compound with tenantId per Golden Rule #7 — batch numbers only need to be
+// unique within a tenant, not globally across the whole platform.
+BatchSchema.index({ tenantId: 1, batchNumber: 1 }, { unique: true });
 
 const Batch =
   (mongoose.models?.Batch as mongoose.Model<IBatch>) ||

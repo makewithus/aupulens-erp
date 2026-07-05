@@ -97,6 +97,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         href: "/finance/accounting/trial-balance",
         icon: Scale,
       },
+      {
+        title: "Aged Partners",
+        href: "/finance/accounting/aged-partner",
+        icon: Clock,
+      },
     ],
   },
   {

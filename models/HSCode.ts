@@ -16,7 +16,7 @@ export interface IHSCode extends mongoose.Document {
 
 const HSCodeSchema = new Schema<IHSCode>({
   tenantId: { type: String, required: true, index: true },
-  hsCode: { type: String, required: true, unique: true },
+  hsCode: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true },
   dutyRate: { type: Number, required: true, default: 0 },
@@ -25,6 +25,10 @@ const HSCodeSchema = new Schema<IHSCode>({
   requiredDocuments: [{ type: String }],
   notes: { type: String },
 }, { timestamps: true });
+
+// Compound with tenantId per Golden Rule #7 — HS codes only need to be
+// unique within a tenant, not globally across the whole platform.
+HSCodeSchema.index({ tenantId: 1, hsCode: 1 }, { unique: true });
 
 const HSCode: Model<IHSCode> =
   (models.HSCode as Model<IHSCode>) ||

@@ -6,7 +6,7 @@ import Employee from "@/models/Employee";
 import Attendance from "@/models/Attendance";
 import JournalEntry from "@/models/JournalEntry";
 import Account from "@/models/Account";
-import { VOUCHER_TYPE } from "@/lib/constants/statuses";
+import { VOUCHER_TYPE, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
 export async function GET(
@@ -436,7 +436,7 @@ export async function PATCH(
             { _id: payroll.salaryExpenseJournalId, tenantId },
             {
               $set: {
-                status: "posted",
+                status: DOCUMENT_STATUS.POSTED,
                 ledgerUpdatedAt: new Date(),
               },
             },
@@ -447,7 +447,7 @@ export async function PATCH(
             { _id: payroll.disbursementJournalId, tenantId },
             {
               $set: {
-                status: "posted",
+                status: DOCUMENT_STATUS.POSTED,
                 ledgerUpdatedAt: new Date(),
               },
             },

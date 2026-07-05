@@ -39,7 +39,7 @@ export interface IShipment extends mongoose.Document {
 
 const ShipmentSchema = new Schema<IShipment>({
   tenantId: { type: String, required: true, index: true },
-  shipmentNumber: { type: String, required: true, unique: true },
+  shipmentNumber: { type: String, required: true },
   customerName: { type: String, required: true },
   customerEmail: { type: String },
   origin: { type: String, required: true },
@@ -64,6 +64,10 @@ const ShipmentSchema = new Schema<IShipment>({
   customsStatus: { type: String, enum: CUSTOMS_STATUS_VALUES },
   notes: { type: String },
 }, { timestamps: true });
+
+// Compound with tenantId per Golden Rule #7 — shipment numbers only need to
+// be unique within a tenant, not globally across the whole platform.
+ShipmentSchema.index({ tenantId: 1, shipmentNumber: 1 }, { unique: true });
 
 const Shipment: Model<IShipment> =
   (models.Shipment as Model<IShipment>) ||

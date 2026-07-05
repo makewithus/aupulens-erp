@@ -35,7 +35,7 @@ export interface IBill extends Document {
 const BillSchema = new Schema<IBill>(
   {
     tenantId: { type: String, required: true, index: true },
-    billNumber: { type: String, required: true, unique: true },
+    billNumber: { type: String, required: true },
     vendorId: { type: String, required: true },
     vendorName: { type: String, required: true },
     vendorEmail: { type: String, required: true },
@@ -69,6 +69,9 @@ const BillSchema = new Schema<IBill>(
 BillSchema.index({ status: 1 });
 BillSchema.index({ dueDate: 1 });
 BillSchema.index({ vendorId: 1 });
+// Compound with tenantId per Golden Rule #7 — bill numbers only need to be
+// unique within a tenant, not globally across the whole platform.
+BillSchema.index({ tenantId: 1, billNumber: 1 }, { unique: true });
 
 const Bill: Model<IBill> =
   (mongoose.models.Bill as Model<IBill>) ||
