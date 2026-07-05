@@ -6,7 +6,7 @@ import { DocumentSettings } from "@/models/DocumentSettings";
 import Organization from "@/models/Organization";
 import "@/models/BankAccount"; // side-effect import: registers "BankAccount" for .populate("bankAccountId") below
 import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
-import { getTemplateDefinition, renderInvoiceTemplate, buildTemplateContext } from "@/lib/invoiceTemplates";
+import { getTemplateDefinition, renderInvoiceTemplate, renderInvoiceTemplateFragment, buildTemplateContext } from "@/lib/invoiceTemplates";
 
 // Server-side, tenant-scoped, print-quality A4 HTML rendered for the browser's
 // native print pipeline (vector text, correct margins, crisp fonts). We chose
@@ -60,6 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         accountNumber: invoice.bankAccountId.accountNumber,
         bankName: invoice.bankAccountId.bankName,
         ifsc: invoice.bankAccountId.ifsc,
+        upiId: invoice.bankAccountId.upiId,
       };
     }
 
@@ -83,6 +84,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       signatureUrl,
       documentType: "invoice",
     });
+
+    // `?embed=1` returns the same content as a JSON-wrapped HTML fragment
+    // instead of a full document — used by the invoice detail page to show
+    // an in-page preview via dangerouslySetInnerHTML rather than an
+    // <iframe>, which this app's CSP (`frame-ancestors 'none'`) blocks even
+    // same-origin. Direct download/new-tab/print still use the full
+    // document below, unaffected by CSP since that's navigation, not framing.
+    if (searchParams.get("embed") === "1") {
+      const html = renderInvoiceTemplateFragment(def, ctx);
+      return NextResponse.json({ success: true, data: { html, orientation: def.orientation } });
+    }
 
     const html = renderInvoiceTemplate(def, ctx);
 

@@ -15,6 +15,52 @@ export interface GalleryTemplate {
   previewData?: { description?: string };
 }
 
+// Renders the template's live HTML fragment scaled down to a thumbnail. Not
+// an <iframe> — this app's CSP sends `frame-ancestors 'none'` +
+// `X-Frame-Options: DENY` on every response, which blocks framing even
+// same-origin content, so an iframe here always showed a blank grey box.
+// The preview route now returns the same self-contained fragment the PDF
+// route renders (see renderInvoiceTemplateFragment), so this is guaranteed
+// to match the printed PDF and is safe to inject directly (server-rendered
+// from the tenant's own escaped data, no user-supplied script).
+function TemplatePreviewThumbnail({ templateKey }: { templateKey: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/sales/invoice-templates/${templateKey}/preview`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.success) {
+          setHtml(d.data.html);
+          setOrientation(d.data.orientation || "portrait");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [templateKey]);
+
+  const baseWidth = orientation === "landscape" ? 1100 : 800;
+  const baseHeight = orientation === "landscape" ? 800 : 1100;
+  const scale = 0.32;
+
+  if (!html) {
+    return <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Loading…</div>;
+  }
+
+  return (
+    <div
+      className="absolute top-0 left-0 pointer-events-none origin-top-left"
+      style={{ width: baseWidth, height: baseHeight, transform: `scale(${scale})` }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 export function TemplateGallery({
   category = "invoice",
   selectedKey,
@@ -80,13 +126,8 @@ export function TemplateGallery({
           )}
           onClick={() => onSelect(t.key)}
         >
-          <div className="relative aspect-[3/4] bg-muted/30 overflow-hidden">
-            <iframe
-              src={`/api/sales/invoice-templates/${t.key}/preview`}
-              title={t.name}
-              className="absolute top-0 left-0 pointer-events-none origin-top-left"
-              style={{ width: "800px", height: "1100px", transform: "scale(0.32)" }}
-            />
+          <div className="relative aspect-3/4 bg-muted/30 overflow-hidden">
+            <TemplatePreviewThumbnail templateKey={t.key} />
             {selectedKey === t.key && (
               <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1">
                 <Check className="w-3 h-3" />

@@ -1,14 +1,15 @@
 /**
- * Reseeds the Sales Invoice demo data for the `default-tenant` tenant so the
- * whole invoice feature (templates, GST split, discounts, TDS/TCS, split
- * payments, HSN summary, attachments, notes/terms) can be verified end to
- * end without a live browser session.
+ * Reseeds the Sales Invoice demo data for the `default-tenant` tenant so all
+ * 9 active template categories can be verified end to end without a live
+ * browser session — one invoice per template, varied data (CGST/SGST vs
+ * IGST, discounts, TDS/TCS, split payments, draft/paid/overdue, service vs
+ * goods, multi-HSN, attachments).
  *
  * Usage: npx tsx scripts/seed-invoices.ts
  * Requires MONGODB_URI in .env (same as the running app).
  *
- * See docs/INVOICE_SEED_README.md for what each of the 10 invoices exercises
- * and how to verify them (and how to create one manually via the UI).
+ * See docs/INVOICE_SEED_README.md for what each invoice exercises and how to
+ * verify it (and how to create one manually via the UI).
  */
 import "dotenv/config";
 import mongoose from "mongoose";
@@ -26,6 +27,7 @@ import { computeInvoiceTotals } from "../lib/sales/invoiceMath";
 import { generateInvoiceNumber } from "../lib/sales/invoiceNumbering";
 import { resolveInvoiceStatus } from "../lib/sales/invoiceStatus";
 import { ensureDefaultPrefixes } from "../lib/sales/documentPrefixes";
+import { ensureInvoiceTemplatesSeeded } from "../lib/invoiceTemplates";
 import { SALES_INVOICE_STATUS } from "../lib/constants/statuses";
 
 const TENANT_ID = "default-tenant";
@@ -43,7 +45,9 @@ async function ensureSellerProfile() {
   org.set("settings.state", "Maharashtra");
   org.set("settings.gstin", "27AAAAA0000A1Z5");
   org.set("settings.addressLine1", "402, Trade Tower, Bandra Kurla Complex");
-  org.set("settings.addressLine2", "Mumbai, Maharashtra 400051");
+  org.set("settings.addressLine2", "Bandra East");
+  org.set("settings.city", "Mumbai");
+  org.set("settings.pincode", "400051");
   await org.save();
   console.log("Seller profile set: Maharashtra, GSTIN 27AAAAA0000A1Z5");
 }
@@ -66,8 +70,17 @@ async function resetInvoiceCounter() {
 }
 
 async function ensureBankAccounts() {
-  const count = await BankAccount.countDocuments({ tenantId: TENANT_ID });
-  if (count > 0) return BankAccount.find({ tenantId: TENANT_ID }).lean();
+  const existing = await BankAccount.find({ tenantId: TENANT_ID });
+  if (existing.length > 0) {
+    // Backfill upiId onto pre-existing seed bank accounts (additive field) so the UPI QR renders.
+    for (const b of existing) {
+      if (!b.upiId) {
+        b.upiId = "aupulenstraders@okhdfcbank";
+        await b.save();
+      }
+    }
+    return BankAccount.find({ tenantId: TENANT_ID }).lean();
+  }
 
   const created = await BankAccount.insertMany([
     {
@@ -77,6 +90,7 @@ async function ensureBankAccounts() {
       accountNumber: "50100123456789",
       bankName: "HDFC Bank",
       ifsc: "HDFC0000123",
+      upiId: "aupulenstraders@okhdfcbank",
       currency: "INR",
       isPrimary: true,
       connectionStatus: "manual",
@@ -89,6 +103,7 @@ async function ensureBankAccounts() {
       accountNumber: "00405001234567",
       bankName: "ICICI Bank",
       ifsc: "ICIC0004050",
+      upiId: "aupulenstraders@okicici",
       currency: "INR",
       isPrimary: false,
       connectionStatus: "manual",
@@ -104,9 +119,14 @@ async function ensureSignature() {
   if (!ds) throw new Error("DocumentSettings missing for default-tenant — run the app once to auto-create it.");
   if (!ds.signatures || ds.signatures.length === 0) {
     ds.signatures = [{ name: "Authorized Signatory", imageUrl: SAMPLE_PNG }] as any;
-    await ds.save();
-    console.log("Added a default signature to DocumentSettings");
   }
+  // The gallery/PDF renders the HSN summary and dispatch address only when
+  // these Document Settings toggles are on — enable them so the seeded
+  // invoices actually show every feature for visual review.
+  ds.set("display.showHsnSummary", true);
+  ds.set("display.showDispatchAddress", true);
+  await ds.save();
+  console.log("Signature + HSN-summary/dispatch-address display toggles ensured");
   return ds.signatures;
 }
 
@@ -152,30 +172,32 @@ async function ensureCustomers() {
       c.address_tab = { ...(c.address_tab as any), state_name: info.state, city: info.city, type: c.address_tab?.type || "contact" };
       await c.save();
     }
+    if (info && !c.shipping_address?.state_name) {
+      c.shipping_address = { street: "Warehouse Gate 3", city: info.city, state_name: info.state } as any;
+      await c.save();
+    }
   }
 
   const newCustomerDefs = [
     { name: "Meridian Business Solutions", state: "Maharashtra", city: "Pune", email: "accounts@meridianbiz.example" },
     { name: "Coastal Retail Traders", state: "Gujarat", city: "Ahmedabad", email: "purchase@coastalretail.example" },
   ];
-  const created: any[] = [];
   for (const def of newCustomerDefs) {
-    let doc = await Customer.findOne({ tenantId: TENANT_ID, "header.name": def.name });
+    const doc = await Customer.findOne({ tenantId: TENANT_ID, "header.name": def.name });
     if (!doc) {
-      doc = await Customer.create({
+      await Customer.create({
         tenantId: TENANT_ID,
         createdBy: SEED_USER_ID,
         header: { name: def.name, is_company: true },
         contact_details: { email: def.email, phone: "+919800000000" },
         address_tab: { type: "contact", city: def.city, state_name: def.state },
+        shipping_address: { street: "Warehouse Gate 1", city: def.city, state_name: def.state },
       });
       console.log("Created customer:", def.name);
     }
-    created.push(doc);
   }
 
-  const all = await Customer.find({ tenantId: TENANT_ID }).lean();
-  return all;
+  return Customer.find({ tenantId: TENANT_ID }).lean();
 }
 
 function pick<T>(arr: T[], name: string): T {
@@ -189,6 +211,7 @@ async function main() {
   console.log("Connected. Seeding invoices for tenant:", TENANT_ID);
 
   await ensureSellerProfile();
+  await ensureInvoiceTemplatesSeeded();
   await ensureDefaultPrefixes(TENANT_ID);
   await ensureInvoicePrefixHasDash();
   await resetInvoiceCounter();
@@ -247,9 +270,10 @@ async function main() {
     placeOfSupplyOverride?: string;
   }
 
+  // One invoice per active template — exactly the 9 currently in scope.
   const specs: Spec[] = [
     {
-      // 1. Same state as seller -> CGST+SGST. Fully paid in one shot.
+      // Modern — same state as seller -> CGST+SGST. Fully paid in one shot.
       customer: apex,
       invoiceDate: daysAgo(20),
       dueDate: daysAgo(6),
@@ -259,7 +283,7 @@ async function main() {
         { name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 3, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 },
       ],
       roundOff: true,
-      payments: [{ notes: "Full settlement", amount: 12000, date: daysAgo(5), mode: "Bank" }],
+      payments: [{ notes: "Full settlement", amount: 9642, date: daysAgo(5), mode: "Bank" }],
       markedFullyPaid: true,
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
       notes: "Thanks for your business.",
@@ -268,20 +292,7 @@ async function main() {
       withSignature: true,
     },
     {
-      // 2. Different state -> IGST. Unpaid.
-      customer: zenith,
-      invoiceDate: daysAgo(10),
-      dueDate: daysFromNow(20),
-      templateKey: "vintage",
-      lineItems: [
-        { name: server.header.name, itemId: server._id, hsn: "84713010", qty: 1, unitPrice: 8500, discount: 10, discountMode: "percent", taxRate: 18 },
-      ],
-      requestedStatus: SALES_INVOICE_STATUS.SAVED,
-      notes: "Thank you for choosing us.",
-      terms: "Goods once sold will not be taken back.",
-    },
-    {
-      // 3. Same state, partial payment via 2 split payments + taxable & non-taxable additional charges.
+      // Classic — same state, partial payment via 2 split payments + taxable & non-taxable additional charges.
       customer: meridian,
       invoiceDate: daysAgo(15),
       dueDate: daysFromNow(5),
@@ -300,27 +311,31 @@ async function main() {
       ],
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
       withBank: true,
+      withSignature: true,
     },
     {
-      // 4. Explicit different-state placeOfSupply override -> IGST + TDS.
-      customer: apex,
-      placeOfSupplyOverride: "Tamil Nadu",
-      invoiceDate: daysAgo(8),
-      dueDate: daysFromNow(12),
-      templateKey: "elegant",
+      // Compact — different state -> IGST. Many line items, dense single-page demo.
+      customer: zenith,
+      invoiceDate: daysAgo(10),
+      dueDate: daysFromNow(20),
+      templateKey: "compact",
       lineItems: [
-        { name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 2, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 },
+        { name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 1, unitPrice: 1200, discount: 0, discountMode: "percent", taxRate: 18 },
+        { name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 2, unitPrice: 2500, discount: 5, discountMode: "percent", taxRate: 18 },
+        { name: server.header.name, itemId: server._id, hsn: "84713010", qty: 1, unitPrice: 8500, discount: 10, discountMode: "percent", taxRate: 18 },
+        { name: "Onsite Installation", hsn: "998719", qty: 1, unitPrice: 1500, discount: 0, discountMode: "percent", taxRate: 18 },
+        { name: "Extended Warranty (1yr)", hsn: "998714", qty: 1, unitPrice: 900, discount: 0, discountMode: "percent", taxRate: 18 },
       ],
-      tds: 10,
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
-      terms: "TDS as applicable under Section 194J will be deducted by the buyer.",
+      notes: "Thank you for choosing us.",
+      terms: "Goods once sold will not be taken back.",
     },
     {
-      // 5. TCS + extra discount % + multi-HSN summary.
+      // Evergreen — different state -> IGST. TCS + extra discount % + multi-HSN + attachment.
       customer: alpha,
       invoiceDate: daysAgo(5),
       dueDate: daysFromNow(25),
-      templateKey: "mrp_discount",
+      templateKey: "evergreen",
       lineItems: [
         { name: server.header.name, itemId: server._id, hsn: "84713010", qty: 2, unitPrice: 8500, discount: 5, discountMode: "percent", taxRate: 18 },
         { name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 5, unitPrice: 1200, discount: 0, discountMode: "percent", taxRate: 18 },
@@ -328,76 +343,74 @@ async function main() {
       extraDiscount: 2,
       extraDiscountMode: "percent",
       tcs: 1,
-      requestedStatus: SALES_INVOICE_STATUS.SAVED,
-    },
-    {
-      // 6. Draft — minimal/incomplete, exercises draft save+resume fidelity.
-      customer: coastal,
-      invoiceDate: today,
-      dueDate: daysFromNow(30),
-      templateKey: "service",
-      lineItems: [
-        { name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 1, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 },
-      ],
-      requestedStatus: SALES_INVOICE_STATUS.DRAFT,
-      notes: "Draft — pricing to be confirmed with customer.",
-    },
-    {
-      // 7. genZ template, attachments + round off on an odd total.
-      customer: zenith,
-      invoiceDate: daysAgo(3),
-      dueDate: daysFromNow(27),
-      templateKey: "genz",
-      lineItems: [
-        { name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 3, unitPrice: 1199.5, discount: 0, discountMode: "percent", taxRate: 18 },
-      ],
-      roundOff: true,
       attachments: [{ name: "purchase-order.png", url: SAMPLE_PNG }],
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
       notes: "Reference: customer PO attached.",
-      terms: "E&OE.",
+      withBank: true,
     },
     {
-      // 8. Fully paid via exact split payments summing to total.
+      // Landscape — same state -> CGST+SGST. Fully paid via 2 exact split payments.
       customer: meridian,
       invoiceDate: daysAgo(30),
       dueDate: daysAgo(16),
       templateKey: "landscape",
-      lineItems: [
-        { name: server.header.name, itemId: server._id, hsn: "84713010", qty: 1, unitPrice: 8500, discount: 0, discountMode: "percent", taxRate: 18 },
-      ],
+      lineItems: [{ name: server.header.name, itemId: server._id, hsn: "84713010", qty: 1, unitPrice: 8500, discount: 0, discountMode: "percent", taxRate: 18 }],
       payments: [
         { notes: "Part 1", amount: 6000, date: daysAgo(25), mode: "Bank" },
         { notes: "Part 2 — balance", amount: 4030, date: daysAgo(18), mode: "Cash" },
       ],
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
       withBank: true,
+      withSignature: true,
     },
     {
-      // 9. e-Waybill + e-Invoice + coupon, Bill To-Ship To template.
+      // Legend — different state -> IGST. Overdue, no payments — the full-bordered "official" look under stress.
+      customer: coastal,
+      invoiceDate: daysAgo(45),
+      dueDate: daysAgo(15),
+      templateKey: "legend",
+      lineItems: [{ name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 4, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 }],
+      requestedStatus: SALES_INVOICE_STATUS.SAVED,
+      withBank: true,
+      withSignature: true,
+    },
+    {
+      // MRP + Discount — explicit different-state placeOfSupply override -> IGST + TDS. Shows MRP vs Selling Price columns.
+      customer: apex,
+      placeOfSupplyOverride: "Tamil Nadu",
+      invoiceDate: daysAgo(8),
+      dueDate: daysFromNow(12),
+      templateKey: "mrp_discount",
+      lineItems: [
+        { name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 3, unitPrice: 1200, discount: 15, discountMode: "percent", taxRate: 18 },
+        { name: server.header.name, itemId: server._id, hsn: "84713010", qty: 1, unitPrice: 8500, discount: 500, discountMode: "amount", taxRate: 18 },
+      ],
+      tds: 10,
+      requestedStatus: SALES_INVOICE_STATUS.SAVED,
+      terms: "TDS as applicable under Section 194J will be deducted by the buyer.",
+    },
+    {
+      // Service — draft, minimal/incomplete, exercises draft save+resume fidelity.
+      customer: coastal,
+      invoiceDate: today,
+      dueDate: daysFromNow(30),
+      templateKey: "service",
+      lineItems: [{ name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 1, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 }],
+      requestedStatus: SALES_INVOICE_STATUS.DRAFT,
+      notes: "Draft — pricing to be confirmed with customer.",
+    },
+    {
+      // Bill To - Ship To — different state -> IGST. e-Waybill + e-Invoice + coupon.
       customer: alpha,
       invoiceDate: daysAgo(1),
       dueDate: daysFromNow(29),
       templateKey: "bill_ship",
-      lineItems: [
-        { name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 10, unitPrice: 1200, discount: 10, discountMode: "percent", taxRate: 18 },
-      ],
+      lineItems: [{ name: cloud.header.name, itemId: cloud._id, hsn: "998314", qty: 10, unitPrice: 1200, discount: 10, discountMode: "percent", taxRate: 18 }],
       eWaybill: true,
       eInvoice: true,
       coupons: ["WELCOME10"],
       requestedStatus: SALES_INVOICE_STATUS.SAVED,
       withSignature: true,
-    },
-    {
-      // 10. Overdue — no payments, due date in the past.
-      customer: coastal,
-      invoiceDate: daysAgo(45),
-      dueDate: daysAgo(15),
-      templateKey: "legend",
-      lineItems: [
-        { name: consulting.header.name, itemId: consulting._id, hsn: "998313", qty: 4, unitPrice: 2500, discount: 0, discountMode: "percent", taxRate: 18 },
-      ],
-      requestedStatus: SALES_INVOICE_STATUS.SAVED,
       withBank: true,
     },
   ];
@@ -468,7 +481,7 @@ async function main() {
     results.push({ number: invoice.number, customer: spec.customer.header.name, template: spec.templateKey, status: invoice.status, total: invoice.totalAmount, placeOfSupply });
   }
 
-  console.log("\nSeeded", results.length, "invoices:\n");
+  console.log("\nSeeded", results.length, "invoices (one per active template):\n");
   console.table(results);
 
   await mongoose.disconnect();

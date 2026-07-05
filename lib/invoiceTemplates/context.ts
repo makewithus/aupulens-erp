@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { computeInvoiceTotals, computeHsnSummary, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
-import { buildUpiUri } from "./helpers";
+import { buildUpiUri, cleanText } from "./helpers";
 import type { TemplateRenderContext, TemplateSettings } from "./types";
 
 const DEFAULT_SETTINGS: TemplateSettings = {
@@ -70,8 +70,8 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
     discount: li.discount,
     discountMode: li.discountMode,
     taxRate: li.taxRate,
-    hsn: li.hsn,
-    name: li.name,
+    hsn: cleanText(li.hsn),
+    name: cleanText(li.name) || "Item",
   }));
 
   const totals = computeInvoiceTotals({
@@ -92,15 +92,17 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
 
   const customerDoc = invoice.customerId || {};
   const customer = {
-    name: customerDoc?.header?.name || "Customer",
-    gstin: customerDoc?.gstin,
-    email: customerDoc?.contact_details?.email,
-    phone: customerDoc?.contact_details?.phone || customerDoc?.contact_details?.mobile,
+    name: cleanText(customerDoc?.header?.name) || "Customer",
+    gstin: cleanText(customerDoc?.gstin) || undefined,
+    email: cleanText(customerDoc?.contact_details?.email) || undefined,
+    phone: cleanText(customerDoc?.contact_details?.phone || customerDoc?.contact_details?.mobile) || undefined,
     billingAddress: [customerDoc?.address_tab?.street, customerDoc?.address_tab?.city, customerDoc?.address_tab?.state_name, customerDoc?.address_tab?.zip]
+      .map(cleanText)
       .filter(Boolean)
       .join(", "),
     shippingAddress: customerDoc?.shipping_address
       ? [customerDoc.shipping_address.street, customerDoc.shipping_address.city, customerDoc.shipping_address.state_name, customerDoc.shipping_address.zip]
+          .map(cleanText)
           .filter(Boolean)
           .join(", ")
       : undefined,
@@ -119,16 +121,16 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
   return {
     documentType,
     invoice: {
-      number: invoice.number,
+      number: cleanText(invoice.number),
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
-      reference: invoice.reference,
-      type: invoice.type,
-      placeOfSupply: invoice.placeOfSupply,
+      reference: cleanText(invoice.reference) || undefined,
+      type: cleanText(invoice.type) || "Regular",
+      placeOfSupply: cleanText(invoice.placeOfSupply) || undefined,
       eWaybill: invoice.eWaybill,
       eInvoice: invoice.eInvoice,
-      notes: invoice.notes,
-      terms: invoice.terms,
+      notes: cleanText(invoice.notes) || undefined,
+      terms: cleanText(invoice.terms) || undefined,
       status: invoice.status,
       markedFullyPaid: invoice.markedFullyPaid,
       payments: invoice.payments || [],
@@ -138,8 +140,21 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
     hsnSummary,
     amountInWords,
     customer,
-    company: { name: company.name, gstin: company.gstin, logo: settings.showImages ? company.logo : undefined, address: company.address, state: company.state },
-    bank: bank ? { accountName: bank.accountName, accountNumber: bank.accountNumber, bankName: bank.bankName, ifsc: bank.ifsc } : null,
+    company: {
+      name: cleanText(company.name) || "Your Company",
+      gstin: cleanText(company.gstin) || undefined,
+      logo: settings.showImages ? company.logo : undefined,
+      address: cleanText(company.address) || undefined,
+      state: cleanText(company.state) || undefined,
+    },
+    bank: bank
+      ? {
+          accountName: cleanText(bank.accountName),
+          accountNumber: cleanText(bank.accountNumber) || undefined,
+          bankName: cleanText(bank.bankName) || undefined,
+          ifsc: cleanText(bank.ifsc) || undefined,
+        }
+      : null,
     signatureUrl: settings.showReceiverSignature ? signatureUrl : null,
     upiQrDataUrl,
     settings,

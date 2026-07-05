@@ -17,6 +17,7 @@ export interface IBankAccount extends Document {
   accountNumber?: string;
   bankName?: string;
   ifsc?: string;
+  upiId?: string; // Additive — Sales invoice "Pay using UPI" QR code
   userIds: mongoose.Types.ObjectId[];
   description?: string;
   isPrimary: boolean;
@@ -38,6 +39,7 @@ const BankAccountSchema: Schema<IBankAccount> = new Schema(
     accountNumber: { type: String, trim: true },
     bankName: { type: String, trim: true },
     ifsc: { type: String, trim: true, uppercase: true },
+    upiId: { type: String, trim: true },
     userIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     description: { type: String, maxlength: 500 },
     isPrimary: { type: Boolean, default: false },

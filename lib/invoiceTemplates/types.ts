@@ -5,6 +5,10 @@ export interface TemplateDefinition {
   name: string;
   category: "invoice" | "purchase" | "quotation";
   description: string;
+  /** Whether this template appears in the gallery/selector/seeds. Inactive
+   *  definitions are kept in the catalog (dormant, re-activatable later) but
+   *  filtered out of every user-facing list. */
+  active: boolean;
   orientation: "portrait" | "landscape";
   fontFamily: "sans" | "serif" | "mono";
   headerStyle: "minimal" | "bordered-grid" | "centered" | "sidebar" | "gradient-band" | "dual-address";
@@ -14,6 +18,12 @@ export interface TemplateDefinition {
   serviceStyle: boolean; // hides HSN/Qty-heavy goods columns, description-first rows
   density: "normal" | "compact";
   billShipProminent: boolean;
+  /** Force the HSN/SAC summary grid regardless of the Document Settings
+   *  toggle being on — only applies when the toggle IS on; the toggle still
+   *  wins if the tenant has explicitly turned HSN summary off. */
+  hsnSummaryEmphasis: boolean;
+  /** Retail-style totals: Amount Payable / Amount Paid / Paid via UPI. */
+  retailTotals: boolean;
   accentColorDefault: string;
 }
 

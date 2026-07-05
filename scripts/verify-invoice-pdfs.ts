@@ -14,7 +14,7 @@ import { DocumentSettings } from "../models/DocumentSettings";
 import Organization from "../models/Organization";
 import "../models/Customer";
 import "../models/BankAccount";
-import { getTemplateDefinition, renderInvoiceTemplate, buildTemplateContext } from "../lib/invoiceTemplates";
+import { getTemplateDefinition, renderInvoiceTemplate, renderInvoiceTemplateFragment, buildTemplateContext, ACTIVE_TEMPLATE_KEYS } from "../lib/invoiceTemplates";
 
 const TENANT_ID = "default-tenant";
 
@@ -48,6 +48,7 @@ async function main() {
           accountNumber: invoice.bankAccountId.accountNumber,
           bankName: invoice.bankAccountId.bankName,
           ifsc: invoice.bankAccountId.ifsc,
+          upiId: invoice.bankAccountId.upiId,
         };
       }
 
@@ -67,11 +68,13 @@ async function main() {
       });
 
       const html = renderInvoiceTemplate(def, ctx);
+      const fragment = renderInvoiceTemplateFragment(def, ctx);
+      const fragmentMatchesPdf = html.includes(fragment.trim());
       const hasGst = /CGST|SGST|IGST/.test(html);
       const hasTotal = html.includes(String(Math.round(invoice.totalAmount)));
-      const ok = html.length > 500 && hasGst;
+      const ok = html.length > 500 && hasGst && fragmentMatchesPdf;
       console.log(
-        `${ok ? "OK  " : "WARN"} ${invoice.number.padEnd(10)} template=${templateKey.padEnd(14)} len=${html.length}  gstMarkersPresent=${hasGst}  totalPresent=${hasTotal}`,
+        `${ok ? "OK  " : "WARN"} ${invoice.number.padEnd(10)} template=${templateKey.padEnd(14)} len=${html.length}  gstMarkersPresent=${hasGst}  totalPresent=${hasTotal}  previewMatchesPdf=${fragmentMatchesPdf}`,
       );
       if (!ok) failures++;
     } catch (err: any) {
@@ -80,7 +83,17 @@ async function main() {
     }
   }
 
-  console.log(`\n${invoices.length - failures}/${invoices.length} templates rendered cleanly.`);
+  const seededTemplateKeys = new Set(invoices.map((i: any) => i.templateKey));
+  const missing = ACTIVE_TEMPLATE_KEYS.filter((k) => !seededTemplateKeys.has(k));
+  console.log(`\nActive templates: ${ACTIVE_TEMPLATE_KEYS.length} (${ACTIVE_TEMPLATE_KEYS.join(", ")})`);
+  if (missing.length) {
+    console.error(`MISSING seed coverage for: ${missing.join(", ")}`);
+    failures++;
+  } else {
+    console.log("Every active template has at least one seeded invoice.");
+  }
+
+  console.log(`\n${invoices.length - failures}/${invoices.length} checks passed.`);
   await mongoose.disconnect();
   process.exit(failures ? 1 : 0);
 }

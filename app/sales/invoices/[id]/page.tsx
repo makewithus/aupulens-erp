@@ -16,6 +16,8 @@ export default function InvoiceDetailPage() {
   const { data: session } = useSession();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewOrientation, setPreviewOrientation] = useState<"portrait" | "landscape">("portrait");
 
   useEffect(() => {
     fetch(`/api/sales/invoices/${params.id}`)
@@ -25,6 +27,23 @@ export default function InvoiceDetailPage() {
         else toast.error(data.message || "Invoice not found");
       })
       .finally(() => setLoading(false));
+  }, [params.id]);
+
+  // Renders the invoice through the same template fragment the PDF route
+  // produces, injected directly rather than framed — this app's CSP sends
+  // `frame-ancestors 'none'` + `X-Frame-Options: DENY` on every response,
+  // which blocks framing even same-origin content, so an <iframe> pointed
+  // at the PDF route always showed a blank box here.
+  useEffect(() => {
+    fetch(`/api/sales/invoices/${params.id}/pdf?embed=1`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setPreviewHtml(data.data.html);
+          setPreviewOrientation(data.data.orientation || "portrait");
+        }
+      })
+      .catch(() => {});
   }, [params.id]);
 
   const handleDelete = async () => {
@@ -92,8 +111,15 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        <div className="bg-card border rounded-lg overflow-hidden">
-          <iframe src={`/api/sales/invoices/${invoice._id}/pdf`} className="w-full" style={{ height: "80vh" }} title="Invoice preview" />
+        <div className="bg-card border rounded-lg overflow-auto p-4" style={{ maxHeight: "85vh" }}>
+          {previewHtml ? (
+            <div
+              style={{ width: previewOrientation === "landscape" ? "297mm" : "210mm", margin: "0 auto" }}
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          ) : (
+            <div className="flex justify-center items-center h-64 text-muted-foreground text-sm">Loading preview…</div>
+          )}
         </div>
       </div>
     </DashboardLayout>
