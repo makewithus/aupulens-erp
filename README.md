@@ -38,6 +38,20 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## 🔧 Environment Variables
+
+Copy `.env.example` to `.env` and fill in the values. The app-URL variables (see `lib/config.ts`) control how tenant links and API calls are built — nothing in the app should hardcode a host:
+
+| Variable | Purpose | Dev default | Production |
+|---|---|---|---|
+| `NEXT_PUBLIC_APP_ROOT_DOMAIN` | Root domain tenants live under (`{subdomain}.<this>`) | `aupulens.online` | Set to your real root domain if different |
+| `NEXT_PUBLIC_APP_BASE_URL` | Base URL of the marketing/default-tenant site, used for redirects | `https://aupulens.online` | Must match your deployed origin |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Support address shown in suspended/error states | `support@aupulens.online` | Set to your real support inbox |
+| `NEXT_PUBLIC_API_BASE_URL` | Absolute API origin for callers that can't use relative paths (e.g. the packaged Electron app) | empty (same-origin) | Set only if the client is served from a different origin than the API |
+| `ELECTRON_DEV_SERVER_URL` | Dev server the Electron shell loads when `NODE_ENV=development` | `http://localhost:3000` | Not used in production builds (loads bundled `out/`) |
+
+Same-origin browser code should always call the API with a relative path (`fetch("/api/...")`) rather than prepending any of these.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

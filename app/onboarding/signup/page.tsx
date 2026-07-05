@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "next-auth/react";
 import { useAuthStore } from "@/store/authStore";
+import { APP_ROOT_DOMAIN } from "@/lib/config";
 
 const FEATURES = [
   { icon: BarChart3, label: "Finance & Accounting", desc: "Invoices, P&L, Balance Sheet, GST" },
@@ -218,9 +219,9 @@ export default function SignUpPage() {
       {step < 4 ? (
         <div className="min-h-screen flex">
           {/* Left panel (Showcase) for Steps 1, 2, 3 */}
-          <div className="hidden lg:flex lg:w-[50%] flex-col bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#1565c0] relative overflow-hidden">
+          <div className="hidden lg:flex lg:w-[50%] flex-col bg-linear-to-br from-[#1a237e] via-[#283593] to-[#1565c0] relative overflow-hidden">
             <div className="absolute top-[-120px] right-[-120px] w-[380px] h-[380px] rounded-full bg-white/5" />
-            <div className="absolute bottom-[-80px] left-[-80px] w-[260px] h-[260px] rounded-full bg-white/5" />
+            <div className="absolute -bottom-20 -left-20 w-[260px] h-[260px] rounded-full bg-white/5" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/3" />
 
             <div className="relative z-10 flex flex-col justify-between h-full px-16 py-14">
@@ -251,7 +252,7 @@ export default function SignUpPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {FEATURES.map(({ icon: Icon, label, desc }) => (
                     <div key={label} className="flex items-start gap-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-                      <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                         <Icon className="h-4 w-4 text-white" />
                       </div>
                       <div>
@@ -449,14 +450,14 @@ export default function SignUpPage() {
                         }
                       />
                       <div className="h-11 px-3 flex items-center bg-gray-100 dark:bg-gray-800 border border-l-0 border-gray-200 dark:border-gray-700 text-xs text-gray-400 rounded-r-none whitespace-nowrap">
-                        .aupulens.online
+                        .{APP_ROOT_DOMAIN}
                       </div>
                     </div>
                     {errors.subdomain && <p className="text-red-500 text-xs mt-1">{errors.subdomain}</p>}
                     <p className="text-xs text-gray-400 mt-1">
                       Your team will access ERP at{" "}
                       <span className="font-semibold text-blue-600">
-                        {form.subdomain || "yourcompany"}.aupulens.online
+                        {form.subdomain || "yourcompany"}.{APP_ROOT_DOMAIN}
                       </span>
                     </p>
                   </div>
@@ -574,7 +575,7 @@ export default function SignUpPage() {
                       </div>
 
                       <div className="flex items-start justify-between">
-                        <span className="flex-shrink-0">Time Zone:</span>
+                        <span className="shrink-0">Time Zone:</span>
                         <span className="font-semibold text-gray-900 dark:text-white text-right ml-2">(GMT 5:30) India Standard Time (Asia/Calcutta)</span>
                       </div>
 
@@ -694,8 +695,8 @@ export default function SignUpPage() {
                     "Budgeting", "Reports & Analytics"
                   ].map((mod) => (
                     <div key={mod} className="flex items-center gap-2">
-                      <div className="h-4.5 w-4.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center flex-shrink-0">
-                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                      <div className="h-4.5 w-4.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 stroke-3" />
                       </div>
                       <span className="font-medium">{mod}</span>
                     </div>
@@ -827,7 +828,7 @@ export default function SignUpPage() {
 
                 <Button
                   type="button"
-                  className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-600/10"
+                  className="flex-2 h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-600/10"
                   onClick={handleSubmit}
                   disabled={isLoading}
                 >

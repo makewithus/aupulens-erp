@@ -6,6 +6,7 @@ import OrgInvite from "@/models/OrgInvite";
 import User from "@/models/User";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
 import { getTierLimits } from "@/lib/constants/tiers";
+import { buildTenantUrl } from "@/lib/config";
 
 export async function POST(req: NextRequest) {
   try {
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
         data: {
           tenantId: targetTenantId,
           role: invite.role,
-          workspaceUrl: `https://${targetTenantId}.aupulens.online`,
+          workspaceUrl: buildTenantUrl(targetTenantId),
         },
       },
       { status: 201 }

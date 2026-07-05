@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { APP_ROOT_DOMAIN, SUPPORT_EMAIL } from "@/lib/config";
 
 export default function TenantSuspendedView() {
   const { tenantId } = useTenantStore();
@@ -50,12 +51,12 @@ export default function TenantSuspendedView() {
                   Target Domain
                 </p>
                 <p className="text-lg font-bold tracking-tight">
-                  {tenantId}.aupulens.online
+                  {tenantId}.{APP_ROOT_DOMAIN}
                 </p>
               </div>
             </div>
 
-            <div className="h-[2px] w-full bg-linear-to-r from-primary/50 via-primary/10 to-transparent" />
+            <div className="h-0.5 w-full bg-linear-to-r from-primary/50 via-primary/10 to-transparent" />
 
             <div className="space-y-3">
               <div className="flex items-start gap-4">
@@ -96,7 +97,7 @@ export default function TenantSuspendedView() {
           <Button
             className="h-14 none-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-primary/20 group transition-all"
             onClick={() =>
-              (window.location.href = "mailto:support@aupulens.online")
+              (window.location.href = `mailto:${SUPPORT_EMAIL}`)
             }
           >
             <Mail className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />

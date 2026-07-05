@@ -148,4 +148,66 @@ A dedicated, single-commit cleanup of unused/waste files, separate from the audi
 
 **Flagged, not fixed (out of scope for a file-cleanup task):** `middleware.ts` has two dead carve-out conditions explicitly exempting `/api/admin/migrate-invoices` from auth checks — a route that (per the folder removed above) doesn't exist. Worth a deliberate look since it's security-adjacent code, not something to touch silently under a "remove waste files" task.
 
+---
+
+## Hardcoded URL elimination pass (2026-07-06)
+
+Audited the whole codebase for hardcoded absolute origins that would break outside the current dev environment.
+
+### Before: every hardcoded-origin occurrence found
+
+**Genuine bugs (production-breaking), fixed:**
+
+| File | Line | Snippet |
+|---|---|---|
+| `app/api/master-admin/tenants/route.ts` | 126 | `` url: `https://${organization.subdomain}.aupulens.online` `` |
+| `app/api/auth/org/accept/route.ts` | 145 | `` workspaceUrl: `https://${targetTenantId}.aupulens.online` `` |
+| `app/api/auth/org/create/route.ts` | 96 | `` url: `https://${organization.subdomain}.aupulens.online` `` |
+| `app/api/auth/org/invite/route.ts` | 105 | `` const inviteLink = `https://${tenantId}.aupulens.online/accept-invite?token=${token}` `` |
+| `components/providers/TenantInitializer.tsx` | 87 | `window.location.href = "https://aupulens.online"` |
+| `components/auth/TenantSuspendedView.tsx` | 54 | `` {tenantId}.aupulens.online `` (display text) |
+| `components/auth/TenantSuspendedView.tsx` | 99 | `window.location.href = "mailto:support@aupulens.online"` |
+| `app/onboarding/signup/page.tsx` | 453, 460 | `.aupulens.online` / `` {form.subdomain}.aupulens.online `` (display text) |
+| `app/onboarding/signin/page.tsx` | 245 | `.aupulens.online` (display text) |
+| `app/master-admin/page.tsx` | 400, 715, 772 | `.aupulens.online` display text + `` `https://${org.subdomain}.aupulens.online` `` in a `window.open` |
+| `electron/main.js` | 31 | `` isDev ? 'http://localhost:3000' : ... `` — the Electron shell's dev-server URL, unconfigurable |
+
+**Already correct, no change needed** — client-side API calls throughout `app/**` already use relative paths (`fetch("/api/...")`, no `axios`, no WebSockets in the codebase), so the bulk of the usual "hardcoded API base" problem didn't exist here.
+
+**Not production code, left as-is:**
+- `tests/**/*.test.ts` (48 occurrences) — `http://localhost/api/...` used only as the mandatory base for constructing `Request`/`NextRequest` objects in Vitest; never reaches a real network call. Confirmed the same domain constant (`aupulens.online`) they assert against still matches `lib/config.ts`'s dev default, so no test changes were required.
+- `auth.config.ts` (cookie-domain logic) and `app/onboarding/{signin,signup}/page.tsx` (subdomain-redirect logic) — these check the *browser's own runtime hostname* (`window.location.hostname === "localhost"`) to branch dev vs. prod behavior; they don't construct a hardcoded URL to our own app and were already environment-agnostic.
+- `middleware.ts` / `TenantInitializer.tsx` inline comments mentioning `aupulens.online` — documentation only, not executable.
+- `lib/upload.ts` (`api.cloudinary.com`) and other third-party hosts (`api.anthropic.com`, Google/Microsoft OAuth, fonts, GST e-invoice portal) — genuine external services, correctly absolute, already environment-driven where they have credentials (Cloudinary via `NEXT_PUBLIC_CLOUD_NAME`).
+- No `vercel.json` exists in this repo (removed in a prior cleanup pass per the section above, confirmed with the user) — nothing to update there.
+
+### How each category was fixed
+
+1. **New `lib/config.ts`** — single source of truth, exporting:
+   - `APP_ROOT_DOMAIN` (`NEXT_PUBLIC_APP_ROOT_DOMAIN`, defaults to `"aupulens.online"` — the real current production domain, not `localhost`, so behavior is unchanged unless someone deliberately points it elsewhere for staging).
+   - `APP_BASE_URL` (`NEXT_PUBLIC_APP_BASE_URL`, defaults to `https://${APP_ROOT_DOMAIN}`).
+   - `SUPPORT_EMAIL` (`NEXT_PUBLIC_SUPPORT_EMAIL`, defaults to `support@${APP_ROOT_DOMAIN}`).
+   - `API_BASE_URL` (`NEXT_PUBLIC_API_BASE_URL`, defaults to `""` for same-origin relative calls — reserved for a future non-relative caller; nothing in this codebase needed it today since all browser fetches are already relative).
+   - `buildTenantUrl(subdomain)` helper for the repeated `` `https://${subdomain}.${domain}` `` pattern.
+2. **The 4 API routes** (`org/create`, `org/accept`, `org/invite`, `master-admin/tenants`) now call `buildTenantUrl(...)` instead of string-concatenating the domain.
+3. **The 2 client components** (`TenantInitializer`, `TenantSuspendedView`) now import `APP_BASE_URL` / `SUPPORT_EMAIL` / `APP_ROOT_DOMAIN` instead of hardcoding them.
+4. **The 3 display-only UI files** (`onboarding/signup`, `onboarding/signin`, `master-admin/page.tsx`) now interpolate `APP_ROOT_DOMAIN` (and `buildTenantUrl` for the one clickable link) so the subdomain hint text and "Visit" button always match whatever domain the app is actually deployed under.
+5. **`electron/main.js`** — the dev-mode `startURL` now reads `process.env.ELECTRON_DEV_SERVER_URL`, falling back to `http://localhost:3000` only in dev (production Electron builds already loaded the packaged `file://out/index.html`, unaffected).
+
+No endpoint paths, request/response shapes, or behavior changed — only how the URL strings are built.
+
+### New environment variables (`.env.example`, `README.md`)
+
+`NEXT_PUBLIC_APP_ROOT_DOMAIN`, `NEXT_PUBLIC_APP_BASE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_API_BASE_URL`, `ELECTRON_DEV_SERVER_URL` — all documented with purpose, dev default, and production guidance in both files. `.gitignore`'s blanket `.env*` rule got a `!.env.example` negation so the template stays trackable in git.
+
+### Verification
+
+- `npx tsc --noEmit` — clean.
+- `npx vitest run` — 429/429 tests passing, unchanged.
+- `npx next build --no-lint` — compiles successfully; the build's final failure (`app/api/sales/customers/import/sample/route.ts` — invalid route export) and the separate ESLint errors from `npm run build` are **pre-existing on this branch**, confirmed by re-running both against a `git stash` baseline with identical failures — unrelated to this pass.
+- Simulated a non-default domain: ran a scratch Vitest test importing `lib/config.ts` with `NEXT_PUBLIC_APP_ROOT_DOMAIN=staging.example.com` set, confirmed `buildTenantUrl("acme")` resolved to `https://acme.staging.example.com` (not `aupulens.online`, not `localhost`) — proving the resolution is env-driven, not baked in.
+- Final grep for `localhost|127.0.0.1|0.0.0.0|<subdomain>.aupulens.online` across `app/`, `lib/`, `components/`, `store/`, `providers/`, `config/`, `electron/`, `models/` returns only: the two legitimate runtime-hostname checks, one doc comment in `lib/config.ts`, and the now-configurable Electron dev default — no remaining hardcoded production-breaking URLs.
+
+**Commit:** `fix: replace hardcoded localhost URLs with env-driven API base config`
+
 Verified after cleanup: `npx tsc --noEmit` clean, 429/429 tests passing, the live dev server still responds, and `npm run seed:demo` still runs correctly and idempotently.

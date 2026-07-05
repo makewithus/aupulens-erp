@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Organization from "@/models/Organization";
 import User from "@/models/User";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { buildTenantUrl } from "@/lib/config";
 import { Types } from "mongoose";
 
 function normalizeSubdomain(value: string): string {
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
           name: organization.name,
           subdomain: organization.subdomain,
           tier: organization.tier,
-          url: `https://${organization.subdomain}.aupulens.online`,
+          url: buildTenantUrl(organization.subdomain),
         },
       },
       { status: 201 }

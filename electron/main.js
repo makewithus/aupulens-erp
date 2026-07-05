@@ -28,7 +28,7 @@ function createWindow() {
   });
 
   const startURL = isDev
-    ? 'http://localhost:3000'
+    ? (process.env.ELECTRON_DEV_SERVER_URL || 'http://localhost:3000')
     : `file://${path.join(__dirname, '../out/index.html')}`;
 
   mainWindow.loadURL(startURL).catch((err) => {

@@ -8,6 +8,7 @@ import User from "@/models/User";
 import { INVITE_STATUS } from "@/lib/constants/statuses";
 import { requireOrgAdmin } from "@/lib/org/rbac";
 import { getTierLimits } from "@/lib/constants/tiers";
+import { buildTenantUrl } from "@/lib/config";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     // Email delivery is deferred — no mailer exists yet. Return the link so
     // the calling UI can surface it or wire a transactional email provider later.
-    const inviteLink = `https://${tenantId}.aupulens.online/accept-invite?token=${token}`;
+    const inviteLink = `${buildTenantUrl(tenantId)}/accept-invite?token=${token}`;
 
     return NextResponse.json(
       {

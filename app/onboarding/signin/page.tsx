@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { APP_ROOT_DOMAIN } from "@/lib/config";
 
 const TESTIMONIALS = [
   {
@@ -155,7 +156,7 @@ function SignInContent() {
       <div className="flex-1 flex flex-col justify-center relative z-10 px-6 py-12 lg:px-16 xl:px-24">
         {/* Logo */}
         <div className="mb-10 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-700 to-blue-900 flex items-center justify-center shadow-md">
+          <div className="h-8 w-8 rounded-lg bg-linear-to-br from-blue-700 to-blue-900 flex items-center justify-center shadow-md">
             <Zap className="h-4 w-4 text-white" />
           </div>
           <span className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">Aupulens</span>
@@ -242,7 +243,7 @@ function SignInContent() {
                   disabled={isLoading}
                 />
                 <div className="h-11 px-3 flex items-center bg-gray-100 dark:bg-gray-800 border border-l-0 border-gray-200 dark:border-gray-700 text-xs text-gray-400 rounded-r-none whitespace-nowrap">
-                  .aupulens.online
+                  .{APP_ROOT_DOMAIN}
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-1">Leave blank to sign in as admin / default tenant.</p>
@@ -303,9 +304,9 @@ function SignInContent() {
       </div>
 
       {/* ── Right: Showcase ── */}
-      <div className="hidden lg:flex lg:w-[48%] flex-col bg-gradient-to-br from-[#1a237e] via-[#1565c0] to-[#0277bd] relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[48%] flex-col bg-linear-to-br from-[#1a237e] via-[#1565c0] to-[#0277bd] relative overflow-hidden">
         {/* Decorative */}
-        <div className="absolute top-[-100px] right-[-100px] w-[320px] h-[320px] rounded-full bg-white/5" />
+        <div className="absolute top-[-100px] right-[-100px] w-[320px] h-80 rounded-full bg-white/5" />
         <div className="absolute bottom-[-60px] left-[-60px] w-[220px] h-[220px] rounded-full bg-white/5" />
 
         <div className="relative z-10 flex flex-col justify-between h-full px-14 py-14">
@@ -356,7 +357,7 @@ function SignInContent() {
             <div className="p-5 rounded-2xl bg-white/10 backdrop-blur border border-white/20 transition-all duration-500">
               <p className="text-white text-sm leading-relaxed italic">&ldquo;{testimonial.quote}&rdquo;</p>
               <div className="flex items-center gap-3 mt-4">
-                <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${testimonial.color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                <div className={`h-9 w-9 rounded-full bg-linear-to-br ${testimonial.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                   {testimonial.initials}
                 </div>
                 <div>

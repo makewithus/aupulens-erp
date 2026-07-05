@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
 import { signOut } from "next-auth/react";
+import { APP_BASE_URL } from "@/lib/config";
 
 function getTenantFromHost(hostname: string): string | null {
   const hostParts = hostname.split(".");
@@ -84,7 +85,7 @@ export default function TenantInitializer() {
             setIsActive(data.isActive);
           } else if (res.status === 404) {
             setIsActive(false);
-            window.location.href = "https://aupulens.online";
+            window.location.href = APP_BASE_URL;
           } else {
             setIsActive(false);
           }

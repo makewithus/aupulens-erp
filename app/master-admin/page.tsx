@@ -26,6 +26,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { APP_ROOT_DOMAIN, buildTenantUrl } from "@/lib/config";
 
 export default function MasterAdminPage() {
   const { data: session, status } = useSession();
@@ -396,7 +397,7 @@ export default function MasterAdminPage() {
                           placeholder="acme"
                         />
                         <div className="h-12 flex items-center px-4 bg-muted border-2 border-l-0 rounded-r-xl text-xs font-bold text-muted-foreground">
-                          .aupulens.online
+                          .{APP_ROOT_DOMAIN}
                         </div>
                       </div>
                       <div className="absolute right-[140px] top-1/2 -translate-y-1/2">
@@ -711,7 +712,7 @@ export default function MasterAdminPage() {
                       </h3>
                       <div className="flex items-center text-xs font-bold text-blue-500 uppercase tracking-wider">
                         <Globe className="h-3 w-3 mr-1" />
-                        {org.subdomain}.aupulens.online
+                        {org.subdomain}.{APP_ROOT_DOMAIN}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -768,7 +769,7 @@ export default function MasterAdminPage() {
                       className="flex-1 h-10 border-2 none-xl font-bold uppercase text-[10px] tracking-widest hover:bg-muted"
                       onClick={() =>
                         window.open(
-                          `https://${org.subdomain}.aupulens.online`,
+                          buildTenantUrl(org.subdomain),
                           "_blank",
                         )
                       }
