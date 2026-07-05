@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Plus, Trash2, GripVertical, X, Settings, Paperclip, ShoppingCart } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
+import { uploadToCloudinary } from "@/lib/upload";
 
 interface LineItem {
   itemId?: string;
@@ -27,15 +28,6 @@ interface LineItem {
 
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
-
-function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export function SalesOrderForm() {
   const router = useRouter();
@@ -76,7 +68,7 @@ export function SalesOrderForm() {
   const [taxRate, setTaxRate] = useState(0);
   const [adjustment, setAdjustment] = useState(0);
 
-  const [customerNotes, setCustomerNotes] = useState("Enter any notes to be displayed in your transaction");
+  const [customerNotes, setCustomerNotes] = useState("");
   const [termsAndConditions, setTermsAndConditions] = useState("");
   const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
 
@@ -152,8 +144,16 @@ export function SalesOrderForm() {
       toast.error(`${oversized.name} exceeds the 5MB per-file limit`);
       return;
     }
-    const converted = await Promise.all(incoming.map(async (f) => ({ name: f.name, url: await fileToDataUri(f) })));
-    setAttachments((a) => [...a, ...converted]);
+    const toastId = toast.loading("Uploading files...");
+    try {
+      const converted = await Promise.all(
+        incoming.map(async (f) => ({ name: f.name, url: await uploadToCloudinary(f) })),
+      );
+      setAttachments((a) => [...a, ...converted]);
+      toast.success("Files uploaded successfully", { id: toastId });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to upload files", { id: toastId });
+    }
   };
 
   const handleAddDeliveryMethod = async (name: string) => {
@@ -244,16 +244,20 @@ export function SalesOrderForm() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-24">
-      <div className="flex items-center justify-between border-b pb-3">
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="w-5 h-5" />
-          <h1 className="text-lg font-semibold">New Sales Order</h1>
+    <div className="min-h-screen bg-background text-foreground pb-24">
+      {/* HEADER */}
+      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => router.push("/sales/sales-orders")}>
+            <X className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-muted-foreground">New Sales Order</h1>
+          </div>
         </div>
-        <button onClick={() => router.push("/sales/sales-orders")}>
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto p-6 space-y-6">
 
       <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
         <Label>
@@ -279,9 +283,11 @@ export function SalesOrderForm() {
           </SelectContent>
         </Select>
 
-        <Label>
-          Sales Order# <span className="text-red-500">*</span>
-        </Label>
+        {customerId && (
+          <>
+            <Label>
+              Sales Order# <span className="text-red-500">*</span>
+            </Label>
         <div className="flex items-center gap-2">
           <Input value={displayNumber} disabled={!manualNumber} onChange={(e) => setDisplayNumber(e.target.value)} />
           <button
@@ -346,9 +352,13 @@ export function SalesOrderForm() {
             ))}
           </SelectContent>
         </Select>
+          </>
+        )}
       </div>
 
-      <div className="border rounded-none">
+      {customerId && (
+        <>
+        <div className="border rounded-none">
         <div className="flex items-center justify-between p-3 border-b bg-muted/30">
           <span className="font-semibold text-sm">Item Table</span>
           <button className="text-xs text-blue-600 underline">Bulk Actions</button>
@@ -538,8 +548,10 @@ export function SalesOrderForm() {
       <p className="text-xs text-muted-foreground">
         Additional Fields: Add custom fields to your sales orders by going to Settings → Sales → Sales Orders → Field Customization.
       </p>
+      </>
+      )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
           Save as Draft
         </Button>
@@ -593,6 +605,7 @@ export function SalesOrderForm() {
           </div>
         </DialogContent>
       </Dialog>
+      </main>
     </div>
   );
 }

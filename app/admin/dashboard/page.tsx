@@ -142,8 +142,12 @@ export default function AdminDashboard() {
     };
   };
 
-  if (status === "loading" || status === "unauthenticated") {
+  if (status === "loading") {
     return <FullPageLoadingSkeleton />;
+  }
+
+  if (status === "unauthenticated") {
+    return null;
   }
 
   if (isLoading) {

@@ -20,6 +20,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 interface DashboardData {
   stats: {
@@ -77,6 +78,14 @@ export default function HRDashboardPage() {
 
   const formatCurrency = (val: number) =>
     "₹" + (val || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+  if (status === "loading") {
+    return <FullPageLoadingSkeleton />;
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
 
   const statCards = [
     {

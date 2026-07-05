@@ -12,7 +12,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Mail, ChevronRight, Download } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Mail, Download } from "lucide-react";
+import { uploadToCloudinary } from "@/lib/upload";
 
 const COUNTRIES = [
   "India",
@@ -197,13 +198,14 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
       toast.error("Each file must be 10MB or smaller");
       return;
     }
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    update({ documents: [...form.documents, { name: file.name, url: dataUrl, size: file.size }] });
+    const toastId = toast.loading("Uploading file...");
+    try {
+      const url = await uploadToCloudinary(file);
+      update({ documents: [...form.documents, { name: file.name, url, size: file.size }] });
+      toast.success("File uploaded", { id: toastId });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to upload file", { id: toastId });
+    }
   };
 
   const handleAddCustomFieldDef = async () => {
@@ -740,12 +742,12 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="flex items-center gap-3 pt-4 border-t">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => router.push("/sales/customers")}>
           Cancel
+        </Button>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
         </Button>
       </div>
     </div>

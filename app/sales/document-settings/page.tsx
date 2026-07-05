@@ -362,7 +362,7 @@ export default function DocumentSettingsPage() {
                 {settings?.branding?.[field] && <img src={settings.branding[field]} alt={label} className="h-12 object-contain" />}
                 <label className="flex items-center justify-center gap-2 h-9 border border-dashed rounded cursor-pointer text-xs text-muted-foreground hover:bg-muted/30">
                   <Upload className="w-3.5 h-3.5" /> Upload
-                  <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleImageUpload("branding", field)} />
+                  <input type="file" className="hidden" onChange={handleImageUpload("branding", field)} />
                 </label>
               </div>
             ))}

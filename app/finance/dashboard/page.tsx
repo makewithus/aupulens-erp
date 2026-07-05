@@ -66,8 +66,12 @@ export default function FinanceDashboard() {
     return `₹${(amount ?? 0).toLocaleString("en-IN").toString()}`;
   };
 
-  if (status === "loading" || status === "unauthenticated") {
+  if (status === "loading") {
     return <FullPageLoadingSkeleton />;
+  }
+
+  if (status === "unauthenticated") {
+    return null;
   }
 
   if (isLoading) {

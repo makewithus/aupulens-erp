@@ -50,37 +50,6 @@ export const salesSidebarConfig: SidebarSection[] = [
     ],
   },
   {
-    title: "Sales",
-    items: [
-      {
-        title: "Invoices",
-        href: "/sales/invoices",
-        icon: Banknote,
-      },
-      {
-        title: "Credit Notes",
-        href: "/sales/credit-notes",
-        icon: FileMinus,
-        disabled: true,
-      },
-      {
-        title: "E-Invoices",
-        href: "/sales/e-invoices",
-        icon: FileText,
-      },
-      {
-        title: "Subscriptions",
-        href: "/sales/subscriptions",
-        icon: Repeat,
-      },
-      {
-        title: "Payments",
-        href: "/sales/payments",
-        icon: CreditCard,
-      },
-    ],
-  },
-  {
     title: "Catalog",
     items: [
       {

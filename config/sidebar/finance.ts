@@ -40,26 +40,6 @@ export const financeSidebarConfig: SidebarSection[] = [
     ],
   },
   {
-    title: "Receivables & Payables",
-    items: [
-      {
-        title: "Invoices",
-        href: "/finance/invoices",
-        icon: Receipt,
-      },
-      {
-        title: "Vendor Bills",
-        href: "/finance/bills",
-        icon: FileText,
-      },
-      {
-        title: "Aged Partners",
-        href: "/finance/accounting/aged-partner",
-        icon: Clock,
-      },
-    ],
-  },
-  {
     title: "Accounting",
     items: [
       {

@@ -21,6 +21,7 @@ import { useSession } from "next-auth/react";
 import { Lightbulb } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
 import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
+import { AccountPicker } from "@/components/finance/accounting/AccountPicker";
 
 interface JournalLineRow {
   id: number;
@@ -246,12 +247,13 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                 <tr key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
                   <td className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeRow(row.id)}>✕</td>
                   <td className="p-0 border-r">
-                    <Select value={row.accountId} onValueChange={(v) => updateRow(row.id, { accountId: v })}>
-                      <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select an account" /></SelectTrigger>
-                      <SelectContent>
-                        {accounts.map(a => <SelectItem key={a._id} value={a._id}>{a.accountName}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <AccountPicker
+                      accounts={accounts}
+                      value={row.accountId}
+                      onChange={(v) => updateRow(row.id, { accountId: v })}
+                      placeholder="Select an account"
+                      className="border-0 shadow-none h-10 w-full rounded-none px-3 bg-transparent"
+                    />
                   </td>
                   <td className="p-0 border-r">
                     <Input
@@ -316,16 +318,14 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
         </div>
       </div>
 
-      <div className="mt-12 pt-6 border-t border-border flex justify-between items-center bg-muted/30 -mx-8 -mb-8 px-8 py-4 rounded-b-lg">
-        <div className="space-x-3">
-          <Button className="font-medium px-6" onClick={() => handleSave("posted")} disabled={!!saving}>
-            {saving === "posted" ? "Publishing..." : "Save and Publish"}
-          </Button>
-          <Button variant="outline" className="font-medium px-6 bg-background" onClick={() => handleSave("draft")} disabled={!!saving}>
-            {saving === "draft" ? "Saving..." : "Save as Draft"}
-          </Button>
-          <Button variant="ghost" className="font-medium" onClick={resetForm} disabled={!!saving} type="button">Cancel</Button>
-        </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+        <Button variant="outline" className="font-medium px-6 bg-background" onClick={() => handleSave("draft")} disabled={!!saving}>
+          {saving === "draft" ? "Saving..." : "Save as Draft"}
+        </Button>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6" onClick={() => handleSave("posted")} disabled={!!saving}>
+          {saving === "posted" ? "Publishing..." : "Save and Publish"}
+        </Button>
+        <Button variant="outline" className="font-medium" onClick={resetForm} disabled={!!saving} type="button">Cancel</Button>
       </div>
     </div>
   );
@@ -905,7 +905,7 @@ function ChartOfAccountsPageInner() {
                   <Upload className="h-5 w-5 text-gray-400" />
                 </div>
                 <h3 className="font-semibold text-gray-800 mb-4">Drag and drop file to import</h3>
-                <input type="file" id="import-file" className="hidden" accept=".csv,.xlsx,.xls" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+                <input type="file" id="import-file" className="hidden" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
                 <button type="button" onClick={() => document.getElementById('import-file')?.click()} className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                   {importFile ? importFile.name : "Choose File ▾"}
                 </button>

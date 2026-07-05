@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { X, UploadCloud, Lightbulb } from "lucide-react";
+import { X, UploadCloud, Lightbulb, Trash2, ChevronDown } from "lucide-react";
 
 const SUBSCRIPTION_FIELDS = [
   { key: "customerName", label: "Customer Name", required: true },
@@ -56,6 +56,15 @@ export default function ImportSubscriptionsPage() {
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
+
+  const handleFileSelect = (f: File) => {
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    if (!['csv', 'tsv', 'xls', 'xlsx'].includes(ext || '')) {
+      toast.error("Invalid file format. Only CSV, TSV, or XLS(X) are allowed.");
+      return;
+    }
+    setFile(f);
+  };
 
   const handleNextFromConfigure = async () => {
     if (!file) return;
@@ -141,18 +150,53 @@ export default function ImportSubscriptionsPage() {
 
         {step === 1 && (
           <div className="space-y-5">
-            <label className="border-2 border-dashed rounded-none p-10 flex flex-col items-center text-center cursor-pointer">
-              <UploadCloud className="w-8 h-8 text-muted-foreground mb-3" />
-              <p className="font-medium mb-1">Drag and drop file to import</p>
-              <p className="text-xs text-muted-foreground mb-3">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
-              <span className="text-sm font-medium text-blue-600">{file ? file.name : "Choose File"}</span>
-              <input
-                type="file"
-                className="hidden"
-                accept=".csv,.tsv,.xls,.xlsx"
-                onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])}
-              />
-            </label>
+            <div className="border-2 border-dashed rounded-none p-10 flex flex-col items-center text-center">
+              {file ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-16 bg-blue-500 rounded-sm mb-3 relative flex items-center justify-center">
+                    <div className="absolute top-0 right-0 border-l-[12px] border-l-blue-600 border-t-[12px] border-t-white" />
+                  </div>
+                  <p className="font-bold text-sm mb-2">{file.name}</p>
+                  <button 
+                    className="text-red-500 text-xs flex items-center gap-1 mb-6 hover:text-red-600"
+                    onClick={() => setFile(null)}
+                  >
+                    <Trash2 className="w-3 h-3" /> Remove
+                  </button>
+
+                  <label className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded flex items-center gap-2 cursor-pointer transition-colors">
+                    Replace File
+                    <div className="border-l border-blue-400 pl-2 ml-2">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-3">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center cursor-pointer w-full h-full">
+                  <UploadCloud className="w-8 h-8 text-muted-foreground mb-3" />
+                  <p className="font-medium mb-1">Drag and drop file to import</p>
+                  <p className="text-xs text-muted-foreground mb-3">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
+                  <span className="text-sm font-medium text-blue-600">Choose File</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              )}
+            </div>
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}

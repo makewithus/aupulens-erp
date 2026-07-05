@@ -332,7 +332,6 @@ export function BankStatementImportPopup({
                 type="file"
                 ref={fileInputRef}
                 onChange={handleCSVImport}
-                accept=".csv"
                 className="hidden"
               />
               <Button

@@ -41,10 +41,14 @@ import { ExportCurrentViewDialog } from "@/components/sales/salesOrders/ExportCu
 import { AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
 
 const SORT_FIELDS = [
-  { key: "createdAt", label: "Created On" },
+  { key: "createdAt", label: "Created Time" },
+  { key: "updatedAt", label: "Last Modified Time" },
   { key: "header.dateOrder", label: "Date" },
   { key: "header.name", label: "Sales Order#" },
+  { key: "otherInfo.clientOrderRef", label: "Reference#" },
+  { key: "header.partnerId", label: "Customer Name" },
   { key: "totals.amountTotal", label: "Amount" },
+  { key: "expectedShipmentDate", label: "Expected Shipment Date" },
 ];
 
 function statusColor(status: string) {

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft, Settings as SettingsIcon, Plus, Trash2, Wand2, Upload, Palette,
@@ -25,6 +25,7 @@ import { PrefixPicker, type PrefixRow } from "./PrefixPicker";
 import { CreateCustomerDialog } from "./CreateCustomerDialog";
 import { CreateProductDialog } from "./CreateProductDialog";
 import { TemplateGallery } from "./TemplateGallery";
+import { uploadToCloudinary } from "@/lib/upload";
 
 interface LineItemState {
   id: string;
@@ -309,14 +310,21 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   };
 
   // ── Attachments ──────────────────────────────────────────────────
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
-    if (attachments.length + files.length > 5) return toast.error("Maximum 5 attachments");
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => setAttachments((a) => [...a, { name: file.name, url: reader.result as string }]);
-      reader.readAsDataURL(file);
-    });
+    const incoming = Array.from(files);
+    if (attachments.length + incoming.length > 5) return toast.error("Maximum 5 attachments");
+    
+    const toastId = toast.loading("Uploading files...");
+    try {
+      const converted = await Promise.all(
+        incoming.map(async (f) => ({ name: f.name, url: await uploadToCloudinary(f) })),
+      );
+      setAttachments((a) => [...a, ...converted]);
+      toast.success("Files uploaded successfully", { id: toastId });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to upload files", { id: toastId });
+    }
   };
 
   // ── AI assist ──────────────────────────────────────────────────
@@ -498,21 +506,20 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             </Button>
           </Link>
 
-          <Button onClick={() => handleSave("saved")} disabled={saving} className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4">
-            Save →
-          </Button>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
         {/* TOP SECTION */}
         <div className="grid grid-cols-4 gap-6 bg-card p-6 rounded-lg border shadow-sm">
-          <div className="col-span-2 space-y-2">
+          <div className="col-span-4 lg:col-span-2 space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Select Customer *</label>
             <CustomerPicker customers={customers} value={selectedCustomerId} onChange={setSelectedCustomerId} onCreateNew={() => setCreateCustomerOpen(true)} />
             <Button variant="link" onClick={() => setCreateCustomerOpen(true)} className="text-blue-500 h-auto p-0 text-xs mt-1">+ Create Customer</Button>
           </div>
 
+          {selectedCustomerId && (
+          <>
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Invoice Date</label>
             <DateField value={invoiceDate} onChange={setInvoiceDate} />
@@ -537,9 +544,11 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
               </SelectContent>
             </Select>
           </div>
+          </>
+          )}
         </div>
 
-        {/* PRODUCTS & SERVICES */}
+        {selectedCustomerId && (
         <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center bg-muted/20 flex-wrap gap-2">
             <div className="flex items-center gap-4">
@@ -680,6 +689,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             </div>
           </div>
         </div>
+        )}
+
 
         {/* BOTTOM SECTION */}
         <div className="grid grid-cols-2 gap-8">
@@ -871,11 +882,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       </main>
 
       {/* FOOTER ACTIONS */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-4 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>Template: {selectedTemplate}</span>
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+        <div className="max-w-6xl w-full mx-auto flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving} className="bg-background">
             Save as Draft
           </Button>
@@ -883,23 +891,31 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             <Button variant="outline" onClick={() => handleSave("saved", true)} disabled={saving} className="rounded-r-none border-r-0 bg-background hover:bg-muted">
               Save and Print
             </Button>
-            <Popover open={templateGalleryOpen} onOpenChange={setTemplateGalleryOpen}>
-              <PopoverTrigger asChild>
+            <Dialog open={templateGalleryOpen} onOpenChange={setTemplateGalleryOpen}>
+              <DialogTrigger asChild>
                 <Button variant="outline" className="rounded-l-none px-2 bg-background hover:bg-muted" title="Choose Template">
                   <Palette className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[420px] max-h-[70vh] overflow-y-auto" align="end">
-                <p className="text-sm font-semibold mb-2">Choose a template for this invoice</p>
-                <TemplateGallery
-                  category="invoice"
-                  selectedKey={selectedTemplate}
-                  onSelect={(key) => { setSelectedTemplate(key); setTemplateGalleryOpen(false); }}
-                  allowSetDefault={false}
-                />
-                <Link href="/sales/invoices/templates" className="text-xs text-blue-600 mt-2 inline-block">Browse all 14 templates →</Link>
-              </PopoverContent>
-            </Popover>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Choose an Invoice Template</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <TemplateGallery
+                    category="invoice"
+                    selectedKey={selectedTemplate}
+                    onSelect={(key) => { setSelectedTemplate(key); setTemplateGalleryOpen(false); }}
+                    allowSetDefault={false}
+                  />
+                </div>
+                <DialogFooter className="sm:justify-start">
+                  <Link href="/sales/invoices/templates" className="text-sm text-blue-600 hover:underline">
+                    Manage templates →
+                  </Link>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
           <Button onClick={() => handleSave("saved")} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
             {saving ? "Saving..." : "Save →"}

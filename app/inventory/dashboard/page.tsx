@@ -24,6 +24,9 @@ export default function InventoryDashboardPage() {
       }
     }
   }, [status, router, session]);
+  if (status === "unauthenticated") {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

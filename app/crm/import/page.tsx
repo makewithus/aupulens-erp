@@ -11,6 +11,18 @@ export default function ImportCenterPage() {
   const [importing, setImporting] = useState(false);
   const [results, setResults] = useState<any>(null);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    if (!['csv', 'tsv', 'xls', 'xlsx'].includes(ext || '')) {
+      toast.error("Invalid file format. Only CSV, TSV, or XLS(X) are allowed.");
+      e.target.value = '';
+      return;
+    }
+    setFile(f);
+  };
+
   const handleImport = async () => {
     if (!file) return toast.error("Select a CSV file first");
     setImporting(true);
@@ -53,7 +65,7 @@ export default function ImportCenterPage() {
           </div>
           
           <div className="border-2 border-dashed border-neutral-700 rounded-lg p-10 text-center">
-            <input type="file" id="fileUpload" className="hidden" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <input type="file" id="fileUpload" className="hidden" onChange={handleFileSelect} />
             <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">
               <UploadCloud className="w-10 h-10 text-neutral-500 mb-2" />
               <span className="text-neutral-300 font-medium">{file ? file.name : "Click to select CSV file"}</span>

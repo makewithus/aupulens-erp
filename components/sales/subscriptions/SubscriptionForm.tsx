@@ -16,6 +16,7 @@ import { Plus, Trash2, GripVertical, X, Settings, Paperclip } from "lucide-react
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { SUBSCRIPTION_BILLING_FREQUENCY } from "@/lib/constants/statuses";
+import { uploadToCloudinary } from "@/lib/upload";
 
 interface LineItem {
   itemId?: string;
@@ -29,15 +30,6 @@ interface LineItem {
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
-
-function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export function SubscriptionForm() {
   const router = useRouter();
@@ -144,10 +136,16 @@ export function SubscriptionForm() {
       toast.error(`${oversized.name} exceeds the 10MB per-file limit`);
       return;
     }
-    const converted = await Promise.all(
-      incoming.map(async (f) => ({ name: f.name, url: await fileToDataUri(f) })),
-    );
-    setAttachments((a) => [...a, ...converted]);
+    const toastId = toast.loading("Uploading files...");
+    try {
+      const converted = await Promise.all(
+        incoming.map(async (f) => ({ name: f.name, url: await uploadToCloudinary(f) })),
+      );
+      setAttachments((a) => [...a, ...converted]);
+      toast.success("Files uploaded successfully", { id: toastId });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to upload files", { id: toastId });
+    }
   };
 
   const handleSaveNumberSettings = async () => {
@@ -231,13 +229,20 @@ export function SubscriptionForm() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-24">
-      <div className="flex items-center justify-between border-b pb-3">
-        <h1 className="text-lg font-semibold">New Subscription</h1>
-        <button onClick={() => router.push("/sales/subscriptions")}>
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <div className="min-h-screen bg-background text-foreground pb-24">
+      {/* HEADER */}
+      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => router.push("/sales/subscriptions")}>
+            <X className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-muted-foreground">New Subscription</h1>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto p-6 space-y-6">
 
       <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
         <Label>
@@ -256,9 +261,11 @@ export function SubscriptionForm() {
           </SelectContent>
         </Select>
 
-        <Label>
-          Plan Name <span className="text-red-500">*</span>
-        </Label>
+        {customerId && (
+          <>
+            <Label>
+              Plan Name <span className="text-red-500">*</span>
+            </Label>
         <Input value={planName} onChange={(e) => setPlanName(e.target.value)} placeholder="e.g. Gold Plan - Monthly" />
 
         <Label>
@@ -336,9 +343,13 @@ export function SubscriptionForm() {
           value={salesperson}
           onChange={(e) => setSalesperson(e.target.value)}
         />
+          </>
+        )}
       </div>
 
-      <div className="border rounded-none">
+      {customerId && (
+        <>
+        <div className="border rounded-none">
         <div className="flex items-center justify-between p-3 border-b bg-muted/30">
           <span className="font-semibold text-sm">Item Table</span>
         </div>
@@ -534,8 +545,10 @@ export function SubscriptionForm() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
           Save as Draft
         </Button>
@@ -594,6 +607,7 @@ export function SubscriptionForm() {
           </div>
         </DialogContent>
       </Dialog>
+      </main>
     </div>
   );
 }

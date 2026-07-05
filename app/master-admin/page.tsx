@@ -261,6 +261,18 @@ export default function MasterAdminPage() {
     trial: organizations.filter((o) => o.subscriptionStatus === "trial").length,
   };
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground opacity-50" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
+
   if (session?.user?.role !== "master-admin") {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6">

@@ -252,14 +252,14 @@ export default function SubscriptionsPage() {
                   className="h-8"
                 />
               </div>
-              <div className="max-h-72 overflow-y-auto">
+              <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
                 {filteredViews.map((v) => (
                   <DropdownMenuItem
                     key={v._id}
                     className="flex items-center justify-between"
                     onClick={() => setActiveViewId(v._id)}
                   >
-                    <span>{v.name}</span>
+                    <span className="truncate pr-2">{v.name}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

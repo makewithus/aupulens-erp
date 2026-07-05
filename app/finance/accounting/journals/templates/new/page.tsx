@@ -250,16 +250,16 @@ export default function NewJournalTemplatePage() {
             </div>
           </div>
 
-          <div className="mt-12 pt-6 border-t border-border flex space-x-3 bg-muted/50 -mx-8 -mb-8 px-8 py-4 rounded-b-lg">
-            <Button className="font-medium px-6" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
+          <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
             <Button
               variant="outline"
               className="font-medium px-6 bg-background"
               onClick={() => router.push("/finance/accounting/journals/templates")}
             >
               Cancel
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>
