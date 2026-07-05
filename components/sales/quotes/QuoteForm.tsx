@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, Trash2, GripVertical, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Plus, Trash2, GripVertical, X, Settings } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 
@@ -59,12 +62,30 @@ interface QuoteFormProps {
 
 export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const [activeTab, setActiveTab] = useState<"quote" | "subscription">("quote");
   const [form, setForm] = useState<QuoteFormValue>(initialValue || EMPTY_QUOTE);
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [taxRates, setTaxRates] = useState<any[]>([]);
   const [displayNumber, setDisplayNumber] = useState(quoteNumber || "");
+  const [manualNumber, setManualNumber] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [numberModalOpen, setNumberModalOpen] = useState(false);
+  const [numberMode, setNumberMode] = useState<"auto" | "manual">("auto");
+  const [prefixInput, setPrefixInput] = useState("QUO-");
+  const [nextNumberInput, setNextNumberInput] = useState("1");
+  const [restartFiscalYear, setRestartFiscalYear] = useState(false);
+  const [savingNumberSettings, setSavingNumberSettings] = useState(false);
+
+  // Subscription Quote fields (only relevant when activeTab === "subscription")
+  const [profileName, setProfileName] = useState("");
+  const [billEvery, setBillEvery] = useState(1);
+  const [billEveryUnit, setBillEveryUnit] = useState("weeks");
+  const [neverExpires, setNeverExpires] = useState(true);
+  const [expiresAfterCycles, setExpiresAfterCycles] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"offline" | "online">("offline");
 
   useEffect(() => {
     fetch("/api/sales/customers")
@@ -79,9 +100,23 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     if (!quoteId) {
       fetch("/api/sales/quotes/next-number")
         .then((r) => r.json())
-        .then((d) => d.success && setDisplayNumber(d.data.number));
+        .then((d) => {
+          if (d.success) {
+            setDisplayNumber(d.data.number);
+            setPrefixInput(d.data.prefix);
+          }
+        });
     }
   }, [quoteId]);
+
+  // Pre-fill Salesperson with the logged-in user for a faster default — still
+  // fully editable, matching the "prefilled but changeable" UX the user asked for.
+  useEffect(() => {
+    if (!quoteId && !form.salesperson && session?.user?.name) {
+      setForm((f) => ({ ...f, salesperson: session.user!.name || "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.name, quoteId]);
 
   const update = (patch: Partial<QuoteFormValue>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -116,6 +151,32 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
 
   const grandTotal = totals.totalAmount + (Number(form.adjustment) || 0);
 
+  const handleSaveNumberSettings = async () => {
+    if (numberMode === "manual") {
+      setManualNumber(true);
+      setNumberModalOpen(false);
+      return;
+    }
+    setSavingNumberSettings(true);
+    try {
+      const res = await fetch("/api/sales/quotes/number-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to save number preferences");
+      setManualNumber(false);
+      setDisplayNumber(`${prefixInput}${String(nextNumberInput).padStart(6, "0")}`);
+      toast.success("Quote number preferences saved");
+      setNumberModalOpen(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingNumberSettings(false);
+    }
+  };
+
   const handleSave = async (status: "draft" | "sent") => {
     if (!form.customerId) {
       toast.error("Customer is required");
@@ -129,15 +190,59 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     try {
       const url = quoteId ? `/api/sales/quotes/${quoteId}` : "/api/sales/quotes";
       const method = quoteId ? "PATCH" : "POST";
+      const body: any = { ...form, status };
+      if (manualNumber) body.quoteNumber = displayNumber;
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, status }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to save quote");
       toast.success(status === "sent" ? "Quote saved and sent" : "Quote saved as draft");
       router.push("/sales/quotes");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!form.customerId) {
+      toast.error("Customer is required");
+      return;
+    }
+    if (!profileName.trim()) {
+      toast.error("Profile Name is required");
+      return;
+    }
+    if (form.lineItems.some((li) => !li.name.trim())) {
+      toast.error("Every line item needs a name");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/sales/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: form.customerId,
+          profileName,
+          lineItems: form.lineItems,
+          billEvery,
+          billEveryUnit,
+          neverExpires,
+          expiresAfterCycles: neverExpires ? undefined : Number(expiresAfterCycles) || undefined,
+          customerNotes: form.customerNotes,
+          terms: form.terms,
+          paymentMode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to save subscription");
+      toast.success("Subscription created");
+      router.push("/sales/subscriptions");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -162,8 +267,18 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     <div className="max-w-5xl mx-auto space-y-6 pb-24">
       <div className="flex items-center justify-between border-b pb-3">
         <div className="flex items-center gap-4">
-          <span className="font-semibold border-b-2 border-blue-600 pb-1">Quote</span>
-          <span className="text-muted-foreground">Subscription Quote</span>
+          <button
+            className={`font-semibold pb-1 ${activeTab === "quote" ? "border-b-2 border-blue-600" : "text-muted-foreground"}`}
+            onClick={() => setActiveTab("quote")}
+          >
+            Quote
+          </button>
+          <button
+            className={`pb-1 ${activeTab === "subscription" ? "font-semibold border-b-2 border-blue-600" : "text-muted-foreground"}`}
+            onClick={() => setActiveTab("subscription")}
+          >
+            Subscription Quote
+          </button>
         </div>
         <button onClick={() => router.push("/sales/quotes")}>
           <X className="w-5 h-5" />
@@ -188,21 +303,40 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         </Select>
 
         <Label>Quote #</Label>
-        <Input value={displayNumber} disabled />
-
-        <Label>Reference#</Label>
-        <Input value={form.reference || ""} onChange={(e) => update({ reference: e.target.value })} />
-
-        <Label>Quote Date</Label>
-        <div className="flex gap-3">
-          <Input type="date" value={form.quoteDate} onChange={(e) => update({ quoteDate: e.target.value })} />
+        <div className="flex items-center gap-2">
           <Input
-            type="date"
-            placeholder="Expiry Date"
-            value={form.expiryDate || ""}
-            onChange={(e) => update({ expiryDate: e.target.value })}
+            value={displayNumber}
+            disabled={!manualNumber}
+            onChange={(e) => setDisplayNumber(e.target.value)}
           />
+          <button
+            onClick={() => {
+              setNumberMode(manualNumber ? "manual" : "auto");
+              setNumberModalOpen(true);
+            }}
+            title="Configure Quote Number Preferences"
+          >
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
+
+        {activeTab === "quote" && (
+          <>
+            <Label>Reference#</Label>
+            <Input value={form.reference || ""} onChange={(e) => update({ reference: e.target.value })} />
+
+            <Label>Quote Date</Label>
+            <div className="flex gap-3">
+              <Input type="date" value={form.quoteDate} onChange={(e) => update({ quoteDate: e.target.value })} />
+              <Input
+                type="date"
+                placeholder="Expiry Date"
+                value={form.expiryDate || ""}
+                onChange={(e) => update({ expiryDate: e.target.value })}
+              />
+            </div>
+          </>
+        )}
 
         <Label>Salesperson</Label>
         <Input
@@ -211,13 +345,17 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
           onChange={(e) => update({ salesperson: e.target.value })}
         />
 
-        <Label>Project Name</Label>
-        <Input
-          placeholder="Select a project"
-          value={form.projectName || ""}
-          onChange={(e) => update({ projectName: e.target.value })}
-          disabled={!form.customerId}
-        />
+        {activeTab === "quote" && (
+          <>
+            <Label>Project Name</Label>
+            <Input
+              placeholder="Select a project"
+              value={form.projectName || ""}
+              onChange={(e) => update({ projectName: e.target.value })}
+              disabled={!form.customerId}
+            />
+          </>
+        )}
 
         <Label>Subject</Label>
         <Input
@@ -307,6 +445,55 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         </div>
       </div>
 
+      {activeTab === "subscription" && (
+        <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl border rounded-none p-4">
+          <Label htmlFor="subscription-profile-name">
+            Profile Name <span className="text-red-500">*</span>
+          </Label>
+          <Input id="subscription-profile-name" value={profileName} onChange={(e) => setProfileName(e.target.value)} />
+
+          <Label>
+            Bill Every <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              className="w-20"
+              value={billEvery}
+              onChange={(e) => setBillEvery(Number(e.target.value))}
+              min={1}
+            />
+            <Select value={billEveryUnit} onValueChange={setBillEveryUnit}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="days">Day(s)</SelectItem>
+                <SelectItem value="weeks">Week(s)</SelectItem>
+                <SelectItem value="months">Month(s)</SelectItem>
+                <SelectItem value="years">Year(s)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Label>Expires After</Label>
+          <div className="flex items-center gap-3">
+            <Input
+              type="number"
+              className="w-24"
+              disabled={neverExpires}
+              value={expiresAfterCycles}
+              onChange={(e) => setExpiresAfterCycles(e.target.value)}
+              placeholder="cycles"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={neverExpires} onCheckedChange={(v) => setNeverExpires(!!v)} />
+              Never Expires
+            </label>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -322,97 +509,111 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
               rows={3}
             />
           </div>
+          {activeTab === "subscription" && (
+            <div className="space-y-1.5">
+              <Label>Payment Mode</Label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={paymentMode === "offline"}
+                  onCheckedChange={(v) => setPaymentMode(v ? "offline" : "online")}
+                />
+                Collect payment offline
+              </label>
+            </div>
+          )}
         </div>
 
-        <div className="border rounded-none p-4 space-y-3 text-sm h-fit">
-          <div className="flex justify-between">
-            <span>Sub Total</span>
-            <span>{totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          </div>
-          <div className="flex justify-between items-center gap-2">
-            <span>Discount</span>
-            <div className="flex items-center gap-1">
+        {activeTab === "quote" && (
+          <div className="border rounded-none p-4 space-y-3 text-sm h-fit">
+            <div className="flex justify-between">
+              <span>Sub Total</span>
+              <span>{totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center gap-2">
+              <span>Discount</span>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  className="w-24 h-8"
+                  value={form.extraDiscount}
+                  onChange={(e) => update({ extraDiscount: Number(e.target.value) })}
+                />
+                <Select value={form.extraDiscountMode} onValueChange={(v) => update({ extraDiscountMode: v as any })}>
+                  <SelectTrigger className="w-16 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">%</SelectItem>
+                    <SelectItem value="amount">₹</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <RadioGroup
+                value={form.taxes.mode}
+                onValueChange={(v) => update({ taxes: { ...form.taxes, mode: v as any } })}
+                className="flex gap-4"
+              >
+                <label className="flex items-center gap-1 text-xs">
+                  <RadioGroupItem value="none" /> None
+                </label>
+                <label className="flex items-center gap-1 text-xs">
+                  <RadioGroupItem value="tds" /> TDS
+                </label>
+                <label className="flex items-center gap-1 text-xs">
+                  <RadioGroupItem value="tcs" /> TCS
+                </label>
+              </RadioGroup>
+              {form.taxes.mode !== "none" && (
+                <Select
+                  value={form.taxes.taxId || ""}
+                  onValueChange={(v) => {
+                    const rate = taxRates.find((t: any) => t._id === v)?.ratePercent || 0;
+                    update({ taxes: { ...form.taxes, taxId: v, rate } });
+                  }}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Select a Tax" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taxRates.map((t: any) => (
+                      <SelectItem key={t._id} value={t._id}>
+                        {t.name} ({t.ratePercent}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex justify-between">
+                <span>{form.taxes.mode.toUpperCase() || "Tax"}</span>
+                <span>
+                  {form.taxes.mode === "tds" ? "- " : ""}
+                  {(form.taxes.mode === "tds" ? totals.tdsAmount : form.taxes.mode === "tcs" ? totals.tcsAmount : 0).toLocaleString(
+                    "en-IN",
+                    { minimumFractionDigits: 2 },
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center gap-2">
+              <span>Adjustment</span>
               <Input
                 type="number"
                 className="w-24 h-8"
-                value={form.extraDiscount}
-                onChange={(e) => update({ extraDiscount: Number(e.target.value) })}
+                value={form.adjustment}
+                onChange={(e) => update({ adjustment: Number(e.target.value) })}
               />
-              <Select value={form.extraDiscountMode} onValueChange={(v) => update({ extraDiscountMode: v as any })}>
-                <SelectTrigger className="w-16 h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="percent">%</SelectItem>
-                  <SelectItem value="amount">₹</SelectItem>
-                </SelectContent>
-              </Select>
+            </div>
+
+            <div className="flex justify-between font-bold text-base pt-2 border-t">
+              <span>Total (₹)</span>
+              <span>{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <RadioGroup
-              value={form.taxes.mode}
-              onValueChange={(v) => update({ taxes: { ...form.taxes, mode: v as any } })}
-              className="flex gap-4"
-            >
-              <label className="flex items-center gap-1 text-xs">
-                <RadioGroupItem value="none" /> None
-              </label>
-              <label className="flex items-center gap-1 text-xs">
-                <RadioGroupItem value="tds" /> TDS
-              </label>
-              <label className="flex items-center gap-1 text-xs">
-                <RadioGroupItem value="tcs" /> TCS
-              </label>
-            </RadioGroup>
-            {form.taxes.mode !== "none" && (
-              <Select
-                value={form.taxes.taxId || ""}
-                onValueChange={(v) => {
-                  const rate = taxRates.find((t: any) => t._id === v)?.ratePercent || 0;
-                  update({ taxes: { ...form.taxes, taxId: v, rate } });
-                }}
-              >
-                <SelectTrigger className="h-8">
-                  <SelectValue placeholder="Select a Tax" />
-                </SelectTrigger>
-                <SelectContent>
-                  {taxRates.map((t: any) => (
-                    <SelectItem key={t._id} value={t._id}>
-                      {t.name} ({t.ratePercent}%)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <div className="flex justify-between">
-              <span>{form.taxes.mode.toUpperCase() || "Tax"}</span>
-              <span>
-                {form.taxes.mode === "tds" ? "- " : ""}
-                {(form.taxes.mode === "tds" ? totals.tdsAmount : form.taxes.mode === "tcs" ? totals.tcsAmount : 0).toLocaleString(
-                  "en-IN",
-                  { minimumFractionDigits: 2 },
-                )}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center gap-2">
-            <span>Adjustment</span>
-            <Input
-              type="number"
-              className="w-24 h-8"
-              value={form.adjustment}
-              onChange={(e) => update({ adjustment: Number(e.target.value) })}
-            />
-          </div>
-
-          <div className="flex justify-between font-bold text-base pt-2 border-t">
-            <span>Total (₹)</span>
-            <span>{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          </div>
-        </div>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -421,25 +622,81 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
 
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
-            Save as Draft
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleSave("sent")} disabled={saving}>
-            {saving ? "Saving..." : "Save and Send"}
-          </Button>
+          {activeTab === "quote" ? (
+            <>
+              <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
+                Save as Draft
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleSave("sent")} disabled={saving}>
+                {saving ? "Saving..." : "Save and Send"}
+              </Button>
+              {quoteId && (
+                <Button variant="outline" onClick={handleConvertToInvoice}>
+                  Convert to Invoice
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSaveSubscription} disabled={saving}>
+              {saving ? "Saving..." : "Continue"}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => router.push("/sales/quotes")}>
             Cancel
           </Button>
-          {quoteId && (
-            <Button variant="outline" onClick={handleConvertToInvoice}>
-              Convert to Invoice
-            </Button>
-          )}
         </div>
         <div className="text-xs text-muted-foreground">
           PDF Template: &apos;Spreadsheet Template&apos; <span className="text-blue-600 underline cursor-pointer">Change</span>
         </div>
       </div>
+
+      <Dialog open={numberModalOpen} onOpenChange={setNumberModalOpen}>
+        <DialogContent className="max-w-lg">
+          <h2 className="text-lg font-semibold mb-4">Configure Quote Number Preferences</h2>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your quote numbers are set on auto-generate mode to save your time. Are you sure about changing this
+              setting?
+            </p>
+            <RadioGroup value={numberMode} onValueChange={(v) => setNumberMode(v as any)} className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <RadioGroupItem value="auto" /> Continue auto-generating quote numbers
+              </label>
+              {numberMode === "auto" && (
+                <div className="ml-6 grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Prefix</Label>
+                    <Input value={prefixInput} onChange={(e) => setPrefixInput(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Next Number</Label>
+                    <Input value={nextNumberInput} onChange={(e) => setNextNumberInput(e.target.value)} />
+                  </div>
+                  <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox checked={restartFiscalYear} onCheckedChange={(v) => setRestartFiscalYear(!!v)} />
+                    Restart numbering for quotes at the start of each fiscal year.
+                  </label>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <RadioGroupItem value="manual" /> Enter quote numbers manually
+              </label>
+            </RadioGroup>
+          </div>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button variant="outline" onClick={() => setNumberModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleSaveNumberSettings}
+              disabled={savingNumberSettings}
+            >
+              {savingNumberSettings ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

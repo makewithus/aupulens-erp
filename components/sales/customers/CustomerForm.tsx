@@ -11,7 +11,32 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trash2, Plus, Mail, ChevronRight } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Trash2, Plus, Mail, ChevronRight, Download } from "lucide-react";
+
+const COUNTRIES = [
+  "India",
+  "United States",
+  "United Kingdom",
+  "United Arab Emirates",
+  "Singapore",
+  "Australia",
+  "Canada",
+  "Germany",
+];
+
+const INDIAN_STATES = [
+  "Maharashtra",
+  "Karnataka",
+  "Delhi",
+  "Tamil Nadu",
+  "Gujarat",
+  "Haryana",
+  "Uttar Pradesh",
+  "West Bengal",
+  "Telangana",
+  "Rajasthan",
+];
 
 export interface CustomerFormValue {
   header: {
@@ -48,6 +73,7 @@ export interface CustomerFormValue {
     zip?: string;
     country?: string;
     phone?: string;
+    fax?: string;
   }[];
   contactPersons: {
     salutation?: string;
@@ -69,12 +95,12 @@ export const EMPTY_CUSTOMER: CustomerFormValue = {
   currency: "INR",
   openingBalance: 0,
   accounting_tab: {},
-  sales_purchase_tab: {},
+  sales_purchase_tab: { property_payment_term_id: "due_on_receipt" },
   portalEnabled: false,
   documents: [],
   addresses: [
-    { type: "billing" },
-    { type: "shipping" },
+    { type: "billing", country: "India" },
+    { type: "shipping", country: "India" },
   ],
   contactPersons: [],
   customFields: {},
@@ -93,15 +119,27 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [gstinInput, setGstinInput] = useState(form.gstin || "");
   const [prefilling, setPrefilling] = useState(false);
-  const [tagInput, setTagInput] = useState("");
-  const [customFieldRows, setCustomFieldRows] = useState<{ key: string; value: string }[]>(
-    Object.entries(form.customFields || {}).map(([key, value]) => ({ key, value })),
-  );
+
+  const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [addingField, setAddingField] = useState(false);
+
+  const [reportingTagDefs, setReportingTagDefs] = useState<any[]>([]);
+  const [newTagName, setNewTagName] = useState("");
+  const [addingTag, setAddingTag] = useState(false);
 
   useEffect(() => {
     fetch("/api/accounting/accounts")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []))
+      .catch(() => {});
+    fetch("/api/sales/customers/custom-field-definitions")
+      .then((r) => r.json())
+      .then((d) => d.success && setCustomFieldDefs(d.data))
+      .catch(() => {});
+    fetch("/api/sales/customers/reporting-tags")
+      .then((r) => r.json())
+      .then((d) => d.success && setReportingTagDefs(d.data))
       .catch(() => {});
   }, []);
 
@@ -120,6 +158,11 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     });
   };
 
+  const handleCopyBillingToShipping = () => {
+    updateAddress("shipping", { ...billing, type: "shipping" });
+    toast.success("Copied billing address to shipping address");
+  };
+
   const handlePrefill = async () => {
     if (!gstinInput) {
       toast.error("Enter a GSTIN first");
@@ -135,7 +178,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         updateNested("header", { companyName: data.data.legalName });
       }
       if (data.data?.address?.state) {
-        updateAddress("billing", { state_name: data.data.address.state });
+        updateAddress("billing", { state_name: data.data.address.state, country: "India" });
       }
       toast.success("Prefilled from GST portal");
     } catch (e: any) {
@@ -163,20 +206,66 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     update({ documents: [...form.documents, { name: file.name, url: dataUrl, size: file.size }] });
   };
 
+  const handleAddCustomFieldDef = async () => {
+    if (!newFieldLabel.trim()) return;
+    setAddingField(true);
+    try {
+      const res = await fetch("/api/sales/customers/custom-field-definitions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newFieldLabel.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to add custom field");
+      setCustomFieldDefs((defs) => [...defs, data.data]);
+      setNewFieldLabel("");
+      toast.success("Custom field added — it will show up for every customer from now on");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAddingField(false);
+    }
+  };
+
+  const handleAddReportingTagDef = async () => {
+    if (!newTagName.trim()) return;
+    setAddingTag(true);
+    try {
+      const res = await fetch("/api/sales/customers/reporting-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTagName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to add reporting tag");
+      setReportingTagDefs((defs) => [...defs, data.data]);
+      update({ reportingTags: [...form.reportingTags, data.data.name] });
+      setNewTagName("");
+      toast.success("Reporting tag added");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAddingTag(false);
+    }
+  };
+
+  const toggleReportingTag = (name: string) => {
+    update({
+      reportingTags: form.reportingTags.includes(name)
+        ? form.reportingTags.filter((t) => t !== name)
+        : [...form.reportingTags, name],
+    });
+  };
+
   const handleSave = async () => {
     if (!form.header.displayName?.trim()) {
       toast.error("Display Name is required");
       return;
     }
 
-    const customFields = Object.fromEntries(
-      customFieldRows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]),
-    );
-
     const payload = {
       ...form,
       header: { ...form.header, name: form.header.displayName },
-      customFields,
     };
 
     setSaving(true);
@@ -457,184 +546,186 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
 
         <TabsContent value="address" className="pt-4">
-          <div className="grid grid-cols-2 gap-8">
-            {(["billing", "shipping"] as const).map((type) => {
-              const addr = type === "billing" ? billing : shipping;
-              return (
-                <div key={type} className="space-y-3">
-                  <h3 className="font-semibold capitalize">{type} Address</h3>
-                  <Input
-                    placeholder="Attention"
-                    value={addr.attention || ""}
-                    onChange={(e) => updateAddress(type, { attention: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Street"
-                    value={addr.street || ""}
-                    onChange={(e) => updateAddress(type, { street: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Street 2"
-                    value={addr.street2 || ""}
-                    onChange={(e) => updateAddress(type, { street2: e.target.value })}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="City"
-                      value={addr.city || ""}
-                      onChange={(e) => updateAddress(type, { city: e.target.value })}
-                    />
-                    <Input
-                      placeholder="State"
-                      value={addr.state_name || ""}
-                      onChange={(e) => updateAddress(type, { state_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Zip"
-                      value={addr.zip || ""}
-                      onChange={(e) => updateAddress(type, { zip: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Country"
-                      value={addr.country || ""}
-                      onChange={(e) => updateAddress(type, { country: e.target.value })}
-                    />
-                  </div>
-                  <Input
-                    placeholder="Phone"
-                    value={addr.phone || ""}
-                    onChange={(e) => updateAddress(type, { phone: e.target.value })}
-                  />
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-10">
+            <div className="space-y-3">
+              <h3 className="font-semibold">Billing Address</h3>
+              <AddressFields addr={billing} onChange={(patch) => updateAddress("billing", patch)} />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">Shipping Address</h3>
+                <span className="text-xs">
+                  (
+                  <button onClick={handleCopyBillingToShipping} className="text-blue-600 underline inline-flex items-center gap-1">
+                    <Download className="w-3 h-3" /> Copy billing address
+                  </button>
+                  )
+                </span>
+              </div>
+              <AddressFields addr={shipping} onChange={(patch) => updateAddress("shipping", patch)} />
+            </div>
+          </div>
+
+          <div className="mt-6 border-l-4 border-yellow-400 bg-muted/30 p-4 text-xs text-muted-foreground max-w-3xl space-y-1">
+            <p className="font-medium text-foreground">Note:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Add and manage additional addresses from this Customer&apos;s details section.</li>
+              <li>
+                You can customise how customers&apos; addresses are displayed in transaction PDFs. To do this, go to
+                Settings &gt; Preferences &gt; Customers and Vendors, and navigate to the Address Format sections.
+              </li>
+            </ul>
           </div>
         </TabsContent>
 
         <TabsContent value="contacts" className="pt-4 space-y-3">
-          {form.contactPersons.map((cp, i) => (
-            <div key={i} className="grid grid-cols-7 gap-2 items-center">
-              <Input
-                placeholder="Salutation"
-                value={cp.salutation || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, salutation: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <Input
-                placeholder="First Name"
-                value={cp.firstName || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, firstName: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <Input
-                placeholder="Last Name"
-                value={cp.lastName || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, lastName: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <Input
-                placeholder="Email"
-                value={cp.email || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, email: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <Input
-                placeholder="Work Phone"
-                value={cp.workPhone || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, workPhone: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <Input
-                placeholder="Designation"
-                value={cp.designation || ""}
-                onChange={(e) => {
-                  const next = [...form.contactPersons];
-                  next[i] = { ...cp, designation: e.target.value };
-                  update({ contactPersons: next });
-                }}
-              />
-              <button onClick={() => update({ contactPersons: form.contactPersons.filter((_, idx) => idx !== i) })}>
-                <Trash2 className="w-4 h-4 text-red-600" />
-              </button>
-            </div>
-          ))}
+          <div className="border rounded-none overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Salutation</TableHead>
+                  <TableHead>First Name</TableHead>
+                  <TableHead>Last Name</TableHead>
+                  <TableHead>Email Address</TableHead>
+                  <TableHead>Work Phone</TableHead>
+                  <TableHead>Mobile</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {form.contactPersons.map((cp, i) => {
+                  const patchRow = (patch: Record<string, any>) => {
+                    const next = [...form.contactPersons];
+                    next[i] = { ...cp, ...patch };
+                    update({ contactPersons: next });
+                  };
+                  return (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Select value={cp.salutation || ""} onValueChange={(v) => patchRow({ salutation: v })}>
+                          <SelectTrigger className="h-8 w-24">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["Mr.", "Mrs.", "Ms.", "Dr."].map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input className="h-8" value={cp.firstName || ""} onChange={(e) => patchRow({ firstName: e.target.value })} />
+                      </TableCell>
+                      <TableCell>
+                        <Input className="h-8" value={cp.lastName || ""} onChange={(e) => patchRow({ lastName: e.target.value })} />
+                      </TableCell>
+                      <TableCell>
+                        <Input className="h-8" value={cp.email || ""} onChange={(e) => patchRow({ email: e.target.value })} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex">
+                          <span className="border rounded-none px-1.5 flex items-center text-xs bg-muted">+91</span>
+                          <Input
+                            className="h-8"
+                            value={cp.workPhone || ""}
+                            onChange={(e) => patchRow({ workPhone: e.target.value })}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex">
+                          <span className="border rounded-none px-1.5 flex items-center text-xs bg-muted">+91</span>
+                          <Input className="h-8" value={cp.mobile || ""} onChange={(e) => patchRow({ mobile: e.target.value })} />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <button onClick={() => update({ contactPersons: form.contactPersons.filter((_, idx) => idx !== i) })}>
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
           <Button variant="outline" size="sm" onClick={() => update({ contactPersons: [...form.contactPersons, {}] })}>
             <Plus className="w-4 h-4 mr-1" /> Add Contact Person
           </Button>
         </TabsContent>
 
-        <TabsContent value="custom" className="pt-4 space-y-3">
-          {customFieldRows.map((row, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <Input
-                placeholder="Field Name"
-                value={row.key}
-                onChange={(e) => {
-                  const next = [...customFieldRows];
-                  next[i] = { ...row, key: e.target.value };
-                  setCustomFieldRows(next);
-                }}
-              />
-              <Input
-                placeholder="Value"
-                value={row.value}
-                onChange={(e) => {
-                  const next = [...customFieldRows];
-                  next[i] = { ...row, value: e.target.value };
-                  setCustomFieldRows(next);
-                }}
-              />
-              <button onClick={() => setCustomFieldRows(customFieldRows.filter((_, idx) => idx !== i))}>
-                <Trash2 className="w-4 h-4 text-red-600" />
-              </button>
+        <TabsContent value="custom" className="pt-4 space-y-4">
+          {customFieldDefs.length === 0 ? (
+            <p className="text-sm text-muted-foreground max-w-lg">
+              Start adding custom fields for your Customers and Vendors by going to{" "}
+              <span className="text-blue-600 italic">Settings ➠ Preferences ➠ Customers and Vendors</span>. You can
+              also refine the address format of your Customers and Vendors from there.
+            </p>
+          ) : (
+            <div className="grid grid-cols-[180px_1fr] gap-y-3 gap-x-4 items-center max-w-2xl">
+              {customFieldDefs.map((def: any) => (
+                <div key={def._id} className="contents">
+                  <Label>{def.label}</Label>
+                  <Input
+                    value={form.customFields[def.label] || ""}
+                    onChange={(e) => update({ customFields: { ...form.customFields, [def.label]: e.target.value } })}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={() => setCustomFieldRows([...customFieldRows, { key: "", value: "" }])}>
-            <Plus className="w-4 h-4 mr-1" /> Add Custom Field
-          </Button>
+          )}
+          <div className="flex gap-2 max-w-md items-center">
+            <Input
+              placeholder="New custom field label"
+              value={newFieldLabel}
+              onChange={(e) => setNewFieldLabel(e.target.value)}
+            />
+            <Button variant="outline" size="sm" onClick={handleAddCustomFieldDef} disabled={addingField}>
+              <Plus className="w-4 h-4 mr-1" /> Add Custom Field
+            </Button>
+          </div>
         </TabsContent>
 
-        <TabsContent value="tags" className="pt-4 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {form.reportingTags.map((tag, i) => (
-              <span key={i} className="bg-muted px-2 py-1 text-xs rounded-none flex items-center gap-1">
-                {tag}
-                <button onClick={() => update({ reportingTags: form.reportingTags.filter((_, idx) => idx !== i) })}>
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2 max-w-sm">
+        <TabsContent value="tags" className="pt-4 space-y-4">
+          {reportingTagDefs.length === 0 ? (
+            <p className="text-sm text-muted-foreground max-w-lg">
+              You&apos;ve not created any Reporting Tags.
+              <br />
+              Start creating reporting tags by going to{" "}
+              <span className="text-blue-600 italic">More Settings ➠ Reporting Tags</span>
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {reportingTagDefs.map((def: any) => {
+                const active = form.reportingTags.includes(def.name);
+                return (
+                  <button
+                    key={def._id}
+                    onClick={() => toggleReportingTag(def.name)}
+                    className={`px-2.5 py-1 text-xs rounded-none border ${
+                      active
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-background text-muted-foreground border-input"
+                    }`}
+                  >
+                    {def.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex gap-2 max-w-sm items-center">
             <Input
-              placeholder="Add a tag and press Enter"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && tagInput.trim()) {
-                  e.preventDefault();
-                  update({ reportingTags: [...form.reportingTags, tagInput.trim()] });
-                  setTagInput("");
-                }
-              }}
+              placeholder="New reporting tag"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddReportingTagDef()}
             />
+            <Button variant="outline" size="sm" onClick={handleAddReportingTagDef} disabled={addingTag}>
+              <Plus className="w-4 h-4 mr-1" /> Add
+            </Button>
           </div>
         </TabsContent>
 
@@ -657,6 +748,82 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
           Cancel
         </Button>
       </div>
+    </div>
+  );
+}
+
+function AddressFields({
+  addr,
+  onChange,
+}: {
+  addr: Record<string, any>;
+  onChange: (patch: Record<string, any>) => void;
+}) {
+  return (
+    <div className="grid grid-cols-[110px_1fr] gap-y-3 gap-x-3 items-center">
+      <Label className="text-xs">Attention</Label>
+      <Input className="h-9" value={addr.attention || ""} onChange={(e) => onChange({ attention: e.target.value })} />
+
+      <Label className="text-xs">Country/Region</Label>
+      <Select value={addr.country || "India"} onValueChange={(v) => onChange({ country: v })}>
+        <SelectTrigger className="h-9">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          {COUNTRIES.map((c) => (
+            <SelectItem key={c} value={c}>
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Label className="text-xs">Address</Label>
+      <div className="space-y-2">
+        <Textarea
+          rows={1}
+          placeholder="Street 1"
+          value={addr.street || ""}
+          onChange={(e) => onChange({ street: e.target.value })}
+        />
+        <Textarea
+          rows={1}
+          placeholder="Street 2"
+          value={addr.street2 || ""}
+          onChange={(e) => onChange({ street2: e.target.value })}
+        />
+      </div>
+
+      <Label className="text-xs">City</Label>
+      <Input className="h-9" value={addr.city || ""} onChange={(e) => onChange({ city: e.target.value })} />
+
+      <Label className="text-xs">State</Label>
+      <div>
+        <Input
+          className="h-9"
+          list="state-suggestions"
+          placeholder="Select or type to add"
+          value={addr.state_name || ""}
+          onChange={(e) => onChange({ state_name: e.target.value })}
+        />
+        <datalist id="state-suggestions">
+          {INDIAN_STATES.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      </div>
+
+      <Label className="text-xs">Pin Code</Label>
+      <Input className="h-9" value={addr.zip || ""} onChange={(e) => onChange({ zip: e.target.value })} />
+
+      <Label className="text-xs">Phone</Label>
+      <div className="flex">
+        <span className="border rounded-none px-2 flex items-center text-sm bg-muted">+91</span>
+        <Input className="h-9" value={addr.phone || ""} onChange={(e) => onChange({ phone: e.target.value })} />
+      </div>
+
+      <Label className="text-xs">Fax Number</Label>
+      <Input className="h-9" value={addr.fax || ""} onChange={(e) => onChange({ fax: e.target.value })} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ export interface ICustomerAddress {
   zip?: string;
   country?: string;
   phone?: string;
+  fax?: string;
   isPrimary?: boolean;
 }
 
@@ -188,6 +189,7 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
         zip: { type: String },
         country: { type: String, trim: true },
         phone: { type: String },
+        fax: { type: String },
         isPrimary: { type: Boolean, default: false },
       },
     ],

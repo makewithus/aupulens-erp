@@ -1479,6 +1479,8 @@ export const CUSTOM_FIELD_APPLIES_TO = {
   JOURNAL: "journal",
   // Additive: Sales module custom fields on the invoice document (Document Settings > Custom Fields)
   INVOICE: "invoice",
+  // Additive: Sales module Customers custom fields (New Customer form > Custom Fields tab)
+  CUSTOMER: "customer",
 } as const;
 export const CUSTOM_FIELD_APPLIES_TO_VALUES = Object.values(
   CUSTOM_FIELD_APPLIES_TO,
@@ -1696,6 +1698,24 @@ export const EXPORT_FILE_FORMAT = {
 } as const;
 export const EXPORT_FILE_FORMAT_VALUES = Object.values(EXPORT_FILE_FORMAT);
 export type ExportFileFormat = (typeof EXPORT_FILE_FORMAT)[keyof typeof EXPORT_FILE_FORMAT];
+
+export const SUBSCRIPTION_BILL_UNIT = {
+  DAYS: "days",
+  WEEKS: "weeks",
+  MONTHS: "months",
+  YEARS: "years",
+} as const;
+export const SUBSCRIPTION_BILL_UNIT_VALUES = Object.values(SUBSCRIPTION_BILL_UNIT);
+export type SubscriptionBillUnit = (typeof SUBSCRIPTION_BILL_UNIT)[keyof typeof SUBSCRIPTION_BILL_UNIT];
+
+export const SALES_SUBSCRIPTION_STATUS = {
+  ACTIVE: "active",
+  CANCELLED: "cancelled",
+  EXPIRED: "expired",
+} as const;
+export const SALES_SUBSCRIPTION_STATUS_VALUES = Object.values(SALES_SUBSCRIPTION_STATUS);
+export type SalesSubscriptionStatus =
+  (typeof SALES_SUBSCRIPTION_STATUS)[keyof typeof SALES_SUBSCRIPTION_STATUS];
 
 // The 14 original invoice template layouts (see docs/_context/ERP.md Sales section)
 export const INVOICE_TEMPLATE_KEY = {
