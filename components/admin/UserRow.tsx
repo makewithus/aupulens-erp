@@ -107,19 +107,17 @@ export function UserRow({
       <td className="px-8 py-7">
         <div className="flex items-center justify-center gap-2">
           <div
-            className={`h-2 w-2 rounded-full ${
-              user.status === "active"
+            className={`h-2 w-2 rounded-full ${user.status === "active"
                 ? "bg-[#8AE06C]"
                 : "bg-[#F56868]"
-            }`}
+              }`}
           />
 
           <span
-            className={`font-mono text-[11px] uppercase tracking-[0.15em] ${
-              user.status === "active"
+            className={`font-mono text-[11px] uppercase tracking-[0.15em] ${user.status === "active"
                 ? "text-[#8AE06C]"
                 : "text-[#F56868]"
-            }`}
+              }`}
           >
             {user.status}
           </span>
@@ -147,11 +145,10 @@ export function UserRow({
             className="h-8 w-8 rounded-none hover:bg-white/5"
           >
             <div
-              className={`h-2 w-2 rounded-full ${
-                user.status === "active"
+              className={`h-2 w-2 rounded-full ${user.status === "active"
                   ? "bg-[#F56868]"
                   : "bg-[#8AE06C]"
-              }`}
+                }`}
             />
           </Button>
 

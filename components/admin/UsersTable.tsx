@@ -3,6 +3,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users as UsersIcon } from "lucide-react";
+import {
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/shared/Table";
 
 import { UserRow } from "./UserRow";
 import { UsersToolbar } from "./UsersToolbar";

@@ -1,7 +1,17 @@
 'use client';
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+import {
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/shared/Table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderKanban } from "lucide-react";
 
 const SOURCES = [
   "Organic Search","Paid Ads","Referral","Event","Social Media",
@@ -35,14 +45,14 @@ const SOURCES = [
 
 const PRIORITIES = ["Low", "Medium", "High"];
 
-const STATUS_COLORS: Record<string, string> = {
-  New: "bg-blue-600",
-  "Attempting Contact": "bg-yellow-600",
-  Connected: "bg-cyan-600",
-  Qualified: "bg-green-600",
-  Nurture: "bg-purple-600",
-  Disqualified: "bg-red-600",
-  Converted: "bg-emerald-600",
+const STATUS_COLORS_REDESIGNED: Record<string, string> = {
+  New: "text-[#6CADF5]",                  // Soft blue
+  "Attempting Contact": "text-[#F1DF38]", // Soft yellow
+  Connected: "text-[#6CADF5]",             // Soft blue-cyan
+  Qualified: "text-[#8AE06C]",             // Soft green
+  Nurture: "text-[#A77DFF]",               // Soft purple
+  Disqualified: "text-[#F56868]",          // Soft red
+  Converted: "text-[#8AE06C]",             // Soft emerald/green
 };
 
 const EMPTY_FORM = {
@@ -139,75 +149,163 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Leads</h1>
-        <Button onClick={() => setSheetOpen(true)} className="bg-primary gap-2">
-          <Plus className="h-4 w-4" />
-          New Lead
-        </Button>
-      </div>
+    <div className="space-y-6">
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Header */}
+        <div className="border-b border-border/20 px-6 py-4">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="shrink-0">
+              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+                All Leads
+              </h2>
 
-      {/* Search */}
-      <div className="mb-4">
-        <Input
-          placeholder="Search leads..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md"
-        />
-      </div>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                {leads.length} {leads.length === 1 ? "Lead" : "Leads"}
+              </p>
+            </div>
 
-      {/* Table */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Lead Name</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
+            <div className="w-full max-w-md flex flex-row gap-8">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search leads..."
+              />
+              <Button
+              onClick={() => setSheetOpen(true)}
+              className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Lead
+            </Button>
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell>Lead Name</TableHeaderCell>
+                <TableHeaderCell>Company</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Score</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </TableRow>
-            ) : leads.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No leads found. Click &quot;+ New Lead&quot; to create one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              leads.map((lead) => (
-                <TableRow key={lead._id}>
-                  <TableCell className="font-medium">{lead.lead_name}</TableCell>
-                  <TableCell>{lead.company_name || "—"}</TableCell>
-                  <TableCell>
-                    <Badge className={STATUS_COLORS[lead.status] ?? "bg-neutral-600"}>
-                      {lead.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className="bg-green-600">{lead.lead_score}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/crm/leads/${lead._id}`}>
-                      <Button variant="secondary" size="sm">View</Button>
-                    </Link>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    {/* Name */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-32" />
+                    </TableCell>
+
+                    {/* Company */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-16" />
+                    </TableCell>
+
+                    {/* Score */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-10" />
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-16" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : leads.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={5} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                    <h3 className="text-lg font-medium">
+                      {search ? "No leads match your filters" : "No leads found"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {search ? "Try adjusting your search query." : "Click \"New Lead\" to create one."}
+                    </p>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                leads.map((lead) => (
+                  <TableRow key={lead._id}>
+                    {/* Lead Name */}
+                    <TableCell>
+                      <h3 className="text-[18px] font-medium tracking-[-0.03em] text-foreground">
+                        {lead.lead_name}
+                      </h3>
+                    </TableCell>
+
+                    {/* Company */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {lead.company_name || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Badge
+                        className={`
+                          rounded-none
+                          border-0
+                          bg-transparent
+                          px-0
+                          font-mono
+                          text-[12px]
+                          uppercase
+                          tracking-[0.12em]
+                          hover:bg-transparent
+                          shadow-none
+                          ${STATUS_COLORS_REDESIGNED[lead.status] ?? "text-muted-foreground"}
+                        `}
+                      >
+                        {lead.status}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Score */}
+                    <TableCell>
+                      <span className="font-mono text-sm text-muted-foreground">
+                        {lead.lead_score ?? 0}
+                      </span>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/crm/leads/${lead._id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                          >
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableContainer>
+        </CardContent>
+      </Card>
 
       {/* New Lead Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
