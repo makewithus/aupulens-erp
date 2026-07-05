@@ -20,8 +20,6 @@ npm run electron:build:mac   # macOS
 npm run electron:build:linux # Linux
 ```
 
-📖 For detailed Electron documentation, see [ELECTRON_README.md](./ELECTRON_README.md)
-
 ## 🌐 Getting Started (Web App)
 
 First, run the development server:

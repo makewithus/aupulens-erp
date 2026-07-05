@@ -56,7 +56,3 @@ docs/_planning/
 amastermds/
 .claude/
 *.claude
-add-lean.js
-fix_lean.js
-check-electron-setup.bat
-start-electron.bat
