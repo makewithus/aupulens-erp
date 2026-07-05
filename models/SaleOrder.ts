@@ -7,10 +7,19 @@ import {
   Q2C_STATUS_VALUES,
   Q2C_STATUS,
   type Q2CStatus,
+  SALES_ORDER_STATUS_VALUES,
+  SALES_ORDER_STATUS,
+  type SalesOrderStatus,
+  SALES_ORDER_SHIPMENT_STATUS_VALUES,
+  SALES_ORDER_SHIPMENT_STATUS,
+  type SalesOrderShipmentStatus,
+  SALES_ORDER_INVOICING_STATUS_VALUES,
+  SALES_ORDER_INVOICING_STATUS,
+  type SalesOrderInvoicingStatus,
 } from "@/lib/constants/statuses";
 
 export interface ISaleOrderLine {
-  productId: mongoose.Types.ObjectId;
+  productId?: mongoose.Types.ObjectId;
   name: string;
   productQty: number;
   priceUnit: number;
@@ -74,6 +83,30 @@ export interface ISaleOrder extends mongoose.Document {
   leadScore?: number;
   invoiceIds?: mongoose.Types.ObjectId[];
   chatter: any[];
+
+  // Zoho-style Sales Orders tab (Sales revamp Part 5) — purely additive,
+  // kept separate from the legacy `status`/`q2cStatus`/`invoiceIds` fields
+  // that the pre-existing /sales/orders Odoo-style page owns and depends on.
+  salesOrderStatus?: SalesOrderStatus;
+  shipmentStatus?: SalesOrderShipmentStatus;
+  invoicingStatus?: SalesOrderInvoicingStatus;
+  expectedShipmentDate?: Date;
+  paymentTermsLabel?: string;
+  deliveryMethod?: string;
+  extraDiscount?: number;
+  extraDiscountMode?: "percent" | "amount";
+  taxMode?: "none" | "tds" | "tcs";
+  taxId?: mongoose.Types.ObjectId;
+  taxRate?: number;
+  adjustment?: number;
+  subTotal?: number;
+  taxAmount?: number;
+  customerNotes?: string;
+  termsAndConditions?: string;
+  attachments?: { name: string; url: string }[];
+  salesInvoiceIds?: mongoose.Types.ObjectId[];
+  customerViewed?: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,10 +128,15 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
     },
     orderLines: [
       {
+        // Not required: the new Zoho-style Sales Orders form (Sales revamp
+        // Part 5) allows freeform line-item names not tied to a catalog
+        // Product, same as Quotes/Subscriptions' line items. The legacy
+        // Odoo-style /sales/orders page always supplies a real product via
+        // its own dropdown-only item picker, so this relaxation doesn't
+        // change its behavior.
         productId: {
           type: Schema.Types.ObjectId,
           ref: "Product",
-          required: true,
         },
         name: { type: String, required: true },
         productQty: { type: Number, default: 1 },
@@ -160,9 +198,42 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
     leadScore: { type: Number, default: 0 },
     invoiceIds: [{ type: Schema.Types.ObjectId, ref: "Invoice" }],
     chatter: [MessageSchema],
+
+    // No schema-level defaults on these three: they must stay genuinely
+    // absent on documents created by the pre-existing legacy /sales/orders
+    // (Odoo-style) page, which shares this same Mongoose model/collection.
+    // A `default:` here would silently apply to every SaleOrder.create()
+    // regardless of which UI created it, making the two systems' rows
+    // indistinguishable. The new Zoho-style route sets these explicitly.
+    salesOrderStatus: { type: String, enum: SALES_ORDER_STATUS_VALUES },
+    shipmentStatus: { type: String, enum: SALES_ORDER_SHIPMENT_STATUS_VALUES },
+    invoicingStatus: { type: String, enum: SALES_ORDER_INVOICING_STATUS_VALUES },
+    expectedShipmentDate: { type: Date },
+    paymentTermsLabel: { type: String },
+    deliveryMethod: { type: String },
+    extraDiscount: { type: Number, default: 0 },
+    extraDiscountMode: { type: String, enum: ["percent", "amount"], default: "amount" },
+    taxMode: { type: String, enum: ["none", "tds", "tcs"], default: "none" },
+    taxId: { type: Schema.Types.ObjectId, ref: "TaxRate" },
+    taxRate: { type: Number, default: 0 },
+    adjustment: { type: Number, default: 0 },
+    subTotal: { type: Number, default: 0 },
+    taxAmount: { type: Number, default: 0 },
+    customerNotes: { type: String },
+    termsAndConditions: { type: String },
+    attachments: [
+      {
+        name: { type: String, required: true },
+        url: { type: String, required: true },
+      },
+    ],
+    salesInvoiceIds: [{ type: Schema.Types.ObjectId, ref: "SalesInvoice" }],
+    customerViewed: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
+
+SaleOrderSchema.index({ tenantId: 1, salesOrderStatus: 1 });
 
 SaleOrderSchema.index({ tenantId: 1, "header.name": 1 }, { unique: true });
 SaleOrderSchema.index({ "header.partnerId": 1 });

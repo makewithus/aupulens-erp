@@ -24,10 +24,10 @@ const SALES_TABS: SalesTab[] = [
   {
     key: "sales-orders",
     label: "Sales Orders",
-    href: "/sales/orders",
+    href: "/sales/sales-orders",
     dropdown: [
-      { label: "All Sales Orders", href: "/sales/orders" },
-      { label: "+ New Sales Order", href: "/sales/orders" },
+      { label: "All Sales Orders", href: "/sales/sales-orders" },
+      { label: "+ New Sales Order", href: "/sales/sales-orders/new" },
     ],
   },
   {

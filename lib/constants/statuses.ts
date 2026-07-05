@@ -1814,3 +1814,40 @@ export const SUBSCRIPTION_WEBHOOK_EVENT_VALUES = Object.values(SUBSCRIPTION_WEBH
 export type SubscriptionWebhookEvent =
   (typeof SUBSCRIPTION_WEBHOOK_EVENT)[keyof typeof SUBSCRIPTION_WEBHOOK_EVENT];
 
+// ============================================================
+//  SALES ORDERS (Zoho-style tab, Sales revamp Part 5) — additive on top of
+//  models/SaleOrder.ts's existing legacy `status` (DOCUMENT_STATUS)/`q2cStatus`
+//  fields, which the pre-existing Odoo-style /sales/orders page still owns.
+// ============================================================
+
+export const SALES_ORDER_STATUS = {
+  DRAFT: "draft",
+  PENDING_APPROVAL: "pending_approval",
+  APPROVED: "approved",
+  CONFIRMED: "confirmed",
+  ON_HOLD: "on_hold",
+  VOID: "void",
+  CLOSED: "closed",
+} as const;
+export const SALES_ORDER_STATUS_VALUES = Object.values(SALES_ORDER_STATUS);
+export type SalesOrderStatus = (typeof SALES_ORDER_STATUS)[keyof typeof SALES_ORDER_STATUS];
+
+export const SALES_ORDER_SHIPMENT_STATUS = {
+  NOT_SHIPPED: "not_shipped",
+  PARTIALLY_SHIPPED: "partially_shipped",
+  SHIPPED: "shipped",
+  FULFILLED: "fulfilled",
+} as const;
+export const SALES_ORDER_SHIPMENT_STATUS_VALUES = Object.values(SALES_ORDER_SHIPMENT_STATUS);
+export type SalesOrderShipmentStatus =
+  (typeof SALES_ORDER_SHIPMENT_STATUS)[keyof typeof SALES_ORDER_SHIPMENT_STATUS];
+
+export const SALES_ORDER_INVOICING_STATUS = {
+  NOT_INVOICED: "not_invoiced",
+  PARTIALLY_INVOICED: "partially_invoiced",
+  INVOICED: "invoiced",
+} as const;
+export const SALES_ORDER_INVOICING_STATUS_VALUES = Object.values(SALES_ORDER_INVOICING_STATUS);
+export type SalesOrderInvoicingStatus =
+  (typeof SALES_ORDER_INVOICING_STATUS)[keyof typeof SALES_ORDER_INVOICING_STATUS];
+
