@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Subscription from "@/models/Subscription";
 import { SALES_SUBSCRIPTION_STATUS, SALES_SUBSCRIPTION_STATUS_VALUES } from "@/lib/constants/statuses";
+import { dispatchSubscriptionEvent } from "@/lib/sales/webhookDispatch";
 import "@/models/Customer";
 import "@/models/SalesInvoice";
 
@@ -65,6 +66,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const subscription = await Subscription.findOneAndUpdate({ _id: id, tenantId }, { $set: update }, { new: true });
     if (!subscription) {
       return NextResponse.json({ success: false, message: "Subscription not found" }, { status: 404 });
+    }
+
+    if (update.status === SALES_SUBSCRIPTION_STATUS.CANCELLED) {
+      await dispatchSubscriptionEvent(tenantId, "cancelled", { subscriptionId: String(subscription._id) });
     }
 
     return NextResponse.json({ success: true, data: subscription });

@@ -8,6 +8,7 @@ import { generateSubscriptionNumber } from "@/lib/sales/subscriptionNumbering";
 import { computeInitialSchedule } from "@/lib/sales/subscriptionBilling";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/subscriptionViews";
 import { resolveSpecialFilter } from "@/lib/sales/subscriptionViews.server";
+import { dispatchSubscriptionEvent } from "@/lib/sales/webhookDispatch";
 import {
   SALES_SUBSCRIPTION_STATUS,
   SUBSCRIPTION_BILLING_FREQUENCY,
@@ -167,6 +168,8 @@ export async function POST(request: NextRequest) {
             : SALES_SUBSCRIPTION_STATUS.ACTIVE,
       createdBy: session.user.id,
     });
+
+    await dispatchSubscriptionEvent(tenantId, "created", { subscriptionId: String(subscription._id) });
 
     return NextResponse.json({ success: true, data: subscription }, { status: 201 });
   } catch (error: any) {

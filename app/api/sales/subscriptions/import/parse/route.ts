@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const workbook = xlsx.read(buffer, { type: "buffer" });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1 }) as any[];
+    const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as any[];
     if (rawData.length === 0) {
       return NextResponse.json({ error: "Empty file" }, { status: 400 });
     }

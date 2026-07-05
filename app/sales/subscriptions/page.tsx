@@ -312,16 +312,16 @@ export default function SubscriptionsPage() {
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem disabled title="Coming in the next Sales module revamp checkpoint">
+                <DropdownMenuItem onClick={() => router.push("/sales/subscriptions/settings/dunning")}>
                   Dunning Management
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled title="Coming in the next Sales module revamp checkpoint">
+                <DropdownMenuItem onClick={() => router.push("/sales/subscriptions/settings/email-notifications")}>
                   Email Notifications
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled title="Coming in the next Sales module revamp checkpoint">
+                <DropdownMenuItem onClick={() => router.push("/sales/subscriptions/settings/reminders")}>
                   Reminders
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled title="Coming in the next Sales module revamp checkpoint">
+                <DropdownMenuItem onClick={() => router.push("/sales/subscriptions/settings/webhooks")}>
                   Webhooks
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

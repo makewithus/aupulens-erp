@@ -61,6 +61,11 @@ export interface ISubscription extends Document {
   taxAmount: number;
   generatedInvoiceIds: mongoose.Types.ObjectId[];
 
+  // Dunning engine state (lib/sales/dunningEngine.ts)
+  dunningRuleId?: mongoose.Types.ObjectId;
+  dunningRetryCount: number;
+  nextDunningRetryAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -130,6 +135,10 @@ const SubscriptionSchema = new Schema<ISubscription>(
     subTotal: { type: Number, default: 0 },
     taxAmount: { type: Number, default: 0 },
     generatedInvoiceIds: [{ type: Schema.Types.ObjectId, ref: "SalesInvoice" }],
+
+    dunningRuleId: { type: Schema.Types.ObjectId, ref: "DunningRule" },
+    dunningRetryCount: { type: Number, default: 0 },
+    nextDunningRetryAt: { type: Date },
   },
   { timestamps: true },
 );

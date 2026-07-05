@@ -1765,3 +1765,52 @@ export const INVOICE_TEMPLATE_KEY_VALUES = Object.values(INVOICE_TEMPLATE_KEY);
 export type InvoiceTemplateKey =
   (typeof INVOICE_TEMPLATE_KEY)[keyof typeof INVOICE_TEMPLATE_KEY];
 
+// ============================================================
+//  SUBSCRIPTIONS — Reminders / Dunning / Webhooks (Sales revamp Part 4)
+// ============================================================
+
+export const REMINDER_SCOPE = { INVOICE: "invoice", BILL: "bill" } as const;
+export const REMINDER_SCOPE_VALUES = Object.values(REMINDER_SCOPE);
+export type ReminderScope = (typeof REMINDER_SCOPE)[keyof typeof REMINDER_SCOPE];
+
+export const REMINDER_TYPE = { MANUAL: "manual", AUTOMATED: "automated" } as const;
+export const REMINDER_TYPE_VALUES = Object.values(REMINDER_TYPE);
+export type ReminderType = (typeof REMINDER_TYPE)[keyof typeof REMINDER_TYPE];
+
+export const REMINDER_BASIS = {
+  DUE_DATE: "due_date",
+  EXPECTED_PAYMENT_DATE: "expected_payment_date",
+} as const;
+export const REMINDER_BASIS_VALUES = Object.values(REMINDER_BASIS);
+export type ReminderBasis = (typeof REMINDER_BASIS)[keyof typeof REMINDER_BASIS];
+
+export const REMINDER_DIRECTION = { BEFORE: "before", AFTER: "after" } as const;
+export const REMINDER_DIRECTION_VALUES = Object.values(REMINDER_DIRECTION);
+export type ReminderDirection = (typeof REMINDER_DIRECTION)[keyof typeof REMINDER_DIRECTION];
+
+export const DUNNING_FINAL_SUBSCRIPTION_ACTION = {
+  DO_NOTHING: "do_nothing",
+  MARK_UNPAID: "mark_unpaid",
+  CANCEL_SUBSCRIPTION: "cancel_subscription",
+} as const;
+export const DUNNING_FINAL_SUBSCRIPTION_ACTION_VALUES = Object.values(DUNNING_FINAL_SUBSCRIPTION_ACTION);
+
+export const DUNNING_FINAL_INVOICE_ACTION = {
+  DO_NOTHING: "do_nothing",
+  WRITE_OFF: "write_off",
+  MARK_VOID: "mark_void",
+} as const;
+export const DUNNING_FINAL_INVOICE_ACTION_VALUES = Object.values(DUNNING_FINAL_INVOICE_ACTION);
+
+export const SUBSCRIPTION_WEBHOOK_EVENT = {
+  CREATED: "created",
+  ACTIVATED: "activated",
+  RENEWED: "renewed",
+  PAYMENT_FAILED: "payment_failed",
+  CANCELLED: "cancelled",
+  EXPIRED: "expired",
+} as const;
+export const SUBSCRIPTION_WEBHOOK_EVENT_VALUES = Object.values(SUBSCRIPTION_WEBHOOK_EVENT);
+export type SubscriptionWebhookEvent =
+  (typeof SUBSCRIPTION_WEBHOOK_EVENT)[keyof typeof SUBSCRIPTION_WEBHOOK_EVENT];
+

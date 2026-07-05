@@ -29,7 +29,14 @@ export async function POST(request: Request) {
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();
     const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]) as any[];
+    // raw:false forces every cell to its displayed string form. Without it,
+    // xlsx returns date-like cells (Start Date) as raw Excel serial-day
+    // numbers for real .xls/.xlsx files; `new Date(serialNumber)` then
+    // silently misinterprets that small number as milliseconds-since-epoch,
+    // producing a bogus ~1970 date instead of the real one. Numeric fields
+    // (Quantity/Rate/Trial Days/Billing Cycles) still parse fine as strings
+    // via Number(...) below.
+    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
 
     let imported = 0;
     let skipped = 0;
