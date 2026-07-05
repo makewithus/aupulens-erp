@@ -1481,6 +1481,8 @@ export const CUSTOM_FIELD_APPLIES_TO = {
   INVOICE: "invoice",
   // Additive: Sales module Customers custom fields (New Customer form > Custom Fields tab)
   CUSTOMER: "customer",
+  // Additive: Sales module Payments custom fields (Payments tab > Manage Custom Fields)
+  PAYMENT: "payment",
 } as const;
 export const CUSTOM_FIELD_APPLIES_TO_VALUES = Object.values(
   CUSTOM_FIELD_APPLIES_TO,
@@ -1590,6 +1592,37 @@ export type SalesInvoiceStatus =
   (typeof SALES_INVOICE_STATUS)[keyof typeof SALES_INVOICE_STATUS];
 
 // ============================================================
+//  PAYMENTS (Sales module, Payments tab — a real Payment entity,
+//  distinct from the flattened SalesInvoice.payments[] rows kept for
+//  backward compatibility)
+// ============================================================
+
+export const PAYMENT_STATUS = {
+  DRAFT: "draft",
+  PAID: "paid",
+  VOID: "void",
+} as const;
+export const PAYMENT_STATUS_VALUES = Object.values(PAYMENT_STATUS);
+export type PaymentStatus = (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS];
+
+export const PAYMENT_TYPE = {
+  INVOICE_PAYMENT: "invoice_payment",
+  RETAINER: "retainer",
+} as const;
+export const PAYMENT_TYPE_VALUES = Object.values(PAYMENT_TYPE);
+export type PaymentType = (typeof PAYMENT_TYPE)[keyof typeof PAYMENT_TYPE];
+
+// Online Payments settings (spec §7.3 item 5) — status of a gateway's connection
+// for a given tenant, distinct from GSP_CONNECTION_STATUS (e-invoicing GSP link).
+export const PAYMENT_GATEWAY_STATUS = {
+  CONNECTED: "connected",
+  DISCONNECTED: "disconnected",
+} as const;
+export const PAYMENT_GATEWAY_STATUS_VALUES = Object.values(PAYMENT_GATEWAY_STATUS);
+export type PaymentGatewayStatus =
+  (typeof PAYMENT_GATEWAY_STATUS)[keyof typeof PAYMENT_GATEWAY_STATUS];
+
+// ============================================================
 //  SALES DOCUMENT TYPE (prefixes/suffixes, notes/terms, custom fields)
 // ============================================================
 
@@ -1603,6 +1636,7 @@ export const SALES_DOCUMENT_TYPE = {
   SALES_ORDER: "salesOrder",
   QUOTATION: "quotation",
   SUBSCRIPTION: "subscription",
+  PAYMENT: "payment",
 } as const;
 export const SALES_DOCUMENT_TYPE_VALUES = Object.values(SALES_DOCUMENT_TYPE);
 export type SalesDocumentType =

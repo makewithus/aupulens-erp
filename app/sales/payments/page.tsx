@@ -2,85 +2,188 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, MoreHorizontal, CreditCard, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Plus,
+  MoreHorizontal,
+  ChevronDown,
+  Star,
+  RefreshCw,
+  Columns,
+  Wallet,
+  CreditCard,
+  Landmark,
+  HandCoins,
+  ListChecks,
+  SlidersHorizontal,
+} from "lucide-react";
+import { ExportInvoicePaymentsDialog } from "@/components/sales/payments/ExportInvoicePaymentsDialog";
+import { ExportCurrentViewDialog } from "@/components/sales/payments/ExportCurrentViewDialog";
+import { ManageCustomFieldsDrawer } from "@/components/sales/payments/ManageCustomFieldsDrawer";
+import { AVAILABLE_PAYMENT_COLUMNS } from "@/lib/sales/paymentViews";
+
+const SORT_FIELDS = [
+  { key: "createdAt", label: "Created Time" },
+  { key: "updatedAt", label: "Last Modified Time" },
+  { key: "paymentDate", label: "Date" },
+  { key: "paymentNumber", label: "Payment#" },
+  { key: "customerId", label: "Customer Name" },
+  { key: "amountReceived", label: "Amount" },
+  { key: "mode", label: "Mode" },
+];
+
+function statusColor(status: string) {
+  switch (status) {
+    case "paid":
+      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
+    case "draft":
+      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
+    case "void":
+      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+  }
+}
+
+function LifecycleDiagram() {
+  return (
+    <div className="bg-muted/30 border rounded-none p-8">
+      <h3 className="text-sm font-semibold text-center mb-8">Life cycle of a Customer Payment</h3>
+      <div className="flex flex-col items-center gap-6">
+        <div className="flex border rounded-none bg-background">
+          {["INITIAL REQUEST", "REMINDER 1", "REMINDER 2", "REMINDER N"].map((label, i) => (
+            <div
+              key={label}
+              className={`px-5 py-2.5 text-xs font-semibold whitespace-nowrap ${i > 0 ? "border-l" : ""}`}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+        <span className="text-muted-foreground text-xs">┊</span>
+        <div className="flex items-center gap-6 flex-wrap justify-center">
+          {[
+            { icon: Wallet, label: "PAYPAL" },
+            { icon: CreditCard, label: "CREDIT CARD" },
+            { icon: Landmark, label: "BANK" },
+            { icon: HandCoins, label: "MANUAL / OFFLINE" },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-2 border rounded-none px-4 py-2.5 bg-background">
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-semibold whitespace-nowrap">{label}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          PAID THROUGH <span className="text-red-600 font-semibold">CLIENT PORTAL</span> (PayPal, Credit Card, Bank)
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function PaymentsPage() {
   const { data: session } = useSession();
-  const [rows, setRows] = useState<any[]>([]);
+  const router = useRouter();
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [recordOpen, setRecordOpen] = useState(false);
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [form, setForm] = useState({ invoiceId: "", amount: "", date: new Date().toISOString().slice(0, 10), mode: "Cash", notes: "" });
-  const [saving, setSaving] = useState(false);
+  const [views, setViews] = useState<any[]>([]);
+  const [activeViewId, setActiveViewId] = useState<string>("all");
+  const [viewSearch, setViewSearch] = useState("");
+  const [sortField, setSortField] = useState("paymentDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportViewOpen, setExportViewOpen] = useState(false);
+  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
 
-  const fetchRows = useCallback(async () => {
-    setLoading(true);
+  const activeView = views.find((v) => v._id === activeViewId);
+  const extraColumns: string[] = activeView?.columns?.length ? activeView.columns : [];
+
+  const fetchViews = useCallback(async () => {
     try {
-      const res = await fetch(`/api/sales/payments?search=${encodeURIComponent(search)}`);
+      const res = await fetch("/api/sales/payment-views");
       const data = await res.json();
-      if (data.success) setRows(data.data);
+      if (data.success) {
+        setViews(data.data);
+        const allView = data.data.find((v: any) => v.name === "All Payments");
+        if (allView) setActiveViewId((cur) => (cur === "all" ? allView._id : cur));
+      }
     } catch {
+      // Non-critical
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
+      params.set("sortField", sortField);
+      params.set("sortDir", sortDir);
+      const res = await fetch(`/api/sales/payments?${params.toString()}`);
+      const json = await res.json();
+      if (json.success) setPayments(json.data || []);
+      else toast.error(json.message || "Failed to load payments");
+    } catch (error) {
+      console.error("Error loading payments:", error);
       toast.error("Failed to load payments");
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [activeViewId, sortField, sortDir]);
 
   useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+    fetchViews();
+  }, [fetchViews]);
 
-  const openRecordPayment = async () => {
-    try {
-      const res = await fetch("/api/sales/invoices?limit=100");
-      const data = await res.json();
-      if (data.success) setInvoices(data.data);
-    } catch {
-      toast.error("Failed to load invoices");
-    }
-    setRecordOpen(true);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggleFavorite = async (view: any) => {
+    await fetch(`/api/sales/payment-views/${view._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFavorite: !view.isFavorite }),
+    });
+    fetchViews();
   };
 
-  const handleSave = async () => {
-    if (!form.invoiceId || !form.amount) {
-      toast.error("Invoice and amount are required");
-      return;
+  const setSort = (key: string) => {
+    if (key === sortField) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortField(key);
+      setSortDir("desc");
     }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/sales/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || "Failed to record payment");
-      toast.success("Payment recorded");
-      setRecordOpen(false);
-      setForm({ invoiceId: "", amount: "", date: new Date().toISOString().slice(0, 10), mode: "Cash", notes: "" });
-      fetchRows();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
+  };
+
+  const getPath = (obj: any, path: string) => path.split(".").reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
+  const columnLabel = (key: string) => AVAILABLE_PAYMENT_COLUMNS.find((c) => c.key === key)?.label || key;
+  const filteredViews = views.filter((v) => v.name.toLowerCase().includes(viewSearch.toLowerCase()));
+
+  const extraValue = (p: any, key: string) => {
+    if (key === "invoiceNumbers") {
+      return (p.allocations || []).map((a: any) => a.invoiceId?.number).filter(Boolean).join(", ") || "—";
     }
+    return String(getPath(p, key) ?? "—");
   };
 
   return (
@@ -97,69 +200,158 @@ export default function PaymentsPage() {
         <SalesTabNav />
 
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold flex items-center gap-1">
-            All Payments
-          </h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1 text-lg font-bold">
+                {activeView?.name || "All Received Payments"} <ChevronDown className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-72">
+              <div className="p-2">
+                <Input placeholder="Search views" value={viewSearch} onChange={(e) => setViewSearch(e.target.value)} className="h-8" />
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {filteredViews.map((v) => (
+                  <DropdownMenuItem key={v._id} className="flex items-center justify-between" onClick={() => setActiveViewId(v._id)}>
+                    <span>{v.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(v);
+                      }}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${v.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                    </button>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/sales/payments/views/new")}>
+                <Plus className="w-4 h-4 mr-2" /> New View
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <div className="flex items-center gap-2">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openRecordPayment}>
-              <Plus className="w-4 h-4 mr-1" /> New
-            </Button>
+            <Link href="/sales/payments/new">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="w-4 h-4 mr-1" /> New
+              </Button>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={fetchRows}>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Sort by</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {SORT_FIELDS.map((f) => (
+                      <DropdownMenuItem key={f.key} onClick={() => setSort(f.key)}>
+                        {f.label} {sortField === f.key && (sortDir === "asc" ? "↑" : "↓")}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Import</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => router.push("/sales/payments/import")}>Import Payments</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/sales/payments/import/retainer")}>
+                      Import Retainer Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/sales/payments/import/excess")}>
+                      Import Applied Excess Payments
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Export</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => setExportOpen(true)}>Export Invoice Payments</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setExportViewOpen(true)}>Export Current View</DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => setCustomFieldsOpen(true)}>
+                  <ListChecks className="w-4 h-4 mr-2" /> Manage Custom Fields
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/sales/payments/online-payment-settings")}>
+                  <SlidersHorizontal className="w-4 h-4 mr-2" /> Online Payments
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={load}>
                   <RefreshCw className="w-4 h-4 mr-2" /> Refresh List
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  <Columns className="w-4 h-4 mr-2" /> Reset Column Width
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search payments" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-
         {loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-              <CreditCard className="w-8 h-8 text-blue-600" />
+        ) : payments.length === 0 ? (
+          <div className="space-y-10">
+            <div className="flex flex-col items-center py-16 px-4 text-center">
+              <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+                <Wallet className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">No payments received, yet</h2>
+              <p className="text-sm text-muted-foreground max-w-md mb-6">
+                Payments will be added once your customers pay for their invoices.
+              </p>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => router.push("/sales/invoices?status=saved")}
+              >
+                GO TO UNPAID INVOICES
+              </Button>
+              <button className="text-sm text-blue-600 underline mt-4" onClick={() => router.push("/sales/payments/import")}>
+                Import Payments
+              </button>
             </div>
-            <h2 className="text-lg font-semibold mb-2">No payments recorded yet</h2>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-              Payments recorded against your invoices will show up here.
-            </p>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openRecordPayment}>
-              <Plus className="w-4 h-4 mr-1" /> Record Payment
-            </Button>
+            <LifecycleDiagram />
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Amount</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Customer Name</TableHead>
                 <TableHead>Mode</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                {extraColumns.map((key) => (
+                  <TableHead key={key}>{columnLabel(key)}</TableHead>
+                ))}
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.invoiceNumber}</TableCell>
-                  <TableCell>{r.customerName}</TableCell>
-                  <TableCell>₹{Number(r.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell>{new Date(r.date).toLocaleDateString("en-IN")}</TableCell>
-                  <TableCell>{r.mode}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.notes || "—"}</TableCell>
+              {payments.map((p: any) => (
+                <TableRow
+                  key={p._id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => router.push(`/sales/payments/${p._id}`)}
+                >
+                  <TableCell>{p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {p.customerId?.header?.displayName || p.customerId?.header?.name || "—"}
+                  </TableCell>
+                  <TableCell>{p.mode}</TableCell>
+                  <TableCell className="text-right">
+                    ₹{Number(p.amountReceived || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  {extraColumns.map((key) => (
+                    <TableCell key={key}>{extraValue(p, key)}</TableCell>
+                  ))}
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(p.status)}`}>
+                      {p.status}
+                    </span>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -167,67 +359,14 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
-        <DialogContent className="max-w-md">
-          <h2 className="text-lg font-semibold mb-4">Record Payment</h2>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Invoice *</Label>
-              <Select value={form.invoiceId} onValueChange={(v) => setForm((f) => ({ ...f, invoiceId: v }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an invoice" />
-                </SelectTrigger>
-                <SelectContent>
-                  {invoices.map((inv) => (
-                    <SelectItem key={inv._id} value={inv._id}>
-                      {inv.number} — ₹{Number(inv.totalAmount).toLocaleString("en-IN")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Amount *</Label>
-              <Input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Date</Label>
-              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mode</Label>
-              <Select value={form.mode} onValueChange={(v) => setForm((f) => ({ ...f, mode: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Bank">Bank</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
-                  <SelectItem value="Card">Card</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setRecordOpen(false)}>
-              Cancel
-            </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ExportInvoicePaymentsDialog open={exportOpen} onOpenChange={setExportOpen} />
+      <ExportCurrentViewDialog
+        open={exportViewOpen}
+        onOpenChange={setExportViewOpen}
+        viewId={activeViewId}
+        viewName={activeView?.name}
+      />
+      <ManageCustomFieldsDrawer open={customFieldsOpen} onOpenChange={setCustomFieldsOpen} />
     </DashboardLayout>
   );
 }

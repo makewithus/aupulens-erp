@@ -12,15 +12,14 @@ import { Eye, EyeOff } from "lucide-react";
 
 import { PASSWORD_POLICY, PASSWORD_POLICY_HELP_TEXT as PASSWORD_HELP } from "@/lib/sales/passwordPolicy";
 
-interface ExportSalesOrdersDialogProps {
+interface ExportCurrentViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewId: string;
+  viewName?: string;
 }
 
-export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrdersDialogProps) {
-  const [period, setPeriod] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+export function ExportCurrentViewDialog({ open, onOpenChange, viewId, viewName }: ExportCurrentViewDialogProps) {
   const [decimalFormat, setDecimalFormat] = useState("1234567.89");
   const [fileFormat, setFileFormat] = useState("csv");
   const [password, setPassword] = useState("");
@@ -34,18 +33,10 @@ export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrder
     }
     setExporting(true);
     try {
-      const res = await fetch("/api/sales/sales-orders/export", {
+      const res = await fetch("/api/sales/payments/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "sales-orders",
-          period,
-          dateFrom: period !== "all" ? dateFrom : undefined,
-          dateTo: period !== "all" ? dateTo : undefined,
-          decimalFormat,
-          format: fileFormat,
-          password: password || undefined,
-        }),
+        body: JSON.stringify({ mode: "current_view", viewId, decimalFormat, format: fileFormat, password: password || undefined }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -55,13 +46,13 @@ export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrder
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sales_orders.${fileFormat}`;
+      a.download = `payments_current_view.${fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message || "Export failed");
     } finally {
       setExporting(false);
     }
@@ -70,31 +61,12 @@ export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrder
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <h2 className="text-lg font-semibold mb-1">Export Sales Orders</h2>
+        <h2 className="text-lg font-semibold mb-1">Export Current View</h2>
         <div className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-xs px-3 py-2 rounded-none mb-4">
-          You can export your data in CSV, XLS or XLSX format.
+          Only the current view ({viewName || "All"}) with its visible columns will be exported, in CSV or XLS format.
         </div>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          <div>
-            <Label className="mb-2 block">Which sales orders?</Label>
-            <RadioGroup value={period} onValueChange={setPeriod} className="text-sm">
-              <label className="flex items-center gap-2">
-                <RadioGroupItem value="all" /> All Sales Orders
-              </label>
-              <label className="flex items-center gap-2">
-                <RadioGroupItem value="period" /> Specific Period
-              </label>
-            </RadioGroup>
-            {period === "period" && (
-              <div className="flex items-center gap-2 mt-2">
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                <span className="text-muted-foreground text-xs">to</span>
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              </div>
-            )}
-          </div>
-
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>
               Decimal Format <span className="text-red-500">*</span>
@@ -139,7 +111,7 @@ export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrder
           </div>
 
           <p className="text-xs text-muted-foreground">
-            You can export only the first 25,000 rows via this dialog. For larger exports, use{" "}
+            You can export only the first 10,000 rows via this dialog. For larger exports, use{" "}
             <span className="text-blue-600 underline cursor-pointer">Backup Your Data</span>.
           </p>
         </div>

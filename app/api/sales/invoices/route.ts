@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
       query.status = status;
     }
 
+    const customerId = searchParams.get("customerId");
+    if (customerId) {
+      query.customerId = customerId;
+    }
+
     const [total, invoices] = await Promise.all([
       SalesInvoice.countDocuments(query),
       (SalesInvoice as any)

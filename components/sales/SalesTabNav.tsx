@@ -44,7 +44,10 @@ const SALES_TABS: SalesTab[] = [
     key: "payments",
     label: "Payments",
     href: "/sales/payments",
-    dropdown: [{ label: "All Payments", href: "/sales/payments" }],
+    dropdown: [
+      { label: "All Payments", href: "/sales/payments" },
+      { label: "+ New Payment", href: "/sales/payments/new" },
+    ],
   },
 ];
 

@@ -19,6 +19,7 @@ export interface ISalesInvoicePayment {
   amount: number;
   date: Date;
   mode: string; // Cash, Bank, UPI, etc.
+  paymentId?: mongoose.Types.ObjectId; // ref Payment — set when raised from the Payments tab, absent on legacy rows
 }
 
 export interface ISalesInvoice extends Document {
@@ -125,6 +126,7 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
         amount: { type: Number, required: true },
         date: { type: Date, default: Date.now },
         mode: { type: String, required: true },
+        paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
       },
     ],
     markedFullyPaid: { type: Boolean, default: false },

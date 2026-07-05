@@ -12,6 +12,7 @@ export const DEFAULT_PREFIX_BY_DOCUMENT_TYPE: Record<string, string> = {
   [SALES_DOCUMENT_TYPE.SALES_ORDER]: "SO-",
   [SALES_DOCUMENT_TYPE.QUOTATION]: "QUO-",
   [SALES_DOCUMENT_TYPE.SUBSCRIPTION]: "SUB-",
+  [SALES_DOCUMENT_TYPE.PAYMENT]: "PAY-",
 };
 
 // Caller must have already called connectDB().

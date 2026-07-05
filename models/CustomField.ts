@@ -14,6 +14,7 @@ export interface ICustomField extends Document {
   fieldType: CustomFieldType;
   options: string[];
   required: boolean;
+  showInAllPdfs: boolean;
   status: "active" | "inactive";
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -28,6 +29,7 @@ const CustomFieldSchema: Schema<ICustomField> = new Schema(
     fieldType: { type: String, enum: CUSTOM_FIELD_TYPE_VALUES, default: CUSTOM_FIELD_TYPE.TEXT },
     options: [{ type: String }],
     required: { type: Boolean, default: false },
+    showInAllPdfs: { type: Boolean, default: false },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
