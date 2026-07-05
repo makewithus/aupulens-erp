@@ -121,9 +121,31 @@ Idempotent and additive — every record is created via a check-before-insert ag
 - **HR, Quality, Time Tracking, Projects**: this codebase has no dedicated Quality, Time Tracking, or Projects module (confirmed by search — the original request's checklist assumed these exist as standalone modules). HR itself was spot-checked via the background research pass only, not seeded further (existing Payroll/Attendance/Leave data was judged sufficient) or browser-verified live in this session.
 - **No global Settings area** exists in this app (confirmed in a prior session, still true) — settings live per-module (Sales' Document Settings, Dunning/Reminders under Subscriptions, etc.), so "Settings-level data" in Part B was seeded into those module-specific locations rather than a unified settings screen.
 - **External integrations remain honest stubs**, unchanged this session: GST/e-invoicing GSP connection (NIC portal), payment gateway, email provider, bank-feed aggregator OAuth — all return clear "not configured" responses rather than fake success, per prior sessions' documented decisions. Real credentials for any of these would need to come from the user before they could be completed.
-- Two files, `add-lean.js` and `fix_lean.js` (already flagged in `CLAUDE.md` as "leftover maintenance scripts, should be cleaned up"), were found deleted from the working tree during this session with no corresponding action taken by this session's tool calls. Left as-is, unstaged, for the user to confirm intent before committing either their removal or restoration.
+- ~~Two files, `add-lean.js` and `fix_lean.js`, were found deleted from the working tree with no corresponding action taken by this session's tool calls. Left as-is, unstaged, for the user to confirm intent.~~ **Resolved in the cleanup pass below** — deletion staged and committed intentionally.
 
 ## Migration / deployment notes for whoever deploys this branch
 
 - Run `npx tsx scripts/migrate-drop-stale-unique-indexes.ts` against any other environment (staging/production) **before** deploying this branch — it drops 10 stale single-field unique indexes that would otherwise continue enforcing incorrect cross-tenant uniqueness even after the model fixes ship (Mongoose does not drop old indexes automatically). Safe to re-run.
 - `npm run seed:demo` is intended for demo/dev databases only — review before running against anything resembling production data (it's additive and non-destructive, but still test data).
+
+---
+
+## Cleanup pass (2026-07-06, commit `82af1ef`)
+
+A dedicated, single-commit cleanup of unused/waste files, separate from the audit fixes above.
+
+**Removed:**
+- `check-electron-setup.bat`, `start-electron.bat` — unreferenced Windows launcher scripts; the documented Electron startup path (`npm run electron:dev`, per README) doesn't use them.
+- `scratch-test-seed.ts` — root-level one-off manual test script, unreferenced anywhere, its target function is already production code (`lib/accounting/coa-feature-seeder.ts`).
+- `add-lean.js`, `fix_lean.js` — the two files flagged above as mysteriously deleted mid-audit-session; staged and committed intentionally this pass, and their now-pointless `.gitignore` entries removed.
+- `docs/accounting.md` — an unreferenced, one-off manual QA checklist for the already-shipped, already-automated-tested Chart of Accounts feature.
+- `vercel.json` — a minimal placeholder (`{"version": 2}`) with no other Vercel-specific config anywhere in the repo; confirmed with the user before deleting (per the "ask before deleting deployment config" rule) since this app's real deploy targets are Electron desktop + subdomain-based multi-tenant web hosting.
+- An empty, untracked, routeless `app/api/admin/migrate-invoices/` folder.
+- The dead `"ensure-admin"` package.json script (pointed at a `scripts/ensure-admin.ts` that no longer exists — same class of bug as the `seed` script fixed in the audit pass).
+- A dead `README.md` link to `ELECTRON_README.md`, a file that has never existed in this repo's history (dead since the initial commit).
+
+**Protected and confirmed untouched:** `scripts/migrate-drop-stale-unique-indexes.ts`, `scripts/seed-demo.ts` and everything it imports, `tests/`, `vitest.config.ts`, this file, `CLAUDE.md`, `.env`, `auth.config.ts`/`auth.ts`, `middleware.ts`, `next.config.ts`, `package.json`/`package-lock.json`, and the actively-used `electron/` directory (kept without question — README documents real, working desktop-build scripts for it). `docs/_context/` and `docs/_planning/` were left alone: both are already gitignored internal tooling that `CLAUDE.md`'s own routing table depends on for session continuity, not committed-repo waste — deleting them would harm, not help, future work on this codebase. Kept `docs/INVOICE_SEED_README.md` and `scripts/{seed-invoices,verify-invoice-pdfs}.ts` since they actively reference each other and are still current.
+
+**Flagged, not fixed (out of scope for a file-cleanup task):** `middleware.ts` has two dead carve-out conditions explicitly exempting `/api/admin/migrate-invoices` from auth checks — a route that (per the folder removed above) doesn't exist. Worth a deliberate look since it's security-adjacent code, not something to touch silently under a "remove waste files" task.
+
+Verified after cleanup: `npx tsc --noEmit` clean, 429/429 tests passing, the live dev server still responds, and `npm run seed:demo` still runs correctly and idempotently.
