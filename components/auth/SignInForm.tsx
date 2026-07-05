@@ -186,7 +186,7 @@ function SignInFormContent() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-8"
+      className="space-y-6"
     >
       {error && (
         <div className="text-xs text-destructive bg-destructive/10 p-3 font-mono">
