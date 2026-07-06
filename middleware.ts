@@ -200,11 +200,19 @@ export default auth(async (req) => {
   }
 
   // Check if user is accessing CRM routes / APIs
-  // Any authenticated user may enter CRM; fine-grained RBAC is enforced
-  // per-handler via lib/crm/rbac.ts (requireRole with permission strings).
+  // CRM is the sales-pipeline tool (leads/opportunities/quotes/accounts) —
+  // gated the same as /sales. Per-handler write enforcement additionally
+  // lives in lib/crm/rbac.ts (requireRole).
   if (pathname.startsWith("/crm") || pathname.startsWith("/api/crm")) {
     if (!user) {
       return handleUnauthorized(isApiRoute, "/auth/admin");
+    }
+    if (
+      user.role !== "sales" &&
+      user.role !== "admin" &&
+      user.role !== "master-admin"
+    ) {
+      return handleForbidden(isApiRoute, user.role as string);
     }
   }
 
