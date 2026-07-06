@@ -7,6 +7,7 @@ import {
   isSubscriptionBlocked,
   type OrgModuleInfo,
 } from "@/lib/middleware/moduleGate";
+import { checkRateLimit } from "@/lib/middleware/rateLimit";
 
 const { auth } = NextAuth(authConfig);
 
@@ -143,6 +144,12 @@ export default auth(async (req) => {
   if (pathname.startsWith("/api/debug")) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  // Minimal rate limiting on login, search, and AI-assistant endpoints —
+  // checked before the session gate so it also covers unauthenticated login
+  // attempts.
+  const rateLimitResponse = checkRateLimit(req, pathname, (user as any)?.id);
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Central Session Check for API routes (exclude auth endpoints and public APIs)
   if (isApiRoute && !isAuthApi && !isPublicApi && !user && pathname !== "/api/admin/migrate-invoices") {
