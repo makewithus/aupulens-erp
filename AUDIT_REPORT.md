@@ -125,8 +125,22 @@ Idempotent and additive — every record is created via a check-before-insert ag
 
 ## Migration / deployment notes for whoever deploys this branch
 
-- Run `npx tsx scripts/migrate-drop-stale-unique-indexes.ts` against any other environment (staging/production) **before** deploying this branch — it drops 10 stale single-field unique indexes that would otherwise continue enforcing incorrect cross-tenant uniqueness even after the model fixes ship (Mongoose does not drop old indexes automatically). Safe to re-run.
+- Run `npx tsx scripts/migrate-drop-stale-unique-indexes.ts` against any other environment (staging/production) **before** deploying this branch — it drops 10 stale single-field unique indexes that would otherwise continue enforcing incorrect cross-tenant uniqueness even after the model fixes ship (Mongoose does not drop old indexes automatically). Safe to re-run. **Updated 2026-07-06**: this script now also covers 2 more previously-missed collections, `crmquotes.quote_number` and `deliverychallans.dcNumber` — re-run it even if you already ran it before this update.
 - `npm run seed:demo` is intended for demo/dev databases only — review before running against anything resembling production data (it's additive and non-destructive, but still test data).
+
+### Additional migrations required — 2026-07-06 QA-gap-remediation session (commits `287921e`…`68a96cb`, see `QA_GAP_REPORT.md` §6 for full detail)
+
+Run these **in order**, after a fresh backup, before deploying this branch:
+
+1. `scripts/migrate-backfill-bankreconciliation-tenantid.ts` — backfills `tenantId` on any existing tenant-less `BankReconciliation` docs.
+2. `scripts/migrate-invoice-unique-index.ts` — dedupes any colliding `{tenantId, name}` Invoice pairs before the index becomes `unique`.
+3. `scripts/migrate-drop-stale-unique-indexes.ts` — re-run (see updated note above; now also handles CrmQuote/DeliveryChallan).
+4. `scripts/migrate-grandfather-tenant-tiers.ts` — **critical, do not skip.** Sets `tier:"enterprise"` on every Organization currently on `"starter"`/unset. Skipping this before deploy will 403 Finance/Sales/CRM/Manufacturing for every existing real tenant the moment module-gating (now wired into `middleware.ts`) goes live. Review whether a blanket grandfather is appropriate for your actual production tenant tiers, or whether a more deliberate per-tenant assignment is warranted instead.
+5. `scripts/migrate-bill-split-brain.ts` — migrates any orphaned `bills` collection docs into real `Invoice` documents; `models/Bill.ts` has been deleted from the codebase, so any data left unmigrated in that collection becomes permanently unreachable by the app (the collection itself is not dropped).
+
+Also note: `scripts/` was previously fully `.gitignore`d (no migration/seed script was ever version-controlled, including several pre-existing ones) — this was corrected this session. Confirm deploy tooling now picks these scripts up from the repo.
+
+`CRON_SECRET` is now load-bearing in production for the first time — the 5 `/api/cron/*` routes were previously unreachable due to a middleware bug (now fixed) and their own token check is the only gate; confirm this env var is set in every deploy target before relying on cron-based automation (SLA/dunning/subscription billing).
 
 ---
 
