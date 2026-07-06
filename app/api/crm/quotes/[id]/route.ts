@@ -57,7 +57,8 @@ export async function PUT(req: NextRequest, props: RouteProps) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['quote.edit', 'quote.write']);
+  const roleCheck = requireRole(session, ['quote.edit', 'quote.write']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
 
@@ -144,7 +145,8 @@ export async function DELETE(req: NextRequest, props: RouteProps) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['quote.delete']);
+  const roleCheck = requireRole(session, ['quote.delete']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
 

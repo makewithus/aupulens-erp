@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    requireRole(session, ['opportunity.create']);
+    const roleCheck = requireRole(session, ['opportunity.create']);
+    if (roleCheck) return roleCheck;
 
     await dbConnect();
     const body = await req.json();

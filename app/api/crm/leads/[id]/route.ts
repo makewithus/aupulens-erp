@@ -30,8 +30,9 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  requireRole(session, ['lead.edit', 'lead.write']);
-  
+  const roleCheck = requireRole(session, ['lead.edit', 'lead.write']);
+  if (roleCheck) return roleCheck;
+
   await dbConnect();
   const lead = await CrmLead.findOne({ _id: params.id, tenantId: session.user.tenantId });
   if (!lead) return NextResponse.json({ success: false, message: "Lead not found" }, { status: 404 });
@@ -63,8 +64,9 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  requireRole(session, ['lead.delete']);
-  
+  const roleCheck = requireRole(session, ['lead.delete']);
+  if (roleCheck) return roleCheck;
+
   await dbConnect();
   const lead = await CrmLead.findOneAndUpdate(
     { _id: params.id, tenantId: session.user.tenantId },

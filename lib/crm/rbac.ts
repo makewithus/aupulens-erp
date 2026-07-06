@@ -2,10 +2,18 @@
  * CRM RBAC — Permission Hooks
  *
  * Defines all CRM permissions as string literals.
- * Currently operates in "bypass" mode for development — all authenticated
- * tenant users can access everything. Production enforcement is gated behind
- * the enforcement flag or the stricter `requirePermission` call.
+ *
+ * Enforcement policy (see QA_GAP_REPORT.md item #9): there is no granular
+ * per-role permission map yet — only admin/master-admin can be told apart
+ * from every other authenticated role. Given that ceiling, enforcement is
+ * scoped to WRITE-shaped permissions only (anything not containing "read"
+ * or "view"): a non-admin write is rejected, a read is always allowed
+ * through this layer and stays role-gated only at the route/middleware
+ * level, to avoid over-blocking before a real permission map exists.
+ * ENFORCE_RBAC=false is an explicit escape hatch to fully disable write
+ * enforcement too (e.g. demo/staging); enforcement is ON by default.
  */
+import { NextResponse } from "next/server";
 
 export const CRM_PERMISSIONS = [
   // Activities
@@ -43,31 +51,55 @@ export const CRM_PERMISSIONS = [
 
 export type CrmPermission = (typeof CRM_PERMISSIONS)[number];
 
+// A permission string is treated as "read" if it contains "read" or "view"
+// (covers both the `entity.read`/`entity.view` dot-notation and the older
+// `view_x`/`create_x` prefix-notation used by a couple of routes).
+function isReadPermission(permission: string): boolean {
+  return /read|view/i.test(permission);
+}
+
 /**
  * Returns true if the session user has the given permission.
- * Admin and Owner roles always return true.
- * In bypass mode (ENFORCE_RBAC env not set to 'true'), always returns true.
+ * Admin and master-admin (this app's actual superuser role — "owner" is not
+ * a real User.role value in this codebase) always return true.
+ * Read permissions always return true (role-gated at the route level only).
+ * ENFORCE_RBAC=false disables write enforcement too.
  */
 export function hasPermission(session: any, permission: CrmPermission): boolean {
   if (!session?.user) return false;
-  // Admin and Owner always have everything
   const role = (session.user.role || "").toLowerCase();
-  if (["admin", "owner"].includes(role)) return true;
+  if (["admin", "master-admin"].includes(role)) return true;
+  if (isReadPermission(permission)) return true;
+  if (process.env.ENFORCE_RBAC === "false") return true;
 
-  // Bypass enforcement in dev mode
-  if (process.env.ENFORCE_RBAC !== "true") return true;
-
-  // Future: map roles to permission sets
+  // Future: map roles to permission sets for finer-grained write access.
   // const rolePermissions = ROLE_PERMISSION_MAP[role] || [];
   // return rolePermissions.includes(permission);
   return false;
 }
 
 /**
- * Soft check — does not throw.
+ * Route-level gate. Returns a 403 NextResponse when the session's role may
+ * not perform ANY of the given (OR'd) permissions, or null to let the
+ * request continue — same "return response or null" convention as
+ * lib/middleware/moduleGate.ts. Write-shaped permissions are enforced;
+ * read-shaped ones always return null (unchanged behavior).
  */
-export function requireRole(session: any, _allowedPermissions: string[]): boolean {
-  return true; // Development bypass
+export function requireRole(session: any, allowedPermissions: string[]): NextResponse | null {
+  if (!session?.user) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
+  const role = (session.user.role || "").toLowerCase();
+  if (["admin", "master-admin"].includes(role)) return null;
+
+  const isWriteCheck = allowedPermissions.some((p) => !isReadPermission(p));
+  if (!isWriteCheck) return null;
+  if (process.env.ENFORCE_RBAC === "false") return null;
+
+  return NextResponse.json(
+    { success: false, message: "Forbidden: insufficient permissions for this action" },
+    { status: 403 },
+  );
 }
 
 /**

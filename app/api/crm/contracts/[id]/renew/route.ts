@@ -10,7 +10,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['contract.renew']);
+  const roleCheck = requireRole(session, ['contract.renew']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
   const contract = await CrmContract.findOne({ _id: params.id, tenantId: session.user.tenantId });

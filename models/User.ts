@@ -26,6 +26,12 @@ export interface IUser extends Document {
   profilePic?: string;
   dateOfJoining?: Date;
   status: EntityStatus;
+  // Reserved for a future granular per-user permission system. Currently
+  // unused: no UI writes to it, no authorization check reads it, and no
+  // existing user in production has a non-empty value here. The real
+  // enforcement model today is role-based (middleware.ts route gating,
+  // lib/crm/rbac.ts's requireRole for CRM writes) — do not treat this field
+  // as live until it is actually wired into an authorization check.
   permissions?: string[];
   createdAt: Date;
   updatedAt: Date;

@@ -8,7 +8,8 @@ import { requireRole } from "@/lib/crm/rbac";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['task.update']);
+  const roleCheck = requireRole(session, ['task.update']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
   const { taskIds, operation, payload } = await req.json();
@@ -21,14 +22,16 @@ export async function POST(req: NextRequest) {
   let updateData: any = {};
 
   if (operation === 'assign') {
-    requireRole(session, ['task.assign']);
+    const assignCheck = requireRole(session, ['task.assign']);
+    if (assignCheck) return assignCheck;
     updateData = { assigned_to_id: payload.assigned_to_id };
   } else if (operation === 'complete') {
     updateData = { status: 'Completed', completed_at: new Date() };
   } else if (operation === 'cancel') {
     updateData = { status: 'Cancelled' };
   } else if (operation === 'delete') {
-    requireRole(session, ['task.delete']);
+    const deleteCheck = requireRole(session, ['task.delete']);
+    if (deleteCheck) return deleteCheck;
     await CrmTask.deleteMany(query);
     
     // Audit log

@@ -39,7 +39,8 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['contact.edit', 'contact.write']);
+  const roleCheck = requireRole(session, ['contact.edit', 'contact.write']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
   const body = await req.json();
@@ -56,7 +57,8 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['contact.delete']);
+  const roleCheck = requireRole(session, ['contact.delete']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
   await CrmContact.findOneAndDelete({ _id: params.id, tenantId: session.user.tenantId });

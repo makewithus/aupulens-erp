@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.tenantId) return new NextResponse("Unauthorized", { status: 401 });
     
     // Check permission strictly per CTO requirements
-    requireRole(session, ['opportunity.export']);
-    
+    const roleCheck = requireRole(session, ['opportunity.export']);
+    if (roleCheck) return roleCheck;
+
     await dbConnect();
     const body = await req.json();
     const { format = 'csv', scope = 'all', reportType = 'standard', selectedIds = [], filters = {}, columns = [] } = body;

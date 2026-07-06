@@ -45,8 +45,9 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
-  requireRole(session, ['opportunity.update']);
-  
+  const roleCheck = requireRole(session, ['opportunity.update']);
+  if (roleCheck) return roleCheck;
+
   await dbConnect();
   const opp = await CrmOpportunity.findOne({ _id: params.id, tenantId: session.user.tenantId });
   if (!opp) return NextResponse.json({ success: false }, { status: 404 });
@@ -80,8 +81,9 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     } else if (body.stage === 'Negotiation') {
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Prepare Approval Document", category: 'Prepare Quote', due_date: new Date(Date.now() + 86400000 * 2), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
     } else if (body.stage === 'Closed Won') {
+      const closeCheck = requireRole(session, ['opportunity.close']);
+      if (closeCheck) return closeCheck;
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Initiate Onboarding", category: 'Onboarding', due_date: new Date(Date.now() + 86400000 * 1), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
-      requireRole(session, ['opportunity.close']);
     }
 
     await CrmAuditLog.create({

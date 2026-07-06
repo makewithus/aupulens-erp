@@ -168,7 +168,8 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  requireRole(session, ['account.edit', 'account.write']);
+  const roleCheck = requireRole(session, ['account.edit', 'account.write']);
+  if (roleCheck) return roleCheck;
 
   await dbConnect();
   const body = await req.json();

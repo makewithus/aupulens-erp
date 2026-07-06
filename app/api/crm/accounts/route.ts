@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  requireRole(session, ['account.create', 'account.write']);
-  
+  const roleCheck = requireRole(session, ['account.create', 'account.write']);
+  if (roleCheck) return roleCheck;
+
   await dbConnect();
   try {
     const body = await req.json();
