@@ -49,6 +49,7 @@ const SALES_TABS: SalesTab[] = [
       { label: "+ New Payment", href: "/sales/payments/new" },
     ],
   },
+  { key: "e-invoices", label: "E-Invoicing", href: "/sales/e-invoices" },
 ];
 
 export function SalesTabNav() {

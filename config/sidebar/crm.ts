@@ -11,7 +11,21 @@ import {
   PieChart,
   CheckCircle,
   Settings,
-  ClipboardList
+  ClipboardList,
+  MessageSquare,
+  Bell,
+  Zap,
+  Sparkles,
+  UserCheck,
+  HelpCircle,
+  ShieldCheck,
+  FolderOpen,
+  Upload,
+  Link2,
+  UserPlus,
+  Smartphone,
+  TrendingUp,
+  HeartPulse,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -87,12 +101,102 @@ export const crmSidebarConfig: SidebarSection[] = [
     ],
   },
   {
+    title: "Engagement",
+    items: [
+      {
+        title: "Communications",
+        href: "/crm/communications",
+        icon: MessageSquare,
+      },
+      {
+        title: "Notifications",
+        href: "/crm/notifications",
+        icon: Bell,
+      },
+      {
+        title: "Onboarding",
+        href: "/crm/onboarding",
+        icon: UserPlus,
+      },
+      {
+        title: "Handoffs",
+        href: "/crm/handoffs",
+        icon: UserCheck,
+      },
+      {
+        title: "Support",
+        href: "/crm/support",
+        icon: HelpCircle,
+      },
+    ],
+  },
+  {
+    title: "Automation & AI",
+    items: [
+      {
+        title: "Automations",
+        href: "/crm/automations",
+        icon: Zap,
+      },
+      {
+        title: "Workflows",
+        href: "/crm/workflows",
+        icon: Activity,
+      },
+      {
+        title: "AI Insights",
+        href: "/crm/ai",
+        icon: Sparkles,
+      },
+    ],
+  },
+  {
+    title: "Data & Integrations",
+    items: [
+      {
+        title: "Documents",
+        href: "/crm/documents",
+        icon: FolderOpen,
+      },
+      {
+        title: "Import",
+        href: "/crm/import",
+        icon: Upload,
+      },
+      {
+        title: "Integrations",
+        href: "/crm/integrations",
+        icon: Link2,
+      },
+    ],
+  },
+  {
     title: "System",
     items: [
       {
         title: "Reports",
         href: "/crm/reports",
         icon: PieChart,
+      },
+      {
+        title: "Executive View",
+        href: "/crm/executive",
+        icon: TrendingUp,
+      },
+      {
+        title: "Compliance",
+        href: "/crm/compliance",
+        icon: ShieldCheck,
+      },
+      {
+        title: "System Health",
+        href: "/crm/system-health",
+        icon: HeartPulse,
+      },
+      {
+        title: "Mobile",
+        href: "/crm/mobile",
+        icon: Smartphone,
       },
       {
         title: "Approvals",

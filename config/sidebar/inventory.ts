@@ -24,11 +24,11 @@ export const inventorySidebarConfig = [
         href: "/inventory/summary",
         icon: BarChart3,
       },
-      // {
-      //   title: "Analytics",
-      //   href: "/inventory/analytics",
-      //   icon: BarChart3,
-      // },
+      {
+        title: "Analytics",
+        href: "/inventory/analytics",
+        icon: BarChart3,
+      },
       {
         title: "AI Assistant",
         href: "/inventory/ai-assistant",
@@ -44,11 +44,11 @@ export const inventorySidebarConfig = [
         href: "/inventory/stock",
         icon: Package,
       },
-      // {
-      //   title: "Batch & Lot",
-      //   href: "/inventory/batch",
-      //   icon: Layers,
-      // },
+      {
+        title: "Batch & Lot",
+        href: "/inventory/batch",
+        icon: Layers,
+      },
       {
         title: "Warehouse",
         href: "/inventory/warehouse",

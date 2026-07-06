@@ -57,46 +57,46 @@ export const manufacturingSidebarConfig: SidebarSection[] = [
       },
     ],
   },
-  // {
-  //   title: "Logistics & Shipping",
-  //   items: [
-  //     {
-  //       title: "Shipments",
-  //       href: "/manufacturing/shipments",
-  //       icon: Truck,
-  //     },
-  //     {
-  //       title: "Freight Providers",
-  //       href: "/manufacturing/freight-providers",
-  //       icon: Ship,
-  //     },
-  //     {
-  //       title: "Tracking",
-  //       href: "/manufacturing/tracking",
-  //       icon: MapPin,
-  //     },
-  //   ],
-  // },
-  // {
-  //   title: "Customs & Compliance",
-  //   items: [
-  //     {
-  //       title: "Customs Clearance",
-  //       href: "/manufacturing/customs-clearance",
-  //       icon: FileText,
-  //     },
-  //     {
-  //       title: "HS Code Management",
-  //       href: "/manufacturing/hs-codes",
-  //       icon: Globe,
-  //     },
-  //     {
-  //       title: "Documentation",
-  //       href: "/manufacturing/documentation",
-  //       icon: Package,
-  //     },
-  //   ],
-  // },
+  {
+    title: "Logistics & Shipping",
+    items: [
+      {
+        title: "Shipments",
+        href: "/manufacturing/shipments",
+        icon: Truck,
+      },
+      {
+        title: "Freight Providers",
+        href: "/manufacturing/freight-providers",
+        icon: Ship,
+      },
+      {
+        title: "Tracking",
+        href: "/manufacturing/tracking",
+        icon: MapPin,
+      },
+    ],
+  },
+  {
+    title: "Customs & Compliance",
+    items: [
+      {
+        title: "Customs Clearance",
+        href: "/manufacturing/customs-clearance",
+        icon: FileText,
+      },
+      {
+        title: "HS Code Management",
+        href: "/manufacturing/hs-codes",
+        icon: Globe,
+      },
+      {
+        title: "Documentation",
+        href: "/manufacturing/documentation",
+        icon: Package,
+      },
+    ],
+  },
   {
     title: "Operations",
     items: [
@@ -105,32 +105,26 @@ export const manufacturingSidebarConfig: SidebarSection[] = [
         href: "/manufacturing/manufacturing",
         icon: Factory,
       },
-      // {
-      //   title: "Reports",
-      //   href: "/manufacturing/reports",
-      //   icon: BarChart3,
-      // },
-      // {
-      //   title: "Air Freight",
-      //   href: "/manufacturing/air-freight",
-      //   icon: Plane,
-      // },
+      {
+        title: "Reports",
+        href: "/manufacturing/reports",
+        icon: BarChart3,
+      },
+      {
+        title: "Air Freight",
+        href: "/manufacturing/air-freight",
+        icon: Plane,
+      },
     ],
   },
-  // {
-  //   title: 'Tools',
-  //   items: [
-  //     {
-  //       title: 'Activity Logs',
-  //       href: '/manufacturing/activity',
-  //       icon: Activity,
-  //     },
-  //     {
-  //       title: 'Settings',
-  //       href: '/manufacturing/settings',
-  //       icon: Settings,
-  //       disabled: true,
-  //     },
-  //   ],
-  // },
+  {
+    title: 'Tools',
+    items: [
+      {
+        title: 'Activity Logs',
+        href: '/manufacturing/activity-logs',
+        icon: Activity,
+      },
+    ],
+  },
 ];
