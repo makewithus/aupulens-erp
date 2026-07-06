@@ -152,7 +152,7 @@ export default auth(async (req) => {
   if (rateLimitResponse) return rateLimitResponse;
 
   // Central Session Check for API routes (exclude auth endpoints and public APIs)
-  if (isApiRoute && !isAuthApi && !isPublicApi && !user && pathname !== "/api/admin/migrate-invoices") {
+  if (isApiRoute && !isAuthApi && !isPublicApi && !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -173,7 +173,7 @@ export default auth(async (req) => {
     );
   }
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/users") || (pathname.startsWith("/api/admin") && pathname !== "/api/admin/migrate-invoices")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/users") || pathname.startsWith("/api/admin")) {
     if (!user) {
       return handleUnauthorized(isApiRoute, "/auth/admin");
     }
