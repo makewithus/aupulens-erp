@@ -221,7 +221,6 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     setTcsEnabled(!!inv.taxes?.tcs);
     if (inv.taxes?.tcs) setTcsRate(inv.taxes.tcs);
     setSelectedTemplate(inv.templateKey || "modern");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialInvoice]);
 
   // Auto-fill place of supply from customer's state when customer changes (create mode, empty field only)
@@ -231,7 +230,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     if (c?.address_tab?.state_name && !placeOfSupply) {
       setPlaceOfSupply(c.address_tab.state_name);
     }
-  }, [selectedCustomerId, customers]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCustomerId, customers]);
 
   // ── Line item helpers ───────────────────────────────────────────
   const updateLineItem = (id: string, patch: Partial<LineItemState>) => {

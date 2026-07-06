@@ -115,7 +115,6 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     if (!quoteId && !form.salesperson && session?.user?.name) {
       setForm((f) => ({ ...f, salesperson: session.user!.name || "" }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.name, quoteId]);
 
   const update = (patch: Partial<QuoteFormValue>) => setForm((f) => ({ ...f, ...patch }));

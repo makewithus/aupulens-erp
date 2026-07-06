@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export const EXCESS_PAYMENT_IMPORT_COLUMNS = ["Customer Name", "Payment Number", "Invoice Number", "Amount to Apply"];
+const EXCESS_PAYMENT_IMPORT_COLUMNS = ["Customer Name", "Payment Number", "Invoice Number", "Amount to Apply"];
 
 const SAMPLE_ROW = ["Acme Traders", "", "INV-000456", "1500"];
 

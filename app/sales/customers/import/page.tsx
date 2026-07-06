@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -200,13 +201,13 @@ export default function ImportCustomersPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <a href="/api/sales/customers/import/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/customers/import/sample?format=csv" className="text-blue-600 underline">
                 sample csv file
-              </a>{" "}
+              </Link>{" "}
               or{" "}
-              <a href="/api/sales/customers/import/sample?format=xls" className="text-blue-600 underline">
+              <Link href="/api/sales/customers/import/sample?format=xls" className="text-blue-600 underline">
                 sample xls file
-              </a>{" "}
+              </Link>{" "}
               and compare it to your import file to ensure the format matches.
             </p>
 

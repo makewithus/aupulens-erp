@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export const CUSTOMER_IMPORT_COLUMNS = [
+const CUSTOMER_IMPORT_COLUMNS = [
   "Display Name",
   "Company Name",
   "Email",

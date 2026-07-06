@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -191,9 +192,9 @@ export default function ImportRetainerPaymentsPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <a href="/api/sales/payments/import-retainer/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/payments/import-retainer/sample?format=csv" className="text-blue-600 underline">
                 sample file
-              </a>{" "}
+              </Link>{" "}
               and compare it to your import file to ensure you have the file perfect for the import.
             </p>
 
@@ -225,7 +226,7 @@ export default function ImportRetainerPaymentsPage() {
             <div className="border rounded-none p-4 bg-muted/30 text-sm space-y-1">
               <p className="font-medium">Page Tips</p>
               <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                <li>Date, Customer Name, and Amount are required for every row — retainer payments aren't tied to an invoice.</li>
+                <li>Date, Customer Name, and Amount are required for every row — retainer payments aren&apos;t tied to an invoice.</li>
                 <li>UTF-8 is the recommended encoding — use ISO-8859-1 only if your file was exported from legacy software.</li>
                 <li>Download the sample file above to see the exact column headers and format expected.</li>
               </ul>

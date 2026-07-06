@@ -95,7 +95,6 @@ export function SubscriptionForm() {
 
   useEffect(() => {
     if (!salesperson && session?.user?.name) setSalesperson(session.user.name);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.name]);
 
   const updateLine = (i: number, patch: Partial<LineItem>) =>

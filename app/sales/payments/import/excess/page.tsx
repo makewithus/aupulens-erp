@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -191,9 +192,9 @@ export default function ImportAppliedExcessPaymentsPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <a href="/api/sales/payments/import-excess/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/payments/import-excess/sample?format=csv" className="text-blue-600 underline">
                 sample file
-              </a>{" "}
+              </Link>{" "}
               and compare it to your import file to ensure you have the file perfect for the import.
             </p>
 
@@ -215,7 +216,7 @@ export default function ImportAppliedExcessPaymentsPage() {
               <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                 <li>
                   When you import applied excess payments, the excess payment amount will be added to the existing
-                  invoice amount if you've already applied payment to it.
+                  invoice amount if you&apos;ve already applied payment to it.
                 </li>
                 <li>Invoice payments will not be imported for invoices in the Draft or the Paid status.</li>
               </ul>

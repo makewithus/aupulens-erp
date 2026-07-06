@@ -118,7 +118,6 @@ export function PaymentForm() {
       remaining -= take;
     }
     setApplied(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amountReceived, invoices]);
 
   const totalApplied = useMemo(

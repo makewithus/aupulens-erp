@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export const RETAINER_PAYMENT_IMPORT_COLUMNS = [
+const RETAINER_PAYMENT_IMPORT_COLUMNS = [
   "Date",
   "Customer Name",
   "Amount",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -186,13 +187,13 @@ export default function ImportQuotesPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <a href="/api/sales/quotes/import/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/quotes/import/sample?format=csv" className="text-blue-600 underline">
                 sample csv file
-              </a>{" "}
+              </Link>{" "}
               or{" "}
-              <a href="/api/sales/quotes/import/sample?format=xls" className="text-blue-600 underline">
+              <Link href="/api/sales/quotes/import/sample?format=xls" className="text-blue-600 underline">
                 sample xls file
-              </a>{" "}
+              </Link>{" "}
               and compare it to your import file.
             </p>
 

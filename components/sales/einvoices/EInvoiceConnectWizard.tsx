@@ -239,7 +239,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
               <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <Check className="w-8 h-8 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold">You're connected to the E-Invoicing portal!</h3>
+              <h3 className="text-lg font-semibold">You&apos;re connected to the E-Invoicing portal!</h3>
               <p className="text-sm text-muted-foreground max-w-sm">
                 You can now generate e-invoices directly from your Sales invoices.
               </p>

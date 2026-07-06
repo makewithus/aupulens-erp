@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export const QUOTE_IMPORT_COLUMNS = [
+const QUOTE_IMPORT_COLUMNS = [
   "Quote Number",
   "Customer Display Name",
   "Quote Date",

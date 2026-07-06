@@ -161,7 +161,7 @@ export default function SubscriptionDetailPage() {
                 </Table>
               ) : (
                 <p className="p-4 text-sm text-muted-foreground">
-                  No invoices generated yet — the first invoice is raised on the subscription's next billing date.
+                  No invoices generated yet — the first invoice is raised on the subscription&apos;s next billing date.
                 </p>
               )}
             </div>

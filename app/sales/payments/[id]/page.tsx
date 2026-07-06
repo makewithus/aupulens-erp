@@ -31,7 +31,6 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleVoid = async () => {

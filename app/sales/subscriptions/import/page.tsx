@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -202,9 +203,9 @@ export default function ImportSubscriptionsPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <a href="/api/sales/subscriptions/import/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/subscriptions/import/sample?format=csv" className="text-blue-600 underline">
                 sample file
-              </a>{" "}
+              </Link>{" "}
               and compare it to your import file to ensure you have the file perfect for the import.
             </p>
 
