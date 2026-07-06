@@ -37,9 +37,7 @@ const AccountantSchema: Schema<IAccountant> = new Schema(
 
 // Allow filtering by country/state efficiently
 AccountantSchema.index({ country: 1, state: 1 });
-if (AccountantSchema.path('tenantId')) {
-  AccountantSchema.index({ tenantId: 1 });
-}
+// tenantId already has a field-level index (see schema above) — no separate call needed.
 
 const Accountant =
   (mongoose.models?.Accountant as mongoose.Model<IAccountant>) ||

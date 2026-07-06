@@ -1,13 +1,14 @@
 import type { NextAuthConfig } from "next-auth";
 
-import crypto from "crypto";
-
 if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   if (process.env.NODE_ENV === "production") {
     throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be set in production");
   } else {
     // Generate a secure random secret on the fly for development so nothing is hardcoded in Git.
-    process.env.AUTH_SECRET = crypto.randomBytes(32).toString("hex");
+    // Uses Web Crypto (available in both Node and the Edge runtime this file also loads under
+    // via middleware.ts) instead of the Node-only `crypto` module, which trips the Edge Runtime warning.
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    process.env.AUTH_SECRET = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   }
 } else if (!process.env.AUTH_SECRET) {
   process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET;

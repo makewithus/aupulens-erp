@@ -359,6 +359,7 @@ export default function DocumentSettingsPage() {
             ].map(({ field, label }) => (
               <div key={field} className="border rounded-lg p-3 space-y-2">
                 <Label className="text-xs">{label}</Label>
+                {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary uploaded logo URL, not an LCP element */}
                 {settings?.branding?.[field] && <img src={settings.branding[field]} alt={label} className="h-12 object-contain" />}
                 <label className="flex items-center justify-center gap-2 h-9 border border-dashed rounded cursor-pointer text-xs text-muted-foreground hover:bg-muted/30">
                   <Upload className="w-3.5 h-3.5" /> Upload
@@ -408,6 +409,7 @@ export default function DocumentSettingsPage() {
             <div className="flex flex-wrap gap-3">
               {(settings?.signatures || []).map((s: any, i: number) => (
                 <div key={i} className="border rounded-lg p-2 flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URI from FileReader, next/image doesn't support data: sources */}
                   <img src={s.imageUrl} alt={s.name} className="h-8" />
                   <span className="text-xs">{s.name}</span>
                   <Button
