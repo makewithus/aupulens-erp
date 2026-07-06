@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import StockMove from "@/models/StockMove";
 import Stock from "@/models/Stock";
+import "@/models/Warehouse";
+import "@/models/Product";
 import { postStockMoveAccounting } from "@/lib/accounting/inventory";
 import {
   STOCK_MOVE_STATUS,

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import StockMove from "@/models/StockMove";
-import Warehouse from "@/models/Warehouse";
-import Product from "@/models/Product";
+import "@/models/Warehouse";
+import "@/models/Product";
 
 export async function GET(req: NextRequest) {
   try {

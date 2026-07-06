@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/SaleOrder";
+import "@/models/Customer";
+import "@/models/Product";
 
 export async function GET(request: Request) {
   try {
