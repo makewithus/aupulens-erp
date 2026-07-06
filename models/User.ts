@@ -38,6 +38,11 @@ export interface IUser extends Document {
   createdBy?: mongoose.Types.ObjectId;
   tempToken?: string;
   tempTokenExpiry?: Date;
+  // Self-service password reset (distinct from tempToken, which is the
+  // short-lived post-signup auto-login token) — stores a SHA-256 hash of
+  // the emailed token, never the token itself.
+  passwordResetTokenHash?: string;
+  passwordResetTokenExpiry?: Date;
 }
 
 const UserSchema: Schema<IUser> = new Schema(
@@ -82,6 +87,8 @@ const UserSchema: Schema<IUser> = new Schema(
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     tempToken: { type: String },
     tempTokenExpiry: { type: Date },
+    passwordResetTokenHash: { type: String },
+    passwordResetTokenExpiry: { type: Date },
   },
   { timestamps: true }
 );
