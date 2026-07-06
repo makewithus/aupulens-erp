@@ -38,7 +38,7 @@ const TaskSchema = new Schema<ITask>({
   linked_lead_id: { type: Schema.Types.ObjectId, ref: 'CrmLead' },
   linked_account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount' },
   linked_opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity' },
-  linked_case_id: { type: Schema.Types.ObjectId, ref: 'Case' },
+  linked_case_id: { type: Schema.Types.ObjectId, ref: 'CrmCase' },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

@@ -39,7 +39,7 @@ const ActivitySchema = new Schema<IActivity>({
   linked_account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount' },
   linked_contact_id: { type: Schema.Types.ObjectId, ref: 'CrmContact' },
   linked_opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity' },
-  linked_case_id: { type: Schema.Types.ObjectId, ref: 'Case' },
+  linked_case_id: { type: Schema.Types.ObjectId, ref: 'CrmCase' },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

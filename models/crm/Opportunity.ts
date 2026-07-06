@@ -65,7 +65,7 @@ const OpportunitySchema = new Schema<IOpportunity>({
     exited_at: { type: Date }
   }],
   lead_id: { type: Schema.Types.ObjectId, ref: 'CrmLead' },
-  campaign_id: { type: Schema.Types.ObjectId, ref: 'Campaign' },
+  campaign_id: { type: Schema.Types.ObjectId, ref: 'CrmCampaign' },
   is_at_risk: { type: Boolean, default: false },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   detailed_competitors: [{
