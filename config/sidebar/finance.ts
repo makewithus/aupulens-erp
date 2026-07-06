@@ -20,6 +20,7 @@ import {
   FileCheck,
   CalendarDays,
   Scale,
+  Package,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -101,6 +102,21 @@ export const financeSidebarConfig: SidebarSection[] = [
         title: "Aged Partners",
         href: "/finance/accounting/aged-partner",
         icon: Clock,
+      },
+    ],
+  },
+  {
+    title: "Purchases",
+    items: [
+      {
+        title: "Purchase Orders",
+        href: "/finance/purchase-orders",
+        icon: Package,
+      },
+      {
+        title: "Vendor Bills",
+        href: "/finance/bills",
+        icon: Receipt,
       },
     ],
   },
