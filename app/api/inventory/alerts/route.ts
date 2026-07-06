@@ -17,6 +17,7 @@ await connectDB();
     
     // Get all low stock items (quantity at or below reorder level)
     const alerts = await InventoryItem.find({
+      tenantId,
       $expr: { $lte: ['$quantity', '$reorderLevel'] },
     })
       .sort({ quantity: 1 })
