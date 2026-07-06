@@ -8,6 +8,7 @@ import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmQuote from "@/models/crm/Quote";
 import CrmContract from "@/models/crm/Contract";
 import CrmCase from "@/models/crm/Case";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, data: [] });
   }
 
-  const regex = new RegExp(term, "i");
+  const regex = new RegExp(escapeRegex(term), "i");
 
   // Perform parallel searches across key fields for each entity type.
   // Projection is used to keep the payload minimal.

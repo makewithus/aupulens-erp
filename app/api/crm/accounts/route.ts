@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmAccount from "@/models/crm/Account";
 import { requireRole } from "@/lib/crm/rbac";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   
   const query: any = { tenantId: session.user.tenantId };
   if (search) {
-    query.company_name = { $regex: search, $options: 'i' };
+    query.company_name = { $regex: escapeRegex(search), $options: 'i' };
   }
   
   const total = await CrmAccount.countDocuments(query);
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     
     const duplicate = await CrmAccount.findOne({ 
       tenantId: session.user.tenantId, 
-      company_name: { $regex: new RegExp('^' + body.company_name + '$', 'i') } 
+      company_name: { $regex: new RegExp('^' + escapeRegex(body.company_name) + '$', 'i') }
     });
     
     if (duplicate) {

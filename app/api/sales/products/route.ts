@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
 import InventoryItem from "@/models/InventoryItem";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: any) {
   try {
@@ -27,7 +28,7 @@ export async function GET(req: any) {
     };
 
     if (query) {
-      const regex = new RegExp(query, "i");
+      const regex = new RegExp(escapeRegex(query), "i");
       filter.$and = [
         {
           $or: [

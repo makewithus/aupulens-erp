@@ -5,6 +5,7 @@ import Budget from "@/models/Budget";
 import BankingRule from "@/models/BankingRule";
 import TransactionLock from "@/models/TransactionLock";
 import { AI_ACTION_TYPE, TRANSACTION_LOCK_MODULE_VALUES, type AiActionType } from "@/lib/constants/statuses";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export class AiActionError extends Error {}
 
@@ -12,7 +13,7 @@ async function resolveAccountTypeId(tenantId: string, accountTypeNameOrId: strin
   if (!accountTypeNameOrId) throw new AiActionError("Account Type is required");
   const byId = await AccountType.findOne({ _id: accountTypeNameOrId, tenantId }).lean();
   if (byId) return byId._id;
-  const byName = await AccountType.findOne({ tenantId, name: new RegExp(`^${accountTypeNameOrId}$`, "i") }).lean();
+  const byName = await AccountType.findOne({ tenantId, name: new RegExp(`^${escapeRegex(accountTypeNameOrId)}$`, "i") }).lean();
   if (byName) return byName._id;
   throw new AiActionError(`Account Type "${accountTypeNameOrId}" not found`);
 }

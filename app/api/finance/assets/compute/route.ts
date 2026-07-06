@@ -5,6 +5,7 @@ import Asset from "@/models/Asset";
 import JournalEntry from "@/models/JournalEntry";
 import { DOCUMENT_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
+import { escapeRegex } from "@/lib/utils/regex";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     // This allows multiple test computations for the same month during demo/testing
     const count = await JournalEntry.countDocuments({
       tenantId,
-      "header.name": { $regex: new RegExp(`^${baseName}`) },
+      "header.name": { $regex: new RegExp(`^${escapeRegex(baseName)}`) },
     });
 
     if (count > 0) {
