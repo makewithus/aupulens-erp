@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
 import NextAuth from "next-auth";
-import { applyModuleGating, type OrgModuleInfo } from "@/lib/middleware/moduleGate";
+import {
+  applyModuleGating,
+  isPathAllowlisted,
+  isSubscriptionBlocked,
+  type OrgModuleInfo,
+} from "@/lib/middleware/moduleGate";
 
 const { auth } = NextAuth(authConfig);
 
@@ -273,11 +278,33 @@ export default auth(async (req) => {
     }
   }
 
-  // Tier/feature-flag module gating — applied after role checks so it only
-  // ever narrows access a role check already granted, never widens it.
-  const gateResponse = await applyModuleGating(pathname, user, (tid) =>
-    getOrgModuleData(tid, req.nextUrl.origin),
-  );
+  // Subscription/trial enforcement + tier/module gating share one cached
+  // org-data fetch. Applied after role checks so it only ever narrows access
+  // a role check already granted, never widens it.
+  const userTenantIdForOrgCheck = (user as any)?.tenantId as string | undefined;
+  const needsOrgCheck =
+    !!user &&
+    !!userTenantIdForOrgCheck &&
+    user.role !== "master-admin" &&
+    !isPathAllowlisted(pathname);
+  const orgData = needsOrgCheck
+    ? await getOrgModuleData(userTenantIdForOrgCheck, req.nextUrl.origin)
+    : null;
+
+  if (orgData && isSubscriptionBlocked(orgData)) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        {
+          error: "Your organization's subscription is inactive. Please contact your administrator to renew.",
+          code: "SUBSCRIPTION_INACTIVE",
+        },
+        { status: 402 },
+      );
+    }
+    return NextResponse.redirect(new URL("/subscription-inactive", req.url));
+  }
+
+  const gateResponse = await applyModuleGating(pathname, user, async () => orgData);
   if (gateResponse) return gateResponse;
 
   // Apply tenant context to the response

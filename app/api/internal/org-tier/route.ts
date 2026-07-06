@@ -25,8 +25,13 @@ export async function GET(req: NextRequest) {
 
   const org = await Organization.findOne(
     { subdomain: tenantId },
-    { tier: 1, "settings.enabledModules": 1 }
-  ).lean<{ tier?: string; settings?: { enabledModules?: string[] } }>();
+    { tier: 1, "settings.enabledModules": 1, subscriptionStatus: 1, trialEndDate: 1 }
+  ).lean<{
+    tier?: string;
+    settings?: { enabledModules?: string[] };
+    subscriptionStatus?: string;
+    trialEndDate?: Date;
+  }>();
 
   if (!org) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,5 +40,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     tier: org.tier ?? "starter",
     enabledModules: org.settings?.enabledModules ?? [],
+    subscriptionStatus: org.subscriptionStatus ?? "trial",
+    trialEndDate: org.trialEndDate ?? null,
   });
 }

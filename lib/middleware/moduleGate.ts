@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 export interface OrgModuleInfo {
   tier: OrganizationTier | string;
   enabledModules: string[];
+  subscriptionStatus?: string;
+  trialEndDate?: string | null;
 }
 
 // Maps route path prefixes to the module name used in TIER_LIMITS.enabledModules.
@@ -42,6 +44,7 @@ export const UNGATED_PREFIXES = [
   "/auth",             // Login pages
   "/onboarding",       // Signup flow
   "/master-admin",     // Master-admin portal
+  "/subscription-inactive", // Trial-expired / subscription-inactive notice page
 ];
 
 export function getModuleFromPath(pathname: string): string | null {
@@ -73,6 +76,21 @@ export function isModuleAccessible(
   const inTier = (tierModules as readonly string[]).includes(moduleName);
   const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   return inTier && inOrg;
+}
+
+// True when the org's subscription state should block access entirely
+// (independent of, and checked before, tier/module gating): an explicitly
+// cancelled/suspended subscription, or a trial that has passed its end date
+// with no active paid subscription behind it. "active" never blocks, even
+// if trialEndDate is set/past (a stale field from before they upgraded).
+export function isSubscriptionBlocked(org: OrgModuleInfo): boolean {
+  if (org.subscriptionStatus === "suspended" || org.subscriptionStatus === "cancelled") {
+    return true;
+  }
+  if (org.subscriptionStatus === "trial" && org.trialEndDate) {
+    return new Date(org.trialEndDate).getTime() < Date.now();
+  }
+  return false;
 }
 
 export function buildGateDeniedResponse(
