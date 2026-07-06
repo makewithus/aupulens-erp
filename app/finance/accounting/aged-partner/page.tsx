@@ -39,6 +39,10 @@ export default function AgedPartnerReportPage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const filtered = items.filter((item) =>
     item.partnerName.toLowerCase().includes(query.toLowerCase()),
   );
@@ -91,7 +95,7 @@ export default function AgedPartnerReportPage() {
                 className="pl-9 w-64 bg-background"
               />
             </div>
-            <Button variant="outline">Print</Button>
+            <Button variant="outline" onClick={handlePrint}>Print</Button>
           </div>
         </div>
 

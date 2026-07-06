@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -11,16 +11,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, BarChart3, Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { StatCard } from '@/components/manufacturing/StatCard';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
+
+function downloadCsv(title: string, headers: string[], rows: (string | number)[][]) {
+  const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${title}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success(`${title} exported`);
+}
 
 export default function ReportsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
   const [selectedReport, setSelectedReport] = useState('shipments');
   const [visualizationData, setVisualizationData] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalShipments: 0,
+    onTimeRate: 0,
+    avgTransitDays: 0,
+    customsDelays: 0,
+  });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -30,44 +47,84 @@ export default function ReportsPage() {
     }
   }, [status, router, session]);
 
-  const handleGenerateReport = () => {
-    toast({
-      title: 'Generating Report',
-      description: 'Your report is being generated...',
-    });
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/manufacturing/shipments');
+      const data = await res.json();
+      const shipments: any[] = data.shipments || [];
 
-    // Simulate report generation
-    setTimeout(() => {
-      toast({
-        title: 'Report Ready',
-        description: 'Your report has been generated successfully',
+      const delivered = shipments.filter((s) => s.status === 'delivered' && s.estimatedDelivery && s.actualDelivery);
+      const onTime = delivered.filter((s) => new Date(s.actualDelivery) <= new Date(s.estimatedDelivery));
+      const transitDays = delivered
+        .map((s) => (new Date(s.actualDelivery).getTime() - new Date(s.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        .filter((d) => d >= 0);
+      const customsDelays = shipments.filter((s) => s.status === 'delayed' || s.customsStatus === 'held').length;
+
+      setStats({
+        totalShipments: shipments.length,
+        onTimeRate: delivered.length > 0 ? Math.round((onTime.length / delivered.length) * 1000) / 10 : 0,
+        avgTransitDays: transitDays.length > 0 ? Math.round((transitDays.reduce((a, b) => a + b, 0) / transitDays.length) * 10) / 10 : 0,
+        customsDelays,
       });
-    }, 2000);
+    } catch {
+      toast.error('Failed to load report stats');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') loadStats();
+  }, [status, loadStats]);
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    try {
+      if (selectedReport === 'customs') {
+        const res = await fetch('/api/manufacturing/customs-clearance');
+        const data = await res.json();
+        const rows = (data.clearances || []).map((c: any) => [
+          c.clearanceNumber, c.status, c.customsStatus || '', new Date(c.createdAt).toISOString().split('T')[0],
+        ]);
+        downloadCsv('customs-report', ['Clearance Number', 'Status', 'Customs Status', 'Date'], rows);
+      } else {
+        const res = await fetch('/api/manufacturing/shipments');
+        const data = await res.json();
+        const rows = (data.shipments || []).map((s: any) => [
+          s.shipmentNumber, s.customerName, s.origin, s.destination, s.shipmentType, s.status, s.totalValue,
+          new Date(s.createdAt).toISOString().split('T')[0],
+        ]);
+        downloadCsv(
+          selectedReport === 'freight' ? 'freight-analysis' : selectedReport === 'performance' ? 'performance-metrics' : 'shipments-report',
+          ['Shipment Number', 'Customer', 'Origin', 'Destination', 'Type', 'Status', 'Value', 'Date'],
+          rows,
+        );
+      }
+    } catch {
+      toast.error('Failed to generate report');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const loadVisualizationData = () => {
-    // Sample data based on selected report type
-    const data = selectedReport === 'shipments'
-      ? [
-          { name: 'Jan', value: 45 },
-          { name: 'Feb', value: 52 },
-          { name: 'Mar', value: 48 },
-          { name: 'Apr', value: 61 },
-          { name: 'May', value: 58 },
-          { name: 'Jun', value: 67 },
-        ]
-      : [
-          { name: 'Air', value: 120 },
-          { name: 'Sea', value: 85 },
-          { name: 'Road', value: 45 },
-          { name: 'Rail', value: 32 },
-        ];
+  const loadVisualizationData = async () => {
+    try {
+      const res = await fetch('/api/manufacturing/analytics');
+      const data = await res.json();
+      const chartData =
+        selectedReport === 'shipments'
+          ? (data.shipments || []).map((d: any) => ({ name: d.month, value: d.count }))
+          : (data.status || []).map((d: any) => ({ name: d.name, value: d.value }));
 
-    setVisualizationData(data);
-    setShowVisualization(true);
+      if (chartData.length === 0) {
+        toast.info('No data yet for this report type');
+      }
+      setVisualizationData(chartData);
+      setShowVisualization(true);
+    } catch {
+      toast.error('Failed to load analytics data');
+    }
   };
 
-  if (status === 'loading' || isLoading) {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
@@ -102,34 +159,30 @@ export default function ReportsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Shipments"
-            value={331}
+            value={stats.totalShipments}
             icon={BarChart3}
-            trend={{ value: 12.5, isPositive: true }}
-            description="vs last month"
+            description="all time"
             colorClass="text-blue-800 dark:text-blue-400"
           />
           <StatCard
             title="On-Time Delivery"
-            value="94.2%"
+            value={`${stats.onTimeRate}%`}
             icon={TrendingUp}
-            trend={{ value: 2.3, isPositive: true }}
-            description="vs last month"
+            description="of delivered shipments"
             colorClass="text-blue-600 dark:text-blue-400"
           />
           <StatCard
             title="Avg Transit Time"
-            value="7.5 days"
+            value={`${stats.avgTransitDays} days`}
             icon={TrendingDown}
-            trend={{ value: 1.2, isPositive: false }}
-            description="vs last month"
+            description="delivered shipments"
             colorClass="text-blue-800 dark:text-blue-400"
           />
           <StatCard
             title="Customs Delays"
-            value={18}
+            value={stats.customsDelays}
             icon={TrendingDown}
-            trend={{ value: 5.8, isPositive: false }}
-            description="vs last month"
+            description="delayed or held"
             colorClass="text-red-600 dark:text-red-400"
           />
         </div>
@@ -156,45 +209,15 @@ export default function ReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                  Time Period
-                </label>
-                <Select defaultValue="month">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="week">Last Week</SelectItem>
-                    <SelectItem value="month">Last Month</SelectItem>
-                    <SelectItem value="quarter">Last Quarter</SelectItem>
-                    <SelectItem value="year">Last Year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                  Format
-                </label>
-                <Select defaultValue="pdf">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pdf">PDF</SelectItem>
-                    <SelectItem value="excel">Excel</SelectItem>
-                    <SelectItem value="csv">CSV</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleGenerateReport}
+                disabled={isGenerating}
                 className="bg-blue-800 hover:bg-blue-700 text-white"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Generate Report
+                {isGenerating ? 'Generating...' : 'Generate Report'}
               </Button>
               <Button
                 onClick={loadVisualizationData}
@@ -208,48 +231,11 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Reports</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                { name: 'Shipments Report - June 2024', date: '2024-06-01', type: 'PDF' },
-                { name: 'Freight Analysis - Q2 2024', date: '2024-05-15', type: 'Excel' },
-                { name: 'Customs Report - May 2024', date: '2024-05-01', type: 'PDF' },
-              ].map((report, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 rounded-none border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="h-5 w-5 text-blue-800" />
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{report.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(report.date).toLocaleDateString()} • {report.type}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-800 hover:text-blue-700"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         <ManufacturingVisualization
           isOpen={showVisualization}
           onClose={() => setShowVisualization(false)}
           data={visualizationData}
-          title={selectedReport === 'shipments' ? 'Shipments Over Time' : 'Freight by Type'}
+          title={selectedReport === 'shipments' ? 'Shipments Over Time' : 'Shipment Status Distribution'}
           chartType={selectedReport === 'shipments' ? 'line' : 'bar'}
           xAxisKey="name"
           dataKeys={[{ key: 'value', name: 'Count', color: '#ea580c' }]}

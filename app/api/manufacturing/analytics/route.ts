@@ -25,6 +25,7 @@ await connectDB();
     const shipmentsData = await Shipment.aggregate([
       {
         $match: {
+          tenantId,
           createdAt: { $gte: sixMonthsAgo }
         }
       },
@@ -44,6 +45,7 @@ await connectDB();
     const costsData = await AirFreight.aggregate([
       {
         $match: {
+          tenantId,
           createdAt: { $gte: sixMonthsAgo }
         }
       },
@@ -63,6 +65,7 @@ await connectDB();
     const statusData = await Shipment.aggregate([
       {
         $match: {
+          tenantId,
           createdAt: { $gte: sixMonthsAgo }
         }
       },
@@ -107,12 +110,7 @@ await connectDB();
     return NextResponse.json({
       shipments,
       costs,
-      status: statusData.length > 0 ? statusData : [
-        { name: 'In Transit', value: 45 },
-        { name: 'Delivered', value: 120 },
-        { name: 'Pending', value: 22 },
-        { name: 'Delayed', value: 8 }
-      ]
+      status: statusData,
     });
 
   } catch (error) {
