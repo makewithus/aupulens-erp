@@ -1117,7 +1117,7 @@ function ChartOfAccountsPageInner() {
             </div>
 
             <div className="text-[13px] text-gray-500 leading-relaxed">
-              <strong className="text-gray-700">Note:</strong> You can export only the first {exportMode === "all" ? "25,000" : "10,000"} rows. If you have more rows, please initiate a backup for the data in your Aupulens ERP organization, and download it. <a href="#" className="text-blue-600 hover:underline">Backup Your Data</a>
+              <strong className="text-gray-700">Note:</strong> You can export only the first {exportMode === "all" ? "25,000" : "10,000"} rows. If you have more rows, please export in smaller batches using filters.
             </div>
           </div>
           
