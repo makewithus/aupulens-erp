@@ -11,6 +11,7 @@ import {
   type PaymentState,
 } from '@/lib/constants/statuses';
 import { assertTransactionNotLocked, TransactionLockError } from '@/lib/accounting/transactionLock';
+import { requireTenantId } from '@/lib/auth/requireTenantId';
 
 export async function PATCH(
   req: Request,
@@ -26,7 +27,9 @@ export async function PATCH(
 
     const body = await req.json();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
 
     const invoice = await Invoice.findOne({ _id: id, tenantId });
 
@@ -110,7 +113,9 @@ export async function DELETE(
     await connectDB();
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
 
     const invoice = await Invoice.findOne({ _id: id, tenantId });
 

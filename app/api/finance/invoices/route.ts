@@ -11,6 +11,7 @@ import {
   PAYMENT_STATE_VALUES,
 } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 function serializeInvoice(invoice: any) {
   const partner = invoice.partnerId;
@@ -119,7 +120,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
 

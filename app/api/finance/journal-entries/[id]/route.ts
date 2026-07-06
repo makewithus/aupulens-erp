@@ -14,6 +14,7 @@ import {
 } from "@/lib/accounting/journal-validation";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(
   req: NextRequest,
@@ -53,7 +54,9 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
     const userId = (session.user as any).id;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
 
     if (body.lineIds && Array.isArray(body.lineIds)) {
       let totalDebit = 0;
@@ -228,7 +231,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
     const existing = await JournalEntry.findOne({ _id: id, tenantId });

@@ -17,6 +17,7 @@ import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postInvoicePayment } from "@/lib/accounting/payments";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
@@ -192,7 +193,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const { id } = await params;
     const body = await req.json();
 
@@ -356,7 +359,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const { id } = await params;
     await dbConnect();
 

@@ -5,6 +5,7 @@ import JournalEntry from "@/models/JournalEntry";
 import { DOCUMENT_STATUS, VOUCHER_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import mongoose from "mongoose";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function POST(
   req: NextRequest,
@@ -18,7 +19,9 @@ export async function POST(
 
     const { id } = await params;
     const userId = (session.user as any).id;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
 
     await dbConnect();
 

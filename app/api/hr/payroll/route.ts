@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Payroll from "@/models/Payroll";
 import Employee from "@/models/Employee";
 import Attendance from "@/models/Attendance";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,7 +46,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const body = await req.json();
     await connectDB();
 

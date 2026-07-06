@@ -10,6 +10,7 @@ import {
 import { createJournalEntry } from "@/lib/accounting/posting";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(req: NextRequest) {
   try {
@@ -55,7 +56,9 @@ export async function POST(req: NextRequest) {
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const body = await req.json();
 
     if (body.lineIds && Array.isArray(body.lineIds)) {

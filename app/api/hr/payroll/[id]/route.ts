@@ -8,6 +8,7 @@ import JournalEntry from "@/models/JournalEntry";
 import Account from "@/models/Account";
 import { VOUCHER_TYPE, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(
   req: NextRequest,
@@ -54,7 +55,9 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const body = await req.json();
     await connectDB();
 
@@ -483,7 +486,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const payroll = await Payroll.findOne({ _id: id, tenantId });

@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import BankReconciliation from '@/models/BankReconciliation';
 import { logActivity } from '@/lib/logger';
+import { requireTenantId } from '@/lib/auth/requireTenantId';
 
 export async function PATCH(
   req: Request,
@@ -18,7 +19,9 @@ export async function PATCH(
 
     const body = await req.json();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdCheck = requireTenantId(session);
+    if (tenantIdCheck) return tenantIdCheck;
+    const tenantId = (session.user as any).tenantId;
     const { transactions, reconciled } = body;
 
     const updateData: Record<string, unknown> = {};
