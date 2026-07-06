@@ -12,7 +12,11 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId || "default-tenant";
     await dbConnect();
 
-    const items = await Expense.find({ tenantId })
+    const { searchParams } = new URL(req.url);
+    const pageParam = searchParams.get("page");
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+
+    const query = Expense.find({ tenantId })
           .populate("employeeId", "name image")
           .populate("accountId", "name code")
           .populate({
@@ -20,9 +24,23 @@ export async function GET(req: NextRequest) {
             select: "name image",
             strictPopulate: false,
           })
-          .sort({ createdAt: -1 }).lean();
+          .sort({ createdAt: -1 });
 
-    return NextResponse.json({ items });
+    if (pageParam) {
+      // Paginated mode: only when caller explicitly passes ?page= — matches
+      // the backward-compat convention used elsewhere (e.g. hr/employees).
+      const page = Math.max(1, parseInt(pageParam));
+      const skip = (page - 1) * limit;
+      const [total, items] = await Promise.all([
+        Expense.countDocuments({ tenantId }),
+        query.skip(skip).limit(limit).lean(),
+      ]);
+      return NextResponse.json({ items, total, page, totalPages: Math.ceil(total / limit) });
+    }
+
+    // No ?page= → return all (backward-compat for existing consumers).
+    const items = await query.lean();
+    return NextResponse.json({ items, total: items.length, page: 1, totalPages: 1 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

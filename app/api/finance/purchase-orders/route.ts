@@ -28,13 +28,30 @@ export async function GET(request: Request) {
       query.partnerId = partnerId;
     }
 
-    const orders = await PurchaseOrder.find(query)
+    const pageParam = searchParams.get("page");
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+
+    const baseQuery = PurchaseOrder.find(query)
       .populate("partnerId", "header.name contact_details.email")
       .populate("orderLines.productId", "header.name")
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
 
-    return NextResponse.json({ items: orders });
+    if (pageParam) {
+      // Paginated mode: only when caller explicitly passes ?page= — matches
+      // the backward-compat convention used elsewhere (e.g. hr/employees).
+      const page = Math.max(1, parseInt(pageParam));
+      const skip = (page - 1) * limit;
+      const [total, orders] = await Promise.all([
+        PurchaseOrder.countDocuments(query),
+        baseQuery.skip(skip).limit(limit).lean(),
+      ]);
+      return NextResponse.json({ items: orders, total, page, totalPages: Math.ceil(total / limit) });
+    }
+
+    // No ?page= → return all (backward-compat for the new Purchase Order UI
+    // and any other existing consumer, e.g. the Inventory receiving popup).
+    const orders = await baseQuery.lean();
+    return NextResponse.json({ items: orders, total: orders.length, page: 1, totalPages: 1 });
   } catch (error: any) {
     console.error("Error fetching purchase orders:", error);
     return NextResponse.json(
