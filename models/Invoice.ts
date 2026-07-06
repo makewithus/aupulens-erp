@@ -134,7 +134,7 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
   { timestamps: true },
 );
 
-InvoiceSchema.index({ tenantId: 1, name: 1 });
+InvoiceSchema.index({ tenantId: 1, name: 1 }, { unique: true });
 InvoiceSchema.index({ partnerId: 1 });
 InvoiceSchema.index({ tenantId: 1, moveType: 1 });
 InvoiceSchema.index({ tenantId: 1, state: 1 });
