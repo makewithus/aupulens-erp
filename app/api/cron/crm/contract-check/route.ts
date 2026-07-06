@@ -5,7 +5,15 @@ import CrmTask from "@/models/crm/Task";
 import CrmActivity from "@/models/crm/Activity";
 
 export async function GET(req: NextRequest) {
-  // Cron protection via Vercel or internal secret
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
+
   await dbConnect();
 
   const now = new Date();
@@ -25,7 +33,7 @@ export async function GET(req: NextRequest) {
           end_date: { $gte: targetStart, $lte: targetEnd },
           status: { $in: ['Active', 'Expiring Soon'] },
           renewal_status: { $in: ['Not Started'] }
-        }).lean();
+        });
 
     for (const contract of expiringContracts) {
       if (days <= 30 && contract.status === 'Active') {

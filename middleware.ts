@@ -46,7 +46,11 @@ export default auth(async (req) => {
 
   const isApiRoute = pathname.startsWith("/api");
   const isAuthApi = pathname.startsWith("/api/auth");
-  const isPublicApi = pathname === "/api/tenant/status";
+  // Cron routes authenticate themselves via a Bearer CRON_SECRET header (no
+  // browser session exists when an external scheduler calls them) — each
+  // route enforces its own check, this only lets the request reach it.
+  const isCronApi = pathname.startsWith("/api/cron/");
+  const isPublicApi = pathname === "/api/tenant/status" || isCronApi;
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
