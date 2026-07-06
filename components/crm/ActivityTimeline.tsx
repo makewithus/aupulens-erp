@@ -45,7 +45,6 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
   useEffect(() => {
     setPage(1);
     fetchActivities(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedRecordId, typeFilter]);
 
   const handleLoadMore = () => {

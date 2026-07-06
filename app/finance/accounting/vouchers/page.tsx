@@ -420,11 +420,11 @@ export default function VouchersPage() {
       sidebarSections={financeSidebarConfig}
       companyName="Aupulens"
       dashboardTitle="Finance"
-      pageName="Vouchers"
+      pageName="Transactions"
       breadcrumbs={[
         { label: "Finance", href: "/finance/summary" },
         { label: "Accounting" },
-        { label: "Vouchers" },
+        { label: "Transactions" },
       ]}
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
@@ -440,7 +440,7 @@ export default function VouchersPage() {
               Transactions
             </h1>
             <p className="text-sm text-muted-foreground">
-              Tally-inspired voucher-driven accounting ·{" "}
+              Action-driven accounting ·{" "}
               <span className="font-medium text-primary">
                 Smart Accounting Engine · Just enter what happened
               </span>
@@ -450,25 +450,13 @@ export default function VouchersPage() {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search vouchers..."
+                placeholder="Search transactions..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-9 w-56 bg-background"
               />
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {VOUCHER_TYPE_VALUES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {VOUCHER_TYPE_LABELS[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="All Statuses" />
@@ -521,9 +509,9 @@ export default function VouchersPage() {
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 bg-background rounded-xl border border-dashed">
                 <BookOpen className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground">No vouchers found</p>
+                <p className="text-muted-foreground">No transactions found</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Create a voucher using the cards above
+                  Record a transaction using the actions above
                 </p>
               </div>
             ) : (
@@ -533,7 +521,7 @@ export default function VouchersPage() {
                     <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
                       <th className="px-4 py-4 text-left">Date</th>
                       <th className="px-4 py-4 text-left">Number</th>
-                      <th className="px-4 py-4 text-left">Type</th>
+
                       <th className="px-4 py-4 text-left">Ref</th>
                       <th className="px-4 py-4 text-right">Total</th>
                       <th className="px-4 py-4 text-left">Flow</th>
@@ -559,14 +547,7 @@ export default function VouchersPage() {
                           <td className="px-4 py-3 whitespace-nowrap font-bold text-primary">
                             {item.header?.name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <Badge
-                              className={`${typeColors.bg} ${typeColors.text} capitalize`}
-                              variant="outline"
-                            >
-                              {item.voucherType}
-                            </Badge>
-                          </td>
+
                           <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                             {item.header?.ref || "-"}
                           </td>

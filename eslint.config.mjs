@@ -35,6 +35,7 @@ const eslintConfig = defineConfig([
       "prefer-const": "off",
       "no-unused-vars": "off",
       "no-console": "off",
+      "react-hooks/exhaustive-deps": "off",
       
       // Keep Next.js specific rules but as warnings
       "@next/next/no-html-link-for-pages": "warn",

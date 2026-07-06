@@ -127,7 +127,6 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     fetchDocs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, recordFilter, showArchived]);
 
   const handleDownload = async (doc: any) => {
