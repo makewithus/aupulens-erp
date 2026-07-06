@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Account from "@/models/Account";
 import AccountType from "@/models/AccountType";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
     const duplicateHandling = formData.get("duplicateHandling") as string;
 
     if (!file || !mappingStr) return NextResponse.json({ error: "Missing file or mapping" }, { status: 400 });
+
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
     const mapping = JSON.parse(mappingStr);
 

@@ -169,6 +169,7 @@ export default function ImportCustomersPage() {
                     </div>
                     <input
                       type="file"
+                      accept=".csv,.tsv,.xls,.xlsx"
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
@@ -186,6 +187,7 @@ export default function ImportCustomersPage() {
                   <span className="text-sm font-medium text-blue-600">Choose File</span>
                   <input
                     type="file"
+                    accept=".csv,.tsv,.xls,.xlsx"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);

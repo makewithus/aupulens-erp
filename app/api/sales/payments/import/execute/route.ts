@@ -9,6 +9,7 @@ import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     if (!file || !mappingStr) {
       return NextResponse.json({ success: false, message: "Missing file or mapping" }, { status: 400 });
     }
+
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();

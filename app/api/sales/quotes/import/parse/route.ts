@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +12,11 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
+
     const workbook = xlsx.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 }) as any[];
+    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false }) as any[];
     if (rawData.length === 0) return NextResponse.json({ error: "Empty file" }, { status: 400 });
 
     const columns = rawData[0] as string[];

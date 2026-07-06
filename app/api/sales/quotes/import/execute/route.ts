@@ -7,6 +7,7 @@ import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateQuoteNumber } from "@/lib/sales/quoteNumbering";
 import { QUOTE_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
   try {
@@ -21,10 +22,14 @@ export async function POST(request: Request) {
     const autoGenerate = formData.get("autoGenerateNumbers") === "true";
 
     if (!file || !mappingStr) return NextResponse.json({ error: "Missing file or mapping" }, { status: 400 });
+
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
+
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
 
     const workbook = xlsx.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]) as any[];
+    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false }) as any[];
 
     // Group rows into quotes: rows sharing a Quote Number become line items of
     // the same quote (unless auto-generating, where every row is its own quote).

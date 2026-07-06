@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 // Generic file -> rows parser. No business logic here — shared by the
 // Import Payments and Import Applied Excess Payments wizards (the excess
@@ -14,6 +15,9 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file") as File;
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
     const bytes = await file.arrayBuffer();
     const workbook = xlsx.read(Buffer.from(bytes), { type: "buffer" });

@@ -20,6 +20,42 @@ import { toast } from "sonner";
 import { DOCUMENT_STATUS, DocumentStatus } from "@/lib/constants/statuses";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
+import * as xlsx from "xlsx";
+
+const ALLOWED_STATEMENT_EXTENSIONS = ["csv", "tsv", "xls", "xlsx"];
+
+function normalizeHeader(header: string) {
+  return String(header).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Real bank exports name their columns inconsistently (Narration vs
+// Description vs Particulars, a single signed Amount vs separate
+// Debit/Credit or Withdrawal/Deposit columns) — match on common aliases
+// instead of assuming a fixed column order.
+const HEADER_ALIASES: Record<string, string> = {
+  date: "date",
+  transactiondate: "date",
+  valuedate: "date",
+  txndate: "date",
+  partner: "partner",
+  party: "partner",
+  description: "reference",
+  narration: "reference",
+  particulars: "reference",
+  reference: "reference",
+  referenceno: "reference",
+  chequeno: "reference",
+  chequerefno: "reference",
+  amount: "amount",
+  debit: "debit",
+  debitamt: "debit",
+  withdrawalamt: "debit",
+  withdrawal: "debit",
+  credit: "credit",
+  creditamt: "credit",
+  depositamt: "credit",
+  deposit: "credit",
+};
 
 interface BankStatementImportPopupProps {
   formData: any;
@@ -149,30 +185,60 @@ export function BankStatementImportPopup({
     setFormData({ ...formData, lineIds: lines });
   };
 
-  const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!ext || !ALLOWED_STATEMENT_EXTENSIONS.includes(ext)) {
+      toast.error("Invalid file format. Only CSV, TSV, or XLS(X) are allowed.");
+      e.target.value = "";
+      return;
+    }
 
-      const rows = text.split("\n").filter((row) => row.trim());
-      // Assume CSV format: Date, Partner Name (optional), Reference, Amount
-      // Skip header if it looks like one
-      const startIndex = rows[0].toLowerCase().includes("date") ? 1 : 0;
+    try {
+      const buffer = await file.arrayBuffer();
+      // SheetJS parses real CSV/TSV/XLS/XLSX uniformly (quoted-comma-safe for
+      // CSV, native binary parsing for XLS/XLSX) — raw:false so date/number
+      // cells arrive pre-formatted instead of Excel serial numbers.
+      const workbook = xlsx.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = xlsx.utils.sheet_to_json(sheet, { raw: false }) as Record<string, any>[];
 
-      const newLines = rows.slice(startIndex).map((row) => {
-        const columns = row
-          .split(",")
-          .map((col) => col.trim().replace(/^"|"$/g, ""));
-        const date = columns[0] ? new Date(columns[0]) : new Date();
-        const partnerName = columns[1] || "";
-        const ref = columns[2] || "";
-        const amount = parseFloat(columns[3]) || 0;
+      if (rows.length === 0) {
+        toast.error("The file has no data rows.");
+        e.target.value = "";
+        return;
+      }
 
-        // Try to match partnerName with existing partners
+      // Map each row's headers (whatever they're actually called) to our
+      // canonical fields via HEADER_ALIASES.
+      const mappedRows = rows.map((row) => {
+        const mapped: Record<string, string> = {};
+        for (const [key, value] of Object.entries(row)) {
+          const canonical = HEADER_ALIASES[normalizeHeader(key)];
+          if (canonical && value !== undefined && value !== null && value !== "") {
+            mapped[canonical] = String(value).trim();
+          }
+        }
+        return mapped;
+      });
+
+      if (!mappedRows.some((r) => r.date) || !mappedRows.some((r) => r.amount || r.debit || r.credit)) {
+        toast.error(
+          "Couldn't find recognizable Date and Amount (or Debit/Credit) columns in this file. Please check the column headers.",
+        );
+        e.target.value = "";
+        return;
+      }
+
+      const newLines = mappedRows.map((row) => {
+        const date = row.date ? new Date(row.date) : new Date();
+        const partnerName = row.partner || "";
+        const amount = row.amount
+          ? parseFloat(row.amount) || 0
+          : (parseFloat(row.credit) || 0) - (parseFloat(row.debit) || 0);
+
         const partner = partners.find(
           (p) =>
             (p.header?.name || p.name || "").toLowerCase() ===
@@ -182,8 +248,8 @@ export function BankStatementImportPopup({
         return {
           date: isNaN(date.getTime()) ? new Date() : date,
           partnerId: partner ? partner._id : "",
-          payment_ref: ref,
-          amount: amount,
+          payment_ref: row.reference || "",
+          amount,
           isReconciled: false,
         };
       });
@@ -193,10 +259,12 @@ export function BankStatementImportPopup({
         lineIds: [...(formData.lineIds || []), ...newLines],
       });
       toast.success(`Imported ${newLines.length} lines`);
-    };
-    reader.readAsText(file);
-    // Clear input
-    e.target.value = "";
+    } catch (err) {
+      console.error("Bank statement import error:", err);
+      toast.error("Could not parse file — is it a valid CSV/TSV/XLS(X) file?");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   return (
@@ -331,6 +399,7 @@ export function BankStatementImportPopup({
               <input
                 type="file"
                 ref={fileInputRef}
+                accept=".csv,.tsv,.xls,.xlsx"
                 onChange={handleCSVImport}
                 className="hidden"
               />
@@ -340,7 +409,7 @@ export function BankStatementImportPopup({
                 className="rounded-none font-bold"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="h-4 w-4 mr-2" /> Import CSV
+                <Upload className="h-4 w-4 mr-2" /> Import Statement (CSV/XLS/XLSX)
               </Button>
               <Button
                 variant="ghost"

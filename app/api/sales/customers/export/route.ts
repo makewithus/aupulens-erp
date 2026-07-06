@@ -32,7 +32,10 @@ export async function POST(request: Request) {
       period = "all", // customers mode: "all" | { from, to }
       dateFrom,
       dateTo,
+      includePII = false,
     } = body;
+
+    const PII_COLUMN_KEYS = ["contact_details.email", "contact_details.phone"];
 
     if (password && !PASSWORD_POLICY.test(password)) {
       return NextResponse.json(
@@ -59,6 +62,10 @@ export async function POST(request: Request) {
       rowLimit = CURRENT_VIEW_ROW_LIMIT;
     } else if (period !== "all" && dateFrom) {
       query.createdAt = { $gte: new Date(dateFrom), ...(dateTo ? { $lte: new Date(dateTo) } : {}) };
+    }
+
+    if (mode !== "current_view" && !includePII) {
+      columns = columns.filter((key) => !PII_COLUMN_KEYS.includes(key));
     }
 
     const customers = await Customer.find(query).sort({ createdAt: -1 }).limit(rowLimit).lean();

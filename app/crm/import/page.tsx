@@ -5,6 +5,13 @@ import { UploadCloud, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+const REQUIRED_COLUMNS: Record<string, string> = {
+  Lead: "Lead Name, plus Email or Phone",
+  Contact: "First Name, Last Name (plus Company/Account Name to link an existing Account)",
+  Account: "Company Name",
+  Opportunity: "Deal Name, Amount (plus Company/Account Name to link an existing Account)",
+};
+
 export default function ImportCenterPage() {
   const [file, setFile] = useState<File | null>(null);
   const [entity, setEntity] = useState("Lead");
@@ -21,29 +28,26 @@ export default function ImportCenterPage() {
       return;
     }
     setFile(f);
+    setResults(null);
   };
 
   const handleImport = async () => {
-    if (!file) return toast.error("Select a CSV file first");
+    if (!file) return toast.error("Select a file first");
     setImporting(true);
-
-    // Mock parsing for CSV assuming structure. In real app, use PapaParse.
-    const mockRecords = [
-      { email: "test1@example.com", lead_name: "Test 1" },
-      { email: "test2@example.com", lead_name: "Test 2" },
-      { email: "invalid", lead_name: "Test 3" }
-    ];
-
-    const res = await fetch("/api/crm/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entityType: entity, records: mockRecords, strict: false })
-    });
-
-    const data = await res.json();
-    setResults(data);
-    setImporting(false);
-    toast(data.success ? "Import partial/success" : "Import failed");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("entityType", entity);
+      fd.append("strict", "false");
+      const res = await fetch("/api/crm/import", { method: "POST", body: fd });
+      const data = await res.json();
+      setResults(data);
+      toast(data.insertedCount ? `Imported ${data.insertedCount} record(s)` : (data.message || "Import failed"));
+    } catch (e: any) {
+      toast.error(e.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
   };
 
   return (
@@ -56,19 +60,33 @@ export default function ImportCenterPage() {
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium text-neutral-400">Target Entity</label>
-            <select value={entity} onChange={e => setEntity(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 p-2 rounded mt-1 text-sm">
+            <select
+              value={entity}
+              onChange={(e) => {
+                setEntity(e.target.value);
+                setResults(null);
+              }}
+              className="w-full bg-neutral-950 border border-neutral-800 p-2 rounded mt-1 text-sm"
+            >
               <option value="Lead">Leads</option>
               <option value="Contact">Contacts</option>
               <option value="Account">Accounts</option>
               <option value="Opportunity">Opportunities</option>
             </select>
+            <p className="text-xs text-neutral-500 mt-1">Required columns: {REQUIRED_COLUMNS[entity]}</p>
           </div>
-          
+
           <div className="border-2 border-dashed border-neutral-700 rounded-lg p-10 text-center">
-            <input type="file" id="fileUpload" className="hidden" onChange={handleFileSelect} />
+            <input
+              type="file"
+              id="fileUpload"
+              accept=".csv,.tsv,.xls,.xlsx"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
             <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">
               <UploadCloud className="w-10 h-10 text-neutral-500 mb-2" />
-              <span className="text-neutral-300 font-medium">{file ? file.name : "Click to select CSV file"}</span>
+              <span className="text-neutral-300 font-medium">{file ? file.name : "Click to select a CSV, TSV, or XLS(X) file"}</span>
             </label>
           </div>
 
@@ -86,6 +104,16 @@ export default function ImportCenterPage() {
             <div className="flex flex-col"><span className="text-xs text-neutral-500">Duplicates Removed</span><span className="text-2xl font-bold text-blue-400">{results.duplicatesRemoved || 0}</span></div>
             <div className="flex flex-col"><span className="text-xs text-neutral-500">Validation Errors</span><span className="text-2xl font-bold text-red-400 flex items-center gap-1"><AlertCircle className="w-5 h-5"/> {results.errors?.length || 0}</span></div>
           </div>
+          {results.errors?.length > 0 && (
+            <details>
+              <summary className="cursor-pointer text-sm text-red-400">View row errors</summary>
+              <ul className="text-xs text-neutral-400 list-disc list-inside mt-2 space-y-1 max-h-64 overflow-y-auto">
+                {results.errors.map((err: any, i: number) => (
+                  <li key={i}>Row {err.row}: {err.reasons?.join(", ")}</li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
     </div>

@@ -905,7 +905,7 @@ function ChartOfAccountsPageInner() {
                   <Upload className="h-5 w-5 text-gray-400" />
                 </div>
                 <h3 className="font-semibold text-gray-800 mb-4">Drag and drop file to import</h3>
-                <input type="file" id="import-file" className="hidden" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+                <input type="file" id="import-file" accept=".csv,.tsv,.xls,.xlsx" className="hidden" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
                 <button type="button" onClick={() => document.getElementById('import-file')?.click()} className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                   {importFile ? importFile.name : "Choose File ▾"}
                 </button>

@@ -8,6 +8,7 @@ import { generateSubscriptionNumber } from "@/lib/sales/subscriptionNumbering";
 import { computeInitialSchedule } from "@/lib/sales/subscriptionBilling";
 import { SUBSCRIPTION_BILLING_FREQUENCY, SUBSCRIPTION_BILLING_FREQUENCY_VALUES, SALES_SUBSCRIPTION_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
+import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
     if (!file || !mappingStr) {
       return NextResponse.json({ error: "Missing file or mapping" }, { status: 400 });
     }
+
+    const fileError = validateSpreadsheetFile(file);
+    if (fileError) return NextResponse.json({ error: fileError }, { status: 400 });
 
     const mapping = JSON.parse(mappingStr) as Record<string, string>;
     const bytes = await file.arrayBuffer();
