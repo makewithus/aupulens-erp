@@ -36,7 +36,7 @@ export interface IQuote extends Document {
 
 const QuoteSchema = new Schema<IQuote>({
   tenantId: { type: String, required: true },
-  quote_number: { type: String, required: true, unique: true },
+  quote_number: { type: String, required: true },
   opportunity_id: { type: Schema.Types.ObjectId, ref: 'CrmOpportunity', required: true },
   account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount', required: true },
   owner_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -99,5 +99,7 @@ QuoteSchema.pre("save", function(next) {
 
   next();
 });
+
+QuoteSchema.index({ tenantId: 1, quote_number: 1 }, { unique: true });
 
 export default (mongoose.models.CrmQuote as Model<IQuote>) || mongoose.model<IQuote>("CrmQuote", QuoteSchema);

@@ -4,7 +4,9 @@
  * `{tenantId, <field>}` unique indexes instead. The old single-field indexes
  * were never dropped when the schemas changed, so they were silently still
  * enforcing global (cross-tenant) uniqueness — a Golden Rule #7 violation
- * found during the 2026-07-05 system-wide audit (see AUDIT_REPORT.md).
+ * found during the 2026-07-05 system-wide audit (see AUDIT_REPORT.md), plus
+ * two more found during the QA_GAP_REPORT.md remediation pass (`crmquotes`,
+ * `deliverychallans`) missed by that first pass.
  *
  * Safe to run multiple times (skips indexes that don't exist) and safe to
  * run against any environment — it only drops the redundant single-field
@@ -28,6 +30,8 @@ const TARGETS: { collection: string; staleIndexName: string }[] = [
   { collection: "freightproviders", staleIndexName: "providerCode_1" },
   { collection: "batches", staleIndexName: "batchNumber_1" },
   { collection: "stocktransfers", staleIndexName: "header.name_1" },
+  { collection: "crmquotes", staleIndexName: "quote_number_1" },
+  { collection: "deliverychallans", staleIndexName: "dcNumber_1" },
 ];
 
 async function main() {
