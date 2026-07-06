@@ -31,6 +31,7 @@ export interface IBankReconciliation extends Document {
 
 const BankReconciliationSchema = new Schema<IBankReconciliation>(
   {
+    tenantId: { type: String, required: true, index: true },
     bankStatementDate: { type: Date, required: true },
     bankBalance: { type: Number, required: true },
     ledgerBalance: { type: Number, required: true },
@@ -61,8 +62,8 @@ const BankReconciliationSchema = new Schema<IBankReconciliation>(
   { timestamps: true }
 );
 
-BankReconciliationSchema.index({ bankStatementDate: -1 });
-BankReconciliationSchema.index({ reconciled: 1 });
+BankReconciliationSchema.index({ tenantId: 1, bankStatementDate: -1 });
+BankReconciliationSchema.index({ tenantId: 1, reconciled: 1 });
 
 const BankReconciliation: Model<IBankReconciliation> =
   (mongoose.models.BankReconciliation as Model<IBankReconciliation>) ||
