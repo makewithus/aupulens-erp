@@ -211,8 +211,7 @@ export function BankStatementImportPopup({
         return;
       }
 
-      // Map each row's headers (whatever they're actually called) to our
-      // canonical fields via HEADER_ALIASES.
+      
       const mappedRows = rows.map((row) => {
         const mapped: Record<string, string> = {};
         for (const [key, value] of Object.entries(row)) {
