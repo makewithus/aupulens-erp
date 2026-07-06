@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import { DOCUMENT_STATUS, ENTITY_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, ENTITY_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
 
 export async function GET() {
   try {
@@ -21,7 +21,7 @@ export async function GET() {
 
     const [
       SalesInvoice,
-      Bill,
+      Invoice,
       SaleOrder,
       Product,
       Customer,
@@ -32,7 +32,7 @@ export async function GET() {
       Transaction,
     ] = await Promise.all([
       import("@/models/SalesInvoice").then((m) => m.SalesInvoice),
-      import("@/models/Bill").then((m) => m.default),
+      import("@/models/Invoice").then((m) => m.default),
       import("@/models/SaleOrder").then((m) => m.default),
       import("@/models/Product").then((m) => m.default),
       import("@/models/Customer").then((m) => m.default),
@@ -82,21 +82,26 @@ export async function GET() {
       )
       .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
 
-    // Finance: Expenses (using Bill)
-    const inInvoices = await (Bill as any).find({ tenantId }).lean();
-    
+    // Finance: Expenses (vendor bills — Invoice model, moveType: "in_invoice")
+    const inInvoices = await (Invoice as any)
+      .find({ tenantId, moveType: "in_invoice" })
+      .lean();
+
     const totalExpenses = inInvoices
-      .filter((inv: any) => inv.status === DOCUMENT_STATUS.POSTED || inv.status === "paid")
-      .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
-      
+      .filter(
+        (inv: any) =>
+          inv.state === DOCUMENT_STATUS.POSTED || inv.paymentState === PAYMENT_STATE.PAID,
+      )
+      .reduce((sum: number, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
+
     const expensesCurrentMonth = inInvoices
       .filter(
         (inv: any) =>
-          (inv.status === DOCUMENT_STATUS.POSTED || inv.status === "paid") &&
-          inv.issueDate &&
-          new Date(inv.issueDate) >= currentMonthStart,
+          (inv.state === DOCUMENT_STATUS.POSTED || inv.paymentState === PAYMENT_STATE.PAID) &&
+          inv.invoiceDate &&
+          new Date(inv.invoiceDate) >= currentMonthStart,
       )
-      .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
+      .reduce((sum: number, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
 
     // Sales: Orders
     const [

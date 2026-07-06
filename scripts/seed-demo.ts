@@ -23,7 +23,7 @@ import SaleOrder from "../models/SaleOrder";
 import Payment from "../models/Payment";
 import EInvoice from "../models/EInvoice";
 import PurchaseOrder from "../models/PurchaseOrder";
-import Bill from "../models/Bill";
+import Invoice from "../models/Invoice";
 import BillOfMaterial from "../models/BillOfMaterial";
 import ManufacturingOrder from "../models/ManufacturingOrder";
 import StockMove from "../models/StockMove";
@@ -523,27 +523,34 @@ async function ensurePurchasesAndBills(customers: any[], products: any[]) {
     console.log(`Purchase Orders: already ${poCount} present, skipping.`);
   }
 
-  const billCount = await Bill.countDocuments({ tenantId: TENANT_ID });
+  // Vendor bills are Invoice documents with moveType: "in_invoice" — the real
+  // Vendor Bills screen (app/finance/bills/page.tsx) has always read from
+  // here, not from models/Bill.ts (a disconnected, orphaned schema; see
+  // QA_GAP_REPORT.md item #15 and scripts/migrate-bill-split-brain.ts).
+  const billCount = await Invoice.countDocuments({ tenantId: TENANT_ID, moveType: "in_invoice" });
   if (billCount < 3) {
     const specs = [
-      { number: `DEMO-BILL-${TENANT_ID}-1`, status: DOCUMENT_STATUS.APPROVED, amount: 55000, vendor: "Bharat Steel Suppliers" },
-      { number: `DEMO-BILL-${TENANT_ID}-2`, status: DOCUMENT_STATUS.DRAFT, amount: 30000, vendor: "Skyline Packaging Co" },
+      { number: `DEMO-BILL-${TENANT_ID}-1`, status: DOCUMENT_STATUS.APPROVED, amount: 55000 },
+      { number: `DEMO-BILL-${TENANT_ID}-2`, status: DOCUMENT_STATUS.DRAFT, amount: 30000 },
     ];
     for (const spec of specs) {
-      const existing = await Bill.findOne({ billNumber: spec.number });
+      const existing = await Invoice.findOne({ tenantId: TENANT_ID, name: spec.number });
       if (existing) continue;
-      await Bill.create({
+      await Invoice.create({
         tenantId: TENANT_ID,
-        billNumber: spec.number,
-        vendorId: spec.vendor,
-        vendorName: spec.vendor,
-        vendorEmail: `${spec.vendor.split(" ")[0].toLowerCase()}@example.com`,
-        items: [{ description: "Goods received", quantity: 1, rate: spec.amount, amount: spec.amount }],
-        subtotal: spec.amount,
-        total: spec.amount,
-        issueDate: daysAgo(10),
+        name: spec.number,
+        partnerId: customers[0]._id,
+        moveType: "in_invoice",
+        invoiceDate: daysAgo(10),
         dueDate: daysFromNow(20),
-        status: spec.status,
+        state: spec.status,
+        invoiceLines: [{ name: "Goods received", quantity: 1, priceUnit: spec.amount, priceSubtotal: spec.amount }],
+        currencyId: "INR",
+        amountUntaxed: spec.amount,
+        amountTax: 0,
+        amountTotal: spec.amount,
+        amountResidual: spec.amount,
+        paymentState: "not_paid",
         createdBy: SEED_USER_ID,
       } as any);
       console.log("Created bill", spec.number);

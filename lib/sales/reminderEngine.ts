@@ -1,7 +1,7 @@
 import { addDays, startOfDay, endOfDay, subDays } from "date-fns";
 import Reminder from "@/models/Reminder";
 import { SalesInvoice } from "@/models/SalesInvoice";
-import Bill from "@/models/Bill";
+import Invoice from "@/models/Invoice";
 import EmailTemplate from "@/models/EmailTemplate";
 import { getEmailService, renderTemplate } from "@/lib/email/sendEmail";
 import { REMINDER_SCOPE, REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
@@ -73,6 +73,12 @@ export async function evaluateInvoiceReminders(tenantId: string): Promise<{ eval
   return { evaluated: reminders.length, sent };
 }
 
+/**
+ * Evaluates every enabled automated Bill reminder for a tenant against real
+ * vendor-bill due dates. Vendor bills are Invoice documents with
+ * moveType: "in_invoice" (see QA_GAP_REPORT.md #15 — models/Bill.ts was a
+ * disconnected, orphaned schema never used by the real Vendor Bills screen).
+ */
 export async function evaluateBillReminders(tenantId: string): Promise<{ evaluated: number; sent: number }> {
   const reminders = await Reminder.find({ tenantId, scope: REMINDER_SCOPE.BILL, enabled: true }).lean();
   const todayStart = startOfDay(new Date());
@@ -80,15 +86,19 @@ export async function evaluateBillReminders(tenantId: string): Promise<{ evaluat
   let sent = 0;
 
   for (const reminder of reminders) {
-    const bills = await (Bill as any).find({ tenantId }).lean();
+    const bills = await (Invoice as any)
+      .find({ tenantId, moveType: "in_invoice" })
+      .populate("partnerId", "header contact_details")
+      .lean();
     for (const bill of bills) {
       if (!bill.dueDate) continue;
       const fireOn = targetDate(new Date(bill.dueDate), reminder.offsetDays, reminder.direction);
-      if (fireOn >= todayStart && fireOn <= todayEnd && bill.vendorEmail) {
-        await sendReminderEmail(reminder, bill.vendorEmail, {
-          customerName: bill.vendorName || "Vendor",
-          documentNumber: bill.billNumber,
-          amount: bill.total || 0,
+      const vendorEmail = bill.partnerId?.contact_details?.email;
+      if (fireOn >= todayStart && fireOn <= todayEnd && vendorEmail) {
+        await sendReminderEmail(reminder, vendorEmail, {
+          customerName: bill.partnerId?.header?.displayName || bill.partnerId?.header?.name || "Vendor",
+          documentNumber: bill.name,
+          amount: bill.amountTotal || 0,
         });
         sent++;
       }
