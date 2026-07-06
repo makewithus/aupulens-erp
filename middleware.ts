@@ -1,8 +1,34 @@
 import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
 import NextAuth from "next-auth";
+import { applyModuleGating, type OrgModuleInfo } from "@/lib/middleware/moduleGate";
 
 const { auth } = NextAuth(authConfig);
+
+// Mongoose can't run in the Edge middleware runtime, so tier/enabledModules
+// are resolved via an internal HTTP call to /api/internal/org-tier and cached
+// in-process for a short TTL to avoid a round trip on every request.
+const orgTierCache = new Map<string, { data: OrgModuleInfo; expiresAt: number }>();
+const ORG_TIER_CACHE_TTL_MS = 60_000;
+
+async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgModuleInfo | null> {
+  const cached = orgTierCache.get(tenantId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  try {
+    const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;
+    const res = await fetch(
+      `${origin}/api/internal/org-tier?tenantId=${encodeURIComponent(tenantId)}`,
+      { headers: secret ? { "x-middleware-secret": secret } : {} },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as OrgModuleInfo;
+    orgTierCache.set(tenantId, { data, expiresAt: Date.now() + ORG_TIER_CACHE_TTL_MS });
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 // Extract tenant ID from subdomain
 function getTenantFromHost(hostname: string): string | null {
@@ -50,7 +76,13 @@ export default auth(async (req) => {
   // browser session exists when an external scheduler calls them) — each
   // route enforces its own check, this only lets the request reach it.
   const isCronApi = pathname.startsWith("/api/cron/");
-  const isPublicApi = pathname === "/api/tenant/status" || isCronApi;
+  // /api/internal/* is called BY this middleware itself (e.g. org-tier for
+  // module gating below) — it has no browser session to carry, and the route
+  // enforces its own x-middleware-secret check. Without this exemption the
+  // blanket session check below would reject middleware's own internal call,
+  // silently fail-opening module gating.
+  const isInternalApi = pathname.startsWith("/api/internal/");
+  const isPublicApi = pathname === "/api/tenant/status" || isCronApi || isInternalApi;
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
@@ -232,6 +264,13 @@ export default auth(async (req) => {
       return handleForbidden(isApiRoute, user.role as string);
     }
   }
+
+  // Tier/feature-flag module gating — applied after role checks so it only
+  // ever narrows access a role check already granted, never widens it.
+  const gateResponse = await applyModuleGating(pathname, user, (tid) =>
+    getOrgModuleData(tid, req.nextUrl.origin),
+  );
+  if (gateResponse) return gateResponse;
 
   // Apply tenant context to the response
   if (tenantId) {
