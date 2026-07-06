@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { Loader2, Plus } from "lucide-react";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 const SOURCES = [
   "Organic Search","Paid Ads","Referral","Event","Social Media",
@@ -101,32 +102,8 @@ export default function LeadsPage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/crm/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead_name: form.lead_name.trim(),
-          company_name: form.company_name.trim() || undefined,
-          email: form.email.trim() || undefined,
-          phone: form.phone.trim() || undefined,
-          source: form.source,
-          priority: form.priority,
-          industry: form.industry.trim() || undefined,
-          location: form.location.trim() || undefined,
-          notes: form.notes.trim() || undefined,
-          next_followup_date: form.next_followup_date || undefined,
-          owner_id: session?.user?.id,
-        }),
-      });
-      const data = await res.json();
-      if (res.status === 409) {
-        toast.warning("Duplicate lead detected — a lead with this email or phone already exists.");
-        return;
-      }
-      if (!res.ok || !data.success) {
-        toast.error(data.message || "Failed to create lead.");
-        return;
-      }
+      const created = await submitLead(false);
+      if (!created) return;
       toast.success(`Lead "${form.lead_name}" created successfully!`);
       setSheetOpen(false);
       setForm(EMPTY_FORM);
@@ -136,6 +113,51 @@ export default function LeadsPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitLead = async (confirmDuplicate: boolean): Promise<boolean> => {
+    const res = await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lead_name: form.lead_name.trim(),
+        company_name: form.company_name.trim() || undefined,
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        source: form.source,
+        priority: form.priority,
+        industry: form.industry.trim() || undefined,
+        location: form.location.trim() || undefined,
+        notes: form.notes.trim() || undefined,
+        next_followup_date: form.next_followup_date || undefined,
+        owner_id: session?.user?.id,
+        confirmDuplicate,
+      }),
+    });
+    const data = await res.json();
+
+    if (res.status === 409) {
+      if (data.fuzzy) {
+        const matchNames = (data.matches || [])
+          .map((m: any) => m.record?.lead_name || m.record?.email || "an existing lead")
+          .join(", ");
+        const proceed = await confirmDialog({
+          title: "Possible duplicate lead",
+          description: `This looks similar to ${matchNames}. Create it anyway?`,
+        });
+        if (proceed) return submitLead(true);
+        return false;
+      }
+      toast.warning("Duplicate lead detected — a lead with this email or phone already exists.");
+      return false;
+    }
+
+    if (!res.ok || !data.success) {
+      toast.error(data.message || "Failed to create lead.");
+      return false;
+    }
+
+    return true;
   };
 
   return (

@@ -5,6 +5,7 @@ import CrmLead from "@/models/crm/Lead";
 import CrmActivity from "@/models/crm/Activity";
 import { calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
+import { detectDuplicates } from "@/lib/crm/ai/duplicateAssistant";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -55,13 +56,33 @@ export async function POST(req: NextRequest) {
       const orConditions: any[] = [];
       if (body.email) orConditions.push({ email: body.email });
       if (body.phone) orConditions.push({ phone: body.phone });
-      
+
       const duplicate = await CrmLead.findOne({ tenantId: session.user.tenantId, $or: orConditions });
       if (duplicate) {
         return NextResponse.json({ success: false, duplicate: true, matches: [duplicate] }, { status: 409 });
       }
     }
-    
+
+    // Fuzzy duplicate detection (name/email/phone similarity) — skipped when
+    // the caller has already confirmed via the "Create anyway" dialog.
+    if (!body.confirmDuplicate) {
+      const candidates = await CrmLead.find(
+        { tenantId: session.user.tenantId },
+        "lead_name email phone company_name",
+      ).lean();
+      const fuzzyMatches = detectDuplicates(body, candidates, "Lead");
+      if (fuzzyMatches.length > 0) {
+        const matches = fuzzyMatches.map((m) => ({
+          ...m,
+          record: candidates.find((c: any) => String(c._id) === String(m.recordId)),
+        }));
+        return NextResponse.json(
+          { success: false, duplicate: true, fuzzy: true, matches },
+          { status: 409 },
+        );
+      }
+    }
+
     body.tenantId = session.user.tenantId;
     body.createdBy = session.user.id;
     body.lead_score = calculateLeadScore(body);

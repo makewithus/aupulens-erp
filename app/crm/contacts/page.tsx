@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { toast } from "sonner";
 import { Loader2, Plus, Download, Users, Star, UserCheck, Calendar } from "lucide-react";
 import Link from "next/link";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 const EMPTY_FORM = {
   first_name: "", last_name: "", email: "", mobile: "", designation: "", department: "",
@@ -69,25 +70,53 @@ export default function ContactsPage() {
     
     setSubmitting(true);
     try {
-      const res = await fetch("/api/crm/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      const data = await res.json();
-      if (data.success) {
+      const created = await submitContact(false);
+      if (created) {
         toast.success("Contact created successfully!");
         setSheetOpen(false);
         setForm(EMPTY_FORM);
         fetchContacts();
-      } else {
-        toast.error(data.message || "Failed to create contact");
       }
     } catch (e) {
       toast.error("Network error.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitContact = async (confirmDuplicate: boolean): Promise<boolean> => {
+    const res = await fetch("/api/crm/contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, confirmDuplicate }),
+    });
+    const data = await res.json();
+
+    if (res.status === 409) {
+      if (data.fuzzy) {
+        const matchNames = (data.matches || [])
+          .map((m: any) => {
+            const r = m.record;
+            return r ? `${r.first_name || ""} ${r.last_name || ""}`.trim() || r.email : "an existing contact";
+          })
+          .join(", ");
+        const proceed = await confirmDialog({
+          title: "Possible duplicate contact",
+          description: `This looks similar to ${matchNames}. Create it anyway?`,
+        });
+        if (proceed) return submitContact(true);
+        return false;
+      }
+      toast.warning("Duplicate contact detected — a contact with this email or phone already exists.");
+      return false;
+    }
+
+    if (!data.success) {
+      toast.error(data.message || "Failed to create contact");
+      return false;
+    }
+
+    return true;
   };
 
   return (
