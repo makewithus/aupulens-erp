@@ -14,6 +14,9 @@ export interface IProduct extends Document {
     purchase_ok: boolean;
     can_be_expensed: boolean;
   };
+  // Opt-in override: when false (default), new stock movements that would
+  // take this product's on-hand quantity below zero are rejected.
+  allowNegativeStock: boolean;
   tab_general_information: {
     type: "consu" | "service" | "combo";
     service_tracking?:
@@ -61,6 +64,7 @@ export interface IProduct extends Document {
 const ProductSchema: Schema<IProduct> = new Schema(
   {
     tenantId: { type: String, index: true },
+    allowNegativeStock: { type: Boolean, default: false },
     header: {
       name: { type: String, required: true, trim: true },
       sale_ok: { type: Boolean, default: true },

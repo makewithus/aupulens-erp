@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Stock from "@/models/Stock";
 import Product from "@/models/Product"; // Ensure Product model is registered
+import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: Request) {
   try {
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
 
     await connectDB();
     const tenantId = session.user.tenantId || "default-tenant";
+
+    const guard = await checkNegativeStockGuard(tenantId, productId, Number(quantity));
+    if (guard.ok === false) {
+      return NextResponse.json({ error: guard.message }, { status: 400 });
+    }
 
     const stockEntry = await Stock.create({
       product: productId,

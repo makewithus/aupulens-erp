@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import StockMove from "@/models/StockMove";
 import "@/models/Warehouse";
 import "@/models/Product";
+import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: NextRequest) {
   try {
@@ -83,6 +84,18 @@ export async function POST(req: NextRequest) {
           0,
         ),
       };
+
+      // Outgoing moves reduce on-hand stock — reject any line that would
+      // take a product's quantity below zero (unless it has opted in via
+      // Product.allowNegativeStock).
+      if (body.moveType === "outgoing") {
+        for (const line of body.lines) {
+          const guard = await checkNegativeStockGuard(tenantId, line.productId, -(line.demand || 0));
+          if (guard.ok === false) {
+            return NextResponse.json({ error: guard.message }, { status: 400 });
+          }
+        }
+      }
     }
 
     const move = await StockMove.create({
