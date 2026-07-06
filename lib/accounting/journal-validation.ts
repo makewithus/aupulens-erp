@@ -41,6 +41,13 @@ export function validateJournalLinesForPosting(lines: any[] = []) {
     return "Every journal line must have an account";
   }
 
+  const hasNegative = lines.some(
+    (line) => (Number(line.debit) || 0) < 0 || (Number(line.credit) || 0) < 0,
+  );
+  if (hasNegative) {
+    return "Negative values are not allowed for debit or credit.";
+  }
+
   if (!journalLinesAreBalanced(lines)) {
     const totals = getJournalLineTotals(lines);
     return `Journal entry is not balanced. Debit total ${totals.debit.toFixed(
