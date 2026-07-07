@@ -65,11 +65,6 @@ interface Product {
   };
   tab_general_information: {
     type: "consu" | "service" | "combo";
-    service_tracking?:
-      | "no"
-      | "task_global_project"
-      | "project_only"
-      | "task_in_new_project";
     invoice_policy: "order" | "delivery";
     service_upsell: boolean;
     list_price: number;
@@ -112,7 +107,6 @@ const INITIAL_PRODUCT_STATE: ProductFormData = {
   },
   tab_general_information: {
     type: "consu",
-    service_tracking: "no",
     invoice_policy: "order",
     service_upsell: false,
     list_price: 1.0,

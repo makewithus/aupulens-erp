@@ -19,11 +19,6 @@ export interface IProduct extends Document {
   allowNegativeStock: boolean;
   tab_general_information: {
     type: "consu" | "service" | "combo";
-    service_tracking?:
-      | "no"
-      | "task_global_project"
-      | "project_only"
-      | "task_in_new_project";
     invoice_policy: "order" | "delivery";
     service_upsell: boolean;
     list_price: number;
@@ -76,16 +71,6 @@ const ProductSchema: Schema<IProduct> = new Schema(
         type: String,
         enum: ["consu", "service", "combo"],
         required: true,
-      },
-      service_tracking: {
-        type: String,
-        enum: [
-          "no",
-          "task_global_project",
-          "project_only",
-          "task_in_new_project",
-        ],
-        default: "no",
       },
       invoice_policy: {
         type: String,

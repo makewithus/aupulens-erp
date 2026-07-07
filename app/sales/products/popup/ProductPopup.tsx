@@ -350,37 +350,6 @@ export function ProductPopupContent({
                   </SelectContent>
                 </Select>
               </div>
-              {formData.tab_general_information.type === "service" && (
-                <div className="space-y-2">
-                  <Label>Service Tracking</Label>
-                  <Select
-                    value={formData.tab_general_information.service_tracking}
-                    onValueChange={(v) =>
-                      setFormData({
-                        ...formData,
-                        tab_general_information: {
-                          ...formData.tab_general_information,
-                          service_tracking: v,
-                        },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="task_global_project">
-                        Task in Global Project
-                      </SelectItem>
-                      <SelectItem value="project_only">Project Only</SelectItem>
-                      <SelectItem value="task_in_new_project">
-                        Task in New Project
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               <div className="space-y-2">
                 <Label>Invoicing Policy</Label>
                 <Select

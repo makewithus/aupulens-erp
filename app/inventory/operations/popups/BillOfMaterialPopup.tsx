@@ -101,7 +101,6 @@ export function BillOfMaterialPopup({
     },
     tab_general_information: {
       type: "consu",
-      service_tracking: "no",
       invoice_policy: "order",
       service_upsell: false,
       list_price: 1.0,
@@ -282,7 +281,6 @@ export function BillOfMaterialPopup({
                       },
                       tab_general_information: {
                         type: "consu",
-                        service_tracking: "no",
                         invoice_policy: "order",
                         service_upsell: false,
                         list_price: 1.0,
@@ -432,7 +430,6 @@ export function BillOfMaterialPopup({
                                   },
                                   tab_general_information: {
                                     type: "consu",
-                                    service_tracking: "no",
                                     invoice_policy: "order",
                                     service_upsell: false,
                                     list_price: 1.0,
