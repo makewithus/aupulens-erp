@@ -30,7 +30,15 @@ export async function GET(request: NextRequest) {
     }
 
     const status = searchParams.get("status");
-    if (status && status !== "all") {
+    if (status === "unpaid") {
+      // Any invoice with a real outstanding balance — used by the Payments
+      // form's "pick invoices to pay" picker. A plain `status: "saved"`
+      // filter here previously hid overdue and partially-paid invoices
+      // (both still have dues) from the picker entirely.
+      query.status = {
+        $in: [SALES_INVOICE_STATUS.SAVED, SALES_INVOICE_STATUS.OVERDUE, SALES_INVOICE_STATUS.PARTIALLY_PAID],
+      };
+    } else if (status && status !== "all") {
       query.status = status;
     }
 

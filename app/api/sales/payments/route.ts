@@ -105,10 +105,11 @@ export async function POST(request: NextRequest) {
 
     if (allocations.length) {
       // Draft/cancelled invoices are excluded from the real Record Payment
-      // form's invoice picker (it queries status=saved) — reject them here
-      // too so a direct API call can't silently create a "paid" payment
-      // that has no visible effect, since resolveInvoiceStatus deliberately
-      // never auto-transitions a draft/cancelled invoice off that status.
+      // form's invoice picker (it queries status=unpaid, i.e. saved/overdue/
+      // partially_paid) — reject them here too so a direct API call can't
+      // silently create a "paid" payment that has no visible effect, since
+      // resolveInvoiceStatus deliberately never auto-transitions a
+      // draft/cancelled invoice off that status.
       const invoiceIds = allocations.map((a) => a.invoiceId);
       const targetInvoices = await (SalesInvoice as any)
         .find({ _id: { $in: invoiceIds }, tenantId })

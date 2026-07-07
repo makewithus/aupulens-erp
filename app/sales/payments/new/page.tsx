@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -19,7 +20,9 @@ export default function NewPaymentPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6">
-        <PaymentForm />
+        <Suspense fallback={null}>
+          <PaymentForm />
+        </Suspense>
       </div>
     </DashboardLayout>
   );

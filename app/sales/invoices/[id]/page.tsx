@@ -7,7 +7,7 @@ import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, MessageCircle, Pencil, Trash2, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 
 export default function InvoiceDetailPage() {
@@ -106,6 +106,13 @@ export default function InvoiceDetailPage() {
             <a href={`/api/sales/invoices/${invoice._id}/pdf`} target="_blank" rel="noreferrer">
               <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" /> Download PDF</Button>
             </a>
+            {["saved", "overdue", "partially_paid"].includes(invoice.status) && (
+              <Link href={`/sales/payments/new?customerId=${invoice.customerId?._id || invoice.customerId}&invoiceId=${invoice._id}`}>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                  <IndianRupee className="w-4 h-4 mr-2" /> Record Payment
+                </Button>
+              </Link>
+            )}
             <Link href={`/sales/invoices/${invoice._id}/edit`}><Button size="sm"><Pencil className="w-4 h-4 mr-2" /> Edit</Button></Link>
             <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="w-4 h-4 mr-2" /> Delete</Button>
           </div>

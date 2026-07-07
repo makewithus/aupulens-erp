@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,14 +23,17 @@ interface InvoiceRow {
 
 export function PaymentForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillInvoiceId = searchParams.get("invoiceId") || "";
 
   const [customers, setCustomers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [modes, setModes] = useState<any[]>([]);
   const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
   const [saving, setSaving] = useState<"draft" | "paid" | null>(null);
 
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
   const enabled = !!customerId;
 
   const [amountReceived, setAmountReceived] = useState("");
@@ -66,6 +69,9 @@ export function PaymentForm() {
     fetch("/api/accounting/accounts")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []));
+    fetch("/api/accounting/accounts?type=bank")
+      .then((r) => r.json())
+      .then((d) => setBankAccounts(d.items || []));
     fetch("/api/sales/payment-modes")
       .then((r) => r.json())
       .then((d) => d.success && setModes(d.data));
@@ -89,7 +95,7 @@ export function PaymentForm() {
       return;
     }
     setLoadingInvoices(true);
-    fetch(`/api/sales/invoices?customerId=${customerId}&status=saved&limit=200`)
+    fetch(`/api/sales/invoices?customerId=${customerId}&status=unpaid&limit=200`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setInvoices(d.data || []);
@@ -106,6 +112,22 @@ export function PaymentForm() {
   // hand-editing row amounts yet, distribute it across unpaid invoices in
   // date order up to each row's amount due — still fully overridable per row.
   const [touchedManually, setTouchedManually] = useState(false);
+
+  // Arriving from an invoice's "Record Payment" action (row action or detail
+  // page button): once that invoice's row is in the loaded list, apply its
+  // whole due amount to it specifically rather than letting the generic
+  // date-order auto-apply above possibly spread the received amount across
+  // an earlier invoice instead.
+  useEffect(() => {
+    if (!prefillInvoiceId || !invoices.length) return;
+    const target = invoices.find((inv) => inv._id === prefillInvoiceId);
+    if (!target) return;
+    const due = amountDue(target);
+    setAmountReceived(due.toFixed(2));
+    setApplied({ [prefillInvoiceId]: due.toFixed(2) });
+    setTouchedManually(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillInvoiceId, invoices]);
   useEffect(() => {
     if (touchedManually || !invoices.length) return;
     const received = Number(amountReceived) || 0;
@@ -335,9 +357,9 @@ export function PaymentForm() {
             <SelectValue placeholder="Select an account" />
           </SelectTrigger>
           <SelectContent>
-            {accounts.map((a: any) => (
+            {bankAccounts.map((a: any) => (
               <SelectItem key={a._id} value={a._id}>
-                {a.name} {a.code ? `(${a.code})` : ""}
+                {a.name || a.accountName} {a.code ? `(${a.code})` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -461,7 +483,7 @@ export function PaymentForm() {
           </TableBody>
         </Table>
         {invoices.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-1">*List contains only SENT invoices</p>
+          <p className="text-xs text-muted-foreground mt-1">*List contains invoices with an outstanding balance</p>
         )}
         {invoices.length > 0 && (
           <div className="flex justify-end mt-2 text-sm font-semibold">

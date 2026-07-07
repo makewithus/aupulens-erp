@@ -220,6 +220,13 @@ export default function SalesInvoicesLandingPage() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/sales/invoices/${inv._id}/edit`}>Edit</Link>
                               </DropdownMenuItem>
+                              {["saved", "overdue", "partially_paid"].includes(inv.status) && (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/sales/payments/new?customerId=${inv.customerId?._id || inv.customerId}&invoiceId=${inv._id}`}>
+                                    Record Payment
+                                  </Link>
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem asChild>
                                 <a href={`/api/sales/invoices/${inv._id}/pdf`} target="_blank" rel="noreferrer">Download PDF</a>
                               </DropdownMenuItem>

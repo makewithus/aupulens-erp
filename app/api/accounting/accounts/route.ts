@@ -1,7 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Account from "@/models/Account";
+import AccountType from "@/models/AccountType";
+
+// Account-type names (new Chart-of-Accounts-feature catalog) that represent
+// a bank/cash ledger — used to filter "Deposit To" / bank-account pickers
+// across Payments and Journal Entries so they don't list every ledger account.
+const BANK_CASH_TYPE_NAMES = ["Bank", "Cash"];
+// Equivalent value on the older `account_type` string field (pre-dates the
+// AccountType catalog; this schema has no separate "asset_bank" value —
+// "asset_cash" is the bucket both cash and bank ledgers use).
+const BANK_CASH_ACCOUNT_TYPE = "asset_cash";
 
 const GROUP_MAPPING: Record<string, string> = {
   asset_receivable: "asset",
@@ -24,7 +34,7 @@ const GROUP_MAPPING: Record<string, string> = {
   off_balance: "off_balance",
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session) {
@@ -33,21 +43,31 @@ export async function GET() {
 
     await connectDB();
     const tenantId = session.user.tenantId || "default-tenant";
-    let accounts = await Account.find({
-      tenantId,
-    })
+    const query: any = { tenantId };
+
+    const type = request.nextUrl.searchParams.get("type");
+    if (type === "bank") {
+      const bankCashTypeIds = await AccountType.find(
+        { tenantId, name: { $in: BANK_CASH_TYPE_NAMES } },
+        "_id"
+      ).lean();
+      query.$or = [
+        { account_type: BANK_CASH_ACCOUNT_TYPE },
+        { accountType: { $in: bankCashTypeIds.map((t) => t._id) } },
+      ];
+    }
+
+    let accounts = await Account.find(query)
       .sort({ code: 1 })
       .lean();
 
-    if (accounts.length === 0) {
+    if (accounts.length === 0 && !type) {
       try {
         const { seedChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
         const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
         await seedChartOfAccounts(tenantId, session.user.id);
         await seedNewChartOfAccounts(tenantId, session.user.id);
-        accounts = await Account.find({
-          tenantId,
-        })
+        accounts = await Account.find(query)
           .sort({ code: 1 })
           .lean();
       } catch (seedError) {

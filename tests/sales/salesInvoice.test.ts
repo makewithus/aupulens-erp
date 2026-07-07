@@ -74,4 +74,17 @@ describe("SalesInvoice model", () => {
   it("rejects an invalid status enum value", async () => {
     await expect(SalesInvoice.create(baseDoc({ status: "not_a_real_status" }))).rejects.toThrow();
   });
+
+  // Regression coverage for the quote->invoice discount-corruption bug (Bug
+  // 1): extraDiscountMode must be a real, persisted field distinct from the
+  // line-level discountMode above, defaulting to "amount" for old rows that
+  // predate the field but round-tripping "percent" faithfully when set.
+  it("defaults extraDiscountMode to amount and persists percent when set", async () => {
+    const defaulted = await SalesInvoice.create(baseDoc());
+    expect(defaulted.extraDiscountMode).toBe("amount");
+
+    const percent = await SalesInvoice.create(baseDoc({ number: "INV-0002", extraDiscount: 10, extraDiscountMode: "percent" }));
+    expect(percent.extraDiscountMode).toBe("percent");
+    expect(percent.extraDiscount).toBe(10);
+  });
 });
