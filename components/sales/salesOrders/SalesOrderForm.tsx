@@ -514,7 +514,9 @@ export function SalesOrderForm() {
                   <SelectValue placeholder="Select a Tax" />
                 </SelectTrigger>
                 <SelectContent>
-                  {taxRates.map((t: any) => (
+                  {taxRates
+                    .filter((t: any) => t.type === taxMode)
+                    .map((t: any) => (
                     <SelectItem key={t._id} value={t._id}>
                       {t.name} ({t.ratePercent}%)
                     </SelectItem>

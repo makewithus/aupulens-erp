@@ -577,11 +577,13 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                     <SelectValue placeholder="Select a Tax" />
                   </SelectTrigger>
                   <SelectContent>
-                    {taxRates.map((t: any) => (
-                      <SelectItem key={t._id} value={t._id}>
-                        {t.name} ({t.ratePercent}%)
-                      </SelectItem>
-                    ))}
+                    {taxRates
+                      .filter((t: any) => t.type === form.taxes.mode)
+                      .map((t: any) => (
+                        <SelectItem key={t._id} value={t._id}>
+                          {t.name} ({t.ratePercent}%)
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}

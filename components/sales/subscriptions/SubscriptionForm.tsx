@@ -509,11 +509,13 @@ export function SubscriptionForm() {
                   <SelectValue placeholder="Select a Tax" />
                 </SelectTrigger>
                 <SelectContent>
-                  {taxRates.map((t: any) => (
-                    <SelectItem key={t._id} value={t._id}>
-                      {t.name} ({t.ratePercent}%)
-                    </SelectItem>
-                  ))}
+                  {taxRates
+                    .filter((t: any) => t.type === taxMode)
+                    .map((t: any) => (
+                      <SelectItem key={t._id} value={t._id}>
+                        {t.name} ({t.ratePercent}%)
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             )}

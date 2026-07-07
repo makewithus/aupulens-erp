@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import TaxRate from "@/models/TaxRate";
+import { ensureDefaultTdsTcsRates } from "@/lib/accounting/taxRate-seeder";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -11,6 +12,11 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
+
+  // Auto-seed sensible TDS/TCS defaults the first time a tenant has none —
+  // same on-demand pattern as the Chart of Accounts auto-seeder — so the
+  // quote/invoice TDS/TCS picker is never empty out of the box.
+  await ensureDefaultTdsTcsRates(session.user.tenantId, session.user.id);
 
   const query: any = { tenantId: session.user.tenantId };
   if (type) query.type = type;

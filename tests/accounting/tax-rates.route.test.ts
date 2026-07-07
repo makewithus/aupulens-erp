@@ -52,10 +52,27 @@ describe("tax-rates CRUD route", () => {
 
     await TaxRate.create({ tenantId: "route-t2", name: "GST 18%", ratePercent: 18, createdBy: new mongoose.Types.ObjectId() });
 
-    const getRes = await GET(makeRequest(URL));
+    // Filter to type=gst: GET also auto-seeds default TDS/TCS rates for a
+    // tenant with none yet (Bug 3 fix), so an unfiltered call now legitimately
+    // returns more than just the one rate this test created.
+    const getRes = await GET(makeRequest(`${URL}?type=gst`));
     const getBody = await getRes.json();
     expect(getBody.data).toHaveLength(1);
     expect(getBody.data[0].name).toBe("GST 18%");
+  });
+
+  it("GET auto-seeds default TDS/TCS rates the first time a tenant has none", async () => {
+    vi.mocked(auth).mockResolvedValue(mockSession("route-t4"));
+    const getRes = await GET(makeRequest(URL));
+    const getBody = await getRes.json();
+    const types = getBody.data.map((r: any) => r.type);
+    expect(types).toContain("tds");
+    expect(types).toContain("tcs");
+
+    // Re-running GET must not duplicate the seeded rows.
+    const secondRes = await GET(makeRequest(URL));
+    const secondBody = await secondRes.json();
+    expect(secondBody.data).toHaveLength(getBody.data.length);
   });
 
   it("POST rejects a duplicate type+name for the same tenant with 409", async () => {
