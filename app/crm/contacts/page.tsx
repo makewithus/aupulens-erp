@@ -1,6 +1,16 @@
 'use client';
 import { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+import {
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/shared/Table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Loader2, Plus, Download, Users, Star, UserCheck, Calendar } from "lucide-react";
+import { Loader2, Plus, Download, Users, Star, UserCheck, Calendar, FolderKanban } from "lucide-react";
 import Link from "next/link";
 
 const EMPTY_FORM = {
@@ -91,86 +101,256 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Contacts</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Export
-          </Button>
-          <Button onClick={() => setSheetOpen(true)} className="bg-primary gap-2">
-            <Plus className="h-4 w-4" /> New Contact
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Header */}
+        <div className="border-b border-border/20 px-6 py-4">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="shrink-0">
+              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+                All Contacts
+              </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 text-blue-500 rounded-md"><Users className="w-5 h-5" /></div>
-          <div><p className="text-sm text-neutral-400">Total Contacts</p><p className="text-2xl font-bold">{stats.total}</p></div>
-        </div>
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
-          <div className="p-3 bg-purple-500/10 text-purple-500 rounded-md"><Star className="w-5 h-5" /></div>
-          <div><p className="text-sm text-neutral-400">Decision Makers</p><p className="text-2xl font-bold">{stats.decisionMakers}</p></div>
-        </div>
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
-          <div className="p-3 bg-green-500/10 text-green-500 rounded-md"><UserCheck className="w-5 h-5" /></div>
-          <div><p className="text-sm text-neutral-400">Primary Contacts</p><p className="text-2xl font-bold">{stats.primary}</p></div>
-        </div>
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
-          <div className="p-3 bg-orange-500/10 text-orange-500 rounded-md"><Calendar className="w-5 h-5" /></div>
-          <div><p className="text-sm text-neutral-400">Added This Month</p><p className="text-2xl font-bold">{stats.thisMonth}</p></div>
-        </div>
-      </div>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                {contacts.length} {contacts.length === 1 ? "Contact" : "Contacts"}
+              </p>
+            </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <Input placeholder="Search contacts..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
-      </div>
+            <div className="w-full max-w-md flex flex-row gap-8">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search contacts..."
+              />
+              <Button
+                onClick={() => setSheetOpen(true)}
+                className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Contact
+              </Button>
+            </div>
+          </div>
+        </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead>Designation</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Contact Info</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
-            : contacts.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No contacts found.</TableCell></TableRow>
-            ) : contacts.map(c => (
-              <TableRow key={c._id}>
-                <TableCell>
-                  <div className="font-medium">{c.first_name} {c.last_name}</div>
-                  <div className="flex gap-1 mt-1">
-                    {c.is_decision_maker && <Badge variant="default" className="text-[10px] px-1 py-0 h-4">DM</Badge>}
-                    {c.is_primary && <Badge className="bg-green-600 hover:bg-green-600 text-[10px] px-1 py-0 h-4">Primary</Badge>}
-                  </div>
-                </TableCell>
-                <TableCell>{c.account_id?.company_name || '-'}</TableCell>
-                <TableCell>{c.designation || '-'}</TableCell>
-                <TableCell>
-                  {c.role_in_buying ? <span className="text-xs px-2 py-1 rounded border border-neutral-700 bg-neutral-800">{c.role_in_buying}</span> : '-'}
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">{c.email || '-'}</div>
-                  <div className="text-xs text-neutral-500">{c.mobile || '-'}</div>
-                </TableCell>
-                <TableCell>
-                  <Link href={`/crm/contacts/${c._id}`}>
-                    <Button variant="secondary" size="sm">View</Button>
-                  </Link>
-                </TableCell>
+        {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-md"><Users className="w-5 h-5" /></div>
+            <div><p className="text-sm text-neutral-400">Total Contacts</p><p className="text-2xl font-bold">{stats.total}</p></div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+            <div className="p-3 bg-purple-500/10 text-purple-500 rounded-md"><Star className="w-5 h-5" /></div>
+            <div><p className="text-sm text-neutral-400">Decision Makers</p><p className="text-2xl font-bold">{stats.decisionMakers}</p></div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 text-green-500 rounded-md"><UserCheck className="w-5 h-5" /></div>
+            <div><p className="text-sm text-neutral-400">Primary Contacts</p><p className="text-2xl font-bold">{stats.primary}</p></div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+            <div className="p-3 bg-orange-500/10 text-orange-500 rounded-md"><Calendar className="w-5 h-5" /></div>
+            <div><p className="text-sm text-neutral-400">Added This Month</p><p className="text-2xl font-bold">{stats.thisMonth}</p></div>
+          </div>
+        </div> */}
+
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell>Name</TableHeaderCell>
+                <TableHeaderCell>Account</TableHeaderCell>
+                <TableHeaderCell>Designation</TableHeaderCell>
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell>Contact Info</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    {/* Name */}
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-32" />
+                        <div className="flex gap-1">
+                          <Skeleton className="h-4 w-8" />
+                          <Skeleton className="h-4 w-12" />
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Account */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+
+                    {/* Designation */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+
+                    {/* Role */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-24" />
+                    </TableCell>
+
+                    {/* Contact Info */}
+                    <TableCell>
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-3.5 w-20" />
+                      </div>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-16" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : contacts.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                    <h3 className="text-lg font-medium">
+                      {search ? "No contacts match your filters" : "No contacts found"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {search ? "Try adjusting your search query." : 'Click "New Contact" to create one.'}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                contacts.map((c) => (
+                  <TableRow key={c._id}>
+                    {/* Name */}
+                    <TableCell>
+                      <h3 className="text-[18px] font-medium tracking-[-0.03em] text-foreground">
+                        {c.first_name} {c.last_name}
+                      </h3>
+                      <div className="flex gap-1 mt-2">
+                        {c.is_decision_maker && (
+                          <Badge
+                            className="
+                              rounded-none
+                              border-0
+                              bg-transparent
+                              px-0
+                              font-mono
+                              text-[11px]
+                              uppercase
+                              tracking-[0.12em]
+                              hover:bg-transparent
+                              shadow-none
+                              text-[#A77DFF]
+                            "
+                          >
+                            DM
+                          </Badge>
+                        )}
+                        {c.is_decision_maker && c.is_primary && (
+                          <span className="text-muted-foreground/30 font-mono text-[11px] px-1">
+                            •
+                          </span>
+                        )}
+                        {c.is_primary && (
+                          <Badge
+                            className="
+                              rounded-none
+                              border-0
+                              bg-transparent
+                              px-0
+                              font-mono
+                              text-[11px]
+                              uppercase
+                              tracking-[0.12em]
+                              hover:bg-transparent
+                              shadow-none
+                              text-[#8AE06C]
+                            "
+                          >
+                            Primary
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Account */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {c.account_id?.company_name || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Designation */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {c.designation || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Role */}
+                    <TableCell>
+                      {c.role_in_buying ? (
+                        <Badge
+                          className="
+                            rounded-none
+                            border
+                            border-border/30
+                            bg-white/[0.02]
+                            px-2
+                            py-1
+                            font-mono
+                            text-[11px]
+                            uppercase
+                            tracking-[0.05em]
+                            text-muted-foreground
+                            hover:bg-white/[0.02]
+                            shadow-none
+                          "
+                        >
+                          {c.role_in_buying}
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
+                    {/* Contact Info */}
+                    <TableCell>
+                      <div className="text-sm text-foreground">{c.email || "—"}</div>
+                      <div className="mt-1 font-mono text-[11px] text-muted-foreground/60">
+                        {c.mobile || "—"}
+                      </div>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/crm/contacts/${c._id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                          >
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableContainer>
+        </CardContent>
+      </Card>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
