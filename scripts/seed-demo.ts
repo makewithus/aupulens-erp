@@ -49,6 +49,7 @@ import {
   EINVOICE_STATUS,
   STOCK_MOVE_STATUS,
   DOCUMENT_STATUS,
+  PRODUCT_STATUS,
   PRODUCTION_STATUS,
   SALES_SUBSCRIPTION_STATUS,
   SUBSCRIPTION_BILLING_FREQUENCY,
@@ -212,7 +213,7 @@ async function ensureProducts() {
         default_code: d.code,
         description: d.name,
       },
-      status: DOCUMENT_STATUS.APPROVED,
+      status: PRODUCT_STATUS.PUBLISHED,
     } as any);
     console.log("Created product:", d.name);
   }

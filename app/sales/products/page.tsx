@@ -496,6 +496,7 @@ export default function ProductsPage() {
         <ModularModal
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
+          preventOutsideClose={!isViewOnly}
           title={
             isViewOnly
               ? "Product Details"

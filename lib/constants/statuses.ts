@@ -35,6 +35,18 @@ export const DOCUMENT_STATUS_VALUES = Object.values(DOCUMENT_STATUS);
 export type DocumentStatus =
   (typeof DOCUMENT_STATUS)[keyof typeof DOCUMENT_STATUS];
 
+// ============================================================
+//  PRODUCTS (Sales catalog) — a product's lifecycle is publish/unpublish,
+//  not the approval-workflow lifecycle of an accounting document, so it
+//  gets its own enum rather than (mis)reusing DOCUMENT_STATUS.
+// ============================================================
+export const PRODUCT_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const;
+export const PRODUCT_STATUS_VALUES = Object.values(PRODUCT_STATUS);
+export type ProductStatus = (typeof PRODUCT_STATUS)[keyof typeof PRODUCT_STATUS];
+
 // --------------- Valid Transitions ---------------------------
 
 export const DOCUMENT_STATUS_TRANSITIONS: Record<

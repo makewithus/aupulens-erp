@@ -27,6 +27,11 @@ export async function GET(req: any) {
       tenantId,
     };
 
+    const status = searchParams.get("status");
+    if (status) {
+      filter.status = status;
+    }
+
     if (query) {
       const regex = new RegExp(escapeRegex(query), "i");
       filter.$and = [
@@ -143,8 +148,17 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ product }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating product:", error);
+    if (error?.name === "ValidationError") {
+      const fieldErrors = Object.fromEntries(
+        Object.entries(error.errors || {}).map(([field, err]: [string, any]) => [field, err.message]),
+      );
+      return NextResponse.json(
+        { error: "Invalid product data", fields: fieldErrors },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

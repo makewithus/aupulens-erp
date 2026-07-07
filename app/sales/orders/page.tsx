@@ -184,7 +184,7 @@ export default function SalesOrdersPage() {
     try {
       const [pRes, prodRes, uRes, accRes, priceRes, wRes] = await Promise.all([
         fetch("/api/sales/customers"),
-        fetch("/api/sales/products"),
+        fetch("/api/sales/products?status=published"),
         fetch("/api/users"),
         fetch("/api/accounting/accounts"),
         fetch("/api/sales/pricelists"),

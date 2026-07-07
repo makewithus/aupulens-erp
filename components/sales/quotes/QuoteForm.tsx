@@ -91,7 +91,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     fetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    fetch("/api/sales/products")
+    fetch("/api/sales/products?status=published")
       .then((r) => r.json())
       .then((d) => setProducts(d.items || []));
     fetch("/api/finance/accounting/tax-rates")

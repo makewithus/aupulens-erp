@@ -84,7 +84,7 @@ export function SalesOrderForm() {
           setSubscriberCustomerIds(ids);
         }
       });
-    fetch("/api/sales/products")
+    fetch("/api/sales/products?status=published")
       .then((r) => r.json())
       .then((d) => setProducts(d.items || []));
     fetch("/api/finance/accounting/tax-rates")

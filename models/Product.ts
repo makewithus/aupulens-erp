@@ -1,9 +1,9 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import "@/models/Account";
 import {
-  DOCUMENT_STATUS_VALUES,
-  DOCUMENT_STATUS,
-  type DocumentStatus,
+  PRODUCT_STATUS_VALUES,
+  PRODUCT_STATUS,
+  type ProductStatus,
 } from "@/lib/constants/statuses";
 
 export interface IProduct extends Document {
@@ -55,7 +55,7 @@ export interface IProduct extends Document {
       property_account_expense_id?: string;
     };
   };
-  status: DocumentStatus;
+  status: ProductStatus;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -131,7 +131,7 @@ const ProductSchema: Schema<IProduct> = new Schema(
         },
       },
     },
-    status: { type: String, enum: DOCUMENT_STATUS_VALUES, default: DOCUMENT_STATUS.DRAFT },
+    status: { type: String, enum: PRODUCT_STATUS_VALUES, default: PRODUCT_STATUS.DRAFT },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },

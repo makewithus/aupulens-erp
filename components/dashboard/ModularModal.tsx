@@ -18,6 +18,15 @@ interface ModularModalProps {
   footer?: React.ReactNode;
   className?: string;
   contentClassName?: string;
+  /**
+   * When true, a click outside the modal (or Escape) is ignored instead of
+   * closing it — for forms with real unsaved input, where a stray click
+   * (including one that lands on a nested Select/Popover portal, which Radix
+   * treats as "outside" the Dialog) must never silently discard the user's
+   * work. Defaults to false to preserve existing dismiss-on-outside-click
+   * behavior for simple/confirmation modals.
+   */
+  preventOutsideClose?: boolean;
 }
 
 export function ModularModal({
@@ -29,10 +38,13 @@ export function ModularModal({
   footer,
   className,
   contentClassName,
+  preventOutsideClose = false,
 }: ModularModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        onInteractOutside={(e) => { if (preventOutsideClose) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (preventOutsideClose) e.preventDefault(); }}
         className={cn(
           "p-0 overflow-hidden flex flex-col gap-0 border-border bg-[#161616] max-w-[80vw] w-full",
           className,

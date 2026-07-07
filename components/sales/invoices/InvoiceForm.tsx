@@ -142,7 +142,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   useEffect(() => {
     Promise.all([
       fetch("/api/sales/customers").then((r) => r.json()),
-      fetch("/api/sales/products?limit=200").then((r) => r.json()),
+      fetch("/api/sales/products?status=published&limit=200").then((r) => r.json()),
       fetch("/api/sales/document-prefixes?documentType=invoice&kind=prefix").then((r) => r.json()),
       fetch("/api/sales/bank-accounts").then((r) => r.json()),
       fetch("/api/sales/coupons").then((r) => r.json()),
