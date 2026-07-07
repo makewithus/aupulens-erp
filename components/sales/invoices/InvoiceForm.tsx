@@ -125,6 +125,13 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const [tcsEnabled, setTcsEnabled] = useState(false);
   const [tcsRate, setTcsRate] = useState(1);
 
+  // Guards the Deposit-To/Select-Signature dropdowns during the initial
+  // reference-data fetch below — without it, they briefly render as
+  // genuinely-empty-looking dropdowns (indistinguishable from "broken") on
+  // any connection slow enough for the fetch to still be in flight when the
+  // user clicks.
+  const [referenceDataLoading, setReferenceDataLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("modern");
@@ -156,7 +163,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
         setSignatures(settingsRes.data?.signatures || []);
         if (settingsRes.data?.defaultTemplates?.invoice) setSelectedTemplate(settingsRes.data.defaultTemplates.invoice);
       }
-    }).catch(() => toast.error("Failed to load some invoice reference data"));
+    }).catch(() => toast.error("Failed to load some invoice reference data"))
+      .finally(() => setReferenceDataLoading(false));
   }, []);
 
   useEffect(() => {
@@ -831,8 +839,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             <div className="pt-6 mt-6 border-t border-border space-y-4">
               <h3 className="text-sm font-semibold">Payments</h3>
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded border">
-                <Select value={bankAccountId} onValueChange={setBankAccountId}>
-                  <SelectTrigger className="h-8 border-0 bg-transparent"><SelectValue placeholder="Select Bank" /></SelectTrigger>
+                <Select value={bankAccountId} onValueChange={setBankAccountId} disabled={referenceDataLoading}>
+                  <SelectTrigger className="h-8 border-0 bg-transparent"><SelectValue placeholder={referenceDataLoading ? "Loading..." : "Select Bank"} /></SelectTrigger>
                   <SelectContent>
                     {bankAccounts.map((b) => <SelectItem key={b._id} value={b._id}>{b.accountName}</SelectItem>)}
                   </SelectContent>
@@ -869,8 +877,8 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
               <div className="space-y-1">
                 <label className="text-sm font-semibold">Select Signature</label>
-                <Select value={signatureId} onValueChange={setSignatureId}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="None" /></SelectTrigger>
+                <Select value={signatureId} onValueChange={setSignatureId} disabled={referenceDataLoading}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder={referenceDataLoading ? "Loading..." : "None"} /></SelectTrigger>
                   <SelectContent>
                     {signatures.map((s) => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}
                   </SelectContent>

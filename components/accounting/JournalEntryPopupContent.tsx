@@ -37,7 +37,22 @@ export function JournalEntryPopupContent({
   isViewOnly = false,
 }: JournalEntryPopupContentProps) {
   const [accounts, setAccounts] = React.useState<any[]>([]);
+  const [accountsLoading, setAccountsLoading] = React.useState(true);
   const [partners, setPartners] = React.useState<any[]>([]);
+
+  // The Account model has two co-existing field styles (old `name`/`code`
+  // vs. the newer Chart-of-Accounts-feature `accountName`/`accountCode`) —
+  // normalize to one shape so every account gets a real, non-blank label in
+  // the picker regardless of which style created it.
+  const accountOptions = React.useMemo(
+    () =>
+      accounts.map((a: any) => ({
+        _id: a._id,
+        name: a.name || a.accountName || "(unnamed account)",
+        code: a.code || a.accountCode || "",
+      })),
+    [accounts],
+  );
 
   // Partner Create State
   const [isPartnerModalOpen, setIsPartnerModalOpen] = React.useState(false);
@@ -66,12 +81,15 @@ export function JournalEntryPopupContent({
   }, []);
 
   const fetchAccounts = async () => {
+    setAccountsLoading(true);
     try {
       const res = await fetch("/api/accounting/accounts");
       const data = await res.json();
       setAccounts(data.items || []);
     } catch (error) {
       console.error("Error fetching accounts:", error);
+    } finally {
+      setAccountsLoading(false);
     }
   };
 
@@ -286,10 +304,11 @@ export function JournalEntryPopupContent({
                 >
                   <td className="px-2 py-2">
                     <SelectSearchAdd
-                      items={accounts}
+                      items={accountOptions}
                       value={line.accountId}
                       onValueChange={(v) => updateLine(idx, "accountId", v)}
-                      placeholder="Select Account"
+                      placeholder={accountsLoading ? "Loading accounts..." : "Select Account"}
+                      disabled={accountsLoading}
                       onAdd={onAddAccount}
                       dialogTitle="Create New Account"
                       className="border-none bg-transparent hover:bg-white/50 focus:bg-white"

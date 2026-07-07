@@ -61,6 +61,9 @@ export function PaymentForm() {
   const [applied, setApplied] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  // Guards the "Deposit To" dropdown while its bank-accounts fetch is in
+  // flight, so a slow connection can't make it look permanently empty/broken.
+  const [bankAccountsLoading, setBankAccountsLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/sales/customers")
@@ -71,7 +74,8 @@ export function PaymentForm() {
       .then((d) => setAccounts(d.items || []));
     fetch("/api/accounting/accounts?type=bank")
       .then((r) => r.json())
-      .then((d) => setBankAccounts(d.items || []));
+      .then((d) => setBankAccounts(d.items || []))
+      .finally(() => setBankAccountsLoading(false));
     fetch("/api/sales/payment-modes")
       .then((r) => r.json())
       .then((d) => d.success && setModes(d.data));
@@ -352,9 +356,9 @@ export function PaymentForm() {
         <Label className="pt-2">
           Deposit To<span className="text-red-600">*</span>
         </Label>
-        <Select value={depositToAccountId} onValueChange={setDepositToAccountId} disabled={!enabled}>
+        <Select value={depositToAccountId} onValueChange={setDepositToAccountId} disabled={!enabled || bankAccountsLoading}>
           <SelectTrigger className="max-w-sm">
-            <SelectValue placeholder="Select an account" />
+            <SelectValue placeholder={bankAccountsLoading ? "Loading accounts..." : "Select an account"} />
           </SelectTrigger>
           <SelectContent>
             {bankAccounts.map((a: any) => (
