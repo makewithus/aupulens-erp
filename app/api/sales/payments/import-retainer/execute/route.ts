@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
 import Payment from "@/models/Payment";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
+import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
       }
 
       try {
-        await Payment.create({
+        const payment = await Payment.create({
           tenantId,
           customerId: customer._id,
           paymentNumber,
@@ -96,6 +97,24 @@ export async function POST(request: Request) {
           status: PAYMENT_STATUS.PAID,
           paymentType: PAYMENT_TYPE.RETAINER,
         });
+
+        try {
+          // No "Deposit To" column in this import — postCustomerPaymentJournal
+          // falls back to the tenant's default cash account when absent.
+          await postCustomerPaymentJournal({
+            payment,
+            tenantId,
+            createdBy: session.user.id,
+            current: { allocatedTotal: 0, unusedAmount: amount, bankCharges: 0, tdsAmount: 0 },
+          });
+          await payment.save();
+        } catch (postingError: any) {
+          await Payment.deleteOne({ _id: payment._id });
+          errors.push({ row: rowNumber, message: postingError.message });
+          skipped++;
+          continue;
+        }
+
         imported++;
       } catch (e: any) {
         errors.push({ row: rowNumber, message: e.message || "Failed to import row" });

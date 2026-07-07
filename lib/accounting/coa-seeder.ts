@@ -8,12 +8,14 @@ const DEFAULT_ACCOUNTS = [
   { code: "1110", name: "Main Cash", account_type: "asset_cash", internal_group: "asset", parentCode: "1100" },
   { code: "1120", name: "Bank Current Account", account_type: "asset_cash", internal_group: "asset", parentCode: "1100" },
   { code: "1200", name: "Accounts Receivable", account_type: "asset_receivable", internal_group: "asset", parentCode: "1000", reconcile: true },
+  { code: "1210", name: "TDS Receivable", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
   { code: "1300", name: "Stock/Inventory Account", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
   { code: "1400", name: "Fixed Assets", account_type: "asset_fixed", internal_group: "asset", parentCode: "1000" },
 
   // Liabilities
   { code: "2000", name: "Liabilities", account_type: "liability_current", internal_group: "liability", parentCode: null },
   { code: "2100", name: "Accounts Payable", account_type: "liability_payable", internal_group: "liability", parentCode: "2000", reconcile: true },
+  { code: "2150", name: "Customer Advances", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
   { code: "2200", name: "Goods Received Not Invoiced (GRNI)", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
 
   // Equity
@@ -28,6 +30,7 @@ const DEFAULT_ACCOUNTS = [
   // Expense
   { code: "5000", name: "Expense", account_type: "expense", internal_group: "expense", parentCode: null },
   { code: "5100", name: "Cost of Goods Sold (COGS)", account_type: "expense_direct_cost", internal_group: "expense", parentCode: "5000" },
+  { code: "5150", name: "Bank Charges", account_type: "expense", internal_group: "expense", parentCode: "5000" },
   { code: "5200", name: "Salary Expense", account_type: "expense", internal_group: "expense", parentCode: "5000" },
   { code: "5300", name: "Depreciation Expense", account_type: "expense_depreciation", internal_group: "expense", parentCode: "5000" },
 ];

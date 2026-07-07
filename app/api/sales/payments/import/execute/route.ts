@@ -7,6 +7,7 @@ import Payment from "@/models/Payment";
 import Account from "@/models/Account";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
+import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
@@ -144,6 +145,22 @@ export async function POST(request: Request) {
             notes,
           });
 
+          try {
+            await postCustomerPaymentJournal({
+              payment,
+              tenantId,
+              createdBy: session.user.id,
+              current: { allocatedTotal: paymentAmount, unusedAmount, bankCharges, tdsAmount: 0 },
+              invoiceNumbers: [invoice.number],
+            });
+            await payment.save();
+          } catch (postingError: any) {
+            await Payment.deleteOne({ _id: payment._id });
+            errors.push({ row: rowNumber, message: postingError.message });
+            skipped++;
+            continue;
+          }
+
           await applyAllocationsToInvoices({
             tenantId,
             paymentId: String(payment._id),
@@ -155,7 +172,7 @@ export async function POST(request: Request) {
         } else {
           // No invoice number given or invoice not found: still a real
           // recorded payment — the money was received, just not yet applied.
-          await Payment.create({
+          const payment = await Payment.create({
             tenantId,
             customerId: customer._id,
             paymentNumber,
@@ -173,6 +190,21 @@ export async function POST(request: Request) {
             paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
             notes,
           });
+
+          try {
+            await postCustomerPaymentJournal({
+              payment,
+              tenantId,
+              createdBy: session.user.id,
+              current: { allocatedTotal: 0, unusedAmount: paymentAmount, bankCharges, tdsAmount: 0 },
+            });
+            await payment.save();
+          } catch (postingError: any) {
+            await Payment.deleteOne({ _id: payment._id });
+            errors.push({ row: rowNumber, message: postingError.message });
+            skipped++;
+            continue;
+          }
         }
         imported++;
       } catch (e: any) {

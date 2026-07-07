@@ -5,6 +5,7 @@ import Customer from "@/models/Customer";
 import { SalesInvoice } from "@/models/SalesInvoice";
 import Payment from "@/models/Payment";
 import { applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
+import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
@@ -130,6 +131,28 @@ export async function POST(request: Request) {
       try {
         sourcePayment.allocations.push({ invoiceId: invoice._id, amount });
         sourcePayment.unusedAmount = Math.max(0, sourcePayment.unusedAmount - amount);
+
+        // The reclass entry: applying previously-unused/excess amount to a
+        // newly-allocated invoice nets to a clean Dr Customer Advances / Cr
+        // AR posting (no new cash line) — the diff against sourcePayment's
+        // last-posted snapshot handles this automatically.
+        const newAllocatedTotal = sourcePayment.allocations.reduce(
+          (acc: number, a: any) => acc + (Number(a.amount) || 0),
+          0,
+        );
+        await postCustomerPaymentJournal({
+          payment: sourcePayment,
+          tenantId,
+          createdBy: session.user.id,
+          current: {
+            allocatedTotal: newAllocatedTotal,
+            unusedAmount: sourcePayment.unusedAmount,
+            bankCharges: sourcePayment.bankCharges,
+            tdsAmount: sourcePayment.tdsAmount,
+          },
+          invoiceNumbers: [invoice.number],
+        });
+
         await sourcePayment.save();
 
         await applyAllocationsToInvoices({

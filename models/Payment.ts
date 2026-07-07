@@ -12,6 +12,20 @@ export interface IPaymentAllocation {
   amount: number;
 }
 
+// The GL-posted snapshot this payment was last reconciled to — i.e. the
+// (allocatedTotal, unusedAmount, bankCharges, tdsAmount) values baked into
+// the sum of `journalEntryIds` posted so far. Diffing the payment's current
+// values against this snapshot is what makes posting idempotent (a no-op
+// resave posts nothing) and what turns "apply excess to a new invoice" into
+// a correct incremental reclass entry instead of a full re-post. See
+// lib/accounting/payments.ts::postCustomerPaymentJournal.
+export interface IPaymentPostedSnapshot {
+  allocatedTotal: number;
+  unusedAmount: number;
+  bankCharges: number;
+  tdsAmount: number;
+}
+
 export interface IPayment extends Document {
   tenantId: string;
   customerId: mongoose.Types.ObjectId;
@@ -31,6 +45,8 @@ export interface IPayment extends Document {
   paymentType: string;
   notes?: string;
   customFieldValues?: Record<string, any>;
+  postedSnapshot?: IPaymentPostedSnapshot;
+  journalEntryIds: mongoose.Types.ObjectId[];
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -61,6 +77,19 @@ const PaymentSchema = new Schema<IPayment>(
     paymentType: { type: String, enum: PAYMENT_TYPE_VALUES, default: PAYMENT_TYPE.INVOICE_PAYMENT },
     notes: { type: String },
     customFieldValues: { type: Schema.Types.Mixed, default: {} },
+    postedSnapshot: {
+      type: new Schema(
+        {
+          allocatedTotal: { type: Number, required: true },
+          unusedAmount: { type: Number, required: true },
+          bankCharges: { type: Number, required: true },
+          tdsAmount: { type: Number, required: true },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
+    journalEntryIds: [{ type: Schema.Types.ObjectId, ref: "JournalEntry" }],
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },

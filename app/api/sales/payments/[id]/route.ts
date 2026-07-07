@@ -7,10 +7,18 @@ import {
   applyAllocationsToInvoices,
   reverseAllocationsOnInvoices,
 } from "@/lib/sales/paymentAllocation";
+import { postCustomerPaymentJournal, type CustomerPaymentSnapshot } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import "@/models/Customer";
 import { SalesInvoice } from "@/models/SalesInvoice";
 import "@/models/Account";
+
+const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
+  allocatedTotal: 0,
+  unusedAmount: 0,
+  bankCharges: 0,
+  tdsAmount: 0,
+};
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -68,6 +76,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (body.action === "void") {
       payment.status = PAYMENT_STATUS.VOID;
+      try {
+        // Posts a reversing entry (mirror-image of whatever was last
+        // posted) — never mutates the original journal entry.
+        await postCustomerPaymentJournal({
+          payment,
+          tenantId,
+          createdBy: session.user.id,
+          current: ZERO_PAYMENT_SNAPSHOT,
+        });
+      } catch (postingError: any) {
+        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+      }
       await payment.save();
       return NextResponse.json({ success: true, data: payment });
     }
@@ -88,12 +108,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const wantsPaid = body.status === PAYMENT_STATUS.PAID;
+    let targetInvoices: { _id: any; number: string; status: string }[] = [];
     if (wantsPaid && allocations.length) {
       // Same guard as the create route: a draft/cancelled invoice's status
       // never auto-derives from resolveInvoiceStatus, so allowing it here
       // would silently attach a "paid" payment with no visible effect.
       const invoiceIds = allocations.map((a: any) => a.invoiceId);
-      const targetInvoices = await (SalesInvoice as any)
+      targetInvoices = await (SalesInvoice as any)
         .find({ _id: { $in: invoiceIds }, tenantId })
         .select("_id number status")
         .lean();
@@ -121,7 +142,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     payment.unusedAmount = unusedAmount;
     payment.notes = body.notes ?? payment.notes;
     payment.paymentDate = body.paymentDate ? new Date(body.paymentDate) : payment.paymentDate;
-    payment.status = body.status === PAYMENT_STATUS.PAID ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
+    payment.status = wantsPaid ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DRAFT;
+
+    // Reconcile the GL to this payment's new state — a no-op (idempotent)
+    // if nothing allocation/charge/TDS-relevant actually changed, a full
+    // reversal if going from paid back to draft, or a clean reclass entry
+    // if only the allocation mix shifted (e.g. previously-unused/excess
+    // amount now applied to a newly-added invoice).
+    const allocatedTotal = allocations.reduce((acc: number, a: any) => acc + (Number(a.amount) || 0), 0);
+    try {
+      await postCustomerPaymentJournal({
+        payment,
+        tenantId,
+        createdBy: session.user.id,
+        current: wantsPaid
+          ? { allocatedTotal, unusedAmount, bankCharges, tdsAmount }
+          : ZERO_PAYMENT_SNAPSHOT,
+        invoiceNumbers: targetInvoices.map((inv) => inv.number),
+      });
+    } catch (postingError: any) {
+      return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+    }
 
     await payment.save();
 

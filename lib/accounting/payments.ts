@@ -1,6 +1,8 @@
 import type mongoose from "mongoose";
 import Account from "@/models/Account";
 import Invoice from "@/models/Invoice";
+import Customer from "@/models/Customer";
+import type { IPayment, IPaymentPostedSnapshot } from "@/models/Payment";
 import {
   DOCUMENT_STATUS,
   PAYMENT_STATE,
@@ -9,6 +11,7 @@ import {
 } from "@/lib/constants/statuses";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
+import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validation";
 
 type InvoiceDocument = InstanceType<typeof Invoice>;
 
@@ -278,4 +281,211 @@ export async function postInvoicePayment({
     paymentState,
     journalEntryId: journalEntry._id as mongoose.Types.ObjectId,
   };
+}
+
+// ============================================================
+//  Sales / customer Payment GL posting
+//
+//  Reuses the exact same createPostedJournalEntry -> buildJournalEntryPayload
+//  -> validateJournalLinesForPosting pipeline as postInvoicePayment above —
+//  no parallel posting mechanism. Operates on the Sales module's `Payment`
+//  model (distinct from the Finance `Invoice`/vendor-bill flow above).
+// ============================================================
+
+const CUSTOMER_ADVANCES_CODE = "2150";
+const BANK_CHARGES_CODE = "5150";
+const TDS_RECEIVABLE_CODE = "1210";
+const POSTING_EPSILON = 0.005;
+
+export interface CustomerPaymentSnapshot {
+  /** Sum of payment.allocations[].amount — must equal the AR credit exactly (see consistency check in QA_GAP_REPORT §7). */
+  allocatedTotal: number;
+  /** payment.unusedAmount — the portion becoming/leaving Customer Advances. */
+  unusedAmount: number;
+  bankCharges: number;
+  tdsAmount: number;
+}
+
+const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
+  allocatedTotal: 0,
+  unusedAmount: 0,
+  bankCharges: 0,
+  tdsAmount: 0,
+};
+
+async function resolveAccountByCode(tenantId: string, code: string, label: string) {
+  const account = await Account.findOne({ tenantId, code });
+  if (!account) {
+    throw new Error(
+      `${label} account not found in Chart of Accounts. Configure it under Chart of Accounts before posting this payment.`,
+    );
+  }
+  return account;
+}
+
+async function resolveReceivableAccountForPosting(tenantId: string) {
+  const account = await getDefaultAccount({ tenantId, accountType: "asset_receivable" });
+  if (!account) {
+    throw new Error("Accounts Receivable account not found in Chart of Accounts. Configure it before posting this payment.");
+  }
+  return account;
+}
+
+async function resolveDepositAccountForPosting(
+  tenantId: string,
+  depositToAccountId?: mongoose.Types.ObjectId | string,
+) {
+  if (depositToAccountId) {
+    const account = await Account.findOne({ _id: depositToAccountId, tenantId });
+    if (!account) {
+      throw new Error("Deposit To account was not found for this tenant.");
+    }
+    return account;
+  }
+  const fallback = await getDefaultAccount({ tenantId, accountType: "asset_cash" });
+  if (!fallback) {
+    throw new Error("No default cash/bank account found for this tenant. Select a Deposit To account.");
+  }
+  return fallback;
+}
+
+/**
+ * Posts (or reverses/reclasses) the General Ledger impact of a customer
+ * Payment, by diffing its current allocation/charges/TDS state against the
+ * snapshot last posted for it (`payment.postedSnapshot`).
+ *
+ * This single diff-based function naturally covers every scenario in one
+ * formula rather than needing a separate code path per case:
+ *   - Initial post (postedSnapshot absent, treated as all-zero): posts the
+ *     full entry — Dr Deposit-To (net of charges/TDS) [+ Dr Bank Charges]
+ *     [+ Dr TDS Receivable], Cr AR (= allocatedTotal exactly) [+ Cr Customer
+ *     Advances for any unused/excess amount].
+ *   - Excess later applied to a new invoice (allocatedTotal up, unusedAmount
+ *     down by the same amount, nothing else changed): the bank-side deltas
+ *     cancel out to zero, leaving a clean two-line reclass — Dr Customer
+ *     Advances / Cr AR — with no new cash line, exactly matching real-world
+ *     "apply existing credit" bookkeeping.
+ *   - Void (current = all-zero): every delta is the negative of what was
+ *     last posted, producing an exact mirror-image reversal entry. The
+ *     original entry is never mutated — this always creates a new one.
+ *   - No real change (e.g. re-saving with identical amounts, or a duplicate
+ *     request): every delta is ~0, so this returns null and posts nothing —
+ *     the idempotency guarantee.
+ *
+ * Derivation: given the identity (already enforced by
+ * lib/sales/paymentAllocation.ts's validateAllocations) that
+ *   amountReceived = allocatedTotal + unusedAmount + bankCharges + tdsAmount
+ * the only way to give bankCharges and tdsAmount their own real debit lines
+ * while keeping `Cr AR === allocatedTotal` exactly (required so the GL
+ * control account matches the invoice subledger) and the entry balanced, is
+ * Dr-Bank = (allocatedTotal + unusedAmount) − bankCharges − tdsAmount. Applying
+ * this to *deltas* rather than absolute values is what makes every scenario
+ * above fall out of one formula. Verified against the required conventions:
+ * Dr Bank Charges/Cr nothing extra reduces the bank Dr line (rule 2); Dr TDS
+ * Receivable funds AR relief instead of cash (rule 3); Dr/Cr Customer
+ * Advances for excess and its later reclass (rules 4/6); pure Dr Bank / Cr
+ * Customer Advances for a retainer with no allocations (rule 5).
+ *
+ * Mutates `payment.postedSnapshot` and appends to `payment.journalEntryIds`
+ * on a successful post — the caller is responsible for `payment.save()`.
+ * Never posts when the resulting entry would have zero net lines (draft
+ * payments must call this with `current = ZERO_PAYMENT_SNAPSHOT`, which is a
+ * no-op unless something was previously posted, in which case it reverses).
+ */
+export async function postCustomerPaymentJournal({
+  payment,
+  tenantId,
+  createdBy,
+  current,
+  invoiceNumbers = [],
+}: {
+  payment: IPayment;
+  tenantId: string;
+  createdBy: string;
+  current: CustomerPaymentSnapshot;
+  invoiceNumbers?: string[];
+}): Promise<mongoose.Types.ObjectId | null> {
+  const previous: CustomerPaymentSnapshot = payment.postedSnapshot || ZERO_PAYMENT_SNAPSHOT;
+
+  const dAlloc = roundCurrency(current.allocatedTotal - previous.allocatedTotal);
+  const dUnused = roundCurrency(current.unusedAmount - previous.unusedAmount);
+  const dCharges = roundCurrency(current.bankCharges - previous.bankCharges);
+  const dTds = roundCurrency(current.tdsAmount - previous.tdsAmount);
+
+  if (
+    Math.abs(dAlloc) < POSTING_EPSILON &&
+    Math.abs(dUnused) < POSTING_EPSILON &&
+    Math.abs(dCharges) < POSTING_EPSILON &&
+    Math.abs(dTds) < POSTING_EPSILON
+  ) {
+    return null; // idempotent no-op — nothing changed since the last post
+  }
+
+  await ensureChartOfAccounts(tenantId, createdBy);
+
+  const customer = await Customer.findOne({ _id: payment.customerId, tenantId })
+    .select("header.name header.displayName")
+    .lean();
+  const customerName = (customer as any)?.header?.displayName || (customer as any)?.header?.name || "Customer";
+  const narration = `Payment ${payment.paymentNumber} from ${customerName}${
+    invoiceNumbers.length ? ` against ${invoiceNumbers.join(", ")}` : ""
+  }`;
+
+  const lines: any[] = [];
+  const pushLine = (accountId: any, amount: number, label: string) => {
+    if (Math.abs(amount) < POSTING_EPSILON) return;
+    lines.push({
+      accountId,
+      partnerId: payment.customerId,
+      label,
+      debit: amount > 0 ? roundCurrency(amount) : 0,
+      credit: amount < 0 ? roundCurrency(-amount) : 0,
+      sourceDocument: payment.paymentNumber,
+      sourceId: payment._id,
+    });
+  };
+
+  const bankDr = roundCurrency(dAlloc + dUnused - dCharges - dTds);
+  const depositAccount = await resolveDepositAccountForPosting(tenantId, payment.depositToAccountId);
+  pushLine(depositAccount._id, bankDr, narration);
+
+  if (Math.abs(dCharges) >= POSTING_EPSILON) {
+    const bankChargesAccount = await resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges");
+    pushLine(bankChargesAccount._id, dCharges, `Bank charges — ${narration}`);
+  }
+
+  if (Math.abs(dTds) >= POSTING_EPSILON) {
+    const tdsAccount = await resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable");
+    pushLine(tdsAccount._id, dTds, `TDS deducted — ${narration}`);
+  }
+
+  const receivableAccount = await resolveReceivableAccountForPosting(tenantId);
+  pushLine(receivableAccount._id, -dAlloc, narration);
+
+  if (Math.abs(dUnused) >= POSTING_EPSILON) {
+    const advancesAccount = await resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances");
+    pushLine(advancesAccount._id, -dUnused, `Customer advance — ${narration}`);
+  }
+
+  const validationError = validateJournalLinesForPosting(lines);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const journalEntry = await createPostedJournalEntry({
+    tenantId,
+    header: {
+      date: payment.paymentDate,
+      ref: payment.paymentNumber,
+      journalType: "bank",
+    },
+    voucherType: VOUCHER_TYPE.RECEIPT,
+    lineIds: lines,
+    createdBy,
+  });
+
+  payment.postedSnapshot = current as IPaymentPostedSnapshot;
+  payment.journalEntryIds = [...(payment.journalEntryIds || []), journalEntry._id as mongoose.Types.ObjectId];
+
+  return journalEntry._id as mongoose.Types.ObjectId;
 }

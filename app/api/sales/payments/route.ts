@@ -5,6 +5,7 @@ import Payment from "@/models/Payment";
 import SalesView from "@/models/SalesView";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
+import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
 import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: e.message }, { status: 400 });
     }
 
+    let targetInvoices: { _id: any; number: string; status: string }[] = [];
     if (allocations.length) {
       // Draft/cancelled invoices are excluded from the real Record Payment
       // form's invoice picker (it queries status=unpaid, i.e. saved/overdue/
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
       // resolveInvoiceStatus deliberately never auto-transitions a
       // draft/cancelled invoice off that status.
       const invoiceIds = allocations.map((a) => a.invoiceId);
-      const targetInvoices = await (SalesInvoice as any)
+      targetInvoices = await (SalesInvoice as any)
         .find({ _id: { $in: invoiceIds }, tenantId })
         .select("_id number status")
         .lean();
@@ -156,15 +158,36 @@ export async function POST(request: NextRequest) {
       createdBy: session.user.id,
     });
 
-    if (status === PAYMENT_STATUS.PAID && allocations.length) {
-      await applyAllocationsToInvoices({
-        tenantId,
-        paymentId: String(payment._id),
-        paymentNumber,
-        paymentDate: payment.paymentDate,
-        mode: payment.mode,
-        allocations,
-      });
+    if (status === PAYMENT_STATUS.PAID) {
+      // Post to the General Ledger BEFORE touching invoice allocations — if
+      // a required account (AR/Bank Charges/TDS Receivable/Customer
+      // Advances) is missing for this tenant, nothing else should happen
+      // and the payment must not sit in "paid" state with no GL impact.
+      const allocatedTotal = allocations.reduce((acc: number, a) => acc + (Number(a.amount) || 0), 0);
+      try {
+        await postCustomerPaymentJournal({
+          payment,
+          tenantId,
+          createdBy: session.user.id,
+          current: { allocatedTotal, unusedAmount, bankCharges, tdsAmount },
+          invoiceNumbers: targetInvoices.map((inv) => inv.number),
+        });
+        await payment.save();
+      } catch (postingError: any) {
+        await Payment.deleteOne({ _id: payment._id });
+        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+      }
+
+      if (allocations.length) {
+        await applyAllocationsToInvoices({
+          tenantId,
+          paymentId: String(payment._id),
+          paymentNumber,
+          paymentDate: payment.paymentDate,
+          mode: payment.mode,
+          allocations,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, data: payment }, { status: 201 });
