@@ -211,6 +211,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     setEInvoice(!!inv.eInvoice);
     setAttachments(inv.attachments || []);
     setExtraDiscount(inv.extraDiscount || 0);
+    setExtraDiscountMode(inv.extraDiscountMode || "amount");
     setRoundOff(!!inv.roundOff);
     setBankAccountId(inv.bankAccountId?._id || inv.bankAccountId || "");
     setPayments((inv.payments || []).map((p: any) => ({ id: crypto.randomUUID(), notes: p.notes || "", amount: p.amount, date: new Date(p.date).toISOString().slice(0, 10), mode: p.mode })));

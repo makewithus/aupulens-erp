@@ -33,6 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       lineItems: quote.lineItems,
       itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
       extraDiscount: quote.extraDiscount,
+      extraDiscountMode: quote.extraDiscountMode,
       taxableAmount: quote.taxableAmount,
       totalDiscount: quote.totalDiscount,
       totalAmount: quote.totalAmount,

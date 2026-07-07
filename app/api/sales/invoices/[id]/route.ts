@@ -74,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       itemLevelDiscountPercent: merged.itemLevelDiscountPercent || 0,
       additionalCharges: merged.additionalCharges || [],
       extraDiscount: merged.extraDiscount || 0,
-      extraDiscountMode: "amount",
+      extraDiscountMode: merged.extraDiscountMode || "amount",
       roundOff: !!merged.roundOff,
       sellerState,
       placeOfSupply: merged.placeOfSupply,

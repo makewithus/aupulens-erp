@@ -36,6 +36,7 @@ export interface ISalesInvoice extends Document {
   itemLevelDiscountPercent?: number;
   additionalCharges: { name: string; amount: number; isTaxable: boolean }[];
   extraDiscount: number;
+  extraDiscountMode: "percent" | "amount";
   roundOff: boolean;
   taxableAmount: number;
   totalDiscount: number;
@@ -103,6 +104,7 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
       },
     ],
     extraDiscount: { type: Number, default: 0 },
+    extraDiscountMode: { type: String, enum: ["percent", "amount"], default: "amount" },
     roundOff: { type: Boolean, default: false },
     taxableAmount: { type: Number, required: true },
     totalDiscount: { type: Number, default: 0 },

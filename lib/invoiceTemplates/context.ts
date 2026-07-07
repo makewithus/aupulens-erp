@@ -79,7 +79,7 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
     itemLevelDiscountPercent: invoice.itemLevelDiscountPercent || 0,
     additionalCharges: invoice.additionalCharges || [],
     extraDiscount: invoice.extraDiscount || 0,
-    extraDiscountMode: "amount",
+    extraDiscountMode: invoice.extraDiscountMode || "amount",
     roundOff: !!invoice.roundOff,
     sellerState: company.state,
     placeOfSupply: invoice.placeOfSupply,

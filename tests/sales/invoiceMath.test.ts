@@ -92,6 +92,42 @@ describe("computeInvoiceTotals", () => {
     expect(totals.tcsAmount).toBeCloseTo(10);
     expect(totals.totalAmount).toBeCloseTo(1000 - 100 + 10);
   });
+
+  it("applies TCS at a fractional rate like 0.1% (TCS 206C(1H))", () => {
+    const totals = computeInvoiceTotals({ lineItems: [{ qty: 1, unitPrice: 100000, discount: 0, discountMode: "percent", taxRate: 0 }], tcsRate: 0.1 });
+    expect(totals.tcsAmount).toBeCloseTo(100);
+  });
+
+  // Regression coverage for the quote->invoice discount-corruption bug
+  // (Bug 1): a 10% line discount, a flat ₹ document discount, and a 10%
+  // document discount must each stay in their own unit end to end, and must
+  // combine correctly with TDS/TCS — this is the exact math both the quote
+  // and invoice sides now share via computeInvoiceTotals.
+  it("keeps a 10% line discount as a percentage, not a flat amount", () => {
+    const totals = computeInvoiceTotals({ lineItems: [{ qty: 2, unitPrice: 500, discount: 10, discountMode: "percent", taxRate: 0 }] });
+    expect(totals.totalDiscount).toBe(100); // 10% of 1000, not a flat 10
+    expect(totals.taxableAmount).toBe(900);
+  });
+
+  it("keeps a flat ₹ document-level discount flat regardless of subtotal", () => {
+    const totals = computeInvoiceTotals({ lineItems: [{ qty: 1, unitPrice: 5000, discount: 0, discountMode: "percent", taxRate: 0 }], extraDiscount: 500, extraDiscountMode: "amount" });
+    expect(totals.extraDiscountAmount).toBe(500);
+    expect(totals.taxableAmount).toBe(4500);
+  });
+
+  it("combines a 10% document discount with TDS 10% and TCS 0.1%", () => {
+    const totals = computeInvoiceTotals({
+      lineItems: [{ qty: 1, unitPrice: 10000, discount: 0, discountMode: "percent", taxRate: 0 }],
+      extraDiscount: 10,
+      extraDiscountMode: "percent",
+      tdsRate: 10,
+      tcsRate: 0.1,
+    });
+    expect(totals.taxableAmount).toBe(9000); // 10000 - 10%
+    expect(totals.tdsAmount).toBeCloseTo(900); // 10% of 9000
+    expect(totals.tcsAmount).toBeCloseTo(9); // 0.1% of 9000
+    expect(totals.totalAmount).toBeCloseTo(9000 - 900 + 9);
+  });
 });
 
 describe("computeHsnSummary", () => {

@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,
       additionalCharges: body.additionalCharges || [],
       extraDiscount: body.extraDiscount || 0,
-      extraDiscountMode: "amount",
+      extraDiscountMode: body.extraDiscountMode || "amount",
       roundOff: !!body.roundOff,
       sellerState,
       placeOfSupply: body.placeOfSupply,
