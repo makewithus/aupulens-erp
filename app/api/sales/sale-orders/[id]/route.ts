@@ -9,6 +9,33 @@ import {
   isValidQ2CTransition,
 } from "@/lib/constants/statuses";
 
+// Map client legacy status to DB DocumentStatus
+function toDbStatus(status: string): string {
+  if (status === "sale") return DOCUMENT_STATUS.APPROVED;
+  if (status === "sent") return DOCUMENT_STATUS.PENDING_APPROVAL;
+  if (status === "cancel") return DOCUMENT_STATUS.CANCELLED;
+  if (status === "done") return DOCUMENT_STATUS.CLOSED;
+  return status;
+}
+
+// Map DB DocumentStatus to client legacy status
+function toClientStatus(status: string): string {
+  if (status === DOCUMENT_STATUS.APPROVED) return "sale";
+  if (status === DOCUMENT_STATUS.PENDING_APPROVAL) return "sent";
+  if (status === DOCUMENT_STATUS.CANCELLED) return "cancel";
+  if (status === DOCUMENT_STATUS.CLOSED) return "done";
+  return status;
+}
+
+// Map order document fields to client structure
+function mapOrderToClient(order: any): any {
+  if (!order) return order;
+  return {
+    ...order,
+    status: toClientStatus(order.status),
+  };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -35,7 +62,7 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ item: order });
+    return NextResponse.json({ item: mapOrderToClient(order) });
   } catch (error) {
     console.error("Error fetching sale order:", error);
     return NextResponse.json(
@@ -62,14 +89,8 @@ export async function PATCH(
     const tenantId = (session.user as any).tenantId || "default-tenant";
 
     // Backward-compatible mapping from legacy sale-order statuses.
-    if (body.status === "sale") {
-      body.status = DOCUMENT_STATUS.APPROVED;
-    }
-    if (body.status === "sent") {
-      body.status = DOCUMENT_STATUS.PENDING_APPROVAL;
-    }
-    if (body.status === "cancel") {
-      body.status = DOCUMENT_STATUS.CANCELLED;
+    if (body.status) {
+      body.status = toDbStatus(body.status);
     }
 
     // Check if confirming to sale order.
@@ -167,7 +188,8 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ order });
+    const clientOrder = mapOrderToClient(order.toObject());
+    return NextResponse.json({ order: clientOrder });
   } catch (error) {
     console.error("Error updating sale order:", error);
     return NextResponse.json(
