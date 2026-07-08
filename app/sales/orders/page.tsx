@@ -5,12 +5,11 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { SearchInput } from "@/components/SearchInput";
 import {
   Select,
   SelectContent,
@@ -18,61 +17,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  ShoppingCart,
-  Eye,
-  Edit2,
-  Trash2,
-  Lock,
-  CheckCircle2,
-  FileText,
-  Printer,
-  ArrowRight,
-  XCircle,
-  Truck,
-  DollarSign,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { SaleOrderPopupContent } from "../sale-orders/popup/SaleOrderPopup";
-import { CustomerPopupContent } from "../customers/popup/CustomerPopup";
-import { ProductPopupContent } from "../products/popup/ProductPopup";
-import { PricelistPopupContent } from "../pricelist/popup/PricelistPopup";
-import { WarehousePopupContent } from "../warehouses/popup/WarehousePopup";
-import { InvoicePopupContent } from "@/components/accounting/InvoicePopupContent";
-import {
-  Q2C_STATUS,
-  Q2C_STATUS_LABELS,
-  Q2C_STATUS_COLORS,
-  Q2C_FLOW_STEPS,
-  getNextQ2CStatuses,
-  type Q2CStatus,
-} from "@/lib/constants/statuses";
+import { Plus, ShoppingCart } from "lucide-react";
+
+// Extracted Subcomponents
+import { OrderTable } from "@/components/sales/orders/OrderTable";
+import { OrderModals } from "@/components/sales/orders/OrderModals";
 
 export default function SalesOrdersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Data list and loading states
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Resources
+  // Resources state (for modals dropdowns)
   const [partners, setPartners] = useState([]);
   const [products, setProducts] = useState([]);
   const [pricelists, setPricelists] = useState([]);
   const [users, setUsers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [accounts, setAccounts] = useState([]);
 
-  // Modal State
+  // Main Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [activeTab, setActiveTab] = useState("lines");
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Invoice Modal States
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [invoiceFormData, setInvoiceFormData] = useState<any>(null);
+
+  // Main Form Data State (status defaults to "sale" for Sales Orders)
   const [formData, setFormData] = useState<any>({
     header: {
       name: "",
@@ -98,86 +78,6 @@ export default function SalesOrdersPage() {
     },
     status: "sale",
   });
-
-  // Nested Modal States
-  const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
-  const [partnerFormData, setPartnerFormData] = useState<any>({
-    header: { name: "", is_company: false },
-    contact_details: { email: "", phone: "", mobile: "", website: "" },
-    address_tab: { type: "contact", street: "", city: "", zip: "" },
-    sales_purchase_tab: { user_id: "default" },
-    accounting_tab: {
-      property_account_receivable_id: "",
-      property_account_payable_id: "",
-    },
-  });
-  const [partnerTab, setPartnerTab] = useState("address");
-
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [productFormData, setProductFormData] = useState<any>({
-    header: {
-      name: "",
-      sale_ok: true,
-      purchase_ok: true,
-      can_be_expensed: false,
-    },
-    tab_general_information: {
-      type: "consu",
-      invoice_policy: "order",
-      list_price: 0,
-      standard_price: 0,
-    },
-    tab_sales: {
-      upsell_cross_sell: { optional_product_ids: [] },
-      extra_info: { tag_ids: [], description_sale: "" },
-    },
-    tab_prices: { pricelist_item_ids: [] },
-    tab_accounting: { cost_and_revenue: {} },
-    status: "draft",
-  });
-  const [productTab, setProductTab] = useState("general");
-
-  const [isPricelistModalOpen, setIsPricelistModalOpen] = useState(false);
-  const [pricelistFormData, setPricelistFormData] = useState<any>({
-    name: "",
-    currencyId: "INR",
-    items: [],
-    active: true,
-  });
-
-  const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
-  const [warehouseFormData, setWarehouseFormData] = useState<any>({
-    warehouseCode: "",
-    name: "",
-    location: "",
-    address: "",
-    capacity: 0,
-    type: "standard",
-    status: "active",
-  });
-
-  const [isNestedPricelistModalOpen, setIsNestedPricelistModalOpen] =
-    useState(false);
-  const [nestedPricelistFormData, setNestedPricelistFormData] = useState<any>({
-    name: "",
-    currencyId: "INR",
-    items: [],
-    active: true,
-  });
-
-  const [accounts, setAccounts] = useState([]);
-  const [isChildSubmitting, setIsChildSubmitting] = useState(false);
-
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [accountFormData, setAccountFormData] = useState<any>({
-    code: "",
-    name: "",
-    account_type: "income",
-    parent_id: null,
-  });
-
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [invoiceFormData, setInvoiceFormData] = useState<any>(null);
 
   const loadResources = async () => {
     try {
@@ -231,6 +131,7 @@ export default function SalesOrdersPage() {
     }
   }, [status, router, load]);
 
+  // Modal Open Triggers
   const handleOpenCreate = () => {
     setCurrentOrder(null);
     setIsViewOnly(false);
@@ -276,6 +177,22 @@ export default function SalesOrdersPage() {
     setIsModalOpen(true);
   };
 
+  // Operation Handlers
+  const handleSaveChat = async (updatedChatter: any[]) => {
+    if (!currentOrder?._id) return;
+    try {
+      await fetch(`/api/sales/sale-orders/${currentOrder._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatter: updatedChatter }),
+      });
+      load();
+    } catch (error) {
+      console.error("Failed to save chat", error);
+      toast.error("Failed to save message");
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -305,174 +222,37 @@ export default function SalesOrdersPage() {
     }
   };
 
-  const handleCreatePartner = async () => {
-    setIsChildSubmitting(true);
+  const handleViewInvoice = async (invoiceId: string) => {
     try {
-      const res = await fetch("/api/sales/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(partnerFormData),
-      });
-      if (!res.ok) throw new Error("Failed to create customer");
-      toast.success("Customer created");
-      setIsPartnerModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
+      const res = await fetch(`/api/accounting/invoices/${invoiceId}`);
+      if (!res.ok) throw new Error("Failed to load invoice");
+      const inv = await res.json();
+      setInvoiceFormData(inv);
+      setIsInvoiceModalOpen(true);
+    } catch (e) {
+      toast.error("Could not load Invoice");
     }
   };
 
-  const handleCreateProduct = async () => {
-    setIsChildSubmitting(true);
+  const handleCreateInvoice = async (orderId: string) => {
     try {
-      const res = await fetch("/api/sales/products", {
+      const res = await fetch("/api/accounting/invoices/from-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(productFormData),
+        body: JSON.stringify({ saleOrderId: orderId }),
       });
-      if (!res.ok) throw new Error("Failed to create product");
-      toast.success("Product created");
-      setIsProductModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
-    }
-  };
-
-  const handleCreatePricelist = async () => {
-    setIsChildSubmitting(true);
-    try {
-      const res = await fetch("/api/sales/pricelists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pricelistFormData),
-      });
-      if (!res.ok) throw new Error("Failed to create pricelist");
-      toast.success("Pricelist created");
-      setIsPricelistModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
-    }
-  };
-
-  const handleCreateWarehouse = async () => {
-    setIsChildSubmitting(true);
-    try {
-      const res = await fetch("/api/inventory/warehouse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(warehouseFormData),
-      });
-      if (!res.ok) throw new Error("Failed to create warehouse");
-      toast.success("Warehouse created");
-      setIsWarehouseModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
-    }
-  };
-
-  const handleCreateNestedPricelist = () => {
-    setNestedPricelistFormData({
-      name: "",
-      currencyId: "INR",
-      items: [],
-      active: true,
-    });
-    setIsNestedPricelistModalOpen(true);
-  };
-
-  const handleSaveNestedPricelist = async () => {
-    if (!nestedPricelistFormData.name) {
-      toast.error("Pricelist name is required");
-      return;
-    }
-
-    setIsChildSubmitting(true);
-    try {
-      const res = await fetch("/api/sales/pricelists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nestedPricelistFormData),
-      });
-
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to create pricelist");
+        throw new Error(err.error || "Failed to create invoice");
       }
-
-      toast.success("Pricelist created successfully");
-      setIsNestedPricelistModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
-    }
-  };
-
-  const handleCreateAccount = () => {
-    setAccountFormData({
-      code: "",
-      name: "",
-      account_type: "income",
-      parent_id: null,
-    });
-    setIsAccountModalOpen(true);
-  };
-
-  const handleSaveAccount = async () => {
-    if (!accountFormData.name || !accountFormData.code) {
-      toast.error("Account code and name are required");
-      return;
-    }
-
-    setIsChildSubmitting(true);
-    try {
-      const res = await fetch("/api/accounting/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(accountFormData),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create account");
-      }
-
-      toast.success("Account created successfully");
-      setIsAccountModalOpen(false);
-      loadResources();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setIsChildSubmitting(false);
-    }
-  };
-
-  // Save chat immediately
-  const handleSaveChat = async (updatedChatter: any[]) => {
-    if (!currentOrder?._id) return;
-
-    try {
-      await fetch(`/api/sales/sale-orders/${currentOrder._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatter: updatedChatter }),
-      });
+      const invoice = await res.json();
+      setInvoiceFormData(invoice);
+      setIsInvoiceModalOpen(true);
+      toast.success("Draft Invoice Created");
       load();
-    } catch (error) {
-      console.error("Failed to save chat", error);
-      toast.error("Failed to save message");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to create invoice");
     }
   };
 
@@ -506,49 +286,14 @@ export default function SalesOrdersPage() {
         throw new Error(err.error || "Transition failed");
       }
 
-      toast.success(`Moved to ${Q2C_STATUS_LABELS[nextStatus as Q2CStatus]}`);
+      toast.success(`Moved to stage`);
       load();
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  const handleViewInvoice = async (invoiceId: string) => {
-    try {
-      const res = await fetch(`/api/accounting/invoices/${invoiceId}`);
-      if (!res.ok) throw new Error("Failed to load invoice");
-      const inv = await res.json();
-      setInvoiceFormData(inv);
-      setIsInvoiceModalOpen(true);
-    } catch (e) {
-      toast.error("Could not load Invoice");
-    }
-  };
-
-  const handleCreateInvoice = async (orderId: string) => {
-    try {
-      const res = await fetch("/api/accounting/invoices/from-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ saleOrderId: orderId }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create invoice");
-      }
-
-      const invoice = await res.json();
-      setInvoiceFormData(invoice);
-      setIsInvoiceModalOpen(true);
-      toast.success("Draft Invoice Created");
-      load();
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Failed to create invoice");
-    }
-  };
-
+  // Filter calculations
   const filtered = data.filter((o) => {
     const matchesQuery = [
       o.header.name,
@@ -557,31 +302,6 @@ export default function SalesOrdersPage() {
     const matchesStatus = statusFilter === "all" || o.status === statusFilter;
     return matchesQuery && matchesStatus;
   });
-
-  const getStatusBadge = (status: string) => {
-    const config: any = {
-      sale: {
-        variant: "default",
-        color:
-          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      },
-      done: {
-        variant: "secondary",
-        color:
-          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-      },
-      cancel: {
-        variant: "destructive",
-        color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      },
-    };
-    const c = config[status] || { variant: "secondary", color: "" };
-    return (
-      <Badge variant={c.variant} className={`${c.color} capitalize border-0`}>
-        {status}
-      </Badge>
-    );
-  };
 
   return (
     <DashboardLayout
@@ -599,543 +319,121 @@ export default function SalesOrdersPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Sales Orders</h1>
-            <p className="text-sm text-muted-foreground">
-              Confirmed orders and historical records
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search orders..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Order
-            </Button>
-          </div>
+      <div className="space-y-1">
+        {/* Page Header */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
+          {/* <div>
+            <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+              Sales Orders
+            </h2>
+          </div> */}
         </div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Sales Orders</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Order" : "Orders"}
+                </p>
+              </div>
+
+              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search orders..."
+                  />
+                </div>
+
+                {/* Status select filter */}
+                <div className="flex items-center gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/40">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="sale">Sale</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                      <SelectItem value="cancel">Cancel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Order
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+                <p className="text-muted-foreground font-mono text-xs">
                   No sales orders found
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Reference</th>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Total</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Q2C Stage</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((o) => (
-                      <tr
-                        key={o._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center rounded text-indigo-600">
-                            <ShoppingCart className="h-4 w-4" />
-                          </div>
-                          {o.header.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {o.header.partnerId?.header?.name || "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold">
-                          ₹{o.totals.amountTotal.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs">
-                          {getStatusBadge(o.status)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {(() => {
-                            const q2c = o.q2cStatus || Q2C_STATUS.LEAD;
-                            const colors = Q2C_STATUS_COLORS[q2c as Q2CStatus];
-                            const nextStatuses = getNextQ2CStatuses(q2c);
-                            const forwardNext = nextStatuses.find(
-                              (s) =>
-                                s !== Q2C_STATUS.LOST &&
-                                s !== Q2C_STATUS.CANCELLED,
-                            );
-                            return (
-                              <div className="flex items-center gap-1.5">
-                                <Badge
-                                  className={`${colors?.bg || ""} ${colors?.text || ""} border-0 text-[10px]`}
-                                >
-                                  {Q2C_STATUS_LABELS[q2c as Q2CStatus] || q2c}
-                                </Badge>
-                                {forwardNext && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() =>
-                                      handleQ2CTransition(o._id, forwardNext)
-                                    }
-                                    title={`Advance to ${Q2C_STATUS_LABELS[forwardNext]}`}
-                                  >
-                                    <ArrowRight className="h-3 w-3 text-blue-600" />
-                                  </Button>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground text-xs">
-                          {new Date(o.header.dateOrder).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenView(o)}
-                            title="View Detail"
-                            className="h-8 w-8 text-blue-600"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {o.status === "sale" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEdit(o)}
-                              title="Edit Order"
-                              className="h-8 w-8 text-indigo-600"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {o.status === "sale" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleAction(o._id, "done")}
-                              title="Lock Order"
-                              className="h-8 w-8 text-green-600"
-                            >
-                              <Lock className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {(o.status === "sale" || o.status === "done") &&
-                            (o.invoiceIds && o.invoiceIds.length > 0 ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() =>
-                                  handleViewInvoice(o.invoiceIds[0])
-                                }
-                                title="View Invoice"
-                                className="h-8 w-8 text-purple-600"
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleCreateInvoice(o._id)}
-                                title="Create Invoice"
-                                className="h-8 w-8 text-orange-600"
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            ))}
-                          {o.status !== "cancel" && o.status !== "done" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleAction(o._id, "cancel")}
-                              title="Cancel"
-                              className="h-8 w-8 text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <OrderTable
+                filtered={filtered}
+                handleQ2CTransition={handleQ2CTransition}
+                handleViewInvoice={handleViewInvoice}
+                handleCreateInvoice={handleCreateInvoice}
+                handleOpenView={handleOpenView}
+                handleOpenEdit={handleOpenEdit}
+                handleAction={handleAction}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          isViewOnly
-            ? "View Sales Order"
-            : currentOrder
-              ? "Edit Sales Order"
-              : "New Sales Order"
-        }
-        footer={
-          isViewOnly ? (
-            <div className="space-y-3 px-6 py-4">
-              {/* Q2C Flow Stepper */}
-              {currentOrder && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Q2C Pipeline
-                  </p>
-                  <div className="flex items-center gap-1">
-                    {Q2C_FLOW_STEPS.map((step, idx) => {
-                      const currentQ2C =
-                        currentOrder.q2cStatus || Q2C_STATUS.LEAD;
-                      const currentIdx = Q2C_FLOW_STEPS.indexOf(
-                        currentQ2C as Q2CStatus,
-                      );
-                      const isCompleted = idx < currentIdx;
-                      const isCurrent = idx === currentIdx;
-                      return (
-                        <div
-                          key={step}
-                          className="flex items-center gap-1 flex-1"
-                        >
-                          <div
-                            className={`h-2 flex-1 rounded-full transition-colors ${
-                              isCompleted
-                                ? "bg-green-500"
-                                : isCurrent
-                                  ? "bg-blue-500"
-                                  : "bg-muted"
-                            }`}
-                            title={Q2C_STATUS_LABELS[step]}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge
-                      className={`${Q2C_STATUS_COLORS[(currentOrder.q2cStatus || Q2C_STATUS.LEAD) as Q2CStatus]?.bg} ${Q2C_STATUS_COLORS[(currentOrder.q2cStatus || Q2C_STATUS.LEAD) as Q2CStatus]?.text} border-0 text-[10px]`}
-                    >
-                      {
-                        Q2C_STATUS_LABELS[
-                          (currentOrder.q2cStatus ||
-                            Q2C_STATUS.LEAD) as Q2CStatus
-                        ]
-                      }
-                    </Badge>
-                    <div className="flex gap-1">
-                      {getNextQ2CStatuses(
-                        (currentOrder.q2cStatus ||
-                          Q2C_STATUS.LEAD) as Q2CStatus,
-                      )
-                        .filter(
-                          (s) =>
-                            s !== Q2C_STATUS.LOST &&
-                            s !== Q2C_STATUS.CANCELLED,
-                        )
-                        .map((nextSt) => (
-                          <Button
-                            key={nextSt}
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => {
-                              handleQ2CTransition(currentOrder._id, nextSt);
-                              setIsModalOpen(false);
-                            }}
-                          >
-                            <ArrowRight className="h-3 w-3 mr-1" />
-                            {Q2C_STATUS_LABELS[nextSt]}
-                          </Button>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                  Close
-                </Button>
-                {(currentOrder?.status === "sale" ||
-                  currentOrder?.status === "done") &&
-                  (currentOrder?.invoiceIds &&
-                  currentOrder.invoiceIds.length > 0 ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setIsModalOpen(false);
-                        handleViewInvoice(currentOrder.invoiceIds[0]);
-                      }}
-                    >
-                      <FileText className="mr-2 h-4 w-4" /> View Invoice
-                    </Button>
-                  ) : (
-                    <Button
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                      onClick={() => {
-                        setIsModalOpen(false);
-                        handleCreateInvoice(currentOrder?._id);
-                      }}
-                    >
-                      <FileText className="mr-2 h-4 w-4" /> Create Invoice
-                    </Button>
-                  ))}
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Order"}
-              </Button>
-            </div>
-          )
-        }
-      >
-        <SaleOrderPopupContent
-          formData={formData}
-          setFormData={setFormData}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isViewOnly={isViewOnly}
-          partners={partners}
-          products={products}
-          pricelists={pricelists}
-          users={users}
-          warehouses={warehouses}
-          onAddPartner={() => setIsPartnerModalOpen(true)}
-          onAddProduct={() => setIsProductModalOpen(true)}
-          onAddPricelist={() => setIsPricelistModalOpen(true)}
-          onAddWarehouse={() => {
-            setWarehouseFormData({
-              warehouseCode: `WH-${Math.floor(Math.random() * 10000)}`,
-              name: "",
-              location: "",
-              address: "",
-              type: "standard",
-            });
-            setIsWarehouseModalOpen(true);
-          }}
-          onSaveChat={handleSaveChat}
-        />
-      </ModularModal>
+      {/* Extracted modals block containing all modular popups */}
+      <OrderModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        formData={formData}
+        setFormData={setFormData}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isViewOnly={isViewOnly}
+        currentOrder={currentOrder}
+        isSubmitting={isSubmitting}
+        handleSubmit={handleSubmit}
+        handleSaveChat={handleSaveChat}
+        handleQ2CTransition={handleQ2CTransition}
 
-      {/* Nested Partner Modal */}
-      <ModularModal
-        open={isPartnerModalOpen}
-        onOpenChange={setIsPartnerModalOpen}
-        title="Create New Customer"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsPartnerModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePartner} disabled={isChildSubmitting}>
-              {isChildSubmitting ? "Creating..." : "Save Customer"}
-            </Button>
-          </div>
-        }
-      >
-        <CustomerPopupContent
-          formData={partnerFormData}
-          setFormData={setPartnerFormData}
-          activeTab={partnerTab}
-          setActiveTab={setPartnerTab}
-          accounts={accounts}
-          data={partners}
-          pricelists={pricelists}
-          users={users}
-        />
-      </ModularModal>
+        isInvoiceModalOpen={isInvoiceModalOpen}
+        setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+        invoiceFormData={invoiceFormData}
+        setInvoiceFormData={setInvoiceFormData}
+        handleCreateInvoice={handleCreateInvoice}
+        handleViewInvoice={handleViewInvoice}
 
-      {/* Nested Product Modal */}
-      <ModularModal
-        open={isProductModalOpen}
-        onOpenChange={setIsProductModalOpen}
-        title="Create New Product"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsProductModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProduct} disabled={isChildSubmitting}>
-              {isChildSubmitting ? "Creating..." : "Save Product"}
-            </Button>
-          </div>
-        }
-      >
-        <ProductPopupContent
-          formData={productFormData}
-          setFormData={setProductFormData}
-          activeTab={productTab}
-          setActiveTab={setProductTab}
-          accounts={accounts}
-          pricelists={pricelists}
-          handleCreateAccount={handleCreateAccount}
-          handleCreatePricelist={handleCreateNestedPricelist}
-        />
-      </ModularModal>
-
-      {/* Nested Pricelist Modal */}
-      <ModularModal
-        open={isPricelistModalOpen}
-        onOpenChange={setIsPricelistModalOpen}
-        title="Create New Pricelist"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsPricelistModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreatePricelist}
-              disabled={isChildSubmitting}
-            >
-              {isChildSubmitting ? "Creating..." : "Save Pricelist"}
-            </Button>
-          </div>
-        }
-      >
-        <PricelistPopupContent
-          formData={pricelistFormData}
-          setFormData={setPricelistFormData}
-          products={products}
-        />
-      </ModularModal>
-      {/* Invoice Modal */}
-      <ModularModal
-        open={isInvoiceModalOpen}
-        onOpenChange={setIsInvoiceModalOpen}
-        title={invoiceFormData?.name || "Draft Invoice"}
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsInvoiceModalOpen(false)}
-            >
-              Close
-            </Button>
-            {invoiceFormData?._id && (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  window.open(
-                    `/sales/invoices/print/${invoiceFormData._id}`,
-                    "_blank",
-                  )
-                }
-              >
-                <Printer className="mr-2 h-4 w-4" /> Preview / Print
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                // Future: Implement Confirm Invoice logic
-                setIsInvoiceModalOpen(false);
-                toast.success("Invoice Saved (Draft)");
-              }}
-            >
-              Save Invoice
-            </Button>
-          </div>
-        }
-      >
-        {invoiceFormData && (
-          <InvoicePopupContent
-            formData={invoiceFormData || {}}
-            setFormData={setInvoiceFormData}
-            isViewOnly={false}
-            partners={partners}
-          />
-        )}
-      </ModularModal>
-      {/* Nested Warehouse Modal */}
-      <ModularModal
-        open={isWarehouseModalOpen}
-        onOpenChange={setIsWarehouseModalOpen}
-        title="Create New Warehouse"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsWarehouseModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateWarehouse}
-              disabled={isChildSubmitting}
-            >
-              {isChildSubmitting ? "Creating..." : "Save Warehouse"}
-            </Button>
-          </div>
-        }
-      >
-        <WarehousePopupContent
-          formData={warehouseFormData}
-          setFormData={setWarehouseFormData}
-        />
-      </ModularModal>
-
-      {/* Nested Pricelist Modal (from Product popup) */}
-      <ModularModal
-        open={isNestedPricelistModalOpen}
-        onOpenChange={setIsNestedPricelistModalOpen}
-        title="Create New Pricelist"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsNestedPricelistModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveNestedPricelist}
-              disabled={isChildSubmitting}
-            >
-              {isChildSubmitting ? "Creating..." : "Save Pricelist"}
-            </Button>
-          </div>
-        }
-      >
-        <PricelistPopupContent
-          formData={nestedPricelistFormData}
-          setFormData={setNestedPricelistFormData}
-        />
-      </ModularModal>
+        partners={partners}
+        products={products}
+        pricelists={pricelists}
+        users={users}
+        warehouses={warehouses}
+        accounts={accounts}
+        loadResources={loadResources}
+      />
     </DashboardLayout>
   );
 }
