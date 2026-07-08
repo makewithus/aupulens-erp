@@ -1,6 +1,16 @@
 'use client';
 import { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+import {
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/shared/Table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Loader2, Plus, Download, AlertCircle, CheckCircle2, Clock, Activity, FileText } from "lucide-react";
+import { Loader2, Plus, Download, AlertCircle, CheckCircle2, Clock, Activity, FileText, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -106,121 +116,279 @@ export default function CasesPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Cases Management</h1>
-          <p className="text-muted-foreground text-sm">Manage customer support tickets and service requests.</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
+        <div className="shrink-0">
+          <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+            Cases Management
+          </h2>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Export
-          </Button>
-          <Button onClick={() => setSheetOpen(true)} className="bg-primary gap-2">
+
+        <div className="flex flex-row gap-4">
+          <Button
+            onClick={() => setSheetOpen(true)}
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted gap-2"
+          >
             <Plus className="h-4 w-4" /> Create Case
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-        <KPICard title="Open Cases" value={stats.openCases} icon={<FileText className="w-4 h-4" />} color="blue" />
-        <KPICard title="Overdue" value={stats.overdueCases} icon={<Clock className="w-4 h-4" />} color="red" />
-        <KPICard title="SLA Breaches" value={stats.slaBreaches} icon={<AlertCircle className="w-4 h-4" />} color="orange" />
-        <KPICard title="Resolved Today" value={stats.resolvedToday} icon={<CheckCircle2 className="w-4 h-4" />} color="green" />
-        <KPICard title="Avg Time" value={stats.avgResTime} icon={<Clock className="w-4 h-4" />} color="purple" />
-        <KPICard title="Reopened" value={stats.reopenedCases} icon={<Activity className="w-4 h-4" />} color="yellow" />
-        <KPICard title="CSAT" value={stats.avgSatScore} icon={<CheckCircle2 className="w-4 h-4" />} color="teal" />
-        <KPICard title="Escalations" value={stats.escalations} icon={<AlertCircle className="w-4 h-4" />} color="red" />
+      {/* KPI Section */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <KPICard title="Open Cases" value={stats.openCases} />
+        <KPICard title="Overdue" value={stats.overdueCases} />
+        <KPICard title="SLA Breaches" value={stats.slaBreaches} />
+        <KPICard title="Resolved Today" value={stats.resolvedToday} />
+        <KPICard title="Avg Time" value={stats.avgResTime} />
+        <KPICard title="Reopened" value={stats.reopenedCases} />
+        <KPICard title="CSAT" value={stats.avgSatScore} />
+        <KPICard title="Escalations" value={stats.escalations} />
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <Input placeholder="Global Search cases..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
-        <Select defaultValue="all">
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Saved Views" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All Cases</SelectItem><SelectItem value="my">My Cases</SelectItem></SelectContent>
-        </Select>
-        <Button variant="outline">Advanced Filter</Button>
-      </div>
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Toolbar */}
+        <div className="border-b border-border/20 px-8 py-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="shrink-0">
+              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+                All Cases
+              </h2>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Case Number</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>SLA Due</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
-            : cases.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No cases found.</TableCell></TableRow>
-            ) : cases.map(c => (
-              <TableRow key={c._id}>
-                <TableCell className="font-medium text-blue-400">{c.case_number}</TableCell>
-                <TableCell className="max-w-[200px] truncate">{c.title}</TableCell>
-                <TableCell>{c.account_id?.company_name || '-'}</TableCell>
-                <TableCell>
-                  <Badge className={
-                    c.severity === 'Critical' ? 'bg-red-600' :
-                    c.severity === 'High' ? 'bg-orange-500' :
-                    c.severity === 'Medium' ? 'bg-yellow-500' : 'bg-blue-500'
-                  }>{c.severity}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{c.status}</Badge>
-                </TableCell>
-                <TableCell className={c.sla_breached ? "text-red-500 font-bold" : ""}>
-                  {c.sla_target_at ? new Date(c.sla_target_at).toLocaleDateString() : '-'}
-                </TableCell>
-                <TableCell>
-                  <Link href={`/crm/cases/${c._id}`}>
-                    <Button variant="secondary" size="sm">Workspace</Button>
-                  </Link>
-                </TableCell>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                {cases.length} {cases.length === 1 ? "Case" : "Cases"}
+              </p>
+            </div>
+
+            <div className="w-full max-w-4xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              {/* Search Input */}
+              <div className="w-full max-w-sm">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search cases..."
+                />
+              </div>
+
+              {/* Saved Views Dropdown */}
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[11px] text-muted-foreground/50">View:</span>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="Saved Views" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
+                    <SelectItem value="all">All Cases</SelectItem>
+                    <SelectItem value="my">My Cases</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+          <Button
+            variant="outline"
+            className="h-12 px-6 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300 gap-2"
+          >
+            <Download className="h-4 w-4" /> Export
+          </Button>
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell>Case Number</TableHeaderCell>
+                <TableHeaderCell>Title</TableHeaderCell>
+                <TableHeaderCell>Account</TableHeaderCell>
+                <TableHeaderCell>Priority</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>SLA Due</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    <TableCell><Skeleton className="h-5 w-20 font-mono" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-24" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : cases.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={7} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                    <h3 className="text-lg font-medium text-foreground">No cases found</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Try adjusting your search query or filters.
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                cases.map((c) => {
+                  const severityColors: Record<string, string> = {
+                    Critical: "text-[#F56868]",
+                    High: "text-[#F1DF38]",
+                    Medium: "text-[#6CADF5]",
+                    Low: "text-[#8AE06C]",
+                  };
+
+                  const statusColors: Record<string, string> = {
+                    New: "text-[#6CADF5]",
+                    Open: "text-[#F1DF38]",
+                    "In Progress": "text-[#A77DFF]",
+                    "Waiting on Customer": "text-[#F1DF38]",
+                    "Waiting on Internal Team": "text-[#A77DFF]",
+                    Resolved: "text-[#8AE06C]",
+                    Closed: "text-[#8AE06C]",
+                    Reopened: "text-[#F56868]",
+                  };
+
+                  return (
+                    <TableRow key={c._id}>
+                      {/* Case Number */}
+                      <TableCell className="font-mono text-sm text-[#6CADF5]">
+                        {c.case_number}
+                      </TableCell>
+
+                      {/* Title */}
+                      <TableCell className="max-w-[200px] truncate text-sm text-foreground">
+                        {c.title}
+                      </TableCell>
+
+                      {/* Account */}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {c.account_id?.company_name || '—'}
+                      </TableCell>
+
+                      {/* Severity/Priority */}
+                      <TableCell>
+                        <Badge
+                          className={`
+                            rounded-none
+                            border-0
+                            bg-transparent
+                            px-0
+                            font-mono
+                            text-[12px]
+                            hover:bg-transparent
+                            shadow-none
+                            ${severityColors[c.severity] ?? "text-muted-foreground"}
+                          `}
+                        >
+                          {c.severity}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell>
+                        <Badge
+                          className={`
+                            rounded-none
+                            border-0
+                            bg-transparent
+                            px-0
+                            font-mono
+                            text-[12px]
+                            hover:bg-transparent
+                            shadow-none
+                            ${statusColors[c.status] ?? "text-muted-foreground"}
+                          `}
+                        >
+                          {c.status}
+                        </Badge>
+                      </TableCell>
+
+                      {/* SLA Due */}
+                      <TableCell className={`text-sm ${c.sla_breached ? "text-[#F56868] font-semibold" : "text-muted-foreground"}`}>
+                        {c.sla_target_at ? new Date(c.sla_target_at).toLocaleDateString() : '—'}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Link href={`/crm/cases/${c._id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                            >
+                              Workspace
+                            </Button>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </TableContainer>
+        </CardContent>
+      </Card>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader className="mb-6">
-            <SheetTitle>New Case</SheetTitle>
-            <SheetDescription>Create a new support ticket or service request.</SheetDescription>
+            <SheetTitle className="text-2xl font-bold tracking-tight text-foreground">New Case</SheetTitle>
+            <SheetDescription className="text-sm text-muted-foreground">Create a new support ticket or service request.</SheetDescription>
           </SheetHeader>
 
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Title <span className="text-red-500">*</span></Label>
-              <Input value={form.title} onChange={e => setField("title", e.target.value)} required disabled={submitting} placeholder="e.g. Server down in US-East" />
+              <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Title <span className="text-[#F56868]">*</span></Label>
+              <Input
+                value={form.title}
+                onChange={e => setField("title", e.target.value)}
+                required
+                disabled={submitting}
+                placeholder="e.g. Server down in US-East"
+                className="rounded-none border-border/40 bg-white/[0.02] focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
             </div>
             
             <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea value={form.description} onChange={e => setField("description", e.target.value)} disabled={submitting} rows={4} />
+              <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Description</Label>
+              <Textarea
+                value={form.description}
+                onChange={e => setField("description", e.target.value)}
+                disabled={submitting}
+                rows={4}
+                className="rounded-none border-border/40 bg-white/[0.02] focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Account <span className="text-red-500">*</span></Label>
+                <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Account <span className="text-[#F56868]">*</span></Label>
                 <Select value={form.account_id} onValueChange={v => setField("account_id", v)} disabled={submitting}>
-                  <SelectTrigger><SelectValue placeholder="Select Account" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="Select Account" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
                     {accounts.map(a => <SelectItem key={a._id} value={a._id}>{a.company_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Contact</Label>
+                <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Contact</Label>
                 <Select value={form.contact_id} onValueChange={v => setField("contact_id", v)} disabled={submitting}>
-                  <SelectTrigger><SelectValue placeholder="Select Contact" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="Select Contact" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
                     <SelectItem value="none">None</SelectItem>
                     {contacts.filter(c => c.account_id?._id === form.account_id || c.account_id === form.account_id).map(c => (
                       <SelectItem key={c._id} value={c._id}>{c.first_name} {c.last_name}</SelectItem>
@@ -232,10 +400,12 @@ export default function CasesPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Category</Label>
+                <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Category</Label>
                 <Select value={form.category} onValueChange={v => setField("category", v)} disabled={submitting}>
-                  <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
                     {['Product Issue','Billing','Technical Support','Service Request','Complaint','Account Access','Integration Issue','Other'].map(r => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
                     ))}
@@ -243,10 +413,12 @@ export default function CasesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Priority/Severity</Label>
+                <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Priority/Severity</Label>
                 <Select value={form.severity} onValueChange={v => setField("severity", v)} disabled={submitting}>
-                  <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
                     {['Low','Medium','High','Critical'].map(r => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
                     ))}
@@ -256,10 +428,12 @@ export default function CasesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label className="text-xs font-mono uppercase tracking-[0.05em] text-muted-foreground/60 mb-2 block">Status</Label>
               <Select value={form.status} onValueChange={v => setField("status", v)} disabled={submitting}>
-                <SelectTrigger><SelectValue placeholder="Select Status" /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-border/40">
                   {['New','Open','In Progress','Waiting on Customer','Waiting on Internal Team','Resolved','Closed','Reopened'].map(r => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
@@ -267,11 +441,21 @@ export default function CasesPage() {
               </Select>
             </div>
 
-            <SheetFooter className="pt-6 flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} disabled={submitting} className="flex-1">
+            <SheetFooter className="pt-6 flex gap-2 sm:space-x-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSheetOpen(false)}
+                disabled={submitting}
+                className="flex-1 rounded-none border-border/20 font-mono text-[11px] uppercase tracking-[0.15em] transition-all duration-300 h-11"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="flex-1 bg-primary">
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] transition-all duration-300 h-11 bg-tertiary text-primary hover:bg-muted border border-secondary"
+              >
                 {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : "Create Case"}
               </Button>
             </SheetFooter>
@@ -282,14 +466,13 @@ export default function CasesPage() {
   );
 }
 
-function KPICard({ title, value, icon, color }: any) {
+function KPICard({ title, value }: any) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg flex flex-col justify-center items-center gap-2 text-center">
-      <div className={`p-2 bg-${color}-500/10 text-${color}-500 rounded-md`}>{icon}</div>
+    <Card className="border border-border/40 bg-background shadow-none rounded-none hover:border-border/60 hover:bg-white/[0.02] transition-all duration-300 p-4 flex flex-col justify-center items-center gap-2 text-center group">
       <div>
-        <p className="text-[11px] text-neutral-400 uppercase tracking-wider">{title}</p>
-        <p className="text-xl font-bold">{value}</p>
+        <p className="text-[11px] text-muted-foreground/60 font-mono">{title}</p>
+        <p className="text-2xl font-bold text-foreground tracking-tight mt-1">{value}</p>
       </div>
-    </div>
+    </Card>
   );
 }
