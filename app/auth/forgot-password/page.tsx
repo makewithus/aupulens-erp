@@ -54,8 +54,7 @@ export default function ForgotPasswordPage() {
             <div className="flex items-start gap-3 rounded-lg border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-4">
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
               <p className="text-sm text-green-800 dark:text-green-400">
-                If an account exists for <strong>{email}</strong>, a password
-                reset link has been sent.
+                We have sent a password reset link to <strong>{email}</strong> if it matches an existing account. Please check your inbox and spam folder.
               </p>
             </div>
             <Link

@@ -123,12 +123,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           // Role vs Portal Security Check
           // Removed to allow unified login from onboarding and automatic routing via middleware.
+          /* 
           if (
             user.role === "master-admin" &&
             !portal.includes("/auth/master")
           ) {
             throw new Error("Invalid credentials");
           }
+          */
 
           if (user.status !== "active") {
             throw new Error("Your user account has been deactivated.");

@@ -1,18 +1,15 @@
-// No SMTP/Resend/SendGrid provider is configured anywhere in this codebase
-// yet. Rather than fake delivery, every call path (Reminders, Dunning,
-// Subscription Email Notifications) goes through this one clean interface —
-// swap sendEmailStub for a real provider call once credentials exist, with
-// no changes needed at any call site. Same pattern as lib/einvoice/gspService.ts
-// and lib/sales/gstinLookup.ts.
+import nodemailer from "nodemailer";
+
 export interface EmailMessage {
   to: string;
   subject: string;
   body: string;
+  html?: string;
 }
 
 export interface EmailSendResult {
   success: boolean;
-  provider: "stub";
+  provider: string;
   message: string;
 }
 
@@ -20,21 +17,71 @@ export interface EmailService {
   send(message: EmailMessage): Promise<EmailSendResult>;
 }
 
-// TODO: replace with a real provider (Resend/SendGrid/SES/SMTP) once an API
-// key or SMTP credentials are available in the environment. Until then this
-// logs the send (so the call path is real and observable) and reports
-// success, since no external dependency exists to actually fail against.
-class StubEmailService implements EmailService {
+class NodemailerEmailService implements EmailService {
+  private transporter: nodemailer.Transporter | null = null;
+
+  async init() {
+    if (this.transporter) return;
+    
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+    const smtpHost = process.env.SMTP_HOST || (smtpUser?.includes("@gmail.com") ? "smtp.gmail.com" : "");
+    const smtpPort = Number(process.env.SMTP_PORT) || 587;
+
+    if (smtpHost && smtpUser && smtpPass) {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+    } else {
+      console.log("No SMTP credentials found. Creating Ethereal test account...");
+      const testAccount = await nodemailer.createTestAccount();
+      this.transporter = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+  }
+
   async send(message: EmailMessage): Promise<EmailSendResult> {
-    console.log(`[stub-email] to=${message.to} subject="${message.subject}"`);
-    return { success: true, provider: "stub", message: "Logged only — no email provider configured yet." };
+    try {
+      await this.init();
+      const info = await this.transporter!.sendMail({
+        from: '"Aupulens ERP" <noreply@aupulens.online>',
+        to: message.to,
+        subject: message.subject,
+        text: message.body,
+        ...(message.html && { html: message.html }),
+      });
+
+      console.log(`[nodemailer] Message sent: %s`, info.messageId);
+      const testUrl = nodemailer.getTestMessageUrl(info);
+      if (testUrl) {
+        console.log(`[nodemailer] Preview URL: %s`, testUrl);
+      }
+
+      return { success: true, provider: "nodemailer", message: "Email sent successfully" };
+    } catch (error: any) {
+      console.error("[nodemailer] Error sending email:", error);
+      return { success: false, provider: "nodemailer", message: error.message };
+    }
   }
 }
 
 let instance: EmailService | null = null;
 
 export function getEmailService(): EmailService {
-  if (!instance) instance = new StubEmailService();
+  if (!instance) instance = new NodemailerEmailService();
   return instance;
 }
 
