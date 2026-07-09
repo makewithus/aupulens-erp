@@ -19,7 +19,7 @@ export interface IDeliveryChallan extends mongoose.Document {
   vehicleNumber?: string;
   driverName?: string;
   deliveryDate?: string;
-  status: DocumentStatus;
+  status: "pending" | "issued" | "delivered";
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -45,8 +45,8 @@ const DeliveryChallanSchema = new Schema<IDeliveryChallan>(
     deliveryDate: { type: String },
     status: {
       type: String,
-      enum: DOCUMENT_STATUS_VALUES,
-      default: DOCUMENT_STATUS.DRAFT,
+      enum: ["pending", "issued", "delivered"],
+      default: "pending",
     },
     notes: { type: String },
   },
