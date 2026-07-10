@@ -14,6 +14,7 @@ const STATUS_COLORS: Record<string, string> = {
   assigned: "text-[#6CADF5]",
   ready: "text-[#6CADF5]",
   done: "text-[#8AE06C]",
+  closed: "text-[#8AE06C]",
   cancel: "text-[#F56868]",
 };
 
@@ -92,7 +93,7 @@ export function ReturnsTable({
                 <Button
                   variant="ghost"
                   onClick={() => updateStatus(t._id, "done")}
-                  className="h-8 px-2 text-xs rounded-none text-[#8AE06C] hover:bg-white/5 font-medium"
+                  className="h-8 px-2 text-xs rounded-none text-[#6CADF5  ] hover:bg-white/5 font-medium"
                 >
                   Validate
                 </Button>
