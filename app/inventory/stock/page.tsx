@@ -7,26 +7,13 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import {
-  Search,
-  Plus,
-  Package,
-  Eye,
-  Edit2,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ClipboardList,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { ProductPopupContent } from "@/app/sales/products/popup/ProductPopup";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+
+// Extracted Subcomponents
+import { StockTable } from "@/components/inventory/stock/StockTable";
+import { StockModals } from "@/components/inventory/stock/StockModals";
 
 export default function StockTrackingPage() {
   const { data: session, status } = useSession();
@@ -227,7 +214,7 @@ export default function StockTrackingPage() {
 
       toast.success("Product deleted");
       fetchProducts();
-      fetchStockLevels(); // Cleanup old stock map entries? Wait, map is global, but harmless.
+      fetchStockLevels();
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -309,367 +296,150 @@ export default function StockTrackingPage() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
-      onRefresh={() => {
-        fetchProducts();
-        fetchStockLevels();
+      onRefresh={async () => {
+        await Promise.all([fetchProducts(), fetchStockLevels()]);
       }}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Stock Tracking</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage product inventory and details
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or code..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Product
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm flex flex-col min-h-[600px]">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none flex flex-col min-h-[600px]">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Tracking</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {pagination.total} {pagination.total === 1 ? "Product" : "Products"} Total
+                </p>
+              </div>
+
+              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search products..."
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  New Product
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0 flex-1">
             {loadingProducts ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center h-full">
-                <Package className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
                   No products found
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Product</th>
-                      <th className="px-6 py-3 text-left">Type</th>
-                      <th className="px-6 py-3 text-right">Cost</th>
-                      <th className="px-6 py-3 text-right">Price</th>
-                      <th className="px-6 py-3 text-right">On Hand</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {products.map((p) => (
-                      <tr
-                        key={p._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center rounded text-blue-600">
-                            <Package className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-sm text-foreground">
-                              {p.header.name}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {p.tab_general_information?.default_code ||
-                                "No Code"}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs uppercase">
-                          <Badge
-                            variant={
-                              p.status === "published" ? "default" : "secondary"
-                            }
-                          >
-                            {p.tab_general_information?.type}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-muted-foreground text-sm">
-                          ₹
-                          {p.tab_general_information?.standard_price?.toLocaleString() ??
-                            0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-sm">
-                          ₹
-                          {p.tab_general_information?.list_price?.toLocaleString() ??
-                            0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-blue-600">
-                          {p.tab_general_information?.type === "service"
-                            ? "-"
-                            : stockMap[p._id] || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenStockUpdate(p)}
-                            title="Update Stock"
-                            className="h-8 w-8 text-orange-600 hover:bg-orange-100"
-                            disabled={
-                              p.tab_general_information?.type === "service"
-                            }
-                          >
-                            <ClipboardList className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenView(p)}
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-100"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEdit(p)}
-                            className="h-8 w-8 text-indigo-600 hover:bg-indigo-100"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(p._id)}
-                            className="h-8 w-8 text-red-600 hover:bg-red-100"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <StockTable
+                products={products}
+                stockMap={stockMap}
+                handleOpenStockUpdate={handleOpenStockUpdate}
+                handleOpenView={handleOpenView}
+                handleOpenEdit={handleOpenEdit}
+                handleDelete={handleDelete}
+              />
             )}
           </CardContent>
 
           {/* Pagination Footer */}
-          <div className="border-t p-4 flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
+          <div className="border-t border-border/20 p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs font-mono text-muted-foreground/60">
               Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
               {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
               of {pagination.total} entries
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-1">
               <Button
                 variant="outline"
-                size="icon"
-                className="h-8 w-8"
+                size="sm"
+                className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
                 onClick={() => setPagination((p) => ({ ...p, page: 1 }))}
                 disabled={pagination.page === 1}
               >
-                <ChevronsLeft className="h-4 w-4" />
+                First
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                className="h-8 w-8"
+                size="sm"
+                className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
                 onClick={() =>
                   setPagination((p) => ({ ...p, page: p.page - 1 }))
                 }
                 disabled={pagination.page === 1}
               >
-                <ChevronLeft className="h-4 w-4" />
+                Prev
               </Button>
-              <div className="text-xs font-medium w-12 text-center">
-                Page {pagination.page}
+              <div className="text-xs font-mono text-foreground px-3">
+                {pagination.page} / {pagination.pages}
               </div>
               <Button
                 variant="outline"
-                size="icon"
-                className="h-8 w-8"
+                size="sm"
+                className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
                 onClick={() =>
                   setPagination((p) => ({ ...p, page: p.page + 1 }))
                 }
                 disabled={pagination.page === pagination.pages}
               >
-                <ChevronRight className="h-4 w-4" />
+                Next
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                className="h-8 w-8"
+                size="sm"
+                className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
                 onClick={() => setPagination((p) => ({ ...p, page: p.pages }))}
                 disabled={pagination.page === pagination.pages}
               >
-                <ChevronsRight className="h-4 w-4" />
+                Last
               </Button>
             </div>
           </div>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={formData?.header?.name || "Product"}
-        className="max-w-[70vw] w-full"
-        footer={
-          // View Only Footer vs Edit Footer
-          isViewOnly ? (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Close
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsViewOnly(false);
-                }}
-                className="bg-blue-600"
-              >
-                Edit
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmitProduct} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Product"}
-              </Button>
-            </div>
-          )
-        }
-      >
-        {formData && (
-          <ProductPopupContent
-            formData={formData}
-            setFormData={setFormData}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isViewOnly={isViewOnly}
-            accounts={accounts}
-            pricelists={pricelists}
-            handleCreateAccount={() => {}}
-            handleCreatePricelist={() => {}}
-           
-          />
-        )}
-      </ModularModal>
-
-      <ModularModal
-        open={isStockModalOpen}
-        onOpenChange={setIsStockModalOpen}
-        title="Update Stock On Hand"
-        className="max-w-md w-full"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsStockModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitStock} disabled={isSubmitting}>
-              {isSubmitting ? "Updating..." : "Update Stock"}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 p-4">
-          {/* Same stock update form */}
-          <div className="space-y-2">
-            <Label>Product</Label>
-            <Input
-              value={stockUpdateData.productName}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Current Quantity</Label>
-              <div className="flex bg-muted h-10 items-center px-3 rounded-md font-bold">
-                {stockUpdateData.currentQty}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>New Quantity</Label>
-              <Input
-                type="number"
-                value={stockUpdateData.newQty}
-                onChange={(e) =>
-                  setStockUpdateData((prev) => ({
-                    ...prev,
-                    newQty: parseFloat(e.target.value) || 0,
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Difference</Label>
-            <div
-              className={`text-sm font-medium ${stockUpdateData.newQty - stockUpdateData.currentQty > 0 ? "text-green-600" : "text-red-600"}`}
-            >
-              {stockUpdateData.newQty - stockUpdateData.currentQty > 0
-                ? "+"
-                : ""}
-              {stockUpdateData.newQty - stockUpdateData.currentQty} Units
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Reason / Reference</Label>
-            <Input
-              placeholder="e.g. Monthly Physical Count"
-              value={stockUpdateData.notes}
-              onChange={(e) =>
-                setStockUpdateData((prev) => ({
-                  ...prev,
-                  notes: e.target.value,
-                }))
-              }
-            />
-          </div>
-        </div>
-      </ModularModal>
-
-      <ModularModal
-        open={!!deleteConfirmationId}
-        onOpenChange={(open) => !open && setDeleteConfirmationId(null)}
-        title="Confirm Deletion"
-        className="max-w-sm"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteConfirmationId(null)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Delete
-            </Button>
-          </div>
-        }
-      >
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete this product? This action cannot be
-            undone.
-          </p>
-        </div>
-      </ModularModal>
+      <StockModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        formData={formData}
+        setFormData={setFormData}
+        isViewOnly={isViewOnly}
+        setIsViewOnly={setIsViewOnly}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isSubmitting={isSubmitting}
+        accounts={accounts}
+        pricelists={pricelists}
+        handleSubmitProduct={handleSubmitProduct}
+        isStockModalOpen={isStockModalOpen}
+        setIsStockModalOpen={setIsStockModalOpen}
+        stockUpdateData={stockUpdateData}
+        setStockUpdateData={setStockUpdateData}
+        handleSubmitStock={handleSubmitStock}
+        deleteConfirmationId={deleteConfirmationId}
+        setDeleteConfirmationId={setDeleteConfirmationId}
+        confirmDelete={confirmDelete}
+      />
     </DashboardLayout>
   );
 }
