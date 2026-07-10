@@ -135,8 +135,13 @@ export function DashboardLayout({
       />
 
       <div className="flex flex-1 overflow-hidden relative">
-        {sections.length > 0 && isSidebarOpen && (
-          <DashboardSidebar sections={sections} onClose={() => setIsSidebarOpen(false)} />
+        {sections.length > 0 && (
+          <DashboardSidebar
+            sections={sections}
+            isCollapsed={!isSidebarOpen}
+            onToggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
+            onClose={() => setIsSidebarOpen(false)}
+          />
         )}
 
         <main
