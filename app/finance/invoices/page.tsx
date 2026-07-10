@@ -4,26 +4,18 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  FileText,
-  Eye,
-  Printer,
-  Trash2,
-  CheckCircle2,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { InvoicePopupContent } from "@/components/accounting/InvoicePopupContent";
+import { SearchInput } from "@/components/SearchInput";
+import { Plus } from "lucide-react";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+
+// Extracted Subcomponents
+import { InvoicesTable } from "@/components/finance/invoices/InvoicesTable";
+import { InvoicesModals } from "@/components/finance/invoices/InvoicesModals";
 
 export default function SalesInvoicesPage() {
   const { data: session, status } = useSession();
@@ -70,7 +62,7 @@ export default function SalesInvoicesPage() {
       partnerId: "",
       invoiceDate: new Date(),
       dueDate: new Date(),
-        state: DOCUMENT_STATUS.DRAFT,
+      state: DOCUMENT_STATUS.DRAFT,
       invoiceLines: [],
       amountUntaxed: 0,
       amountTax: 0,
@@ -93,24 +85,11 @@ export default function SalesInvoicesPage() {
     setIsSubmitting(true);
     try {
       const url = formData._id
-        ? `/api/accounting/invoices/${formData._id}` // Assuming PATCH exists? Or handle create only?
-        : "/api/accounting/invoices";
-
-      // If updating, confirm method. For now assuming Create/Update via same form logic if needed.
-      // But /api/accounting/invoices/[id] PATCH might need implementation if not exists?
-      // Step 1851: Created GET [id]. Did NOT create PATCH [id].
-      // So editing might fail if PATCH route missing.
-      // I'll stick to POST (Create) for new.
-      // For existing, we might need to implement PUT/PATCH.
-
-      const method = formData._id ? "PATCH" : "POST";
-      const actualUrl = formData._id
         ? `/api/accounting/invoices/${formData._id}`
-        : url;
+        : "/api/accounting/invoices";
+      const method = formData._id ? "PATCH" : "POST";
 
-      // Note: If PATCH route missing, this will fail. I should check later.
-
-      const res = await fetch(actualUrl, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -155,254 +134,75 @@ export default function SalesInvoicesPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
-              Invoices
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Manage customer invoices and pro-forma
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search invoices..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Invoice
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Invoices</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Invoice" : "Invoices"} Total
+                </p>
+              </div>
+
+              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search invoices..."
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Invoice
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
                   No invoices found
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Number</th>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Source</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-left">Total</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((inv) => (
-                      <tr
-                        key={inv._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center rounded text-purple-600">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                          {inv.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {inv.partnerId?.header?.name ||
-                            inv.partnerId?.name ||
-                            "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                          {inv.sourceDocument || "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground text-xs">
-                          {inv.invoiceDate
-                            ? new Date(inv.invoiceDate).toLocaleDateString()
-                            : "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold">
-                          ₹{inv.amountTotal?.toLocaleString() ?? 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge
-                            variant={
-                              inv.state === "posted" ? "default" : "secondary"
-                            }
-                            className="capitalize"
-                          >
-                            {inv.state}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              window.open(
-                                `/sales/invoices/print/${inv._id}`,
-                                "_blank",
-                              )
-                            }
-                            title="Print"
-                            className="h-8 w-8 text-gray-600"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenView(inv)}
-                            className="h-8 w-8 text-blue-600"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <InvoicesTable
+                filtered={filtered}
+                handleOpenView={handleOpenView}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={formData?.name || "Invoice"}
-        className="max-w-[95vw] w-full mw-100"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Close
-            </Button>
-            {formData?._id && (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  window.open(`/sales/invoices/print/${formData._id}`, "_blank")
-                }
-              >
-                <Printer className="mr-2 h-4 w-4" /> Preview / Print
-              </Button>
-            )}
-            {formData?._id && formData?.state === "draft" && (
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  try {
-                    const res = await fetch(
-                      `/api/accounting/invoices/${formData._id}`,
-                      {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          state: DOCUMENT_STATUS.PENDING_APPROVAL,
-                        }),
-                      },
-                    );
-                    if (!res.ok) throw new Error("Failed to submit invoice");
-                    toast.success("Invoice submitted for approval");
-                    setIsModalOpen(false);
-                    load();
-                  } catch (error: any) {
-                    toast.error(error.message);
-                  }
-                }}
-                disabled={isSubmitting}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Submit for Approval
-              </Button>
-            )}
-            {formData?._id &&
-              formData?.state === DOCUMENT_STATUS.PENDING_APPROVAL && (
-                <Button
-                  variant="default"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(
-                        `/api/accounting/invoices/${formData._id}`,
-                        {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            state: DOCUMENT_STATUS.APPROVED,
-                          }),
-                        },
-                      );
-                      if (!res.ok) throw new Error("Failed to approve invoice");
-                      toast.success("Invoice approved");
-                      setIsModalOpen(false);
-                      load();
-                    } catch (error: any) {
-                      toast.error(error.message);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approve
-                </Button>
-              )}
-            {formData?._id && formData?.state === DOCUMENT_STATUS.APPROVED && (
-              <Button
-                variant="default"
-                className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={async () => {
-                  try {
-                    const res = await fetch(
-                      `/api/accounting/invoices/${formData._id}`,
-                      {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          state: DOCUMENT_STATUS.POSTED,
-                        }),
-                      },
-                    );
-                    if (!res.ok) throw new Error("Failed to post invoice");
-                    toast.success("Invoice posted to General Ledger");
-                    setIsModalOpen(false);
-                    load();
-                  } catch (error: any) {
-                    toast.error(error.message);
-                  }
-                }}
-                disabled={isSubmitting}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Post to GL
-              </Button>
-            )}
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Invoice"}
-            </Button>
-          </div>
-        }
-      >
-        <InvoicePopupContent
-          formData={formData || {}}
-          setFormData={setFormData}
-          isViewOnly={false}
-          partners={partners}
-        />
-      </ModularModal>
+      <InvoicesModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isSubmitting={isSubmitting}
+        setIsSubmitting={setIsSubmitting}
+        formData={formData}
+        setFormData={setFormData}
+        partners={partners}
+        load={load}
+        handleSubmit={handleSubmit}
+      />
     </DashboardLayout>
   );
 }

@@ -1,44 +1,20 @@
 "use client";
+
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
-
-
 import React, { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
-import {
-  Search,
-  Plus,
-  Filter,
-  MoreHorizontal,
-  Eye,
-  Trash2,
-  FileText,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Receipt,
-  Download,
-  Printer,
-  ChevronRight,
-  ShieldCheck,
-  Send,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import BillPopupContent from "@/components/accounting/BillPopupContent";
-import { InvoicePopupContent } from "@/components/accounting/InvoicePopupContent";
+import { SearchInput } from "@/components/SearchInput";
+import { Plus } from "lucide-react";
 import { DOCUMENT_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
+
+// Extracted Subcomponents
+import { BillsTable } from "@/components/finance/bills/BillsTable";
+import { BillsModals } from "@/components/finance/bills/BillsModals";
 
 export default function VendorBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -227,62 +203,6 @@ export default function VendorBillsPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "draft":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-amber-50 text-amber-700 border-amber-200 uppercase text-[10px] font-black"
-          >
-            Draft
-          </Badge>
-        );
-      case "pending_approval":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-yellow-50 text-yellow-700 border-yellow-200 uppercase text-[10px] font-black"
-          >
-            Pending Approval
-          </Badge>
-        );
-      case "approved":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-blue-50 text-blue-700 border-blue-200 uppercase text-[10px] font-black"
-          >
-            Approved
-          </Badge>
-        );
-      case "posted":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-emerald-50 text-emerald-700 border-emerald-200 uppercase text-[10px] font-black"
-          >
-            Posted
-          </Badge>
-        );
-      case "cancel":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-red-50 text-red-700 border-red-200 uppercase text-[10px] font-black"
-          >
-            Cancelled
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="uppercase text-[10px] font-black">
-            {status}
-          </Badge>
-        );
-    }
-  };
-
   return (
     <DashboardLayout
       sidebarSections={financeSidebarConfig}
@@ -293,487 +213,134 @@ export default function VendorBillsPage() {
         { label: "Vendor Bills" },
       ]}
     >
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-primary">
-            Vendor Bills
-          </h1>
-          <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">
-            Manage accounts payable and supplier invoices
-          </p>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        {/* Header Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by Bill # or Vendor..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 none-xl border-2 focus:ring-primary/20"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="none-xl h-11 px-4 border-2 font-bold uppercase text-xs"
-            >
-              <Filter className="mr-2 h-4 w-4" /> Filter
-            </Button>
-            <Button
-              onClick={handleOpenCreate}
-              className="none-xl h-11 px-6 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all font-black uppercase tracking-tighter group"
-            >
-              <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform" />
-              New Bill
-            </Button>
-          </div>
-        </div>
-
-        {/* Table/List */}
-        <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted/50 border-b-2">
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Number
-                    </th>
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Vendor
-                    </th>
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Bill Date
-                    </th>
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Due Date
-                    </th>
-                    <th className="text-right p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Total
-                    </th>
-                    <th className="text-center p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
-                      Status
-                    </th>
-                    <th className="p-6"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {loading ? (
-                    Array(5)
-                      .fill(0)
-                      .map((_, i) => (
-                        <tr key={i}>
-                          <td className="p-6">
-                            <Skeleton className="h-4 w-24" />
-                          </td>
-                          <td className="p-6">
-                            <Skeleton className="h-4 w-32" />
-                          </td>
-                          <td className="p-6">
-                            <Skeleton className="h-4 w-20" />
-                          </td>
-                          <td className="p-6">
-                            <Skeleton className="h-4 w-20" />
-                          </td>
-                          <td className="p-6 text-right">
-                            <Skeleton className="h-4 w-20 ml-auto" />
-                          </td>
-                          <td className="p-6 text-center">
-                            <Skeleton className="h-6 w-16 mx-auto none-full" />
-                          </td>
-                          <td className="p-6"></td>
-                        </tr>
-                      ))
-                  ) : filteredBills.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-20 text-center">
-                        <div className="flex flex-col items-center gap-3 opacity-20">
-                          <Receipt className="h-16 w-16" />
-                          <p className="font-black uppercase tracking-widest text-lg">
-                            No Bills Found
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredBills.map((bill) => (
-                      <tr
-                        key={bill._id}
-                        className="hover:bg-muted/30 transition-colors group cursor-pointer"
-                        onClick={() => handleOpenEdit(bill)}
-                      >
-                        <td className="p-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`h-10 w-10 none-xl flex items-center justify-center ${bill.state === "posted" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
-                            >
-                              <FileText className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <p className="font-black text-sm tracking-tight">
-                                {bill.name}
-                              </p>
-                              {bill.sourceDocument && (
-                                <p className="text-[10px] text-muted-foreground font-bold">
-                                  {bill.sourceDocument}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6 font-bold text-sm">
-                          {bill.partnerId?.header?.name || "No Vendor"}
-                        </td>
-                        <td className="p-6 text-sm text-muted-foreground font-medium">
-                          {new Date(bill.invoiceDate).toLocaleDateString()}
-                        </td>
-                        <td className="p-6 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-medium text-muted-foreground">
-                              {new Date(bill.dueDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-6 text-right">
-                          <p className="font-black text-sm tracking-tighter">
-                            {bill.currencyId}{" "}
-                            {bill.amountTotal?.toLocaleString()}
-                          </p>
-                        </td>
-                        <td className="p-6 text-center">
-                          {getStatusBadge(bill.state)}
-                          {bill.manualReviewRequired && (
-                            <p className="text-[9px] mt-1 uppercase font-black text-red-600">
-                              Manual Review
-                            </p>
-                          )}
-                        </td>
-                        <td className="p-6 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              asChild
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Button
-                                variant="ghost"
-                                className="h-8 w-8 p-0 none-full hover:bg-muted-foreground/10"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="none-xl border-2"
-                            >
-                              <DropdownMenuItem
-                                onClick={() => handleOpenEdit(bill)}
-                                className="font-bold cursor-pointer"
-                              >
-                                <Eye className="mr-2 h-4 w-4" /> View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="font-bold cursor-pointer">
-                                <Printer className="mr-2 h-4 w-4" /> Print Bill
-                              </DropdownMenuItem>
-                              {bill.state === "draft" && (
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(bill._id)}
-                                  className="text-red-600 font-bold cursor-pointer"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                  Draft
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleGenerateInvoiceFromBill(bill)
-                                }
-                                className="font-bold cursor-pointer text-primary"
-                              >
-                                <Send className="mr-2 h-4 w-4" /> Generate
-                                Invoice
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Vendor Bills</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {total} {total === 1 ? "Bill" : "Bills"} Total
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                    Previous
-                  </Button>
-                  <span className="text-sm">Page {page} of {totalPages}</span>
-                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                    Next
-                  </Button>
-                </div>
               </div>
+
+              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search by bill or vendor..."
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Bill
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-8 space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : filteredBills.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
+                  No bills found
+                </p>
+              </div>
+            ) : (
+              <BillsTable
+                filteredBills={filteredBills}
+                handleOpenEdit={handleOpenEdit}
+                handleDelete={handleDelete}
+                handleGenerateInvoiceFromBill={handleGenerateInvoiceFromBill}
+              />
             )}
           </CardContent>
+
+          {/* Pagination Footer */}
+          {totalPages > 1 && (
+            <div className="border-t border-border/20 p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs font-mono text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1} to {Math.min(page * LIMIT, total)} of {total} entries
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Prev
+                </Button>
+                <div className="text-xs font-mono text-foreground px-3">
+                  {page} / {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none text-xs border-border/40 font-mono text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page >= totalPages}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          formData?._id ? `Vendor Bill: ${formData.name}` : "Create Vendor Bill"
-        }
-        className="max-w-[1400px]"
-        footer={
-          <div className="flex justify-between items-center w-full px-6 py-4 bg-muted/5 border-t">
-            <div className="flex gap-2">
-              {formData?.state === DOCUMENT_STATUS.DRAFT && (
-                <Button
-                  variant="outline"
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                  disabled={isSubmitting}
-                  onClick={async () => {
-                    setIsSubmitting(true);
-                    try {
-                      const res = await fetch(`/api/finance/bills/${formData._id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          poMatchType: formData.poMatchType || "2_way",
-                          poMatchStatus: "matched",
-                          state: DOCUMENT_STATUS.PENDING_APPROVAL,
-                        }),
-                      });
-                      const json = await res.json();
-                      if (!res.ok) throw new Error(json.error || "PO match failed");
-                      toast.success("PO matched. AP invoice moved to approval.");
-                      setIsModalOpen(false);
-                      load();
-                    } catch (error: any) {
-                      toast.error(error.message || "PO match failed");
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Match PO & Send Approval
-                </Button>
-              )}
-              {formData?.state === DOCUMENT_STATUS.DRAFT && (
-                <Button
-                  variant="outline"
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 text-red-600 border-red-200 hover:bg-red-50 transition-all px-6"
-                  disabled={isSubmitting}
-                  onClick={async () => {
-                    setIsSubmitting(true);
-                    try {
-                      const res = await fetch(`/api/finance/bills/${formData._id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          poMatchStatus: "mismatch",
-                          manualReviewRequired: true,
-                          discrepancyNotes:
-                            formData.discrepancyNotes || "PO mismatch flagged for manual review",
-                        }),
-                      });
-                      const json = await res.json();
-                      if (!res.ok) throw new Error(json.error || "Manual review update failed");
-                      toast.success("Discrepancy logged. Sent to manual review.");
-                      setIsModalOpen(false);
-                      load();
-                    } catch (error: any) {
-                      toast.error(error.message || "Manual review update failed");
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                >
-                  <XCircle className="h-3.5 w-3.5 mr-2" /> Mark Discrepancy
-                </Button>
-              )}
-              {formData?.state === DOCUMENT_STATUS.PENDING_APPROVAL && (
-                <Button
-                  variant="outline"
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                  disabled={isSubmitting}
-                  onClick={async () => {
-                    setIsSubmitting(true);
-                    try {
-                      const res = await fetch(`/api/finance/bills/${formData._id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ state: DOCUMENT_STATUS.APPROVED }),
-                      });
-                      const json = await res.json();
-                      if (!res.ok) throw new Error(json.error || "Approval failed");
-                      toast.success("Bill approved");
-                      setIsModalOpen(false);
-                      load();
-                    } catch (error: any) {
-                      toast.error(error.message || "Approval failed");
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Approve
-                </Button>
-              )}
-              {formData?.state === DOCUMENT_STATUS.APPROVED &&
-                (formData?.paymentState || PAYMENT_STATE.NOT_PAID) === PAYMENT_STATE.NOT_PAID && (
-                  <Button
-                    variant="outline"
-                    className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                    disabled={isSubmitting}
-                    onClick={async () => {
-                      setIsSubmitting(true);
-                      try {
-                        const res = await fetch(`/api/finance/bills/${formData._id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            paymentState: PAYMENT_STATE.IN_PAYMENT,
-                            paymentScheduledDate:
-                              formData.paymentScheduledDate || formData.dueDate || new Date(),
-                          }),
-                        });
-                        const json = await res.json();
-                        if (!res.ok) throw new Error(json.error || "Payment scheduling failed");
-                        toast.success("Payment scheduled");
-                        setIsModalOpen(false);
-                        load();
-                      } catch (error: any) {
-                        toast.error(error.message || "Payment scheduling failed");
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    }}
-                  >
-                    <Clock className="h-3.5 w-3.5 mr-2" /> Schedule Payment
-                  </Button>
-                )}
-              {formData?.state === DOCUMENT_STATUS.APPROVED &&
-                formData?.paymentState === PAYMENT_STATE.IN_PAYMENT && (
-                  <Button
-                    variant="outline"
-                    className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                    disabled={isSubmitting}
-                    onClick={async () => {
-                      setIsSubmitting(true);
-                      try {
-                        const res = await fetch(`/api/finance/bills/${formData._id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            paymentState: PAYMENT_STATE.PAID,
-                            paidDate: new Date(),
-                          }),
-                        });
-                        const json = await res.json();
-                        if (!res.ok) throw new Error(json.error || "Payment execution failed");
-                        toast.success("Payment executed");
-                        setIsModalOpen(false);
-                        load();
-                      } catch (error: any) {
-                        toast.error(error.message || "Payment execution failed");
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    }}
-                  >
-                    <Receipt className="h-3.5 w-3.5 mr-2" /> Execute Payment
-                  </Button>
-                )}
-              {formData?.state === DOCUMENT_STATUS.APPROVED &&
-                formData?.paymentState === PAYMENT_STATE.PAID && (
-                <Button
-                  variant="outline"
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                  disabled={isSubmitting}
-                  onClick={() => handleSubmit(DOCUMENT_STATUS.POSTED)}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Post to GL
-                </Button>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setIsModalOpen(false)}
-                className="font-bold underline text-xs uppercase"
-              >
-                {formData?.state === DOCUMENT_STATUS.POSTED ? "Close" : "Discard"}
-              </Button>
-                {formData?.state === DOCUMENT_STATUS.DRAFT && (
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={isSubmitting}
-                  className="none-xl font-black text-xs uppercase px-8 shadow-xl shadow-primary/20"
-                >
-                  {isSubmitting
-                    ? "Saving..."
-                    : formData?._id
-                      ? "Update Draft"
-                      : "Save Record"}
-                </Button>
-              )}
-            </div>
-          </div>
-        }
-      >
-        {formData && (
-          <BillPopupContent
-            formData={formData}
-            setFormData={setFormData}
-            isViewOnly={formData.state !== DOCUMENT_STATUS.DRAFT}
-          />
-        )}
-      </ModularModal>
-
-      <ModularModal
-        open={isInvoiceModalOpen}
-        onOpenChange={setIsInvoiceModalOpen}
-        title="Generate Customer Invoice"
-        className="max-w-[1400px]"
-        footer={
-          <div className="flex justify-end gap-3 px-6 py-4 bg-muted/5 border-t">
-            <Button
-              variant="ghost"
-              onClick={() => setIsInvoiceModalOpen(false)}
-              className="font-bold underline text-xs uppercase"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveInvoice}
-              disabled={isSubmittingInvoice}
-              className="none-xl font-black text-xs uppercase px-8 shadow-xl shadow-primary/20"
-            >
-              {isSubmittingInvoice ? "Saving..." : "Create Invoice"}
-            </Button>
-          </div>
-        }
-      >
-        {invoiceFormData && (
-          <InvoicePopupContent
-            formData={invoiceFormData}
-            setFormData={setInvoiceFormData}
-            partners={customers}
-            isViewOnly={false}
-          />
-        )}
-      </ModularModal>
+      <BillsModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        formData={formData}
+        setFormData={setFormData}
+        isSubmitting={isSubmitting}
+        setIsSubmitting={setIsSubmitting}
+        handleSubmit={handleSubmit}
+        load={load}
+        isInvoiceModalOpen={isInvoiceModalOpen}
+        setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+        invoiceFormData={invoiceFormData}
+        setInvoiceFormData={setInvoiceFormData}
+        customers={customers}
+        isSubmittingInvoice={isSubmittingInvoice}
+        handleSaveInvoice={handleSaveInvoice}
+      />
     </DashboardLayout>
   );
 }
