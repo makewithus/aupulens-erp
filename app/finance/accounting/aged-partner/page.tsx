@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Search, Clock, FileWarning, ArrowRight } from "lucide-react";
+import { SearchInput } from "@/components/SearchInput";
+import { Clock, FileWarning, ArrowRight } from "lucide-react";
 
 export default function AgedPartnerReportPage() {
   const { data: session, status } = useSession();
@@ -60,74 +60,106 @@ export default function AgedPartnerReportPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
-              Aged Partner Balance
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Breakdown of {type === "receivable" ? "Customer" : "Vendor"}{" "}
-              balances by maturity
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Tabs
-              value={type}
-              onValueChange={(v: any) => setType(v)}
-              className="w-[300px]"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="receivable">Receivables</TabsTrigger>
-                <TabsTrigger value="payable">Payables</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search partner..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button variant="outline">Print</Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-none bg-transparent">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                  Aged Partner Balance
+                </h3>
+              </div>
+
+              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                <Tabs
+                  value={type}
+                  onValueChange={(v: any) => setType(v)}
+                  className="w-[300px]"
+                >
+                  <TabsList className="grid w-full grid-cols-2 rounded-none bg-white/[0.02] border border-border/40 p-0.5 h-10">
+                    <TabsTrigger
+                      value="receivable"
+                      className="rounded-none text-xs font-mono h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none transition-all"
+                    >
+                      Receivables
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="payable"
+                      className="rounded-none text-xs font-mono h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none transition-all"
+                    >
+                      Payables
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <div className="w-full max-w-xs">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search partner..."
+                  />
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => window.print()}
+                  className="h-10 px-6 rounded-none border border-border/40 bg-white/[0.02] text-xs uppercase tracking-wider font-mono text-foreground hover:bg-muted/10 transition-all shadow-none"
+                >
+                  Print
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
+              <div className="p-8 space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-background rounded-xl border border-dashed">
-                <FileWarning className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground">No records found</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">No records found</p>
               </div>
             ) : (
-              <div className="bg-background rounded-xl border overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border/20">
+                  <thead className="border-b border-border/40">
                     <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-6 py-4 text-left">Partner</th>
-                      <th className="px-6 py-4 text-right">Current</th>
-                      <th className="px-6 py-4 text-right">1 - 30 Days</th>
-                      <th className="px-6 py-4 text-right">31 - 60 Days</th>
-                      <th className="px-6 py-4 text-right">61 - 90 Days</th>
-                      <th className="px-6 py-4 text-right">90+ Days</th>
-                      <th className="px-6 py-4 text-right bg-primary/5">
+                      <th className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        Partner
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        Current
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        1 - 30 Days
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        31 - 60 Days
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        61 - 90 Days
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                        90+ Days
+                      </th>
+                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 bg-primary/5">
                         Total
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/20">
                     {filtered.map((item, idx) => (
                       <tr
                         key={idx}
-                        className="hover:bg-muted/20 transition-colors text-sm"
+                        className="hover:bg-white/[0.015] transition-colors text-sm"
                       >
                         <td className="px-6 py-4 font-semibold text-primary">
                           {item.partnerName}
@@ -136,22 +168,22 @@ export default function AgedPartnerReportPage() {
                           ₹{item.current.toLocaleString()}
                         </td>
                         <td
-                          className={`px-6 py-4 text-right ${item["1-30"] > 0 ? "text-blue-600 font-medium" : ""}`}
+                          className={`px-6 py-4 text-right ${item["1-30"] > 0 ? "text-[#6CADF5] font-medium" : ""}`}
                         >
                           ₹{item["1-30"].toLocaleString()}
                         </td>
                         <td
-                          className={`px-6 py-4 text-right ${item["31-60"] > 0 ? "text-amber-600 font-medium" : ""}`}
+                          className={`px-6 py-4 text-right ${item["31-60"] > 0 ? "text-amber-500 font-medium" : ""}`}
                         >
                           ₹{item["31-60"].toLocaleString()}
                         </td>
                         <td
-                          className={`px-6 py-4 text-right ${item["61-90"] > 0 ? "text-orange-600 font-medium" : ""}`}
+                          className={`px-6 py-4 text-right ${item["61-90"] > 0 ? "text-orange-500 font-medium" : ""}`}
                         >
                           ₹{item["61-90"].toLocaleString()}
                         </td>
                         <td
-                          className={`px-6 py-4 text-right ${item["90+"] > 0 ? "text-red-600 font-bold" : ""}`}
+                          className={`px-6 py-4 text-right ${item["90+"] > 0 ? "text-[#F56868] font-bold" : ""}`}
                         >
                           ₹{item["90+"].toLocaleString()}
                         </td>
@@ -161,10 +193,10 @@ export default function AgedPartnerReportPage() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-primary/5 font-black text-primary border-t-2">
+                  <tfoot className="bg-primary/5 font-black text-primary border-t-2 border-primary/20">
                     <tr>
                       <td className="px-6 py-5 text-left uppercase text-xs tracking-[0.2em]">
-                        Grant Total
+                        Grand Total
                       </td>
                       <td className="px-6 py-5 text-right">
                         ₹
@@ -211,18 +243,18 @@ export default function AgedPartnerReportPage() {
         </Card>
 
         {/* Legend */}
-        <div className="flex items-center gap-6 mt-6 px-4 py-3 bg-muted/20 rounded-lg text-[10px] justify-center uppercase font-bold tracking-widest text-muted-foreground">
+        <div className="flex items-center gap-6 mt-6 px-4 py-3 bg-white/[0.01] border border-border/40 rounded-none text-[10px] justify-center font-bold tracking-widest text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-blue-500" /> Recent
+            <div className="h-2 w-2 rounded-none bg-[#6CADF5]" /> Recent
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-amber-500" /> 1 month
+            <div className="h-2 w-2 rounded-none bg-amber-500" /> 1 month
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-orange-500" /> 2 months
+            <div className="h-2 w-2 rounded-none bg-orange-500" /> 2 months
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-red-500" /> Critical
+            <div className="h-2 w-2 rounded-none bg-[#F56868]" /> Critical
           </div>
         </div>
       </div>

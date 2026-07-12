@@ -35,6 +35,7 @@ import { signOut } from "next-auth/react";
 import { HeaderActions } from "./HeaderActions";
 import { GlobalSearch } from "./GlobalSearch";
 import { ModuleTabs } from "./ModuleTabs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Master Admin Module Switching
 const MASTER_MODULES = [
@@ -455,9 +456,9 @@ export function DashboardHeader({
               onSignOut={handleSignOut}
             />
 
-            {/* <div className="hover:scale-105 transition-transform duration-200">
+            <div className="hover:scale-105 transition-transform duration-200">
               <ThemeToggle />
-            </div> */}
+            </div>
 
           </div>
         </div>
