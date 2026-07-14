@@ -230,7 +230,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   return (
     <aside
       className={cn(
-        "flex flex-col flex-shrink-0 animate-in slide-in-from-right duration-200 transition-all ease-in-out shadow-2xl",
+        "flex flex-col flex-shrink-0 animate-in slide-in-from-right duration-200 transition-all ease-in-out",
+        isDark ? "shadow-2xl" : "shadow-none",
         "absolute inset-y-0 right-0 z-50 w-full max-w-[460px] sm:relative sm:w-[450px] sm:max-w-none h-full border-l",
         isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200"
       )}
@@ -241,13 +242,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         isDark ? "border-neutral-900 bg-neutral-950/80 text-neutral-400" : "border-neutral-200 bg-white/80 text-neutral-600"
       )}>
         <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-5 h-5 rounded border flex items-center justify-center select-none shadow-sm",
-            isDark ? "border-neutral-800 bg-neutral-900/60 text-purple-400 shadow-purple-500/5" : "border-neutral-200 bg-purple-50 text-purple-650"
-          )}>
-            <Sparkles className="w-3 h-3" />
-          </div>
-          <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>AI Workspace</h2>
+          <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>AI Assistant</h2>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
@@ -300,7 +295,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
 
             {/* Compact suggested chips */}
-            <div className="flex flex-wrap gap-2 justify-center max-w-[340px]">
+            {/* <div className="flex flex-wrap gap-2 justify-center max-w-[340px]">
               {[
                 "Analyze sales pipeline",
                 "Summarize customer activity",
@@ -317,7 +312,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   {promptText}
                 </button>
               ))}
-            </div>
+            </div> */}
           </div>
         ) : (
           <div className="flex-grow p-4 space-y-4">
