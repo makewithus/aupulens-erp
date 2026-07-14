@@ -182,10 +182,12 @@ export function ChurnRiskChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 font-mono w-full relative flex flex-col">
+    <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col border ${
+      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+    }`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-normal text-white uppercase mt-0.5">
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-950"}`}>
             Churn Risk Segments
           </h3>
         </div>
@@ -196,7 +198,7 @@ export function ChurnRiskChart() {
         <div className="relative w-[340px] h-[340px] flex-shrink-0 mx-auto">
           <canvas ref={canvasRef} className="block"></canvas>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none font-mono">
-            <div className="text-2xl md:text-3xl font-medium text-white tracking-tighter">
+            <div className={`text-2xl md:text-3xl font-medium tracking-tighter ${isDark ? "text-white" : "text-neutral-900"}`}>
               {centerVal}
             </div>
             <div className="text-[9px] text-neutral-500 uppercase tracking-widest mt-1">
@@ -214,7 +216,13 @@ export function ChurnRiskChart() {
               <div
                 key={c.name}
                 className={`flex items-center justify-between py-0.5 px-2 transition-colors cursor-pointer rounded-[2px] ${
-                  isHovered ? "bg-neutral-800 text-white" : "hover:bg-neutral-800/40 hover:text-neutral-200"
+                  isHovered
+                    ? isDark
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-neutral-900 font-semibold"
+                    : isDark
+                    ? "hover:bg-neutral-800/40 hover:text-neutral-200"
+                    : "hover:bg-neutral-100/50 hover:text-neutral-700"
                 }`}
                 onMouseEnter={() => {
                   setHoveredIdx(i);
@@ -232,9 +240,9 @@ export function ChurnRiskChart() {
                     className="w-2.5 h-2.5 rounded-[1px] inline-block flex-shrink-0"
                     style={{ backgroundColor: c.color }}
                   ></span>
-                  <span>{c.name}</span>
+                  <span className={isDark ? "text-neutral-400" : "text-neutral-600"}>{c.name}</span>
                 </div>
-                <span className="font-semibold text-white">{pct}%</span>
+                <span className={`font-semibold ${isDark ? "text-white" : "text-neutral-900"}`}>{pct}%</span>
               </div>
             );
           })}

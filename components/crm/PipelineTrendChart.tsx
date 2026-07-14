@@ -347,10 +347,12 @@ export function PipelineTrendChart() {
   ];
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 font-mono w-full relative">
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${
+      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+    }`}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-normal text-white uppercase mt-1">
+          <h2 className={`text-lg font-normal uppercase mt-1 ${isDark ? "text-white" : "text-neutral-900"}`}>
             Sales Pipeline Trend
           </h2>
         </div>
@@ -360,16 +362,27 @@ export function PipelineTrendChart() {
           <button
             onClick={() => setIsAdvanced(false)}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              !isAdvanced ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white" : "text-neutral-500 hover:text-neutral-300"
+              !isAdvanced
+                ? isDark
+                  ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium"
+                  : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold"
+                : isDark
+                ? "text-neutral-500 hover:text-neutral-300"
+                : "text-neutral-450 hover:text-neutral-600"
             }`}
           >
             Overview
           </button>
-          <span className="text-neutral-700 select-none">|</span>
           <button
             onClick={() => setIsAdvanced(true)}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              isAdvanced ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white" : "text-neutral-500 hover:text-neutral-300"
+              isAdvanced
+                ? isDark
+                  ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium"
+                  : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold"
+                : isDark
+                ? "text-neutral-500 hover:text-neutral-300"
+                : "text-neutral-450 hover:text-neutral-600"
             }`}
           >
             Advanced Breakdown
@@ -379,7 +392,9 @@ export function PipelineTrendChart() {
 
       {/* Advanced Legend */}
       {isAdvanced && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4 text-[10px] border-b border-neutral-800/60 pb-3">
+        <div className={`flex flex-wrap gap-x-4 gap-y-2 mb-4 text-[10px] border-b pb-3 ${
+          isDark ? "border-neutral-800/60" : "border-neutral-200/60"
+        }`}>
           {segmentsLegend.map((c) => (
             <div key={c.name} className="flex items-center gap-1.5 text-neutral-400">
               <span
@@ -399,7 +414,9 @@ export function PipelineTrendChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-neutral-800 p-2.5 font-mono text-[11px] text-white shadow-xl min-w-[150px] rounded-none hidden z-10"
+          className={`absolute pointer-events-none p-2.5 font-mono text-[11px] shadow-xl min-w-[150px] rounded-none hidden z-10 border ${
+            isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          }`}
         >
           <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
           <div ref={tooltipValueRef} className="font-semibold text-xs text-indigo-400"></div>

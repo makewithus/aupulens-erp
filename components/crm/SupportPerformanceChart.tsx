@@ -193,10 +193,12 @@ export function SupportPerformanceChart() {
   }, [metricType, isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 font-mono w-full relative">
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${
+      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+    }`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-normal text-white uppercase mt-0.5">
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-900"}`}>
             Support Channel Performance
           </h3>
         </div>
@@ -207,19 +209,27 @@ export function SupportPerformanceChart() {
             onClick={() => setMetricType("tickets")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
               metricType === "tickets"
-                ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
-                : "text-neutral-500 hover:text-neutral-300"
+                ? isDark
+                  ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
+                  : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold"
+                : isDark
+                ? "text-neutral-500 hover:text-neutral-300"
+                : "text-neutral-450 hover:text-neutral-600"
             }`}
           >
             Resolved Tickets
           </button>
-          <span className="text-neutral-700 select-none">|</span>
+          <span className={`select-none ${isDark ? "text-neutral-800" : "text-neutral-300"}`}>|</span>
           <button
             onClick={() => setMetricType("time")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
               metricType === "time"
-                ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
-                : "text-neutral-500 hover:text-neutral-300"
+                ? isDark
+                  ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
+                  : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold"
+                : isDark
+                ? "text-neutral-500 hover:text-neutral-300"
+                : "text-neutral-450 hover:text-neutral-600"
             }`}
           >
             Resolution Time
@@ -233,7 +243,9 @@ export function SupportPerformanceChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-neutral-800 p-2 font-mono text-[11px] text-white shadow-xl min-w-[130px] rounded-none hidden z-10"
+          className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[130px] rounded-none hidden z-10 border ${
+            isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          }`}
         ></div>
       </div>
     </div>

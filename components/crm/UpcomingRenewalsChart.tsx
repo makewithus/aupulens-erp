@@ -242,10 +242,12 @@ export function UpcomingRenewalsChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 font-mono w-full relative">
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${
+      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+    }`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-normal text-white uppercase mt-0.5">
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-900"}`}>
             Upcoming Renewals Forecast
           </h3>
         </div>
@@ -261,7 +263,9 @@ export function UpcomingRenewalsChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-neutral-800 p-2 font-mono text-[11px] text-white shadow-xl min-w-[200px] rounded-none hidden z-10"
+          className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[200px] rounded-none hidden z-10 border ${
+            isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          }`}
         >
           <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
           <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>

@@ -437,10 +437,12 @@ export function CampaignROIChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 font-mono w-full relative flex flex-col items-center">
+    <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col items-center border ${
+      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+    }`}>
       <div className="w-full flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-lg font-normal text-white uppercase mt-0.5">
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-905"}`}>
             Multi-channel Lead Flow Topology
           </h3>
         </div>
@@ -452,17 +454,23 @@ export function CampaignROIChart() {
         {/* 3D Sphere Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#0c0c12]/95 border border-neutral-800 p-2.5 font-mono text-[11px] text-white shadow-xl min-w-[125px] rounded-none hidden z-10 backdrop-blur-md"
+          className={`absolute pointer-events-none p-2.5 font-mono text-[11px] shadow-xl min-w-[125px] rounded-none hidden z-10 border backdrop-blur-md ${
+            isDark ? "bg-[#0c0c12]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          }`}
         ></div>
 
         {/* Speed Controls */}
-        <div className="flex gap-2 absolute bottom-4 left-1/2 -translate-x-1/2 text-[9px] z-10">
+        <div className="flex gap-2 absolute bottom-4 left-1/2 -translate-x-1/2 text-[9px] z-10 font-mono">
           <button
             onClick={() => setSpeedMul(0)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 0
-                ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                ? isDark
+                  ? "bg-white/10 text-white border-white"
+                  : "bg-neutral-900 text-white border-neutral-900 font-semibold"
+                : isDark
+                ? "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-neutral-100 text-neutral-500 border-neutral-200 hover:text-neutral-700"
             }`}
           >
             Pause
@@ -471,8 +479,12 @@ export function CampaignROIChart() {
             onClick={() => setSpeedMul(1)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 1
-                ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                ? isDark
+                  ? "bg-white/10 text-white border-white"
+                  : "bg-neutral-900 text-white border-neutral-900 font-semibold"
+                : isDark
+                ? "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-neutral-100 text-neutral-500 border-neutral-200 hover:text-neutral-700"
             }`}
           >
             Rotate
@@ -481,8 +493,12 @@ export function CampaignROIChart() {
             onClick={() => setSpeedMul(3)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 3
-                ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                ? isDark
+                  ? "bg-white/10 text-white border-white"
+                  : "bg-neutral-900 text-white border-neutral-900 font-semibold"
+                : isDark
+                ? "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-neutral-100 text-neutral-500 border-neutral-200 hover:text-neutral-700"
             }`}
           >
             Fast
