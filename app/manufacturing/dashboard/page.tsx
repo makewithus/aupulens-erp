@@ -211,13 +211,6 @@ export default function ManufacturingDashboard() {
               Overview of your production and inventory
             </p>
           </div>
-          <Button
-            onClick={() => setShowVisualization(true)}
-            className="hidden md:flex bg-blue-800 hover:bg-blue-700 text-white"
-          >
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Analytics
-          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

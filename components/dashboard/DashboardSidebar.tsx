@@ -1,3 +1,4 @@
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,37 @@ export function DashboardSidebar({
   onToggleCollapse,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Restore scroll position on sections change (meaning a navigation completed and layout mounted)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const savedPosition = sessionStorage.getItem("sidebar-scroll-position");
+    if (savedPosition) {
+      container.scrollTop = parseInt(savedPosition, 10);
+      const t = setTimeout(() => {
+        container.scrollTop = parseInt(savedPosition, 10);
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [sections]);
+
+  // Track and save scroll position in sessionStorage on scroll events
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      sessionStorage.setItem("sidebar-scroll-position", container.scrollTop.toString());
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   return (
     <aside
@@ -67,7 +99,7 @@ export function DashboardSidebar({
         </Button>
       </div>
 
-      <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-4">
+      <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-4">
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
