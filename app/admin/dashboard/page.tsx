@@ -11,7 +11,7 @@ import {
   TrendingDown,
   Activity,
 } from "lucide-react";
-import { StatsRowSkeleton } from "@/components/ui/loading-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardStats } from "@/components/admin/DashboardStats";
 import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
@@ -136,10 +136,56 @@ export default function AdminDashboard() {
         profilePath="/admin/profile"
       >
         <div className="space-y-6">
-          <StatsRowSkeleton count={6} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="none-4xl border-2 h-[400px]" />
-            <Card className="none-4xl border-2 h-[400px]" />
+          {/* Header Skeleton */}
+          <div className="space-y-1">
+            <Skeleton className="h-[48px] w-[300px] md:h-[56px] md:w-[450px]" />
+          </div>
+
+          {/* Stats Cards Skeleton (6 items) */}
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="border-0 shadow-none p-6">
+                <Skeleton className="h-4 w-[100px] mb-4" />
+                <Skeleton className="h-8 w-[160px] mb-2" />
+                <Skeleton className="h-3.5 w-[140px]" />
+              </Card>
+            ))}
+          </div>
+
+          {/* Charts Skeleton (3 items) */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="border border-neutral-800 bg-neutral-900/60 p-6 h-[380px] flex flex-col justify-between shadow-none">
+                <div>
+                  <Skeleton className="h-4 w-[120px] mb-2" />
+                  <Skeleton className="h-3 w-[150px] mb-6" />
+                  <Skeleton className="h-10 w-[200px]" />
+                </div>
+                <div className="h-[150px] w-full flex items-end gap-2 pt-4">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <Skeleton key={j} className="flex-1 h-[60%] last:h-[90%] odd:h-[40%] rounded-none" />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Net Profit Card Skeleton (Full Width) */}
+          <Card className="p-8 border-0 shadow-none flex flex-col items-center justify-center h-[200px]">
+            <Skeleton className="h-4 w-[150px] mb-4" />
+            <Skeleton className="h-12 w-[240px] mb-3" />
+            <Skeleton className="h-3.5 w-[180px]" />
+          </Card>
+
+          {/* Bottom Metrics Skeleton (4 items) */}
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="border-0 shadow-none p-6">
+                <Skeleton className="h-4 w-[100px] mb-4" />
+                <Skeleton className="h-8 w-[150px] mb-2" />
+                <Skeleton className="h-3.5 w-[130px]" />
+              </Card>
+            ))}
           </div>
         </div>
       </DashboardLayout>
@@ -198,16 +244,11 @@ export default function AdminDashboard() {
           </h1>
         </div>
 
-        {/* <DashboardStats
+        <DashboardStats
           summary={summary}
           formatCurrency={formatCurrency}
           revenueIndicator={revenueIndicator}
           ordersIndicator={ordersIndicator}
-        />
-
-        <NetProfitCard
-          summary={summary}
-          formatCurrency={formatCurrency}
         />
 
         <DashboardCharts
@@ -215,10 +256,15 @@ export default function AdminDashboard() {
           formatCurrency={formatCurrency}
         />
 
+        <NetProfitCard
+          summary={summary}
+          formatCurrency={formatCurrency}
+        />
+
         <DashboardMetrics
           summary={summary}
           formatCurrency={formatCurrency}
-        /> */}
+        />
       </div>
     </DashboardLayout>
   );
