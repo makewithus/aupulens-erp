@@ -20,6 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Search,
   Plus,
   Trash2,
@@ -36,6 +44,7 @@ import {
   Users,
 } from "lucide-react";
 import { PayrollList } from "@/components/hr/payroll/PayrollList";
+import { PAYROLL_STATUS } from "@/lib/constants/statuses";
 
 interface PayrollRun {
   _id: string;
@@ -57,41 +66,41 @@ interface PayrollRun {
 }
 
 const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
-  draft: { color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: BookOpen, label: "Draft" },
-  attendance_locked: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Lock, label: "Attendance Locked" },
-  computed: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Calculator, label: "Computed" },
-  reviewed: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: ClipboardCheck, label: "Reviewed" },
-  approved: { color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: CheckCircle2, label: "Approved" },
-  disbursed: { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300", icon: Banknote, label: "Disbursed" },
-  posted_to_gl: { color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300", icon: BookOpen, label: "Posted to GL" },
+  [PAYROLL_STATUS.DRAFT]: { color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: BookOpen, label: "Draft" },
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Lock, label: "Attendance Locked" },
+  [PAYROLL_STATUS.COMPUTED]: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Calculator, label: "Computed" },
+  [PAYROLL_STATUS.REVIEWED]: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: ClipboardCheck, label: "Reviewed" },
+  [PAYROLL_STATUS.APPROVED]: { color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: CheckCircle2, label: "Approved" },
+  [PAYROLL_STATUS.DISBURSED]: { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300", icon: Banknote, label: "Disbursed" },
+  [PAYROLL_STATUS.POSTED_TO_GL]: { color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300", icon: BookOpen, label: "Posted to GL" },
 };
 
 const workflowSteps = [
-  { key: "draft", label: "Draft", icon: BookOpen },
-  { key: "attendance_locked", label: "Lock Attendance", icon: Lock },
-  { key: "computed", label: "Compute", icon: Calculator },
-  { key: "reviewed", label: "Review", icon: ClipboardCheck },
-  { key: "approved", label: "Approve", icon: CheckCircle2 },
-  { key: "disbursed", label: "Disburse", icon: Banknote },
-  { key: "posted_to_gl", label: "Post to GL", icon: BookOpen },
+  { key: PAYROLL_STATUS.DRAFT, label: "Draft", icon: BookOpen },
+  { key: PAYROLL_STATUS.ATTENDANCE_LOCKED, label: "Lock Attendance", icon: Lock },
+  { key: PAYROLL_STATUS.COMPUTED, label: "Compute", icon: Calculator },
+  { key: PAYROLL_STATUS.REVIEWED, label: "Review", icon: ClipboardCheck },
+  { key: PAYROLL_STATUS.APPROVED, label: "Approve", icon: CheckCircle2 },
+  { key: PAYROLL_STATUS.DISBURSED, label: "Disburse", icon: Banknote },
+  { key: PAYROLL_STATUS.POSTED_TO_GL, label: "Post to GL", icon: BookOpen },
 ];
 
 const nextStatusMap: Record<string, string> = {
-  draft: "attendance_locked",
-  attendance_locked: "computed",
-  computed: "reviewed",
-  reviewed: "approved",
-  approved: "disbursed",
-  disbursed: "posted_to_gl",
+  [PAYROLL_STATUS.DRAFT]: PAYROLL_STATUS.ATTENDANCE_LOCKED,
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: PAYROLL_STATUS.COMPUTED,
+  [PAYROLL_STATUS.COMPUTED]: PAYROLL_STATUS.REVIEWED,
+  [PAYROLL_STATUS.REVIEWED]: PAYROLL_STATUS.APPROVED,
+  [PAYROLL_STATUS.APPROVED]: PAYROLL_STATUS.DISBURSED,
+  [PAYROLL_STATUS.DISBURSED]: PAYROLL_STATUS.POSTED_TO_GL,
 };
 
 const nextActionLabels: Record<string, string> = {
-  draft: "Lock Attendance",
-  attendance_locked: "Compute Payroll",
-  computed: "Mark Reviewed",
-  reviewed: "Approve & Post JE",
-  approved: "Disburse & Post JE",
-  disbursed: "Post to GL",
+  [PAYROLL_STATUS.DRAFT]: "Lock Attendance",
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: "Compute Payroll",
+  [PAYROLL_STATUS.COMPUTED]: "Mark Reviewed",
+  [PAYROLL_STATUS.REVIEWED]: "Approve & Post JE",
+  [PAYROLL_STATUS.APPROVED]: "Disburse & Post JE",
+  [PAYROLL_STATUS.DISBURSED]: "Post to GL",
 };
 
 export default function PayrollPage() {
@@ -204,9 +213,9 @@ export default function PayrollPage() {
     }
 
     const confirmMsg =
-      selectedPayroll.status === "reviewed"
+      selectedPayroll.status === PAYROLL_STATUS.REVIEWED
         ? "This will approve the payroll and create a Salary Expense journal entry. Continue?"
-        : selectedPayroll.status === "approved"
+        : selectedPayroll.status === PAYROLL_STATUS.APPROVED
           ? "This will disburse and create a Bank Payment journal entry. Continue?"
           : `Advance to "${nextActionLabels[selectedPayroll.status]}"?`;
 
@@ -487,40 +496,38 @@ export default function PayrollPage() {
             {selectedPayroll.lineItems && selectedPayroll.lineItems.length > 0 && (
               <div>
                 <h3 className="text-sm font-bold text-muted-foreground uppercase mb-3">Employee Breakdown</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/40 bg-muted/30">
-                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Employee</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Days Worked</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Basic</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Gross</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Deductions</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Net</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedPayroll.lineItems.map((item: any, idx: number) => (
-                        <tr key={idx} className="border-b border-border/20">
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
-                            <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">{item.daysWorked || 0}</td>
-                          <td className="px-3 py-2 text-right font-mono">₹{(item.basic || 0).toLocaleString()}</td>
-                          <td className="px-3 py-2 text-right font-mono">₹{(item.grossSalary || 0).toLocaleString()}</td>
-                          <td className="px-3 py-2 text-right font-mono text-destructive">
-                            ₹{(
-                              item.deductions?.totalDeductions ||
-                              ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
-                            ).toLocaleString()}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableHead>Employee</TableHead>
+                      <TableHead className="text-right">Days Worked</TableHead>
+                      <TableHead className="text-right">Basic</TableHead>
+                      <TableHead className="text-right">Gross</TableHead>
+                      <TableHead className="text-right">Deductions</TableHead>
+                      <TableHead className="text-right">Net</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedPayroll.lineItems.map((item: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{item.daysWorked || 0}</TableCell>
+                        <TableCell className="text-right font-mono">₹{(item.basic || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">
+                          ₹{(
+                            item.deductions?.totalDeductions ||
+                            ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
+                          ).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
 

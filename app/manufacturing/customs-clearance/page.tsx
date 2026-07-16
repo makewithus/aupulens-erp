@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, FileText, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface CustomsClearance {
   _id: string;
@@ -379,43 +380,43 @@ export default function CustomsClearancePage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Declaration #</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Shipment ID</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Office</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Duty</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Submitted</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Declaration #</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Shipment ID</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Office</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Duty</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Submitted</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {clearances.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center p-8 text-gray-500 dark:text-gray-400">
                         No customs clearances found. Create your first clearance to get started.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     clearances.map((clearance) => (
-                      <tr key={clearance._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 text-gray-900 dark:text-white font-medium">{clearance.declarationNumber}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{clearance.shipmentId}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{clearance.customsOffice}</td>
-                        <td className="p-3">
+                      <TableRow key={clearance._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{clearance.declarationNumber}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{clearance.shipmentId}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{clearance.customsOffice}</TableCell>
+                        <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(clearance.status)}`}>
                             {clearance.status}
                           </span>
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                        </TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           {clearance.currency} {clearance.dutyAmount.toFixed(2)}
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                        </TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           {new Date(clearance.submissionDate).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3">
                           <div className="flex gap-2">
                             <Button
                               variant="ghost"
@@ -433,12 +434,12 @@ export default function CustomsClearancePage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

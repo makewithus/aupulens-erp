@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ItemPopup } from "./popups/ItemPopup";
 import { ItemBOMPopup } from "./popups/ItemBOMPopup";
 import { CouponPopup } from "./popups/CouponPopup";
@@ -525,39 +526,39 @@ export default function ItemsPage() {
                 <TableSkeleton rows={5} columns={5} />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted/50">
-                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-6 py-3 text-left">Name</th>
-                        <th className="px-6 py-3 text-left">Type</th>
-                        <th className="px-6 py-3 text-left">Category</th>
-                        <th className="px-6 py-3 text-left">Unit</th>
-                        <th className="px-6 py-3 text-left">SKU</th>
-                        <th className="px-6 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-background divide-y divide-border">
+                  <Table className="min-w-full divide-y divide-border">
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <TableHead className="px-6 py-3 text-left">Name</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Type</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Category</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Unit</TableHead>
+                        <TableHead className="px-6 py-3 text-left">SKU</TableHead>
+                        <TableHead className="px-6 py-3 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="bg-background divide-y divide-border">
                       {filteredItems.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                             <div className="flex flex-col items-center gap-2">
                               <Package className="h-8 w-8 opacity-20" />
                               <p className="text-sm">No items found. Click &quot;New&quot; to create one.</p>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         filteredItems.map((item) => (
-                          <tr key={item._id} className="hover:bg-muted/30 transition-colors group">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                          <TableRow key={item._id} className="hover:bg-muted/30 transition-colors group">
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
                                   <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <span className="text-sm font-medium">{item.name}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <Badge
                                 variant="secondary"
                                 className={`text-[10px] border-0 ${
@@ -568,28 +569,28 @@ export default function ItemsPage() {
                               >
                                 {item.type === "service" ? "Service" : "Goods"}
                               </Badge>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                               {item.category || "—"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                               {item.unit || "—"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
                               {item.sku || "—"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                               <ActionButtons
                                 onView={() => handleViewItem(item)}
                                 onEdit={() => handleEditItem(item)}
                                 onDelete={() => handleDeleteItem(item._id)}
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -625,64 +626,64 @@ export default function ItemsPage() {
                 <TableSkeleton rows={5} columns={5} />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted/50">
-                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-6 py-3 text-left">Name</th>
-                        <th className="px-6 py-3 text-left">BOM #</th>
-                        <th className="px-6 py-3 text-left">Item to Produce</th>
-                        <th className="px-6 py-3 text-left">Quantity</th>
-                        <th className="px-6 py-3 text-left">Components</th>
-                        <th className="px-6 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-background divide-y divide-border">
+                  <Table className="min-w-full divide-y divide-border">
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <TableHead className="px-6 py-3 text-left">Name</TableHead>
+                        <TableHead className="px-6 py-3 text-left">BOM #</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Item to Produce</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Quantity</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Components</TableHead>
+                        <TableHead className="px-6 py-3 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="bg-background divide-y divide-border">
                       {filteredBoms.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                             <div className="flex flex-col items-center gap-2">
                               <FileText className="h-8 w-8 opacity-20" />
                               <p className="text-sm">No Bills of Materials found.</p>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         filteredBoms.map((bom) => (
-                          <tr key={bom._id} className="hover:bg-muted/30 transition-colors group">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                          <TableRow key={bom._id} className="hover:bg-muted/30 transition-colors group">
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-md bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
                                   <FileText className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                                 </div>
                                 <span className="text-sm font-medium">{bom.name}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
                               {bom.bomNumber}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                               {typeof bom.itemToProduceId === "object"
                                 ? bom.itemToProduceId?.name
                                 : bom.itemToProduceId || "—"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                               {bom.quantity}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                               {(bom.components || []).length} components
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                               <ActionButtons
                                 onView={() => handleViewBom(bom)}
                                 onEdit={() => handleEditBom(bom)}
                                 onDelete={() => handleDeleteBom(bom._id)}
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -718,75 +719,75 @@ export default function ItemsPage() {
                 <TableSkeleton rows={5} columns={5} />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted/50">
-                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-6 py-3 text-left">Name</th>
-                        <th className="px-6 py-3 text-left">Code</th>
-                        <th className="px-6 py-3 text-left">Discount</th>
-                        <th className="px-6 py-3 text-left">Type</th>
-                        <th className="px-6 py-3 text-left">Valid Till</th>
-                        <th className="px-6 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-background divide-y divide-border">
+                  <Table className="min-w-full divide-y divide-border">
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <TableHead className="px-6 py-3 text-left">Name</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Code</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Discount</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Type</TableHead>
+                        <TableHead className="px-6 py-3 text-left">Valid Till</TableHead>
+                        <TableHead className="px-6 py-3 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="bg-background divide-y divide-border">
                       {filteredCoupons.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                             <div className="flex flex-col items-center gap-2">
                               <Tag className="h-8 w-8 opacity-20" />
                               <p className="text-sm">No coupons found. Click &quot;New&quot; to create one.</p>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         filteredCoupons.map((coupon) => (
-                          <tr key={coupon._id} className="hover:bg-muted/30 transition-colors group">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                          <TableRow key={coupon._id} className="hover:bg-muted/30 transition-colors group">
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-md bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
                                   <Tag className="h-4 w-4 text-green-600 dark:text-green-400" />
                                 </div>
                                 <span className="text-sm font-medium">{coupon.name}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
                                 {coupon.couponCode}
                               </code>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               {coupon.discountBy === "percentage"
                                 ? `${coupon.discountValue}%`
                                 : `${coupon.currency || "INR"} ${coupon.discountValue}`}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap">
                               <Badge
                                 variant="secondary"
                                 className="text-[10px] border-0 bg-muted text-muted-foreground capitalize"
                               >
                                 {coupon.discountType}
                               </Badge>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                               {coupon.neverExpires
                                 ? "Never"
                                 : coupon.validTill
                                 ? new Date(coupon.validTill).toLocaleDateString("en-IN")
                                 : "—"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                            </TableCell>
+                            <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                               <ActionButtons
                                 onView={() => handleViewCoupon(coupon)}
                                 onEdit={() => handleEditCoupon(coupon)}
                                 onDelete={() => handleDeleteCoupon(coupon._id)}
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>

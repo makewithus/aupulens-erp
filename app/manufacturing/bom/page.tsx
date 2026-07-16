@@ -32,6 +32,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BillOfMaterialPopup } from "@/app/inventory/operations/popups/BillOfMaterialPopup";
 import { toast } from "sonner";
 
@@ -262,20 +263,20 @@ export default function BillOfMaterialsPage() {
             <TableSkeleton rows={5} columns={5} />
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted/50">
-                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    <th className="px-6 py-3 text-left">Product</th>
-                    <th className="px-6 py-3 text-left">Reference</th>
-                    <th className="px-6 py-3 text-left">BoM Type</th>
-                    <th className="px-6 py-3 text-left">Quantity</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-background divide-y divide-border">
+              <Table className="min-w-full divide-y divide-border">
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-6 py-3 text-left">Product</TableHead>
+                    <TableHead className="px-6 py-3 text-left">Reference</TableHead>
+                    <TableHead className="px-6 py-3 text-left">BoM Type</TableHead>
+                    <TableHead className="px-6 py-3 text-left">Quantity</TableHead>
+                    <TableHead className="px-6 py-3 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="bg-background divide-y divide-border">
                   {filteredBoms.length === 0 ? (
-                    <tr>
-                      <td
+                    <TableRow>
+                      <TableCell
                         colSpan={5}
                         className="px-6 py-8 text-center text-muted-foreground"
                       >
@@ -283,15 +284,15 @@ export default function BillOfMaterialsPage() {
                           <FileText className="h-8 w-8 mb-2 opacity-20" />
                           <p>No Bills of Materials found.</p>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredBoms.map((bom: any) => (
-                      <tr
+                      <TableRow
                         key={bom._id}
                         className="hover:bg-muted/30 transition-colors group"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3 rounded-md">
                               <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -309,11 +310,11 @@ export default function BillOfMaterialsPage() {
                               </div>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                           {bom.header?.reference || "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
                           <Badge
                             variant={
                               bom.header?.bomType === "kit"
@@ -326,11 +327,11 @@ export default function BillOfMaterialsPage() {
                               ? "Manufacturing"
                               : "Kit"}
                           </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                           {bom.header?.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
@@ -357,12 +358,12 @@ export default function BillOfMaterialsPage() {
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>

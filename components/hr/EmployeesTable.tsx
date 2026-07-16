@@ -3,6 +3,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users as UsersIcon } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { EmployeeRow } from "./EmployeeRow";
 import { EmployeeToolbar } from "./EmployeesToolbar";
@@ -108,126 +116,124 @@ export function EmployeeTable({
       </div>
 
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-border/40">
-              <tr className="text-left">
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Employee
-                </th>
+        <Table>
+          <TableHeader className="border-border/40">
+            <TableRow>
+              <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Employee
+              </TableHead>
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Contact
-                </th>
+              <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Contact
+              </TableHead>
 
-                {/* <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Code
-                </th> */}
+              {/* <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Code
+              </TableHead> */}
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Department
-                </th>
+              <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Department
+              </TableHead>
 
-                {/* <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Lifecycle
-                </th> */}
+              {/* <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Lifecycle
+              </TableHead> */}
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  User Account
-                </th>
+              <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                User Account
+              </TableHead>
 
-                {/* <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Salary
-                </th> */}
+              {/* <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Salary
+              </TableHead> */}
 
-                <th className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
-                  Actions
-                </th>
-              </tr>
-            </thead>
+              <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
 
-            <tbody className="divide-y divide-border/30">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="px-8 py-7">
-                      <div className="space-y-2">
-                        <Skeleton className="h-5 w-36" />
-                        <Skeleton className="h-3 w-24 opacity-55" />
-                      </div>
-                    </td>
+          <TableBody className="divide-y divide-border/30">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell className="px-8 py-7">
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-36" />
+                      <Skeleton className="h-3 w-24 opacity-55" />
+                    </div>
+                  </TableCell>
 
-                    <td className="px-8 py-7">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-44" />
-                        <Skeleton className="h-4 w-28" />
-                      </div>
-                    </td>
-
-                    {/* <td className="px-8 py-7">
-                      <Skeleton className="h-4 w-20" />
-                    </td> */}
-
-                    <td className="px-8 py-7">
+                  <TableCell className="px-8 py-7">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-44" />
                       <Skeleton className="h-4 w-28" />
-                    </td>
+                    </div>
+                  </TableCell>
 
-                    {/* <td className="px-8 py-7">
-                      <Skeleton className="h-4 w-20" />
-                    </td> */}
+                  {/* <TableCell className="px-8 py-7">
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell> */}
 
-                    <td className="px-8 py-7">
-                      <Skeleton className="h-4 w-24" />
-                    </td>
+                  <TableCell className="px-8 py-7">
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
 
-                    {/* <td className="px-8 py-7">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="mt-2 h-3 w-20" />
-                    </td> */}
+                  {/* <TableCell className="px-8 py-7">
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell> */}
 
-                    <td className="px-8 py-7">
-                      <div className="flex justify-end gap-1">
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : employees.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-24 text-center">
-                    <UsersIcon className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                  <TableCell className="px-8 py-7">
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
 
-                    <h3 className="text-lg font-medium">
-                      {hasFilters
-                        ? "No employees match your filters"
-                        : "No employees found"}
-                    </h3>
+                  {/* <TableCell className="px-8 py-7">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="mt-2 h-3 w-20" />
+                  </TableCell> */}
 
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {hasFilters
-                        ? "Try adjusting your search or filters."
-                        : "Create your first employee to get started."}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                employees.map((employee) => (
-                  <EmployeeRow
-                    key={employee._id}
-                    employee={employee}
-                    lifecycleColors={lifecycleColors}
-                    getRoleBadgeColor={getRoleBadgeColor}
-                    onView={onView}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                  <TableCell className="px-8 py-7">
+                    <div className="flex justify-end gap-1">
+                      <Skeleton className="h-8 w-8" />
+                      <Skeleton className="h-8 w-8" />
+                      <Skeleton className="h-8 w-8" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : employees.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-24 text-center">
+                  <UsersIcon className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                  <h3 className="text-lg font-medium">
+                    {hasFilters
+                      ? "No employees match your filters"
+                      : "No employees found"}
+                  </h3>
+
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {hasFilters
+                      ? "Try adjusting your search or filters."
+                      : "Create your first employee to get started."}
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              employees.map((employee) => (
+                <EmployeeRow
+                  key={employee._id}
+                  employee={employee}
+                  lifecycleColors={lifecycleColors}
+                  getRoleBadgeColor={getRoleBadgeColor}
+                  onView={onView}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))
+            )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

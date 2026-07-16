@@ -468,9 +468,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const decimals = 2;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24">
+    <div className="bg-background text-foreground pb-24">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+      <header className="sticky top-0 z-10 -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 -mt-3 sm:-mt-4 md:-mt-6 lg:-mt-8 mb-6 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
           <Link href="/sales/invoices">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">

@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableCell, TableRow } from "@/components/ui/table";
 import {
   Mail,
   Phone,
@@ -59,9 +60,9 @@ export function EmployeeRow({
   onDelete,
 }: EmployeeRowProps) {
   return (
-    <tr className="group transition-colors duration-300 hover:bg-white/[0.015]">
+    <TableRow className="group transition-colors duration-300 hover:bg-white/[0.015]">
       {/* EMPLOYEE */}
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         <div className="space-y-1">
             <h3 className="text-[18px] font-medium tracking-[-0.03em]">
             {employee.firstName} {employee.lastName}
@@ -77,10 +78,10 @@ export function EmployeeRow({
             )}
             </p>
         </div>
-</td>
+</TableCell>
 
       {/* CONTACT */}
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm">
             <Mail className="h-3.5 w-3.5 text-muted-foreground/40" />
@@ -92,17 +93,17 @@ export function EmployeeRow({
             <span>{employee.phone}</span>
           </div>
         </div>
-      </td>
+      </TableCell>
 
       {/* CODE */}
-      {/* <td className="px-8 py-7">
+      {/* <TableCell className="px-8 py-7">
         <span className="font-mono text-sm text-muted-foreground">
           {employee.employeeCode}
         </span>
-      </td> */}
+      </TableCell> */}
 
       {/* DEPARTMENT */}
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         {employee.departmentId ? (
           <div className="flex items-center gap-2 text-sm">
             <span>{employee.departmentId.name}</span>
@@ -112,10 +113,10 @@ export function EmployeeRow({
             Unassigned
           </span>
         )}
-      </td>
+      </TableCell>
 
       {/* LIFECYCLE
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         <Badge
           className={`
             rounded-none
@@ -136,10 +137,10 @@ export function EmployeeRow({
         >
           {employee.lifecycleStatus.replace("_", " ")}
         </Badge>
-      </td> */}
+      </TableCell> */}
 
       {/* USER ACCOUNT */}
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         {employee.userId ? (
           <div className="space-y-1">
             <Badge
@@ -171,10 +172,10 @@ export function EmployeeRow({
             <span>No Account</span>
           </div>
         )}
-      </td>
+      </TableCell>
 
       {/* SALARY
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         <div className="space-y-1">
           <p className="text-sm">
             ₹{(employee.salary?.grossSalary ?? 0).toLocaleString()}
@@ -184,10 +185,10 @@ export function EmployeeRow({
             Net ₹{(employee.salary?.netSalary ?? 0).toLocaleString()}
           </p>
         </div>
-      </td> */}
+      </TableCell> */}
 
       {/* ACTIONS */}
-      <td className="px-8 py-7">
+      <TableCell className="px-8 py-7">
         <div className="flex justify-end gap-1">
           <Button
             variant="ghost"
@@ -216,7 +217,7 @@ export function EmployeeRow({
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

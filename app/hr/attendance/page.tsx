@@ -14,6 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -336,71 +344,69 @@ export default function AttendancePage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/40 bg-muted/30">
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Employee</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Date</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Check In</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Check Out</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Hours</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">OT</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((rec) => (
-                      <tr key={rec._id} className="border-b border-border/20 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{rec.employeeId?.firstName} {rec.employeeId?.lastName}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{rec.employeeId?.employeeCode}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {rec.employeeId?.departmentId ? (
-                            <div>
-                              <div className="text-xs font-medium">{rec.employeeId.departmentId.name}</div>
-                              <div className="text-xs text-muted-foreground font-mono">{rec.employeeId.departmentId.code}</div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Check In</TableHead>
+                    <TableHead>Check Out</TableHead>
+                    <TableHead>Hours</TableHead>
+                    <TableHead>OT</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((rec) => (
+                    <TableRow key={rec._id} className="hover:bg-muted/20">
+                      <TableCell>
+                        <div className="font-medium">{rec.employeeId?.firstName} {rec.employeeId?.lastName}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{rec.employeeId?.employeeCode}</div>
+                      </TableCell>
+                      <TableCell>
+                        {rec.employeeId?.departmentId ? (
+                          <div>
+                            <div className="text-xs font-medium">{rec.employeeId.departmentId.name}</div>
+                            <div className="text-xs text-muted-foreground font-mono">{rec.employeeId.departmentId.code}</div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</TableCell>
+                      <TableCell>{rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</TableCell>
+                      <TableCell className="font-mono">{rec.hoursWorked?.toFixed(1) || "0"}</TableCell>
+                      <TableCell className="font-mono">{rec.overtime?.toFixed(1) || "0"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge className={statusColors[rec.status] || ""}>{rec.status}</Badge>
+                          {rec.isLocked && <Lock className="h-3 w-3 text-amber-500" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenView(rec)} className="h-7 w-7">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          {!rec.isLocked && (
+                            <>
+                              <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(rec)} className="h-7 w-7">
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(rec._id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
-                        </td>
-                        <td className="px-4 py-3">{new Date(rec.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">{rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
-                        <td className="px-4 py-3">{rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
-                        <td className="px-4 py-3 font-mono">{rec.hoursWorked?.toFixed(1) || "0"}</td>
-                        <td className="px-4 py-3 font-mono">{rec.overtime?.toFixed(1) || "0"}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Badge className={statusColors[rec.status] || ""}>{rec.status}</Badge>
-                            {rec.isLocked && <Lock className="h-3 w-3 text-amber-500" />}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenView(rec)} className="h-7 w-7">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            {!rec.isLocked && (
-                              <>
-                                <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(rec)} className="h-7 w-7">
-                                  <Edit className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(rec._id)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         )}

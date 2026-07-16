@@ -14,6 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -300,74 +308,72 @@ export default function LeavePage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/40 bg-muted/30">
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Employee</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Leave Type</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">From</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">To</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Days</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Reason</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((req) => (
-                      <tr key={req._id} className="border-b border-border/20 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{req.employeeId?.firstName} {req.employeeId?.lastName}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{req.employeeId?.employeeCode}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">{leaveTypeLabels[req.leaveType] || req.leaveType}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-xs">{new Date(req.startDate).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-xs">{new Date(req.endDate).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 font-mono font-bold">{req.totalDays}</td>
-                        <td className="px-4 py-3">
-                          <Badge className={leaveStatusColors[req.status] || ""}>{req.status}</Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px] inline-block">{req.reason}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenView(req)} className="h-7 w-7">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            {req.status === "pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs"
-                                  onClick={() => handleAction(req._id, "approved")}
-                                >
-                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="h-7 text-xs"
-                                  onClick={() => handleOpenView(req)}
-                                >
-                                  <XCircle className="h-3 w-3 mr-1" /> Reject
-                                </Button>
-                              </>
-                            )}
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(req._id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Leave Type</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>To</TableHead>
+                    <TableHead>Days</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((req) => (
+                    <TableRow key={req._id} className="hover:bg-muted/20">
+                      <TableCell>
+                        <div className="font-medium">{req.employeeId?.firstName} {req.employeeId?.lastName}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{req.employeeId?.employeeCode}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{leaveTypeLabels[req.leaveType] || req.leaveType}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{new Date(req.startDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs">{new Date(req.endDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-mono font-bold">{req.totalDays}</TableCell>
+                      <TableCell>
+                        <Badge className={leaveStatusColors[req.status] || ""}>{req.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground line-clamp-1 max-w-[150px] inline-block">{req.reason}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenView(req)} className="h-7 w-7">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          {req.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs"
+                                onClick={() => handleAction(req._id, "approved")}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 text-xs"
+                                onClick={() => handleOpenView(req)}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" /> Reject
+                              </Button>
+                            </>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(req._id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
 
               {/* Pagination */}
               {totalPages > 1 && (

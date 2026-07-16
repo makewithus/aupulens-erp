@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
 import { CURRENCIES } from "@/config/currencies";
@@ -609,24 +610,24 @@ export default function ProductsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Product</th>
-                      <th className="px-6 py-3 text-left">Type</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Price</th>
-                      <th className="px-6 py-3 text-left">Cost</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      <TableHead className="px-6 py-3 text-left">Product</TableHead>
+                      <TableHead className="px-6 py-3 text-left">Type</TableHead>
+                      <TableHead className="px-6 py-3 text-left">Status</TableHead>
+                      <TableHead className="px-6 py-3 text-left">Price</TableHead>
+                      <TableHead className="px-6 py-3 text-left">Cost</TableHead>
+                      <TableHead className="px-6 py-3 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="bg-background divide-y divide-border">
                     {filtered.map((p) => (
-                      <tr
+                      <TableRow
                         key={p._id}
                         className="hover:bg-muted/30 transition-colors group"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
                               <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -641,11 +642,11 @@ export default function ProductsPage() {
                               </div>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground capitalize">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground capitalize">
                           {p.tab_general_information.type}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
                           {p.status === "published" ? (
                             <Badge
                               variant="secondary"
@@ -661,16 +662,16 @@ export default function ProductsPage() {
                               DRAFT
                             </Badge>
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {formatCurrency(p.tab_general_information.list_price)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                           {formatCurrency(
                             p.tab_general_information.standard_price,
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
@@ -699,11 +700,11 @@ export default function ProductsPage() {
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

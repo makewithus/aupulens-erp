@@ -27,6 +27,7 @@ import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import {
   PRODUCTION_STATUS,
@@ -469,39 +470,39 @@ export default function ManufacturingPage() {
               <TableSkeleton rows={5} columns={6} />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="p-3">Reference</th>
-                      <th className="p-3">Product</th>
-                      <th className="p-3 text-right">Qty</th>
-                      <th className="p-3">Production Flow</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full text-sm">
+                  <TableHeader className="bg-muted/50 border-b">
+                    <TableRow className="text-left text-muted-foreground">
+                      <TableHead className="p-3">Reference</TableHead>
+                      <TableHead className="p-3">Product</TableHead>
+                      <TableHead className="p-3 text-right">Qty</TableHead>
+                      <TableHead className="p-3">Production Flow</TableHead>
+                      <TableHead className="p-3">Status</TableHead>
+                      <TableHead className="p-3">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filteredOrders.map((o) => {
                       const ps = (o.productionStatus ||
                         PRODUCTION_STATUS.DEMAND_FORECAST) as ProductionStatus;
                       return (
-                        <tr
+                        <TableRow
                           key={o._id}
                           className="border-b hover:bg-muted/20 align-top"
                         >
-                          <td className="p-3 font-medium">
+                          <TableCell className="p-3 font-medium">
                             {o.header.name}
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell className="p-3">
                             {o.header?.productId?.header?.name || "-"}
-                          </td>
-                          <td className="p-3 text-right">
+                          </TableCell>
+                          <TableCell className="p-3 text-right">
                             {o.header.quantity}
-                          </td>
-                          <td className="p-3 max-w-md">
+                          </TableCell>
+                          <TableCell className="p-3 max-w-md">
                             <ProductionFlowStepper current={ps} />
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell className="p-3">
                             <div className="flex flex-col gap-1">
                               <ProductionBadge status={ps} />
                               {o.reworkCount > 0 && (
@@ -511,8 +512,8 @@ export default function ManufacturingPage() {
                                 </span>
                               )}
                             </div>
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell className="p-3">
                             <div className="flex flex-col gap-1.5">
                               <ProductionActions
                                 order={o}
@@ -540,12 +541,12 @@ export default function ManufacturingPage() {
                                   )}
                               </div>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
                 {filteredOrders.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
                     No manufacturing orders

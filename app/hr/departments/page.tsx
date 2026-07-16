@@ -12,6 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -256,81 +264,79 @@ export default function DepartmentsPage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/40 bg-muted/30">
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Code</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Head</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Parent</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Employees</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((dept) => (
-                      <tr key={dept._id} className="border-b border-border/20 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{dept.name}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {dept.headOfDepartment ? (
-                            <div>
-                              <div className="font-medium text-xs">{dept.headOfDepartment.firstName} {dept.headOfDepartment.lastName}</div>
-                              {dept.headOfDepartment.employeeCode && (
-                                <div className="text-xs text-muted-foreground font-mono">{dept.headOfDepartment.employeeCode}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {dept.parentDepartmentId ? (
-                            <span className="text-xs">{dept.parentDepartmentId.name}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="secondary" className="font-mono">
-                            {dept.employeeCount || 0}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={
-                              dept.isActive
-                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                            }
-                          >
-                            {dept.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenView(dept)} className="h-7 w-7">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(dept)} className="h-7 w-7">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dept._id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Department</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Head</TableHead>
+                    <TableHead>Parent</TableHead>
+                    <TableHead>Employees</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((dept) => (
+                    <TableRow key={dept._id} className="hover:bg-muted/20">
+                      <TableCell>
+                        <div className="font-medium">{dept.name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>
+                      </TableCell>
+                      <TableCell>
+                        {dept.headOfDepartment ? (
+                          <div>
+                            <div className="font-medium text-xs">{dept.headOfDepartment.firstName} {dept.headOfDepartment.lastName}</div>
+                            {dept.headOfDepartment.employeeCode && (
+                              <div className="text-xs text-muted-foreground font-mono">{dept.headOfDepartment.employeeCode}</div>
+                            )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {dept.parentDepartmentId ? (
+                          <span className="text-xs">{dept.parentDepartmentId.name}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="font-mono">
+                          {dept.employeeCount || 0}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            dept.isActive
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                          }
+                        >
+                          {dept.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenView(dept)} className="h-7 w-7">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(dept)} className="h-7 w-7">
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dept._id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         )}
