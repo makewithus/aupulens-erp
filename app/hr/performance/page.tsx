@@ -9,16 +9,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
   Search,
   Star,
-  TrendingUp,
-  Users,
-  Plus,
 } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { WorkflowCard } from "@/components/hr/workflow/WorkflowCard";
 
 interface Employee {
   _id: string;
@@ -126,63 +125,61 @@ export default function PerformancePage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
+      <div className="space-y-6 max-w-6xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Performance Reviews</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track and manage employee performance evaluations</p>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Performance Reviews</h1>
         </div>
 
-        {/* Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-black">{employees.length}</p>
-                <p className="text-xs text-muted-foreground">Active Employees</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Star className="h-8 w-8 text-yellow-500" />
-              <div>
-                <p className="text-2xl font-black">{reviews.length}</p>
-                <p className="text-xs text-muted-foreground">Reviews Done</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-black">
-                  {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Avg Rating</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-amber-500" />
-              <div>
-                <p className="text-2xl font-black">{employees.length - reviews.length}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Active Employees"
+              value={employees.length}
+              visual={<UsersGraph/>}
+            />
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search employees..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+            <StatCard
+              title="Reviews Completed"
+              value={reviews.length}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Average Rating"
+              value={reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : " "}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Pending Reviews"
+              value={employees.length - reviews.length}
+              visual={<UsersGraph/>}
+            />
           </div>
-        </div>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+
+              <Input
+                placeholder="Search employee..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="
+                  h-11
+                  rounded-none
+                  border-0
+                  border-b
+                  border-border/40
+                  bg-transparent
+                  pl-11
+                  shadow-none
+                  focus-visible:border-primary
+                  focus-visible:ring-0
+                "
+              />
+            </div>
 
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
             ))}
@@ -195,40 +192,61 @@ export default function PerformancePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {filtered.map((emp) => {
               const review = getReview(emp._id);
               return (
-                <Card key={emp._id} className="border-border/40 hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                        {emp.firstName[0]}{emp.lastName[0]}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-foreground">{emp.firstName} {emp.lastName}</span>
-                          <Badge variant="outline" className="text-xs font-mono">{emp.employeeCode}</Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground flex gap-2">
-                          {emp.designation && <span>{emp.designation}</span>}
-                          {emp.departmentId && <span>• {emp.departmentId.name}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
+                <WorkflowCard
+                  key={emp._id}
+                  employee={emp}
+                  action={
+                    <div className="flex items-center gap-6">
                       {review ? (
-                        <div className="flex items-center gap-1">{renderStars(review.rating)}</div>
+                        <div className="text-right">
+                          <p className="font-mono text-[10px] text-muted-foreground/45">
+                            Review
+                          </p>
+
+                          <div className="mt-1 flex justify-end gap-1">
+                            {renderStars(review.rating)}
+                          </div>
+                        </div>
                       ) : (
-                        <Badge variant="secondary">Not Reviewed</Badge>
+                        <div className="text-right">
+                          <p className="font-mono text-[10px] text-muted-foreground/45">
+                            Review
+                          </p>
+
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Pending
+                          </p>
+                        </div>
                       )}
-                      <Button size="sm" onClick={() => handleOpenReview(emp)} className="gap-1">
-                        {review ? <Star className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                        {review ? "Update" : "Review"}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReview(emp);
+                        }}
+                        className="
+                          h-10
+                          rounded-none
+                          border
+                          border-border/40
+                          bg-transparent
+                          px-5
+                          shadow-none
+                          transition-all
+                          hover:bg-muted
+                        "
+                      >
+                        {review ? "Update Review" : "Add Review"}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  }
+                />
               );
             })}
           </div>

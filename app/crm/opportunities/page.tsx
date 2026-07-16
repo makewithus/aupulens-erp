@@ -5,23 +5,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+import { StatCard } from "@/components/admin/StatCard";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
+  TableContainer,
   TableHead,
-  TableHeader,
+  TableHeaderCell,
+  TableBody,
   TableRow,
-} from "@/components/ui/table";
+  TableCell,
+} from "@/components/shared/Table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Filter, Download, ArrowRight, LayoutGrid, Calendar, AlertTriangle, CheckCircle2, TrendingUp, XCircle, DollarSign, Activity } from "lucide-react";
+import { Loader2, Plus, Search, Filter, Download, ArrowRight, LayoutGrid, Calendar, AlertTriangle, CheckCircle2, TrendingUp, XCircle, DollarSign, Activity, FolderKanban } from "lucide-react";
 import Link from "next/link";
 
 const FORECAST_CATEGORIES = ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"];
 const STAGES = ['Prospecting', 'Discovery', 'Requirement Gathering', 'Solution Fit', 'Proposal Sent', 'Negotiation', 'Approval', 'Closed Won', 'Closed Lost'];
 const PRIORITIES = ["Low", "Medium", "High"];
+
+const STAGE_COLORS: Record<string, string> = {
+  Prospecting: "text-[#6CADF5]",
+  Discovery: "text-[#6CADF5]",
+  "Requirement Gathering": "text-[#A77DFF]",
+  "Solution Fit": "text-[#A77DFF]",
+  "Proposal Sent": "text-[#F1DF38]",
+  Negotiation: "text-[#F1DF38]",
+  Approval: "text-[#8AE06C]",
+  "Closed Won": "text-[#8AE06C]",
+  "Closed Lost": "text-[#F56868]",
+};
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
@@ -193,252 +209,362 @@ export default function OpportunitiesPage() {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val || 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-primary" />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
+        <div className="shrink-0">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             Opportunity Management
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage pipeline, deals, and forecasts.</p>
+          {/* <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+            {total} {total === 1 ? "Opportunity" : "Opportunities"}
+          </p> */}
         </div>
-        <div className="flex gap-2">
-          <Link href="/crm/pipeline">
-            <Button variant="outline" className="gap-2">
-              <LayoutGrid className="w-4 h-4" /> Pipeline Board
-            </Button>
-          </Link>
-          <Button variant="outline" className="gap-2" onClick={() => setIsExportModalOpen(true)}>
-            <Download className="w-4 h-4" /> Export
+
+        <div className="flex flex-row gap-4">
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Opportunity
           </Button>
-          <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-4 h-4" /> New Opportunity
-          </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-neutral-900 border-neutral-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-400 flex items-center justify-between">
-              Total Pipeline Value
-              <DollarSign className="w-4 h-4 text-blue-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(kpis?.totalPipelineValue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">{kpis?.openOpportunities || 0} Open Deals</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-neutral-900 border-neutral-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-400 flex items-center justify-between">
-              Weighted Pipeline
-              <Activity className="w-4 h-4 text-purple-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(kpis?.weightedPipelineValue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Expected Revenue</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-neutral-900 border-neutral-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-400 flex items-center justify-between">
-              Closing This Month
-              <Calendar className="w-4 h-4 text-green-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis?.closingThisMonth || 0} Deals</div>
-            <p className="text-xs text-muted-foreground mt-1">Avg Size: {formatCurrency(kpis?.avgDealSize)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-neutral-900 border-neutral-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-neutral-400 flex items-center justify-between">
-              Deals At Risk
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpis?.dealsAtRisk || 0} Deals</div>
-            <p className="text-xs text-muted-foreground mt-1">Require immediate attention</p>
-          </CardContent>
-        </Card>
+      {/* KPI Cards (StatCards) */}
+      <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total Pipeline Value"
+          value={formatCurrency(kpis?.totalPipelineValue)}
+          subtitle={`${kpis?.openOpportunities || 0} Open Deals`}
+          className="border border-border/40 bg-background"
+        />
+        <StatCard
+          title="Weighted Pipeline"
+          value={formatCurrency(kpis?.weightedPipelineValue)}
+          subtitle="Expected Revenue"
+          className="border border-border/40 bg-background"
+        />
+        <StatCard
+          title="Closing This Month"
+          value={`${kpis?.closingThisMonth || 0}`}
+          subtitle="Deals"
+          className="border border-border/40 bg-background"
+        />
+        <StatCard
+          title="Deals At Risk"
+          value={`${kpis?.dealsAtRisk || 0}`}
+          subtitle="Requires attention"
+          className="border border-border/40 bg-background"
+        />
       </div>
 
-      {/* Toolbar */}
-      <div className="flex gap-4 items-center bg-neutral-900 p-4 rounded-lg border border-neutral-800">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-          <Input 
-            placeholder="Search deals, tags, accounts..." 
-            className="pl-9 bg-neutral-950 border-neutral-800"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-neutral-500" />
-          <Select value={stageFilter} onValueChange={setStageFilter}>
-            <SelectTrigger className="w-[180px] bg-neutral-950 border-neutral-800">
-              <SelectValue placeholder="All Stages" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={riskFilter} onValueChange={setRiskFilter}>
-            <SelectTrigger className="w-[160px] bg-neutral-950 border-neutral-800">
-              <SelectValue placeholder="Risk Level" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Risks</SelectItem>
-              <SelectItem value="Healthy">Healthy</SelectItem>
-              <SelectItem value="Warning">Warning</SelectItem>
-              <SelectItem value="At Risk">At Risk</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {selectedIds.length > 0 && (
-          <div className="ml-auto">
-            <Button variant="secondary" onClick={() => { setExportConfig({ ...exportConfig, scope: 'selected' }); setIsExportModalOpen(true); }}>
-              Export Selected ({selectedIds.length})
-            </Button>
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Toolbar */}
+        <div className="border-b border-border/20 px-6 py-4">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center">
+            {/* Search Input */}
+            <div className="w-full max-w-sm">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search deals, tags, accounts..."
+              />
+            </div>
+
+            {/* Stage Filter */}
+            <div className="flex items-center gap-2">
+              <Select value={stageFilter} onValueChange={setStageFilter}>
+                <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                  <SelectValue placeholder="All Stages" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-border/40">
+                  <SelectItem value="all">All Stages</SelectItem>
+                  {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Risk Filter */}
+            <div className="flex items-center gap-2">
+              <Select value={riskFilter} onValueChange={setRiskFilter}>
+                <SelectTrigger className="w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                  <SelectValue placeholder="Risk Level" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none border-border/40">
+                  <SelectItem value="all">All Risks</SelectItem>
+                  <SelectItem value="Healthy">Healthy</SelectItem>
+                  <SelectItem value="Warning">Warning</SelectItem>
+                  <SelectItem value="At Risk">At Risk</SelectItem>
+                  <SelectItem value="Critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Export Selected */}
+            
+              <div className="ml-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => { setExportConfig({ ...exportConfig, scope: 'selected' }); setIsExportModalOpen(true); }}
+                  className="h-10 px-4 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300"
+                >
+                  Export Selected ({selectedIds.length})
+                </Button>
+              </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Data Table */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : opportunities.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">
-            No opportunities found. <button onClick={() => setIsCreateModalOpen(true)} className="text-primary hover:underline">Create one</button>.
-          </div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-neutral-950">
-              <TableRow className="border-neutral-800">
-                <TableHead className="w-12 text-center">
-                  <input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? opportunities.map(o => o._id) : [])} checked={selectedIds.length === opportunities.length && opportunities.length > 0} className="w-4 h-4 rounded border-neutral-700 bg-neutral-900" />
-                </TableHead>
-                <TableHead>Deal Name</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Close Date</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell className="w-12 text-center">
+                  <input
+                    type="checkbox"
+                    onChange={(e) => setSelectedIds(e.target.checked ? opportunities.map(o => o._id) : [])}
+                    checked={selectedIds.length === opportunities.length && opportunities.length > 0}
+                    className="w-4 h-4 rounded-none border-neutral-700 bg-neutral-900 accent-primary"
+                  />
+                </TableHeaderCell>
+                <TableHeaderCell>Deal Name</TableHeaderCell>
+                <TableHeaderCell>Account</TableHeaderCell>
+                <TableHeaderCell>Amount</TableHeaderCell>
+                <TableHeaderCell>Stage</TableHeaderCell>
+                <TableHeaderCell>Close Date</TableHeaderCell>
+                <TableHeaderCell>Owner</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
+
             <TableBody>
-              {opportunities.map((opp) => (
-                <TableRow key={opp._id} className="border-neutral-800 hover:bg-neutral-800/50">
-                  <TableCell className="text-center">
-                    <input type="checkbox" checked={selectedIds.includes(opp._id)} onChange={(e) => {
-                      if (e.target.checked) setSelectedIds([...selectedIds, opp._id]);
-                      else setSelectedIds(selectedIds.filter(id => id !== opp._id));
-                    }} className="w-4 h-4 rounded border-neutral-700 bg-neutral-900" />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex flex-col gap-1">
-                      <Link href={`/crm/opportunities/${opp._id}`} className="hover:underline hover:text-primary transition-colors">
-                        {opp.deal_name || opp.name}
-                      </Link>
-                      {opp.risk_level === 'High' && <span className="text-[10px] text-red-400 uppercase tracking-wider font-bold">At Risk</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell>{opp.account_id?.company_name || '-'}</TableCell>
-                  <TableCell>
-                    <div className="font-medium">{formatCurrency(opp.amount)}</div>
-                    <div className="text-[10px] text-muted-foreground">{opp.probability}% Prob</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={
-                      opp.stage === 'Closed Won' ? "border-green-600 text-green-400" :
-                      opp.stage === 'Closed Lost' ? "border-red-600 text-red-400" :
-                      "border-blue-600 text-blue-400"
-                    }>
-                      {opp.stage}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{opp.expected_close_date ? new Date(opp.expected_close_date).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>{opp.ownerId?.name || opp.owner_id?.name || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <Link href={`/crm/opportunities/${opp._id}`}>
-                      <Button variant="outline" size="sm" className="gap-1 border-neutral-700 bg-neutral-900 hover:bg-neutral-800">
-                        View <ArrowRight className="w-3 h-3" />
-                      </Button>
-                    </Link>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    <TableCell className="w-12 text-center">
+                      <Skeleton className="h-4 w-4 mx-auto" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-36" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-3 w-12" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-6 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-16" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : opportunities.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={8} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                    <h3 className="text-lg font-medium">
+                      {search ? "No opportunities match your filters" : "No opportunities found"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {search ? "Try adjusting your search query or filters." : 'Click "New Opportunity" to create one.'}
+                    </p>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+              ) : (
+                opportunities.map((opp) => (
+                  <TableRow key={opp._id}>
+                    <TableCell className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(opp._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIds([...selectedIds, opp._id]);
+                          else setSelectedIds(selectedIds.filter(id => id !== opp._id));
+                        }}
+                        className="w-4 h-4 rounded-none border-neutral-700 bg-neutral-900 accent-primary"
+                      />
+                    </TableCell>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-800">
-            <p className="text-sm text-muted-foreground">
-              Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">Page {page} of {totalPages}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                Next
-              </Button>
+                    {/* Deal Name */}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href={`/crm/opportunities/${opp._id}`}
+                          className="hover:underline hover:text-primary transition-colors text-[18px] font-medium tracking-[-0.03em] text-foreground"
+                        >
+                          {opp.deal_name || opp.name}
+                        </Link>
+                        {opp.risk_level === 'High' && (
+                          <Badge
+                            className="
+                              rounded-none
+                              border-0
+                              bg-transparent
+                              px-0
+                              font-mono
+                              text-[11px]
+                              uppercase
+                              tracking-[0.12em]
+                              hover:bg-transparent
+                              shadow-none
+                              text-[#F56868]
+                            "
+                          >
+                            At Risk
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Account */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {opp.account_id?.company_name || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Amount */}
+                    <TableCell>
+                      <div className="text-sm font-medium text-foreground">
+                        {formatCurrency(opp.amount)}
+                      </div>
+                      <div className="mt-1 font-mono text-[11px] text-muted-foreground/60">
+                        {opp.probability}% Prob
+                      </div>
+                    </TableCell>
+
+                    {/* Stage */}
+                    <TableCell>
+                      <Badge
+                        className={`
+                          rounded-none
+                          border-0
+                          bg-transparent
+                          px-0
+                          font-mono
+                          text-[12px]
+                          hover:bg-transparent
+                          shadow-none
+                          ${STAGE_COLORS[opp.stage] ?? "text-[#6CADF5]"}
+                        `}
+                      >
+                        {opp.stage}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Close Date */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {opp.expected_close_date ? new Date(opp.expected_close_date).toLocaleDateString() : "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Owner */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {opp.ownerId?.name || opp.owner_id?.name || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/crm/opportunities/${opp._id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                          >
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableContainer>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/50 uppercase tracking-[0.05em]">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] border border-border/20 hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300 disabled:opacity-50"
+                >
+                  Previous
+                </Button>
+                <span className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-[0.05em]">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] border border-border/20 hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300 disabled:opacity-50"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create Opportunity Modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-2xl bg-neutral-900 border-neutral-800">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create New Opportunity</DialogTitle>
             <DialogDescription>Fill in the deal specifics to track it in your pipeline.</DialogDescription>
           </DialogHeader>
           
           <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2 col-span-2">
-              <label className="text-sm font-medium">Deal Name <span className="text-red-400">*</span></label>
+            <div className="space-y-1.5 col-span-2">
+              <Label htmlFor="deal_name">Deal Name <span className="text-red-500">*</span></Label>
               <Input 
+                id="deal_name"
                 placeholder="e.g. Acme Corp - Enterprise License" 
                 value={formData.deal_name}
                 onChange={e => setFormData({...formData, deal_name: e.target.value})}
                 disabled={isSubmitting}
-                className="bg-neutral-950 border-neutral-800"
               />
             </div>
             
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Account <span className="text-red-400">*</span></label>
+            <div className="space-y-1.5">
+              <Label>Account <span className="text-red-500">*</span></Label>
               <Select value={formData.account_id} onValueChange={v => setFormData({...formData, account_id: v})} disabled={isSubmitting}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue placeholder="Select Account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -449,33 +575,33 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Amount <span className="text-red-400">*</span></label>
+            <div className="space-y-1.5">
+              <Label htmlFor="amount">Amount <span className="text-red-500">*</span></Label>
               <Input 
+                id="amount"
                 type="number"
                 placeholder="0.00" 
                 value={formData.amount}
                 onChange={e => setFormData({...formData, amount: e.target.value})}
                 disabled={isSubmitting}
-                className="bg-neutral-950 border-neutral-800"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Expected Close Date <span className="text-red-400">*</span></label>
+            <div className="space-y-1.5">
+              <Label htmlFor="expected_close_date">Expected Close Date <span className="text-red-500">*</span></Label>
               <Input 
+                id="expected_close_date"
                 type="date"
                 value={formData.expected_close_date}
                 onChange={e => setFormData({...formData, expected_close_date: e.target.value})}
                 disabled={isSubmitting}
-                className="bg-neutral-950 border-neutral-800"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stage</label>
+            <div className="space-y-1.5">
+              <Label>Stage</Label>
               <Select value={formData.stage} onValueChange={v => setFormData({...formData, stage: v})} disabled={isSubmitting}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -484,10 +610,10 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Priority</label>
+            <div className="space-y-1.5">
+              <Label>Priority</Label>
               <Select value={formData.priority} onValueChange={v => setFormData({...formData, priority: v})} disabled={isSubmitting}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -496,10 +622,10 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Forecast Category</label>
+            <div className="space-y-1.5">
+              <Label>Forecast Category</Label>
               <Select value={formData.forecast_category} onValueChange={v => setFormData({...formData, forecast_category: v})} disabled={isSubmitting}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,22 +634,35 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
 
-            <div className="space-y-2 col-span-2">
-              <label className="text-sm font-medium">Next Action</label>
+            <div className="space-y-1.5 col-span-2">
+              <Label htmlFor="next_action">Next Action</Label>
               <Input 
+                id="next_action"
                 placeholder="e.g. Schedule technical demo with CTO" 
                 value={formData.next_action}
                 onChange={e => setFormData({...formData, next_action: e.target.value})}
                 disabled={isSubmitting}
-                className="bg-neutral-950 border-neutral-800"
               />
             </div>
 
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleCreateOpportunity} disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
+          <DialogFooter className="pt-2 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCreateModalOpen(false)}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              onClick={handleCreateOpportunity}
+              disabled={isSubmitting}
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Create Deal
             </Button>
@@ -533,16 +672,16 @@ export default function OpportunitiesPage() {
 
       {/* Export Modal */}
       <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
-        <DialogContent className="max-w-md bg-neutral-900 border-neutral-800">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Export Opportunities</DialogTitle>
             <DialogDescription>Generate a custom CRM data export.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Export Type</label>
+            <div className="space-y-1.5">
+              <Label>Export Type</Label>
               <Select value={exportConfig.reportType} onValueChange={v => setExportConfig({...exportConfig, reportType: v})}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -552,10 +691,10 @@ export default function OpportunitiesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Export Format</label>
+            <div className="space-y-1.5">
+              <Label>Export Format</Label>
               <Select value={exportConfig.format} onValueChange={v => setExportConfig({...exportConfig, format: v})}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -564,10 +703,10 @@ export default function OpportunitiesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Export Scope</label>
+            <div className="space-y-1.5">
+              <Label>Export Scope</Label>
               <Select value={exportConfig.scope} onValueChange={v => setExportConfig({...exportConfig, scope: v})}>
-                <SelectTrigger className="bg-neutral-950 border-neutral-800">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -578,16 +717,27 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>Cancel</Button>
-            <Button className="bg-primary hover:bg-primary/90" onClick={handleExport} disabled={isExporting}>
+          <DialogFooter className="pt-2 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsExportModalOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
               {isExporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
               Generate Export
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

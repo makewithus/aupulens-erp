@@ -8,7 +8,7 @@ type SkeletonProps = React.HTMLAttributes<HTMLDivElement>
 export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
-      className={cn('animate-pulse rounded-none bg-slate-200 dark:bg-slate-800', className)}
+      className={cn('animate-pulse rounded-none bg-neutral-200 dark:bg-neutral-800/60', className)}
       {...props}
     />
   )

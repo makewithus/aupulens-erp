@@ -173,7 +173,7 @@ export default function HRReportsPage() {
     >
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">HR Reports</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">HR Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Generate and export HR analytics and reports
           </p>

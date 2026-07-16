@@ -1,7 +1,6 @@
 "use client";
+
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
-
-
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -11,24 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  Receipt,
-  Trash2,
-  Calendar,
-  User,
-  Eye,
-  Wallet,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Send,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { ExpensePopupContent } from "@/components/accounting/ExpensePopupContent";
+import { SearchInput } from "@/components/SearchInput";
+import { Plus } from "lucide-react";
+
+// Extracted Subcomponents
+import { ExpensesTable } from "@/components/finance/expenses/ExpensesTable";
+import { ExpensesModals } from "@/components/finance/expenses/ExpensesModals";
 
 export default function ExpensesPage() {
   const { data: session, status } = useSession();
@@ -185,274 +172,74 @@ export default function ExpensesPage() {
       ]}
       userEmail={session?.user?.email || ""}
     >
-      <div className="p-8 space-y-8 max-w-8xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
-            Employee Expenses
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage and approve company and staff expenditure.
-          </p>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        {/* Search & Actions Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search expenses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 none-xl border-2 focus:ring-primary/20"
-            />
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Employee Expenses</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filteredExpenses.length} {filteredExpenses.length === 1 ? "Expense" : "Expenses"} Total
+                </p>
+              </div>
+
+              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search expenses..."
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Record Expense
+                </Button>
+              </div>
+            </div>
           </div>
-          <Button
-            onClick={handleOpenCreate}
-            className="none-xl h-11 px-6 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all font-black uppercase tracking-tighter group"
-          >
-            <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform" />
-            Record Expense
-          </Button>
-        </div>
 
-        {/* Table Section */}
-        <Card className="none-[2rem] border-2 shadow-xl overflow-hidden">
           <CardContent className="p-0">
             {loading ? (
               <div className="p-8 space-y-4">
-                <Skeleton className="h-12 w-full none-xl" />
-                <Skeleton className="h-12 w-full none-xl" />
-                <Skeleton className="h-12 w-full none-xl" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
             ) : filteredExpenses.length === 0 ? (
-              <div className="py-24 flex flex-col items-center justify-center text-center px-6">
-                <div className="h-20 w-20 none-full bg-muted/30 flex items-center justify-center mb-6">
-                  <Receipt className="h-10 w-10 text-muted-foreground opacity-20" />
-                </div>
-                <h3 className="text-xl font-black uppercase tracking-tighter">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
                   No expenses found
-                </h3>
-                <p className="text-muted-foreground max-w-xs mt-2 text-sm">
-                  {searchQuery
-                    ? "No records match your search criteria."
-                    : "You haven't recorded any expenses yet."}
                 </p>
-                {!searchQuery && (
-                  <Button
-                    variant="link"
-                    onClick={handleOpenCreate}
-                    className="mt-4 text-primary font-bold uppercase tracking-widest text-xs"
-                  >
-                    Create your first record
-                  </Button>
-                )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-muted/30 border-b-2">
-                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Expense
-                      </th>
-                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Staff
-                      </th>
-                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Date
-                      </th>
-                      <th className="text-right p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Total
-                      </th>
-                      <th className="text-center p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Status
-                      </th>
-                      <th className="text-right p-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y-2 divide-muted/10">
-                    {filteredExpenses.map((expense) => (
-                      <tr
-                        key={expense._id}
-                        className="group hover:bg-muted/5 transition-colors"
-                      >
-                        <td className="p-6">
-                          <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 none-xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <Wallet className="h-5 w-5 text-primary/60" />
-                            </div>
-                            <div>
-                              <p className="font-black text-sm uppercase tracking-tight">
-                                {expense.description}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">
-                                {expense.category}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6">
-                          <div className="flex items-center gap-2">
-                            <div className="h-6 w-6 none-full bg-muted flex items-center justify-center text-[10px] font-black">
-                              {expense.employeeId?.name?.[0] || "S"}
-                            </div>
-                            <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                              {expense.employeeId?.name || "Self"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-6">
-                          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">
-                            {new Date(expense.expenseDate).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                        </td>
-                        <td className="p-6 text-right">
-                          <span className="text-lg font-black text-primary tracking-tighter">
-                            ₹ {expense.total?.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <Badge
-                            variant={
-                              expense.status === "posted"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="none-full px-4 h-6 uppercase text-[9px] font-black tracking-widest border-2"
-                          >
-                            {expense.status}
-                          </Badge>
-                        </td>
-                        <td className="p-6 text-right">
-                          <div className="flex justify-end gap-1 opacity-10 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 none-xl hover:bg-primary/10 hover:text-primary transition-all"
-                              onClick={() => handleOpenView(expense)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 none-xl hover:bg-red-50 hover:text-red-500 transition-all"
-                              onClick={() => handleDelete(expense._id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ExpensesTable
+                filteredExpenses={filteredExpenses}
+                handleOpenView={handleOpenView}
+                handleDelete={handleDelete}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          formData?._id
-            ? `Expense: ${formData.description}`
-            : "Record New Expense"
-        }
-        className="max-w-[1400px]"
-        footer={
-          <div className="flex justify-between items-center w-full px-6 py-4 bg-muted/5 border-t">
-            <div className="flex gap-2">
-              {(formData?.status === "draft" || !formData?.status) && (
-                <Button
-                  variant="outline"
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-primary hover:text-white transition-all px-6"
-                  disabled={isSubmitting}
-                  onClick={() => handleSubmit("submitted")}
-                >
-                  <Send className="h-3.5 w-3.5 mr-2" /> Submit for Approval
-                </Button>
-              )}
-              {formData?.status === "submitted" && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="none-xl text-xs font-black tracking-widest uppercase border-2 hover:bg-red-500 hover:text-white transition-all px-6"
-                    disabled={isSubmitting}
-                    onClick={() => handleUpdateStatus("refused")}
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-2" /> Refuse
-                  </Button>
-                  <Button
-                    className="none-xl text-xs font-black tracking-widest uppercase border-2 bg-green-600 hover:bg-green-700 text-white transition-all px-6 border-green-700/20"
-                    disabled={isSubmitting}
-                    onClick={() => handleUpdateStatus("approved")}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Approve
-                  </Button>
-                </>
-              )}
-              {formData?.status === "approved" && (
-                <Button
-                  className="none-xl text-xs font-black tracking-widest uppercase border-2 shadow-xl shadow-primary/20 px-6"
-                  disabled={isSubmitting}
-                  onClick={() => handleUpdateStatus("posted")}
-                >
-                  <Receipt className="h-3.5 w-3.5 mr-2" /> Post Journal Entry
-                </Button>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setIsModalOpen(false)}
-                className="font-bold underline text-xs uppercase"
-              >
-                {formData?.status === "posted" || formData?.status === "refused"
-                  ? "Close"
-                  : "Discard"}
-              </Button>
-              {(formData?.status === "draft" || !formData?.status) && (
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={isSubmitting}
-                  className="none-xl font-black text-xs uppercase px-8 shadow-xl shadow-primary/20"
-                >
-                  {isSubmitting
-                    ? "Processing..."
-                    : formData?._id
-                      ? "Update Draft"
-                      : "Save Record"}
-                </Button>
-              )}
-            </div>
-          </div>
-        }
-      >
-        {formData && (
-          <ExpensePopupContent
-            formData={formData}
-            setFormData={setFormData}
-            isViewOnly={
-              formData.status !== "draft" &&
-              formData.status !== "approved" &&
-              formData.status !== undefined
-            }
-          />
-        )}
-      </ModularModal>
+      <ExpensesModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isSubmitting={isSubmitting}
+        formData={formData}
+        setFormData={setFormData}
+        handleSubmit={handleSubmit}
+        handleUpdateStatus={handleUpdateStatus}
+      />
     </DashboardLayout>
   );
 }

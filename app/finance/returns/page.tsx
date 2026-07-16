@@ -7,26 +7,14 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  Eye,
-  Edit2,
-  Trash2,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Undo2,
-  Shuffle,
-  History,
-  AlertCircle,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTransferPopup";
 import { toast } from "sonner";
-import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus } from "lucide-react";
+import { SearchInput } from "@/components/SearchInput";
+
+// Shared subcomponents from inventory returns
+import { ReturnsTable } from "@/components/inventory/operations/returns/ReturnsTable";
+import { ReturnsModals } from "@/components/inventory/operations/returns/ReturnsModals";
 
 export default function FinanceReturnsPage() {
   const { data: session, status } = useSession();
@@ -34,6 +22,7 @@ export default function FinanceReturnsPage() {
 
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -150,182 +139,96 @@ export default function FinanceReturnsPage() {
     }
   };
 
+  const filtered = items.filter(
+    (t) =>
+      (t.header?.name || "").toLowerCase().includes(query.toLowerCase()) ||
+      (t.header?.partnerId?.header?.name || t.header?.partnerId?.name || "").toLowerCase().includes(query.toLowerCase()) ||
+      (t.header?.sourceDocument || "").toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <DashboardLayout
       sidebarSections={financeSidebarConfig}
       dashboardTitle="Finance"
       pageName="Returns"
       breadcrumbs={[{ label: "Operations" }, { label: "Returns" }]}
+      userName={session?.user?.name || "User"}
+      userEmail={session?.user?.email || ""}
+      userRole={session?.user?.role || "finance"}
+      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onRefresh={fetchReturns}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-primary">
-              Returns
-            </h1>
-            <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">
-              Process stock returns and credit notes
-            </p>
-          </div>
-          <Button
-            onClick={handleCreate}
-            className="none-xl h-12 px-6 font-black uppercase text-xs tracking-widest bg-primary shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all"
-          >
-            <Shuffle className="h-4 w-4 mr-2" /> New Return
-          </Button>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="none-4xl border-2 shadow-xl overflow-hidden">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Returns</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Return" : "Returns"} Total
+                </p>
+              </div>
+
+              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search returns..."
+                  />
+                </div>
+                <Button
+                  onClick={handleCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Return
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <TableSkeleton rows={5} columns={5} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b-2">
-                    <tr className="text-left text-[10px] font-black uppercase tracking-widest opacity-40">
-                      <th className="p-6">Reference</th>
-                      <th className="p-6">Partner</th>
-                      <th className="p-6">Source Doc</th>
-                      <th className="p-6">Scheduled Date</th>
-                      <th className="p-6 text-center">Status</th>
-                      <th className="p-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y-2 border-primary/5">
-                    {items.map((t) => (
-                      <tr
-                        key={t._id}
-                        className="hover:bg-primary/5 transition-colors group cursor-pointer"
-                        onClick={() => handleView(t)}
-                      >
-                        <td className="p-6 font-black tracking-tight">
-                          {t.header.name}
-                        </td>
-                        <td className="p-6 font-bold opacity-60">
-                          {t.header.partnerId?.header?.name || "-"}
-                        </td>
-                        <td className="p-6">
-                          <div className="flex items-center gap-2">
-                            <History className="h-3.5 w-3.5 text-primary opacity-40" />
-                            <span className="font-bold text-xs uppercase tracking-tight">
-                              {t.header.sourceDocument || "-"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-6 font-medium text-muted-foreground text-xs uppercase">
-                          {new Date(t.header.scheduledDate).toLocaleDateString(
-                            "en-IN",
-                            { day: "2-digit", month: "short", year: "numeric" },
-                          )}
-                        </td>
-                        <td className="p-6 text-center">
-                          <Badge
-                            className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${
-                              t.status === "done"
-                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                : t.status === "draft"
-                                  ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                                  : "bg-blue-500/10 text-blue-600 border-blue-500/20"
-                            }`}
-                          >
-                            {t.status}
-                          </Badge>
-                        </td>
-                        <td
-                          className="p-6 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex justify-end gap-2">
-                            {t.status !== "done" && t.status !== "cancel" && (
-                              <Button
-                                size="sm"
-                                className="h-9 none-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-widest px-4"
-                                onClick={() => updateStatus(t._id, "done")}
-                              >
-                                Validate
-                              </Button>
-                            )}
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 none-xl hover:bg-primary/10 transition-all"
-                              onClick={() => handleView(t)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {items.length === 0 && (
-                  <div className="p-20 text-center flex flex-col items-center gap-3 opacity-20">
-                    <Shuffle className="h-20 w-20" />
-                    <p className="font-black uppercase tracking-widest">
-                      No returns found
-                    </p>
-                  </div>
-                )}
+              <div className="p-8 space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
+                  No returns found
+                </p>
+              </div>
+            ) : (
+              <ReturnsTable
+                items={filtered}
+                handleView={handleView}
+                updateStatus={updateStatus}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={formData?.header?.name || "Return Document"}
-        className="max-w-[1400px]"
-        footer={
-          <div className="flex justify-between items-center w-full px-6 py-4 bg-muted/5 border-t">
-            <div className="flex items-center gap-4">
-              {formData?.status === "draft" && (
-                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1.5 none-lg border border-amber-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase tracking-tight">
-                    Draft Document
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setIsModalOpen(false)}
-                className="font-bold underline text-xs uppercase"
-              >
-                {isViewOnly ? "Close" : "Discard"}
-              </Button>
-              {!isViewOnly && (
-                <Button
-                  onClick={saveReturn}
-                  disabled={isSubmitting}
-                  className="none-xl h-11 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20"
-                >
-                  {isSubmitting ? "Processing..." : "Save Record"}
-                </Button>
-              )}
-            </div>
-          </div>
-        }
-      >
-        {formData && (
-          <StockTransferPopup
-            formData={formData}
-            setFormData={setFormData}
-            isViewOnly={isViewOnly}
-            operationType="outgoing"
-            partners={partners}
-            products={products}
-            users={users}
-            onRefresh={fetchReturns}
-            currentUser={session?.user}
-          />
-        )}
-      </ModularModal>
+      <ReturnsModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        formData={formData}
+        setFormData={setFormData}
+        isViewOnly={isViewOnly}
+        isSubmitting={isSubmitting}
+        partners={partners}
+        products={products}
+        users={users}
+        fetchReturns={fetchReturns}
+        saveReturn={saveReturn}
+        currentUserSession={session?.user}
+      />
     </DashboardLayout>
   );
 }

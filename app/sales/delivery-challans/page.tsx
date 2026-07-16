@@ -5,11 +5,11 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/SearchInput";
 import {
   Select,
   SelectContent,
@@ -17,25 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  Plus,
-  Truck,
-  Eye,
-  Edit2,
-  Trash2,
-  MoreHorizontal,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { WarehousePopupContent } from "../warehouses/popup/WarehousePopup";
-import { DeliveryChallanPopupContent } from "./popup/DeliveryChallanPopup";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus } from "lucide-react";
+
+// Extracted Subcomponents
+import { DeliveryChallanTable } from "@/components/sales/delivery-challans/DeliveryChallanTable";
+import { DeliveryChallanModals } from "@/components/sales/delivery-challans/DeliveryChallanModals";
 
 interface DeliveryChallan {
   _id: string;
@@ -236,7 +222,6 @@ export default function DeliveryChallansPage() {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
-      // Optimistic update could go here, but loading is fast enough usually
       const res = await fetch(`/api/sales/delivery-challans/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -268,22 +253,6 @@ export default function DeliveryChallansPage() {
     }
   };
 
-  // Status Badge Logic
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, string> = {
-      pending:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      issued: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      delivered:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    };
-    return (
-      <Badge className={`${config[status] || config.pending} border-0`}>
-        {status}
-      </Badge>
-    );
-  };
-
   const filtered = data.filter((dc) => {
     const matchesQuery = [dc.dcNumber, dc.customer].some((v) =>
       v?.toLowerCase().includes(query.toLowerCase()),
@@ -308,272 +277,119 @@ export default function DeliveryChallansPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Delivery Challans</h1>
-            <p className="text-sm text-muted-foreground">
-              Generate and track delivery challans
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Search..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-48 bg-background"
-            />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 bg-background">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="issued">Issued</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Challan
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Delivery Challans</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Challan" : "Challans"}
+                </p>
+              </div>
+
+              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search challans..."
+                  />
+                </div>
+
+                {/* Status select filter */}
+                <div className="flex items-center gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/40">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="issued">Issued</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Challan
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
+                <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Truck className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>No delivery challans found.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
+                  No delivery challans found
+                </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">DC Number</th>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((dc) => (
-                      <tr
-                        key={dc._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium">
-                          <div className="flex items-center gap-2">
-                            <Truck className="h-4 w-4 text-blue-500" />
-                            {dc.dcNumber}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {dc.customer}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                          {dc.deliveryDate
-                            ? new Date(dc.deliveryDate).toLocaleDateString()
-                            : "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(dc.status)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-green-600"
-                              onClick={() => handleOpenView(dc)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-blue-600"
-                              onClick={() => handleOpenEdit(dc)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600"
-                              onClick={() =>
-                                handleDeleteClick(dc._id, dc.dcNumber)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  disabled
-                                  className="font-semibold opacity-100"
-                                >
-                                  Set Status:
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusUpdate(dc._id, "pending")
-                                  }
-                                >
-                                  Mark Pending
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusUpdate(dc._id, "issued")
-                                  }
-                                >
-                                  Mark Issued
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusUpdate(dc._id, "delivered")
-                                  }
-                                >
-                                  Mark Delivered
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DeliveryChallanTable
+                filtered={filtered}
+                handleOpenView={handleOpenView}
+                handleOpenEdit={handleOpenEdit}
+                handleDeleteClick={handleDeleteClick}
+                handleStatusUpdate={handleStatusUpdate}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Delivery Challan Modal */}
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          isViewOnly
-            ? "View Delivery Challan"
-            : currentId
-              ? "Edit Delivery Challan"
-              : "New Delivery Challan"
-        }
-        footer={
-          !isViewOnly && (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Save"
-                )}
-              </Button>
-            </div>
-          )
-        }
-        className="max-w-4xl"
-      >
-        <DeliveryChallanPopupContent
-          formData={formData}
-          setFormData={setFormData}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isViewOnly={isViewOnly}
-          warehouses={warehouses}
-          customers={customers}
-          products={products}
-          onAddWarehouse={() => {
-            setWarehouseFormData({
-              warehouseCode: "",
-              name: "",
-              location: "",
-              address: "",
-              type: "standard",
-            });
-            setIsWarehouseModalOpen(true);
-          }}
-          onAddCustomer={() => {
-            // Open customer creation modal? Not implemented in this page.
-            // We could direct them to Customer page or add Customer Modal.
-            // For now, I'll toast or ignore.
-            toast.info("Customer creation from here is coming soon.");
-          }}
-        />
-      </ModularModal>
-
-      {/* Warehouse Modal */}
-      <ModularModal
-        open={isWarehouseModalOpen}
-        onOpenChange={setIsWarehouseModalOpen}
-        title="Create Warehouse"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsWarehouseModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateWarehouse}>Save</Button>
-          </div>
-        }
-      >
-        <WarehousePopupContent
-          formData={warehouseFormData}
-          setFormData={setWarehouseFormData}
-        />
-      </ModularModal>
-
-      {/* Delete Confirmation Modal */}
-      <ModularModal
-        open={!!deleteInfo}
-        onOpenChange={(open) => !open && setDeleteInfo(null)}
-        title="Confirm Deletion"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button variant="outline" onClick={() => setDeleteInfo(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </Button>
-          </div>
-        }
-      >
-        <div className="p-6">
-          <p className="text-muted-foreground">
-            Are you sure you want to delete <strong>{deleteInfo?.name}</strong>?
-            This action cannot be undone.
-          </p>
-        </div>
-      </ModularModal>
+      <DeliveryChallanModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isViewOnly={isViewOnly}
+        currentId={currentId}
+        isSubmitting={isSubmitting}
+        formData={formData}
+        setFormData={setFormData}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        warehouses={warehouses}
+        customers={customers}
+        products={products}
+        onAddWarehouse={() => {
+          setWarehouseFormData({
+            warehouseCode: "",
+            name: "",
+            location: "",
+            address: "",
+            type: "standard",
+          });
+          setIsWarehouseModalOpen(true);
+        }}
+        onAddCustomer={() => {
+          toast.info("Customer creation from here is coming soon.");
+        }}
+        handleSubmit={handleSubmit}
+        isWarehouseModalOpen={isWarehouseModalOpen}
+        setIsWarehouseModalOpen={setIsWarehouseModalOpen}
+        warehouseFormData={warehouseFormData}
+        setWarehouseFormData={setWarehouseFormData}
+        handleCreateWarehouse={handleCreateWarehouse}
+        deleteInfo={deleteInfo}
+        setDeleteInfo={setDeleteInfo}
+        handleConfirmDelete={handleConfirmDelete}
+      />
     </DashboardLayout>
   );
 }

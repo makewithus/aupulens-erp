@@ -1,7 +1,5 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
-
-
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -9,37 +7,20 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Users as UsersIcon,
   UserPlus,
-  Pencil,
-  Trash2,
-  Search,
-  Filter,
-  Eye,
-  CheckCircle,
-  XCircle,
-  Shield,
-  Mail,
-  Phone,
-  Building2,
-  Calendar,
   Link2,
   UserCheck,
   UserX,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { toast } from "sonner";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { EmployeeTable } from "@/components/hr/EmployeesTable";
 
 interface Employee {
   _id: string;
@@ -76,14 +57,13 @@ const lifecycleColors: Record<string, string> = {
 
 const getRoleBadgeColor = (role: string) => {
   const colors: Record<string, string> = {
-    admin: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-    "master-admin": "bg-rose-500/10 text-rose-600 border-rose-500/20",
-    finance: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    hr: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
-    sales: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    inventory: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    project: "bg-pink-500/10 text-pink-600 border-pink-500/20",
-    manufacturing: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+      admin: "text-[#A77DFF]",
+      finance: "text-[#6CADF5]",
+      sales: "text-[#8AE06C]",
+      inventory: "text-[#F1DF38]",
+      hr: "text-[#6CADF5]",
+      project: "text-[#A77DFF]",
+      manufacturing: "text-[#F56868]"
   };
   return colors[role] || "bg-muted text-muted-foreground border-border";
 };
@@ -331,345 +311,73 @@ export default function EmployeesPage() {
       onRefresh={load}
     >
       <div className="space-y-6">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Employee Directory
             </h1>
-            <p className="text-sm font-bold text-muted-foreground uppercase opacity-60 tracking-wider">
-              Manage employee lifecycle and system access
-            </p>
           </div>
           <Button
             onClick={handleOpenCreate}
-            className="none-xl h-12 px-6 font-black uppercase text-xs tracking-widest bg-primary shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
-                  <UsersIcon className="h-6 w-6" />
-                </div>
-                <Shield className="h-8 w-8 opacity-10" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Total Employees
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter">
-                {employees.length}
-              </h3>
-            </CardContent>
-          </Card>
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Employees"
+              value={employees.length}
+              visual={<UsersGraph/>}
+            />
 
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-emerald-500/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <CheckCircle className="h-6 w-6 text-emerald-600 group-hover:text-white" />
-                </div>
-                <CheckCircle className="h-8 w-8 opacity-10 text-emerald-600" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Active
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-emerald-600">
-                {
-                  employees.filter((e) => e.lifecycleStatus === "active")
-                    .length
-                }
-              </h3>
-            </CardContent>
-          </Card>
+            <StatCard
+              title="Active Employees"
+              value={ employees.filter((e) => e.lifecycleStatus === "active").length }
+              visual={<ActivePulse/>}
+            />
 
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-cyan-500/5 flex items-center justify-center group-hover:bg-cyan-500 group-hover:text-white transition-all">
-                  <UserCheck className="h-6 w-6 text-cyan-600 group-hover:text-white" />
-                </div>
-                <Link2 className="h-8 w-8 opacity-10 text-cyan-600" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                Linked to User
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-cyan-600">
-                {linkedCount}
-              </h3>
-            </CardContent>
-          </Card>
+            <StatCard
+              title="Linked to User"
+              value={linkedCount}
+              visual={<UsersGraph/>}
+            />
 
-          <Card className="none-3xl border-2 shadow-xl overflow-hidden group">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="h-12 w-12 none-xl bg-rose-500/5 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all">
-                  <UserX className="h-6 w-6 text-rose-600 group-hover:text-white" />
-                </div>
-                <XCircle className="h-8 w-8 opacity-10 text-rose-600" />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                No User Account
-              </p>
-              <h3 className="text-3xl font-black tracking-tighter text-rose-600">
-                {unlinkedCount}
-              </h3>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters Card */}
-        <Card className="none-4xl border-2 shadow-xl">
-          <div className="p-6 border-b-2 bg-muted/30 flex items-center gap-3">
-            <Filter className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-black uppercase tracking-tight">
-              Search & Filters
-            </h3>
+            <StatCard
+              title="No User Account"
+              value={unlinkedCount}
+              visual={<UsersGraph/>}
+            />
           </div>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, email, code, phone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 none-xl h-11 border-2 font-bold text-sm uppercase placeholder:normal-case"
-                />
-              </div>
-              <Select
-                value={lifecycleFilter}
-                onValueChange={setLifecycleFilter}
-              >
-                <SelectTrigger className="none-xl h-11 border-2 font-bold text-sm uppercase">
-                  <SelectValue placeholder="Lifecycle Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Lifecycle</SelectItem>
-                  <SelectItem value="candidate">Candidate</SelectItem>
-                  <SelectItem value="onboarding">Onboarding</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="on_notice">On Notice</SelectItem>
-                  <SelectItem value="exit_initiated">
-                    Exit Initiated
-                  </SelectItem>
-                  <SelectItem value="clearance">Clearance</SelectItem>
-                  <SelectItem value="exited">Exited</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={accountFilter} onValueChange={setAccountFilter}>
-                <SelectTrigger className="none-xl h-11 border-2 font-bold text-sm uppercase">
-                  <SelectValue placeholder="Account Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Accounts</SelectItem>
-                  <SelectItem value="linked">Has User Account</SelectItem>
-                  <SelectItem value="unlinked">No User Account</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Employee Table */}
-        <Card className="none-4xl border-2 shadow-xl overflow-hidden">
-          <div className="p-6 border-b-2 bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <UsersIcon className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-tight">
-                  All Employees
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                  {filteredEmployees.length} employee
-                  {filteredEmployees.length !== 1 ? "s" : ""} found
-                </p>
-              </div>
-            </div>
-          </div>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <TableSkeleton rows={5} columns={8} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b-2">
-                    <tr className="text-left text-[10px] font-black uppercase tracking-widest opacity-40">
-                      <th className="p-6">Employee</th>
-                      <th className="p-6">Contact</th>
-                      <th className="p-6">Code</th>
-                      <th className="p-6">Department</th>
-                      <th className="p-6 text-center">Lifecycle</th>
-                      <th className="p-6 text-center">User Account</th>
-                      <th className="p-6">Salary</th>
-                      <th className="p-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y-2 border-primary/5">
-                    {filteredEmployees.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="p-20 text-center opacity-20"
-                        >
-                          <UsersIcon className="h-20 w-20 mx-auto mb-4" />
-                          <p className="font-black uppercase tracking-widest">
-                            {searchQuery ||
-                            lifecycleFilter !== "all" ||
-                            accountFilter !== "all"
-                              ? "No employees match your filters"
-                              : "No employees found"}
-                          </p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredEmployees.map((emp) => (
-                        <tr
-                          key={emp._id}
-                          className="hover:bg-primary/5 transition-colors group"
-                        >
-                          <td className="p-6">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 none-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-sm font-black text-primary">
-                                  {emp.firstName.charAt(0).toUpperCase()}
-                                  {emp.lastName.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-black text-sm">
-                                  {emp.firstName} {emp.lastName}
-                                </p>
-                                {emp.designation && (
-                                  <p className="text-xs text-muted-foreground font-bold">
-                                    {emp.designation}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-xs font-bold">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
-                                {emp.email}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-                                {emp.phone}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            <Badge className="none-full px-3 py-1 uppercase text-[9px] font-black border-2 bg-muted/50">
-                              {emp.employeeCode}
-                            </Badge>
-                          </td>
-                          <td className="p-6">
-                            {emp.departmentId ? (
-                              <div className="flex items-center gap-2 text-xs font-bold">
-                                <Building2 className="h-3 w-3 text-muted-foreground" />
-                                {emp.departmentId.name}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs font-bold">
-                                Unassigned
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-6 text-center">
-                            <Badge
-                              className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${
-                                lifecycleColors[emp.lifecycleStatus] ||
-                                "bg-muted text-muted-foreground border-border"
-                              }`}
-                            >
-                              {emp.lifecycleStatus.replace("_", " ")}
-                            </Badge>
-                          </td>
-                          <td className="p-6 text-center">
-                            {emp.userId ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <Badge
-                                  className={`none-full px-3 py-1 uppercase text-[9px] font-black border-2 ${getRoleBadgeColor(emp.userId.role)}`}
-                                >
-                                  <Link2 className="h-3 w-3 mr-1" />
-                                  {emp.userId.role}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground font-bold">
-                                  {emp.userId.status === "active"
-                                    ? "Active"
-                                    : "Inactive"}
-                                </span>
-                              </div>
-                            ) : (
-                              <Badge className="none-full px-3 py-1 uppercase text-[9px] font-black border-2 bg-muted/50 text-muted-foreground">
-                                <UserX className="h-3 w-3 mr-1" />
-                                No Account
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="p-6">
-                            <div className="text-xs font-bold">
-                              <p>
-                                ₹
-                                {(
-                                  emp.salary?.grossSalary || 0
-                                ).toLocaleString()}
-                              </p>
-                              <p className="text-muted-foreground text-[10px]">
-                                Net: ₹
-                                {(emp.salary?.netSalary || 0).toLocaleString()}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="p-6 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleOpenView(emp)}
-                                className="h-9 w-9 none-xl hover:bg-primary/10 transition-all"
-                                title="View details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleOpenEdit(emp)}
-                                className="h-9 w-9 none-xl hover:bg-primary/10 transition-all"
-                                title="Edit employee"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleDelete(emp._id)}
-                                className="h-9 w-9 none-xl text-rose-600 hover:bg-rose-500/10 transition-all"
-                                title="Delete employee"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <EmployeeTable
+            employees={filteredEmployees}
+            isLoading={isLoading}
+            hasFilters={
+              !!(
+                searchQuery ||
+                lifecycleFilter !== "all" ||
+                accountFilter !== "all"
+              )
+            }
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            lifecycleFilter={lifecycleFilter}
+            setLifecycleFilter={setLifecycleFilter}
+            accountFilter={accountFilter}
+            setAccountFilter={setAccountFilter}
+            lifecycleColors={lifecycleColors}
+            getRoleBadgeColor={getRoleBadgeColor}
+            onView={handleOpenView}
+            onEdit={handleOpenEdit}
+            onDelete={handleDelete}
+          />
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {/* {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
@@ -686,7 +394,8 @@ export default function EmployeesPage() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
+      </div>
       </div>
 
       {/* Create / Edit / View Modal */}
@@ -699,7 +408,7 @@ export default function EmployeesPage() {
             : modalMode === "edit"
               ? "Edit Employee"
               : `${formData.firstName || ""} ${formData.lastName || ""}`
-        }
+        } 
       >
         <div className="space-y-6 p-1">
           {modalMode === "view" ? (

@@ -60,7 +60,7 @@ export function SignUpForm() {
       } else {
         setSuccess('Account created successfully! Redirecting to sign in...');
         setTimeout(() => {
-          router.push('/auth/admin?tab=signin');
+          router.push('/auth?tab=signin');
         }, 2000);
       }
     } catch {

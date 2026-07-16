@@ -3,20 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Roboto_Mono } from "next/font/google";
 import {
-  RefreshCw,
-  ChevronRight,
-  Home,
-  Search,
-  X,
-  Menu,
-  ChevronDown,
   DollarSign,
   ShoppingCart,
   Package,
   Factory,
   ShieldCheck,
   Users,
-  Sparkles,
 } from "lucide-react";
 
 const robotoMono = Roboto_Mono({
@@ -24,15 +16,10 @@ const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserNav } from "./UserNav";
 import { CommandCenterInput } from "./CommandCenterInput";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
@@ -45,6 +32,10 @@ import { crmSidebarConfig } from "@/config/sidebar/crm";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
+import { HeaderActions } from "./HeaderActions";
+import { GlobalSearch } from "./GlobalSearch";
+import { ModuleTabs } from "./ModuleTabs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Master Admin Module Switching
 const MASTER_MODULES = [
@@ -98,6 +89,44 @@ const MASTER_MODULES = [
   },
 ];
 
+const MODULES = [
+  {
+    id: "sales",
+    title: "Sales",
+    href: "/sales/pipeline",
+  },
+  {
+    id: "inventory",
+    title: "Inventory",
+    href: "/inventory/summary",
+  },
+  {
+    id: "finance",
+    title: "Finance",
+    href: "/finance/summary",
+  },
+  {
+    id: "manufacturing",
+    title: "Manufacturing",
+    href: "/manufacturing/dashboard",
+  },
+  {
+    id: "hr",
+    title: "HR",
+    href: "/hr/dashboard",
+  },
+  {
+    id: "admin",
+    title: "Admin",
+    href: "/admin/dashboard",
+  },
+  {
+    id: "crm",
+    title: "CRM",
+    href: "/crm/dashboard",
+  },
+];
+
 interface BreadcrumbItem {
   label: string;
   href?: string;
@@ -130,6 +159,8 @@ interface DashboardHeaderProps {
   profilePath?: string;
   sidebarConfig?: SidebarSection[];
   onToggleAi?: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export function DashboardHeader({
@@ -146,15 +177,12 @@ export function DashboardHeader({
   profilePath,
   sidebarConfig = [],
   onToggleAi,
+  isSidebarOpen = true,
+  onToggleSidebar,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { tenantId } = useTenantStore();
   const { logout, user } = useAuthStore();
@@ -173,7 +201,7 @@ export function DashboardHeader({
     // 2. Fallback: Default native sign out behavior
     console.log("[DashboardHeader] Using native signOut fallback");
     clearAllStores();
-    await signOut({ callbackUrl: "/auth/admin" });
+    await signOut({ callbackUrl: "/auth" });
   };
 
   const pathname = usePathname();
@@ -186,30 +214,6 @@ export function DashboardHeader({
       icon: item.icon,
     })),
   );
-
-  // Filter pages based on search query
-  const filteredPages = searchQuery.trim()
-    ? allPages.filter(
-        (page) =>
-          page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          page.section.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : [];
-
-  // Close search results when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      ) {
-        setShowSearchResults(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // Close mobile nav when clicking outside
   const mobileNavRef = useRef<HTMLDivElement | null>(null);
@@ -235,17 +239,6 @@ export function DashboardHeader({
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
-  };
-
-  const handleSearchSelect = (href: string) => {
-    router.push(href);
-    setSearchQuery("");
-    setShowSearchResults(false);
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setShowSearchResults(value.trim().length > 0);
   };
 
   // Simplified header left content: Logo, Module dropdown, and top-level links
@@ -291,26 +284,9 @@ export function DashboardHeader({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Derive a few important top-level links by scanning available pages
-  const messagesPage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("message") ||
-        p.href.includes("/messages"),
-    )?.href || "/messages";
-  const analyticsPage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("analytics") ||
-        p.href.includes("/analytics"),
-    )?.href || "/admin/analytics";
-  const intelligencePage =
-    allPages.find(
-      (p) =>
-        p.title.toLowerCase().includes("intelligence") ||
-        p.href.includes("ai") ||
-        p.href.includes("assistant"),
-    )?.href || "/admin/ai-assistant";
+  const activeModule =
+  MODULES.find((m) => pathname.startsWith(`/${m.id}`))?.id ??
+  "admin";
 
   return (
     <header
@@ -336,7 +312,7 @@ export function DashboardHeader({
             </Link>
 
             {/* Module Dropdown */}
-            <div className="lg:hidden">
+            {/* <div className="lg:hidden">
               <Button
                 size="icon"
                 variant="ghost"
@@ -347,131 +323,128 @@ export function DashboardHeader({
                 <Menu className="h-4 w-4" />
               </Button>
             </div>
+            
             {/* Module Dropdown and Top-Links (desktop) */}
-            <div className="hidden lg:flex items-center gap-4">
-              <div className="relative" ref={moduleRef}>
-                <button
-                  onClick={() => setIsModuleOpen(!isModuleOpen)}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-none bg-primary/5 hover:bg-primary/10 transition-all text-[11px] font-black border-r border-primary/20 shadow-sm uppercase tracking-widest text-primary"
-                >
-                  {activeUserRole === "master-admin" || activeUserRole === "admin"
-                    ? "MODULES"
-                    : dashboardTitle || "MODULE"}
-                  <ChevronDown className="h-3.5 w-3.5 opacity-50" />
-                </button>
+            {/* <div className="hidden lg:flex items-center gap-1">
+              {(activeUserRole === "master-admin" || activeUserRole === "admin") ? (
+                MASTER_MODULES.map((m, index) => {
+                  const isDropdownActive = activeDropdown === index;
+                  return (
+                    <div
+                      key={m.id}
+                      className="relative"
+                      ref={(el) => {
+                        dropdownRefs.current[index] = el;
+                      }}
+                    >
+                      <button
+                        onClick={() => setActiveDropdown(isDropdownActive ? null : index)}
+                        className={cn(
+                          "flex items-center gap-1 px-2 xl:px-3 py-1.5 rounded-none transition-all text-[10px] xl:text-[11px] border-r border-primary/20 shadow-sm tracking-widest",
+                          isDropdownActive
+                            ? "bg-primary/10 text-primary border-primary/40"
+                            : "bg-primary/5 text-primary/80 hover:bg-primary/10 hover:text-primary"
+                        )}
+                      >
+                        <m.icon className="h-3 w-3 xl:h-3.5 xl:w-3.5 opacity-70" />
+                        <span>{m.title}</span>
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3 opacity-50 transition-transform duration-200",
+                            isDropdownActive && "rotate-180"
+                          )}
+                        />
+                      </button>
 
-                {isModuleOpen && (
-                  <div
-                    className="absolute left-0 top-full mt-2 w-[400px]
-  rounded-none border-2 border-primary/20 bg-black p-0 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden"
-                  >
-                    {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
-                      <div className="flex border-b border-white/10 bg-white/5">
-                        {MASTER_MODULES.map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => {
-                              setPreviewModuleId(m.id);
-                              if (m.landingHref) {
-                                setIsModuleOpen(false);
-                                setOpenSectionIndex(null);
-                                router.push(m.landingHref);
-                              }
-                            }}
-                            className={cn(
-                              "flex-1 py-3 px-2 flex flex-col items-center gap-1.5 transition-all relative group",
-                              previewModuleId === m.id
-                                ? "text-primary bg-primary/10"
-                                : "text-muted-foreground hover:text-foreground hover:bg-white/5",
-                            )}
-                          >
-                            <m.icon
-                              className={cn(
-                                "h-4 w-4",
-                                previewModuleId === m.id
-                                  ? "text-primary"
-                                  : "opacity-40 group-hover:opacity-100",
+                      {isDropdownActive && (
+                        <div
+                          className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar"
+                        >
+                          {m.config.map((section, si) => (
+                            <div key={si} className="mb-3 last:mb-0">
+                              {section.title && (
+                                <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                                  {section.title}
+                                </div>
                               )}
-                            />
-                            <span className="text-[9px] font-black uppercase tracking-tight">
-                              {m.title}
-                            </span>
-                            {previewModuleId === m.id && (
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="p-3 max-h-[70vh] overflow-y-auto youtube-scrollbar">
-                      {(activeUserRole === "master-admin" || activeUserRole === "admin"
-                        ? currentPreviewConfig
-                        : sidebarConfig
-                      ).map((section, si) => (
-                        <div key={si} className="mb-2 last:mb-0">
-                          {/* Section header (accordion trigger) */}
-                          <button
-                            onClick={() =>
-                              setOpenSectionIndex(
-                                openSectionIndex === si ? null : si,
-                              )
-                            }
-                            className="w-full flex items-center justify-between px-3 py-2 bg-transparent hover:bg-muted/50 transition-colors rounded-none"
-                            aria-expanded={openSectionIndex === si}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-                                {section.title}
-                              </span>
+                              <div className="grid grid-cols-1 gap-0.5">
+                                {section.items.map((it: any) => (
+                                  <button
+                                    key={it.href}
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      router.push(it.href);
+                                    }}
+                                    className="w-full text-left px-2 py-1.5 rounded-none hover:bg-primary/5 hover:text-primary transition duration-150 flex items-center gap-2.5 text-xs text-foreground/80 tracking-wider"
+                                  >
+                                    {it.icon && (
+                                      <it.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                    )}
+                                    <span className="truncate">{it.title}</span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 transition-transform duration-300",
-                                openSectionIndex === si
-                                  ? "rotate-180 text-primary"
-                                  : "text-muted-foreground",
-                              )}
-                            />
-                          </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                sidebarConfig.length > 0 && (
+                  <div className="relative" ref={moduleRef}>
+                    <button
+                      onClick={() => setIsModuleOpen(!isModuleOpen)}
+                      className="flex items-center gap-2 px-4 py-1.5 rounded-none bg-primary/5 hover:bg-primary/10 transition-all text-[11px] font-black border-r border-primary/20 shadow-sm uppercase tracking-widest text-primary"
+                    >
+                      {dashboardTitle || "MODULE"}
+                      <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                    </button>
 
-                          {/* Submenu - collapsed/expanded with smooth animation */}
-                          <div
-                            className={cn(
-                              "overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out",
-                              openSectionIndex === si
-                                ? "max-h-96 opacity-100"
-                                : "max-h-0 opacity-0",
+                    {isModuleOpen && (
+                      <div className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar">
+                        {sidebarConfig.map((section, si) => (
+                          <div key={si} className="mb-3 last:mb-0">
+                            {section.title && (
+                              <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                                {section.title}
+                              </div>
                             )}
-                          >
-                            <div className="mt-2 grid grid-cols-1 gap-1">
+                            <div className="grid grid-cols-1 gap-0.5">
                               {section.items.map((it: any) => (
                                 <button
                                   key={it.href}
                                   onClick={() => {
                                     setIsModuleOpen(false);
-                                    setOpenSectionIndex(null);
                                     router.push(it.href);
                                   }}
-                                  className="w-full text-left px-3 py-2 rounded-none hover:bg-muted/60 transition transform duration-200 flex items-center gap-3 text-sm text-foreground/90 hover:shadow-sm uppercase"
+                                  className="w-full text-left px-2 py-1.5 rounded-none hover:bg-primary/5 hover:text-primary transition duration-150 flex items-center gap-2.5 text-xs text-foreground/80 uppercase tracking-wider"
                                 >
                                   {it.icon && (
-                                    <it.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                                    <it.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
                                   )}
                                   <span className="truncate">{it.title}</span>
                                 </button>
                               ))}
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                )
+              )}
+            </div> */}
 
-            {/* Breadcrumbs removed per header simplification */}
+            {(activeUserRole === "master-admin" ||
+              activeUserRole === "admin") && (
+              <ModuleTabs
+                modules={MODULES}
+                activeModule={activeModule}
+                onNavigate={(href) => router.push(href)}
+              />
+            )}
           </div>
 
           {/* RIGHT SECTION */}
@@ -479,67 +452,23 @@ export function DashboardHeader({
             {/* Global AI Command Center */}
             <CommandCenterInput />
 
-            {sidebarConfig.length > 0 && (
-              <Separator
-                orientation="vertical"
-                className="hidden sm:block h-6 bg-border/60"
-              />
-            )}
+            <GlobalSearch sidebarConfig={sidebarConfig} />
 
-            {/* Refresh Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className={cn(
-                "h-8 w-8 sm:h-9 sm:w-9 rounded-none hover:bg-accent transition-all duration-200",
-                "hover:shadow-sm hover:scale-105",
-                "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
-              )}
-              title="Refresh page"
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground transition-all duration-500",
-                  isRefreshing && "animate-spin text-primary",
-                  !isRefreshing && "hover:text-foreground",
-                )}
-              />
-            </Button>
-
-            {/* AI Assistant Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleAi}
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-none hover:bg-accent transition-all duration-200 hover:shadow-sm hover:scale-105"
-              title="Aupulens Copilot"
-            >
-              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground hover:text-primary transition-all duration-300" />
-            </Button>
-
-            {/* Theme Toggle
-            <div className="hover:scale-105 transition-transform duration-200">
-              <ThemeToggle />
-            </div> */}
-
-            {/* Separator - Hidden on mobile */}
-            <Separator
-              orientation="vertical"
-              className="hidden sm:block h-6 bg-border/60"
+            <HeaderActions
+              isRefreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              onToggleAi={onToggleAi}
+              userName={userName}
+              userEmail={userEmail}
+              userRole={userRole}
+              profilePath={profilePath}
+              onSignOut={handleSignOut}
             />
 
-            {/* User Nav */}
-            {userName && (
-              <UserNav
-                userName={userName}
-                userEmail={userEmail}
-                userRole={userRole}
-                onSignOut={() => handleSignOut()}
-                profilePath={profilePath}
-              />
-            )}
+            <div className="hover:scale-105 transition-transform duration-200">
+              <ThemeToggle />
+            </div>
+
           </div>
         </div>
 

@@ -239,7 +239,7 @@ export default function AttendancePage() {
     >
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Attendance</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Attendance</h1>
           <p className="text-sm text-muted-foreground mt-1">Track and manage daily employee attendance</p>
         </div>
 

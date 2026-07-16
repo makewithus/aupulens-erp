@@ -1,6 +1,16 @@
 'use client';
 import { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
+import {
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@/components/shared/Table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,8 +24,15 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderKanban } from "lucide-react";
 import Link from "next/link";
+
+const STATUS_COLORS_REDESIGNED: Record<string, string> = {
+  Active: "text-[#8AE06C]",    // Soft green
+  Inactive: "text-[#F56868]",  // Soft red
+  Prospect: "text-[#6CADF5]",  // Soft blue
+  Customer: "text-[#A77DFF]",  // Soft purple
+};
 
 const EMPTY_FORM = { company_name: "", website: "", industry: "" };
 
@@ -32,7 +49,7 @@ export default function AccountsPage() {
     try {
       const res = await fetch(`/api/crm/accounts?search=${search}`);
       const data = await res.json();
-      if (data.success) setAccounts(data.data.accounts);
+      if (data.success) setAccounts(data.data.accounts ?? data.data ?? []);
     } catch (e) {
       toast.error("Failed to load accounts.");
     } finally {
@@ -75,55 +92,178 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Accounts</h1>
-        <Button onClick={() => setSheetOpen(true)} className="bg-primary gap-2">
-          <Plus className="h-4 w-4" />
-          New Account
-        </Button>
-      </div>
-      
-      <div className="mb-4">
-        <Input placeholder="Search accounts..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
-      </div>
-      
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Industry</TableHead>
-              <TableHead>Health</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
-            : accounts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No accounts found.</TableCell>
-              </TableRow>
-            ) : accounts.map(acc => (
-              <TableRow key={acc._id}>
-                <TableCell className="font-medium">{acc.company_name}</TableCell>
-                <TableCell>{acc.type || '-'}</TableCell>
-                <TableCell>{acc.industry || '-'}</TableCell>
-                <TableCell><Badge className="bg-green-600">{acc.account_health_score}</Badge></TableCell>
-                <TableCell><Badge variant="outline">{acc.status}</Badge></TableCell>
-                <TableCell>
-                  <Link href={`/crm/accounts/${acc._id}`}>
-                    <Button variant="secondary" size="sm">360 View</Button>
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+    <div className="space-y-6">
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Header */}
+        <div className="border-b border-border/20 px-6 py-4">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="shrink-0">
+              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+                All Accounts
+              </h2>
 
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                {accounts.length} {accounts.length === 1 ? "Account" : "Accounts"}
+              </p>
+            </div>
+
+            <div className="w-full max-w-md flex flex-row gap-8">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search accounts..."
+              />
+              <Button
+                onClick={() => setSheetOpen(true)}
+                className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Account
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell>Company Name</TableHeaderCell>
+                <TableHeaderCell>Type</TableHeaderCell>
+                <TableHeaderCell>Industry</TableHeaderCell>
+                <TableHeaderCell>Health</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    {/* Company Name */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-32" />
+                    </TableCell>
+
+                    {/* Type */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+
+                    {/* Industry */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+
+                    {/* Health */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-10" />
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-16" />
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : accounts.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                    <h3 className="text-lg font-medium">
+                      {search ? "No accounts match your filters" : "No accounts found"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {search ? "Try adjusting your search query." : "Click \"New Account\" to create one."}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                accounts.map((acc) => (
+                  <TableRow key={acc._id}>
+                    {/* Company Name */}
+                    <TableCell>
+                      <h3 className="text-[18px] font-medium tracking-[-0.03em] text-foreground">
+                        {acc.company_name}
+                      </h3>
+                    </TableCell>
+
+                    {/* Type */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {acc.type || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Industry */}
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {acc.industry || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Health */}
+                    <TableCell>
+                      <span className="font-mono text-sm text-muted-foreground">
+                        {acc.account_health_score ?? 0}
+                      </span>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Badge
+                        className={`
+                          rounded-none
+                          border-0
+                          bg-transparent
+                          px-0
+                          font-mono
+                          text-[12px]
+                          uppercase
+                          tracking-[0.12em]
+                          hover:bg-transparent
+                          shadow-none
+                          ${STATUS_COLORS_REDESIGNED[acc.status] ?? "text-muted-foreground"}
+                        `}
+                      >
+                        {acc.status || "Active"}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/crm/accounts/${acc._id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                          >
+                            360 View
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
+      {/* New Account Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-lg">
           <SheetHeader className="mb-6">

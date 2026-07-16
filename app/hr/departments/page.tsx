@@ -1,7 +1,5 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
-
-
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -28,10 +26,10 @@ import {
   Eye,
   Edit,
   Building2,
-  Users,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 
 interface Department {
   _id: string;
@@ -182,51 +180,47 @@ export default function DepartmentsPage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Departments</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage organisational departments and cost centres</p>
-        </div>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Department Directory
+            </h1>
+          </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Building2 className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-black">{totalDepts}</p>
-                <p className="text-xs text-muted-foreground">Total Departments</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-black">{activeDepts}</p>
-                <p className="text-xs text-muted-foreground">Active</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
-              <div>
-                <p className="text-2xl font-black">{inactiveDepts}</p>
-                <p className="text-xs text-muted-foreground">Inactive</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-black">{totalEmployeesInDepts}</p>
-                <p className="text-xs text-muted-foreground">Assigned Employees</p>
-              </div>
-            </CardContent>
-          </Card>
+          <Button onClick={handleOpenCreate} 
+          className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+        >
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
         </div>
+        
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Departments"
+              value={totalDepts}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Active Departments"
+              value={activeDepts}
+              visual={<ActivePulse/>}
+            />
+
+            <StatCard
+              title="Inactive Departments" 
+              value={inactiveDepts}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Assigned Employees"
+              value={totalEmployeesInDepts}
+              visual={<UsersGraph/>}
+            />
+          </div>
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -246,10 +240,6 @@ export default function DepartmentsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Department
-          </Button>
         </div>
 
         {/* Table */}
@@ -284,9 +274,6 @@ export default function DepartmentsPage() {
                       <tr key={dept._id} className="border-b border-border/20 hover:bg-muted/20">
                         <td className="px-4 py-3">
                           <div className="font-medium">{dept.name}</div>
-                          {dept.description && (
-                            <div className="text-xs text-muted-foreground line-clamp-1">{dept.description}</div>
-                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>

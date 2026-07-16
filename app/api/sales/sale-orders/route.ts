@@ -6,6 +6,35 @@ import SaleOrder from "@/models/SaleOrder";
 import "@/models/Customer";
 import "@/models/Product";
 
+import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+
+// Map client legacy status to DB DocumentStatus
+function toDbStatus(status: string): string {
+  if (status === "sale") return DOCUMENT_STATUS.APPROVED;
+  if (status === "sent") return DOCUMENT_STATUS.PENDING_APPROVAL;
+  if (status === "cancel") return DOCUMENT_STATUS.CANCELLED;
+  if (status === "done") return DOCUMENT_STATUS.CLOSED;
+  return status;
+}
+
+// Map DB DocumentStatus to client legacy status
+function toClientStatus(status: string): string {
+  if (status === DOCUMENT_STATUS.APPROVED) return "sale";
+  if (status === DOCUMENT_STATUS.PENDING_APPROVAL) return "sent";
+  if (status === DOCUMENT_STATUS.CANCELLED) return "cancel";
+  if (status === DOCUMENT_STATUS.CLOSED) return "done";
+  return status;
+}
+
+// Map order document fields to client structure
+function mapOrderToClient(order: any): any {
+  if (!order) return order;
+  return {
+    ...order,
+    status: toClientStatus(order.status),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -24,7 +53,7 @@ export async function GET(request: Request) {
     let query: any = { tenantId };
 
     if (status) {
-      const statuses = status.split(",");
+      const statuses = status.split(",").map(toDbStatus);
       query.status = { $in: statuses };
     }
 
@@ -43,7 +72,8 @@ export async function GET(request: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ items: orders });
+    const clientOrders = orders.map(mapOrderToClient);
+    return NextResponse.json({ items: clientOrders });
   } catch (error) {
     console.error("Error fetching sale orders:", error);
     return NextResponse.json(
@@ -64,6 +94,19 @@ export async function POST(request: Request) {
     await connectDB();
     const body = await request.json();
 
+    if (body.status) {
+      body.status = toDbStatus(body.status);
+    }
+
+    // Auto-set order date if confirming to sale order
+    if (body.status === DOCUMENT_STATUS.APPROVED) {
+      if (body.header) {
+        body.header.dateOrder = new Date();
+      } else {
+        body["header.dateOrder"] = new Date();
+      }
+    }
+
     if (!body.header?.name || !body.header?.partnerId) {
       return NextResponse.json(
         { error: "Order name and partner are required" },
@@ -76,7 +119,8 @@ export async function POST(request: Request) {
       tenantId,
     });
 
-    return NextResponse.json({ order }, { status: 201 });
+    const clientOrder = mapOrderToClient(order.toObject());
+    return NextResponse.json({ order: clientOrder }, { status: 201 });
   } catch (error) {
     console.error("Error creating sale order:", error);
     if ((error as any).code === 11000) {

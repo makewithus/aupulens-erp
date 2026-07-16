@@ -118,7 +118,7 @@ export default function HRProfilePage() {
     >
       <div className="space-y-6 max-w-3xl mx-auto">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Profile</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Profile</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your account settings</p>
         </div>
 

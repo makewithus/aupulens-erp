@@ -35,6 +35,7 @@ import {
   IndianRupee,
   Users,
 } from "lucide-react";
+import { PayrollList } from "@/components/hr/payroll/PayrollList";
 
 interface PayrollRun {
   _id: string;
@@ -269,23 +270,60 @@ export default function PayrollPage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Payroll Processing</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Full payroll lifecycle: Draft → Lock → Compute → Review → Approve → Disburse → Post to GL
-          </p>
+      <div className="space-y-6 max-w-8xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            Payroll Processing</h1>
+          <Button
+            onClick={handleOpenCreate}
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Payroll Run
+          </Button>
         </div>
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex gap-3 flex-1">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search payroll code..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+          <div className="flex flex-1 items-end gap-3">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+
+              <Input
+                placeholder="Search payroll code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="
+                  h-11
+                  w-full
+                  rounded-none
+                  border-0
+                  border-b
+                  border-border/40
+                  bg-transparent
+                  pl-11
+                  pr-4
+                  shadow-none
+                  transition-colors
+                  focus-visible:border-primary
+                  focus-visible:ring-0
+                "
+              />
             </div>
             <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger
+                className="
+                  h-11
+                  w-56
+                  rounded-none
+                  border-0
+                  border-b
+                  border-border/40
+                  bg-transparent
+                  shadow-none
+                  focus:ring-0
+                "
+              >
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -296,10 +334,6 @@ export default function PayrollPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Payroll Run
-          </Button>
         </div>
 
         {/* Payroll List */}
@@ -310,104 +344,33 @@ export default function PayrollPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <Card className="border-border/40">
-            <CardContent className="p-12 text-center">
-              <Banknote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-bold text-lg">No payroll runs</h3>
-              <p className="text-sm text-muted-foreground">Create a new payroll run to process salaries</p>
+          <Card className="overflow-hidden border-border/40 shadow-none">
+            <CardContent className="flex flex-col items-center justify-center px-8 py-24 text-center">
+              <h2 className="text-[34px] font-medium tracking-[-0.05em]">
+                No payroll has been processed
+              </h2>
+
+              <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+                Create a payroll batch to calculate salaries, review employee payouts,
+                and complete the monthly payroll workflow.
+              </p>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {filtered.map((payroll) => {
-              const sc = statusConfig[payroll.status] || statusConfig.draft;
-              const StIcon = sc.icon;
-              const currentStep = getStepIndex(payroll.status);
-              return (
-                <Card key={payroll._id} className="border-border/40 hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="font-black text-lg text-foreground font-mono">{payroll.payrollCode}</span>
-                          <Badge className={sc.color}>
-                            <StIcon className="h-3 w-3 mr-1" />
-                            {sc.label}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
-                          <span>
-                            Period: {payroll.payrollPeriod.month}/{payroll.payrollPeriod.year}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {payroll.lineItems?.length || 0} employees
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <IndianRupee className="h-3 w-3" />
-                            Gross: ₹{(payroll.totals?.totalGross || 0).toLocaleString()}
-                          </span>
-                          <span>Net: ₹{(payroll.totals?.totalNet || 0).toLocaleString()}</span>
-                        </div>
-
-                        {/* Mini Workflow Stepper */}
-                        <div className="flex items-center gap-1 mt-3">
-                          {workflowSteps.map((step, idx) => {
-                            const WIcon = step.icon;
-                            const isComplete = idx <= currentStep;
-                            const isCurrent = idx === currentStep;
-                            return (
-                              <div key={step.key} className="flex items-center">
-                                <div
-                                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    isCurrent
-                                      ? "bg-primary text-primary-foreground"
-                                      : isComplete
-                                        ? "bg-primary/20 text-primary"
-                                        : "bg-muted text-muted-foreground"
-                                  }`}
-                                >
-                                  <WIcon className="h-2.5 w-2.5" />
-                                  <span className="hidden sm:inline">{step.label}</span>
-                                </div>
-                                {idx < workflowSteps.length - 1 && (
-                                  <ArrowRight className={`h-3 w-3 mx-0.5 ${isComplete ? "text-primary" : "text-muted-foreground/30"}`} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => handleOpenDetail(payroll)}>
-                          <Eye className="h-3.5 w-3.5 mr-1" /> Details
-                        </Button>
-                        {nextStatusMap[payroll.status] && (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPayroll(payroll);
-                              handleOpenDetail(payroll);
-                            }}
-                            className="gap-1"
-                          >
-                            <Play className="h-3.5 w-3.5" />
-                            {nextActionLabels[payroll.status]}
-                          </Button>
-                        )}
-                        {payroll.status === "draft" && (
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(payroll._id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <PayrollList
+            payrolls={filtered}
+            workflowSteps={workflowSteps}
+            statusConfig={statusConfig}
+            nextStatusMap={nextStatusMap}
+            nextActionLabels={nextActionLabels}
+            getStepIndex={getStepIndex}
+            onView={handleOpenDetail}
+            onContinue={(payroll) => {
+              setSelectedPayroll(payroll);
+              handleOpenDetail(payroll);
+            }}
+            onDelete={handleDelete}
+          />
         )}
       </div>
 

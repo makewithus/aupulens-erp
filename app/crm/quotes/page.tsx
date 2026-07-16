@@ -1,44 +1,35 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/SearchInput";
 import {
-  Table,
-  TableBody,
-  TableCell,
+  TableContainer,
   TableHead,
-  TableHeader,
+  TableHeaderCell,
+  TableBody,
   TableRow,
-} from "@/components/ui/table";
+  TableCell,
+} from "@/components/shared/Table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
-import { Search, Plus, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, AlertCircle, FolderKanban } from "lucide-react";
 
 // ─── Status colour map ────────────────────────────────────────────────────────
 
-const STATUS_VARIANT: Record<string, string> = {
-  Draft: "outline",
-  "Pending Approval": "secondary",
-  Approved: "default",
-  Sent: "default",
-  Viewed: "secondary",
-  Revised: "outline",
-  Accepted: "default",
-  Rejected: "destructive",
-  Expired: "destructive",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  Approved: "bg-green-700 text-green-100",
-  Accepted: "bg-emerald-700 text-emerald-100",
-  Sent: "bg-blue-700 text-blue-100",
-  Viewed: "bg-indigo-700 text-indigo-100",
-  Rejected: "bg-red-700 text-red-100",
-  Expired: "bg-red-900 text-red-200",
-  "Pending Approval": "bg-yellow-700 text-yellow-100",
-  Draft: "bg-neutral-700 text-neutral-100",
-  Revised: "bg-neutral-600 text-neutral-100",
+const STATUS_COLOR_REDESIGNED: Record<string, string> = {
+  Approved: "text-[#8AE06C]",
+  Accepted: "text-[#8AE06C]",
+  "Pending Approval": "text-[#F1DF38]",
+  Sent: "text-[#6CADF5]",
+  Viewed: "text-[#A77DFF]",
+  Rejected: "text-[#F56868]",
+  Expired: "text-[#F56868]",
+  Draft: "text-muted-foreground",
+  Revised: "text-[#A77DFF]",
 };
 
 // ─── Summary cards ────────────────────────────────────────────────────────────
@@ -55,11 +46,13 @@ function SummaryCard({
   color?: string;
 }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-      <p className="text-xs text-neutral-400 mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${color || ""}`}>{value}</p>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
-    </div>
+    <Card className="border border-border/40 bg-background shadow-none rounded-none">
+      <CardContent className="p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/60 mb-2">{label}</p>
+        <p className={`text-3xl font-bold tracking-tight text-foreground ${color || ""}`}>{value}</p>
+        {sub && <p className="text-xs text-muted-foreground/50 mt-1.5">{sub}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -106,189 +99,283 @@ export default function QuotesPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Quotes & Proposals</h1>
-          <p className="text-sm text-neutral-400 mt-1">
-            Manage all quotes, approvals, and proposals
-          </p>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
+        <div className="shrink-0">
+          <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+            Quotes & Proposals
+          </h2>
         </div>
-        <Link href="/crm/quotes/new">
-          <Button className="bg-primary">
-            <Plus className="w-4 h-4 mr-2" />
-            New Quote
-          </Button>
-        </Link>
+
+        <div className="flex flex-row gap-4">
+          <Link href="/crm/quotes/new">
+            <Button
+              className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Quote
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Value"
           value={`$${totalGrandTotal.toLocaleString()}`}
-          sub={`${quotes.length} quotes`}
+          sub={`${quotes.length} ${quotes.length === 1 ? "quote" : "quotes"}`}
         />
         <SummaryCard
           label="Pending Approval"
           value={pendingCount}
-          color="text-yellow-400"
+          color="text-[#F1DF38]"
           sub="awaiting decision"
         />
         <SummaryCard
           label="Approved"
           value={approvedCount}
-          color="text-green-400"
+          color="text-[#8AE06C]"
           sub="ready to send"
         />
         <SummaryCard
           label="Expired"
           value={expiredCount}
-          color="text-red-400"
+          color="text-[#F56868]"
           sub="validity passed"
         />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search quote number..."
-            className="pl-9 bg-neutral-900 border-neutral-700"
-          />
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          <Button
-            size="sm"
-            variant={statusFilter === "" ? "default" : "outline"}
-            onClick={() => setStatusFilter("")}
-            className="h-8 text-xs"
-          >
-            All
-          </Button>
-          {ALL_STATUSES.map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={statusFilter === s ? "default" : "outline"}
-              onClick={() => setStatusFilter(s === statusFilter ? "" : s)}
-              className="h-8 text-xs"
-            >
-              {s}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Table Card */}
+      <Card className="overflow-hidden border-border/40 shadow-none bg-background">
+        {/* Toolbar */}
+        <div className="border-b border-border/20 px-8 py-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="shrink-0">
+              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+                All Quotes
+              </h2>
 
-      {/* Table */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">Quote #</TableHead>
-              <TableHead className="text-neutral-400">Ver</TableHead>
-              <TableHead className="text-neutral-400">Account</TableHead>
-              <TableHead className="text-neutral-400">Opportunity</TableHead>
-              <TableHead className="text-neutral-400 text-right">Grand Total</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-              <TableHead className="text-neutral-400">Valid Until</TableHead>
-              <TableHead className="text-neutral-400">Sent</TableHead>
-              <TableHead className="text-neutral-400"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-neutral-500">
-                  Loading quotes...
-                </TableCell>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                {quotes.length} {quotes.length === 1 ? "Quote" : "Quotes"}
+              </p>
+            </div>
+
+            <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              {/* Search Input */}
+              <div className="w-full max-w-sm">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search quote number..."
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-2">
+                <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {ALL_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-0">
+          <TableContainer>
+            <TableHead>
+              <TableRow className="text-left hover:bg-transparent">
+                <TableHeaderCell>Quote #</TableHeaderCell>
+                <TableHeaderCell>Ver</TableHeaderCell>
+                <TableHeaderCell>Account</TableHeaderCell>
+                <TableHeaderCell>Opportunity</TableHeaderCell>
+                <TableHeaderCell className="text-right">Grand Total</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Valid Until</TableHeaderCell>
+                <TableHeaderCell>Sent</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
               </TableRow>
-            )}
-            {!loading && quotes.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-10">
-                  <div className="flex flex-col items-center gap-2 text-neutral-500">
-                    <FileText className="w-8 h-8" />
-                    <p>No quotes found</p>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    {/* Quote # */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-20 font-mono" />
+                    </TableCell>
+
+                    {/* Ver */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-8" />
+                    </TableCell>
+
+                    {/* Account */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+
+                    {/* Opportunity */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+
+                    {/* Grand Total */}
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Skeleton className="h-5 w-24" />
+                    </TableCell>
+
+                    {/* Valid Until */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+
+                    {/* Sent */}
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Skeleton className="h-8 w-16" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : quotes.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="py-24 text-center">
+                    <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+
+                    <h3 className="text-lg font-medium">
+                      {search || statusFilter ? "No quotes match your filters" : "No quotes found"}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-muted-foreground mb-6">
+                      {search || statusFilter ? "Try adjusting your search query or filters." : "Get started by creating your first quote profile."}
+                    </p>
+
                     <Link href="/crm/quotes/new">
-                      <Button size="sm" variant="outline">
+                      <Button
+                        className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
                         Create your first quote
                       </Button>
                     </Link>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              quotes.map((q) => {
-                const isExpired =
-                  q.validity_date && new Date(q.validity_date) < new Date();
-                const statusClass =
-                  STATUS_COLOR[q.status] || "bg-neutral-700 text-neutral-100";
+                  </TableCell>
+                </TableRow>
+              ) : (
+                quotes.map((q) => {
+                  const isExpired = q.validity_date && new Date(q.validity_date) < new Date();
 
-                return (
-                  <TableRow
-                    key={q._id}
-                    className="border-neutral-800 hover:bg-neutral-800/50"
-                  >
-                    <TableCell className="font-mono font-medium text-sm">
-                      {q.quote_number}
-                    </TableCell>
-                    <TableCell className="text-neutral-400 text-sm">
-                      V{q.version}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {q.account_id?.company_name || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-neutral-400">
-                      {q.opportunity_id?.deal_name || "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">
-                      ${(q.grand_total || 0).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}
-                      >
-                        {q.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          isExpired ? "text-red-400 font-semibold text-sm" : "text-sm"
-                        }
-                      >
-                        {q.validity_date
-                          ? new Date(q.validity_date).toLocaleDateString()
-                          : "—"}
-                        {isExpired && (
-                          <AlertCircle className="w-3 h-3 inline ml-1" />
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-neutral-400">
-                      {q.sent_at
-                        ? new Date(q.sent_at).toLocaleDateString()
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/crm/quotes/${q._id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs">
-                          View
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </div>
+                  return (
+                    <TableRow key={q._id}>
+                      {/* Quote # */}
+                      <TableCell className="font-mono text-sm text-foreground">
+                        {q.quote_number}
+                      </TableCell>
+
+                      {/* Ver */}
+                      <TableCell className="text-sm text-muted-foreground">
+                        V{q.version}
+                      </TableCell>
+
+                      {/* Account */}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {q.account_id?.company_name || "—"}
+                      </TableCell>
+
+                      {/* Opportunity */}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {q.opportunity_id?.deal_name || "—"}
+                      </TableCell>
+
+                      {/* Grand Total */}
+                      <TableCell className="text-right font-mono font-medium text-sm text-foreground">
+                        ${(q.grand_total || 0).toLocaleString()}
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell>
+                        <Badge
+                          className={`
+                            rounded-none
+                            border-0
+                            bg-transparent
+                            px-0
+                            font-mono
+                            text-[12px]
+                            hover:bg-transparent
+                            shadow-none
+                            ${STATUS_COLOR_REDESIGNED[q.status] ?? "text-muted-foreground"}
+                          `}
+                        >
+                          {q.status}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Valid Until */}
+                      <TableCell>
+                        <span
+                          className={
+                            isExpired
+                              ? "text-[#F56868] font-medium text-sm flex items-center gap-1.5"
+                              : "text-sm text-muted-foreground"
+                          }
+                        >
+                          {q.validity_date ? new Date(q.validity_date).toLocaleDateString() : "—"}
+                          {isExpired && <AlertCircle className="w-3.5 h-3.5" />}
+                        </span>
+                      </TableCell>
+
+                      {/* Sent */}
+                      <TableCell className="font-mono text-[11px] text-muted-foreground/60">
+                        {q.sent_at ? new Date(q.sent_at).toLocaleDateString() : "—"}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Link href={`/crm/quotes/${q._id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all duration-300"
+                            >
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </TableContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }

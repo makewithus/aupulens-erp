@@ -123,7 +123,7 @@ export const useAuthStore = create<AuthStore>()(
               currentTenantId !== "default-tenant"
             ) {
               clearAllStores();
-              signOut({ callbackUrl: "/auth/admin" });
+              signOut({ callbackUrl: "/auth" });
               return;
             }
 

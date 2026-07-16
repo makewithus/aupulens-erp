@@ -9,25 +9,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { SearchInput } from "@/components/SearchInput";
 import {
-  Search,
-  Plus,
-  FileText,
-  Eye,
-  Edit2,
-  Trash2,
-  CheckCircle2,
-  Loader2,
-  Printer,
-} from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { InvoicePopupContent } from "@/components/accounting/InvoicePopupContent";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, FileText } from "lucide-react";
+
+// Extracted Subcomponents
+import { ProformaInvoiceTable } from "@/components/sales/proforma-invoices/ProformaInvoiceTable";
+import { ProformaInvoiceModals } from "@/components/sales/proforma-invoices/ProformaInvoiceModals";
 
 export default function ProformaInvoicesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Data list and loading states
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -41,9 +41,7 @@ export default function ProformaInvoicesPage() {
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deleteConfirmationId, setDeleteConfirmationId] = useState<
-    string | null
-  >(null);
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<any>({
     partnerId: "",
@@ -92,6 +90,7 @@ export default function ProformaInvoicesPage() {
     }
   }, [status, router, load]);
 
+  // Modal Open Triggers
   const handleOpenCreate = () => {
     setCurrentInvoice(null);
     setIsViewOnly(false);
@@ -127,6 +126,7 @@ export default function ProformaInvoicesPage() {
     setIsModalOpen(true);
   };
 
+  // Operation Handlers
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -174,6 +174,25 @@ export default function ProformaInvoicesPage() {
 
   const handleDelete = (id: string) => {
     setDeleteConfirmationId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmationId) return;
+    try {
+      const res = await fetch(
+        `/api/accounting/invoices/${deleteConfirmationId}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (!res.ok) throw new Error("Delete failed");
+      toast.success("Invoice deleted");
+      load();
+    } catch (error) {
+      toast.error("Delete failed");
+    } finally {
+      setDeleteConfirmationId(null);
+    }
   };
 
   const handlePrintInvoice = async (invoice: any) => {
@@ -263,25 +282,7 @@ export default function ProformaInvoicesPage() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleteConfirmationId) return;
-    try {
-      const res = await fetch(
-        `/api/accounting/invoices/${deleteConfirmationId}`,
-        {
-          method: "DELETE",
-        },
-      );
-      if (!res.ok) throw new Error("Delete failed");
-      toast.success("Invoice deleted");
-      load();
-    } catch (error) {
-      toast.error("Delete failed");
-    } finally {
-      setDeleteConfirmationId(null);
-    }
-  };
-
+  // Filter calculations
   const filtered = data.filter((inv) => {
     const matchesQuery = [inv.name, inv.partnerId?.header?.name || ""].some(
       (v) => v.toLowerCase().includes(query.toLowerCase()),
@@ -289,19 +290,6 @@ export default function ProformaInvoicesPage() {
     const matchesStatus = statusFilter === "all" || inv.state === statusFilter;
     return matchesQuery && matchesStatus;
   });
-
-  const getStatusBadge = (state: string) => {
-    const variants: Record<string, any> = {
-      draft: "secondary",
-      posted: "default",
-      cancel: "destructive",
-    };
-    return (
-      <Badge variant={variants[state] || "secondary"} className="capitalize">
-        {state}
-      </Badge>
-    );
-  };
 
   return (
     <DashboardLayout
@@ -319,213 +307,100 @@ export default function ProformaInvoicesPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Proforma Invoices</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your customer invoices
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search invoices..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Invoice
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Proforma Invoices</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Invoice" : "Invoices"}
+                </p>
+              </div>
+
+              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search invoices..."
+                  />
+                </div>
+
+                {/* Status select filter */}
+                <div className="flex items-center gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/40">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="posted">Posted</SelectItem>
+                      <SelectItem value="cancel">Cancel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Invoice
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+                <p className="text-muted-foreground font-mono text-xs">
                   No invoices found
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Invoice #</th>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Total</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((inv) => (
-                      <tr
-                        key={inv._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center rounded text-purple-600">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                          {inv.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {inv.partnerId?.header?.name || "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold">
-                          ₹{inv.amountTotal?.toLocaleString() || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(inv.state)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground text-xs">
-                          {new Date(inv.invoiceDate).toLocaleDateString()}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePrintInvoice(inv)}
-                            title="Print Invoice"
-                            className="h-8 w-8 text-purple-600"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenView(inv)}
-                            className="h-8 w-8 text-blue-600"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {inv.state === "draft" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenEdit(inv)}
-                                className="h-8 w-8 text-indigo-600"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleConfirmInvoice(inv._id)}
-                                title="Confirm Invoice"
-                                className="h-8 w-8 text-green-600"
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDelete(inv._id)}
-                                className="h-8 w-8 text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ProformaInvoiceTable
+                filtered={filtered}
+                handlePrintInvoice={handlePrintInvoice}
+                handleOpenView={handleOpenView}
+                handleOpenEdit={handleOpenEdit}
+                handleConfirmInvoice={handleConfirmInvoice}
+                handleDelete={handleDelete}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          isViewOnly
-            ? "View Invoice"
-            : currentInvoice
-              ? "Edit Invoice"
-              : "New Invoice"
-        }
-        className="max-w-[95vw]"
-        footer={
-          isViewOnly ? (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Invoice"
-                )}
-              </Button>
-            </div>
-          )
-        }
-      >
-        <InvoicePopupContent
-          formData={formData}
-          setFormData={setFormData}
-          isViewOnly={isViewOnly}
-          partners={partners}
-        />
-      </ModularModal>
-
-      {deleteConfirmationId && (
-        <ModularModal
-          open={!!deleteConfirmationId}
-          onOpenChange={() => setDeleteConfirmationId(null)}
-          title="Confirm Delete"
-          description="Are you sure you want to delete this invoice? This action cannot be undone."
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirmationId(null)}
-              >
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={confirmDelete}>
-                Delete
-              </Button>
-            </div>
-          }
-        >
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              This will permanently delete the invoice from the system.
-            </p>
-          </div>
-        </ModularModal>
-      )}
+      {/* Extracted modals block containing modular popups */}
+      <ProformaInvoiceModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        formData={formData}
+        setFormData={setFormData}
+        isViewOnly={isViewOnly}
+        currentInvoice={currentInvoice}
+        isSubmitting={isSubmitting}
+        handleSubmit={handleSubmit}
+        deleteConfirmationId={deleteConfirmationId}
+        setDeleteConfirmationId={setDeleteConfirmationId}
+        confirmDelete={confirmDelete}
+        partners={partners}
+      />
     </DashboardLayout>
   );
 }
