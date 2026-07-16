@@ -300,42 +300,33 @@ export default function StockTrackingPage() {
         await Promise.all([fetchProducts(), fetchStockLevels()]);
       }}
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Stock Tracking</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {pagination.total} {pagination.total === 1 ? "product" : "products"} total
+            </p>
+          </div>
+
+          <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+            <div className="w-full max-w-sm">
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder="Search products..."
+              />
+            </div>
+
+            <Button onClick={handleOpenCreate} className="h-10 px-6">
+              New Product
+            </Button>
+          </div>
+        </div>
 
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none flex flex-col min-h-[600px]">
-          {/* Card Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Tracking</h3>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                  {pagination.total} {pagination.total === 1 ? "Product" : "Products"} Total
-                </p>
-              </div>
-
-              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-                {/* Search input */}
-                <div className="w-full max-w-sm">
-                  <SearchInput
-                    value={query}
-                    onChange={setQuery}
-                    placeholder="Search products..."
-                  />
-                </div>
-
-                <Button
-                  onClick={handleOpenCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
-                >
-                  New Product
-                </Button>
-              </div>
-            </div>
-          </div>
-
           <CardContent className="p-0 flex-1">
             {loadingProducts ? (
               <div className="p-8 space-y-4">
