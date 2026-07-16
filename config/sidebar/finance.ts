@@ -69,6 +69,16 @@ export const financeSidebarConfig: SidebarSection[] = [
         icon: Landmark,
       },
       {
+        title: "Receivables",
+        href: "/finance/receivables",
+        icon: CircleDollarSign,
+      },
+      {
+        title: "Payables",
+        href: "/finance/payables",
+        icon: Wallet,
+      },
+      {
         title: "Period Closing",
         href: "/finance/accounting/period-closing",
         icon: CalendarDays,

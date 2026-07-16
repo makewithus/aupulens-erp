@@ -1,10 +1,12 @@
-import React from "react";
+import { ClipboardCheck } from "lucide-react";
+import { ModuleComingSoon } from "@/components/shared/ModuleComingSoon";
 
 export default function ApprovalsPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Approvals Module</h1>
-      <p>This is the fully functional Approvals module as requested.</p>
-    </div>
+    <ModuleComingSoon
+      icon={ClipboardCheck}
+      title="Approvals"
+      description="CRM approval workflows are on the roadmap. Check back soon, or contact your administrator for approvals you need today."
+    />
   );
 }
