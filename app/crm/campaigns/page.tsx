@@ -7,10 +7,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Plus, Search, Megaphone, DollarSign, Target, TrendingUp, X
+  Plus, Search, Megaphone, DollarSign, Target, TrendingUp
 } from "lucide-react";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -23,9 +24,11 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function NewCampaignModal({
+  open,
   onClose,
   onCreated,
 }: {
+  open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -72,12 +75,11 @@ function NewCampaignModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-lg p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-bold text-lg">New Campaign</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="w-4 h-4" /></Button>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New Campaign</DialogTitle>
+        </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
@@ -123,14 +125,14 @@ function NewCampaignModal({
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end pt-2">
+        <DialogFooter className="pt-2 flex gap-2 sm:justify-end">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button className="bg-primary" onClick={submit} disabled={saving}>
             {saving ? "Creating..." : "Create Campaign"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -167,12 +169,11 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {showModal && (
-        <NewCampaignModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => { setShowModal(false); fetchCampaigns(); }}
-        />
-      )}
+      <NewCampaignModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onCreated={() => { setShowModal(false); fetchCampaigns(); }}
+      />
 
       {/* Header */}
       <div className="flex justify-between items-start">

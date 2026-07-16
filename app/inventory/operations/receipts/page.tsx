@@ -17,6 +17,7 @@ import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup"
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { TransferList } from "@/components/inventory/transfer/TransferList";
+import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
 
 export default function ReceiptsPage() {
   const { data: session, status } = useSession();
@@ -323,12 +324,15 @@ const getNextAction = (transfer: InventoryTransfer) => {
       onRefresh={fetchTransfers}
     >
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Incoming Receipts</h1>
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" /> New Receipt
-          </Button>
-        </div>
+        <FinancePageHeader
+          title="Incoming Receipts"
+          description="Incoming stock transfers from vendors."
+          actions={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4 mr-2" /> New Receipt
+            </Button>
+          }
+        />
 
       {loading ? (
         <TableSkeleton rows={4} columns={1} />

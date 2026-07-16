@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import ActivityTimeline from "@/components/crm/ActivityTimeline";
 import DocumentManager from "@/components/crm/DocumentManager";
 import {
-  FileText, ShieldAlert, HeartPulse, RefreshCw, Calendar, FileCheck, ArrowRight, CheckCircle2
+  ShieldAlert, HeartPulse, RefreshCw, Calendar, FileCheck, ArrowRight, CheckCircle2
 } from "lucide-react";
 import Link from "next/link";
 

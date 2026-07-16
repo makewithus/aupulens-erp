@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as xlsx from "xlsx";

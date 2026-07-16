@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import QuoteBuilder from "@/components/crm/QuoteBuilder";
 import ApprovalTimeline from "@/components/crm/ApprovalTimeline";
@@ -37,10 +38,12 @@ const STATUS_COLOR: Record<string, string> = {
 // ─── Reject modal ─────────────────────────────────────────────────────────────
 
 function RejectModal({
+  open,
   quoteId,
   onDone,
   onCancel,
 }: {
+  open: boolean;
   quoteId: string;
   onDone: () => void;
   onCancel: () => void;
@@ -70,9 +73,11 @@ function RejectModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-md p-6 space-y-4">
-        <h3 className="font-bold text-lg">Reject Quote</h3>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reject Quote</DialogTitle>
+        </DialogHeader>
         <div>
           <label className="text-sm text-neutral-400 block mb-1">
             Rejection Notes <span className="text-red-400">*</span>
@@ -85,7 +90,7 @@ function RejectModal({
             autoFocus
           />
         </div>
-        <div className="flex gap-2 justify-end">
+        <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
@@ -93,9 +98,9 @@ function RejectModal({
             <XCircle className="w-4 h-4 mr-1" />
             {saving ? "Rejecting..." : "Reject Quote"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -192,16 +197,15 @@ export default function QuoteDetailPage(props: {
   return (
     <div className="p-6 space-y-6">
       {/* Reject modal */}
-      {showRejectModal && (
-        <RejectModal
-          quoteId={id}
-          onDone={() => {
-            setShowRejectModal(false);
-            fetchQuote();
-          }}
-          onCancel={() => setShowRejectModal(false)}
-        />
-      )}
+      <RejectModal
+        open={showRejectModal}
+        quoteId={id}
+        onDone={() => {
+          setShowRejectModal(false);
+          fetchQuote();
+        }}
+        onCancel={() => setShowRejectModal(false)}
+      />
 
       {/* Back nav */}
       <Link href="/crm/quotes">

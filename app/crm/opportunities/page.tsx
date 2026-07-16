@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
 import { StatCard } from "@/components/admin/StatCard";
@@ -20,7 +20,7 @@ import {
 } from "@/components/shared/Table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Filter, Download, ArrowRight, LayoutGrid, Calendar, AlertTriangle, CheckCircle2, TrendingUp, XCircle, DollarSign, Activity, FolderKanban } from "lucide-react";
+import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
 
 const FORECAST_CATEGORIES = ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"];

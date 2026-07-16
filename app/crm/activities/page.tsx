@@ -5,7 +5,6 @@ import CrmActivity from "@/models/crm/Activity";
 import ActivityTimeline from "@/components/crm/ActivityTimeline";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/admin/StatCard";
-import { Activity, PhoneCall, Calendar, CheckSquare, Send, CalendarClock } from "lucide-react";
 
 export default async function ActivitiesPage() {
   const session = await auth();

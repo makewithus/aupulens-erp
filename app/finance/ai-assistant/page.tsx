@@ -11,8 +11,7 @@ import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Folder, ChevronRight, 
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
-import { Toaster } from '@/components/ui/toaster';
+import { toast } from 'sonner';
 
 interface AiActionProposalSummary {
   id: string;
@@ -48,7 +47,6 @@ interface ChatHistoryItem {
 export default function FinanceAIAssistantPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -183,8 +181,7 @@ export default function FinanceAIAssistantPage() {
           setCurrentChatId(null);
         }
         await fetchChatHistory();
-        toast({
-          title: 'Chat deleted',
+        toast.success('Chat deleted', {
           description: 'Chat has been permanently deleted.'
         });
       } else {
@@ -192,11 +189,7 @@ export default function FinanceAIAssistantPage() {
       }
     } catch (error) {
       console.error('Error deleting chat:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete chat. Please try again.',
-        variant: 'destructive'
-      });
+      toast.error('Failed to delete chat. Please try again.');
     } finally {
       setDeletingChatId(null);
     }
@@ -214,18 +207,13 @@ export default function FinanceAIAssistantPage() {
 
       if (response.ok) {
         await fetchChatHistory();
-        toast({
-          title: isArchived ? 'Chat restored' : 'Chat archived',
+        toast.success(isArchived ? 'Chat restored' : 'Chat archived', {
           description: isArchived ? 'Chat moved to recent chats' : 'Chat moved to archive'
         });
       }
     } catch (error) {
       console.error('Error toggling archive:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update chat. Please try again.',
-        variant: 'destructive'
-      });
+      toast.error('Failed to update chat. Please try again.');
     }
   };
 
@@ -279,7 +267,7 @@ export default function FinanceAIAssistantPage() {
           content: `Error: ${errMsg}`,
           timestamp: new Date()
         }));
-        toast({ title: 'Error', description: String(errMsg), variant: 'destructive' });
+        toast.error(String(errMsg));
         return;
       }
 
@@ -351,9 +339,9 @@ export default function FinanceAIAssistantPage() {
             : m
         )
       );
-      toast({ title: decision === 'confirm' ? 'Action applied' : 'Action cancelled' });
+      toast(decision === 'confirm' ? 'Action applied' : 'Action cancelled');
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || `Failed to ${decision} action`, variant: 'destructive' });
+      toast.error(error.message || `Failed to ${decision} action`);
     }
   };
 
@@ -392,7 +380,6 @@ export default function FinanceAIAssistantPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
       profileHref="/finance/profile"
     >
-      <Toaster />
       <div className="flex h-[calc(100vh-12rem)] bg-black text-gray-300 font-sans overflow-hidden relative">
         
         {/* Mobile overlay backdrop */}

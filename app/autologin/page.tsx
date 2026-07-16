@@ -78,12 +78,12 @@ function AutoLoginContent() {
   }, [searchParams, tenantId, router, checkSession]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 py-10 space-y-4">
-      <Loader2 className="h-10 w-10 animate-spin text-blue-800" />
-      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background py-10 space-y-4">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <p className="text-sm font-semibold text-foreground">
         Preparing your organization workspace...
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         Logging you in automatically, please do not close this window.
       </p>
     </div>
@@ -93,8 +93,8 @@ function AutoLoginContent() {
 export default function AutoLoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>
       <AutoLoginContent />

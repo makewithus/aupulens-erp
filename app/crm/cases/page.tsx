@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Loader2, Plus, Download, AlertCircle, CheckCircle2, Clock, Activity, FileText, FolderKanban } from "lucide-react";
+import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
 

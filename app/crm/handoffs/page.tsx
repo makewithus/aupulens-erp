@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { ArrowRightLeft, CheckCircle, XCircle, FileText, AlertCircle } from "lucide-react";
+import { ArrowRightLeft, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

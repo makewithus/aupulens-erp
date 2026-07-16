@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -66,9 +67,11 @@ function SummaryCard({
 // ─── New Contract Modal (inline) ──────────────────────────────────────────────
 
 function NewContractModal({
+  open,
   onClose,
   onCreated,
 }: {
+  open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -111,9 +114,11 @@ function NewContractModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-lg p-6 space-y-4">
-        <h3 className="font-bold text-lg">New Contract</h3>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New Contract</DialogTitle>
+        </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
@@ -165,14 +170,14 @@ function NewContractModal({
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end pt-2">
+        <DialogFooter className="pt-2 flex gap-2 sm:justify-end">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button className="bg-primary" onClick={submit} disabled={saving}>
             {saving ? "Creating..." : "Create Contract"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -238,12 +243,11 @@ export default function ContractsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {showModal && (
-        <NewContractModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => { setShowModal(false); fetchContracts(); }}
-        />
-      )}
+      <NewContractModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onCreated={() => { setShowModal(false); fetchContracts(); }}
+      />
 
       {/* Header */}
       <div className="flex justify-between items-start">

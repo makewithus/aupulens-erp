@@ -14,6 +14,7 @@ import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup"
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { TransferList } from "@/components/inventory/transfer/TransferList";
+import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
 
 export default function DeliveriesPage() {
   const { data: session, status } = useSession();
@@ -298,12 +299,15 @@ const workflowSteps = [
       onRefresh={fetchTransfers}
     >
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Deliveries</h1>
-          <Button onClick={() => handleAction(null, "create")}>
-            <Plus className="h-4 w-4 mr-2" /> New Delivery
-          </Button>
-        </div>
+        <FinancePageHeader
+          title="Deliveries"
+          description="Outgoing stock transfers to customers."
+          actions={
+            <Button onClick={() => handleAction(null, "create")}>
+              <Plus className="h-4 w-4 mr-2" /> New Delivery
+            </Button>
+          }
+        />
 
 {loading ? (
   <TableSkeleton rows={4} columns={1} />

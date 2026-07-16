@@ -11,8 +11,7 @@ import { Send, Trash2, Archive, Plus, MessageSquare, Mic } from 'lucide-react';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
-import { Toaster } from '@/components/ui/toaster';
+import { toast } from 'sonner';
 
 interface Message {
   id: string;
@@ -38,7 +37,6 @@ interface ChatHistoryItem {
 export default function SalesAIAssistant() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -118,8 +116,7 @@ export default function SalesAIAssistant() {
     }));
     setMessages(loadedMessages);
     setCurrentChatId(chat._id);
-    toast({
-      title: 'Chat loaded',
+    toast.success('Chat loaded', {
       description: `Loaded chat: ${chat.title}`
     });
   };
@@ -145,8 +142,7 @@ export default function SalesAIAssistant() {
           setCurrentChatId(null);
         }
         await fetchChatHistory();
-        toast({
-          title: 'Chat deleted',
+        toast.success('Chat deleted', {
           description: 'Chat has been permanently deleted.'
         });
       } else {
@@ -154,11 +150,7 @@ export default function SalesAIAssistant() {
       }
     } catch (error) {
       console.error('Error deleting chat:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete chat. Please try again.',
-        variant: 'destructive'
-      });
+      toast.error('Failed to delete chat. Please try again.');
     } finally {
       setDeletingChatId(null);
     }
@@ -176,18 +168,13 @@ export default function SalesAIAssistant() {
 
       if (response.ok) {
         await fetchChatHistory();
-        toast({
-          title: isArchived ? 'Chat restored' : 'Chat archived',
+        toast.success(isArchived ? 'Chat restored' : 'Chat archived', {
           description: isArchived ? 'Chat moved to recent chats' : 'Chat moved to archive'
         });
       }
     } catch (error) {
       console.error('Error toggling archive:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update chat. Please try again.',
-        variant: 'destructive'
-      });
+      toast.error('Failed to update chat. Please try again.');
     }
   };
 
@@ -195,8 +182,7 @@ export default function SalesAIAssistant() {
     setMessages([]);
     setCurrentChatId(null);
     textareaRef.current?.focus();
-    toast({
-      title: 'New chat started',
+    toast.success('New chat started', {
       description: 'Start a fresh conversation'
     });
   };
@@ -272,8 +258,7 @@ export default function SalesAIAssistant() {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
           await fetchChatHistory();
-          toast({
-            title: 'Chat saved',
+          toast.success('Chat saved', {
             description: 'New conversation started and saved.'
           });
         }
@@ -288,11 +273,7 @@ export default function SalesAIAssistant() {
         content: 'I apologize, but I encountered an error. Please try again.',
         timestamp: new Date()
       }));
-      toast({
-        title: 'Error',
-        description: 'Failed to get response. Please try again.',
-        variant: 'destructive'
-      });
+      toast.error('Failed to get response. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -347,7 +328,6 @@ export default function SalesAIAssistant() {
       onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
       profileHref="/sales/profile"
     >
-      <Toaster />
       <div className="flex h-[calc(100vh-8rem)] ">
         {/* Chat History Sidebar */}
         <div className="w-64 border-r border-gray-800 bg-gray-950/30 backdrop-blur-sm flex flex-col">

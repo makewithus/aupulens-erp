@@ -42,14 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast-impl";
-import { Toaster } from "@/components/ui/toaster";
+import { toast } from "sonner";
 import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -122,8 +120,7 @@ export default function TasksPage() {
 
       if (response.ok && data.tasks) {
         setGeneratedTasks(data.tasks);
-        toast({
-          title: "AI Suggestions Ready",
+        toast.success("AI Suggestions Ready", {
           description: `Generated ${data.tasks.length} subtasks. Click to add them.`,
         });
       }
@@ -155,8 +152,7 @@ export default function TasksPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: editingTask ? "Task Updated" : "Task Created",
+        toast.success(editingTask ? "Task Updated" : "Task Created", {
           description: editingTask
             ? "Task updated successfully."
             : "New task added successfully.",
@@ -176,11 +172,7 @@ export default function TasksPage() {
         fetchTasks();
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save task.",
-        variant: "destructive",
-      });
+      toast.error("Failed to save task.");
     }
   };
 
@@ -210,18 +202,13 @@ export default function TasksPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: "Status Updated",
+        toast.success("Status Updated", {
           description: "Task status updated successfully.",
         });
         fetchTasks();
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update status.",
-        variant: "destructive",
-      });
+      toast.error("Failed to update status.");
     }
   };
 
@@ -873,7 +860,6 @@ export default function TasksPage() {
           </DragDropContext>
         )}
       </div>
-      <Toaster />
     </DashboardLayout>
   );
 }

@@ -8,8 +8,7 @@ import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
 
 interface SalesOrder {
@@ -28,14 +27,13 @@ interface SalesOrder {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  shipped: "text-[#6CADF5]",
-  delivered: "text-[#8AE06C]",
+  shipped: "text-blue-500",
+  delivered: "text-emerald-500",
 };
 
 export default function ExportDocsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [exportingDoc, setExportingDoc] = useState<string | null>(null);
@@ -66,15 +64,11 @@ export default function ExportDocsPage() {
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load orders",
-        variant: "destructive",
-      });
+      toast.error("Failed to load orders");
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -113,17 +107,12 @@ export default function ExportDocsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast({
-        title: "Bill of Lading Generated",
+      toast.success("Bill of Lading Generated", {
         description: `Document for order ${order.orderNumber} has been downloaded`,
       });
     } catch (error) {
       console.error("Error generating B/L:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate Bill of Lading",
-        variant: "destructive",
-      });
+      toast.error("Failed to generate Bill of Lading");
     } finally {
       setExportingDoc(null);
     }
@@ -172,17 +161,12 @@ export default function ExportDocsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast({
-        title: "Commercial Invoice Generated",
+      toast.success("Commercial Invoice Generated", {
         description: `Invoice for order ${order.orderNumber} has been downloaded`,
       });
     } catch (error) {
       console.error("Error generating invoice:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate Commercial Invoice",
-        variant: "destructive",
-      });
+      toast.error("Failed to generate Commercial Invoice");
     } finally {
       setExportingDoc(null);
     }
@@ -223,17 +207,12 @@ export default function ExportDocsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast({
-        title: "Packing List Generated",
+      toast.success("Packing List Generated", {
         description: `Packing list for order ${order.orderNumber} has been downloaded`,
       });
     } catch (error) {
       console.error("Error generating packing list:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate Packing List",
-        variant: "destructive",
-      });
+      toast.error("Failed to generate Packing List");
     } finally {
       setExportingDoc(null);
     }
@@ -277,7 +256,6 @@ export default function ExportDocsPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       profileHref="/sales/profile"
     >
-      <Toaster />
       <div className="space-y-1">
         {/* Page Header Spacer */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
@@ -299,7 +277,7 @@ export default function ExportDocsPage() {
                   cargo information.
                 </p>
               </div>
-              <div className="text-3xl font-mono font-bold text-[#6CADF5] mt-6">
+              <div className="text-3xl font-mono font-bold text-blue-500 mt-6">
                 {orders.length} available
               </div>
             </div>
@@ -320,7 +298,7 @@ export default function ExportDocsPage() {
                   trade compliance.
                 </p>
               </div>
-              <div className="text-3xl font-mono font-bold text-[#8AE06C] mt-6">
+              <div className="text-3xl font-mono font-bold text-emerald-500 mt-6">
                 {orders.length} available
               </div>
             </div>
@@ -341,7 +319,7 @@ export default function ExportDocsPage() {
                   package information.
                 </p>
               </div>
-              <div className="text-3xl font-mono font-bold text-[#A77DFF] mt-6">
+              <div className="text-3xl font-mono font-bold text-violet-500 mt-6">
                 {orders.length} available
               </div>
             </div>
@@ -423,7 +401,7 @@ export default function ExportDocsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-none text-xs h-9 px-4 text-[#6CADF5] hover:bg-white/5 border-border/40 font-medium"
+                          className="rounded-none text-xs h-9 px-4 text-blue-500 hover:bg-white/5 border-border/40 font-medium"
                           onClick={() => generateBillOfLading(order)}
                           disabled={exportingDoc === `bl-${order._id}`}
                         >
@@ -435,7 +413,7 @@ export default function ExportDocsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-none text-xs h-9 px-4 text-[#8AE06C] hover:bg-white/5 border-border/40 font-medium"
+                          className="rounded-none text-xs h-9 px-4 text-emerald-500 hover:bg-white/5 border-border/40 font-medium"
                           onClick={() => generateCommercialInvoice(order)}
                           disabled={exportingDoc === `ci-${order._id}`}
                         >
@@ -447,7 +425,7 @@ export default function ExportDocsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-none text-xs h-9 px-4 text-[#A77DFF] hover:bg-white/5 border-border/40 font-medium"
+                          className="rounded-none text-xs h-9 px-4 text-violet-500 hover:bg-white/5 border-border/40 font-medium"
                           onClick={() => generatePackingList(order)}
                           disabled={exportingDoc === `pl-${order._id}`}
                         >

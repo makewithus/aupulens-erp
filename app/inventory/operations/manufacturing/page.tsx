@@ -35,6 +35,7 @@ import {
   getNextProductionStatuses,
 } from "@/lib/constants/statuses";
 import { ManufacturingList } from "@/components/inventory/manufacturing/ManufacturingList";
+import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
 
 /* ---- Step icon map ---- */
 const STEP_ICONS: Record<string, any> = {
@@ -274,14 +275,15 @@ const getNextAction = (order: ManufacturingOrder) => {
       onRefresh={fetchOrders}
     >
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Manufacturing Orders</h1>
-          </div>
-          <Button onClick={() => handleAction(null, "create")}>
-            <Plus className="h-4 w-4 mr-2" /> Create MO
-          </Button>
-        </div>
+        <FinancePageHeader
+          title="Manufacturing Orders"
+          description="Production orders that consume inventory to build finished goods."
+          actions={
+            <Button onClick={() => handleAction(null, "create")}>
+              <Plus className="h-4 w-4 mr-2" /> Create MO
+            </Button>
+          }
+        />
 
         {loading ? (
           <TableSkeleton rows={4} columns={2} />

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, User, Mail, Phone, Briefcase, Calendar, Edit2, Save, X, DollarSign } from 'lucide-react';
+import { FullPageLoadingSkeleton } from '@/components/ui/loading-skeletons';
 
 interface UserProfile {
   _id: string;
@@ -178,11 +179,7 @@ export default function FinanceProfilePage() {
   };
 
   if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+    return <FullPageLoadingSkeleton />;
   }
 
   return (
