@@ -20,6 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -232,70 +240,70 @@ export default function PurchaseOrdersPage() {
         <Card className="none-4xl border-2 shadow-xl overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted/50 border-b-2">
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="bg-muted/50 border-b-2">
+                    <TableHead className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
                       Number
-                    </th>
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
+                    </TableHead>
+                    <TableHead className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
                       Vendor
-                    </th>
-                    <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
+                    </TableHead>
+                    <TableHead className="text-left p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
                       Order Date
-                    </th>
-                    <th className="text-right p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
+                    </TableHead>
+                    <TableHead className="text-right p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
                       Total
-                    </th>
-                    <th className="text-center p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
+                    </TableHead>
+                    <TableHead className="text-center p-6 text-[10px] font-black uppercase tracking-widest opacity-60">
                       Status
-                    </th>
-                    <th className="p-6"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
+                    </TableHead>
+                    <TableHead className="p-6"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y">
                   {loading ? (
                     Array(5)
                       .fill(0)
                       .map((_, i) => (
-                        <tr key={i}>
-                          <td className="p-6">
+                        <TableRow key={i}>
+                          <TableCell className="p-6">
                             <Skeleton className="h-4 w-24" />
-                          </td>
-                          <td className="p-6">
+                          </TableCell>
+                          <TableCell className="p-6">
                             <Skeleton className="h-4 w-32" />
-                          </td>
-                          <td className="p-6">
+                          </TableCell>
+                          <TableCell className="p-6">
                             <Skeleton className="h-4 w-20" />
-                          </td>
-                          <td className="p-6 text-right">
+                          </TableCell>
+                          <TableCell className="p-6 text-right">
                             <Skeleton className="h-4 w-20 ml-auto" />
-                          </td>
-                          <td className="p-6 text-center">
+                          </TableCell>
+                          <TableCell className="p-6 text-center">
                             <Skeleton className="h-6 w-16 mx-auto none-full" />
-                          </td>
-                          <td className="p-6"></td>
-                        </tr>
+                          </TableCell>
+                          <TableCell className="p-6"></TableCell>
+                        </TableRow>
                       ))
                   ) : filteredOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-20 text-center">
+                    <TableRow>
+                      <TableCell colSpan={6} className="p-20 text-center">
                         <div className="flex flex-col items-center gap-3 opacity-20">
                           <Package className="h-16 w-16" />
                           <p className="font-black uppercase tracking-widest text-lg">
                             No Purchase Orders Found
                           </p>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredOrders.map((order) => (
-                      <tr
+                      <TableRow
                         key={order._id}
                         className="hover:bg-muted/30 transition-colors group cursor-pointer"
                         onClick={() => handleOpenEdit(order)}
                       >
-                        <td className="p-6">
+                        <TableCell className="p-6">
                           <div className="flex items-center gap-3">
                             <div
                               className={`h-10 w-10 none-xl flex items-center justify-center ${order.status === "posted" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
@@ -306,24 +314,24 @@ export default function PurchaseOrdersPage() {
                               {order.name}
                             </p>
                           </div>
-                        </td>
-                        <td className="p-6 font-bold text-sm">
+                        </TableCell>
+                        <TableCell className="p-6 font-bold text-sm">
                           {order.partnerId?.header?.name || "No Vendor"}
-                        </td>
-                        <td className="p-6 text-sm text-muted-foreground font-medium">
+                        </TableCell>
+                        <TableCell className="p-6 text-sm text-muted-foreground font-medium">
                           {order.dateOrder
                             ? new Date(order.dateOrder).toLocaleDateString()
                             : "-"}
-                        </td>
-                        <td className="p-6 text-right">
+                        </TableCell>
+                        <TableCell className="p-6 text-right">
                           <p className="font-black text-sm tracking-tighter">
                             ₹ {(order.totals?.amountTotal || 0).toLocaleString()}
                           </p>
-                        </td>
-                        <td className="p-6 text-center">
+                        </TableCell>
+                        <TableCell className="p-6 text-center">
                           {getStatusBadge(order.status)}
-                        </td>
-                        <td className="p-6 text-right">
+                        </TableCell>
+                        <TableCell className="p-6 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger
                               asChild
@@ -354,12 +362,12 @@ export default function PurchaseOrdersPage() {
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

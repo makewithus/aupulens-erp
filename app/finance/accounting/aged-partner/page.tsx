@@ -7,6 +7,15 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -133,114 +142,114 @@ export default function AgedPartnerReportPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border/20">
-                  <thead className="border-b border-border/40">
-                    <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <Table className="min-w-full divide-y divide-border/20">
+                  <TableHeader className="border-b border-border/40">
+                    <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                      <TableHead className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         Partner
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         Current
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         1 - 30 Days
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         31 - 60 Days
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         61 - 90 Days
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                         90+ Days
-                      </th>
-                      <th className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 bg-primary/5">
+                      </TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 bg-primary/5">
                         Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/20">
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/20">
                     {filtered.map((item, idx) => (
-                      <tr
+                      <TableRow
                         key={idx}
                         className="hover:bg-white/[0.015] transition-colors text-sm"
                       >
-                        <td className="px-6 py-4 font-semibold text-primary">
+                        <TableCell className="px-6 py-4 font-semibold text-primary">
                           {item.partnerName}
-                        </td>
-                        <td className="px-6 py-4 text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right">
                           ₹{item.current.toLocaleString()}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className={`px-6 py-4 text-right ${item["1-30"] > 0 ? "text-[#6CADF5] font-medium" : ""}`}
                         >
                           ₹{item["1-30"].toLocaleString()}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className={`px-6 py-4 text-right ${item["31-60"] > 0 ? "text-amber-500 font-medium" : ""}`}
                         >
                           ₹{item["31-60"].toLocaleString()}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className={`px-6 py-4 text-right ${item["61-90"] > 0 ? "text-orange-500 font-medium" : ""}`}
                         >
                           ₹{item["61-90"].toLocaleString()}
-                        </td>
-                        <td
+                        </TableCell>
+                        <TableCell
                           className={`px-6 py-4 text-right ${item["90+"] > 0 ? "text-[#F56868] font-bold" : ""}`}
                         >
                           ₹{item["90+"].toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-right font-black bg-primary/5">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-black bg-primary/5">
                           ₹{item.total.toLocaleString()}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot className="bg-primary/5 font-black text-primary border-t-2 border-primary/20">
-                    <tr>
-                      <td className="px-6 py-5 text-left uppercase text-xs tracking-[0.2em]">
+                  </TableBody>
+                  <TableFooter className="bg-primary/5 font-black text-primary border-t-2 border-primary/20">
+                    <TableRow>
+                      <TableCell className="px-6 py-5 text-left uppercase text-xs tracking-[0.2em]">
                         Grand Total
-                      </td>
-                      <td className="px-6 py-5 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i.current, 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i["1-30"], 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i["31-60"], 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i["61-90"], 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i["90+"], 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-right text-lg">
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-right text-lg">
                         ₹
                         {filtered
                           .reduce((s, i) => s + i.total, 0)
                           .toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             )}
           </CardContent>

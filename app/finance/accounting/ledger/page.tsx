@@ -7,6 +7,15 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -110,32 +119,32 @@ export default function GeneralLedgerPage() {
               </div>
             ) : (
               <div className="bg-background rounded-xl border overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-6 py-4 text-left">Date</th>
-                      <th className="px-6 py-4 text-left">Entry</th>
-                      <th className="px-6 py-4 text-left">Account</th>
-                      <th className="px-6 py-4 text-left">Partner</th>
-                      <th className="px-6 py-4 text-left">Label</th>
-                      <th className="px-6 py-4 text-right">Debit</th>
-                      <th className="px-6 py-4 text-right">Credit</th>
-                      <th className="px-6 py-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                      <TableHead className="px-6 py-4 text-left">Date</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Entry</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Account</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Partner</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Label</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Debit</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Credit</TableHead>
+                      <TableHead className="px-6 py-4 text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {filtered.map((line, idx) => (
-                      <tr
+                      <TableRow
                         key={idx}
                         className="hover:bg-muted/20 transition-colors text-sm"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
                           {new Date(line.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-medium text-primary">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap font-medium text-primary">
                           {line.entryName}
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="font-medium">
                               {line.accountId?.name}
@@ -144,26 +153,26 @@ export default function GeneralLedgerPage() {
                               {line.accountId?.code}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
                           {line.partnerId?.header?.name ||
                             line.partnerId?.name ||
                             "-"}
-                        </td>
-                        <td className="px-6 py-4 text-muted-foreground italic">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-muted-foreground italic">
                           {line.label || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-semibold">
                           {line.debit > 0
                             ? `₹${line.debit.toLocaleString()}`
                             : ""}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-semibold">
                           {line.credit > 0
                             ? `₹${line.credit.toLocaleString()}`
                             : ""}
-                        </td>
-                        <td className="px-6 py-4 text-center">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center">
                           {line.reconciled ? (
                             <Badge
                               variant="outline"
@@ -179,34 +188,34 @@ export default function GeneralLedgerPage() {
                               Open
                             </Badge>
                           )}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot className="bg-muted/50 font-bold border-t-2">
-                    <tr>
-                      <td
+                  </TableBody>
+                  <TableFooter className="bg-muted/50 font-bold border-t-2">
+                    <TableRow>
+                      <TableCell
                         colSpan={5}
                         className="px-6 py-4 text-right uppercase tracking-wider text-xs"
                       >
                         Totals
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         ₹
                         {filtered
                           .reduce((sum, l) => sum + (l.debit || 0), 0)
                           .toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         ₹
                         {filtered
                           .reduce((sum, l) => sum + (l.credit || 0), 0)
                           .toLocaleString()}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             )}
           </CardContent>

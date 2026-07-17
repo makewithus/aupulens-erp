@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Plus, Trash2, X } from "lucide-react";
 import { AccountPicker, type PickerAccount } from "@/components/finance/accounting/AccountPicker";
 import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
@@ -175,23 +183,23 @@ export default function NewJournalTemplatePage() {
 
           <div className="mt-12">
             <div className="border rounded-md overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4 font-medium w-8"></th>
-                    <th className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</th>
-                    <th className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</th>
-                    <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</th>
-                    <th className="py-3 px-4 text-left font-medium">TYPE</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
+                  <TableRow>
+                    <TableHead className="py-3 px-4 font-medium w-8"></TableHead>
+                    <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</TableHead>
+                    <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</TableHead>
+                    <TableHead className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</TableHead>
+                    <TableHead className="py-3 px-4 text-left font-medium">TYPE</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {lines.map((line) => (
-                    <tr key={line.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
-                      <td className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeLine(line.id)}>
+                    <TableRow key={line.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
+                      <TableCell className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeLine(line.id)}>
                         <Trash2 className="h-3.5 w-3.5 inline" />
-                      </td>
-                      <td className="p-2 border-r">
+                      </TableCell>
+                      <TableCell className="p-2 border-r">
                         <AccountPicker
                           accounts={accounts}
                           value={line.accountId}
@@ -199,16 +207,16 @@ export default function NewJournalTemplatePage() {
                           placeholder="Select an account"
                           className="border-0 shadow-none h-9"
                         />
-                      </td>
-                      <td className="p-0 border-r">
+                      </TableCell>
+                      <TableCell className="p-0 border-r">
                         <Input
                           value={line.description}
                           onChange={(e) => updateLine(line.id, { description: e.target.value })}
                           placeholder="Description"
                           className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent"
                         />
-                      </td>
-                      <td className="p-0 border-r">
+                      </TableCell>
+                      <TableCell className="p-0 border-r">
                         <Select value={line.contactId || "none"} onValueChange={(v) => updateLine(line.id, { contactId: v === "none" ? "" : v })}>
                           <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent">
                             <SelectValue placeholder="Select Contact" />
@@ -222,8 +230,8 @@ export default function NewJournalTemplatePage() {
                             ))}
                           </SelectContent>
                         </Select>
-                      </td>
-                      <td className="p-0">
+                      </TableCell>
+                      <TableCell className="p-0">
                         <Select value={line.type} onValueChange={(v: "debit" | "credit") => updateLine(line.id, { type: v })}>
                           <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent">
                             <SelectValue />
@@ -233,11 +241,11 @@ export default function NewJournalTemplatePage() {
                             <SelectItem value="credit">Credit</SelectItem>
                           </SelectContent>
                         </Select>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             <div className="mt-6">

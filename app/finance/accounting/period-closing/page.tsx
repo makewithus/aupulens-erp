@@ -15,6 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -349,52 +357,52 @@ export default function PeriodClosingPage() {
               </div>
             ) : (
               <div className="bg-background rounded-xl border overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-4 py-4 text-left">Period</th>
-                      <th className="px-4 py-4 text-left">FY</th>
-                      <th className="px-4 py-4 text-left">Quarter</th>
-                      <th className="px-4 py-4 text-left">Flow</th>
-                      <th className="px-4 py-4 text-center">Action</th>
-                      <th className="px-4 py-4 text-right">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                      <TableHead className="px-4 py-4 text-left">Period</TableHead>
+                      <TableHead className="px-4 py-4 text-left">FY</TableHead>
+                      <TableHead className="px-4 py-4 text-left">Quarter</TableHead>
+                      <TableHead className="px-4 py-4 text-left">Flow</TableHead>
+                      <TableHead className="px-4 py-4 text-center">Action</TableHead>
+                      <TableHead className="px-4 py-4 text-right">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {items.map((item) => {
                       const sc =
                         PERIOD_CLOSING_STATUS_COLORS[
                           item.status as PeriodClosingStatus
                         ] || {};
                       return (
-                        <tr
+                        <TableRow
                           key={item._id}
                           className="hover:bg-muted/20 transition-colors text-sm group"
                         >
-                          <td className="px-4 py-3 whitespace-nowrap font-bold text-primary">
+                          <TableCell className="px-4 py-3 whitespace-nowrap font-bold text-primary">
                             {item.name}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                             {item.fiscalYear}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                             Q{item.quarter}
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <PeriodFlowStepper
                               current={
                                 item.status as PeriodClosingStatus
                               }
                             />
-                          </td>
-                          <td className="px-4 py-3 text-center">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-center">
                             <PeriodActions
                               item={item}
                               onAdvance={handleAdvance}
                               isSubmitting={isSubmitting}
                             />
-                          </td>
-                          <td className="px-4 py-3 text-right">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -414,12 +422,12 @@ export default function PeriodClosingPage() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

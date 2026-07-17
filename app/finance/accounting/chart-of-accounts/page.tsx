@@ -231,22 +231,22 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
 
       <div className="mt-12">
         <div className="border rounded-md overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
-              <tr>
-                <th className="py-3 px-4 font-medium w-8"></th>
-                <th className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</th>
-                <th className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</th>
-                <th className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</th>
-                <th className="py-3 px-4 text-right font-medium border-r">DEBITS</th>
-                <th className="py-3 px-4 text-right font-medium">CREDITS</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
+              <TableRow>
+                <TableHead className="py-3 px-4 font-medium w-8"></TableHead>
+                <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</TableHead>
+                <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</TableHead>
+                <TableHead className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</TableHead>
+                <TableHead className="py-3 px-4 text-right font-medium border-r">DEBITS</TableHead>
+                <TableHead className="py-3 px-4 text-right font-medium">CREDITS</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
-                  <td className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeRow(row.id)}>✕</td>
-                  <td className="p-0 border-r">
+                <TableRow key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
+                  <TableCell className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeRow(row.id)}>✕</TableCell>
+                  <TableCell className="p-0 border-r">
                     <AccountPicker
                       accounts={accounts}
                       value={row.accountId}
@@ -254,16 +254,16 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                       placeholder="Select an account"
                       className="border-0 shadow-none h-10 w-full rounded-none px-3 bg-transparent"
                     />
-                  </td>
-                  <td className="p-0 border-r">
+                  </TableCell>
+                  <TableCell className="p-0 border-r">
                     <Input
                       value={row.description}
                       onChange={(e) => updateRow(row.id, { description: e.target.value })}
                       placeholder="Description"
                       className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent"
                     />
-                  </td>
-                  <td className="p-0 border-r">
+                  </TableCell>
+                  <TableCell className="p-0 border-r">
                     <Select value={row.contactId || "none"} onValueChange={(v) => updateRow(row.id, { contactId: v === "none" ? "" : v })}>
                       <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select Contact" /></SelectTrigger>
                       <SelectContent>
@@ -273,27 +273,27 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                         ))}
                       </SelectContent>
                     </Select>
-                  </td>
-                  <td className="p-0 border-r">
+                  </TableCell>
+                  <TableCell className="p-0 border-r">
                     <Input
                       type="number"
                       value={row.debit}
                       onChange={(e) => updateRow(row.id, { debit: e.target.value, credit: e.target.value ? "" : row.credit })}
                       className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
                     />
-                  </td>
-                  <td className="p-0">
+                  </TableCell>
+                  <TableCell className="p-0">
                     <Input
                       type="number"
                       value={row.credit}
                       onChange={(e) => updateRow(row.id, { credit: e.target.value, debit: e.target.value ? "" : row.debit })}
                       className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         <div className="mt-6 flex justify-between items-start">
@@ -999,22 +999,22 @@ function ChartOfAccountsPageInner() {
               <h3 className="font-medium">Preview</h3>
               <p className="text-sm text-gray-500">Previewing first 5 rows to be imported.</p>
               <div className="overflow-x-auto border rounded-lg text-sm">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="p-2">Account Name</th>
-                      <th className="p-2">Account Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full text-left">
+                  <TableHeader className="bg-gray-50 border-b">
+                    <TableRow>
+                      <TableHead className="p-2">Account Name</TableHead>
+                      <TableHead className="p-2">Account Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {importPreview.map((row, i) => (
-                      <tr key={i} className="border-b">
-                        <td className="p-2">{row[importColumns.indexOf(importMapping.accountName)] || "-"}</td>
-                        <td className="p-2">{row[importColumns.indexOf(importMapping.accountType)] || "-"}</td>
-                      </tr>
+                      <TableRow key={i} className="border-b">
+                        <TableCell className="p-2">{row[importColumns.indexOf(importMapping.accountName)] || "-"}</TableCell>
+                        <TableCell className="p-2">{row[importColumns.indexOf(importMapping.accountType)] || "-"}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
               <div className="flex justify-between items-center pt-4 border-t">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6" onClick={handleImportExecute} disabled={loading}>{loading ? "Importing..." : "Import"}</Button>
