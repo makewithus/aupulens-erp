@@ -24,6 +24,15 @@ import { ModularModal } from "@/components/dashboard/ModularModal";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { Loader2, CheckCircle2, History } from "lucide-react";
 import { DOCUMENT_STATUS, DocumentStatus } from "@/lib/constants/statuses";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface JournalEntryPopupContentProps {
   formData: any;
@@ -285,24 +294,24 @@ export function JournalEntryPopupContent({
         </div>
 
         <div className="border border-border/40 overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b">
-              <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-left">
-                <th className="px-4 py-3 min-w-[200px]">Account</th>
-                <th className="px-4 py-3 min-w-[200px]">Partner</th>
-                <th className="px-4 py-3 min-w-[200px]">Label</th>
-                <th className="px-4 py-3 text-right w-[120px]">Debit</th>
-                <th className="px-4 py-3 text-right w-[120px]">Credit</th>
-                {!isViewOnly && <th className="px-4 py-3 w-[50px]"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted/50 border-b">
+              <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-left">
+                <TableHead className="px-4 py-3 min-w-[200px]">Account</TableHead>
+                <TableHead className="px-4 py-3 min-w-[200px]">Partner</TableHead>
+                <TableHead className="px-4 py-3 min-w-[200px]">Label</TableHead>
+                <TableHead className="px-4 py-3 text-right w-[120px]">Debit</TableHead>
+                <TableHead className="px-4 py-3 text-right w-[120px]">Credit</TableHead>
+                {!isViewOnly && <TableHead className="px-4 py-3 w-[50px]"></TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y">
               {(formData.lineIds || []).map((line: any, idx: number) => (
-                <tr
+                <TableRow
                   key={idx}
                   className="group hover:bg-muted/20 transition-colors"
                 >
-                  <td className="px-2 py-2">
+                  <TableCell className="px-2 py-2">
                     <SelectSearchAdd
                       items={accountOptions}
                       value={line.accountId}
@@ -316,8 +325,8 @@ export function JournalEntryPopupContent({
                       labelField="name"
                       secondaryField="code"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <SelectSearchAdd
                       items={partners}
                       value={line.partnerId}
@@ -352,8 +361,8 @@ export function JournalEntryPopupContent({
                       }}
                       addButtonLabel="Add Partner"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Input
                       value={line.label || ""}
                       onChange={(e) => updateLine(idx, "label", e.target.value)}
@@ -361,11 +370,11 @@ export function JournalEntryPopupContent({
                       disabled={isViewOnly}
                       className="border-none shadow-none focus-visible:ring-0 bg-transparent"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Input
                       type="number"
-                      value={line.debit || 0}
+                      value={line.debit || ""}
                       onChange={(e) =>
                         updateLine(
                           idx,
@@ -374,13 +383,14 @@ export function JournalEntryPopupContent({
                         )
                       }
                       disabled={isViewOnly}
-                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      placeholder="0.00"
+                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono placeholder:text-muted-foreground/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Input
                       type="number"
-                      value={line.credit || 0}
+                      value={line.credit || ""}
                       onChange={(e) =>
                         updateLine(
                           idx,
@@ -389,11 +399,12 @@ export function JournalEntryPopupContent({
                         )
                       }
                       disabled={isViewOnly}
-                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      placeholder="0.00"
+                      className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono placeholder:text-muted-foreground/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
-                  </td>
+                  </TableCell>
                   {!isViewOnly && (
-                    <td className="px-2 py-2 text-center">
+                    <TableCell className="px-2 py-2 text-center">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -402,31 +413,31 @@ export function JournalEntryPopupContent({
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
+            </TableBody>
             {formData.lineIds?.length > 0 && (
-              <tfoot className="bg-muted/30 font-bold border-t">
-                <tr>
-                  <td
+              <TableFooter className="bg-muted/30 font-bold border-t">
+                <TableRow>
+                  <TableCell
                     colSpan={3}
                     className="px-6 py-4 text-right uppercase tracking-widest text-[10px] text-muted-foreground"
                   >
                     Totals
-                  </td>
-                  <td className="px-4 py-4 text-right font-mono text-base border-l">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right font-mono text-base border-l">
                     ₹{formData.totalDebit?.toLocaleString() || 0}
-                  </td>
-                  <td className="px-4 py-4 text-right font-mono text-base border-l">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right font-mono text-base border-l">
                     ₹{formData.totalCredit?.toLocaleString() || 0}
-                  </td>
-                  {!isViewOnly && <td></td>}
-                </tr>
-              </tfoot>
+                  </TableCell>
+                  {!isViewOnly && <TableCell></TableCell>}
+                </TableRow>
+              </TableFooter>
             )}
-          </table>
+          </Table>
         </div>
 
         {formData.totalDebit !== formData.totalCredit &&

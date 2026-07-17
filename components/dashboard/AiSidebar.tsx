@@ -7,6 +7,14 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface Message {
   role: string;
@@ -159,39 +167,39 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     table({ children }: any) {
       return (
         <div className={cn("overflow-x-auto my-3 border rounded", isDark ? "border-neutral-800" : "border-neutral-200")}>
-          <table className="w-full text-left text-xs font-mono border-collapse">
+          <Table className="w-full text-left text-xs font-mono border-collapse">
             {children}
-          </table>
+          </Table>
         </div>
       );
     },
     thead({ children }: any) {
-      return <thead className={cn("border-b", isDark ? "bg-[#0f0f11] border-neutral-800" : "bg-neutral-50 border-neutral-200")}>{children}</thead>;
+      return <TableHeader className={cn("border-b", isDark ? "bg-[#0f0f11] border-neutral-800" : "bg-neutral-50 border-neutral-200")}>{children}</TableHeader>;
     },
     tbody({ children }: any) {
-      return <tbody className={cn("divide-y", isDark ? "divide-neutral-800/60" : "divide-neutral-150")}>{children}</tbody>;
+      return <TableBody className={cn("divide-y", isDark ? "divide-neutral-800/60" : "divide-neutral-150")}>{children}</TableBody>;
     },
     tr({ children }: any) {
-      return <tr>{children}</tr>;
+      return <TableRow>{children}</TableRow>;
     },
     th({ children }: any) {
       return (
-        <th className={cn(
+        <TableHead className={cn(
           "px-3 py-2 font-medium border-r last:border-r-0",
           isDark ? "text-neutral-400 border-neutral-800" : "text-neutral-600 border-neutral-200"
         )}>
           {children}
-        </th>
+        </TableHead>
       );
     },
     td({ children }: any) {
       return (
-        <td className={cn(
+        <TableCell className={cn(
           "px-3 py-2 border-r last:border-r-0",
           isDark ? "text-neutral-300 border-neutral-800" : "text-neutral-700 border-neutral-200"
         )}>
           {children}
-        </td>
+        </TableCell>
       );
     },
     h1({ children }: any) {

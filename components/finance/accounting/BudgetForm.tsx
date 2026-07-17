@@ -13,6 +13,14 @@ import { X, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { MultiAccountPicker, type PickerAccount } from "@/components/finance/accounting/AccountPicker";
 import { classifyBudgetSegment, getFiscalYearOptions, getCurrentFiscalYear, getPeriodLabels } from "@/lib/accounting/budgetSegments";
 import type { BudgetSegment } from "@/lib/constants/statuses";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface AccountWithSegment extends PickerAccount {
   segment: BudgetSegment;
@@ -58,24 +66,24 @@ function SegmentSection({
 
       {selectedAccounts.length > 0 && (
         <div className="border rounded-md overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b text-xs text-muted-foreground">
-              <tr>
-                <th className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50">Account</th>
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted/50 border-b text-xs text-muted-foreground">
+              <TableRow>
+                <TableHead className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50">Account</TableHead>
                 {periods.map((p) => (
-                  <th key={p} className="text-right py-2 px-3 font-medium whitespace-nowrap">
+                  <TableHead key={p} className="text-right py-2 px-3 font-medium whitespace-nowrap">
                     {p}
-                  </th>
+                  </TableHead>
                 ))}
-                <th className="w-8" />
-              </tr>
-            </thead>
-            <tbody>
+                <TableHead className="w-8" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {selectedAccounts.map((a) => (
-                <tr key={a._id} className="border-b last:border-0">
-                  <td className="py-1.5 px-3 sticky left-0 bg-card">{a.accountName}</td>
+                <TableRow key={a._id} className="border-b last:border-0">
+                  <TableCell className="py-1.5 px-3 sticky left-0 bg-card">{a.accountName}</TableCell>
                   {periods.map((p) => (
-                    <td key={p} className="py-1 px-1">
+                    <TableCell key={p} className="py-1 px-1">
                       <Input
                         type="number"
                         className="text-right h-8 w-24 border-0 shadow-none focus-visible:ring-1"
@@ -83,17 +91,17 @@ function SegmentSection({
                         onChange={(e) => setAmount(a._id, p, Number(e.target.value) || 0)}
                         placeholder="0.00"
                       />
-                    </td>
+                    </TableCell>
                   ))}
-                  <td className="px-2">
+                  <TableCell className="px-2">
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedIds(selectedIds.filter((id) => id !== a._id))}>
                       <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

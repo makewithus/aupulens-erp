@@ -279,7 +279,8 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                       type="number"
                       value={row.debit}
                       onChange={(e) => updateRow(row.id, { debit: e.target.value, credit: e.target.value ? "" : row.credit })}
-                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
+                      placeholder="0.00"
+                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/40"
                     />
                   </TableCell>
                   <TableCell className="p-0">
@@ -287,7 +288,8 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
                       type="number"
                       value={row.credit}
                       onChange={(e) => updateRow(row.id, { credit: e.target.value, debit: e.target.value ? "" : row.debit })}
-                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent"
+                      placeholder="0.00"
+                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/40"
                     />
                   </TableCell>
                 </TableRow>

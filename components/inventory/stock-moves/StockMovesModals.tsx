@@ -11,6 +11,14 @@ import {
 } from "@/components/ui/select";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
   STOCK_MOVE_STATUS,
   STOCK_MOVE_STATUS_LABELS,
   STOCK_MOVE_FLOW_STEPS,
@@ -436,22 +444,22 @@ export function StockMovesModals({
 
               {formData.lines && formData.lines.length > 0 ? (
                 <div className="overflow-x-auto border border-border/40 rounded-none">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-muted/50 border-b border-border/40">
-                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <th className="px-3 py-2 text-left">Product</th>
-                        <th className="px-3 py-2 text-right w-24">Demand</th>
-                        <th className="px-3 py-2 text-right w-24">Done</th>
-                        <th className="px-3 py-2 text-left w-20">UoM</th>
-                        <th className="px-3 py-2 text-right w-28">Unit Cost</th>
-                        <th className="px-3 py-2 text-right w-28">Total</th>
-                        {!isViewOnly && <th className="px-3 py-2 w-20 text-center" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
+                  <Table className="min-w-full text-sm">
+                    <TableHeader className="bg-muted/50 border-b border-border/40">
+                      <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <TableHead className="px-3 py-2 text-left">Product</TableHead>
+                        <TableHead className="px-3 py-2 text-right w-24">Demand</TableHead>
+                        <TableHead className="px-3 py-2 text-right w-24">Done</TableHead>
+                        <TableHead className="px-3 py-2 text-left w-20">UoM</TableHead>
+                        <TableHead className="px-3 py-2 text-right w-28">Unit Cost</TableHead>
+                        <TableHead className="px-3 py-2 text-right w-28">Total</TableHead>
+                        {!isViewOnly && <TableHead className="px-3 py-2 w-20 text-center" />}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/20">
                       {formData.lines.map((line: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-muted/20">
-                          <td className="px-3 py-2">
+                        <TableRow key={idx} className="hover:bg-muted/20">
+                          <TableCell className="px-3 py-2">
                             {isViewOnly ? (
                               <span>{line.productName || "—"}</span>
                             ) : (
@@ -471,8 +479,8 @@ export function StockMovesModals({
                                 </SelectContent>
                               </Select>
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right font-mono">
                             {isViewOnly ? (
                               line.demand
                             ) : (
@@ -485,8 +493,8 @@ export function StockMovesModals({
                                 }
                               />
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right font-mono">
                             {isViewOnly ? (
                               <span
                                 className={
@@ -507,8 +515,8 @@ export function StockMovesModals({
                                 }
                               />
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">
                             {isViewOnly ? (
                               line.uom
                             ) : (
@@ -520,8 +528,8 @@ export function StockMovesModals({
                                 }
                               />
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right font-mono">
                             {isViewOnly ? (
                               `₹${(line.unitCost || 0).toLocaleString()}`
                             ) : (
@@ -538,12 +546,12 @@ export function StockMovesModals({
                                 }
                               />
                             )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-medium">
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right font-mono font-medium">
                             ₹{((line.demand || 0) * (line.unitCost || 0)).toLocaleString()}
-                          </td>
+                          </TableCell>
                           {!isViewOnly && (
-                            <td className="px-3 py-2 text-center">
+                            <TableCell className="px-3 py-2 text-center">
                               <Button
                                 variant="ghost"
                                 className="h-8 text-xs text-[#F56868] hover:bg-white/5 font-medium rounded-none px-2"
@@ -551,12 +559,12 @@ export function StockMovesModals({
                               >
                                 Remove
                               </Button>
-                            </td>
+                            </TableCell>
                           )}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground text-xs font-mono border border-dashed border-border/40 rounded-none bg-muted/5">

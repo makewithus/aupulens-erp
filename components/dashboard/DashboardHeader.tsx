@@ -9,6 +9,7 @@ import {
   Factory,
   ShieldCheck,
   Users,
+  Menu,
 } from "lucide-react";
 
 const robotoMono = Roboto_Mono({
@@ -311,8 +312,8 @@ export function DashboardHeader({
               />
             </Link>
 
-            {/* Module Dropdown */}
-            {/* <div className="lg:hidden">
+            {/* Mobile nav trigger - the only way to reach navigation below the lg breakpoint, since DashboardSidebar is `hidden lg:flex` */}
+            <div className="lg:hidden">
               <Button
                 size="icon"
                 variant="ghost"
@@ -323,8 +324,8 @@ export function DashboardHeader({
                 <Menu className="h-4 w-4" />
               </Button>
             </div>
-            
-            {/* Module Dropdown and Top-Links (desktop) */}
+
+            {/* Module Dropdown and Top-Links (desktop) - superseded by ModuleTabs below */}
             {/* <div className="hidden lg:flex items-center gap-1">
               {(activeUserRole === "master-admin" || activeUserRole === "admin") ? (
                 MASTER_MODULES.map((m, index) => {

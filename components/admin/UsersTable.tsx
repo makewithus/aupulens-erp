@@ -4,13 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users as UsersIcon } from "lucide-react";
 import {
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
+  Table,
+  TableHeader,
   TableBody,
   TableRow,
+  TableHead,
   TableCell,
-} from "@/components/shared/Table";
+} from "@/components/ui/table";
 
 import { UserRow } from "./UserRow";
 import { UsersToolbar } from "./UsersToolbar";
@@ -96,53 +96,53 @@ export function UsersTable({
 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-border/40">
-              <tr className="text-left">
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+          <Table className="w-full">
+            <TableHeader className="border-b border-border/40">
+              <TableRow className="text-left">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   User
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Contact
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Employee ID
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Role
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Department
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Status
-                </th>
+                </TableHead>
 
-                <th className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
                   Actions
-                </th>
-              </tr>
-            </thead>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-            <tbody className="divide-y divide-border/30">
+            <TableBody className="divide-y divide-border/30">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="group">
+                  <TableRow key={i} className="group">
                     {/* USER */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <div className="space-y-2">
                         <Skeleton className="h-5 w-32" />
                         <Skeleton className="h-3 w-20 opacity-55" />
                       </div>
-                    </td>
+                    </TableCell>
 
                     {/* CONTACT */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-3.5 w-3.5 opacity-40" />
@@ -153,44 +153,44 @@ export function UsersTable({
                           <Skeleton className="h-4 w-28" />
                         </div>
                       </div>
-                    </td>
+                    </TableCell>
 
                     {/* EMPLOYEE */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <Skeleton className="h-4 w-20" />
-                    </td>
+                    </TableCell>
 
                     {/* ROLE */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <Skeleton className="h-5 w-16" />
-                    </td>
+                    </TableCell>
 
                     {/* DEPARTMENT */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <Skeleton className="h-4 w-24" />
-                    </td>
+                    </TableCell>
 
                     {/* STATUS */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <div className="flex items-center justify-center gap-2">
                         <Skeleton className="h-2 w-2 rounded-full" />
                         <Skeleton className="h-3.5 w-12" />
                       </div>
-                    </td>
+                    </TableCell>
 
                     {/* ACTIONS */}
-                    <td className="px-8 py-7">
+                    <TableCell className="px-8 py-7">
                       <div className="flex justify-end gap-1">
                         <Skeleton className="h-8 w-8" />
                         <Skeleton className="h-8 w-8" />
                         <Skeleton className="h-8 w-8 text-[#F56868]" />
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-24 text-center">
+                <TableRow>
+                  <TableCell colSpan={7} className="py-24 text-center">
                     <UsersIcon className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
 
                     <h3 className="text-lg font-medium">
@@ -204,8 +204,8 @@ export function UsersTable({
                         ? "Try adjusting your search or filters."
                         : "Create your first user to get started."}
                     </p>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 users.map((user) => (
                   <UserRow
@@ -218,8 +218,8 @@ export function UsersTable({
                   />
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

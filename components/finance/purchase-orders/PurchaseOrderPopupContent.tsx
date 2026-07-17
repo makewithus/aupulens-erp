@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SelectSearchAdd } from "@/components/dashboard/SelectSearchAdd";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface PurchaseOrderPopupContentProps {
   formData: any;
@@ -174,41 +182,41 @@ export default function PurchaseOrderPopupContent({
           )}
         </div>
         <div className="rounded-2xl border-2 overflow-hidden bg-muted/5">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b-2">
-              <tr>
-                <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
+          <Table className="w-full">
+            <TableHeader className="bg-muted/50 border-b-2">
+              <TableRow>
+                <TableHead className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
                   Product
-                </th>
-                <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
+                </TableHead>
+                <TableHead className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
                   Label
-                </th>
-                <th className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
+                </TableHead>
+                <TableHead className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
                   Qty
-                </th>
-                <th className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
+                </TableHead>
+                <TableHead className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
                   Received
-                </th>
-                <th className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40">
+                </TableHead>
+                <TableHead className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40">
                   Price
-                </th>
-                <th className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40 w-32">
+                </TableHead>
+                <TableHead className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40 w-32">
                   Subtotal
-                </th>
-                {!isViewOnly && <th className="p-4 w-12"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y-2 border-primary/5">
+                </TableHead>
+                {!isViewOnly && <TableHead className="p-4 w-12"></TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y-2 border-primary/5">
               {(formData.orderLines || []).length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-10 text-center text-sm text-muted-foreground">
+                <TableRow>
+                  <TableCell colSpan={7} className="p-10 text-center text-sm text-muted-foreground">
                     No lines yet.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 (formData.orderLines || []).map((line: any, idx: number) => (
-                  <tr key={idx} className="group hover:bg-white/40">
-                    <td className="p-2 w-48">
+                  <TableRow key={idx} className="group hover:bg-white/40">
+                    <TableCell className="p-2 w-48">
                       <SelectSearchAdd
                         items={products}
                         value={
@@ -221,16 +229,16 @@ export default function PurchaseOrderPopupContent({
                         labelField="header.name"
                         className="border-none shadow-none bg-transparent hover:bg-primary/5 h-10 font-bold uppercase text-[11px]"
                       />
-                    </td>
-                    <td className="p-2">
+                    </TableCell>
+                    <TableCell className="p-2">
                       <Input
                         value={line.name}
                         disabled={isViewOnly}
                         onChange={(e) => updateLine(idx, "name", e.target.value)}
                         className="border-none shadow-none bg-transparent h-10 text-[11px]"
                       />
-                    </td>
-                    <td className="p-2 w-20">
+                    </TableCell>
+                    <TableCell className="p-2 w-20">
                       <Input
                         type="number"
                         disabled={isViewOnly}
@@ -240,11 +248,11 @@ export default function PurchaseOrderPopupContent({
                         }
                         className="border-none shadow-none bg-transparent text-center h-10 font-black"
                       />
-                    </td>
-                    <td className="p-4 text-center font-bold text-[11px] tabular-nums text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="p-4 text-center font-bold text-[11px] tabular-nums text-muted-foreground">
                       {line.receivedQty || 0}
-                    </td>
-                    <td className="p-2 w-32">
+                    </TableCell>
+                    <TableCell className="p-2 w-32">
                       <Input
                         type="number"
                         disabled={isViewOnly}
@@ -254,12 +262,12 @@ export default function PurchaseOrderPopupContent({
                         }
                         className="border-none shadow-none bg-transparent text-right h-10 font-black"
                       />
-                    </td>
-                    <td className="p-4 text-right font-black text-[11px] tabular-nums">
+                    </TableCell>
+                    <TableCell className="p-4 text-right font-black text-[11px] tabular-nums">
                       ₹ {(line.priceSubtotal || 0).toLocaleString()}
-                    </td>
+                    </TableCell>
                     {!isViewOnly && (
-                      <td className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <TableCell className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -268,13 +276,13 @@ export default function PurchaseOrderPopupContent({
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </td>
+                      </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
