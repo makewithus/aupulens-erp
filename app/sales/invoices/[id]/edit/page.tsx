@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { InvoiceForm } from "@/components/sales/invoices/InvoiceForm";
+import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 export default function EditInvoicePage() {
   const params = useParams<{ id: string }>();
+  const { data: session } = useSession();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,17 +26,27 @@ export default function EditInvoicePage() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (error || !invoice) {
-    return <div className="flex justify-center items-center h-screen text-muted-foreground">{error || "Invoice not found"}</div>;
-  }
-
-  return <InvoiceForm mode="edit" invoiceId={params.id} initialInvoice={invoice} />;
+  return (
+    <DashboardLayout
+      sidebarSections={salesSidebarConfig}
+      companyName="Aupulens"
+      dashboardTitle="Sales"
+      pageName="Edit Invoice"
+      breadcrumbs={[
+        { label: "Sales", href: "/sales/summary" },
+        { label: "Invoices", href: "/sales/invoices" },
+        { label: "Edit" },
+      ]}
+      userName={session?.user?.name ?? "User"}
+      userEmail={session?.user?.email ?? ""}
+    >
+      {loading ? (
+        <FullPageLoadingSkeleton />
+      ) : error || !invoice ? (
+        <div className="flex justify-center items-center h-96 text-muted-foreground">{error || "Invoice not found"}</div>
+      ) : (
+        <InvoiceForm mode="edit" invoiceId={params.id} initialInvoice={invoice} />
+      )}
+    </DashboardLayout>
+  );
 }

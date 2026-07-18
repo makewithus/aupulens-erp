@@ -9,6 +9,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { toast } from "sonner";
 import { FileWarning, Printer, Scale } from "lucide-react";
@@ -110,7 +119,7 @@ export default function TrialBalancePage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Trial Balance
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -181,76 +190,76 @@ export default function TrialBalancePage() {
               </div>
             ) : (
               <div className="overflow-hidden rounded-xl border bg-background">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      <th className="px-6 py-4 text-left">Account</th>
-                      <th className="px-6 py-4 text-left">Group</th>
-                      <th className="px-6 py-4 text-right">Debits</th>
-                      <th className="px-6 py-4 text-right">Credits</th>
-                      <th className="px-6 py-4 text-right">Debit Balance</th>
-                      <th className="px-6 py-4 text-right">Credit Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      <TableHead className="px-6 py-4 text-left">Account</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Group</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Debits</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Credits</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Debit Balance</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Credit Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {data.accounts.map((account) => (
-                      <tr
+                      <TableRow
                         key={account.id}
                         className="text-sm transition-colors hover:bg-muted/20"
                       >
-                        <td className="px-6 py-4">
+                        <TableCell className="px-6 py-4">
                           <div className="flex flex-col">
                             <span className="font-semibold">{account.name}</span>
                             <span className="text-[10px] text-muted-foreground">
                               {account.code}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 capitalize text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 capitalize text-muted-foreground">
                           {account.internalGroup.replace("_", " ")}
-                        </td>
-                        <td className="px-6 py-4 text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right">
                           {formatCurrency(account.debit)}
-                        </td>
-                        <td className="px-6 py-4 text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right">
                           {formatCurrency(account.credit)}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-semibold">
                           {account.debitBalance
                             ? formatCurrency(account.debitBalance)
                             : "-"}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-semibold">
                           {account.creditBalance
                             ? formatCurrency(account.creditBalance)
                             : "-"}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot className="border-t-2 bg-muted/50 font-black">
-                    <tr>
-                      <td
+                  </TableBody>
+                  <TableFooter className="border-t-2 bg-muted/50 font-black">
+                    <TableRow>
+                      <TableCell
                         colSpan={2}
                         className="px-6 py-4 text-right text-xs uppercase tracking-widest"
                       >
                         Totals
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         {formatCurrency(data.totals.debit)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         {formatCurrency(data.totals.credit)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         {formatCurrency(data.totals.debitBalance)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         {formatCurrency(data.totals.creditBalance)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             )}
           </CardContent>

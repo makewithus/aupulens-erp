@@ -6,9 +6,8 @@ import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { AiSidebar } from "./AiSidebar";
 import { cn } from "@/lib/utils";
-import DashboardFooter from "./DashboardFooter";
-import { useTenantStore } from "@/store/useTenantStore";
-import { useAuthStore, clearAllStores } from "@/store/authStore";
+import { clearAllStores } from "@/store/authStore";
+import Lenis from "lenis";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -50,9 +49,38 @@ export function DashboardLayout({
 
   const [isMainScrolling, setIsMainScrolling] = useState(false);
   const mainScrollRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const mainScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mainScrollRef.current || !contentRef.current) return;
+
+    const lenis = new Lenis({
+      wrapper: mainScrollRef.current,
+      content: contentRef.current,
+      duration: 1.2,
+      wheelMultiplier: 0.8,
+      touchMultiplier: 1.2,
+      smoothWheel: true,
+    });
+
+    let rafId: number;
+
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+
+    rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     const handleMainScroll = () => {
@@ -96,16 +124,25 @@ export function DashboardLayout({
           console.log("[DashboardLayout] Sign out started, clearing state...");
           clearAllStores();
           console.log("[DashboardLayout] Invoking native signOut...");
-          await signOut({ callbackUrl: "/auth/admin", redirect: true });
+          await signOut({ callbackUrl: "/auth", redirect: true });
         }}
         onRefresh={onRefresh}
         profilePath={profile}
         sidebarConfig={sections}
         onToggleAi={() => setIsAiSidebarOpen(!isAiSidebarOpen)}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
-        {sections.length > 0 && <DashboardSidebar sections={sections} />}
+        {sections.length > 0 && (
+          <DashboardSidebar
+            sections={sections}
+            isCollapsed={!isSidebarOpen}
+            onToggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
+            onClose={() => setIsSidebarOpen(false)}
+          />
+        )}
 
         <main
           ref={mainScrollRef}
@@ -115,7 +152,12 @@ export function DashboardLayout({
             className,
           )}
         >
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8">{children}</div>
+          <div
+            ref={contentRef}
+            className="p-3 sm:p-4 md:p-6 lg:p-8"
+          >
+            {children}
+          </div>
         </main>
 
         {isAiSidebarOpen && <AiSidebar onClose={() => setIsAiSidebarOpen(false)} />}

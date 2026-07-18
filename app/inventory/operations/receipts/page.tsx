@@ -7,29 +7,17 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Search,
   Plus,
-  Eye,
-  Edit2,
-  Trash2,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Undo2,
-  ShieldCheck,
-  ShieldX,
-  FileText,
-  PackageCheck,
-  BellRing,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTransferPopup";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { TransferList } from "@/components/inventory/transfer/TransferList";
+import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
 
 export default function ReceiptsPage() {
   const { data: session, status } = useSession();
@@ -159,6 +147,73 @@ export default function ReceiptsPage() {
     toast.info("Created Return Draft. Please Review and Save.");
   };
 
+  const workflowSteps = [
+  { key: "draft", label: "Draft" },
+  { key: "pending_approval", label: "Receive" },
+  { key: "qc", label: "QC" },
+  { key: "approved", label: "GRN" },
+  { key: "posted", label: "Stock" },
+  { key: "closed", label: "Close" },
+];
+
+const statusLabels = {
+  draft: "Draft",
+  pending_approval: "Pending Approval",
+  approved: "Approved",
+  posted: "Stock Updated",
+  closed: "Closed",
+};
+
+const getCurrentStep = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return 0;
+
+    case "pending_approval":
+      return 2;
+
+    case "approved":
+      return 3;
+
+    case "posted":
+      return 4;
+
+    case "closed":
+      return 5;
+
+    default:
+      return 0;
+  }
+};
+
+const getNextAction = (transfer: InventoryTransfer) => {
+  switch (transfer.status) {
+    case "draft":
+      return "Receive Goods";
+
+    case "pending_approval":
+      if (transfer.qcStatus === "pending")
+        return "Pass QC";
+
+      if (transfer.qcStatus === "passed")
+        return "Generate GRN";
+
+      if (transfer.qcStatus === "failed")
+        return "Retry QC";
+
+      return undefined;
+
+    case "approved":
+      return "Update Stock";
+
+    case "posted":
+      return "Close Receipt";
+
+    default:
+      return undefined;
+  }
+};
+
   const saveTransfer = async (statusOverride?: string) => {
     setIsSubmitting(true);
     try {
@@ -269,201 +324,72 @@ export default function ReceiptsPage() {
       onRefresh={fetchTransfers}
     >
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Receipts (Incoming)</h1>
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" /> New Receipt
-          </Button>
-        </div>
+        <FinancePageHeader
+          title="Incoming Receipts"
+          description="Incoming stock transfers from vendors."
+          actions={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4 mr-2" /> New Receipt
+            </Button>
+          }
+        />
 
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <TableSkeleton rows={5} columns={5} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b">
-                    <tr className="text-left text-muted-foreground">
-                      <th className="p-3">Reference</th>
-                      <th className="p-3">Vendor</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transfers.map((t) => (
-                      <tr key={t._id} className="border-b hover:bg-muted/20">
-                        <td className="p-3 font-medium">{t.header.name}</td>
-                        <td className="p-3">
-                          {t.header.partnerId?.header?.name ||
-                            t.header.partnerId?.name ||
-                            t.header.partnerName ||
-                            "-"}
-                        </td>
-                        <td className="p-3">
-                          {new Date(
-                            t.header.scheduledDate,
-                          ).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            variant={
-                              t.status === "closed"
-                                ? "default"
-                                : t.status === "posted"
-                                  ? "default"
-                                  : t.status === "approved"
-                                    ? "outline"
-                                    : "secondary"
-                            }
-                          >
-                            {t.status === "pending_approval"
-                              ? `Pending Approval (QC: ${t.qcStatus || "pending"})`
-                              : t.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right flex justify-end gap-1 flex-wrap">
-                          {/* ① Draft → Receive Goods (pending_approval) */}
-                          {t.status === "draft" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() =>
-                                updateStatus(t._id, "pending_approval")
-                              }
-                            >
-                              <PackageCheck className="h-3 w-3 mr-1" /> Receive
-                              Goods
-                            </Button>
-                          )}
+      {loading ? (
+        <TableSkeleton rows={4} columns={1} />
+      ) : (
+        <TransferList
+          partnerLabel="Vendor"
+          emptyTitle="No incoming receipts"
+          emptyDescription="Create a receipt to begin receiving inventory."
 
-                          {/* ② pending_approval + QC pending → Pass / Fail QC */}
-                          {t.status === "pending_approval" &&
-                            t.qcStatus === "pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                  onClick={() =>
-                                    updateSubStatus(t._id, {
-                                      qcStatus: "passed",
-                                    })
-                                  }
-                                >
-                                  <ShieldCheck className="h-3 w-3 mr-1" /> Pass
-                                  QC
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="h-8 text-xs"
-                                  onClick={() =>
-                                    updateSubStatus(t._id, {
-                                      qcStatus: "failed",
-                                      qcNotes: "Failed QC inspection",
-                                    })
-                                  }
-                                >
-                                  <ShieldX className="h-3 w-3 mr-1" /> Fail QC
-                                </Button>
-                              </>
-                            )}
+          transfers={transfers}
 
-                          {/* ③ pending_approval + QC passed → Generate GRN (approved) */}
-                          {t.status === "pending_approval" &&
-                            t.qcStatus === "passed" && (
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={() =>
-                                  updateStatus(t._id, "approved")
-                                }
-                              >
-                                <FileText className="h-3 w-3 mr-1" /> Generate
-                                GRN
-                              </Button>
-                            )}
+          workflowSteps={workflowSteps}
+          statusLabels={statusLabels}
+          getCurrentStep={getCurrentStep}
+          getNextAction={getNextAction}
 
-                          {/* QC failed badge */}
-                          {t.status === "pending_approval" &&
-                            t.qcStatus === "failed" && (
-                              <Badge variant="destructive" className="text-xs">
-                                QC Failed
-                              </Badge>
-                            )}
+          onView={handleView}
 
-                          {/* ④ approved → Update Stock (posted) */}
-                          {t.status === "approved" && (
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => updateStatus(t._id, "posted")}
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" /> Update
-                              Stock
-                            </Button>
-                          )}
+          onContinue={(transfer) => {
+            switch (transfer.status) {
+              case "draft":
+                updateStatus(
+                  transfer._id,
+                  "pending_approval"
+                );
+                break;
 
-                          {/* ⑤ posted → Notify Finance & Close */}
-                          {t.status === "posted" && (
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white"
-                              onClick={() => updateStatus(t._id, "closed")}
-                            >
-                              <BellRing className="h-3 w-3 mr-1" /> Notify
-                              Finance
-                            </Button>
-                          )}
+              case "pending_approval":
+                if (transfer.qcStatus === "pending") {
+                  updateSubStatus(transfer._id, {
+                    qcStatus: "passed",
+                  });
+                } else if (transfer.qcStatus === "passed") {
+                  updateStatus(
+                    transfer._id,
+                    "approved"
+                  );
+                }
+                break;
 
-                          {/* Return button (only when closed) */}
-                          {t.status === "closed" && (
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() => handleReturn(t)}
-                              title="Return"
-                            >
-                              <Undo2 className="h-4 w-4" />
-                            </Button>
-                          )}
+              case "approved":
+                updateStatus(
+                  transfer._id,
+                  "posted"
+                );
+                break;
 
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => handleView(t)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {t.status !== "closed" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => handleEdit(t)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {transfers.length === 0 && (
-                  <div className="p-6 text-center text-muted-foreground">
-                    No receipts found.
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              case "posted":
+                updateStatus(
+                  transfer._id,
+                  "closed"
+                );
+                break;
+            }
+          }}
+        />
+      )}
       </div>
 
       <ModularModal

@@ -26,8 +26,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -48,7 +47,6 @@ import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 export default function VendorsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,8 +100,7 @@ export default function VendorsPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: editingVendor ? "Vendor Updated" : "Vendor Added",
+        toast.success(editingVendor ? "Vendor Updated" : "Vendor Added", {
           description: editingVendor
             ? "Vendor details updated successfully."
             : "New vendor added successfully.",
@@ -123,11 +120,7 @@ export default function VendorsPage() {
         fetchVendors();
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save vendor.",
-        variant: "destructive",
-      });
+      toast.error("Failed to save vendor.");
     }
   };
 
@@ -156,18 +149,13 @@ export default function VendorsPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: "Evaluation Complete",
+        toast.success("Evaluation Complete", {
           description: "AI analysis updated.",
         });
         fetchVendors();
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Evaluation failed.",
-        variant: "destructive",
-      });
+      toast.error("Evaluation failed.");
     } finally {
       setEvaluatingId(null);
     }
@@ -578,7 +566,6 @@ export default function VendorsPage() {
           )}
         </div>
       </div>
-      <Toaster />
     </DashboardLayout>
   );
 }

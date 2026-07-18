@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
+import { HRStats } from "@/components/hr/HRStats";
+import { DepartmentDistribution } from "@/components/hr/DepartmentDistribution";
+import { WorkforceOverview } from "@/components/hr/WorkforceOverview";
 
 interface DashboardData {
   stats: {
@@ -184,49 +187,22 @@ export default function HRDashboardPage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
+      <div className="space-y-6 max-w-8xl mx-auto">
         {/* Page Title */}
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
             HR Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Human Resources & Payroll management overview
-          </p>
         </div>
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {loading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <Card key={i} className="border-border/40">
-                  <CardContent className="p-5">
-                    <Skeleton className="h-4 w-24 mb-3" />
-                    <Skeleton className="h-8 w-16" />
-                  </CardContent>
-                </Card>
-              ))
-            : statCards.map((stat, idx) => (
-                <Card key={idx} className="border-border/40 hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        {stat.title}
-                      </span>
-                      <div className={`p-2 rounded-lg ${stat.bg}`}>
-                        <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                      </div>
-                    </div>
-                    <div className="text-2xl font-black text-foreground">
-                      {stat.value}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-        </div>
+        <HRStats
+          summary={data}
+          formatCurrency={formatCurrency}
+        />
 
         {/* Quick Actions */}
-        <div>
+        {/* <div>
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
             Quick Actions
           </h2>
@@ -250,123 +226,23 @@ export default function HRDashboardPage() {
               </Card>
             ))}
           </div>
-        </div>
+        </div> */}
 
-        {/* Today's Attendance & Recent Hires */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Today's Attendance Breakdown */}
-          <Card className="border-border/40">
-            <CardContent className="p-6">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                Today&apos;s Attendance
-              </h3>
-              {loading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-8 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {Object.entries(data?.todayAttendance || {}).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No attendance data for today</p>
-                  ) : (
-                    Object.entries(data?.todayAttendance || {}).map(([status, count]) => (
-                      <div key={status} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                        <span className="text-sm capitalize font-medium">{status.replace("-", " ")}</span>
-                        <Badge variant="secondary" className="font-bold">
-                          {count as number}
-                        </Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* <DepartmentDistribution
+          loading={loading}
+          departments={data?.departmentDistribution ?? []}
+        /> */}
 
-          {/* Recent Hires */}
-          <Card className="border-border/40">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                  Recent Hires (30 days)
-                </h3>
-                <Button variant="ghost" size="sm" onClick={() => router.push("/hr/employees")}>
-                  View All
-                </Button>
-              </div>
-              {loading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {(data?.recentHires || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No recent hires</p>
-                  ) : (
-                    data?.recentHires.map((hire, idx) => (
-                      <div key={idx} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                        <div>
-                          <div className="text-sm font-semibold">
-                            {hire.firstName} {hire.lastName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {hire.employeeCode} · {hire.designation || "N/A"}
-                          </div>
-                        </div>
-                        <Badge
-                          className={
-                            hire.lifecycleStatus === "active"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                              : hire.lifecycleStatus === "onboarding"
-                                ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300"
-                                : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                          }
-                        >
-                          {hire.lifecycleStatus}
-                        </Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+          <WorkforceOverview
+            loading={loading}
+            attendance={data?.todayAttendance ?? {}}
+            hires={data?.recentHires ?? []}
+        />
 
-        {/* Department Distribution */}
-        <Card className="border-border/40">
-          <CardContent className="p-6">
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
-              Department Distribution
-            </h3>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(data?.departmentDistribution || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground col-span-full">No department data available</p>
-                ) : (
-                  data?.departmentDistribution.map((dept, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <span className="text-sm font-medium">{dept.departmentName}</span>
-                      <Badge variant="secondary" className="font-bold">
-                        {dept.count}
-                      </Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <DepartmentDistribution
+          loading={loading}
+          departments={data?.departmentDistribution ?? []}
+      />
       </div>
     </DashboardLayout>
   );

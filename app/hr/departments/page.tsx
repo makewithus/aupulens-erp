@@ -1,7 +1,5 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
-
-
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -13,6 +11,14 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -28,10 +34,10 @@ import {
   Eye,
   Edit,
   Building2,
-  Users,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 
 interface Department {
   _id: string;
@@ -182,51 +188,47 @@ export default function DepartmentsPage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Departments</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage organisational departments and cost centres</p>
-        </div>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Department Directory
+            </h1>
+          </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Building2 className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-black">{totalDepts}</p>
-                <p className="text-xs text-muted-foreground">Total Departments</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-black">{activeDepts}</p>
-                <p className="text-xs text-muted-foreground">Active</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
-              <div>
-                <p className="text-2xl font-black">{inactiveDepts}</p>
-                <p className="text-xs text-muted-foreground">Inactive</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-black">{totalEmployeesInDepts}</p>
-                <p className="text-xs text-muted-foreground">Assigned Employees</p>
-              </div>
-            </CardContent>
-          </Card>
+          <Button onClick={handleOpenCreate} 
+          className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+        >
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
         </div>
+        
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Departments"
+              value={totalDepts}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Active Departments"
+              value={activeDepts}
+              visual={<ActivePulse/>}
+            />
+
+            <StatCard
+              title="Inactive Departments" 
+              value={inactiveDepts}
+              visual={<UsersGraph/>}
+            />
+
+            <StatCard
+              title="Assigned Employees"
+              value={totalEmployeesInDepts}
+              visual={<UsersGraph/>}
+            />
+          </div>
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -246,10 +248,6 @@ export default function DepartmentsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Department
-          </Button>
         </div>
 
         {/* Table */}
@@ -266,84 +264,79 @@ export default function DepartmentsPage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/40 bg-muted/30">
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Code</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Head</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Parent</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Employees</th>
-                      <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
-                      <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((dept) => (
-                      <tr key={dept._id} className="border-b border-border/20 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{dept.name}</div>
-                          {dept.description && (
-                            <div className="text-xs text-muted-foreground line-clamp-1">{dept.description}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {dept.headOfDepartment ? (
-                            <div>
-                              <div className="font-medium text-xs">{dept.headOfDepartment.firstName} {dept.headOfDepartment.lastName}</div>
-                              {dept.headOfDepartment.employeeCode && (
-                                <div className="text-xs text-muted-foreground font-mono">{dept.headOfDepartment.employeeCode}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {dept.parentDepartmentId ? (
-                            <span className="text-xs">{dept.parentDepartmentId.name}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="secondary" className="font-mono">
-                            {dept.employeeCount || 0}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={
-                              dept.isActive
-                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                            }
-                          >
-                            {dept.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenView(dept)} className="h-7 w-7">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(dept)} className="h-7 w-7">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dept._id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Department</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Head</TableHead>
+                    <TableHead>Parent</TableHead>
+                    <TableHead>Employees</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((dept) => (
+                    <TableRow key={dept._id} className="hover:bg-muted/20">
+                      <TableCell>
+                        <div className="font-medium">{dept.name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{dept.code}</span>
+                      </TableCell>
+                      <TableCell>
+                        {dept.headOfDepartment ? (
+                          <div>
+                            <div className="font-medium text-xs">{dept.headOfDepartment.firstName} {dept.headOfDepartment.lastName}</div>
+                            {dept.headOfDepartment.employeeCode && (
+                              <div className="text-xs text-muted-foreground font-mono">{dept.headOfDepartment.employeeCode}</div>
+                            )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {dept.parentDepartmentId ? (
+                          <span className="text-xs">{dept.parentDepartmentId.name}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="font-mono">
+                          {dept.employeeCount || 0}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            dept.isActive
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                          }
+                        >
+                          {dept.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenView(dept)} className="h-7 w-7">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(dept)} className="h-7 w-7">
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dept._id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         )}

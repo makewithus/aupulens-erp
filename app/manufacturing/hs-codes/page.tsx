@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface HSCode {
   _id: string;
@@ -273,33 +274,33 @@ export default function HSCodesPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">HS Code</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Category</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Description</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Restrictions</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">HS Code</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Category</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Description</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Restrictions</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredCodes.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center p-8 text-gray-500 dark:text-gray-400">
                         {searchQuery ? 'No HS codes match your search.' : 'No HS codes found. Add your first HS code to get started.'}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredCodes.map((hsCode) => (
-                      <tr key={hsCode._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 text-gray-900 dark:text-white font-medium">{hsCode.hsCode}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{hsCode.category}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400 max-w-md truncate">{hsCode.description}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                      <TableRow key={hsCode._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{hsCode.hsCode}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{hsCode.category}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 max-w-md truncate">{hsCode.description}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">
                           {hsCode.restrictions || 'None'}
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3">
                           <div className="flex gap-2">
                             <Button
                               variant="ghost"
@@ -317,12 +318,12 @@ export default function HSCodesPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

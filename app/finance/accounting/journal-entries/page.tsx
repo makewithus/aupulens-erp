@@ -14,6 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Search,
   Plus,
   BookOpen,
@@ -222,7 +230,7 @@ export default function JournalEntriesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Journal Entries
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -261,42 +269,42 @@ export default function JournalEntriesPage() {
               </div>
             ) : (
               <div className="bg-background rounded-xl border overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-6 py-4 text-left">Date</th>
-                      <th className="px-6 py-4 text-left">Number</th>
-                      <th className="px-6 py-4 text-left">Ref</th>
-                      <th className="px-6 py-4 text-left">Journal</th>
-                      <th className="px-6 py-4 text-right">Total</th>
-                      <th className="px-6 py-4 text-center">Status</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                      <TableHead className="px-6 py-4 text-left">Date</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Number</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Ref</TableHead>
+                      <TableHead className="px-6 py-4 text-left">Journal</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Total</TableHead>
+                      <TableHead className="px-6 py-4 text-center">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {filtered.map((item) => (
-                      <tr
+                      <TableRow
                         key={item._id}
                         className="hover:bg-muted/20 transition-colors text-sm group"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
                           {new Date(item.header?.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold text-primary">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap font-bold text-primary">
                           {item.header?.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
                           {item.header?.ref || "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap capitalize">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap capitalize">
                           <Badge variant="outline">
                             {item.header?.journalType}
                           </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-right font-black">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-black">
                           ₹{item.totals?.amountTotal?.toLocaleString() ?? 0}
-                        </td>
-                        <td className="px-6 py-4 text-center">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center">
                           {item.voucherType ? (
                             <div className="flex items-center gap-1.5 justify-center">
                               <Badge
@@ -321,8 +329,8 @@ export default function JournalEntriesPage() {
                               {item.status}
                             </Badge>
                           )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -340,11 +348,11 @@ export default function JournalEntriesPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
 

@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Truck, X } from 'lucide-react';
 
 interface Shipment {
@@ -621,35 +622,35 @@ export default function ShipmentsPage() {
               <div className="text-center py-8 text-muted-foreground">No shipments found.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left border-b bg-muted/50">
-                      <th className="py-2 pr-4">Shipment #</th>
-                      <th className="py-2 pr-4">Customer</th>
-                      <th className="py-2 pr-4">Route</th>
-                      <th className="py-2 pr-4">Type</th>
-                      <th className="py-2 pr-4">Status</th>
-                      <th className="py-2 pr-4">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="min-w-full text-sm">
+                  <TableHeader>
+                    <TableRow className="text-left border-b bg-muted/50">
+                      <TableHead className="py-2 pr-4">Shipment #</TableHead>
+                      <TableHead className="py-2 pr-4">Customer</TableHead>
+                      <TableHead className="py-2 pr-4">Route</TableHead>
+                      <TableHead className="py-2 pr-4">Type</TableHead>
+                      <TableHead className="py-2 pr-4">Status</TableHead>
+                      <TableHead className="py-2 pr-4">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filtered.map((shipment) => (
-                      <tr key={shipment._id} className="border-b hover:bg-muted/30 transition-colors">
-                        <td className="py-2 pr-4 font-medium">
+                      <TableRow key={shipment._id} className="border-b hover:bg-muted/30 transition-colors">
+                        <TableCell className="py-2 pr-4 font-medium">
                           <Truck className="inline h-3 w-3 mr-1" />
                           {shipment.shipmentNumber}
-                        </td>
-                        <td className="py-2 pr-4">{shipment.customerName}</td>
-                        <td className="py-2 pr-4 text-muted-foreground text-xs">
+                        </TableCell>
+                        <TableCell className="py-2 pr-4">{shipment.customerName}</TableCell>
+                        <TableCell className="py-2 pr-4 text-muted-foreground text-xs">
                           {shipment.origin} → {shipment.destination}
-                        </td>
-                        <td className="py-2 pr-4 capitalize">{shipment.shipmentType}</td>
-                        <td className="py-2 pr-4">{getStatusBadge(shipment.status)}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{formatDate(shipment.createdAt)}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="py-2 pr-4 capitalize">{shipment.shipmentType}</TableCell>
+                        <TableCell className="py-2 pr-4">{getStatusBadge(shipment.status)}</TableCell>
+                        <TableCell className="py-2 pr-4 text-muted-foreground">{formatDate(shipment.createdAt)}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

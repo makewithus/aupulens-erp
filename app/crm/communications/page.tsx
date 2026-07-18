@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { MessageSquare, Phone, Mail, Megaphone } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 

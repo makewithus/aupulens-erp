@@ -3,6 +3,14 @@ import { Badge } from '@/components/ui/badge';
 import { Weight, Package, DollarSign, FileText } from 'lucide-react';
 import { InfoField } from './InfoField';
 import type { TrackingData } from './types';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface ShipmentDetailsProps {
   shipmentData: {
@@ -64,30 +72,30 @@ export function ShipmentDetails({ shipmentData, getStatusColor }: ShipmentDetail
               Items ({shipmentData.items.length})
             </h4>
             <div className="overflow-x-auto border rounded-none">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">Description</th>
-                    <th className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">HS Code</th>
-                    <th className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Quantity</th>
-                    <th className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Weight (kg)</th>
-                    <th className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader className="bg-gray-50 dark:bg-gray-800">
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">Description</TableHead>
+                    <TableHead className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">HS Code</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Quantity</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Weight (kg)</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {shipmentData.items.map((item, index) => (
-                    <tr key={index} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="p-3 text-sm text-gray-900 dark:text-white">{item.description}</td>
-                      <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{item.hsCode || 'N/A'}</td>
-                      <td className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.quantity}</td>
-                      <td className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.weight}</td>
-                      <td className="p-3 text-sm text-gray-900 dark:text-white text-right">
+                    <TableRow key={index} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white">{item.description}</TableCell>
+                      <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{item.hsCode || 'N/A'}</TableCell>
+                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.quantity}</TableCell>
+                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.weight}</TableCell>
+                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">
                         {shipmentData.currency} {item.value?.toLocaleString() || 0}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}

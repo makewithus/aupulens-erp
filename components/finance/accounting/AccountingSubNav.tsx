@@ -76,12 +76,12 @@ export function AccountingSubNav() {
   const isActive = (matcher: string) => pathname?.startsWith(matcher);
 
   const tabClass = (active: boolean) =>
-    `pb-2 cursor-pointer transition-colors flex items-center gap-1 ${
+    `pb-2 cursor-pointer transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 ${
       active ? "border-b-2 border-blue-600 font-semibold text-blue-600" : "text-gray-500 hover:text-gray-700"
     }`;
 
   return (
-    <div className="flex space-x-6 border-b pb-2">
+    <div className="flex space-x-6 border-b pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" className={tabClass(isActive("/finance/accounting/chart-of-accounts"))}>

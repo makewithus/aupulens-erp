@@ -12,6 +12,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
   ArrowLeft, Settings as SettingsIcon, Plus, Trash2, Wand2, Upload, Palette,
   ChevronDown, ChevronUp, Sparkles, X,
 } from "lucide-react";
@@ -468,9 +476,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const decimals = 2;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24">
+    <div className="bg-background text-foreground pb-24">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+      <header className="sticky top-0 z-10 -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 -mt-3 sm:-mt-4 md:-mt-6 lg:-mt-8 mb-6 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
           <Link href="/sales/invoices">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
@@ -572,28 +580,28 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           </div>
 
           <div className="p-0 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground text-xs uppercase text-left">
-                <tr>
-                  <th className="px-4 py-3 font-medium w-12">#</th>
-                  <th className="px-4 py-3 font-medium w-[32%]">Product Name</th>
-                  <th className="px-4 py-3 font-medium w-20">HSN</th>
-                  <th className="px-4 py-3 font-medium w-20">Quantity</th>
-                  <th className="px-4 py-3 font-medium w-28">Unit Price</th>
-                  <th className="px-4 py-3 font-medium w-16">Tax %</th>
-                  <th className="px-4 py-3 font-medium w-32">Discount</th>
-                  <th className="px-4 py-3 font-medium w-28 text-right">Total</th>
-                  <th className="px-4 py-3 font-medium w-12" />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-sm">
+              <TableHeader className="bg-muted/50 text-muted-foreground text-xs uppercase text-left">
+                <TableRow>
+                  <TableHead className="px-4 py-3 font-medium w-12">#</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-[32%]">Product Name</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-20">HSN</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-20">Quantity</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-28">Unit Price</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-16">Tax %</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-32">Discount</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-28 text-right">Total</TableHead>
+                  <TableHead className="px-4 py-3 font-medium w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
                 {lineItems.map((item, index) => {
                   const computed = totals.computedLines[index];
                   return (
                     <React.Fragment key={item.id}>
-                      <tr className="group hover:bg-muted/20">
-                        <td className="px-4 py-3 text-muted-foreground">{index + 1}</td>
-                        <td className="px-2 py-1">
+                      <TableRow className="group hover:bg-muted/20">
+                        <TableCell className="px-4 py-3 text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell className="px-2 py-1">
                           <ProductPicker
                             products={products}
                             value={item.itemId}
@@ -613,20 +621,20 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                               )}
                             </>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <Input value={item.hsn} onChange={(e) => updateLineItem(item.id, { hsn: e.target.value })} className="h-8 w-full" placeholder="HSN" />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <Input type="number" value={item.qty} onChange={(e) => updateLineItem(item.id, { qty: Number(e.target.value) })} className="h-8 w-full" />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <Input type="number" value={item.unitPrice} onChange={(e) => updateLineItem(item.id, { unitPrice: Number(e.target.value) })} className="h-8 w-full" />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <Input type="number" value={item.taxRate} onChange={(e) => updateLineItem(item.id, { taxRate: Number(e.target.value) })} className="h-8 w-full" />
-                        </td>
-                        <td className="px-4 py-3 flex items-center gap-1">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 flex items-center gap-1">
                           <Input type="number" value={item.discount} onChange={(e) => updateLineItem(item.id, { discount: Number(e.target.value) })} className="h-8 w-16" />
                           <Select value={item.discountMode} onValueChange={(v: any) => updateLineItem(item.id, { discountMode: v })}>
                             <SelectTrigger className="h-8 w-12 px-1"><SelectValue /></SelectTrigger>
@@ -635,32 +643,32 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                               <SelectItem value="amount">₹</SelectItem>
                             </SelectContent>
                           </Select>
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium">₹ {(computed?.lineTotal ?? 0).toFixed(decimals)}</td>
-                        <td className="px-4 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right font-medium">₹ {(computed?.lineTotal ?? 0).toFixed(decimals)}</TableCell>
+                        <TableCell className="px-4 py-3 text-right">
                           <Button variant="ghost" size="icon" onClick={() => removeLineItem(item.id)} className="h-8 w-8 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100">
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                       {showDescription && (
-                        <tr key={`${item.id}-desc`}>
-                          <td />
-                          <td colSpan={8} className="px-4 pb-3">
+                        <TableRow key={`${item.id}-desc`}>
+                          <TableCell />
+                          <TableCell colSpan={8} className="px-4 pb-3">
                             <Textarea
                               value={item.description}
                               onChange={(e) => updateLineItem(item.id, { description: e.target.value })}
                               placeholder="Description"
                               className="h-14 text-xs resize-none"
                             />
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
                     </React.Fragment>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <div className="p-4 border-t bg-muted/10 space-y-3">

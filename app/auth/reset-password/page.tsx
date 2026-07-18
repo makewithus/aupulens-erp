@@ -3,12 +3,12 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useTenantStore } from "@/store/useTenantStore";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -51,7 +51,7 @@ function ResetPasswordContent() {
         return;
       }
       toast.success("Password updated! You can now sign in.");
-      router.push("/auth/admin");
+      router.push("/auth");
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -61,17 +61,14 @@ function ResetPasswordContent() {
 
   if (!token || !email) {
     return (
-      <div className="max-w-md w-full space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Invalid reset link
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          This password reset link is missing or malformed. Please request a
-          new one.
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold text-foreground">Invalid reset link</h1>
+        <p className="text-sm text-muted-foreground">
+          This password reset link is missing or malformed. Please request a new one.
         </p>
         <Link
           href="/auth/forgot-password"
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white hover:underline"
+          className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground/60 transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Request a new link
         </Link>
@@ -80,19 +77,17 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="max-w-md w-full space-y-6">
+    <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Reset your password
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Choose a new password for <strong>{email}</strong>.
+        <h1 className="text-2xl font-semibold text-foreground">Reset your password</h1>
+        <p className="text-sm text-muted-foreground">
+          Choose a new password for <strong className="text-foreground">{email}</strong>.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium text-gray-900 dark:text-white">
+        <div className="space-y-1">
+          <Label htmlFor="password" className="font-mono text-[11px] text-muted-foreground/60">
             New Password
           </Label>
           <div className="relative">
@@ -104,20 +99,20 @@ function ResetPasswordContent() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
-              className="h-12 pl-4 pr-10 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 w-full"
+              className="h-10 px-0 pr-10 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 w-full shadow-none"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900 dark:hover:text-white"
+              className="absolute right-0 bottom-2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-900 dark:text-white">
+        <div className="space-y-1">
+          <Label htmlFor="confirmPassword" className="font-mono text-[11px] text-muted-foreground/60">
             Confirm New Password
           </Label>
           <Input
@@ -128,19 +123,28 @@ function ResetPasswordContent() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
             disabled={isLoading}
-            className="h-12 px-4 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
+            className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none"
           />
         </div>
 
-        <Button type="submit" className="w-full h-12" disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-            </>
-          ) : (
-            "Reset password"
-          )}
-        </Button>
+        <div className="flex items-center justify-end pt-6">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Updating...
+              </>
+            ) : (
+              <>
+                Reset Password
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -148,10 +152,16 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-white dark:bg-gray-950">
-      <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin text-gray-400" />}>
+    <AuthLayout>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/60" />
+          </div>
+        }
+      >
         <ResetPasswordContent />
       </Suspense>
-    </div>
+    </AuthLayout>
   );
 }

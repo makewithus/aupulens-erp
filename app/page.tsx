@@ -20,9 +20,9 @@ export default function Home() {
       else if (role === "inventory") router.push("/inventory/dashboard");
       else if (role === "manufacturing")
         router.push("/manufacturing/dashboard");
-      else router.push("/auth/admin");
+      else router.push("/auth");
     } else if (status === "unauthenticated") {
-      router.push("/auth/admin");
+      router.push("/auth");
     }
   }, [status, session, router]);
 

@@ -33,11 +33,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         href: "/finance/summary",
         icon: LayoutDashboard,
       },
-      {
-        title: "AI Assistant",
-        href: "/finance/ai-assistant",
-        icon: Sparkles,
-      },
+      // {
+      //   title: "AI Assistant",
+      //   href: "/finance/ai-assistant",
+      //   icon: Sparkles,
+      // },
     ],
   },
   {
@@ -67,6 +67,16 @@ export const financeSidebarConfig: SidebarSection[] = [
         title: "Bank Reconciliation",
         href: "/finance/accounting/bank-reconciliation",
         icon: Landmark,
+      },
+      {
+        title: "Receivables",
+        href: "/finance/receivables",
+        icon: CircleDollarSign,
+      },
+      {
+        title: "Payables",
+        href: "/finance/payables",
+        icon: Wallet,
       },
       {
         title: "Period Closing",

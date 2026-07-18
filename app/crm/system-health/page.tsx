@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, ServerCrash, RefreshCcw } from "lucide-react";
+import { Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function SystemHealthCenter() {

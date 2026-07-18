@@ -31,6 +31,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectSearchAdd } from "../dashboard/SelectSearchAdd";
 import { Chatter } from "../dashboard/Chatter";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface BillPopupContentProps {
   formData: any;
@@ -375,32 +383,32 @@ export default function BillPopupContent({
             {activeTab === "lines" && (
               <div className="animate-in fade-in slide-in-from-bottom-2">
                 <div className="rounded-2xl border-2 overflow-hidden bg-muted/5">
-                  <table className="w-full">
-                    <thead className="bg-muted/50 border-b-2">
-                      <tr>
-                        <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
+                  <Table className="w-full">
+                    <TableHeader className="bg-muted/50 border-b-2">
+                      <TableRow>
+                        <TableHead className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
                           Product
-                        </th>
-                        <th className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
+                        </TableHead>
+                        <TableHead className="p-4 text-left text-[9px] font-black uppercase tracking-widest opacity-40">
                           Label
-                        </th>
-                        <th className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
+                        </TableHead>
+                        <TableHead className="p-4 text-center text-[9px] font-black uppercase tracking-widest opacity-40">
                           Qty
-                        </th>
-                        <th className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40">
+                        </TableHead>
+                        <TableHead className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40">
                           Price
-                        </th>
-                        <th className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40 w-32">
+                        </TableHead>
+                        <TableHead className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40 w-32">
                           Subtotal
-                        </th>
-                        {!isViewOnly && <th className="p-4 w-12"></th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y-2 border-primary/5">
+                        </TableHead>
+                        {!isViewOnly && <TableHead className="p-4 w-12"></TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y-2 border-primary/5">
                       {(formData.invoiceLines || []).map(
                         (line: any, idx: number) => (
-                          <tr key={idx} className="group hover:bg-white/40">
-                            <td className="p-2 w-48">
+                          <TableRow key={idx} className="group hover:bg-white/40">
+                            <TableCell className="p-2 w-48">
                               <SelectSearchAdd
                                 items={products}
                                 value={line.productId}
@@ -411,8 +419,8 @@ export default function BillPopupContent({
                                 labelField="header.name"
                                 className="border-none shadow-none bg-transparent hover:bg-primary/5 h-10 font-bold uppercase text-[11px]"
                               />
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="p-2">
                               <Input
                                 value={line.name}
                                 onChange={(e) =>
@@ -420,8 +428,8 @@ export default function BillPopupContent({
                                 }
                                 className="border-none shadow-none bg-transparent h-10 text-[11px]"
                               />
-                            </td>
-                            <td className="p-2 w-20">
+                            </TableCell>
+                            <TableCell className="p-2 w-20">
                               <Input
                                 type="number"
                                 value={line.quantity}
@@ -434,8 +442,8 @@ export default function BillPopupContent({
                                 }
                                 className="border-none shadow-none bg-transparent text-center h-10 font-black"
                               />
-                            </td>
-                            <td className="p-2 w-32">
+                            </TableCell>
+                            <TableCell className="p-2 w-32">
                               <Input
                                 type="number"
                                 value={line.priceUnit}
@@ -448,12 +456,12 @@ export default function BillPopupContent({
                                 }
                                 className="border-none shadow-none bg-transparent text-right h-10 font-black"
                               />
-                            </td>
-                            <td className="p-4 text-right font-black text-[11px] tabular-nums">
+                            </TableCell>
+                            <TableCell className="p-4 text-right font-black text-[11px] tabular-nums">
                               ₹ {line.priceSubtotal?.toLocaleString()}
-                            </td>
+                            </TableCell>
                             {!isViewOnly && (
-                              <td className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <TableCell className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -462,13 +470,13 @@ export default function BillPopupContent({
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
-                              </td>
+                              </TableCell>
                             )}
-                          </tr>
+                          </TableRow>
                         ),
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                   {!isViewOnly && (
                     <div className="p-4 border-t-2 border-dashed border-primary/10">
                       <Button

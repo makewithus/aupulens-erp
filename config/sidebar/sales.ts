@@ -43,8 +43,8 @@ export const salesSidebarConfig: SidebarSection[] = [
         icon: Package,
       },
       {
-        title: "Pro Forma Invoices",
-        href: "/sales/proforma-invoices",
+        title: "Invoices",
+        href: "/sales/invoices",
         icon: FileText,
       },
     ],
@@ -102,11 +102,11 @@ export const salesSidebarConfig: SidebarSection[] = [
         href: "/sales/visualization",
         icon: BarChart3,
       },
-      {
-        title: "AI Assistant",
-        href: "/sales/ai-assistant",
-        icon: Sparkles,
-      },
+      // {
+      //   title: "AI Assistant",
+      //   href: "/sales/ai-assistant",
+      //   icon: Sparkles,
+      // },
     ],
   },
 ];

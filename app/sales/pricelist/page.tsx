@@ -9,10 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Search, Plus, Tag, Eye, Edit2, Trash2 } from "lucide-react";
-import { ModularModal } from "@/components/dashboard/ModularModal";
-import { PricelistPopupContent } from "./popup/PricelistPopup";
+import { SearchInput } from "@/components/SearchInput";
+import { Plus } from "lucide-react";
+
+// Extracted Subcomponents
+import { PricelistTable } from "@/components/sales/pricelist/PricelistTable";
+import { PricelistModals } from "@/components/sales/pricelist/PricelistModals";
 
 export default function PricelistPage() {
   const { data: session, status } = useSession();
@@ -170,168 +172,81 @@ export default function PricelistPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Pricelists</h1>
-            <p className="text-sm text-muted-foreground">
-              Define pricing rules and discounts
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search pricelists..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
-              />
-            </div>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" /> New Pricelist
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-1">
+        {/* Page Header Spacer */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        {/* Table & Filtering Card */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Pricelists</h3>
+                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {filtered.length} {filtered.length === 1 ? "Pricelist" : "Pricelists"}
+                </p>
+              </div>
+
+              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search pricelists..."
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOpenCreate}
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> New Pricelist
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-6 space-y-4">
+              <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Tag className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-muted-foreground font-mono text-xs">
                   No pricelists found
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Name</th>
-                      <th className="px-6 py-3 text-left">Currency</th>
-                      <th className="px-6 py-3 text-left">Rules</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((p) => (
-                      <tr
-                        key={p._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center rounded text-purple-600">
-                            <Tag className="h-4 w-4" />
-                          </div>
-                          {p.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {p.currencyId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {p.items?.length || 0} Rule(s)
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenView(p)}
-                            className="h-8 w-8 text-blue-600"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEdit(p)}
-                            className="h-8 w-8 text-indigo-600"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(p._id, p.name)}
-                            className="h-8 w-8 text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PricelistTable
+                filtered={filtered}
+                handleOpenView={handleOpenView}
+                handleOpenEdit={handleOpenEdit}
+                handleDeleteClick={handleDeleteClick}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <ModularModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={
-          isViewOnly
-            ? "View Pricelist"
-            : currentItem
-              ? "Edit Pricelist"
-              : "New Pricelist"
-        }
-        footer={
-          !isViewOnly && (
-            <div className="flex justify-end gap-2 px-6 py-4">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Pricelist"}
-              </Button>
-            </div>
-          )
-        }
-      >
-        <PricelistPopupContent
-          formData={formData}
-          setFormData={setFormData}
-          isViewOnly={isViewOnly}
-          products={products}
-        />
-      </ModularModal>
-
-      {/* Delete Confirmation Modal */}
-      <ModularModal
-        open={!!deleteInfo}
-        onOpenChange={(open) => !open && setDeleteInfo(null)}
-        title="Confirm Deletion"
-        footer={
-          <div className="flex justify-end gap-2 px-6 py-4">
-            <Button variant="outline" onClick={() => setDeleteInfo(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </Button>
-          </div>
-        }
-      >
-        <div className="p-6">
-          <p className="text-muted-foreground">
-            Are you sure you want to delete <strong>{deleteInfo?.name}</strong>?
-            This action cannot be undone.
-          </p>
-        </div>
-      </ModularModal>
+      <PricelistModals
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isViewOnly={isViewOnly}
+        currentItem={currentItem}
+        isSubmitting={isSubmitting}
+        formData={formData}
+        setFormData={setFormData}
+        products={products}
+        handleSubmit={handleSubmit}
+        deleteInfo={deleteInfo}
+        setDeleteInfo={setDeleteInfo}
+        handleConfirmDelete={handleConfirmDelete}
+      />
     </DashboardLayout>
   );
 }

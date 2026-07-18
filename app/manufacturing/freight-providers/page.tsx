@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Ship, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FreightProvider {
   _id: string;
@@ -326,41 +327,41 @@ export default function FreightProvidersPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Name</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Code</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Type</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Contact</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Name</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Code</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Type</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Contact</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {providers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center p-8 text-gray-500 dark:text-gray-400">
                         No freight providers found. Add your first provider to get started.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     providers.map((provider) => (
-                      <tr key={provider._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 text-gray-900 dark:text-white font-medium">{provider.providerName}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{provider.providerCode}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400 capitalize">{provider.providerType}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                      <TableRow key={provider._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{provider.providerName}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{provider.providerCode}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 capitalize">{provider.providerType}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           <div>{provider.contactPerson}</div>
                           <div className="text-sm text-gray-500">{provider.contactEmail}</div>
                           <div className="text-sm text-gray-500">{provider.contactPhone}</div>
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(provider.status)}`}>
                             {provider.status}
                           </span>
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3">
                           <div className="flex gap-2">
                             <Button
                               variant="ghost"
@@ -378,12 +379,12 @@ export default function FreightProvidersPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

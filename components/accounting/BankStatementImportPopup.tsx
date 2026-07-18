@@ -21,6 +21,14 @@ import { DOCUMENT_STATUS, DocumentStatus } from "@/lib/constants/statuses";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import * as xlsx from "xlsx";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 const ALLOWED_STATEMENT_EXTENSIONS = ["csv", "tsv", "xls", "xlsx"];
 
@@ -423,23 +431,23 @@ export function BankStatementImportPopup({
         </div>
 
         <div className="border border-border/40 overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-left">
-              <tr>
-                <th className="px-4 py-3 w-[150px]">Date</th>
-                <th className="px-4 py-3 min-w-[200px]">Partner</th>
-                <th className="px-4 py-3">Label / Reference</th>
-                <th className="px-4 py-3 text-right w-[150px]">Amount</th>
-                {!isViewOnly && <th className="px-4 py-3 w-[50px]"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <Table className="w-full text-sm">
+            <TableHeader className="bg-muted/50 border-b text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-left">
+              <TableRow>
+                <TableHead className="px-4 py-3 w-[150px]">Date</TableHead>
+                <TableHead className="px-4 py-3 min-w-[200px]">Partner</TableHead>
+                <TableHead className="px-4 py-3">Label / Reference</TableHead>
+                <TableHead className="px-4 py-3 text-right w-[150px]">Amount</TableHead>
+                {!isViewOnly && <TableHead className="px-4 py-3 w-[50px]"></TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y">
               {(formData.lineIds || []).map((line: any, idx: number) => (
-                <tr
+                <TableRow
                   key={idx}
                   className="group hover:bg-muted/20 transition-colors"
                 >
-                  <td className="px-2 py-2">
+                  <TableCell className="px-2 py-2">
                     <Input
                       type="date"
                       value={
@@ -451,8 +459,8 @@ export function BankStatementImportPopup({
                       disabled={isViewOnly}
                       className="border-none shadow-none focus-visible:ring-0 bg-transparent"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <SelectSearchAdd
                       items={partners}
                       value={line.partnerId}
@@ -487,8 +495,8 @@ export function BankStatementImportPopup({
                       }}
                       addButtonLabel="Add Partner"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Input
                       value={line.payment_ref || ""}
                       onChange={(e) =>
@@ -498,8 +506,8 @@ export function BankStatementImportPopup({
                       disabled={isViewOnly}
                       className="border-none shadow-none focus-visible:ring-0 bg-transparent font-medium"
                     />
-                  </td>
-                  <td className="px-2 py-2">
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
                     <Input
                       type="number"
                       value={line.amount || 0}
@@ -513,9 +521,9 @@ export function BankStatementImportPopup({
                       disabled={isViewOnly}
                       className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-mono font-bold"
                     />
-                  </td>
+                  </TableCell>
                   {!isViewOnly && (
-                    <td className="px-2 py-2 text-center">
+                    <TableCell className="px-2 py-2 text-center">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -524,12 +532,12 @@ export function BankStatementImportPopup({
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 

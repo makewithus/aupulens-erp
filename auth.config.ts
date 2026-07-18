@@ -61,8 +61,8 @@ const getCookieDomain = () => {
 
 export const authConfig = {
   pages: {
-    signIn: "/auth/admin",
-    error: "/auth/admin",
+    signIn: "/auth",
+    error: "/auth",
   },
   callbacks: {
     async jwt({ token, user }) {

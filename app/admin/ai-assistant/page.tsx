@@ -27,8 +27,7 @@ import { cn } from "@/lib/utils";
 import { ShimmerSkeleton } from "@/components/ui/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -73,7 +72,6 @@ const SUGGESTED_QUERIES = [
 export default function AIAssistant() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -187,8 +185,7 @@ export default function AIAssistant() {
       });
 
       if (response.ok) {
-        toast({
-          title: "Chat deleted",
+        toast.success("Chat deleted", {
           description: "Chat history has been deleted successfully.",
         });
         await fetchChatHistory();
@@ -200,11 +197,7 @@ export default function AIAssistant() {
       }
     } catch (error) {
       console.error("Error deleting chat:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete chat.",
-        variant: "destructive",
-      });
+      toast.error("Failed to delete chat.");
     } finally {
       setDeletingChatId(null);
     }
@@ -219,8 +212,7 @@ export default function AIAssistant() {
       });
 
       if (response.ok) {
-        toast({
-          title: isArchived ? "Chat unarchived" : "Chat archived",
+        toast.success(isArchived ? "Chat unarchived" : "Chat archived", {
           description: `Chat has been ${
             isArchived ? "restored" : "archived"
           } successfully.`,
@@ -229,11 +221,7 @@ export default function AIAssistant() {
       }
     } catch (error) {
       console.error("Error archiving chat:", error);
-      toast({
-        title: "Error",
-        description: "Failed to archive chat.",
-        variant: "destructive",
-      });
+      toast.error("Failed to archive chat.");
     }
   };
 
@@ -242,8 +230,7 @@ export default function AIAssistant() {
     setCurrentChatId(null);
     setInput("");
     textareaRef.current?.focus();
-    toast({
-      title: "New chat started",
+    toast.success("New chat started", {
       description: "Start a fresh conversation.",
     });
     if (window.innerWidth < 768) {
@@ -338,8 +325,7 @@ export default function AIAssistant() {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
           await fetchChatHistory();
-          toast({
-            title: "Chat saved",
+          toast.success("Chat saved", {
             description: "New conversation started and saved.",
           });
         }
@@ -719,7 +705,6 @@ export default function AIAssistant() {
           </div>
         </div>
       </div>
-      <Toaster />
     </DashboardLayout>
   );
 }

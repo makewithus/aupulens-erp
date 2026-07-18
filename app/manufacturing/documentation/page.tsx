@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, FileText, Download, Upload, Eye } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Document {
   _id: string;
@@ -158,28 +159,28 @@ export default function DocumentationPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Document Name</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Type</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Size</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Shipment</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Uploaded</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Document Name</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Type</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Size</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Shipment</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Uploaded</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {documents.map((doc) => (
-                    <tr key={doc._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="p-3 text-gray-900 dark:text-white font-medium">{doc.name}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400">{doc.type}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400">{doc.size}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400">{doc.shipmentId || 'N/A'}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400">
+                    <TableRow key={doc._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{doc.name}</TableCell>
+                      <TableCell className="p-3 text-gray-600 dark:text-gray-400">{doc.type}</TableCell>
+                      <TableCell className="p-3 text-gray-600 dark:text-gray-400">{doc.size}</TableCell>
+                      <TableCell className="p-3 text-gray-600 dark:text-gray-400">{doc.shipmentId || 'N/A'}</TableCell>
+                      <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                         {new Date(doc.uploadedDate).toLocaleDateString()}
-                      </td>
-                      <td className="p-3">
+                      </TableCell>
+                      <TableCell className="p-3">
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
@@ -197,11 +198,11 @@ export default function DocumentationPage() {
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

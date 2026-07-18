@@ -20,6 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Search,
   Plus,
   Trash2,
@@ -35,6 +43,8 @@ import {
   IndianRupee,
   Users,
 } from "lucide-react";
+import { PayrollList } from "@/components/hr/payroll/PayrollList";
+import { PAYROLL_STATUS } from "@/lib/constants/statuses";
 
 interface PayrollRun {
   _id: string;
@@ -56,41 +66,41 @@ interface PayrollRun {
 }
 
 const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
-  draft: { color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: BookOpen, label: "Draft" },
-  attendance_locked: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Lock, label: "Attendance Locked" },
-  computed: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Calculator, label: "Computed" },
-  reviewed: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: ClipboardCheck, label: "Reviewed" },
-  approved: { color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: CheckCircle2, label: "Approved" },
-  disbursed: { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300", icon: Banknote, label: "Disbursed" },
-  posted_to_gl: { color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300", icon: BookOpen, label: "Posted to GL" },
+  [PAYROLL_STATUS.DRAFT]: { color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: BookOpen, label: "Draft" },
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Lock, label: "Attendance Locked" },
+  [PAYROLL_STATUS.COMPUTED]: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Calculator, label: "Computed" },
+  [PAYROLL_STATUS.REVIEWED]: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: ClipboardCheck, label: "Reviewed" },
+  [PAYROLL_STATUS.APPROVED]: { color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: CheckCircle2, label: "Approved" },
+  [PAYROLL_STATUS.DISBURSED]: { color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300", icon: Banknote, label: "Disbursed" },
+  [PAYROLL_STATUS.POSTED_TO_GL]: { color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300", icon: BookOpen, label: "Posted to GL" },
 };
 
 const workflowSteps = [
-  { key: "draft", label: "Draft", icon: BookOpen },
-  { key: "attendance_locked", label: "Lock Attendance", icon: Lock },
-  { key: "computed", label: "Compute", icon: Calculator },
-  { key: "reviewed", label: "Review", icon: ClipboardCheck },
-  { key: "approved", label: "Approve", icon: CheckCircle2 },
-  { key: "disbursed", label: "Disburse", icon: Banknote },
-  { key: "posted_to_gl", label: "Post to GL", icon: BookOpen },
+  { key: PAYROLL_STATUS.DRAFT, label: "Draft", icon: BookOpen },
+  { key: PAYROLL_STATUS.ATTENDANCE_LOCKED, label: "Lock Attendance", icon: Lock },
+  { key: PAYROLL_STATUS.COMPUTED, label: "Compute", icon: Calculator },
+  { key: PAYROLL_STATUS.REVIEWED, label: "Review", icon: ClipboardCheck },
+  { key: PAYROLL_STATUS.APPROVED, label: "Approve", icon: CheckCircle2 },
+  { key: PAYROLL_STATUS.DISBURSED, label: "Disburse", icon: Banknote },
+  { key: PAYROLL_STATUS.POSTED_TO_GL, label: "Post to GL", icon: BookOpen },
 ];
 
 const nextStatusMap: Record<string, string> = {
-  draft: "attendance_locked",
-  attendance_locked: "computed",
-  computed: "reviewed",
-  reviewed: "approved",
-  approved: "disbursed",
-  disbursed: "posted_to_gl",
+  [PAYROLL_STATUS.DRAFT]: PAYROLL_STATUS.ATTENDANCE_LOCKED,
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: PAYROLL_STATUS.COMPUTED,
+  [PAYROLL_STATUS.COMPUTED]: PAYROLL_STATUS.REVIEWED,
+  [PAYROLL_STATUS.REVIEWED]: PAYROLL_STATUS.APPROVED,
+  [PAYROLL_STATUS.APPROVED]: PAYROLL_STATUS.DISBURSED,
+  [PAYROLL_STATUS.DISBURSED]: PAYROLL_STATUS.POSTED_TO_GL,
 };
 
 const nextActionLabels: Record<string, string> = {
-  draft: "Lock Attendance",
-  attendance_locked: "Compute Payroll",
-  computed: "Mark Reviewed",
-  reviewed: "Approve & Post JE",
-  approved: "Disburse & Post JE",
-  disbursed: "Post to GL",
+  [PAYROLL_STATUS.DRAFT]: "Lock Attendance",
+  [PAYROLL_STATUS.ATTENDANCE_LOCKED]: "Compute Payroll",
+  [PAYROLL_STATUS.COMPUTED]: "Mark Reviewed",
+  [PAYROLL_STATUS.REVIEWED]: "Approve & Post JE",
+  [PAYROLL_STATUS.APPROVED]: "Disburse & Post JE",
+  [PAYROLL_STATUS.DISBURSED]: "Post to GL",
 };
 
 export default function PayrollPage() {
@@ -203,9 +213,9 @@ export default function PayrollPage() {
     }
 
     const confirmMsg =
-      selectedPayroll.status === "reviewed"
+      selectedPayroll.status === PAYROLL_STATUS.REVIEWED
         ? "This will approve the payroll and create a Salary Expense journal entry. Continue?"
-        : selectedPayroll.status === "approved"
+        : selectedPayroll.status === PAYROLL_STATUS.APPROVED
           ? "This will disburse and create a Bank Payment journal entry. Continue?"
           : `Advance to "${nextActionLabels[selectedPayroll.status]}"?`;
 
@@ -269,23 +279,60 @@ export default function PayrollPage() {
       profilePath="/hr/profile"
       onRefresh={load}
     >
-      <div className="space-y-8 max-w-8xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">Payroll Processing</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Full payroll lifecycle: Draft → Lock → Compute → Review → Approve → Disburse → Post to GL
-          </p>
+      <div className="space-y-6 max-w-8xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            Payroll Processing</h1>
+          <Button
+            onClick={handleOpenCreate}
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Payroll Run
+          </Button>
         </div>
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex gap-3 flex-1">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search payroll code..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+          <div className="flex flex-1 items-end gap-3">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+
+              <Input
+                placeholder="Search payroll code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="
+                  h-11
+                  w-full
+                  rounded-none
+                  border-0
+                  border-b
+                  border-border/40
+                  bg-transparent
+                  pl-11
+                  pr-4
+                  shadow-none
+                  transition-colors
+                  focus-visible:border-primary
+                  focus-visible:ring-0
+                "
+              />
             </div>
             <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger
+                className="
+                  h-11
+                  w-56
+                  rounded-none
+                  border-0
+                  border-b
+                  border-border/40
+                  bg-transparent
+                  shadow-none
+                  focus:ring-0
+                "
+              >
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -296,10 +343,6 @@ export default function PayrollPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Payroll Run
-          </Button>
         </div>
 
         {/* Payroll List */}
@@ -310,104 +353,33 @@ export default function PayrollPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <Card className="border-border/40">
-            <CardContent className="p-12 text-center">
-              <Banknote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-bold text-lg">No payroll runs</h3>
-              <p className="text-sm text-muted-foreground">Create a new payroll run to process salaries</p>
+          <Card className="overflow-hidden border-border/40 shadow-none">
+            <CardContent className="flex flex-col items-center justify-center px-8 py-24 text-center">
+              <h2 className="text-[34px] font-medium tracking-[-0.05em]">
+                No payroll has been processed
+              </h2>
+
+              <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+                Create a payroll batch to calculate salaries, review employee payouts,
+                and complete the monthly payroll workflow.
+              </p>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {filtered.map((payroll) => {
-              const sc = statusConfig[payroll.status] || statusConfig.draft;
-              const StIcon = sc.icon;
-              const currentStep = getStepIndex(payroll.status);
-              return (
-                <Card key={payroll._id} className="border-border/40 hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="font-black text-lg text-foreground font-mono">{payroll.payrollCode}</span>
-                          <Badge className={sc.color}>
-                            <StIcon className="h-3 w-3 mr-1" />
-                            {sc.label}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
-                          <span>
-                            Period: {payroll.payrollPeriod.month}/{payroll.payrollPeriod.year}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {payroll.lineItems?.length || 0} employees
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <IndianRupee className="h-3 w-3" />
-                            Gross: ₹{(payroll.totals?.totalGross || 0).toLocaleString()}
-                          </span>
-                          <span>Net: ₹{(payroll.totals?.totalNet || 0).toLocaleString()}</span>
-                        </div>
-
-                        {/* Mini Workflow Stepper */}
-                        <div className="flex items-center gap-1 mt-3">
-                          {workflowSteps.map((step, idx) => {
-                            const WIcon = step.icon;
-                            const isComplete = idx <= currentStep;
-                            const isCurrent = idx === currentStep;
-                            return (
-                              <div key={step.key} className="flex items-center">
-                                <div
-                                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    isCurrent
-                                      ? "bg-primary text-primary-foreground"
-                                      : isComplete
-                                        ? "bg-primary/20 text-primary"
-                                        : "bg-muted text-muted-foreground"
-                                  }`}
-                                >
-                                  <WIcon className="h-2.5 w-2.5" />
-                                  <span className="hidden sm:inline">{step.label}</span>
-                                </div>
-                                {idx < workflowSteps.length - 1 && (
-                                  <ArrowRight className={`h-3 w-3 mx-0.5 ${isComplete ? "text-primary" : "text-muted-foreground/30"}`} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => handleOpenDetail(payroll)}>
-                          <Eye className="h-3.5 w-3.5 mr-1" /> Details
-                        </Button>
-                        {nextStatusMap[payroll.status] && (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPayroll(payroll);
-                              handleOpenDetail(payroll);
-                            }}
-                            className="gap-1"
-                          >
-                            <Play className="h-3.5 w-3.5" />
-                            {nextActionLabels[payroll.status]}
-                          </Button>
-                        )}
-                        {payroll.status === "draft" && (
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(payroll._id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <PayrollList
+            payrolls={filtered}
+            workflowSteps={workflowSteps}
+            statusConfig={statusConfig}
+            nextStatusMap={nextStatusMap}
+            nextActionLabels={nextActionLabels}
+            getStepIndex={getStepIndex}
+            onView={handleOpenDetail}
+            onContinue={(payroll) => {
+              setSelectedPayroll(payroll);
+              handleOpenDetail(payroll);
+            }}
+            onDelete={handleDelete}
+          />
         )}
       </div>
 
@@ -524,40 +496,38 @@ export default function PayrollPage() {
             {selectedPayroll.lineItems && selectedPayroll.lineItems.length > 0 && (
               <div>
                 <h3 className="text-sm font-bold text-muted-foreground uppercase mb-3">Employee Breakdown</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/40 bg-muted/30">
-                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Employee</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Days Worked</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Basic</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Gross</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Deductions</th>
-                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Net</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedPayroll.lineItems.map((item: any, idx: number) => (
-                        <tr key={idx} className="border-b border-border/20">
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
-                            <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono">{item.daysWorked || 0}</td>
-                          <td className="px-3 py-2 text-right font-mono">₹{(item.basic || 0).toLocaleString()}</td>
-                          <td className="px-3 py-2 text-right font-mono">₹{(item.grossSalary || 0).toLocaleString()}</td>
-                          <td className="px-3 py-2 text-right font-mono text-destructive">
-                            ₹{(
-                              item.deductions?.totalDeductions ||
-                              ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
-                            ).toLocaleString()}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableHead>Employee</TableHead>
+                      <TableHead className="text-right">Days Worked</TableHead>
+                      <TableHead className="text-right">Basic</TableHead>
+                      <TableHead className="text-right">Gross</TableHead>
+                      <TableHead className="text-right">Deductions</TableHead>
+                      <TableHead className="text-right">Net</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedPayroll.lineItems.map((item: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{item.daysWorked || 0}</TableCell>
+                        <TableCell className="text-right font-mono">₹{(item.basic || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">
+                          ₹{(
+                            item.deductions?.totalDeductions ||
+                            ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
+                          ).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
 

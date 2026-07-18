@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTenantStore } from "@/store/useTenantStore";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 
 export default function ForgotPasswordPage() {
   const { tenantId } = useTenantStore();
@@ -38,71 +38,74 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-white dark:bg-gray-950">
-      <div className="max-w-md w-full space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Forgot your password?
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Enter your email and we&apos;ll send you a link to reset it.
-          </p>
-        </div>
+    <AuthLayout>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold text-foreground">Forgot your password?</h1>
+        <p className="text-sm text-muted-foreground">
+          Enter your email and we&apos;ll send you a link to reset it.
+        </p>
+      </div>
 
-        {sent ? (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 rounded-lg border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-4">
-              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-green-800 dark:text-green-400">
-                We have sent a password reset link to <strong>{email}</strong> if it matches an existing account. Please check your inbox and spam folder.
-              </p>
-            </div>
-            <Link
-              href="/auth/admin"
-              className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white hover:underline"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to sign in
-            </Link>
+      {sent ? (
+        <div className="space-y-6">
+          <div className="flex items-start gap-3 border border-border p-4">
+            <CheckCircle2 className="h-5 w-5 text-foreground shrink-0 mt-0.5" />
+            <p className="text-sm text-muted-foreground">
+              We have sent a password reset link to <strong className="text-foreground">{email}</strong> if it matches an existing account. Please check your inbox and spam folder.
+            </p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-900 dark:text-white">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-                className="h-12 px-4 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
-              />
-            </div>
+          <Link
+            href="/auth"
+            className="inline-flex items-center gap-2 text-sm font-mono text-muted-foreground/60 transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to sign in
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1">
+            <Label htmlFor="email" className="font-mono text-[11px] text-muted-foreground/60">
+              Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+              className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none"
+            />
+          </div>
 
-            <Button type="submit" className="w-full h-12" disabled={isLoading}>
+          <div className="flex items-center justify-between pt-6">
+            <Link
+              href="/auth"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Back to sign in
+            </Link>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80 disabled:opacity-50"
+            >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Sending...
                 </>
               ) : (
                 <>
-                  <Mail className="mr-2 h-4 w-4" /> Send reset link
+                  Send Link
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
               )}
-            </Button>
-
-            <Link
-              href="/auth/admin"
-              className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to sign in
-            </Link>
-          </form>
-        )}
-      </div>
-    </div>
+            </button>
+          </div>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

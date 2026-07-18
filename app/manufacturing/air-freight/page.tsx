@@ -17,6 +17,7 @@ import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2 } from '
 import { StatCard } from '@/components/manufacturing/StatCard';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AirFreight {
   _id: string;
@@ -361,47 +362,47 @@ export default function AirFreightPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Flight #</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Airline</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Route</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Departure</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Arrival</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Cargo</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</th>
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b dark:border-gray-700">
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Flight #</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Airline</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Route</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Departure</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Arrival</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Cargo</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {airFreights.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center p-8 text-gray-500 dark:text-gray-400">
                         No flights scheduled.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     airFreights.map((freight) => (
-                      <tr key={freight._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 text-gray-900 dark:text-white font-medium">{freight.flightNumber}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{freight.airline}</td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                      <TableRow key={freight._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{freight.flightNumber}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{freight.airline}</TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           {freight.origin} → {freight.destination}
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                        </TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           {new Date(freight.departureTime).toLocaleString()}
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">
+                        </TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
                           {new Date(freight.arrivalTime).toLocaleString()}
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-400">{freight.cargo} kg</td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{freight.cargo} kg</TableCell>
+                        <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(freight.status)}`}>
                             {freight.status}
                           </span>
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell className="p-3">
                           <div className="flex gap-2">
                             <Button
                               size="sm"
@@ -420,12 +421,12 @@ export default function AirFreightPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

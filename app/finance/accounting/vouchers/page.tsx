@@ -14,6 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Search,
   Plus,
   Eye,
@@ -436,7 +444,7 @@ export default function VouchersPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Transactions
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -516,52 +524,52 @@ export default function VouchersPage() {
               </div>
             ) : (
               <div className="bg-background rounded-xl border overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <th className="px-4 py-4 text-left">Date</th>
-                      <th className="px-4 py-4 text-left">Number</th>
+                <Table className="min-w-full divide-y divide-border">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                      <TableHead className="px-4 py-4 text-left">Date</TableHead>
+                      <TableHead className="px-4 py-4 text-left">Number</TableHead>
 
-                      <th className="px-4 py-4 text-left">Ref</th>
-                      <th className="px-4 py-4 text-right">Total</th>
-                      <th className="px-4 py-4 text-left">Flow</th>
-                      <th className="px-4 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                      <TableHead className="px-4 py-4 text-left">Ref</TableHead>
+                      <TableHead className="px-4 py-4 text-right">Total</TableHead>
+                      <TableHead className="px-4 py-4 text-left">Flow</TableHead>
+                      <TableHead className="px-4 py-4 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {filtered.map((item) => {
                       const typeColors =
                         VOUCHER_TYPE_COLORS[
                           item.voucherType as VoucherType
                         ] || { bg: "", text: "" };
                       return (
-                        <tr
+                        <TableRow
                           key={item._id}
                           className="hover:bg-muted/20 transition-colors text-sm group"
                         >
-                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          <TableCell className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                             {new Date(
                               item.header?.date,
                             ).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap font-bold text-primary">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 whitespace-nowrap font-bold text-primary">
                             {item.header?.name}
-                          </td>
+                          </TableCell>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          <TableCell className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                             {item.header?.ref || "-"}
-                          </td>
-                          <td className="px-4 py-3 text-right font-black">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right font-black">
                             ₹
                             {item.totals?.amountTotal?.toLocaleString() ??
                               0}
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
                             <VoucherFlowStepper
                               current={item.voucherStatus as VoucherStatus}
                             />
-                          </td>
-                          <td className="px-4 py-3 text-right">
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -580,12 +588,12 @@ export default function VouchersPage() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
