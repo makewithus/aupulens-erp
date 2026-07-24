@@ -33,8 +33,8 @@ export default function InventoryDashboardPage() {
       <div className="flex flex-col items-center justify-center">
         <Logo
           width={250}
-          height={250}
-          className="opacity-20 animate-pulse"
+          height={64}
+          className="opacity-20 animate-pulse w-auto h-16"
         />
         <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
       </div>

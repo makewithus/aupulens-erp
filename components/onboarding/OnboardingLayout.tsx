@@ -37,7 +37,7 @@ export function OnboardingLayout({ children }: OnboardingLayoutProps) {
         {/* Top Bar */}
         <div className="flex items-center justify-between">
           <Logo
-            width={120}
+            width={140}
             height={36}
             className="h-9 w-auto select-none"
           />
