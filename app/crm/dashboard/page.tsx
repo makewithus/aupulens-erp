@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/admin/StatCard";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
@@ -49,7 +50,140 @@ export default function DashboardPage() {
   const retentionRate = expansionData?.summary?.renewalSuccessRate || 0;
   const totalChurnRisk = (churnData?.high || 0) + (churnData?.critical || 0);
 
-  if (!loading && (!healthData?.accounts || healthData.accounts.length === 0) && (!expansionData?.quarterly || expansionData.quarterly.length === 0)) {
+  if (loading) {
+    return (
+      <div className="p-8 space-y-1 max-w-7xl mx-auto">
+        {/* Page Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
+          <div className="space-y-2">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary leading-none">
+              Executive Dashboard
+            </h1>
+          </div>
+          <div className="shrink-0">
+            <Button variant="outline" className="border-border/40 bg-background" disabled>
+              Manage Renewals
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          {/* Top Level KPIs (StatCards) */}
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="border border-border/40 bg-background shadow-none">
+                <CardContent className="p-8">
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="space-y-4 flex-1">
+                      <Skeleton className="h-3 w-[120px]" />
+                      <Skeleton className="h-14 w-[150px]" />
+                      <Skeleton className="h-4 w-[180px]" />
+                    </div>
+                    <div className="w-12 h-12 shrink-0">
+                      <Skeleton className="w-12 h-12 rounded-full" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Main Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-1">
+            {/* Left Column (35% -> lg:col-span-4) */}
+            <div className="space-y-1 lg:col-span-4">
+              {/* Account Health Card */}
+              <Card className="bg-background border border-border/40 shadow-none">
+                <CardHeader className="p-6 pb-2">
+                  <CardTitle className="text-lg font-bold mb-0">
+                    Account Health Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 pt-2">
+                  <div className="space-y-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-2 w-full" />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Critical Churn Risks Card */}
+              <Card className="bg-background border border-border/40 shadow-none">
+                <CardHeader className="p-6 pb-2">
+                  <CardTitle className="text-lg font-bold mb-0 text-red-500">
+                    Critical Churn Risks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 pt-2">
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column (65% -> lg:col-span-8) */}
+            <div className="space-y-1 lg:col-span-8">
+              {/* Revenue Forecast Card */}
+              <Card className="bg-background border border-border/40 shadow-none">
+                <CardHeader className="p-6 pb-2">
+                  <CardTitle className="text-lg font-bold mb-0">
+                    12-Month Revenue Forecast
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 pt-2">
+                  <Skeleton className="h-64 w-full" />
+                </CardContent>
+              </Card>
+
+              {/* Sub Grid for Upcoming Renewals & Action Required */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                {/* Upcoming Renewals Card */}
+                <Card className="bg-background border border-border/40 shadow-none">
+                  <CardHeader className="p-6 pb-2">
+                    <CardTitle className="text-lg font-bold mb-0">
+                      Upcoming Renewals
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-2">
+                    <div className="space-y-4 py-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Required Card */}
+                <Card className="bg-background border border-border/40 shadow-none">
+                  <CardHeader className="p-6 pb-2">
+                    <CardTitle className="text-lg font-bold mb-0">
+                      Action Required
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-2">
+                    <div className="space-y-4 py-2">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if ((!healthData?.accounts || healthData.accounts.length === 0) && (!expansionData?.quarterly || expansionData.quarterly.length === 0)) {
     return <CrmOnboarding />;
   }
 
@@ -86,23 +220,23 @@ export default function DashboardPage() {
         /> */}
         <StatCard 
           title="Expansion pipeline" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `$${totalExpansionValue.toLocaleString()}`}
-          subtitle={loading ? "..." : "Weighted revenue"}
-          visual={loading ? null : <ActivePulse />}
+          value={`$${totalExpansionValue.toLocaleString()}`}
+          subtitle="Weighted revenue"
+          visual={<ActivePulse />}
           className="border border-border/40 bg-background"
         />
         <StatCard 
           title="Accounts at risk" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : totalChurnRisk}
-          subtitle={loading ? "..." : `${churnData?.critical || 0} critical, ${churnData?.high || 0} high`}
-          visual={loading ? null : <InactiveOrbit />}
+          value={totalChurnRisk}
+          subtitle={`${churnData?.critical || 0} critical, ${churnData?.high || 0} high`}
+          visual={<InactiveOrbit />}
           className="border border-border/40 bg-background"
         />
         <StatCard 
           title="Renewal success rate" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `${retentionRate}%`}
-          subtitle={loading ? "..." : "Historical retention"}
-          visual={loading ? null : <ActivePulse />}
+          value={`${retentionRate}%`}
+          subtitle="Historical retention"
+          visual={<ActivePulse />}
           className="border border-border/40 bg-background"
         />
       </div>
@@ -121,17 +255,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-2">
-              {loading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="h-4 w-24 bg-muted/25 animate-pulse rounded-none" />
-                      <div className="h-2 w-full bg-muted/25 animate-pulse rounded-none" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-5">
+              <div className="space-y-5">
                   {healthData?.distribution?.map((bucket: any) => {
                     const label = bucket._id === 0 ? "Critical" : bucket._id === 25 ? "At Risk" : bucket._id === 50 ? "Warning" : "Healthy";
                     const color = bucket._id === 0 ? "bg-red-500" : bucket._id === 25 ? "bg-orange-500" : bucket._id === 50 ? "bg-yellow-500" : "bg-[#8ae06c]";
@@ -165,7 +289,6 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
-              )}
             </CardContent>
           </Card>
 
@@ -177,13 +300,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-2">
-              {loading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-16 w-full bg-muted/20 animate-pulse rounded-none" />
-                  ))}
-                </div>
-              ) : churnData?.criticalAccounts?.length > 0 ? (
+              {churnData?.criticalAccounts?.length > 0 ? (
                 <div className="space-y-3">
                   {churnData.criticalAccounts.slice(0, 5).map((acct: any) => (
                     <Link
@@ -233,10 +350,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-2">
-              {loading ? (
-                <div className="h-64 w-full bg-muted/20 animate-pulse rounded-none" />
-              ) : (
-                <div className="space-y-6">
+              <div className="space-y-6">
                   {/* Compact Revenue Summary (no uppercase / pills) */}
                   <div className="flex flex-wrap items-center justify-between gap-4 p-4 border border-border/45 bg-muted/5 rounded-none">
                     <div className="space-y-1">
@@ -282,7 +396,6 @@ export default function DashboardPage() {
                     </TableBody>
                   </TableContainer>
                 </div>
-              )}
             </CardContent>
           </Card>
 
@@ -297,13 +410,6 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-2">
-                {loading ? (
-                  <div className="space-y-4 py-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-10 w-full bg-muted/20 animate-pulse rounded-none" />
-                    ))}
-                  </div>
-                ) : (
                   <div className="relative pl-6 border-l border-border/40 py-2 space-y-6">
                     {/* 7 Days Timeline Item */}
                     <div className="relative">
@@ -341,7 +447,6 @@ export default function DashboardPage() {
                       <p className="text-[11px] text-muted-foreground/60 mt-0.5">pipeline contracts under review</p>
                     </div>
                   </div>
-                )}
               </CardContent>
             </Card>
 
@@ -353,13 +458,6 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-2">
-                {loading ? (
-                  <div className="space-y-4 py-2">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-16 w-full bg-muted/20 animate-pulse rounded-none" />
-                    ))}
-                  </div>
-                ) : (
                   <div className="space-y-4 py-1">
                     {/* Task: Expired active contracts */}
                     <div className="flex items-start gap-3.5 p-3 border border-border/20 bg-background hover:bg-white/[0.015] transition-all rounded-none">
@@ -407,7 +505,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
-                )}
               </CardContent>
             </Card>
 
