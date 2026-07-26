@@ -7,9 +7,9 @@ export async function validateOpportunityStage(opportunity: any, newStage: strin
 
   if (newIndex === -1) return { valid: false, message: "Invalid stage." };
 
-  // Cannot jump backwards unless to Closed Lost
-  if (newIndex < currentIndex && newStage !== 'Closed Lost') {
-    return { valid: false, message: "Cannot move backward in the pipeline unless marking as Closed Lost." };
+  // Cannot jump backwards unless to Closed Lost or Prospecting
+  if (newIndex < currentIndex && newStage !== 'Closed Lost' && newStage !== 'Prospecting') {
+    return { valid: false, message: "Cannot move backward in the pipeline unless marking as Closed Lost or Prospecting." };
   }
 
   // Allow jumping to Closed Lost anytime

@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { UploadCloud, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 const REQUIRED_COLUMNS: Record<string, string> = {
@@ -51,32 +54,42 @@ export default function ImportCenterPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold flex items-center gap-2">
-        <UploadCloud className="w-8 h-8 text-indigo-400" /> Data Import Center
-      </h1>
+    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-[56px] font-black tracking-tighter text-primary leading-none">
+            Data Import Center
+          </h1>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-neutral-400">Target Entity</label>
-            <select
+        </div>
+      </div>
+
+      <Card className="bg-background border border-border/40 shadow-none">
+        <CardContent className="p-6 pt-2 space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-foreground">Target Entity</Label>
+            <Select
               value={entity}
-              onChange={(e) => {
-                setEntity(e.target.value);
+              onValueChange={(value) => {
+                setEntity(value);
                 setResults(null);
               }}
-              className="w-full bg-neutral-950 border border-neutral-800 p-2 rounded mt-1 text-sm"
             >
-              <option value="Lead">Leads</option>
-              <option value="Contact">Contacts</option>
-              <option value="Account">Accounts</option>
-              <option value="Opportunity">Opportunities</option>
-            </select>
-            <p className="text-xs text-neutral-500 mt-1">Required columns: {REQUIRED_COLUMNS[entity]}</p>
+              <SelectTrigger className="w-full h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-none border-border/40">
+                <SelectItem value="Lead">Leads</SelectItem>
+                <SelectItem value="Contact">Contacts</SelectItem>
+                <SelectItem value="Account">Accounts</SelectItem>
+                <SelectItem value="Opportunity">Opportunities</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground/60 font-mono">Required columns: {REQUIRED_COLUMNS[entity]}</p>
           </div>
 
-          <div className="border-2 border-dashed border-neutral-700 rounded-lg p-10 text-center">
+          <div className="border border-dashed border-border/40 bg-white/[0.01] hover:bg-white/[0.02] transition-colors p-10 text-center rounded-none group">
             <input
               type="file"
               id="fileUpload"
@@ -84,37 +97,69 @@ export default function ImportCenterPage() {
               className="hidden"
               onChange={handleFileSelect}
             />
-            <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">
-              <UploadCloud className="w-10 h-10 text-neutral-500 mb-2" />
-              <span className="text-neutral-300 font-medium">{file ? file.name : "Click to select a CSV, TSV, or XLS(X) file"}</span>
+            <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center justify-center">
+              <UploadCloud className="w-12 h-12 text-muted-foreground/60 mb-3 transition-transform group-hover:-translate-y-0.5 duration-300" />
+              <span className="text-foreground text-sm font-semibold mb-1">
+                {file ? file.name : "Choose CSV, TSV, or Excel file"}
+              </span>
+              <span className="text-xs text-muted-foreground/60 font-mono">
+                {file ? `${(file.size / 1024).toFixed(1)} KB` : "Drag and drop or click to browse"}
+              </span>
             </label>
           </div>
 
-          <Button onClick={handleImport} disabled={!file || importing} className="w-full bg-primary text-white">
+          <Button 
+            onClick={handleImport} 
+            disabled={!file || importing} 
+            className="w-full h-10 font-mono text-[11px] uppercase tracking-[0.15em]"
+          >
             {importing ? "Processing Data..." : "Run Import & Validate"}
           </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {results && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
-          <h3 className="font-bold text-lg border-b border-neutral-800 pb-2">Import Results</h3>
-          <div className="flex gap-6">
-            <div className="flex flex-col"><span className="text-xs text-neutral-500">Inserted</span><span className="text-2xl font-bold text-green-400 flex items-center gap-1"><CheckCircle className="w-5 h-5"/> {results.insertedCount || 0}</span></div>
-            <div className="flex flex-col"><span className="text-xs text-neutral-500">Duplicates Removed</span><span className="text-2xl font-bold text-blue-400">{results.duplicatesRemoved || 0}</span></div>
-            <div className="flex flex-col"><span className="text-xs text-neutral-500">Validation Errors</span><span className="text-2xl font-bold text-red-400 flex items-center gap-1"><AlertCircle className="w-5 h-5"/> {results.errors?.length || 0}</span></div>
-          </div>
-          {results.errors?.length > 0 && (
-            <details>
-              <summary className="cursor-pointer text-sm text-red-400">View row errors</summary>
-              <ul className="text-xs text-neutral-400 list-disc list-inside mt-2 space-y-1 max-h-64 overflow-y-auto">
-                {results.errors.map((err: any, i: number) => (
-                  <li key={i}>Row {err.row}: {err.reasons?.join(", ")}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
+        <Card className="bg-background border border-border/40 shadow-none">
+          <CardHeader className="p-6 pb-2">
+            <CardTitle className="text-lg font-bold mb-0">Import Results</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 pt-2 space-y-6">
+            <div className="grid grid-cols-3 gap-4 p-4 border border-border/45 bg-muted/5 rounded-none text-center">
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Inserted</span>
+                <h3 className="text-2xl font-bold font-mono text-[#8AE06C] flex items-center justify-center gap-1.5">
+                  <CheckCircle className="w-5 h-5"/> {results.insertedCount || 0}
+                </h3>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Duplicates Removed</span>
+                <h3 className="text-2xl font-bold font-mono text-blue-500">
+                  {results.duplicatesRemoved || 0}
+                </h3>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Validation Errors</span>
+                <h3 className="text-2xl font-bold font-mono text-red-500 flex items-center justify-center gap-1.5">
+                  <AlertCircle className="w-5 h-5"/> {results.errors?.length || 0}
+                </h3>
+              </div>
+            </div>
+            {results.errors?.length > 0 && (
+              <details className="group border border-border/30 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-red-400 select-none">
+                  View row errors ({results.errors.length})
+                </summary>
+                <ul className="text-xs text-muted-foreground/80 list-disc list-inside mt-3 space-y-1.5 max-h-64 overflow-y-auto font-mono">
+                  {results.errors.map((err: any, i: number) => (
+                    <li key={i} className="hover:text-red-400 transition-colors">
+                      Row {err.row}: {err.reasons?.join(", ")}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
