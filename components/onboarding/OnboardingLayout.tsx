@@ -37,31 +37,33 @@ export function OnboardingLayout({ children, currentStep }: OnboardingLayoutProp
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between lg:flex-row lg:h-screen lg:overflow-hidden lg:justify-start">
       {/* Left Panel - Desktop only (50% width) */}
-      <div className="hidden lg:flex lg:w-[50%] flex-col justify-between p-16 bg-zinc-50 dark:bg-zinc-950 border-r border-border/40 relative overflow-hidden h-screen select-none">
-        {/* Logo at the top */}
-        <div className="z-10">
-          <Logo
-            width={135}
-            height={40}
-            className="h-10 w-auto select-none"
-          />
-        </div>
-
-        {/* Center Visuals - aligned left with logo and footer */}
-        <div className="flex flex-1 flex-col justify-center gap-10 max-w-lg w-full z-10">
-          <div className="space-y-4">
-            <h1 className="text-4xl xl:text-5xl font-black tracking-tighter leading-none text-foreground whitespace-pre-line">
-              Create your{"\n"}organization.
-            </h1>
+      <div className="hidden lg:flex lg:w-[50%] flex-col justify-between bg-zinc-50 dark:bg-zinc-950 border-r border-border relative overflow-hidden h-screen select-none">
+        <div className="mx-auto flex w-full max-w-md flex-col px-8 pt-12 pb-16 lg:flex-1 lg:justify-between lg:py-16 z-10">
+          {/* Logo at the top */}
+          <div>
+            <Logo
+              width={135}
+              height={40}
+              className="h-10 w-auto select-none"
+            />
           </div>
-          <div className="w-full flex justify-start py-2">
-            <NetworkDiagram />
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="z-10 text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">
-          © {new Date().getFullYear()} AUPULENS ERP
+          {/* Center Visuals */}
+          <div className="flex flex-1 flex-col justify-center gap-10 w-full">
+            <div className="space-y-4">
+              <h1 className="text-4xl xl:text-5xl font-black tracking-tighter leading-none text-foreground whitespace-pre-line">
+                Create your{"\n"}organization.
+              </h1>
+            </div>
+            <div className="w-full flex justify-start py-2">
+              <NetworkDiagram />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">
+            © {new Date().getFullYear()} AUPULENS ERP
+          </div>
         </div>
 
         {/* Subtle Decorative Glow Backgrounds */}
