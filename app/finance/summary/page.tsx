@@ -282,9 +282,9 @@ export default function FinanceSummaryPage() {
                     <Table>
                       <TableHeader className="border-border/40">
                         <TableRow>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Bill Ref</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Vendor</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Bill Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Vendor</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
                           <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -296,16 +296,16 @@ export default function FinanceSummaryPage() {
                               onClick={() => router.push("/finance/bills")}
                               className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-xs font-semibold text-foreground">
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
                                 {bill.name}
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10">
+                              <TableCell className="px-6 py-5">
                                 <div className="text-sm font-medium text-foreground/80">{bill.partner}</div>
                                 <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
                                   {new Date(bill.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-rose-500">
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-rose-500">
                                 {formatCurrency(bill.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
@@ -344,9 +344,9 @@ export default function FinanceSummaryPage() {
                     <Table>
                       <TableHeader className="border-border/40">
                         <TableRow>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Invoice Ref</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Customer</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Invoice Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Customer</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
                           <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -358,16 +358,16 @@ export default function FinanceSummaryPage() {
                               onClick={() => router.push("/finance/invoices")}
                               className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-xs font-semibold text-foreground">
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
                                 {inv.name}
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10">
+                              <TableCell className="px-6 py-5">
                                 <div className="text-sm font-medium text-foreground/80">{inv.partner}</div>
                                 <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
                                   {new Date(inv.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-blue-500">
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-blue-500">
                                 {formatCurrency(inv.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
@@ -406,9 +406,9 @@ export default function FinanceSummaryPage() {
                     <Table>
                       <TableHeader className="border-border/40">
                         <TableRow>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Expense Ref</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Employee</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Expense Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Employee</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
                           <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -420,10 +420,10 @@ export default function FinanceSummaryPage() {
                               onClick={() => router.push("/finance/expenses")}
                               className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-xs font-semibold text-foreground">
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
                                 {exp.name}
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10">
+                              <TableCell className="px-6 py-5">
                                 <div className="text-sm font-medium text-foreground/80 flex items-center gap-1">
                                   <Users className="h-3 w-3 text-muted-foreground/60" />
                                   {exp.employee}
@@ -432,7 +432,7 @@ export default function FinanceSummaryPage() {
                                   {new Date(exp.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-purple-500">
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-purple-500">
                                 {formatCurrency(exp.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
@@ -471,9 +471,9 @@ export default function FinanceSummaryPage() {
                     <Table>
                       <TableHeader className="border-border/40">
                         <TableRow>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Return Ref</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Partner</TableHead>
-                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50 border-r last:border-0 border-border/10">Date</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Return Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Partner</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Date</TableHead>
                           <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -485,13 +485,13 @@ export default function FinanceSummaryPage() {
                               onClick={() => router.push("/finance/returns")}
                               className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-xs font-semibold text-foreground">
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
                                 {ret.name}
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10">
+                              <TableCell className="px-6 py-5">
                                 <div className="text-sm font-medium text-foreground/80">{ret.partner}</div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 border-r last:border-0 border-border/10 font-mono text-xs text-foreground/75">
+                              <TableCell className="px-6 py-5 font-mono text-xs text-foreground/75">
                                 {new Date(ret.date).toLocaleDateString("en-IN")}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
