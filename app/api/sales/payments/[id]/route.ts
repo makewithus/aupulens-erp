@@ -11,6 +11,7 @@ import { postCustomerPaymentJournal, type CustomerPaymentSnapshot } from "@/lib/
 import { PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import "@/models/Customer";
 import { SalesInvoice } from "@/models/SalesInvoice";
+import JournalEntry from "@/models/JournalEntry";
 import "@/models/Account";
 
 const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
@@ -149,7 +150,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // reversal if going from paid back to draft, or a clean reclass entry
     // if only the allocation mix shifted (e.g. previously-unused/excess
     // amount now applied to a newly-added invoice).
+    //
+    // Journal posting and applying allocations to invoices must be
+    // all-or-nothing (see the same fix in the POST route above) — this used
+    // to save the payment (with the journal entry already posted) *before*
+    // applying allocations, so a failure there (e.g. a SalesInvoice
+    // validation error) left a committed "paid" payment with a posted
+    // journal entry while the invoice was never actually marked paid.
     const allocatedTotal = allocations.reduce((acc: number, a: any) => acc + (Number(a.amount) || 0), 0);
+    const journalEntryCountBefore = payment.journalEntryIds?.length || 0;
     try {
       await postCustomerPaymentJournal({
         payment,
@@ -160,21 +169,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           : ZERO_PAYMENT_SNAPSHOT,
         invoiceNumbers: targetInvoices.map((inv) => inv.number),
       });
+
+      if (payment.status === PAYMENT_STATUS.PAID && allocations.length) {
+        await applyAllocationsToInvoices({
+          tenantId,
+          paymentId: String(payment._id),
+          paymentNumber: payment.paymentNumber,
+          paymentDate: payment.paymentDate,
+          mode: payment.mode,
+          allocations,
+        });
+      }
+
+      await payment.save();
     } catch (postingError: any) {
+      const newJournalEntryIds = (payment.journalEntryIds || []).slice(journalEntryCountBefore);
+      if (newJournalEntryIds.length) {
+        await JournalEntry.deleteMany({ _id: { $in: newJournalEntryIds }, tenantId });
+      }
       return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
-    }
-
-    await payment.save();
-
-    if (payment.status === PAYMENT_STATUS.PAID && allocations.length) {
-      await applyAllocationsToInvoices({
-        tenantId,
-        paymentId: String(payment._id),
-        paymentNumber: payment.paymentNumber,
-        paymentDate: payment.paymentDate,
-        mode: payment.mode,
-        allocations,
-      });
     }
 
     return NextResponse.json({ success: true, data: payment });

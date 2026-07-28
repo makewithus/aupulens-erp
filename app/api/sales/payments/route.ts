@@ -11,6 +11,7 @@ import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
 import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import "@/models/Customer";
 import { SalesInvoice } from "@/models/SalesInvoice";
+import JournalEntry from "@/models/JournalEntry";
 import "@/models/Account";
 
 export async function GET(request: NextRequest) {
@@ -159,10 +160,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (status === PAYMENT_STATUS.PAID) {
-      // Post to the General Ledger BEFORE touching invoice allocations — if
-      // a required account (AR/Bank Charges/TDS Receivable/Customer
-      // Advances) is missing for this tenant, nothing else should happen
-      // and the payment must not sit in "paid" state with no GL impact.
+      // The whole sequence — GL posting, then applying allocations to each
+      // invoice — must be all-or-nothing. It previously wasn't: only the GL
+      // posting step was guarded, so a failure while saving an invoice (e.g.
+      // a Mongoose validation error on a stale/legacy document) left an
+      // already-committed "paid" Payment with a posted journal entry, but no
+      // invoice ever actually marked paid — the exact "payment posts but
+      // invoice still shows overdue" bug. On any failure here, roll back
+      // both the Payment doc and any journal entries it posted.
       const allocatedTotal = allocations.reduce((acc: number, a) => acc + (Number(a.amount) || 0), 0);
       try {
         await postCustomerPaymentJournal({
@@ -173,20 +178,23 @@ export async function POST(request: NextRequest) {
           invoiceNumbers: targetInvoices.map((inv) => inv.number),
         });
         await payment.save();
+
+        if (allocations.length) {
+          await applyAllocationsToInvoices({
+            tenantId,
+            paymentId: String(payment._id),
+            paymentNumber,
+            paymentDate: payment.paymentDate,
+            mode: payment.mode,
+            allocations,
+          });
+        }
       } catch (postingError: any) {
+        if (payment.journalEntryIds?.length) {
+          await JournalEntry.deleteMany({ _id: { $in: payment.journalEntryIds }, tenantId });
+        }
         await Payment.deleteOne({ _id: payment._id });
         return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
-      }
-
-      if (allocations.length) {
-        await applyAllocationsToInvoices({
-          tenantId,
-          paymentId: String(payment._id),
-          paymentNumber,
-          paymentDate: payment.paymentDate,
-          mode: payment.mode,
-          allocations,
-        });
       }
     }
 
