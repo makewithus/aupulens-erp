@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,10 +20,12 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, BarChart3, Layers, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-import { StatsRowSkeleton, TableSkeleton } from '@/components/ui/loading-skeletons';
-import { FinancePageHeader } from '@/components/finance/FinancePageHeader';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, BarChart3, Search, CheckCircle2 } from 'lucide-react';
 import { DraggableVisualization } from '@/components/finance/DraggableVisualization';
+import { StatCard } from '@/components/admin/StatCard';
+import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
+import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 
 interface Batch {
   _id: string;
@@ -48,6 +50,32 @@ interface Warehouse {
   status: string;
 }
 
+const statusColors: Record<string, string> = {
+  active: "text-blue-500",
+  expired: "text-red-500",
+  quarantine: "text-amber-500",
+  released: "text-emerald-500",
+};
+
+const statusLabels: Record<string, string> = {
+  active: "Active",
+  expired: "Expired",
+  quarantine: "Quarantine",
+  released: "Released",
+};
+
+const customsStatusColors: Record<string, string> = {
+  pending: "text-amber-500",
+  cleared: "text-blue-500",
+  bonded: "text-indigo-500",
+};
+
+const customsStatusLabels: Record<string, string> = {
+  pending: "Pending",
+  cleared: "Cleared",
+  bonded: "Bonded",
+};
+
 export default function BatchLotPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -58,6 +86,9 @@ export default function BatchLotPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
+  // Search query
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
   const [vizData, setVizData] = useState<Record<string, string | number>[]>([]);
@@ -97,7 +128,7 @@ export default function BatchLotPage() {
       if (!res.ok) throw new Error('Failed to fetch batches');
       
       const data = await res.json();
-      setBatches(data.batches);
+      setBatches(data.batches || []);
     } catch (err) {
       console.error('Error fetching batches:', err);
       setError('Failed to load batches');
@@ -172,34 +203,47 @@ export default function BatchLotPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const config = {
-      active: { className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Active' },
-      expired: { className: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Expired' },
-      quarantine: { className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Quarantine' },
-      released: { className: 'bg-blue-800/10 text-blue-800 dark:text-blue-400 border-blue-800/20', label: 'Released' },
-    };
-    
-    const style = config[status as keyof typeof config] || config.active;
-    
+    const label = statusLabels[status] || status;
     return (
-      <Badge className={`${style.className} border font-medium`} variant="outline">
-        {style.label}
+      <Badge
+        className={`
+          rounded-none
+          border-0
+          bg-transparent
+          px-0
+          font-mono
+          text-[12px]
+          uppercase
+          tracking-[0.12em]
+          hover:bg-transparent
+          shadow-none
+          ${statusColors[status] || "text-muted-foreground"}
+        `}
+      >
+        {label}
       </Badge>
     );
   };
 
   const getCustomsStatusBadge = (status: string) => {
-    const config = {
-      pending: { className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Pending' },
-      cleared: { className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Cleared' },
-      bonded: { className: 'bg-blue-800/10 text-blue-800 dark:text-blue-400 border-blue-800/20', label: 'Bonded' },
-    };
-    
-    const style = config[status as keyof typeof config] || config.cleared;
-    
+    const label = customsStatusLabels[status] || status;
     return (
-      <Badge className={`${style.className} border font-medium text-xs`} variant="outline">
-        {style.label}
+      <Badge
+        className={`
+          rounded-none
+          border-0
+          bg-transparent
+          px-0
+          font-mono
+          text-[12px]
+          uppercase
+          tracking-[0.12em]
+          hover:bg-transparent
+          shadow-none
+          ${customsStatusColors[status] || "text-muted-foreground"}
+        `}
+      >
+        {label}
       </Badge>
     );
   };
@@ -211,17 +255,30 @@ export default function BatchLotPage() {
     return diff;
   };
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // Filter batches list
+  const filteredBatches = useMemo(() => {
+    const baseFiltered = statusFilter === 'all' 
+      ? batches 
+      : batches.filter(batch => batch.status === statusFilter);
 
-  const filteredBatches = statusFilter === 'all' 
-    ? batches 
-    : batches.filter(batch => batch.status === statusFilter);
+    return baseFiltered.filter((b) => {
+      const matchesSearch =
+        b.batchNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.lotNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.itemCode.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  }, [batches, searchQuery, statusFilter]);
+
+  // Compute metrics for KPIs
+  const kpis = useMemo(() => {
+    const total = batches.length;
+    const active = batches.filter(b => b.status === 'active').length;
+    const quarantine = batches.filter(b => b.status === 'quarantine').length;
+    const expired = batches.filter(b => b.status === 'expired').length;
+    return { total, active, quarantine, expired };
+  }, [batches]);
 
   return (
     <DashboardLayout
@@ -241,347 +298,425 @@ export default function BatchLotPage() {
       onRefresh={fetchBatches}
     >
       <div className="space-y-6">
-        <FinancePageHeader
-          title="Batch & Lot Tracking"
-          description="Manage batch and lot numbers with bonded warehouse compliance"
-          actions={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const activeCount = batches.filter(b => b.status === 'active').length;
-                  const expiredCount = batches.filter(b => b.status === 'expired').length;
-                  const quarantineCount = batches.filter(b => b.status === 'quarantine').length;
-                  const releasedCount = batches.filter(b => b.status === 'released').length;
-                  
-                  setVizData([
-                    { category: 'Active', count: activeCount, quantity: batches.filter(b => b.status === 'active').reduce((sum, b) => sum + b.quantity, 0) },
-                    { category: 'Expired', count: expiredCount, quantity: batches.filter(b => b.status === 'expired').reduce((sum, b) => sum + b.quantity, 0) },
-                    { category: 'Quarantine', count: quarantineCount, quantity: batches.filter(b => b.status === 'quarantine').reduce((sum, b) => sum + b.quantity, 0) },
-                    { category: 'Released', count: releasedCount, quantity: batches.filter(b => b.status === 'released').reduce((sum, b) => sum + b.quantity, 0) },
-                  ]);
-                  setIsVizOpen(true);
-                }}
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Visualize
-              </Button>
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Batch
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Add New Batch</DialogTitle>
-                    <DialogDescription>Fill in the details to create a new batch or lot record</DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateBatch} className="space-y-4">
+        {/* Page Header Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Batch & Lot Tracking
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            
+
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Batch
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-medium tracking-tight">Add New Batch</DialogTitle>
+                  <DialogDescription>Fill in the details to create a new batch or lot record</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateBatch} className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="batchNumber">Batch Number *</Label>
+                      <Input
+                        id="batchNumber"
+                        value={newBatch.batchNumber}
+                        onChange={(e) => setNewBatch({ ...newBatch, batchNumber: e.target.value })}
+                        placeholder="BATCH001"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lotNumber">Lot Number *</Label>
+                      <Input
+                        id="lotNumber"
+                        value={newBatch.lotNumber}
+                        onChange={(e) => setNewBatch({ ...newBatch, lotNumber: e.target.value })}
+                        placeholder="LOT2024001"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="itemCode">Item Code *</Label>
+                      <Input
+                        id="itemCode"
+                        value={newBatch.itemCode}
+                        onChange={(e) => setNewBatch({ ...newBatch, itemCode: e.target.value })}
+                        placeholder="ITEM001"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="itemName">Item Name *</Label>
+                      <Input
+                        id="itemName"
+                        value={newBatch.itemName}
+                        onChange={(e) => setNewBatch({ ...newBatch, itemName: e.target.value })}
+                        placeholder="Product Name"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quantity">Quantity *</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        value={newBatch.quantity}
+                        onChange={(e) => setNewBatch({ ...newBatch, quantity: parseInt(e.target.value) || 0 })}
+                        placeholder="100"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="warehouse">Warehouse *</Label>
+                      <Select
+                        value={newBatch.warehouse}
+                        onValueChange={(value) => setNewBatch({ ...newBatch, warehouse: value })}
+                      >
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {warehouses.map((wh) => (
+                            <SelectItem key={wh._id} value={wh.name} className="rounded-none">
+                              {wh.name} ({wh.warehouseCode})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={newBatch.location}
+                        onChange={(e) => setNewBatch({ ...newBatch, location: e.target.value })}
+                        placeholder="Aisle A, Rack 1"
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Status</Label>
+                      <Select
+                        value={newBatch.status}
+                        onValueChange={(value) => setNewBatch({ ...newBatch, status: value })}
+                      >
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="active" className="rounded-none">Active</SelectItem>
+                          <SelectItem value="quarantine" className="rounded-none">Quarantine</SelectItem>
+                          <SelectItem value="released" className="rounded-none">Released</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manufactureDate">Manufacture Date *</Label>
+                      <Input
+                        id="manufactureDate"
+                        type="date"
+                        value={newBatch.manufactureDate}
+                        onChange={(e) => setNewBatch({ ...newBatch, manufactureDate: e.target.value })}
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="expiryDate">Expiry Date</Label>
+                      <Input
+                        id="expiryDate"
+                        type="date"
+                        value={newBatch.expiryDate}
+                        onChange={(e) => setNewBatch({ ...newBatch, expiryDate: e.target.value })}
+                        className="rounded-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h3 className="font-semibold text-sm">Bonded Warehouse Compliance</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="batchNumber">Batch Number *</Label>
-                        <Input
-                          id="batchNumber"
-                          value={newBatch.batchNumber}
-                          onChange={(e) => setNewBatch({ ...newBatch, batchNumber: e.target.value })}
-                          placeholder="BATCH001"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lotNumber">Lot Number *</Label>
-                        <Input
-                          id="lotNumber"
-                          value={newBatch.lotNumber}
-                          onChange={(e) => setNewBatch({ ...newBatch, lotNumber: e.target.value })}
-                          placeholder="LOT2024001"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="itemCode">Item Code *</Label>
-                        <Input
-                          id="itemCode"
-                          value={newBatch.itemCode}
-                          onChange={(e) => setNewBatch({ ...newBatch, itemCode: e.target.value })}
-                          placeholder="ITEM001"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="itemName">Item Name *</Label>
-                        <Input
-                          id="itemName"
-                          value={newBatch.itemName}
-                          onChange={(e) => setNewBatch({ ...newBatch, itemName: e.target.value })}
-                          placeholder="Product Name"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity *</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          value={newBatch.quantity}
-                          onChange={(e) => setNewBatch({ ...newBatch, quantity: parseInt(e.target.value) })}
-                          placeholder="100"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="warehouse">Warehouse *</Label>
+                        <Label htmlFor="bondedWarehouse">Bonded Warehouse</Label>
                         <Select
-                          value={newBatch.warehouse}
-                          onValueChange={(value) => setNewBatch({ ...newBatch, warehouse: value })}
+                          value={newBatch.bondedWarehouse ? 'yes' : 'no'}
+                          onValueChange={(value) => setNewBatch({ ...newBatch, bondedWarehouse: value === 'yes' })}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select warehouse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouses.map((wh) => (
-                              <SelectItem key={wh._id} value={wh.name}>
-                                {wh.name} ({wh.warehouseCode})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input
-                          id="location"
-                          value={newBatch.location}
-                          onChange={(e) => setNewBatch({ ...newBatch, location: e.target.value })}
-                          placeholder="Aisle A, Rack 1"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="status">Status</Label>
-                        <Select
-                          value={newBatch.status}
-                          onValueChange={(value) => setNewBatch({ ...newBatch, status: value })}
-                        >
-                          <SelectTrigger>
+                          <SelectTrigger className="rounded-none">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="quarantine">Quarantine</SelectItem>
-                            <SelectItem value="released">Released</SelectItem>
+                          <SelectContent className="rounded-none">
+                            <SelectItem value="no" className="rounded-none">No</SelectItem>
+                            <SelectItem value="yes" className="rounded-none">Yes</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="manufactureDate">Manufacture Date *</Label>
-                        <Input
-                          id="manufactureDate"
-                          type="date"
-                          value={newBatch.manufactureDate}
-                          onChange={(e) => setNewBatch({ ...newBatch, manufactureDate: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="expiryDate">Expiry Date</Label>
-                        <Input
-                          id="expiryDate"
-                          type="date"
-                          value={newBatch.expiryDate}
-                          onChange={(e) => setNewBatch({ ...newBatch, expiryDate: e.target.value })}
-                        />
+                        <Label htmlFor="customsStatus">Customs Status</Label>
+                        <Select
+                          value={newBatch.customsStatus}
+                          onValueChange={(value) => setNewBatch({ ...newBatch, customsStatus: value })}
+                        >
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            <SelectItem value="pending" className="rounded-none">Pending</SelectItem>
+                            <SelectItem value="cleared" className="rounded-none">Cleared</SelectItem>
+                            <SelectItem value="bonded" className="rounded-none">Bonded</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="space-y-4 border-t pt-4">
-                      <h3 className="font-semibold text-sm">Bonded Warehouse Compliance</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="bondedWarehouse">Bonded Warehouse</Label>
-                          <Select
-                            value={newBatch.bondedWarehouse ? 'yes' : 'no'}
-                            onValueChange={(value) => setNewBatch({ ...newBatch, bondedWarehouse: value === 'yes' })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="no">No</SelectItem>
-                              <SelectItem value="yes">Yes</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="customsStatus">Customs Status</Label>
-                          <Select
-                            value={newBatch.customsStatus}
-                            onValueChange={(value) => setNewBatch({ ...newBatch, customsStatus: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="cleared">Cleared</SelectItem>
-                              <SelectItem value="bonded">Bonded</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3">
-                      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" className="bg-blue-800 hover:bg-blue-700">
-                        Add Batch
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </>
-          }
-        />
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Batches</CardTitle>
-              <Layers className="h-4 w-4 text-blue-800" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{batches.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active</CardTitle>
-              <CheckCircle className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{batches.filter(b => b.status === 'active').length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Quarantine</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{batches.filter(b => b.status === 'quarantine').length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Expired</CardTitle>
-              <Clock className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{batches.filter(b => b.status === 'expired').length}</div>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="rounded-none">
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="rounded-none">
+                      Add Batch
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        {error && (
-          <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
-            {error}
+        {/* Stats Row */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Batches"
+              value={kpis.total}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="Active Batches"
+              value={kpis.active}
+              visual={<ActivePulse />}
+            />
+            <StatCard
+              title="Quarantined Batches"
+              value={kpis.quarantine}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="Expired Batches"
+              value={kpis.expired}
+              visual={<ActivePulse />}
+            />
           </div>
-        )}
 
-        {/* Batches Table */}
-        <Card className="border-border/40">
-          <CardHeader className="bg-muted/30">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-base font-semibold">
-                Batch Records
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({filteredBatches.length} total)
-                </span>
-              </CardTitle>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="quarantine">Quarantine</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="released">Released</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Unified Card matching HR Employee structure */}
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            {/* Card Header & Controls Toolbar */}
+            <div className="border-b border-border/20 px-8 py-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="shrink-0">
+                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                    Batch Records
+                  </h2>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {filteredBatches.length}{" "}
+                    {filteredBatches.length === 1 ? "Batch" : "Batches"}
+                  </p>
+                </div>
+
+                {/* Toolbar Controls */}
+                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                  {/* Search Input */}
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by batch, lot, or item..."
+                      className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none transition-all duration-300 placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:bg-white/[0.015] focus-visible:ring-0 w-full text-foreground"
+                    />
+                  </div>
+
+                  {/* Status Select Filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                      <SelectValue placeholder="Batch Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/30">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="quarantine">Quarantine</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="released">Released</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
+
+            {/* Table Content */}
+            <CardContent className="p-0">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="font-semibold">Batch #</TableHead>
-                    <TableHead className="font-semibold">Lot #</TableHead>
-                    <TableHead className="font-semibold">Item</TableHead>
-                    <TableHead className="font-semibold">Quantity</TableHead>
-                    <TableHead className="font-semibold">Manufacture Date</TableHead>
-                    <TableHead className="font-semibold">Expiry Date</TableHead>
-                    <TableHead className="font-semibold">Warehouse</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Customs</TableHead>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Batch #
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Lot #
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Item Info
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Quantity
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Manufacture & Expiry
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Warehouse Location
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Status
+                    </TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      Customs Status
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {filteredBatches.length === 0 ? (
+                <TableBody className="divide-y divide-border/30">
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-20 opacity-55" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono">
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-3 w-16 opacity-55" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-3 w-16 opacity-55" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-16" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right">
+                          <Skeleton className="h-4 w-16 ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredBatches.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
-                        No batch records found. Add your first batch to get started.
+                      <TableCell colSpan={8} className="py-24 text-center">
+                        <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                        <h3 className="text-lg font-medium text-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "No batches match your filters"
+                            : "No batch records found"}
+                        </h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "Try adjusting your search or status filter."
+                            : "Add your first batch record to get started."}
+                        </p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredBatches.map((batch) => (
-                      <TableRow key={batch._id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="font-semibold text-sm">{batch.batchNumber}</TableCell>
-                        <TableCell className="font-medium text-sm">{batch.lotNumber}</TableCell>
-                        <TableCell>
-                          <div className="font-medium">{batch.itemName}</div>
-                          <div className="text-xs text-muted-foreground">{batch.itemCode}</div>
+                      <TableRow key={batch._id} className="hover:bg-white/[0.015] transition-colors duration-300">
+                        {/* Batch # */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-foreground">
+                          {batch.batchNumber}
                         </TableCell>
-                        <TableCell className="font-semibold tabular-nums">{batch.quantity.toLocaleString()}</TableCell>
-                        <TableCell className="text-sm">{formatDate(batch.manufactureDate)}</TableCell>
-                        <TableCell>
+
+                        {/* Lot # */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-foreground">
+                          {batch.lotNumber}
+                        </TableCell>
+
+                        {/* Item Info */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="font-medium text-foreground">{batch.itemName}</div>
+                          <div className="text-xs text-muted-foreground/60 font-mono mt-0.5">{batch.itemCode}</div>
+                        </TableCell>
+
+                        {/* Quantity */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono font-medium text-foreground/80">
+                          {batch.quantity.toLocaleString()}
+                        </TableCell>
+
+                        {/* Manufacture & Expiry */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          <div className="font-medium">{formatDate(batch.manufactureDate)}</div>
                           {batch.expiryDate ? (
-                            <div>
-                              <div className="text-sm">{formatDate(batch.expiryDate)}</div>
+                            <div className="mt-0.5">
+                              <span className="text-xs text-muted-foreground/65">Expires: {formatDate(batch.expiryDate)}</span>
                               {getDaysUntilExpiry(batch.expiryDate) <= 30 && getDaysUntilExpiry(batch.expiryDate) > 0 && (
-                                <div className="text-xs text-amber-600 font-medium mt-0.5">
-                                  {getDaysUntilExpiry(batch.expiryDate)} days left
-                                </div>
+                                <span className="block text-[11px] text-amber-500 font-mono mt-0.5">
+                                  ({getDaysUntilExpiry(batch.expiryDate)} days left)
+                                </span>
                               )}
                               {getDaysUntilExpiry(batch.expiryDate) <= 0 && (
-                                <div className="text-xs text-destructive font-medium mt-0.5">
-                                  Expired
-                                </div>
+                                <span className="block text-[11px] text-red-500 font-mono mt-0.5">
+                                  (Expired)
+                                </span>
                               )}
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">N/A</span>
+                            <span className="text-xs text-muted-foreground/50 italic mt-0.5 block">No Expiry</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="font-medium text-sm">{batch.warehouse}</div>
+
+                        {/* Warehouse Location */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          <div className="font-medium">{batch.warehouse}</div>
                           {batch.location && (
-                            <div className="text-xs text-muted-foreground">{batch.location}</div>
+                            <div className="text-xs text-muted-foreground/50 mt-0.5">{batch.location}</div>
                           )}
                         </TableCell>
-                        <TableCell>{getStatusBadge(batch.status)}</TableCell>
-                        <TableCell>
+
+                        {/* Status Badge */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          {getStatusBadge(batch.status)}
+                        </TableCell>
+
+                        {/* Customs Badge */}
+                        <TableCell className="px-8 py-7 text-right">
                           {batch.bondedWarehouse ? (
                             getCustomsStatusBadge(batch.customsStatus || 'cleared')
                           ) : (
-                            <span className="text-xs text-muted-foreground">N/A</span>
+                            <span className="text-xs text-muted-foreground/50">N/A</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -589,9 +724,9 @@ export default function BatchLotPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Draggable Visualization */}
         <DraggableVisualization
