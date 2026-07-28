@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryOrder from '@/models/InventoryOrder';
+import { generateInventoryOrderNumber } from '@/lib/inventory/orderNumbering';
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,9 +49,9 @@ export async function POST(req: NextRequest) {
 
     const order = await InventoryOrder.create({
       ...body,
+      orderNumber: body.orderNumber?.trim() || (await generateInventoryOrderNumber(tenantId)),
       createdBy: session.user.id,
-    
-    tenantId,
+      tenantId,
     });
 
     return NextResponse.json({ order }, { status: 201 });

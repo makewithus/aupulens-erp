@@ -96,6 +96,7 @@ export default function OrdersPage() {
   const LIMIT = 25;
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [stockItems, setStockItems] = useState<InventoryItem[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -196,13 +197,40 @@ export default function OrdersPage() {
     }
   }, []);
 
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sales/customers");
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data.items || []);
+      }
+    } catch (err) {
+      console.error("Error fetching customers:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === "authenticated") {
       fetchOrders(page);
       fetchWarehouses();
       fetchStockItems();
+      fetchCustomers();
     }
-  }, [status, fetchOrders, fetchWarehouses, fetchStockItems, page]);
+  }, [status, fetchOrders, fetchWarehouses, fetchStockItems, fetchCustomers, page]);
+
+  // Auto-fill a real order number when the New Order dialog opens, instead
+  // of leaving it blank for the user to make one up (Issue #9). Still
+  // editable in the field below for anyone who genuinely needs to override it.
+  useEffect(() => {
+    if (!isAddDialogOpen || newOrder.orderNumber) return;
+    fetch("/api/inventory/orders/next-number")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.number) setNewOrder((prev) => ({ ...prev, orderNumber: d.number }));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAddDialogOpen]);
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -443,7 +471,7 @@ export default function OrdersPage() {
                               orderNumber: e.target.value,
                             })
                           }
-                          placeholder="ORD-001"
+                          placeholder="Auto-generated..."
                           required
                         />
                       </div>
@@ -451,16 +479,26 @@ export default function OrdersPage() {
                         <Label htmlFor="customerName">Customer Name *</Label>
                         <Input
                           id="customerName"
+                          list="inventory-order-customers"
                           value={newOrder.customerName}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const match = customers.find(
+                              (c: any) => (c.header?.displayName || c.header?.name) === e.target.value,
+                            );
                             setNewOrder({
                               ...newOrder,
                               customerName: e.target.value,
-                            })
-                          }
-                          placeholder="John Doe"
+                              customerEmail: match?.contact_details?.email || newOrder.customerEmail,
+                            });
+                          }}
+                          placeholder="Type to search existing customers or enter a new name"
                           required
                         />
+                        <datalist id="inventory-order-customers">
+                          {customers.map((c: any) => (
+                            <option key={c._id} value={c.header?.displayName || c.header?.name} />
+                          ))}
+                        </datalist>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="customerEmail">Customer Email</Label>
