@@ -25,7 +25,7 @@ export function DashboardCharts({
   const chartData = summary.chartData || [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-1 lg:grid-cols-3">
       {/* 1. Financial Health Card */}
       <ChartCard
         title="Financial Health"

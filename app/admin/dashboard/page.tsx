@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import {
@@ -148,18 +148,22 @@ export default function AdminDashboard() {
           {/* Stats Cards Skeleton (6 items) */}
           <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="border-0 shadow-none p-6">
-                <Skeleton className="h-4 w-[100px] mb-4" />
-                <Skeleton className="h-8 w-[160px] mb-2" />
-                <Skeleton className="h-3.5 w-[140px]" />
+              <Card key={i} className="border-0 shadow-none">
+                <CardContent className="p-8">
+                  <div className="space-y-4">
+                    <Skeleton className="h-3 w-[100px]" />
+                    <Skeleton className="h-14 w-[160px]" />
+                    <Skeleton className="h-4 w-[140px]" />
+                  </div>
+                </CardContent>
               </Card>
             ))}
           </div>
 
           {/* Charts Skeleton (3 items) */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-1 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="border border-neutral-800 bg-neutral-900/60 p-6 h-[380px] flex flex-col justify-between shadow-none">
+              <Card key={i} className="border-0 bg-transparent p-6 h-[380px] flex flex-col justify-between shadow-none">
                 <div>
                   <Skeleton className="h-4 w-[120px] mb-2" />
                   <Skeleton className="h-3 w-[150px] mb-6" />
