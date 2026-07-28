@@ -25,7 +25,12 @@ export interface IAccount extends Document {
   isActive?: boolean;
   status?: string;
   watchlist?: boolean;
-  
+  // True only for the boilerplate rows auto-created by seedChartOfAccounts()
+  // (e.g. the generic "Bank Current Account" placeholder) so bank/cash
+  // pickers (Payments "Deposit To", Journal Entries) can exclude them until
+  // the tenant explicitly adds a real bank account of their own.
+  isSystemSeeded?: boolean;
+
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -89,6 +94,7 @@ const AccountSchema: Schema<IAccount> = new Schema(
     isActive: { type: Boolean, default: true },
     status: { type: String, default: "active" },
     watchlist: { type: Boolean, default: false },
+    isSystemSeeded: { type: Boolean, default: false },
 
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },

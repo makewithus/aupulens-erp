@@ -89,6 +89,7 @@ export async function ensureChartOfAccounts(
           createdBy: new mongoose.Types.ObjectId(createdByUserId),
           parentCode: account.parentCode,
           parentId: parentDoc?._id || null,
+          isSystemSeeded: true,
         });
         created += 1;
       } catch (error: any) {

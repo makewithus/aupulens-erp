@@ -55,6 +55,16 @@ export async function GET(request: NextRequest) {
         { account_type: BANK_CASH_ACCOUNT_TYPE },
         { accountType: { $in: bankCashTypeIds.map((t) => t._id) } },
       ];
+      // Exclude boilerplate rows auto-created by the two Chart-of-Accounts
+      // seeders for every tenant — the legacy seeder's "Bank Current
+      // Account"/"Main Cash" (flagged isSystemSeeded) and the newer
+      // catalog's "Undeposited Funds"/"Petty Cash" (already flagged
+      // isLocked: true, same seeder-owned semantics reused here) — so they
+      // don't leak into "Deposit To" pickers for tenants that never added a
+      // real bank account. A tenant's own accounts (via the Banking page or
+      // the inline "add account" pickers) never carry either flag.
+      query.isSystemSeeded = { $ne: true };
+      query.isLocked = { $ne: true };
     }
 
     let accounts = await Account.find(query)

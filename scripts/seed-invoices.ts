@@ -19,6 +19,8 @@ import Organization from "../models/Organization";
 import Customer from "../models/Customer";
 import Product from "../models/Product";
 import BankAccount from "../models/BankAccount";
+import Account from "../models/Account";
+import AccountType from "../models/AccountType";
 import { DocumentSettings } from "../models/DocumentSettings";
 import DocumentPrefix from "../models/DocumentPrefix";
 import Counter from "../models/Counter";
@@ -82,6 +84,29 @@ async function ensureBankAccounts() {
     return BankAccount.find({ tenantId: TENANT_ID }).lean();
   }
 
+  // Each bank account also needs a linked Chart-of-Accounts GL entry —
+  // mirroring POST /api/finance/accounting/bank-accounts — otherwise it's
+  // invisible to the Sales Payments "Deposit To" picker (which posts against
+  // the GL account, not the BankAccount doc directly).
+  const glType = await AccountType.findOne({ tenantId: TENANT_ID, name: "Bank" });
+  async function linkedGlAccountId(accountName: string) {
+    if (!glType) return undefined;
+    let glAccount = await Account.findOne({ tenantId: TENANT_ID, accountName });
+    if (!glAccount) {
+      // Requires scripts/migrate-fix-account-legacy-code-index.ts to have
+      // run first (fixes a stale non-partial unique index on {tenantId,
+      // code} that otherwise collides on the first code-less Account).
+      glAccount = await Account.create({
+        tenantId: TENANT_ID,
+        accountName,
+        accountType: glType._id,
+        createdBy: SEED_USER_ID,
+        isActive: true,
+      });
+    }
+    return glAccount._id;
+  }
+
   const created = await BankAccount.insertMany([
     {
       tenantId: TENANT_ID,
@@ -94,6 +119,7 @@ async function ensureBankAccounts() {
       currency: "INR",
       isPrimary: true,
       connectionStatus: "manual",
+      glAccountId: await linkedGlAccountId("HDFC Bank - Current Account"),
       createdBy: SEED_USER_ID,
     },
     {
@@ -107,6 +133,7 @@ async function ensureBankAccounts() {
       currency: "INR",
       isPrimary: false,
       connectionStatus: "manual",
+      glAccountId: await linkedGlAccountId("ICICI Bank - Current Account"),
       createdBy: SEED_USER_ID,
     },
   ]);
