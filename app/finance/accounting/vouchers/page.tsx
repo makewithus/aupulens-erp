@@ -347,7 +347,7 @@ export default function VouchersPage() {
           : formData.voucherStatus,
       };
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -355,7 +355,31 @@ export default function VouchersPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to save");
+        const message: string = err.error || "Failed to save";
+
+        // Semantic (ledger-category pairing) errors have an explicit
+        // override path — see the same handling in journal-entries/page.tsx.
+        if (message.startsWith("Semantic Error:")) {
+          const confirmed = await confirmDialog({
+            title: "Non-standard account pairing",
+            description: `${message} This may be a legitimate contra/adjustment entry. Continue anyway? This will be recorded on the entry for audit purposes.`,
+          });
+          if (!confirmed) {
+            setIsSubmitting(false);
+            return;
+          }
+          res = await fetch(url, {
+            method: isUpdate ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, allowNonStandard: true }),
+          });
+          if (!res.ok) {
+            const retryErr = await res.json().catch(() => ({}));
+            throw new Error(retryErr.error || "Failed to save");
+          }
+        } else {
+          throw new Error(message);
+        }
       }
 
       toast.success("Voucher saved as draft");

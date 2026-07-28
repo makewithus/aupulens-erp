@@ -32,6 +32,15 @@ export interface IJournalEntry extends Document {
     reason?: string;
   };
   ledgerUpdatedAt?: Date;
+  // Audit trail for the semantic-validation override path (Issue #2) — set
+  // when a user explicitly pushed through a non-standard ledger-category
+  // pairing (e.g. Expense directly against Equity) that applySemanticRulesAndClassify()
+  // would otherwise block.
+  semanticOverride?: {
+    applied: boolean;
+    warning?: string;
+    reason?: string;
+  };
   // ─── Existing fields ───
   lineIds: any[];
   totals: any;
@@ -79,6 +88,11 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
       reason: { type: String },
     },
     ledgerUpdatedAt: { type: Date },
+    semanticOverride: {
+      applied: { type: Boolean, default: false },
+      warning: { type: String },
+      reason: { type: String },
+    },
     // ─── Existing fields ───
     lineIds: [JournalLineSchema],
     totals: MonetarySummarySchema,

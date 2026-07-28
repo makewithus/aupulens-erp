@@ -158,7 +158,7 @@ export default function JournalEntriesPage() {
         status: newStatus || formData.status || "draft",
       };
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -166,7 +166,33 @@ export default function JournalEntriesPage() {
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to save entry");
+        const message: string = errJson.error || "Failed to save entry";
+
+        // Semantic (ledger-category pairing) errors have an explicit
+        // override path — the accountant may genuinely need a non-standard
+        // entry (e.g. a contra/adjustment). Re-post with allowNonStandard so
+        // it's logged rather than silently blocked with no way through.
+        if (message.startsWith("Semantic Error:")) {
+          const confirmed = await confirmDialog({
+            title: "Non-standard account pairing",
+            description: `${message} This may be a legitimate contra/adjustment entry. Continue anyway? This will be recorded on the entry for audit purposes.`,
+          });
+          if (!confirmed) {
+            setIsSubmitting(false);
+            return;
+          }
+          res = await fetch(url, {
+            method: isUpdate ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, allowNonStandard: true }),
+          });
+          if (!res.ok) {
+            const retryErr = await res.json().catch(() => ({}));
+            throw new Error(retryErr.error || "Failed to save entry");
+          }
+        } else {
+          throw new Error(message);
+        }
       }
 
       toast.success(
