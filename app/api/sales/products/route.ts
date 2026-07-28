@@ -5,6 +5,8 @@ import connectDB from "@/lib/db";
 import Product from "@/models/Product";
 import InventoryItem from "@/models/InventoryItem";
 import { escapeRegex } from "@/lib/utils/regex";
+import { sanitizeProductPayload } from "@/lib/sales/productSanitize";
+import { STOCK_LEVEL_STATUS } from "@/lib/constants/statuses";
 
 export async function GET(req: any) {
   try {
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
 
     const tenantId = (session.user as any).tenantId || "default-tenant";
     await connectDB();
-    const body = await request.json();
+    const body = sanitizeProductPayload(await request.json());
 
     if (!body.header?.name) {
       return NextResponse.json(
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
           unitCost: body.tab_general_information?.standard_price || 0,
           totalValue: 0,
           warehouse: "Main Warehouse",
-          status: "out_of_stock",
+          status: STOCK_LEVEL_STATUS.OUT_OF_STOCK,
           createdBy: session.user.id,
         });
       } catch (err) {
@@ -156,6 +158,12 @@ export async function POST(request: Request) {
       );
       return NextResponse.json(
         { error: "Invalid product data", fields: fieldErrors },
+        { status: 400 },
+      );
+    }
+    if (error?.name === "CastError") {
+      return NextResponse.json(
+        { error: `Invalid value for "${error.path}". Please check that field and try again.` },
         { status: 400 },
       );
     }

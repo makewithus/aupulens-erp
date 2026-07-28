@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
+import { sanitizeProductPayload } from "@/lib/sales/productSanitize";
 
 export async function GET(
   request: Request,
@@ -48,7 +49,7 @@ export async function PATCH(
 
     const { id } = await params;
     await connectDB();
-    const body = await request.json();
+    const body = sanitizeProductPayload(await request.json());
     const tenantId = session.user.tenantId || "default-tenant";
 
     const product = await Product.findOneAndUpdate(
@@ -70,6 +71,12 @@ export async function PATCH(
       );
       return NextResponse.json(
         { error: "Invalid product data", fields: fieldErrors },
+        { status: 400 },
+      );
+    }
+    if (error?.name === "CastError") {
+      return NextResponse.json(
+        { error: `Invalid value for "${error.path}". Please check that field and try again.` },
         { status: 400 },
       );
     }
