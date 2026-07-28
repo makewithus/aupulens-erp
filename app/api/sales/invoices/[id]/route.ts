@@ -8,6 +8,15 @@ import "@/models/BankAccount"; // side-effect import: registers "BankAccount" fo
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import { postSalesInvoiceJournal, type SalesInvoiceSnapshot } from "@/lib/accounting/salesInvoicePosting";
+
+const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
+const REVENUE_RECOGNIZED_STATUSES = new Set([
+  SALES_INVOICE_STATUS.SAVED,
+  SALES_INVOICE_STATUS.PARTIALLY_PAID,
+  SALES_INVOICE_STATUS.PAID,
+  SALES_INVOICE_STATUS.OVERDUE,
+]);
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -103,7 +112,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       status,
     };
 
-    const invoice = await (SalesInvoice as any).findOneAndUpdate({ _id: id, tenantId }, { $set: update }, { new: true });
+    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId });
+    if (!invoice) {
+      return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
+    }
+    Object.assign(invoice, update);
+
+    // Reconcile the GL to this invoice's new state — a no-op if nothing
+    // revenue-relevant changed, a reclass if amounts changed, or a full
+    // reversal if the invoice moved back to draft/cancelled. See the POST
+    // route and lib/accounting/salesInvoicePosting.ts for why this exists.
+    const nextSnapshot: SalesInvoiceSnapshot = REVENUE_RECOGNIZED_STATUSES.has(status as any)
+      ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount }
+      : ZERO_SNAPSHOT;
+    try {
+      await postSalesInvoiceJournal({ invoice, tenantId, createdBy: session.user.id, current: nextSnapshot });
+      await invoice.save();
+    } catch (postingError: any) {
+      return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+    }
 
     return NextResponse.json({ success: true, data: invoice });
   } catch (error: any) {

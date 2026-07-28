@@ -65,7 +65,20 @@ export interface ISalesInvoice extends Document {
   
   status: SalesInvoiceStatus;
   createdBy?: mongoose.Types.ObjectId;
-  
+
+  // GL integration (Issue #9) — mirrors Payment.journalEntryIds/postedSnapshot.
+  // Revenue/Receivable/GST/TCS/TDS are posted once the invoice leaves draft,
+  // diffed against postedSnapshot on every subsequent save so edits reclass
+  // rather than double-post, and reversed (mirror entry) if it goes back to
+  // draft or is cancelled.
+  journalEntryIds?: mongoose.Types.ObjectId[];
+  postedSnapshot?: {
+    taxableAmount: number;
+    totalTax: number;
+    tcsAmount: number;
+    tdsAmount: number;
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,6 +164,20 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
     
     status: { type: String, enum: SALES_INVOICE_STATUS_VALUES, default: SALES_INVOICE_STATUS.DRAFT },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+
+    journalEntryIds: [{ type: Schema.Types.ObjectId, ref: "JournalEntry" }],
+    postedSnapshot: {
+      type: new Schema(
+        {
+          taxableAmount: { type: Number, required: true },
+          totalTax: { type: Number, required: true },
+          tcsAmount: { type: Number, required: true },
+          tdsAmount: { type: Number, required: true },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
   },
   { timestamps: true }
 );

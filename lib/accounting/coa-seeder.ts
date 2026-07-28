@@ -16,6 +16,8 @@ const DEFAULT_ACCOUNTS = [
   { code: "2000", name: "Liabilities", account_type: "liability_current", internal_group: "liability", parentCode: null },
   { code: "2100", name: "Accounts Payable", account_type: "liability_payable", internal_group: "liability", parentCode: "2000", reconcile: true },
   { code: "2150", name: "Customer Advances", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2160", name: "GST Output Tax Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2170", name: "TCS Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
   { code: "2200", name: "Goods Received Not Invoiced (GRNI)", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
 
   // Equity

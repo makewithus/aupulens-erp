@@ -7,7 +7,15 @@ import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import Organization from "@/models/Organization";
+import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
 import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
+
+const REVENUE_RECOGNIZED_STATUSES = new Set([
+  SALES_INVOICE_STATUS.SAVED,
+  SALES_INVOICE_STATUS.PARTIALLY_PAID,
+  SALES_INVOICE_STATUS.PAID,
+  SALES_INVOICE_STATUS.OVERDUE,
+]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -139,6 +147,28 @@ export async function POST(request: NextRequest) {
     });
 
     await newInvoice.save();
+
+    // Post revenue/receivable/tax to the General Ledger as soon as the
+    // invoice is a real, issued document (not draft) — previously nothing
+    // in the Sales module ever posted a journal entry for a sale at all, so
+    // Profit & Loss and the Balance Sheet never reflected sales revenue
+    // regardless of payment status. Roll back the invoice itself if posting
+    // fails (missing Chart of Accounts entry etc.) rather than leaving a
+    // "real" invoice with no GL impact.
+    if (REVENUE_RECOGNIZED_STATUSES.has(newInvoice.status as any)) {
+      try {
+        await postSalesInvoiceJournal({
+          invoice: newInvoice,
+          tenantId,
+          createdBy: session.user.id,
+          current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount },
+        });
+        await newInvoice.save();
+      } catch (postingError: any) {
+        await (SalesInvoice as any).deleteOne({ _id: newInvoice._id });
+        return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+      }
+    }
 
     return NextResponse.json({ success: true, data: newInvoice }, { status: 201 });
   } catch (error: any) {

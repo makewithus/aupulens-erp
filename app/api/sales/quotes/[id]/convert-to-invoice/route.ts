@@ -4,7 +4,9 @@ import connectDB from "@/lib/db";
 import SalesQuotation from "@/models/SalesQuotation";
 import { SalesInvoice } from "@/models/SalesInvoice";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
-import { QUOTE_STATUS } from "@/lib/constants/statuses";
+import { QUOTE_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
+import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,6 +27,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { number } = await generateInvoiceNumber(tenantId);
 
+    const tdsRate = quote.taxes?.mode === "tds" ? quote.taxes.rate : 0;
+    const tcsRate = quote.taxes?.mode === "tcs" ? quote.taxes.rate : 0;
+    // Recomputed rather than copying the quote's own totals verbatim —
+    // the quote model has no gstBreakup/totalTax/tcsAmount/tdsAmount fields
+    // of its own (only the mode/rate), so this is the only way to get the
+    // precise monetary breakdown needed to post the invoice to the GL.
+    // Matches the discount type/value exactly (Issue #7), just recomputed.
+    const totals = computeInvoiceTotals({
+      lineItems: quote.lineItems as any,
+      itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
+      extraDiscount: quote.extraDiscount,
+      extraDiscountMode: quote.extraDiscountMode,
+      tdsRate,
+      tcsRate,
+    });
+
     const invoice = new SalesInvoice({
       tenantId,
       number,
@@ -34,18 +52,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
       extraDiscount: quote.extraDiscount,
       extraDiscountMode: quote.extraDiscountMode,
-      taxableAmount: quote.taxableAmount,
-      totalDiscount: quote.totalDiscount,
-      totalAmount: quote.totalAmount,
+      taxableAmount: totals.taxableAmount,
+      totalDiscount: totals.totalDiscount,
+      totalAmount: totals.totalAmount,
       taxes: {
-        tds: quote.taxes?.mode === "tds" ? quote.taxes.rate : 0,
-        tcs: quote.taxes?.mode === "tcs" ? quote.taxes.rate : 0,
-        gstBreakup: [],
+        tds: tdsRate,
+        tcs: tcsRate,
+        gstBreakup: totals.gstBreakup,
       },
+      status: SALES_INVOICE_STATUS.SAVED,
       notes: quote.customerNotes,
       terms: quote.terms,
       createdBy: session.user.id,
     });
+
+    try {
+      await postSalesInvoiceJournal({
+        invoice,
+        tenantId,
+        createdBy: session.user.id,
+        current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount },
+      });
+    } catch (postingError: any) {
+      return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
+    }
     await invoice.save();
 
     quote.status = QUOTE_STATUS.INVOICED;
