@@ -387,7 +387,7 @@ export default function OrdersPage() {
           description="Track and manage order fulfillment processes"
           actions={
             <>
-              <Button
+              {/* <Button
                 variant="outline"
                 onClick={() => {
                   const statusCounts = {
@@ -415,7 +415,7 @@ export default function OrdersPage() {
               >
                 <BarChart3 className="mr-2 h-4 w-4" />
                 Visualize
-              </Button>
+              </Button> */}
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button>
