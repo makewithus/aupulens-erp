@@ -15,22 +15,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
+  Table,
+  TableHeader,
   TableBody,
+  TableHead,
   TableRow,
   TableCell,
-} from '@/components/shared/Table';
+} from '@/components/ui/table';
 import { toast } from 'sonner';
 import {
-  ClipboardList,
   Download,
   BarChart,
   RefreshCw,
   CheckCircle2,
   Printer,
-  FileText
 } from 'lucide-react';
 import * as xlsx from 'xlsx';
 
@@ -39,29 +37,21 @@ const reportTypes = [
     value: 'stock',
     label: 'Stock Report',
     description: 'Complete stock summary with current quantities, unit costs, and valuations.',
-    icon: ClipboardList,
-    color: 'text-blue-800',
   },
   {
     value: 'movement',
     label: 'Movement Report',
     description: 'Track stock movements, inbound and outbound transactions over time.',
-    icon: ClipboardList,
-    color: 'text-blue-600',
   },
   {
     value: 'aging',
     label: 'Aging Report',
     description: 'Analyze stock batch age in days and identify slow-moving items.',
-    icon: ClipboardList,
-    color: 'text-purple-600',
   },
   {
     value: 'compliance',
     label: 'Compliance Report',
     description: 'Bonded warehouse compliance, customs status, and batch expiry tracking.',
-    icon: ClipboardList,
-    color: 'text-teal-600',
   },
 ];
 
@@ -296,37 +286,37 @@ export default function ReportsPage() {
               color: black;
             }
             .header-container {
-              border-bottom: 2px solid #000;
+              border-bottom: 1px solid #ddd;
               padding-bottom: 15px;
               margin-bottom: 25px;
               display: flex;
               justify-content: space-between;
-              align-items: flex-start;
+              align-items: flex-end;
             }
             .header-title {
-              font-size: 24px;
-              font-weight: 900;
+              font-size: 20px;
+              font-weight: 700;
               margin: 0;
               text-transform: uppercase;
-              letter-spacing: -0.05em;
+              letter-spacing: -0.02em;
             }
             .header-subtitle {
-              font-size: 12px;
-              font-weight: 700;
+              font-size: 11px;
               color: #666;
               margin-top: 4px;
               text-transform: uppercase;
+              font-family: monospace;
             }
             .header-meta {
               text-align: right;
             }
             .header-meta-title {
-              font-size: 16px;
-              font-weight: 900;
+              font-size: 14px;
+              font-weight: 700;
               margin: 0;
             }
             .header-meta-date {
-              font-size: 12px;
+              font-size: 11px;
               color: #666;
               margin-top: 4px;
             }
@@ -335,29 +325,29 @@ export default function ReportsPage() {
               width: 100%;
             }
             th, td {
-              border: 1px solid #000;
-              padding: 10px 12px;
+              border-bottom: 1px solid #eee;
+              padding: 12px 16px;
               text-align: left;
               font-size: 12px;
             }
             th {
-              background-color: #f3f4f6;
-              font-weight: 800;
+              color: #555;
+              font-weight: 600;
               text-transform: uppercase;
-              letter-spacing: 0.05em;
-            }
-            tr:nth-child(even) {
-              background-color: #fafafa;
+              font-family: monospace;
+              font-size: 10px;
+              letter-spacing: 0.1em;
             }
             .footer {
-              margin-top: 30px;
-              border-top: 1px solid #ddd;
-              padding-top: 10px;
+              margin-top: 40px;
+              border-top: 1px solid #eee;
+              padding-top: 15px;
               text-align: center;
-              font-size: 10px;
-              color: #999;
+              font-size: 9px;
+              color: #bbb;
               text-transform: uppercase;
-              font-weight: 700;
+              font-family: monospace;
+              letter-spacing: 0.1em;
             }
             @media print {
               body {
@@ -426,8 +416,6 @@ export default function ReportsPage() {
     }, 250);
   };
 
-  const selectedReport = reportTypes.find((r) => r.value === reportType);
-
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -453,40 +441,69 @@ export default function ReportsPage() {
       profilePath="/inventory/profile"
     >
       <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
-            Inventory Reports
-          </h1>
+        {/* Header toolbar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Inventory Reports
+            </h1>
+          </div>
+          {generatedReport && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleExport('csv')}
+                className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
+              >
+                <Download className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport('xlsx')}
+                className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
+              >
+                <Download className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                Export XLSX
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
+              >
+                <Printer className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                Print / PDF
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Configuration Panel */}
-          <Card className="none-4xl border-2 shadow-xl bg-card">
-            <div className="p-6 border-b-2 bg-muted/30">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary" />
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-tight text-card-foreground">
-                    Report Configuration
-                  </h3>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
-                    Select parameters to generate
-                  </p>
-                </div>
+        {/* Unified Card matching HR Employee structure */}
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          {/* Card Header & Controls Toolbar */}
+          <div className="border-b border-border/20 px-8 py-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="shrink-0">
+                <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                  {generatedReport ? generatedReport.title : 'Report Builder'}
+                </h2>
+                {/* <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {generatedReport
+                    ? `${generatedReport.rows.length} ${
+                        generatedReport.rows.length === 1 ? 'record' : 'records'
+                      } generated`
+                    : 'Configure parameters to generate report'}
+                </p> */}
               </div>
-            </div>
-            <CardContent className="p-6 space-y-6">
-              {/* Report Type */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Report Type
-                </label>
+
+              {/* Toolbar Controls */}
+              <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                {/* Report Type Select */}
                 <Select value={reportType} onValueChange={setReportType}>
-                  <SelectTrigger className="none-xl h-12 border-2 font-bold rounded-none bg-background text-foreground">
-                    <SelectValue />
+                  <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                    <SelectValue placeholder="Report Type" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-none">
+                  <SelectContent className="rounded-none border-border/30">
                     {reportTypes.map((type) => (
                       <SelectItem key={type.value} value={type.value} className="rounded-none">
                         {type.label}
@@ -494,22 +511,17 @@ export default function ReportsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              {/* Date Range */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Date Range
-                </label>
+                {/* Date Range Select */}
                 <Select
                   value={dateRange}
                   onValueChange={setDateRange}
                   disabled={reportType !== 'movement'}
                 >
-                  <SelectTrigger className="none-xl h-12 border-2 font-bold rounded-none bg-background text-foreground disabled:opacity-50">
-                    <SelectValue />
+                  <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground disabled:opacity-40">
+                    <SelectValue placeholder="Date Range" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-none">
+                  <SelectContent className="rounded-none border-border/30">
                     {dateRanges.map((range) => (
                       <SelectItem key={range.value} value={range.value} className="rounded-none">
                         {range.label}
@@ -517,195 +529,104 @@ export default function ReportsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {reportType !== 'movement' && (
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-55">
-                    Current snapshot only — date range disabled
-                  </p>
-                )}
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="h-11 rounded-none border border-border/20 bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-mono uppercase tracking-wider px-6 cursor-pointer"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Generate
+                    </>
+                  )}
+                </Button>
               </div>
+            </div>
+          </div>
 
-              {/* Generate Button */}
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="w-full none-xl h-12 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 rounded-none cursor-pointer"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Generate Report
-                  </>
-                )}
-              </Button>
-
-              {/* Report Info */}
-              {selectedReport && (
-                <div className="p-4 none-xl bg-muted/30 border-2 border-border">
-                  <div className="flex items-center gap-3 mb-2">
-                    <selectedReport.icon className={`h-5 w-5 ${selectedReport.color}`} />
-                    <p className="text-sm font-black uppercase text-card-foreground">
-                      {selectedReport.label}
-                    </p>
-                  </div>
-                  <p className="text-[10px] font-bold text-muted-foreground">
-                    {selectedReport.description}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Preview Area */}
-          <div className="lg:col-span-2">
+          {/* Table Container */}
+          <CardContent className="p-0">
             {generatedReport ? (
-              <div className="space-y-4">
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-2 justify-between items-center print:hidden">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleExport('csv')}
-                      className="none-xl h-10 font-black uppercase text-xs rounded-none border-2 border-primary/20 hover:border-primary/50 text-foreground cursor-pointer"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleExport('xlsx')}
-                      className="none-xl h-10 font-black uppercase text-xs rounded-none border-2 border-primary/20 hover:border-primary/50 text-foreground cursor-pointer"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export XLSX
-                    </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handlePrint}
-                      className="none-xl h-10 font-black uppercase text-xs rounded-none border-2 border-primary/20 hover:border-primary/50 text-foreground cursor-pointer"
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print / PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setGeneratedReport(null)}
-                      className="none-xl h-10 font-black uppercase text-xs text-destructive hover:bg-destructive/10 rounded-none border-2 border-destructive/20 hover:border-destructive/50 cursor-pointer"
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Printable and Viewable Report Card */}
-                <div id="report-content-view">
-                  <Card className="none-4xl border-2 shadow-xl bg-card text-card-foreground print:shadow-none print:border-0 rounded-none">
-                    <div className="p-6 border-b-2 border-border print:pb-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase">
-                            Aupulens ERP
-                          </h1>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                            Inventory Intelligence Report
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <h2 className="text-lg font-black text-foreground uppercase">
-                            {generatedReport.title}
-                          </h2>
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">
-                            {new Date().toLocaleDateString('en-IN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-0 overflow-x-auto">
-                      <TableContainer className="border-0">
-                        <TableHead className="bg-muted/40 border-b-2 border-border text-foreground">
-                          <TableRow>
-                            {generatedReport.headers.map((h, idx) => (
-                              <TableHeaderCell
-                                key={idx}
-                                className="font-black text-foreground py-4 px-6 border-r last:border-0 border-border text-left"
-                              >
-                                {h}
-                              </TableHeaderCell>
-                            ))}
-                          </TableRow>
+              <div id="report-content-view">
+                <Table>
+                  <TableHeader className="border-border/40">
+                    <TableRow>
+                      {generatedReport.headers.map((h, idx) => (
+                        <TableHead
+                          key={idx}
+                          className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10"
+                        >
+                          {h}
                         </TableHead>
-                        <TableBody className="divide-y divide-border/40">
-                          {generatedReport.rows.length === 0 ? (
-                            <TableRow>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/30">
+                    {generatedReport.rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={generatedReport.headers.length}
+                          className="py-24 text-center text-sm text-muted-foreground/70 font-medium"
+                        >
+                          No records match your parameters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      generatedReport.rows.map((row, rowIdx) => (
+                        <TableRow
+                          key={rowIdx}
+                          className="group transition-colors duration-300 hover:bg-white/[0.015]"
+                        >
+                          {row.map((val, cellIdx) => {
+                            const header = generatedReport.headers[cellIdx].toLowerCase();
+                            const isCurrency = header.includes('value') || header.includes('cost');
+                            const isCode =
+                              header.includes('code') ||
+                              header.includes('reference') ||
+                              header.includes('batch');
+                            return (
                               <TableCell
-                                colSpan={generatedReport.headers.length}
-                                className="text-center font-bold text-muted-foreground py-8"
+                                key={cellIdx}
+                                className={`px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 ${
+                                  isCode ? 'font-mono' : ''
+                                }`}
                               >
-                                No records found
+                                {typeof val === 'number' && isCurrency ? (
+                                  `₹${val.toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}`
+                                ) : (
+                                  val
+                                )}
                               </TableCell>
-                            </TableRow>
-                          ) : (
-                            generatedReport.rows.map((row, rowIdx) => (
-                              <TableRow key={rowIdx} className="hover:bg-muted/10 transition-colors">
-                                {row.map((val, cellIdx) => {
-                                  const header = generatedReport.headers[cellIdx].toLowerCase();
-                                  const isCurrency = header.includes('value') || header.includes('cost');
-                                  return (
-                                    <TableCell
-                                      key={cellIdx}
-                                      className="py-4 px-6 border-r last:border-0 border-border text-left text-sm text-foreground/80"
-                                    >
-                                      {typeof val === 'number' && isCurrency ? (
-                                        `₹${val.toLocaleString('en-IN', {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}`
-                                      ) : (
-                                        val
-                                      )}
-                                    </TableCell>
-                                  );
-                                })}
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </TableContainer>
-                    </CardContent>
-
-                    <div className="px-6 py-4 border-t border-border bg-muted/10 print:bg-transparent">
-                      <p className="text-center text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider">
-                        Generated by Aupulens ERP • Confidential • Internal Use Only
-                      </p>
-                    </div>
-                  </Card>
-                </div>
+                            );
+                          })}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
-              <Card className="none-4xl border-2 border-dashed h-full min-h-[500px] flex flex-col items-center justify-center text-center rounded-none bg-card">
-                <BarChart className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-black uppercase tracking-tight text-muted-foreground mb-1">
-                  No Report Generated
-                </h3>
-                <p className="text-xs font-bold text-muted-foreground/60 uppercase">
-                  Select parameters and click generate
+              <div className="py-24 text-center">
+                <BarChart className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                <h3 className="text-lg font-medium text-foreground">No report generated</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Select a report type and click generate to preview.
                 </p>
-              </Card>
+              </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
