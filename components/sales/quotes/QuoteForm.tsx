@@ -552,7 +552,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
             <div className="space-y-2">
               <RadioGroup
                 value={form.taxes.mode}
-                onValueChange={(v) => update({ taxes: { ...form.taxes, mode: v as any } })}
+                onValueChange={(v) => update({ taxes: { mode: v as any, taxId: undefined, rate: 0 } })}
                 className="flex gap-4"
               >
                 <label className="flex items-center gap-1 text-xs">
