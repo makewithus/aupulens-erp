@@ -43,12 +43,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       tcsRate,
     });
 
+    // SalesQuotation.lineItems[].lineTotal has `default: 0`, so a quote's
+    // own lineTotal is silently 0 for every line (never actually computed —
+    // same root gap as the invoice form, just masked there by the default
+    // instead of failing validation). Copying quote.lineItems verbatim would
+    // carry that 0 straight onto the invoice. Recompute from totals instead.
+    const lineItemsWithTotals = (quote.lineItems as any[]).map((li, i) => ({
+      ...(li as any),
+      lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
+    }));
+
     const invoice = new SalesInvoice({
       tenantId,
       number,
       customerId: quote.customerId,
       reference: quote.reference,
-      lineItems: quote.lineItems,
+      lineItems: lineItemsWithTotals,
       itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
       extraDiscount: quote.extraDiscount,
       extraDiscountMode: quote.extraDiscountMode,

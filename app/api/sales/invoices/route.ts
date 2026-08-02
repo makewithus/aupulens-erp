@@ -130,10 +130,23 @@ export async function POST(request: NextRequest) {
       dueDate: body.dueDate,
     });
 
+    // lineItems[].lineTotal is required by the schema but the InvoiceForm UI
+    // only ever computes it client-side for display (never includes it in
+    // the saved payload) — every real invoice created through the actual
+    // form was failing this validation. computeInvoiceTotals already
+    // computes the correct lineTotal per line as part of totals.computedLines,
+    // so merge it back in here as the single, robust point of truth (not
+    // relying on any caller to supply it).
+    const lineItemsWithTotals = (body.lineItems || []).map((li: any, i: number) => ({
+      ...li,
+      lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
+    }));
+
     const newInvoice = new SalesInvoice({
       ...body,
       tenantId,
       number,
+      lineItems: lineItemsWithTotals,
       taxableAmount: totals.taxableAmount,
       totalDiscount: totals.totalDiscount,
       totalAmount: totals.totalAmount,

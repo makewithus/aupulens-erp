@@ -99,8 +99,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       dueDate: merged.dueDate,
     });
 
+    // Same fix as the POST route: lineItems[].lineTotal is required by the
+    // schema but never sent by the InvoiceForm UI — merge computeInvoiceTotals'
+    // per-line lineTotal back in here rather than trusting the client to
+    // supply it. This is also what unblocks recording a payment against an
+    // invoice whose lineTotal was never set on creation (applyAllocationsToInvoices
+    // re-saves the whole document, which re-validates every path).
+    const lineItemsWithTotals = (merged.lineItems || []).map((li: any, i: number) => ({
+      ...li,
+      lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
+    }));
+
     const update = {
       ...body,
+      lineItems: lineItemsWithTotals,
       taxableAmount: totals.taxableAmount,
       totalDiscount: totals.totalDiscount,
       totalAmount: totals.totalAmount,
