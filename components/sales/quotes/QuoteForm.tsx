@@ -71,6 +71,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
   const [displayNumber, setDisplayNumber] = useState(quoteNumber || "");
   const [manualNumber, setManualNumber] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   const [numberModalOpen, setNumberModalOpen] = useState(false);
   const [numberMode, setNumberMode] = useState<"auto" | "manual">("auto");
@@ -200,9 +201,12 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to save quote");
       toast.success(status === "sent" ? "Quote saved and sent" : "Quote saved as draft");
       router.push("/sales/quotes");
+      // Not resetting `saving` here on purpose — keep the buttons disabled
+      // through the navigation instead of re-enabling for the instant
+      // before router.push resolves, which is exactly the window a fast
+      // second click could sneak through in.
     } catch (e: any) {
       toast.error(e.message);
-    } finally {
       setSaving(false);
     }
   };
@@ -250,15 +254,22 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
   };
 
   const handleConvertToInvoice = async () => {
-    if (!quoteId) return;
+    if (!quoteId || converting) return;
+    setConverting(true);
     try {
       const res = await fetch(`/api/sales/quotes/${quoteId}/convert-to-invoice`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to convert to invoice");
       toast.success("Converted to invoice");
       router.push(`/sales/invoices/${data.data.invoice._id}`);
+      // Deliberately leave converting=true here: the button should stay
+      // disabled through the navigation rather than flash back to
+      // "Convert to Invoice" for the instant before router.push resolves,
+      // which is exactly the window where a second click created a
+      // duplicate invoice.
     } catch (e: any) {
       toast.error(e.message);
+      setConverting(false);
     }
   };
 
@@ -632,8 +643,8 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                 {saving ? "Saving..." : "Save and Send"}
               </Button>
               {quoteId && (
-                <Button variant="outline" onClick={handleConvertToInvoice}>
-                  Convert to Invoice
+                <Button variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
+                  {converting ? "Converting..." : "Convert to Invoice"}
                 </Button>
               )}
             </>

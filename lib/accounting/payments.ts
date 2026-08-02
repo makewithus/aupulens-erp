@@ -423,9 +423,27 @@ export async function postCustomerPaymentJournal({
 
   await ensureChartOfAccounts(tenantId, createdBy);
 
-  const customer = await Customer.findOne({ _id: payment.customerId, tenantId })
-    .select("header.name header.displayName")
-    .lean();
+  const bankDr = roundCurrency(dAlloc + dUnused - dCharges - dTds);
+  const needsBankCharges = Math.abs(dCharges) >= POSTING_EPSILON;
+  const needsTds = Math.abs(dTds) >= POSTING_EPSILON;
+  const needsAdvances = Math.abs(dUnused) >= POSTING_EPSILON;
+
+  // These use three different query shapes (by _id, by account_type, by
+  // code) so they can't be folded into one batched query the way
+  // salesInvoicePosting.ts's same-shape lookups were — but they (and the
+  // customer lookup for the narration) are all independent of each other,
+  // so running them concurrently instead of sequentially still cuts this
+  // from ~6 round-trips to ~1 round-trip's worth of wall-clock time on the
+  // hot path of every payment posting.
+  const [customer, depositAccount, bankChargesAccount, tdsAccount, receivableAccount, advancesAccount] = await Promise.all([
+    Customer.findOne({ _id: payment.customerId, tenantId }).select("header.name header.displayName").lean(),
+    resolveDepositAccountForPosting(tenantId, payment.depositToAccountId),
+    needsBankCharges ? resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges") : null,
+    needsTds ? resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable") : null,
+    resolveReceivableAccountForPosting(tenantId),
+    needsAdvances ? resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances") : null,
+  ]);
+
   const customerName = (customer as any)?.header?.displayName || (customer as any)?.header?.name || "Customer";
   const narration = `Payment ${payment.paymentNumber} from ${customerName}${
     invoiceNumbers.length ? ` against ${invoiceNumbers.join(", ")}` : ""
@@ -445,27 +463,11 @@ export async function postCustomerPaymentJournal({
     });
   };
 
-  const bankDr = roundCurrency(dAlloc + dUnused - dCharges - dTds);
-  const depositAccount = await resolveDepositAccountForPosting(tenantId, payment.depositToAccountId);
   pushLine(depositAccount._id, bankDr, narration);
-
-  if (Math.abs(dCharges) >= POSTING_EPSILON) {
-    const bankChargesAccount = await resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges");
-    pushLine(bankChargesAccount._id, dCharges, `Bank charges — ${narration}`);
-  }
-
-  if (Math.abs(dTds) >= POSTING_EPSILON) {
-    const tdsAccount = await resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable");
-    pushLine(tdsAccount._id, dTds, `TDS deducted — ${narration}`);
-  }
-
-  const receivableAccount = await resolveReceivableAccountForPosting(tenantId);
+  if (bankChargesAccount) pushLine(bankChargesAccount._id, dCharges, `Bank charges — ${narration}`);
+  if (tdsAccount) pushLine(tdsAccount._id, dTds, `TDS deducted — ${narration}`);
   pushLine(receivableAccount._id, -dAlloc, narration);
-
-  if (Math.abs(dUnused) >= POSTING_EPSILON) {
-    const advancesAccount = await resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances");
-    pushLine(advancesAccount._id, -dUnused, `Customer advance — ${narration}`);
-  }
+  if (advancesAccount) pushLine(advancesAccount._id, -dUnused, `Customer advance — ${narration}`);
 
   const validationError = validateJournalLinesForPosting(lines);
   if (validationError) {

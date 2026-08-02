@@ -68,20 +68,30 @@ export async function ensureChartOfAccounts(
     throw new Error("A valid user is required to initialize Chart of Accounts.");
   }
 
-  const createdAccountsMap = new Map<string, any>();
+  // This runs on the hot path of every invoice save, quote conversion, and
+  // payment posting (via postSalesInvoiceJournal/postCustomerPaymentJournal
+  // both calling this first) — it previously did up to 2 sequential Mongo
+  // round-trips per DEFAULT_ACCOUNTS entry (~24 accounts) on *every* call
+  // regardless of whether they already existed, which is real, measurable
+  // latency on every save once GL posting was added (Issue #9). Fetch the
+  // tenant's existing accounts once, and only create what's actually
+  // missing — the overwhelmingly common case (any tenant past their first
+  // invoice) now costs exactly one query instead of dozens.
+  const existingAccounts = await Account.find(
+    { tenantId, code: { $in: DEFAULT_ACCOUNTS.map((a) => a.code) } },
+    "code _id",
+  ).lean();
+  const accountsByCode = new Map<string, any>(existingAccounts.map((a: any) => [a.code, a]));
+
+  const missing = DEFAULT_ACCOUNTS.filter((a) => !accountsByCode.has(a.code));
   let created = 0;
 
-  for (const account of DEFAULT_ACCOUNTS) {
-    const parentDoc = account.parentCode
-      ? createdAccountsMap.get(account.parentCode) ||
-        (await Account.findOne({ tenantId, code: account.parentCode }))
-      : null;
+  if (missing.length > 0) {
+    for (const account of missing) {
+      const parentDoc = account.parentCode ? accountsByCode.get(account.parentCode) : null;
 
-    let accountDoc = await Account.findOne({ tenantId, code: account.code });
-
-    if (!accountDoc) {
       try {
-        accountDoc = await Account.create({
+        const accountDoc = await Account.create({
           tenantId,
           code: account.code,
           name: account.name,
@@ -93,16 +103,16 @@ export async function ensureChartOfAccounts(
           parentId: parentDoc?._id || null,
           isSystemSeeded: true,
         });
+        accountsByCode.set(account.code, accountDoc);
         created += 1;
       } catch (error: any) {
         if (error?.code !== 11000) {
           throw error;
         }
-        accountDoc = await Account.findOne({ tenantId, code: account.code });
+        const existing = await Account.findOne({ tenantId, code: account.code }, "code _id").lean();
+        if (existing) accountsByCode.set(account.code, existing);
       }
     }
-
-    createdAccountsMap.set(account.code, accountDoc);
   }
 
   return {

@@ -466,9 +466,11 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
         window.open(`/api/sales/invoices/${savedId}/pdf?templateId=${selectedTemplate}`, "_blank");
       }
       router.push("/sales/invoices");
+      // Deliberately not resetting `saving` here — keep the Save buttons
+      // disabled through the navigation instead of re-enabling for the
+      // instant before router.push resolves.
     } catch (e: any) {
       toast.error(e.message || "Failed to save invoice");
-    } finally {
       setSaving(false);
     }
   };

@@ -118,7 +118,7 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        <div className="bg-card border rounded-lg overflow-auto p-4" style={{ maxHeight: "85vh" }}>
+        <div className="bg-card border rounded-lg p-4">
           {previewHtml ? (
             <div
               style={{ width: previewOrientation === "landscape" ? "297mm" : "210mm", margin: "0 auto" }}

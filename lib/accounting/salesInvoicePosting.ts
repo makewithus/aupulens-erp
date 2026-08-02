@@ -27,14 +27,32 @@ export interface SalesInvoiceSnapshot {
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
 
-async function resolveAccountByCode(tenantId: string, code: string, label: string) {
-  const account = await Account.findOne({ tenantId, code });
-  if (!account) {
-    throw new Error(
-      `${label} account not found in Chart of Accounts. Configure it under Chart of Accounts before posting this invoice.`,
-    );
-  }
-  return account;
+const ACCOUNT_CODE_LABELS: Record<string, string> = {
+  [RECEIVABLE_CODE]: "Accounts Receivable",
+  [REVENUE_CODE]: "Sales Revenue",
+  [GST_PAYABLE_CODE]: "GST Output Tax Payable",
+  [TCS_PAYABLE_CODE]: "TCS Payable",
+  [TDS_RECEIVABLE_CODE]: "TDS Receivable",
+};
+
+/**
+ * Fetches every account this posting might need in one query instead of a
+ * separate round-trip per code — this function runs on the hot path of
+ * every invoice save, so 5 sequential DB calls here was real, measurable
+ * latency added by Issue #9's GL posting work.
+ */
+async function resolveAccountsByCode(tenantId: string, codes: string[]) {
+  const accounts = await Account.find({ tenantId, code: { $in: codes } });
+  const byCode = new Map(accounts.map((a) => [a.code, a]));
+  return (code: string) => {
+    const account = byCode.get(code);
+    if (!account) {
+      throw new Error(
+        `${ACCOUNT_CODE_LABELS[code] || code} account not found in Chart of Accounts. Configure it under Chart of Accounts before posting this invoice.`,
+      );
+    }
+    return account;
+  };
 }
 
 /**
@@ -113,25 +131,31 @@ export async function postSalesInvoiceJournal({
     });
   };
 
-  const receivableAccount = await resolveAccountByCode(tenantId, RECEIVABLE_CODE, "Accounts Receivable");
+  const neededCodes = [RECEIVABLE_CODE, REVENUE_CODE];
+  if (Math.abs(dTax) >= POSTING_EPSILON) neededCodes.push(GST_PAYABLE_CODE);
+  if (Math.abs(dTcs) >= POSTING_EPSILON) neededCodes.push(TCS_PAYABLE_CODE);
+  if (Math.abs(dTds) >= POSTING_EPSILON) neededCodes.push(TDS_RECEIVABLE_CODE);
+  const resolveAccount = await resolveAccountsByCode(tenantId, neededCodes);
+
+  const receivableAccount = resolveAccount(RECEIVABLE_CODE);
   const arDelta = roundCurrency(dTaxable + dTax + dTcs - dTds);
   pushLine(receivableAccount._id, arDelta, narration);
 
-  const revenueAccount = await resolveAccountByCode(tenantId, REVENUE_CODE, "Sales Revenue");
+  const revenueAccount = resolveAccount(REVENUE_CODE);
   pushLine(revenueAccount._id, -dTaxable, narration);
 
   if (Math.abs(dTax) >= POSTING_EPSILON) {
-    const gstAccount = await resolveAccountByCode(tenantId, GST_PAYABLE_CODE, "GST Output Tax Payable");
+    const gstAccount = resolveAccount(GST_PAYABLE_CODE);
     pushLine(gstAccount._id, -dTax, `GST — ${narration}`);
   }
 
   if (Math.abs(dTcs) >= POSTING_EPSILON) {
-    const tcsAccount = await resolveAccountByCode(tenantId, TCS_PAYABLE_CODE, "TCS Payable");
+    const tcsAccount = resolveAccount(TCS_PAYABLE_CODE);
     pushLine(tcsAccount._id, -dTcs, `TCS collected — ${narration}`);
   }
 
   if (Math.abs(dTds) >= POSTING_EPSILON) {
-    const tdsAccount = await resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable");
+    const tdsAccount = resolveAccount(TDS_RECEIVABLE_CODE);
     pushLine(tdsAccount._id, dTds, `TDS deducted — ${narration}`);
   }
 
