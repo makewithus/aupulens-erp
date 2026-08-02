@@ -55,8 +55,17 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ order }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating order:', error);
+    if (error?.name === 'ValidationError') {
+      const fieldErrors = Object.values(error.errors || {})
+        .map((err: any) => err.message)
+        .join(' ');
+      return NextResponse.json({ error: fieldErrors || 'Invalid order data' }, { status: 400 });
+    }
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: 'That order number is already in use. Please choose another.' }, { status: 409 });
+    }
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }

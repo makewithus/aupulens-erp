@@ -38,6 +38,14 @@ export function CreateProductDialog({
             standard_price: 0,
             default_code: code || undefined,
           },
+          // Product defaults to draft (Product.status), which is invisible
+          // to every other picker (?status=published) — but the user is
+          // explicitly adding this to a real invoice line right now, so
+          // treat it the same as publishing it from the Products page.
+          // Otherwise it's silently unusable everywhere except this one
+          // invoice, which reads as "draft products can still be added to
+          // invoices" from the user's side.
+          status: "published",
         }),
       });
       const data = await res.json();
@@ -58,7 +66,10 @@ export function CreateProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Add new Product</DialogTitle>
         </DialogHeader>

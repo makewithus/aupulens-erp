@@ -54,6 +54,7 @@ interface OrderItem {
   itemName: string;
   quantity: number;
   fulfilledQuantity: number;
+  unitPrice: number;
 }
 
 interface Order {
@@ -66,7 +67,7 @@ interface Order {
   warehouse: string;
   status: string;
   orderDate: string;
-  expectedDelivery: string;
+  expectedDeliveryDate: string;
   shippingAddress: string;
   trackingNumber?: string;
 }
@@ -83,6 +84,7 @@ interface InventoryItem {
   itemName: string;
   quantity: number;
   warehouse: string;
+  unitPrice: number;
 }
 
 export default function OrdersPage() {
@@ -114,7 +116,7 @@ export default function OrdersPage() {
     expectedDelivery: "",
     shippingAddress: "",
     trackingNumber: "",
-    items: [{ itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0 }],
+    items: [{ itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0, unitPrice: 0 }],
   });
 
   useEffect(() => {
@@ -187,6 +189,7 @@ export default function OrdersPage() {
           itemName: p.header.name,
           quantity: stockMap[p._id] || 0,
           warehouse: "Main Warehouse", // Default since API aggregates all
+          unitPrice: p.tab_general_information?.list_price || 0,
         }));
 
         setStockItems(items);
@@ -237,15 +240,28 @@ export default function OrdersPage() {
     setError("");
 
     try {
-      const totalQuantity = newOrder.items.reduce(
-        (sum, item) => sum + item.quantity,
-        0,
-      );
+      // InventoryOrder requires expectedDeliveryDate (not expectedDelivery,
+      // which is only this form's own state/UI field name), and totalAmount
+      // + a unitPrice/totalPrice per item — none of which were ever sent
+      // before, so every single order creation attempt failed Mongoose
+      // validation with a 500 ("ORDERS IN INVENTORY IS NOT USABLE").
+      const items = newOrder.items.map((item) => ({
+        ...item,
+        totalPrice: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+      }));
+      const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+      const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
       const res = await fetch("/api/inventory/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newOrder, totalQuantity }),
+        body: JSON.stringify({
+          ...newOrder,
+          items,
+          totalQuantity,
+          totalAmount,
+          expectedDeliveryDate: newOrder.expectedDelivery,
+        }),
       });
 
       if (!res.ok) {
@@ -264,13 +280,13 @@ export default function OrdersPage() {
         shippingAddress: "",
         trackingNumber: "",
         items: [
-          { itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0 },
+          { itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0, unitPrice: 0 },
         ],
       });
       fetchOrders();
     } catch (err) {
       console.error("Error creating order:", err);
-      setError("Failed to create order");
+      setError(err instanceof Error ? err.message : "Failed to create order");
     }
   };
 
@@ -279,7 +295,7 @@ export default function OrdersPage() {
       ...newOrder,
       items: [
         ...newOrder.items,
-        { itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0 },
+        { itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0, unitPrice: 0 },
       ],
     });
   };
@@ -305,6 +321,7 @@ export default function OrdersPage() {
           ...updatedItems[index],
           itemCode: selectedItem.itemCode,
           itemName: selectedItem.itemName,
+          unitPrice: selectedItem.unitPrice,
         };
       }
     } else {
@@ -451,7 +468,11 @@ export default function OrdersPage() {
                     New Order
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogContent
+                  className="max-w-5xl max-h-[90vh] overflow-y-auto"
+                  onInteractOutside={(e) => e.preventDefault()}
+                  onEscapeKeyDown={(e) => e.preventDefault()}
+                >
                   <DialogHeader>
                     <DialogTitle>Create New Order</DialogTitle>
                     <DialogDescription>
@@ -622,7 +643,7 @@ export default function OrdersPage() {
                           key={index}
                           className="grid grid-cols-12 gap-2 items-end"
                         >
-                          <div className="col-span-5 space-y-1">
+                          <div className="col-span-4 space-y-1">
                             <Label className="text-xs">Item</Label>
                             <Select
                               value={item.itemCode}
@@ -662,7 +683,7 @@ export default function OrdersPage() {
                               className="bg-muted"
                             />
                           </div>
-                          <div className="col-span-3 space-y-1">
+                          <div className="col-span-2 space-y-1">
                             <Label className="text-xs">Quantity</Label>
                             <Input
                               type="number"
@@ -675,6 +696,22 @@ export default function OrdersPage() {
                                 )
                               }
                               placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-1">
+                            <Label className="text-xs">Unit Price (₹)</Label>
+                            <Input
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "unitPrice",
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                              placeholder="0.00"
                               required
                             />
                           </div>
@@ -855,7 +892,7 @@ export default function OrdersPage() {
                           {formatDate(order.orderDate)}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {formatDate(order.expectedDelivery)}
+                          {formatDate(order.expectedDeliveryDate)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
