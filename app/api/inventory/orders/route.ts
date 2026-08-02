@@ -47,9 +47,15 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
 
+    // Always atomically consume the next number here — never trust a
+    // client-supplied orderNumber. The "New Order" form only ever shows a
+    // non-consuming preview of this same counter (see next-number/route.ts),
+    // so honoring body.orderNumber meant the counter was never actually
+    // incremented on submit: every dialog open re-previewed the same
+    // number, and the second order ever created always 409'd.
     const order = await InventoryOrder.create({
       ...body,
-      orderNumber: body.orderNumber?.trim() || (await generateInventoryOrderNumber(tenantId)),
+      orderNumber: await generateInventoryOrderNumber(tenantId),
       createdBy: session.user.id,
       tenantId,
     });

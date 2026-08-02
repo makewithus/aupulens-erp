@@ -73,6 +73,48 @@ describe("Inventory Orders route (Issue #5)", () => {
     expect(body.order.orderNumber).toBe("ORD-0001");
   });
 
+  // Regression test for the still-broken "ORDERS IN INVENTORY IS NOT
+  // USABLE" report after the first fix landed: the "New Order" form
+  // auto-fills orderNumber with a non-consuming *preview* of the next
+  // counter value, and the route used to honor any non-empty
+  // body.orderNumber verbatim instead of always calling
+  // generateInventoryOrderNumber — so the counter was never actually
+  // incremented on submit, every dialog open kept previewing the same
+  // number, and the second order ever created always collided with a 409.
+  // The route must now ignore body.orderNumber entirely and always
+  // atomically consume the counter, so consecutive creates (even when each
+  // one's body carries the same stale preview value) get distinct numbers.
+  it("ignores a client-supplied orderNumber and atomically assigns distinct numbers to consecutive orders", async () => {
+    vi.mocked(auth).mockResolvedValue(inventorySession("route-t2b") as any);
+    const staleBody = { ...validBody(), orderNumber: "ORD-0001" };
+    const res1 = await POST(makeRequest(URL, { method: "POST", body: JSON.stringify(staleBody) }));
+    const res2 = await POST(makeRequest(URL, { method: "POST", body: JSON.stringify(staleBody) }));
+    expect(res1.status).toBe(201);
+    expect(res2.status).toBe(201);
+    const body1 = await res1.json();
+    const body2 = await res2.json();
+    expect(body1.order.orderNumber).toBe("ORD-0001");
+    expect(body2.order.orderNumber).toBe("ORD-0002");
+  });
+
+  // Regression test for tenants with orders that predate this counter
+  // existing at all (created back when the number could be typed manually)
+  // — a fresh counter starting at 1 must skip past any number that's
+  // already in use rather than colliding with it.
+  it("skips past an order number that already exists from before the counter existed", async () => {
+    vi.mocked(auth).mockResolvedValue(inventorySession("route-t2c") as any);
+    await InventoryOrder.create({
+      ...validBody(),
+      orderNumber: "ORD-0001",
+      tenantId: "route-t2c",
+      createdBy: new mongoose.Types.ObjectId(),
+    });
+    const res = await POST(makeRequest(URL, { method: "POST", body: JSON.stringify(validBody()) }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.order.orderNumber).toBe("ORD-0002");
+  });
+
   it("returns a clear 400 (not a bare 500) with the real validation message when required fields are missing", async () => {
     vi.mocked(auth).mockResolvedValue(inventorySession("route-t3") as any);
     const { expectedDeliveryDate, totalAmount, ...incomplete } = validBody();
@@ -87,10 +129,4 @@ describe("Inventory Orders route (Issue #5)", () => {
     expect(body.error).toMatch(/required/i);
   });
 
-  it("rejects a duplicate order number for the same tenant with a clear 409", async () => {
-    vi.mocked(auth).mockResolvedValue(inventorySession("route-t4") as any);
-    await POST(makeRequest(URL, { method: "POST", body: JSON.stringify({ ...validBody(), orderNumber: "ORD-DUP" }) }));
-    const res = await POST(makeRequest(URL, { method: "POST", body: JSON.stringify({ ...validBody(), orderNumber: "ORD-DUP" }) }));
-    expect(res.status).toBe(409);
-  });
 });

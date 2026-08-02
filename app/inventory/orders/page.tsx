@@ -221,9 +221,13 @@ export default function OrdersPage() {
     }
   }, [status, fetchOrders, fetchWarehouses, fetchStockItems, fetchCustomers, page]);
 
-  // Auto-fill a real order number when the New Order dialog opens, instead
-  // of leaving it blank for the user to make one up (Issue #9). Still
-  // editable in the field below for anyone who genuinely needs to override it.
+  // Preview the next order number when the New Order dialog opens, purely
+  // for display — this is a non-consuming peek at the counter (Counter isn't
+  // incremented until the order actually saves), so the field must stay
+  // read-only. Making it an editable input the POST route trusted verbatim
+  // meant the atomic counter was never actually incremented on submit: every
+  // dialog open kept previewing the same "next" number, and the second order
+  // ever created always collided with a 409 ("Inventory Orders unusable").
   useEffect(() => {
     if (!isAddDialogOpen || newOrder.orderNumber) return;
     fetch("/api/inventory/orders/next-number")
@@ -482,18 +486,14 @@ export default function OrdersPage() {
                   <form onSubmit={handleCreateOrder} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="orderNumber">Order Number *</Label>
+                        <Label htmlFor="orderNumber">Order Number (auto-assigned)</Label>
                         <Input
                           id="orderNumber"
                           value={newOrder.orderNumber}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              orderNumber: e.target.value,
-                            })
-                          }
-                          placeholder="Auto-generated..."
-                          required
+                          readOnly
+                          disabled
+                          placeholder="Generating..."
+                          className="bg-muted"
                         />
                       </div>
                       <div className="space-y-2">
