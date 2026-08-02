@@ -4,7 +4,7 @@ import connectDB from "@/lib/db";
 import Payment from "@/models/Payment";
 import SalesView from "@/models/SalesView";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
-import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
+import { validateAllocations, validateAllocationAmounts, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       const invoiceIds = allocations.map((a) => a.invoiceId);
       targetInvoices = await (SalesInvoice as any)
         .find({ _id: { $in: invoiceIds }, tenantId })
-        .select("_id number status")
+        .select("_id number status totalAmount payments")
         .lean();
       const blocked = targetInvoices.find(
         (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
@@ -126,6 +126,11 @@ export async function POST(request: NextRequest) {
           { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
           { status: 400 },
         );
+      }
+      try {
+        validateAllocationAmounts(allocations, targetInvoices as any);
+      } catch (e: any) {
+        return NextResponse.json({ success: false, message: e.message }, { status: 400 });
       }
     }
 

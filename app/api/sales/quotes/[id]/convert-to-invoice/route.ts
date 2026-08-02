@@ -7,6 +7,7 @@ import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { QUOTE_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
+import { syncSaleOrderOnQuoteConverted } from "@/lib/sales/q2cSync";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -91,6 +92,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     quote.status = QUOTE_STATUS.INVOICED;
     quote.convertedInvoiceId = invoice._id as any;
     await quote.save();
+
+    // Advances the Q2C Pipeline board — best-effort: a failure here is a
+    // cosmetic pipeline-visibility issue, not a reason to fail (or roll
+    // back) a real quote-to-invoice conversion that already succeeded.
+    try {
+      await syncSaleOrderOnQuoteConverted({ tenantId, quote, invoice });
+    } catch (syncError) {
+      console.error("Q2C pipeline sync error (non-fatal):", syncError);
+    }
 
     return NextResponse.json({ success: true, data: { quote, invoice } }, { status: 201 });
   } catch (error: any) {

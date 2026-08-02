@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import {
   sumAllocations,
   validateAllocations,
+  validateAllocationAmounts,
   applyAllocationsToInvoices,
   reverseAllocationsOnInvoices,
 } from "@/lib/sales/paymentAllocation";
@@ -41,6 +42,61 @@ describe("sumAllocations / validateAllocations (pure)", () => {
 
   it("allows an allocation that exactly matches the net available amount", () => {
     expect(validateAllocations([{ invoiceId: "a", amount: 100 }], 100, 0, 0)).toBe(0);
+  });
+});
+
+// Regression tests for the Receivables complaint ("I see the same invoice
+// again and I can record payment and the payment for same receipt is
+// getting recorded twice"): validateAllocations only ever checked the
+// allocation total against the payment's own amountReceived, never against
+// what each target invoice actually still owes — so a stale client (double
+// submission, a second tab, or a Receivables list that hadn't refreshed
+// since an earlier payment) could apply a second full payment to an
+// already-settled invoice with nothing on the server to catch it.
+describe("validateAllocationAmounts (server-side over-allocation guard)", () => {
+  const invoice = (overrides: Partial<Record<string, any>> = {}) => ({
+    _id: "inv-1",
+    number: "INV-0099",
+    totalAmount: 500,
+    payments: [],
+    ...overrides,
+  });
+
+  it("allows an allocation that exactly covers the outstanding balance", () => {
+    expect(() =>
+      validateAllocationAmounts([{ invoiceId: "inv-1", amount: 500 }], [invoice()]),
+    ).not.toThrow();
+  });
+
+  it("allows an allocation that covers only the remaining balance after a prior payment", () => {
+    expect(() =>
+      validateAllocationAmounts(
+        [{ invoiceId: "inv-1", amount: 200 }],
+        [invoice({ payments: [{ amount: 300 }] })],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects a payment applied to an invoice that's already fully paid (the duplicate-payment scenario)", () => {
+    expect(() =>
+      validateAllocationAmounts(
+        [{ invoiceId: "inv-1", amount: 500 }],
+        [invoice({ payments: [{ amount: 500 }] })],
+      ),
+    ).toThrow(/only has ₹0\.00 outstanding/);
+  });
+
+  it("rejects an allocation that overshoots the remaining balance even partially", () => {
+    expect(() =>
+      validateAllocationAmounts(
+        [{ invoiceId: "inv-1", amount: 250 }],
+        [invoice({ payments: [{ amount: 300 }] })],
+      ),
+    ).toThrow(/only has ₹200\.00 outstanding/);
+  });
+
+  it("ignores allocations for invoices not present in the provided list (handled separately by the caller)", () => {
+    expect(() => validateAllocationAmounts([{ invoiceId: "missing", amount: 999 }], [invoice()])).not.toThrow();
   });
 });
 

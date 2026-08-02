@@ -9,6 +9,10 @@ import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { postSalesInvoiceJournal, type SalesInvoiceSnapshot } from "@/lib/accounting/salesInvoicePosting";
+import { settleInvoiceShortfallWithSystemPayment } from "@/lib/sales/paymentAllocation";
+import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
+import Payment from "@/models/Payment";
+import JournalEntry from "@/models/JournalEntry";
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
 const REVENUE_RECOGNIZED_STATUSES = new Set([
@@ -137,10 +141,34 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const nextSnapshot: SalesInvoiceSnapshot = REVENUE_RECOGNIZED_STATUSES.has(status as any)
       ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount }
       : ZERO_SNAPSHOT;
+    // Same "Mark as fully paid" GL-blind fix as the POST route — see
+    // lib/sales/paymentAllocation.ts's settleInvoiceShortfallWithSystemPayment
+    // for why this exists.
+    let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
     try {
+      const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+      const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
+      if (invoice.markedFullyPaid && status === SALES_INVOICE_STATUS.PAID && shortfall > 0.005) {
+        systemPayment = await settleInvoiceShortfallWithSystemPayment({
+          tenantId,
+          customerId: String(invoice.customerId),
+          invoice,
+          amount: shortfall,
+          createdBy: session.user.id,
+          paymentDate: invoice.invoiceDate,
+        });
+      }
+
       await postSalesInvoiceJournal({ invoice, tenantId, createdBy: session.user.id, current: nextSnapshot });
       await invoice.save();
+      if (invoice.status === SALES_INVOICE_STATUS.PAID) {
+        await advanceSaleOrderOnInvoicePaid(tenantId, invoice._id);
+      }
     } catch (postingError: any) {
+      if (systemPayment) {
+        await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
+        await Payment.deleteOne({ _id: systemPayment.paymentId });
+      }
       return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
     }
 

@@ -4,6 +4,7 @@ import connectDB from "@/lib/db";
 import Payment from "@/models/Payment";
 import {
   validateAllocations,
+  validateAllocationAmounts,
   applyAllocationsToInvoices,
   reverseAllocationsOnInvoices,
 } from "@/lib/sales/paymentAllocation";
@@ -117,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const invoiceIds = allocations.map((a: any) => a.invoiceId);
       targetInvoices = await (SalesInvoice as any)
         .find({ _id: { $in: invoiceIds }, tenantId })
-        .select("_id number status")
+        .select("_id number status totalAmount payments")
         .lean();
       const blocked = targetInvoices.find(
         (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
@@ -127,6 +128,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           { success: false, message: `Invoice ${blocked.number} is ${blocked.status} and cannot receive a payment.` },
           { status: 400 },
         );
+      }
+      // This payment's own previous allocations were already reversed above
+      // (if it was previously paid), so `payments` here reflects every OTHER
+      // payment's contribution — exactly what's needed to validate the new
+      // allocation amounts against each invoice's true remaining balance.
+      try {
+        validateAllocationAmounts(allocations, targetInvoices as any);
+      } catch (e: any) {
+        return NextResponse.json({ success: false, message: e.message }, { status: 400 });
       }
     }
 

@@ -10,6 +10,7 @@ import Customer from "@/models/Customer";
 import { SalesInvoice } from "@/models/SalesInvoice";
 import SalesQuotation from "@/models/SalesQuotation";
 import JournalEntry from "@/models/JournalEntry";
+import Payment from "@/models/Payment";
 import { QUOTE_STATUS } from "@/lib/constants/statuses";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 
@@ -61,6 +62,7 @@ describe("Sales Invoices routes — lineTotal is always computed server-side (li
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
     await SalesQuotation.deleteMany({ tenantId: TENANT });
     await JournalEntry.deleteMany({ tenantId: TENANT });
+    await Payment.deleteMany({ tenantId: TENANT });
     vi.mocked(auth).mockReset();
   });
 
@@ -164,5 +166,122 @@ describe("Sales Invoices routes — lineTotal is always computed server-side (li
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.invoice.lineItems[0].lineTotal).toBe(1000);
+  });
+});
+
+// Regression tests for the reported "even after clearing a customer's due
+// amount, it's showing in balance sheet under liabilities -> customer
+// advances" symptom. Root cause: InvoiceForm's "Mark as fully paid"
+// checkbox only ever flipped invoice.status — it never created a Payment
+// or touched the GL, so Accounts Receivable stayed debited in full forever
+// (live-confirmed: 11 existing invoices had markedFullyPaid=true backed by
+// $0 or partial real payments). Fixed by auto-recording a real payment for
+// the shortfall through the same tested postCustomerPaymentJournal pipeline.
+describe("Sales Invoices routes — 'Mark as fully paid' now posts a real, GL-correct payment", () => {
+  beforeAll(async () => {
+    await mongoose.connect(process.env.MONGODB_URI!);
+    ({ POST } = await import("@/app/api/sales/invoices/route"));
+    ({ PATCH } = await import("@/app/api/sales/invoices/[id]/route"));
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.dropDatabase();
+    await mongoose.connection.close();
+  });
+
+  afterEach(async () => {
+    await Customer.deleteMany({ tenantId: TENANT });
+    await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
+    await JournalEntry.deleteMany({ tenantId: TENANT });
+    await Payment.deleteMany({ tenantId: TENANT });
+    vi.mocked(auth).mockReset();
+  });
+
+  it("POST: auto-creates a real, allocated Payment when markedFullyPaid has no real payments backing it", async () => {
+    vi.mocked(auth).mockResolvedValue(mockSession(TENANT) as any);
+    const customer = await makeCustomer();
+
+    const res = await POST(
+      makeRequest(URL, {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: String(customer._id),
+          invoiceDate: "2026-08-01",
+          dueDate: "2026-08-15",
+          lineItems: [{ name: "Widget", qty: 1, unitPrice: 1000, discount: 0, discountMode: "percent", taxRate: 0 }],
+          status: "saved",
+          markedFullyPaid: true,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.status).toBe("paid");
+    expect(body.data.payments).toHaveLength(1);
+
+    const payments = await Payment.find({ tenantId: TENANT, customerId: customer._id }).lean();
+    expect(payments).toHaveLength(1);
+    expect(payments[0].allocations[0].amount).toBe(1000);
+    expect(payments[0].journalEntryIds?.length).toBeGreaterThan(0);
+  });
+
+  it("PATCH: auto-creates a real Payment for the shortfall when an unpaid invoice is edited to markedFullyPaid", async () => {
+    vi.mocked(auth).mockResolvedValue(mockSession(TENANT) as any);
+    const customer = await makeCustomer();
+    const createRes = await POST(
+      makeRequest(URL, {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: String(customer._id),
+          invoiceDate: "2026-08-01",
+          dueDate: "2026-08-15",
+          lineItems: [{ name: "Widget", qty: 1, unitPrice: 1000, discount: 0, discountMode: "percent", taxRate: 0 }],
+          status: "saved",
+        }),
+      }),
+    );
+    const invoice = (await createRes.json()).data;
+
+    const patchRes = await PATCH(
+      makeRequest(`${URL}/${invoice._id}`, { method: "PATCH", body: JSON.stringify({ markedFullyPaid: true }) }),
+      { params: Promise.resolve({ id: String(invoice._id) }) },
+    );
+    expect(patchRes.status).toBe(200);
+    const patched = (await patchRes.json()).data;
+    expect(patched.status).toBe("paid");
+
+    const payments = await Payment.find({ tenantId: TENANT, customerId: customer._id }).lean();
+    expect(payments).toHaveLength(1);
+    expect(payments[0].allocations[0].amount).toBe(1000);
+  });
+
+  it("does not create a duplicate system payment when markedFullyPaid is already fully covered", async () => {
+    vi.mocked(auth).mockResolvedValue(mockSession(TENANT) as any);
+    const customer = await makeCustomer();
+    const createRes = await POST(
+      makeRequest(URL, {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: String(customer._id),
+          invoiceDate: "2026-08-01",
+          dueDate: "2026-08-15",
+          lineItems: [{ name: "Widget", qty: 1, unitPrice: 1000, discount: 0, discountMode: "percent", taxRate: 0 }],
+          status: "saved",
+          markedFullyPaid: true,
+        }),
+      }),
+    );
+    const invoice = (await createRes.json()).data;
+    expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(1);
+
+    // A no-op re-save (still markedFullyPaid, nothing else changed) must not
+    // post a second system payment — the shortfall is already 0.
+    const patchRes = await PATCH(
+      makeRequest(`${URL}/${invoice._id}`, { method: "PATCH", body: JSON.stringify({ markedFullyPaid: true, notes: "unchanged" }) }),
+      { params: Promise.resolve({ id: String(invoice._id) }) },
+    );
+    expect(patchRes.status).toBe(200);
+    expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(1);
   });
 });

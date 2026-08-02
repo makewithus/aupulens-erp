@@ -8,6 +8,10 @@ import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import Organization from "@/models/Organization";
 import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
+import { settleInvoiceShortfallWithSystemPayment } from "@/lib/sales/paymentAllocation";
+import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
+import Payment from "@/models/Payment";
+import JournalEntry from "@/models/JournalEntry";
 import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
 
 const REVENUE_RECOGNIZED_STATUSES = new Set([
@@ -169,7 +173,27 @@ export async function POST(request: NextRequest) {
     // fails (missing Chart of Accounts entry etc.) rather than leaving a
     // "real" invoice with no GL impact.
     if (REVENUE_RECOGNIZED_STATUSES.has(newInvoice.status as any)) {
+      // If "Mark as fully paid" is what pushed this invoice to PAID without
+      // enough real payments to cover it, auto-record a real payment for the
+      // shortfall so Accounts Receivable actually gets relieved — this used
+      // to just flip invoice.status with zero GL impact, permanently
+      // overstating AR (and stranding any of the customer's separate
+      // Customer Advances balance the user may have meant to apply here).
+      let systemPayment: { paymentId: any; journalEntryIds: any[] } | null = null;
       try {
+        const paidSum = (newInvoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const shortfall = Math.round((totals.totalAmount - paidSum) * 100) / 100;
+        if (newInvoice.markedFullyPaid && shortfall > 0.005) {
+          systemPayment = await settleInvoiceShortfallWithSystemPayment({
+            tenantId,
+            customerId: String(newInvoice.customerId),
+            invoice: newInvoice,
+            amount: shortfall,
+            createdBy: session.user.id,
+            paymentDate: newInvoice.invoiceDate,
+          });
+        }
+
         await postSalesInvoiceJournal({
           invoice: newInvoice,
           tenantId,
@@ -177,7 +201,14 @@ export async function POST(request: NextRequest) {
           current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount },
         });
         await newInvoice.save();
+        if (newInvoice.status === SALES_INVOICE_STATUS.PAID) {
+          await advanceSaleOrderOnInvoicePaid(tenantId, newInvoice._id);
+        }
       } catch (postingError: any) {
+        if (systemPayment) {
+          await JournalEntry.deleteMany({ _id: { $in: systemPayment.journalEntryIds }, tenantId });
+          await Payment.deleteOne({ _id: systemPayment.paymentId });
+        }
         await (SalesInvoice as any).deleteOne({ _id: newInvoice._id });
         return NextResponse.json({ success: false, message: postingError.message }, { status: 400 });
       }

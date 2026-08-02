@@ -1,5 +1,11 @@
+import mongoose from "mongoose";
 import { SalesInvoice } from "@/models/SalesInvoice";
+import Payment from "@/models/Payment";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
+import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
+import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
+import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
 
 // The core relational behavior of the Payments module: applying a payment's
 // allocations to the invoices it's paying off, and cleanly reversing that on
@@ -43,6 +49,37 @@ export function validateAllocations(
 }
 
 /**
+ * Guards against allocating more than an invoice's actual remaining
+ * balance. Nothing previously checked this server-side — the "Amount Due"
+ * column on the Record Payment form is computed from a snapshot fetched
+ * once on page load (components/sales/payments/PaymentForm.tsx), so a
+ * second submission against the same invoice (double-click, browser
+ * back+resubmit, a second tab, or the Receivables list simply not having
+ * been refreshed since an earlier payment) was silently accepted in full —
+ * that's the root cause of "the same invoice shows again and the payment
+ * gets recorded twice." Throws with a user-facing message on violation;
+ * caller is responsible for fetching invoices with `totalAmount` and
+ * `payments` selected.
+ */
+export function validateAllocationAmounts(
+  allocations: AllocationInput[],
+  invoices: { _id: any; number: string; totalAmount: number; payments?: { amount: number }[] }[],
+): void {
+  const byId = new Map(invoices.map((inv) => [String(inv._id), inv]));
+  for (const alloc of allocations) {
+    const invoice = byId.get(String(alloc.invoiceId));
+    if (!invoice) continue; // missing/wrong-tenant invoices are rejected separately by the caller
+    const paidSoFar = (invoice.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const due = Math.max(0, Number(invoice.totalAmount) - paidSoFar);
+    if (Number(alloc.amount) - due > 0.005) {
+      throw new Error(
+        `Invoice ${invoice.number} only has ₹${due.toFixed(2)} outstanding, but ₹${Number(alloc.amount).toFixed(2)} was applied to it. It may have already been paid by an earlier submission — refresh and try again.`,
+      );
+    }
+  }
+}
+
+/**
  * Pushes one payment entry per allocation onto the corresponding invoice's
  * legacy `payments[]` subdocument (tagged with paymentId so it can be found
  * again on reversal) and re-derives that invoice's status — this is what
@@ -79,6 +116,10 @@ export async function applyAllocationsToInvoices(params: {
       dueDate: invoice.dueDate,
     });
     await invoice.save();
+
+    if (invoice.status === SALES_INVOICE_STATUS.PAID) {
+      await advanceSaleOrderOnInvoicePaid(tenantId, invoice._id);
+    }
   }
 }
 
@@ -101,4 +142,78 @@ export async function reverseAllocationsOnInvoices(tenantId: string, paymentId: 
     });
     await invoice.save();
   }
+}
+
+/**
+ * Auto-records a real, GL-correct Payment when an invoice is marked fully
+ * paid (InvoiceForm.tsx's "Mark as fully paid" checkbox) without enough
+ * real payments to actually cover it.
+ *
+ * Previously `markedFullyPaid` was purely cosmetic: it only flipped
+ * `invoice.status` to "paid" (lib/sales/invoiceStatus.ts), with no Payment
+ * record and no GL entry at all. Since Accounts Receivable is debited in
+ * full when an invoice is posted (postSalesInvoiceJournal) regardless of
+ * payment status, that left AR permanently overstated — and if the
+ * customer separately had unapplied advance credit sitting in Customer
+ * Advances (2150) that a user meant to apply here instead of ticking this
+ * box, that credit was stranded there forever, matching the reported "due
+ * cleared but still shows under Customer Advances" symptom. Confirmed live:
+ * 11 existing invoices had markedFullyPaid=true with $0 or partial real
+ * payments backing them.
+ *
+ * Creates a genuine Payment (mode "Marked as Fully Paid", fully allocated
+ * to this invoice, using the tenant's default deposit account) through the
+ * same tested `postCustomerPaymentJournal` pipeline every other payment
+ * uses, and pushes the matching entry onto `invoice.payments[]` — so AR is
+ * actually relieved and the invoice's own due-amount stays consistent.
+ * Caller is responsible for rolling this back (delete the Payment + its
+ * journalEntryIds) if anything later in the same request fails, the same
+ * way the invoice routes already roll back invoice-level GL postings.
+ */
+export async function settleInvoiceShortfallWithSystemPayment(params: {
+  tenantId: string;
+  customerId: string;
+  invoice: any;
+  amount: number;
+  createdBy: string;
+  paymentDate?: Date;
+}): Promise<{ paymentId: mongoose.Types.ObjectId; journalEntryIds: mongoose.Types.ObjectId[] }> {
+  const { tenantId, customerId, invoice, amount, createdBy, paymentDate = new Date() } = params;
+  const rounded = Math.round(amount * 100) / 100;
+
+  const { number: paymentNumber } = await generatePaymentNumber(tenantId);
+  const payment = await Payment.create({
+    tenantId,
+    customerId,
+    paymentNumber,
+    paymentDate,
+    amountReceived: rounded,
+    bankCharges: 0,
+    mode: "Marked as Fully Paid",
+    allocations: [{ invoiceId: invoice._id, amount: rounded }],
+    unusedAmount: 0,
+    status: PAYMENT_STATUS.PAID,
+    paymentType: PAYMENT_TYPE.INVOICE_PAYMENT,
+    notes: `Auto-recorded because invoice ${invoice.number} was marked fully paid without a matching payment.`,
+    createdBy,
+  });
+
+  await postCustomerPaymentJournal({
+    payment,
+    tenantId,
+    createdBy,
+    current: { allocatedTotal: rounded, unusedAmount: 0, bankCharges: 0, tdsAmount: 0 },
+    invoiceNumbers: [invoice.number],
+  });
+  await payment.save();
+
+  invoice.payments.push({
+    amount: rounded,
+    date: paymentDate,
+    mode: "Marked as Fully Paid",
+    notes: `Auto-recorded (invoice marked fully paid)`,
+    paymentId: payment._id,
+  });
+
+  return { paymentId: payment._id as mongoose.Types.ObjectId, journalEntryIds: payment.journalEntryIds || [] };
 }
