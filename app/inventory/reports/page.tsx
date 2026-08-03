@@ -89,7 +89,7 @@ export default function ReportsPage() {
   const fetchStockReport = async () => {
     const [stockRes, productsRes] = await Promise.all([
       fetch('/api/inventory/stock'),
-      fetch('/api/sales/products'),
+      fetch('/api/sales/products?limit=1000'),
     ]);
     const stockData = await stockRes.json();
     const productsData = await productsRes.json();
