@@ -56,7 +56,6 @@ export default function OpportunitiesPage() {
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportConfig, setExportConfig] = useState({ format: 'xlsx', scope: 'all', reportType: 'standard' });
   const [isExporting, setIsExporting] = useState(false);
@@ -98,6 +97,27 @@ export default function OpportunitiesPage() {
       toast.error("Failed to load opportunities.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleClosedWon = async (opportunityId: string, currentStage: string) => {
+    const newStage = currentStage === 'Closed Won' ? 'Prospecting' : 'Closed Won';
+    try {
+      const res = await fetch(`/api/crm/opportunities/${opportunityId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ stage: newStage }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOpportunities(opportunities.map(o => o._id === opportunityId ? { ...o, stage: newStage } : o));
+        toast.success(`Opportunity stage updated to ${newStage}`);
+        fetchKpis();
+      } else {
+        toast.error(data.message || "Failed to update opportunity stage.");
+      }
+    } catch {
+      toast.error("Network error.");
     }
   };
 
@@ -183,7 +203,7 @@ export default function OpportunitiesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...exportConfig,
-          selectedIds,
+          selectedIds: [],
           filters: { search, stage: stageFilter, risk_level: riskFilter }
         })
       });
@@ -308,10 +328,10 @@ export default function OpportunitiesPage() {
               <div className="ml-auto">
                 <Button
                   variant="outline"
-                  onClick={() => { setExportConfig({ ...exportConfig, scope: 'selected' }); setIsExportModalOpen(true); }}
+                  onClick={() => { setExportConfig({ ...exportConfig, scope: 'all' }); setIsExportModalOpen(true); }}
                   className="h-10 px-4 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300"
                 >
-                  Export Selected ({selectedIds.length})
+                  Export Data
                 </Button>
               </div>
           </div>
@@ -321,14 +341,7 @@ export default function OpportunitiesPage() {
           <TableContainer>
             <TableHead>
               <TableRow className="text-left hover:bg-transparent">
-                <TableHeaderCell className="w-12 text-center">
-                  <input
-                    type="checkbox"
-                    onChange={(e) => setSelectedIds(e.target.checked ? opportunities.map(o => o._id) : [])}
-                    checked={selectedIds.length === opportunities.length && opportunities.length > 0}
-                    className="w-4 h-4 rounded-none border-neutral-700 bg-neutral-900 accent-primary"
-                  />
-                </TableHeaderCell>
+                <TableHeaderCell className="w-12"></TableHeaderCell>
                 <TableHeaderCell>Deal Name</TableHeaderCell>
                 <TableHeaderCell>Account</TableHeaderCell>
                 <TableHeaderCell>Amount</TableHeaderCell>
@@ -397,12 +410,9 @@ export default function OpportunitiesPage() {
                     <TableCell className="text-center">
                       <input
                         type="checkbox"
-                        checked={selectedIds.includes(opp._id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedIds([...selectedIds, opp._id]);
-                          else setSelectedIds(selectedIds.filter(id => id !== opp._id));
-                        }}
-                        className="w-4 h-4 rounded-none border-neutral-700 bg-neutral-900 accent-primary"
+                        checked={opp.stage === 'Closed Won'}
+                        onChange={() => toggleClosedWon(opp._id, opp.stage)}
+                        className="h-4 w-4 rounded-none border border-border/40 bg-white/[0.02] text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#8AE06C]"
                       />
                     </TableCell>
 
@@ -712,7 +722,6 @@ export default function OpportunitiesPage() {
                 <SelectContent>
                   <SelectItem value="all">All Opportunities</SelectItem>
                   <SelectItem value="filtered">Currently Filtered Results</SelectItem>
-                  <SelectItem value="selected" disabled={selectedIds.length === 0}>Selected Rows ({selectedIds.length})</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -10,27 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BarChart3, TrendingUp, Package, Warehouse } from 'lucide-react';
 import { AnalyticsPageSkeleton } from '@/components/ui/loading-skeletons';
 import {
-  BarChart,
-  Bar,
-  Line,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ComposedChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
+  CanvasAreaChart,
+  CanvasBarChart,
+  CanvasPieChart,
+  CanvasComposedChart,
+} from '@/components/inventory/CanvasCharts';
+import { StatCard } from '@/components/admin/StatCard';
+import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
+import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 
 interface Warehouse {
   _id: string;
@@ -109,19 +96,19 @@ export default function InventoryAnalyticsPage() {
 
       if (warehouseRes.ok) {
         const data = await warehouseRes.json();
-        setWarehouses(data.warehouses);
+        setWarehouses(data.warehouses || []);
       }
       if (stockRes.ok) {
         const data = await stockRes.json();
-        setStockItems(data.items);
+        setStockItems(data.items || []);
       }
       if (batchRes.ok) {
         const data = await batchRes.json();
-        setBatches(data.batches);
+        setBatches(data.batches || []);
       }
       if (orderRes.ok) {
         const data = await orderRes.json();
-        setOrders(data.orders);
+        setOrders(data.orders || []);
       }
     } catch (err) {
       console.error('Error fetching analytics data:', err);
@@ -137,122 +124,160 @@ export default function InventoryAnalyticsPage() {
   }, [status, fetchAllData]);
 
   // Filter data by selected warehouse
-  const filteredStockItems = selectedWarehouse === 'all' 
-    ? stockItems 
-    : stockItems.filter(item => item.warehouse === selectedWarehouse);
+  const filteredStockItems = useMemo(() => {
+    return selectedWarehouse === 'all' 
+      ? (stockItems || []) 
+      : (stockItems || []).filter(item => item?.warehouse === selectedWarehouse);
+  }, [stockItems, selectedWarehouse]);
   
-  const filteredBatches = selectedWarehouse === 'all'
-    ? batches
-    : batches.filter(batch => batch.warehouse === selectedWarehouse);
+  const filteredBatches = useMemo(() => {
+    return selectedWarehouse === 'all'
+      ? (batches || [])
+      : (batches || []).filter(batch => batch?.warehouse === selectedWarehouse);
+  }, [batches, selectedWarehouse]);
   
-  const filteredOrders = selectedWarehouse === 'all'
-    ? orders
-    : orders.filter(order => order.warehouse === selectedWarehouse);
+  const filteredOrders = useMemo(() => {
+    return selectedWarehouse === 'all'
+      ? (orders || [])
+      : (orders || []).filter(order => order?.warehouse === selectedWarehouse);
+  }, [orders, selectedWarehouse]);
 
-  // Warehouse Utilization Radar Chart Data
-  const warehouseUtilizationData = warehouses.map(wh => ({
-    warehouse: wh.name,
-    utilization: ((wh.currentUtilization / wh.capacity) * 100).toFixed(1),
-    capacity: wh.capacity,
-    used: wh.currentUtilization,
-    available: wh.capacity - wh.currentUtilization,
-  }));
+  // Warehouse Utilization Radar Chart Data -> Plotted as Canvas Bar
+  const warehouseUtilizationData = useMemo(() => {
+    return (warehouses || []).map(wh => ({
+      warehouse: wh.name,
+      utilization: wh.capacity ? Math.round((wh.currentUtilization / wh.capacity) * 100) : 0,
+      capacity: wh.capacity || 0,
+      used: wh.currentUtilization || 0,
+      available: (wh.capacity || 0) - (wh.currentUtilization || 0),
+    }));
+  }, [warehouses]);
 
   // Stock Levels by Warehouse (Composed Chart)
-  const stockByWarehouseData = warehouses.map(wh => {
-    const whStock = stockItems.filter(item => item.warehouse === wh.name);
-    return {
-      warehouse: wh.name,
-      totalItems: whStock.length,
-      totalQuantity: whStock.reduce((sum, item) => sum + item.quantity, 0),
-      totalValue: whStock.reduce((sum, item) => sum + item.totalValue, 0) / 1000, // In thousands
-    };
-  });
+  const stockByWarehouseData = useMemo(() => {
+    return (warehouses || []).map(wh => {
+      const whStock = (stockItems || []).filter(item => item?.warehouse === wh.name);
+      return {
+        warehouse: wh.name,
+        totalItems: whStock.length,
+        totalQuantity: whStock.reduce((sum, item) => sum + (item.quantity || 0), 0),
+        totalValue: Math.round(whStock.reduce((sum, item) => sum + (item.totalValue || 0), 0) / 1000), // In thousands
+      };
+    });
+  }, [warehouses, stockItems]);
 
   // Stock by Category (Pie Chart)
-  const categoryData = filteredStockItems.reduce((acc, item) => {
-    const existing = acc.find(c => c.name === item.category);
-    if (existing) {
-      existing.value += item.quantity;
-      existing.count += 1;
-    } else {
-      acc.push({ name: item.category, value: item.quantity, count: 1 });
-    }
-    return acc;
-  }, [] as { name: string; value: number; count: number }[]);
+  const categoryData = useMemo(() => {
+    return filteredStockItems.reduce((acc, item) => {
+      const existing = acc.find(c => c.name === item.category);
+      if (existing) {
+        existing.value += item.quantity || 0;
+        existing.count += 1;
+      } else {
+        acc.push({ name: item.category || 'Other', value: item.quantity || 0, count: 1 });
+      }
+      return acc;
+    }, [] as { name: string; value: number; count: number }[]);
+  }, [filteredStockItems]);
 
   // Inventory Value Distribution (Pie Chart)
-  const valueDistributionData = filteredStockItems.reduce((acc, item) => {
-    const existing = acc.find(c => c.name === item.category);
-    if (existing) {
-      existing.value += item.totalValue;
-    } else {
-      acc.push({ name: item.category, value: item.totalValue });
-    }
-    return acc;
-  }, [] as { name: string; value: number }[]);
+  const valueDistributionData = useMemo(() => {
+    return filteredStockItems.reduce((acc, item) => {
+      const existing = acc.find(c => c.name === item.category);
+      if (existing) {
+        existing.value += Math.round(item.totalValue || 0);
+      } else {
+        acc.push({ name: item.category || 'Other', value: Math.round(item.totalValue || 0) });
+      }
+      return acc;
+    }, [] as { name: string; value: number }[]);
+  }, [filteredStockItems]);
 
   // Order Status Distribution
-  const orderStatusData = [
-    { status: 'Pending', count: filteredOrders.filter(o => o.status === 'pending').length },
-    { status: 'Processing', count: filteredOrders.filter(o => o.status === 'processing').length },
-    { status: 'Fulfilled', count: filteredOrders.filter(o => o.status === 'fulfilled').length },
-    { status: 'Shipped', count: filteredOrders.filter(o => o.status === 'shipped').length },
-    { status: 'Delivered', count: filteredOrders.filter(o => o.status === 'delivered').length },
-  ].filter(d => d.count > 0);
+  const orderStatusData = useMemo(() => {
+    return [
+      { status: 'Pending', count: filteredOrders.filter(o => o.status === 'pending').length },
+      { status: 'Processing', count: filteredOrders.filter(o => o.status === 'processing').length },
+      { status: 'Fulfilled', count: filteredOrders.filter(o => o.status === 'fulfilled').length },
+      { status: 'Shipped', count: filteredOrders.filter(o => o.status === 'shipped').length },
+      { status: 'Delivered', count: filteredOrders.filter(o => o.status === 'delivered').length },
+    ].filter(d => d.count > 0);
+  }, [filteredOrders]);
 
   // Batch Status Distribution
-  const batchStatusData = [
-    { status: 'Active', count: filteredBatches.filter(b => b.status === 'active').length },
-    { status: 'Quarantine', count: filteredBatches.filter(b => b.status === 'quarantine').length },
-    { status: 'Released', count: filteredBatches.filter(b => b.status === 'released').length },
-  ].filter(d => d.count > 0);
+  const batchStatusData = useMemo(() => {
+    return [
+      { status: 'Active', count: filteredBatches.filter(b => b.status === 'active').length },
+      { status: 'Quarantine', count: filteredBatches.filter(b => b.status === 'quarantine').length },
+      { status: 'Released', count: filteredBatches.filter(b => b.status === 'released').length },
+    ].filter(d => d.count > 0);
+  }, [filteredBatches]);
 
   // Order Trends (Last 7 days - Area Chart)
-  const orderTrendsData = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    const dateStr = date.toISOString().split('T')[0];
-    
-    const dayOrders = filteredOrders.filter(o => 
-      o.orderDate && o.orderDate.split('T')[0] === dateStr
-    );
-    
-    return {
-      date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-      orders: dayOrders.length,
-      quantity: dayOrders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0),
-    };
-  });
+  const orderTrendsData = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayOrders = filteredOrders.filter(o => 
+        o.orderDate && o.orderDate.split('T')[0] === dateStr
+      );
+      
+      return {
+        date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+        orders: dayOrders.length,
+        quantity: dayOrders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0),
+      };
+    });
+  }, [filteredOrders]);
 
   // Top Items by Quantity (Bar Chart)
-  const topItemsData = [...filteredStockItems]
-    .sort((a, b) => b.quantity - a.quantity)
-    .slice(0, 10)
-    .map(item => ({
-      name: item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name,
-      quantity: item.quantity,
-      value: item.totalValue / 1000, // In thousands
-    }));
+  const topItemsData = useMemo(() => {
+    return [...filteredStockItems]
+      .sort((a, b) => (b.quantity || 0) - (a.quantity || 0))
+      .slice(0, 10)
+      .map(item => ({
+        name: item.name,
+        quantity: item.quantity || 0,
+        value: Math.round((item.totalValue || 0) / 1000), // In thousands
+      }));
+  }, [filteredStockItems]);
 
   // Warehouse Performance (Composed Chart)
-  const warehousePerformanceData = warehouses.map(wh => {
-    const whOrders = orders.filter(o => o.warehouse === wh.name);
-    const whBatches = batches.filter(b => b.warehouse === wh.name);
-    
-    return {
-      warehouse: wh.name,
-      orders: whOrders.length,
-      batches: whBatches.length,
-      utilization: ((wh.currentUtilization / wh.capacity) * 100).toFixed(0),
-    };
-  });
+  const warehousePerformanceData = useMemo(() => {
+    return (warehouses || []).map(wh => {
+      const whOrders = (orders || []).filter(o => o?.warehouse === wh.name);
+      const whBatches = (batches || []).filter(b => b?.warehouse === wh.name);
+      
+      return {
+        warehouse: wh.name,
+        orders: whOrders.length,
+        batches: whBatches.length,
+        utilization: wh.capacity ? Math.round((wh.currentUtilization / wh.capacity) * 100) : 0,
+      };
+    });
+  }, [warehouses, orders, batches]);
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <DashboardLayout
+        sidebarSections={inventorySidebarConfig}
+        companyName="Aupulens"
+        dashboardTitle="Inventory Dashboard"
+        pageName="Analytics & Visualization"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/inventory/summary' },
+          { label: 'Analytics' }
+        ]}
+        userName={session?.user?.name || ''}
+        userEmail={session?.user?.email || ''}
+        userRole={session?.user?.role}
+        onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
+        profilePath="/inventory/profile"
+      >
+        <AnalyticsPageSkeleton />
+      </DashboardLayout>
     );
   }
 
@@ -278,304 +303,258 @@ export default function InventoryAnalyticsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Inventory Analytics</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Comprehensive data visualization and insights across all warehouses
-            </p>
+
           </div>
           <div className="flex gap-3">
             <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] rounded-none">
                 <SelectValue placeholder="Select warehouse" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Warehouses</SelectItem>
+              <SelectContent className="rounded-none">
+                <SelectItem value="all" className="rounded-none">All Warehouses</SelectItem>
                 {warehouses.map(wh => (
-                  <SelectItem key={wh._id} value={wh.name}>
+                  <SelectItem key={wh._id} value={wh.name} className="rounded-none">
                     {wh.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] rounded-none">
                 <SelectValue placeholder="Date range" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectContent className="rounded-none">
+                <SelectItem value="7" className="rounded-none">Last 7 days</SelectItem>
+                <SelectItem value="30" className="rounded-none">Last 30 days</SelectItem>
+                <SelectItem value="90" className="rounded-none">Last 90 days</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Warehouses</CardTitle>
-              <Warehouse className="h-4 w-4 text-blue-800" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{warehouses.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {warehouses.filter(w => w.status === 'active').length} active
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <StatCard
+            title="Total Warehouses"
+            value={warehouses.length}
+            subtitle={`${warehouses.filter(w => w.status === 'active').length} active`}
+            visual={<ActivePulse />}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Stock Items</CardTitle>
-              <Package className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{filteredStockItems.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {filteredStockItems.reduce((sum, item) => sum + item.quantity, 0).toLocaleString()} units
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Stock Items"
+            value={filteredStockItems.length}
+            subtitle={`${filteredStockItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toLocaleString()} units`}
+            visual={<UsersGraph />}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <BarChart3 className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{filteredOrders.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {filteredOrders.filter(o => o.status === 'pending').length} pending
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Orders"
+            value={filteredOrders.length}
+            subtitle={`${filteredOrders.filter(o => o.status === 'pending').length} pending`}
+            visual={<ActivePulse />}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ₹{(filteredStockItems.reduce((sum, item) => sum + item.totalValue, 0) / 1000).toFixed(1)}K
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Across {filteredStockItems.length} items
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Inventory Value"
+            value={`₹${(filteredStockItems.reduce((sum, item) => sum + (item.totalValue || 0), 0) / 1000).toFixed(1)}K`}
+            subtitle={`Across ${filteredStockItems.length} items`}
+            visual={<UsersGraph />}
+          />
         </div>
 
-        {/* Warehouse Utilization Radar Chart */}
-        <Card>
+        {/* Warehouse Utilization Canvas Bar Chart */}
+        <Card className="rounded-none shadow-none border-border/40">
           <CardHeader>
-            <CardTitle>Warehouse Utilization Overview</CardTitle>
+            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Warehouse Utilization Overview</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <RadarChart data={warehouseUtilizationData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="warehouse" />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar name="Utilization %" dataKey="utilization" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-                <Tooltip />
-                <Legend />
-              </RadarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[350px]">
+            {warehouseUtilizationData.length > 0 ? (
+              <CanvasBarChart
+                data={warehouseUtilizationData}
+                xAxisKey="warehouse"
+                series={[{ key: "utilization", name: "Utilization %", color: "#3b82f6" }]}
+                layout="vertical"
+                isDark={true}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Utilization Data</div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Stock Levels by Warehouse - Composed Chart */}
-        <Card>
+        {/* Stock Levels by Warehouse - Composed Canvas Chart */}
+        <Card className="rounded-none shadow-none border-border/40">
           <CardHeader>
-            <CardTitle>Stock Levels by Warehouse</CardTitle>
+            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Stock Levels by Warehouse</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={stockByWarehouseData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="warehouse" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="totalItems" fill="#3b82f6" name="Total Items" />
-                <Bar yAxisId="left" dataKey="totalQuantity" fill="#10b981" name="Total Quantity" />
-                <Line yAxisId="right" type="monotone" dataKey="totalValue" stroke="#f59e0b" name="Value (₹K)" strokeWidth={2} />
-              </ComposedChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[350px]">
+            {stockByWarehouseData.length > 0 ? (
+              <CanvasComposedChart
+                data={stockByWarehouseData}
+                xAxisKey="warehouse"
+                barSeries={[
+                  { key: "totalItems", name: "Total Items", color: "#3b82f6" },
+                  { key: "totalQuantity", name: "Total Quantity", color: "#10b981" }
+                ]}
+                lineSeries={{ key: "totalValue", name: "Value (₹K)", color: "#f59e0b" }}
+                isDark={true}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Stock Levels Data</div>
+            )}
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Stock by Category - Pie Chart */}
-          <Card>
+          {/* Stock by Category - Canvas Pie Chart */}
+          <Card className="rounded-none shadow-none border-border/40">
             <CardHeader>
-              <CardTitle>Stock Distribution by Category</CardTitle>
+              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Stock Distribution by Category</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry: { name?: string; percent?: number }) => {
-                      if (!entry.name || entry.percent === undefined) return '';
-                      return `${entry.name}: ${(entry.percent * 100).toFixed(0)}%`;
-                    }}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[350px]">
+              {categoryData.length > 0 ? (
+                <CanvasPieChart
+                  data={categoryData}
+                  nameKey="name"
+                  valueKey="value"
+                  colors={COLORS}
+                  isDark={true}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Category Distribution Data</div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Inventory Value Distribution - Pie Chart */}
-          <Card>
+          {/* Inventory Value Distribution - Canvas Pie Chart */}
+          <Card className="rounded-none shadow-none border-border/40">
             <CardHeader>
-              <CardTitle>Inventory Value Distribution</CardTitle>
+              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Inventory Value Distribution</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={valueDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry: { name?: string; value?: number }) => {
-                      if (!entry.name || entry.value === undefined) return '';
-                      return `${entry.name}: ₹${(entry.value / 1000).toFixed(1)}K`;
-                    }}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {valueDistributionData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `₹${(value / 1000).toFixed(2)}K`} />
-                </PieChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[350px]">
+              {valueDistributionData.length > 0 ? (
+                <CanvasPieChart
+                  data={valueDistributionData}
+                  nameKey="name"
+                  valueKey="value"
+                  colors={COLORS}
+                  isDark={true}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Value Distribution Data</div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Order Trends - Area Chart */}
-        <Card>
+        {/* Order Trends - Canvas Area Chart */}
+        <Card className="rounded-none shadow-none border-border/40">
           <CardHeader>
-            <CardTitle>Order Trends (Last 7 Days)</CardTitle>
+            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Order Trends (Last 7 Days)</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={orderTrendsData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="orders" stackId="1" stroke="#3b82f6" fill="#3b82f6" name="Order Count" />
-                <Area type="monotone" dataKey="quantity" stackId="2" stroke="#10b981" fill="#10b981" name="Total Quantity" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[350px]">
+            {orderTrendsData.length > 0 ? (
+              <CanvasAreaChart
+                data={orderTrendsData}
+                xAxisKey="date"
+                series={[
+                  { key: "orders", name: "Order Count", color: "#3b82f6" },
+                  { key: "quantity", name: "Total Quantity", color: "#10b981" }
+                ]}
+                isDark={true}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Order Trends Data</div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Top Items by Quantity - Bar Chart */}
-        <Card>
+        {/* Top Items by Quantity - Horizontal Canvas Bar Chart */}
+        <Card className="rounded-none shadow-none border-border/40">
           <CardHeader>
-            <CardTitle>Top 10 Items by Quantity</CardTitle>
+            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Top 10 Items by Quantity</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={topItemsData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={150} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="quantity" fill="#3b82f6" name="Quantity" />
-                <Bar dataKey="value" fill="#10b981" name="Value (₹K)" />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[380px]">
+            {topItemsData.length > 0 ? (
+              <CanvasBarChart
+                data={topItemsData}
+                xAxisKey="name"
+                series={[
+                  { key: "quantity", name: "Quantity", color: "#3b82f6" },
+                  { key: "value", name: "Value (₹K)", color: "#10b981" }
+                ]}
+                layout="horizontal"
+                isDark={true}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Top Items Data</div>
+            )}
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Order Status Distribution */}
-          <Card>
+          {/* Order Status Distribution - Canvas Bar Chart */}
+          <Card className="rounded-none shadow-none border-border/40">
             <CardHeader>
-              <CardTitle>Order Status Distribution</CardTitle>
+              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Order Status Distribution</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={orderStatusData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="status" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#3b82f6" name="Orders">
-                    {orderStatusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[320px]">
+              {orderStatusData.length > 0 ? (
+                <CanvasBarChart
+                  data={orderStatusData}
+                  xAxisKey="status"
+                  series={[{ key: "count", name: "Orders", color: "#3b82f6" }]}
+                  layout="vertical"
+                  isDark={true}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Order Status Data</div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Batch Status Distribution */}
-          <Card>
+          {/* Batch Status Distribution - Canvas Bar Chart */}
+          <Card className="rounded-none shadow-none border-border/40">
             <CardHeader>
-              <CardTitle>Batch Status Distribution</CardTitle>
+              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Batch Status Distribution</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={batchStatusData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="status" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" name="Batches">
-                    {batchStatusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[320px]">
+              {batchStatusData.length > 0 ? (
+                <CanvasBarChart
+                  data={batchStatusData}
+                  xAxisKey="status"
+                  series={[{ key: "count", name: "Batches", color: "#10b981" }]}
+                  layout="vertical"
+                  isDark={true}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Batch Status Data</div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Warehouse Performance - Composed Chart */}
-        <Card>
+        {/* Warehouse Performance - Composed Canvas Chart */}
+        <Card className="rounded-none shadow-none border-border/40">
           <CardHeader>
-            <CardTitle>Warehouse Performance Overview</CardTitle>
+            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Warehouse Performance Overview</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={warehousePerformanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="warehouse" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="orders" fill="#3b82f6" name="Orders" />
-                <Bar yAxisId="left" dataKey="batches" fill="#10b981" name="Batches" />
-                <Line yAxisId="right" type="monotone" dataKey="utilization" stroke="#f59e0b" name="Utilization %" strokeWidth={2} />
-              </ComposedChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[350px]">
+            {warehousePerformanceData.length > 0 ? (
+              <CanvasComposedChart
+                data={warehousePerformanceData}
+                xAxisKey="warehouse"
+                barSeries={[
+                  { key: "orders", name: "Orders", color: "#3b82f6" },
+                  { key: "batches", name: "Batches", color: "#10b981" }
+                ]}
+                lineSeries={{ key: "utilization", name: "Utilization %", color: "#f59e0b" }}
+                isDark={true}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Warehouse Performance Data</div>
+            )}
           </CardContent>
         </Card>
       </div>

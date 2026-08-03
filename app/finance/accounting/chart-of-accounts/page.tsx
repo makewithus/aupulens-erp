@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AccountingSubNav } from "@/components/finance/accounting/AccountingSubNav";
@@ -17,11 +17,17 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Lightbulb } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
 import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 import { AccountPicker } from "@/components/finance/accounting/AccountPicker";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface JournalLineRow {
   id: number;
@@ -158,178 +164,180 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
   };
 
   return (
-    <div className="bg-card text-card-foreground p-8 rounded-lg shadow-sm border max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8 pb-4 border-b border-border">
-        <h2 className="text-2xl font-semibold tracking-tight">New Journal</h2>
+    <Card className="overflow-hidden border border-border/40 bg-background rounded-none shadow-none max-w-6xl mx-auto">
+      <div className="border-b border-border/20 px-8 py-6 flex justify-between items-center bg-white/[0.01]">
+        <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">New Journal Entry</h2>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="link" className="text-primary hover:underline text-sm font-medium px-0">Choose Template ▾</Button>
+            <Button variant="link" className="text-primary hover:underline text-sm font-medium px-0 font-mono uppercase tracking-wider">Choose Template ▾</Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="rounded-none border-border/30">
             {templates.map((t) => (
-              <DropdownMenuItem key={t._id} onClick={() => applyTemplate(t)} className="cursor-pointer">
+              <DropdownMenuItem key={t._id} onClick={() => applyTemplate(t)} className="cursor-pointer rounded-none">
                 {t.templateName}
               </DropdownMenuItem>
             ))}
             {templates.length > 0 && <div className="h-px bg-border my-1" />}
-            <DropdownMenuItem onClick={() => router.push("/finance/accounting/journals/templates/new")} className="cursor-pointer text-primary">
+            <DropdownMenuItem onClick={() => router.push("/finance/accounting/journals/templates/new")} className="cursor-pointer text-primary rounded-none">
               + New Template
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-[200px_1fr] gap-y-6 items-start max-w-3xl">
-        <label className="text-sm font-medium text-red-500 pt-2">Date*</label>
-        <DateField value={date} onChange={setDate} className="max-w-[300px]" />
+      <CardContent className="p-8 space-y-6">
+        <div className="grid grid-cols-[200px_1fr] gap-y-6 items-start max-w-3xl">
+          <label className="text-xs font-bold uppercase tracking-wider text-red-500 pt-2 font-mono">Date *</label>
+          <DateField value={date} onChange={setDate} className="max-w-[300px] rounded-none" />
 
-        <label className="text-sm font-medium text-muted-foreground pt-2">Reverse Journal Date</label>
-        <div className="space-y-2">
-          <DateField value={reverseJournalDate} onChange={setReverseJournalDate} className="max-w-[300px]" />
-          <div className="flex items-center space-x-2">
-            <Checkbox id="publish_reverse" checked={publishReverseOnDate} onCheckedChange={(c) => setPublishReverseOnDate(!!c)} />
-            <label htmlFor="publish_reverse" className="text-sm text-muted-foreground">Publish reverse journal only on the reverse journal date <span className="opacity-70">ⓘ</span></label>
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 pt-2 font-mono">Reverse Date</label>
+          <div className="space-y-3">
+            <DateField value={reverseJournalDate} onChange={setReverseJournalDate} className="max-w-[300px] rounded-none" />
+            <div className="flex items-center space-x-2">
+              <Checkbox id="publish_reverse" checked={publishReverseOnDate} onCheckedChange={(c) => setPublishReverseOnDate(!!c)} className="rounded-none" />
+              <label htmlFor="publish_reverse" className="text-xs text-muted-foreground/80 font-medium">Publish reverse journal only on the reverse journal date ⓘ</label>
+            </div>
           </div>
-        </div>
 
-        <label className="text-sm font-medium text-muted-foreground pt-2">Journal# <span className="opacity-70">(auto if blank)</span></label>
-        <div className="flex items-center max-w-[300px]">
-          <Input value={journalNumber} onChange={(e) => setJournalNumber(e.target.value)} placeholder="Auto-generated" className="rounded-r-none focus-visible:ring-0 border-r-0" />
-          <Button variant="outline" className="rounded-l-none border-l-0 px-3 text-primary hover:bg-transparent" type="button"><SettingsIcon className="h-4 w-4" /></Button>
-        </div>
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 pt-2 font-mono">Journal #</label>
+          <div className="flex items-center max-w-[300px]">
+            <Input value={journalNumber} onChange={(e) => setJournalNumber(e.target.value)} placeholder="Auto-generated" className="rounded-none focus-visible:ring-0 border-r-0" />
+            <Button variant="outline" className="rounded-none border-l-0 px-3 text-primary hover:bg-transparent" type="button"><SettingsIcon className="h-4 w-4" /></Button>
+          </div>
 
-        <label className="text-sm font-medium text-muted-foreground pt-2">Reference#</label>
-        <Input value={reference} onChange={(e) => setReference(e.target.value)} className="max-w-[300px]" />
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 pt-2 font-mono">Reference #</label>
+          <Input value={reference} onChange={(e) => setReference(e.target.value)} className="max-w-[300px] rounded-none" />
 
-        <label className="text-sm font-medium text-red-500 pt-2">Notes*</label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Max. 500 characters" maxLength={500} className="max-w-[400px] h-24 resize-none" />
+          <label className="text-xs font-bold uppercase tracking-wider text-red-500 pt-2 font-mono">Notes *</label>
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Max. 500 characters" maxLength={500} className="max-w-[400px] h-24 resize-none rounded-none" />
 
-        <label className="text-sm font-medium text-muted-foreground pt-2">Reporting Method <span className="opacity-70">ⓘ</span></label>
-        <div className="flex items-center space-x-6 pt-2">
-          {REPORTING_METHODS.map((m) => (
-            <label key={m.value} className="flex items-center space-x-2 text-sm cursor-pointer">
-              <input type="radio" name="reporting" className="accent-primary" checked={reportingMethod === m.value} onChange={() => setReportingMethod(m.value)} />
-              <span>{m.label}</span>
-            </label>
-          ))}
-        </div>
-
-        <label className="text-sm font-medium text-muted-foreground pt-2">Currency</label>
-        <Select value={currency} onValueChange={setCurrency}>
-          <SelectTrigger className="max-w-[300px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {enabledCurrencies.map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.code} - {c.name}
-              </SelectItem>
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 pt-2 font-mono">Reporting Method</label>
+          <div className="flex items-center space-x-6 pt-2">
+            {REPORTING_METHODS.map((m) => (
+              <label key={m.value} className="flex items-center space-x-2 text-xs font-medium cursor-pointer text-foreground/80">
+                <input type="radio" name="reporting" className="accent-primary h-4 w-4" checked={reportingMethod === m.value} onChange={() => setReportingMethod(m.value)} />
+                <span>{m.label}</span>
+              </label>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </div>
 
-      <div className="mt-12">
-        <div className="border rounded-md overflow-hidden">
-          <Table className="w-full text-sm">
-            <TableHeader className="bg-muted border-b text-muted-foreground text-xs tracking-wider">
-              <TableRow>
-                <TableHead className="py-3 px-4 font-medium w-8"></TableHead>
-                <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">ACCOUNT</TableHead>
-                <TableHead className="py-3 px-4 text-left font-medium w-[25%] border-r">DESCRIPTION</TableHead>
-                <TableHead className="py-3 px-4 text-left font-medium w-[20%] border-r">CONTACT ({currency})</TableHead>
-                <TableHead className="py-3 px-4 text-right font-medium border-r">DEBITS</TableHead>
-                <TableHead className="py-3 px-4 text-right font-medium">CREDITS</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id} className="border-b group bg-card hover:bg-muted/50 transition-colors">
-                  <TableCell className="p-2 text-center text-muted-foreground cursor-pointer" onClick={() => removeRow(row.id)}>✕</TableCell>
-                  <TableCell className="p-0 border-r">
-                    <AccountPicker
-                      accounts={accounts}
-                      value={row.accountId}
-                      onChange={(v) => updateRow(row.id, { accountId: v })}
-                      placeholder="Select an account"
-                      className="border-0 shadow-none h-10 w-full rounded-none px-3 bg-transparent"
-                    />
-                  </TableCell>
-                  <TableCell className="p-0 border-r">
-                    <Input
-                      value={row.description}
-                      onChange={(e) => updateRow(row.id, { description: e.target.value })}
-                      placeholder="Description"
-                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent"
-                    />
-                  </TableCell>
-                  <TableCell className="p-0 border-r">
-                    <Select value={row.contactId || "none"} onValueChange={(v) => updateRow(row.id, { contactId: v === "none" ? "" : v })}>
-                      <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent"><SelectValue placeholder="Select Contact" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {customers.map((c) => (
-                          <SelectItem key={c._id} value={c._id}>{c.header?.name || c.name || "Unnamed"}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-0 border-r">
-                    <Input
-                      type="number"
-                      value={row.debit}
-                      onChange={(e) => updateRow(row.id, { debit: e.target.value, credit: e.target.value ? "" : row.credit })}
-                      placeholder="0.00"
-                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/40"
-                    />
-                  </TableCell>
-                  <TableCell className="p-0">
-                    <Input
-                      type="number"
-                      value={row.credit}
-                      onChange={(e) => updateRow(row.id, { credit: e.target.value, debit: e.target.value ? "" : row.debit })}
-                      placeholder="0.00"
-                      className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/40"
-                    />
-                  </TableCell>
-                </TableRow>
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 pt-2 font-mono">Currency</label>
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger className="max-w-[300px] rounded-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-none">
+              {enabledCurrencies.map((c) => (
+                <SelectItem key={c.code} value={c.code} className="rounded-none">
+                  {c.code} - {c.name}
+                </SelectItem>
               ))}
-            </TableBody>
-          </Table>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="mt-6 flex justify-between items-start">
-          <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-medium px-2" onClick={addRow} type="button">
-            <div className="bg-primary/20 rounded-full p-0.5 mr-2"><Plus className="h-4 w-4" /></div> Add New Row
-          </Button>
+        <div className="mt-12">
+          <div className="border border-border/40 rounded-none overflow-hidden">
+            <Table className="w-full text-sm">
+              <TableHeader className="border-b border-border/30 bg-muted/40">
+                <TableRow>
+                  <TableHead className="py-4 px-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 w-8"></TableHead>
+                  <TableHead className="py-4 px-4 text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 w-[25%] border-r border-border/10">ACCOUNT</TableHead>
+                  <TableHead className="py-4 px-4 text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 w-[25%] border-r border-border/10">DESCRIPTION</TableHead>
+                  <TableHead className="py-4 px-4 text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 w-[20%] border-r border-border/10">CONTACT ({currency})</TableHead>
+                  <TableHead className="py-4 px-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60 border-r border-border/10">DEBITS</TableHead>
+                  <TableHead className="py-4 px-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">CREDITS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/20">
+                {rows.map((row) => (
+                  <TableRow key={row.id} className="group bg-card hover:bg-white/[0.01] transition-colors">
+                    <TableCell className="p-2 text-center text-muted-foreground/50 hover:text-red-500 cursor-pointer font-bold" onClick={() => removeRow(row.id)}>✕</TableCell>
+                    <TableCell className="p-0 border-r border-border/10">
+                      <AccountPicker
+                        accounts={accounts}
+                        value={row.accountId}
+                        onChange={(v) => updateRow(row.id, { accountId: v })}
+                        placeholder="Select an account"
+                        className="border-0 shadow-none h-10 w-full rounded-none px-3 bg-transparent text-sm focus:ring-0"
+                      />
+                    </TableCell>
+                    <TableCell className="p-0 border-r border-border/10">
+                      <Input
+                        value={row.description}
+                        onChange={(e) => updateRow(row.id, { description: e.target.value })}
+                        placeholder="Description"
+                        className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 px-3 bg-transparent text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="p-0 border-r border-border/10">
+                      <Select value={row.contactId || "none"} onValueChange={(v) => updateRow(row.id, { contactId: v === "none" ? "" : v })}>
+                        <SelectTrigger className="border-0 shadow-none focus:ring-0 rounded-none h-10 px-3 bg-transparent text-sm"><SelectValue placeholder="Select Contact" /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="none" className="rounded-none">None</SelectItem>
+                          {customers.map((c) => (
+                            <SelectItem key={c._id} value={c._id} className="rounded-none">{c.header?.name || c.name || "Unnamed"}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="p-0 border-r border-border/10">
+                      <Input
+                        type="number"
+                        value={row.debit}
+                        onChange={(e) => updateRow(row.id, { debit: e.target.value, credit: e.target.value ? "" : row.credit })}
+                        placeholder="0.00"
+                        className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/30 font-mono text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="p-0">
+                      <Input
+                        type="number"
+                        value={row.credit}
+                        onChange={(e) => updateRow(row.id, { credit: e.target.value, debit: e.target.value ? "" : row.debit })}
+                        placeholder="0.00"
+                        className="border-0 shadow-none focus-visible:ring-0 rounded-none h-10 text-right px-3 bg-transparent placeholder:text-muted-foreground/30 font-mono text-sm"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-          <div className="w-[450px] bg-muted/50 rounded-lg p-6 space-y-4">
-            <div className="flex justify-between text-sm items-center">
-              <span className="font-medium text-foreground">Sub Total</span>
-              <div className="flex space-x-12 font-medium text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
-            </div>
-            <div className="flex justify-between text-base items-center">
-              <span className="font-bold text-foreground">Total ({currency})</span>
-              <div className="flex space-x-12 font-bold text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
-            </div>
-            <div className="flex justify-between text-sm items-center" style={{ color: difference === 0 ? undefined : "#ef4444" }}>
-              <span>Difference</span>
-              <span className="font-medium pr-2">{difference.toFixed(2)}</span>
+          <div className="mt-6 flex flex-col md:flex-row justify-between items-start gap-6">
+            <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-mono text-xs uppercase tracking-wider px-3 rounded-none" onClick={addRow} type="button">
+              <Plus className="h-4 w-4 mr-2" /> Add New Row
+            </Button>
+
+            <div className="w-full md:w-[450px] bg-white/[0.01] border border-border/30 rounded-none p-6 space-y-4">
+              <div className="flex justify-between text-xs font-mono uppercase tracking-wider text-muted-foreground items-center">
+                <span>Sub Total</span>
+                <div className="flex space-x-12 font-semibold text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
+              </div>
+              <div className="flex justify-between text-sm font-mono uppercase tracking-wider text-foreground items-center border-t border-border/20 pt-4">
+                <span className="font-bold">Total ({currency})</span>
+                <div className="flex space-x-12 font-black text-foreground"><span className="w-20 text-right">{subTotalDebit.toFixed(2)}</span><span className="w-20 text-right">{subTotalCredit.toFixed(2)}</span></div>
+              </div>
+              <div className="flex justify-between text-xs font-mono uppercase tracking-wider items-center border-t border-border/20 pt-4" style={{ color: difference === 0 ? undefined : "#ef4444" }}>
+                <span>Difference</span>
+                <span className="font-semibold pr-2">{difference.toFixed(2)}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </CardContent>
 
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
-        <Button variant="outline" className="font-medium px-6 bg-background" onClick={() => handleSave("draft")} disabled={!!saving}>
+        <Button variant="outline" className="font-mono text-xs uppercase tracking-wider px-6 rounded-none bg-background cursor-pointer" onClick={() => handleSave("draft")} disabled={!!saving}>
           {saving === "draft" ? "Saving..." : "Save as Draft"}
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6" onClick={() => handleSave("posted")} disabled={!!saving}>
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={() => handleSave("posted")} disabled={!!saving}>
           {saving === "posted" ? "Publishing..." : "Save and Publish"}
         </Button>
-        <Button variant="outline" className="font-medium" onClick={resetForm} disabled={!!saving} type="button">Cancel</Button>
+        <Button variant="outline" className="font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={resetForm} disabled={!!saving} type="button">Cancel</Button>
       </div>
-    </div>
+    </Card>
   );
 };
 
@@ -613,6 +621,15 @@ function ChartOfAccountsPageInner() {
       return 0;
     });
 
+  // Calculate totals for Stats grid
+  const kpis = useMemo(() => {
+    const total = accounts.length;
+    const active = accounts.filter(a => a.isActive !== false).length;
+    const asset = accounts.filter(a => TOP_LEVEL_MAP[a.accountType?.name] === "Asset").length;
+    const liability = accounts.filter(a => TOP_LEVEL_MAP[a.accountType?.name] === "Liability").length;
+    return { total, active, asset, liability };
+  }, [accounts]);
+
   return (
     <DashboardLayout
       sidebarSections={financeSidebarConfig}
@@ -626,200 +643,259 @@ function ChartOfAccountsPageInner() {
       ]}
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
+      userRole={session?.user?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
+      onRefresh={fetchData}
+      profilePath="/finance/profile"
     >
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Top Nav */}
+      <div className="space-y-6">
+        {/* Top Nav Tabs */}
         <AccountingSubNav />
 
-      {activeTab === "Chart of Accounts" ? (
-        <>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="text-2xl font-bold p-0 hover:bg-transparent flex items-center gap-2 text-foreground h-auto rounded-none">
-                    {view.charAt(0).toUpperCase() + view.slice(1)} Accounts
-                    <span className="text-primary text-xl leading-none font-black ml-1 mt-0.5">▾</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 mt-2 shadow-lg border">
-                  {[
-                    "All", "Active", "Inactive", "Asset", "Liability", "Equity", "Income", "Expense"
-                  ].map(v => (
-                    <DropdownMenuItem key={v} onClick={() => setView(v.toLowerCase())} className="flex justify-between items-center py-2 cursor-pointer text-foreground">
-                      {v} Accounts
-                      <Star className="h-4 w-4 text-muted-foreground opacity-50" />
-                    </DropdownMenuItem>
-                  ))}
-                  <div className="h-px bg-border my-1"></div>
-                  <DropdownMenuItem className="py-2 text-primary font-medium cursor-pointer">
-                    <Plus className="h-4 w-4 mr-2" /> New View
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Link href="/finance/accounting/chart-of-accounts/account-types">
-                <Button variant="outline">Manage Account Types</Button>
-              </Link>
-              <Button variant="outline" onClick={() => setIsAccountantsOpen(true)}>
-                <Users className="h-4 w-4 mr-2" />
-                Find Accountants
-              </Button>
-              <Button onClick={() => setIsAccountModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                New
-              </Button>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="px-2"><MoreHorizontal className="h-4 w-4" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
-                    <ArrowUpDown className="h-4 w-4 mr-2" /> Sort by Account Code
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setIsImportOpen(true); setImportStep(1); setImportFile(null); setImportResult(null); }}>
-                    <Upload className="h-4 w-4 mr-2" /> Import Chart of Accounts
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setExportMode("all"); setIsExportOpen(true); }}>
-                    <Download className="h-4 w-4 mr-2" /> Export Chart of Accounts
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setExportMode("view"); setIsExportOpen(true); }}>
-                    <Download className="h-4 w-4 mr-2" /> Export Current View
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        {/* Header Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Chart of Accounts
+            </h1>
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border shadow-sm overflow-hidden">
-            <div className="p-2 border-b flex items-center bg-white dark:bg-gray-800">
-              <Search className="h-4 w-4 text-gray-400 mx-2" />
-              <Input 
-                className="border-0 focus-visible:ring-0 shadow-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400" 
-                placeholder="Search accounts..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 text-center">
-                    <Checkbox />
-                  </TableHead>
-                  <TableHead>ACCOUNT NAME</TableHead>
-                  <TableHead className="cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
-                    ACCOUNT CODE
-                    <ArrowUpDown className="h-3 w-3 inline-block ml-1 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                  </TableHead>
-                  <TableHead>ACCOUNT TYPE</TableHead>
-                  <TableHead>DOCUMENTS</TableHead>
-                  <TableHead>PARENT ACCOUNT NAME</TableHead>
-                  <TableHead className="w-12 text-center"><Search className="h-4 w-4 text-gray-400 inline-block" /></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
-                ) : filteredAccounts.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8">No accounts found</TableCell></TableRow>
-                ) : (
-                  filteredAccounts.map(a => (
-                    <TableRow key={a._id}>
-                      <TableCell className="text-center">
-                        {a.isLocked ? <Lock className="h-4 w-4 text-gray-400 mx-auto" /> : <Checkbox />}
-                      </TableCell>
-                      <TableCell className="font-medium text-blue-600 dark:text-blue-400 cursor-pointer">{a.accountName}</TableCell>
-                      <TableCell>{a.accountCode || "-"}</TableCell>
-                      <TableCell>{a.accountType?.name || "-"}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell>{a.parentAccountId?.accountName || "-"}</TableCell>
-                      <TableCell className="text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600">
-                              <SettingsIcon className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 shadow-lg border">
-                            <DropdownMenuItem onClick={() => handleEditClick(a)} className="cursor-pointer text-gray-700 py-2">
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleActive(a._id, !a.isActive)} className="cursor-pointer text-gray-700 py-2">
-                              {a.isActive === false ? "Mark as Active" : "Mark as Inactive"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteAccount(a._id)} className="cursor-pointer text-red-600 py-2">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          
+          <div className="flex items-center gap-2">
+            <Link href="/finance/accounting/chart-of-accounts/account-types">
+              <Button variant="outline" className="h-12 px-6 rounded-none border border-border/45 font-mono text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95">Account Types</Button>
+            </Link>
+            <Button variant="outline" onClick={() => setIsAccountantsOpen(true)} className="h-12 px-6 rounded-none border border-border/45 font-mono text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95">
+              <Users className="h-4 w-4 mr-2 text-muted-foreground/70" />
+              Find Accountants
+            </Button>
+            <Button
+              onClick={() => setIsAccountModalOpen(true)}
+              className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Account
+            </Button>
           </div>
-        </>
-      ) : activeTab === "Journals" ? (
-        <JournalForm accounts={accounts} />
-      ) : (
-        <div className="py-20 text-center text-gray-500 bg-white rounded-lg border shadow-sm">
-          Content for {activeTab} is not yet implemented.
         </div>
-      )}
+
+        {activeTab === "Chart of Accounts" ? (
+          <>
+            {/* Stats Cards banner */}
+            <div className="space-y-1">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+                <StatCard title="Total Accounts" value={kpis.total} visual={<UsersGraph />} />
+                <StatCard title="Active Accounts" value={kpis.active} visual={<ActivePulse />} />
+                <StatCard title="Asset Accounts" value={kpis.asset} visual={<UsersGraph />} />
+                <StatCard title="Liability Accounts" value={kpis.liability} visual={<ActivePulse />} />
+              </div>
+
+              {/* Main Card grid */}
+              <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+                {/* Card Header & Controls Toolbar */}
+                <div className="border-b border-border/20 px-8 py-6">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="shrink-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="text-[30px] font-medium tracking-[-0.05em] p-0 hover:bg-transparent flex items-center gap-2 text-foreground h-auto rounded-none">
+                            {view.charAt(0).toUpperCase() + view.slice(1)} Accounts
+                            <span className="text-primary text-xl font-black mt-1">▾</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56 mt-2 rounded-none border border-border/30">
+                          {[
+                            "All", "Active", "Inactive", "Asset", "Liability", "Equity", "Income", "Expense"
+                          ].map(v => (
+                            <DropdownMenuItem key={v} onClick={() => setView(v.toLowerCase())} className="flex justify-between items-center py-2 cursor-pointer text-foreground rounded-none">
+                              {v} Accounts
+                              <Star className="h-4 w-4 text-muted-foreground opacity-50" />
+                            </DropdownMenuItem>
+                          ))}
+                          <div className="h-px bg-border my-1"></div>
+                          <DropdownMenuItem className="py-2 text-primary font-medium cursor-pointer rounded-none">
+                            <Plus className="h-4 w-4 mr-2" /> New View
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                        {filteredAccounts.length} {filteredAccounts.length === 1 ? "Account" : "Accounts"}
+                      </p>
+                    </div>
+
+                    {/* Toolbar Controls */}
+                    <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                      {/* Search Input */}
+                      <div className="relative flex-1">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
+                        <Input
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Search accounts..."
+                          className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none transition-all duration-300 placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:bg-white/[0.015] focus-visible:ring-0 w-full text-foreground"
+                        />
+                      </div>
+
+                      {/* Settings Utilities Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="h-11 px-3 rounded-none border border-border/40 hover:bg-white/5 cursor-pointer text-foreground">
+                            <MoreHorizontal className="h-4 w-4 text-muted-foreground/75" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-none border border-border/30">
+                          <DropdownMenuItem onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")} className="rounded-none py-2 cursor-pointer">
+                            <ArrowUpDown className="h-4 w-4 mr-2 text-muted-foreground" /> Sort by Account Code
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setIsImportOpen(true); setImportStep(1); setImportFile(null); setImportResult(null); }} className="rounded-none py-2 cursor-pointer">
+                            <Upload className="h-4 w-4 mr-2 text-muted-foreground" /> Import Chart of Accounts
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setExportMode("all"); setIsExportOpen(true); }} className="rounded-none py-2 cursor-pointer">
+                            <Download className="h-4 w-4 mr-2 text-muted-foreground" /> Export Chart of Accounts
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setExportMode("view"); setIsExportOpen(true); }} className="rounded-none py-2 cursor-pointer">
+                            <Download className="h-4 w-4 mr-2 text-muted-foreground" /> Export Current View
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table Content */}
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="border-border/40">
+                      <TableRow>
+                        <TableHead className="w-12 text-center py-5">
+                          <Checkbox className="rounded-none" />
+                        </TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACCOUNT NAME</TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
+                          ACCOUNT CODE
+                          <ArrowUpDown className="h-3 w-3 inline-block ml-1 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                        </TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACCOUNT TYPE</TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">PARENT ACCOUNT</TableHead>
+                        <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACTIONS</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/30">
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-center py-7"><Skeleton className="h-4 w-4 mx-auto rounded-none" /></TableCell>
+                            <TableCell className="px-8 py-7"><Skeleton className="h-5 w-44 rounded-none" /></TableCell>
+                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-16 rounded-none" /></TableCell>
+                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-28 rounded-none" /></TableCell>
+                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-24 rounded-none" /></TableCell>
+                            <TableCell className="px-8 py-7 text-right"><Skeleton className="h-8 w-8 ml-auto rounded-none" /></TableCell>
+                          </TableRow>
+                        ))
+                      ) : filteredAccounts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-24 text-center">
+                            <Star className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                            <h3 className="text-lg font-medium text-foreground">No accounts found</h3>
+                            <p className="mt-2 text-sm text-muted-foreground">Try adjusting your view dropdown or search queries.</p>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAccounts.map(a => (
+                          <TableRow key={a._id} className="hover:bg-white/[0.015] transition-colors duration-300 text-sm group font-medium">
+                            <TableCell className="text-center">
+                              {a.isLocked ? <Lock className="h-4 w-4 text-muted-foreground/40 mx-auto" /> : <Checkbox className="rounded-none" />}
+                            </TableCell>
+                            <TableCell className="px-8 py-7 font-bold text-foreground hover:text-primary transition-colors cursor-pointer">{a.accountName}</TableCell>
+                            <TableCell className="px-8 py-7 font-mono text-xs text-muted-foreground">{a.accountCode || "-"}</TableCell>
+                            <TableCell className="px-8 py-7 text-muted-foreground/95">{a.accountType?.name || "-"}</TableCell>
+                            <TableCell className="px-8 py-7 text-muted-foreground/80">{a.parentAccountId?.accountName || "-"}</TableCell>
+                            <TableCell className="px-8 py-7 text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground/50 hover:text-foreground cursor-pointer rounded-none">
+                                    <SettingsIcon className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 shadow-lg border rounded-none">
+                                  <DropdownMenuItem onClick={() => handleEditClick(a)} className="cursor-pointer py-2 rounded-none">
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleActive(a._id, !a.isActive)} className="cursor-pointer py-2 rounded-none">
+                                    {a.isActive === false ? "Mark as Active" : "Mark as Inactive"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDeleteAccount(a._id)} className="cursor-pointer text-red-500 py-2 rounded-none">
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        ) : activeTab === "Journals" ? (
+          <JournalForm accounts={accounts} />
+        ) : (
+          <Card className="py-24 text-center text-muted-foreground bg-background rounded-none border border-border/40 shadow-none">
+            <h3 className="text-lg font-medium text-foreground">Not Implemented</h3>
+            <p className="mt-2 text-sm">Content for {activeTab} is not yet implemented.</p>
+          </Card>
+        )}
+      </div>
 
       {/* Find Accountants Panel */}
       <Sheet open={isAccountantsOpen} onOpenChange={setIsAccountantsOpen}>
-        <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto rounded-none border-l border-border/30 bg-background">
           {selectedAccountant ? (
-            <div>
-              <Button variant="ghost" onClick={() => setSelectedAccountant(null)} className="mb-4">
+            <div className="space-y-6 pt-4">
+              <Button variant="ghost" onClick={() => setSelectedAccountant(null)} className="mb-4 rounded-none font-mono text-xs uppercase tracking-wider">
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back
               </Button>
-              <h2 className="text-2xl font-bold">{selectedAccountant.name}</h2>
-              <p className="text-lg text-gray-600">{selectedAccountant.firmName}</p>
-              <div className="mt-6 space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">{selectedAccountant.name}</h2>
+              <p className="text-lg text-muted-foreground">{selectedAccountant.firmName}</p>
+              <div className="space-y-4 pt-4 border-t border-border/20">
                 <div>
-                  <h4 className="font-semibold text-gray-900">Location</h4>
-                  <p>{selectedAccountant.state}, {selectedAccountant.country}</p>
+                  <h4 className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Location</h4>
+                  <p className="text-sm font-semibold mt-1">{selectedAccountant.state}, {selectedAccountant.country}</p>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">Contact</h4>
-                  <p>{selectedAccountant.email}</p>
-                  <p>{selectedAccountant.phone}</p>
+                  <h4 className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Contact</h4>
+                  <p className="text-sm font-semibold mt-1">{selectedAccountant.email}</p>
+                  <p className="text-sm font-semibold">{selectedAccountant.phone}</p>
                 </div>
                 {selectedAccountant.description && (
                   <div>
-                    <h4 className="font-semibold text-gray-900">Description</h4>
-                    <p className="text-sm">{selectedAccountant.description}</p>
+                    <h4 className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Description</h4>
+                    <p className="text-sm mt-1">{selectedAccountant.description}</p>
                   </div>
                 )}
                 {selectedAccountant.servicesOffered?.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-gray-900">Services Offered</h4>
-                    <ul className="list-disc pl-5 text-sm">
-                      {selectedAccountant.servicesOffered.map((s: string) => <li key={s}>{s}</li>)}
+                    <h4 className="font-mono text-xs uppercase tracking-wider text-muted-foreground/60">Services Offered</h4>
+                    <ul className="list-disc pl-5 text-sm mt-1 space-y-1">
+                      {selectedAccountant.servicesOffered.map((s: string) => <li key={s} className="font-medium text-foreground/80">{s}</li>)}
                     </ul>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div>
+            <div className="space-y-6 pt-4">
               <SheetHeader>
-                <SheetTitle>Find Accountants</SheetTitle>
+                <SheetTitle className="text-2xl font-black tracking-tighter">Find Accountants</SheetTitle>
               </SheetHeader>
-              <p className="text-sm text-gray-500 mt-2 mb-6">Connect with an accountant in your area to manage your business finances with ease.</p>
-              <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Connect with an accountant in your area to manage your business finances with ease.</p>
+              <div className="space-y-3 pt-4 border-t border-border/20">
                 {accountants.map(acc => (
-                  <div key={acc._id} className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50" onClick={() => setSelectedAccountant(acc)}>
-                    <h3 className="font-semibold text-lg">{acc.name}</h3>
-                    <p className="text-sm font-medium">{acc.firmName}</p>
-                    <p className="text-xs text-gray-500 mt-1">{acc.state}, {acc.country}</p>
+                  <div key={acc._id} className="p-4 border border-border/30 rounded-none cursor-pointer hover:bg-white/[0.015] transition-colors" onClick={() => setSelectedAccountant(acc)}>
+                    <h3 className="font-bold text-lg text-foreground">{acc.name}</h3>
+                    <p className="text-sm font-medium text-muted-foreground">{acc.firmName}</p>
+                    <p className="text-xs text-muted-foreground/50 mt-1 font-mono">{acc.state}, {acc.country}</p>
                   </div>
                 ))}
               </div>
@@ -830,23 +906,23 @@ function ChartOfAccountsPageInner() {
 
       {/* New Account Modal */}
       <Dialog open={isAccountModalOpen} onOpenChange={(val) => { setIsAccountModalOpen(val); if (!val) { setEditAccountId(null); setFormData({ accountName: "", accountCode: "", accountType: "", description: "", watchlist: false }); } }}>
-        <DialogContent>
+        <DialogContent className="rounded-none border border-border/30 bg-background max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editAccountId ? "Edit Account" : "Create Account"}</DialogTitle>
+            <DialogTitle className="text-xl font-bold tracking-tighter">{editAccountId ? "Edit Account" : "Create Account"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Account Type*</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 font-mono">Account Type*</label>
               <Select value={formData.accountType} onValueChange={(v) => setFormData({...formData, accountType: v})}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-none">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-none">
                   {Object.keys(groupedTypes).map(segment => (
-                    <SelectGroup key={segment}>
-                      <SelectLabel>{segment}</SelectLabel>
+                    <SelectGroup key={segment} className="rounded-none">
+                      <SelectLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">{segment}</SelectLabel>
                       {groupedTypes[segment].map((t: any) => (
-                        <SelectItem key={t._id} value={t._id}>{t.name}</SelectItem>
+                        <SelectItem key={t._id} value={t._id} className="rounded-none">{t.name}</SelectItem>
                       ))}
                     </SelectGroup>
                   ))}
@@ -854,120 +930,117 @@ function ChartOfAccountsPageInner() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Account Name*</label>
-              <Input value={formData.accountName} onChange={(e) => setFormData({...formData, accountName: e.target.value})} />
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 font-mono">Account Name*</label>
+              <Input value={formData.accountName} onChange={(e) => setFormData({...formData, accountName: e.target.value})} className="rounded-none" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Account Code</label>
-              <Input value={formData.accountCode} onChange={(e) => setFormData({...formData, accountCode: e.target.value})} />
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 font-mono">Account Code</label>
+              <Input value={formData.accountCode} onChange={(e) => setFormData({...formData, accountCode: e.target.value})} className="rounded-none" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Max. 500 characters" maxLength={500} />
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 font-mono">Description</label>
+              <Textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Max. 500 characters" maxLength={500} className="rounded-none h-24 resize-none" />
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="watchlist" checked={formData.watchlist} onCheckedChange={(c) => setFormData({...formData, watchlist: !!c})} />
-              <label htmlFor="watchlist" className="text-sm font-medium">Add to the watchlist on my dashboard</label>
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox id="watchlist" checked={formData.watchlist} onCheckedChange={(c) => setFormData({...formData, watchlist: !!c})} className="rounded-none" />
+              <label htmlFor="watchlist" className="text-xs text-foreground/80 font-medium">Add to the watchlist on my dashboard</label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAccountModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateAccount} disabled={!formData.accountName || !formData.accountType}>Save</Button>
+          <DialogFooter className="border-t pt-4 gap-2">
+            <Button variant="outline" className="rounded-none cursor-pointer" onClick={() => setIsAccountModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateAccount} disabled={!formData.accountName || !formData.accountType} className="rounded-none cursor-pointer">Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Import Modal */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-        <DialogContent className="sm:max-w-[700px] p-0">
+        <DialogContent className="sm:max-w-[700px] p-0 rounded-none border border-border/30 bg-background">
           <div className="flex items-center justify-between border-b px-6 py-4">
-            <DialogTitle className="text-xl font-semibold mx-auto">Accounts - {importStep === 1 ? 'Select File' : importStep === 2 ? 'Map Fields' : 'Preview'}</DialogTitle>
+            <DialogTitle className="text-xl font-bold tracking-tighter mx-auto">Accounts - {importStep === 1 ? 'Select File' : importStep === 2 ? 'Map Fields' : 'Preview'}</DialogTitle>
           </div>
           
-          <div className="flex items-center justify-center space-x-4 py-4 bg-gray-50/50">
+          <div className="flex items-center justify-center space-x-4 py-4 bg-muted/20">
             <div className="flex items-center">
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${importStep >= 1 ? 'bg-blue-500 text-white' : 'border-2 text-gray-400'}`}>1</div>
-              <span className={`ml-2 text-sm font-semibold ${importStep >= 1 ? 'text-gray-900' : 'text-gray-400'}`}>Configure</span>
+              <div className={`h-6 w-6 rounded-none flex items-center justify-center text-xs font-bold ${importStep >= 1 ? 'bg-primary text-primary-foreground font-semibold' : 'border-2 text-muted-foreground/40 border-border/30'}`}>1</div>
+              <span className={`ml-2 text-xs font-mono uppercase tracking-wider ${importStep >= 1 ? 'text-foreground font-semibold' : 'text-muted-foreground/55'}`}>Configure</span>
             </div>
-            <div className="h-px w-16 bg-gray-300"></div>
+            <div className="h-px w-16 bg-border/40"></div>
             <div className="flex items-center">
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${importStep >= 2 ? 'bg-blue-500 text-white' : 'border-2 text-gray-400'}`}>2</div>
-              <span className={`ml-2 text-sm font-semibold ${importStep >= 2 ? 'text-gray-900' : 'text-gray-400'}`}>Map Fields</span>
+              <div className={`h-6 w-6 rounded-none flex items-center justify-center text-xs font-bold ${importStep >= 2 ? 'bg-primary text-primary-foreground font-semibold' : 'border-2 text-muted-foreground/40 border-border/30'}`}>2</div>
+              <span className={`ml-2 text-xs font-mono uppercase tracking-wider ${importStep >= 2 ? 'text-foreground font-semibold' : 'text-muted-foreground/55'}`}>Map Fields</span>
             </div>
-            <div className="h-px w-16 bg-gray-300"></div>
+            <div className="h-px w-16 bg-border/40"></div>
             <div className="flex items-center">
-              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${importStep >= 3 ? 'bg-blue-500 text-white' : 'border-2 text-gray-400'}`}>3</div>
-              <span className={`ml-2 text-sm font-semibold ${importStep >= 3 ? 'text-gray-900' : 'text-gray-400'}`}>Preview</span>
+              <div className={`h-6 w-6 rounded-none flex items-center justify-center text-xs font-bold ${importStep >= 3 ? 'bg-primary text-primary-foreground font-semibold' : 'border-2 text-muted-foreground/40 border-border/30'}`}>3</div>
+              <span className={`ml-2 text-xs font-mono uppercase tracking-wider ${importStep >= 3 ? 'text-foreground font-semibold' : 'text-muted-foreground/55'}`}>Preview</span>
             </div>
           </div>
           
           {importStep === 1 && (
             <div className="space-y-6 px-10 py-6">
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center bg-gray-50/30">
-                <div className="mx-auto h-12 w-12 bg-white rounded-full flex items-center justify-center shadow-sm border mb-4">
-                  <Upload className="h-5 w-5 text-gray-400" />
+              <div className="border border-dashed border-border/50 rounded-none p-10 text-center bg-white/[0.005]">
+                <div className="mx-auto h-12 w-12 bg-white/[0.01] rounded-none flex items-center justify-center shadow-sm border border-border/20 mb-4">
+                  <Upload className="h-5 w-5 text-muted-foreground/50" />
                 </div>
-                <h3 className="font-semibold text-gray-800 mb-4">Drag and drop file to import</h3>
+                <h3 className="font-semibold text-foreground mb-4">Drag and drop file to import</h3>
                 <input type="file" id="import-file" accept=".csv,.tsv,.xls,.xlsx" className="hidden" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
-                <button type="button" onClick={() => document.getElementById('import-file')?.click()} className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                <button type="button" onClick={() => document.getElementById('import-file')?.click()} className="cursor-pointer bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider px-4 py-2.5 rounded-none transition-colors">
                   {importFile ? importFile.name : "Choose File ▾"}
                 </button>
-                <p className="text-xs text-gray-400 mt-4">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
+                <p className="text-xs text-muted-foreground/60 mt-4 font-mono">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
               </div>
 
-              <p className="text-sm text-gray-500">
-                Download a <a href="#" className="text-blue-600 hover:underline">sample file</a> and compare it to your import file to ensure you have the file perfect for the import.
+              <p className="text-xs text-muted-foreground">
+                Download a <a href="#" className="text-primary hover:underline font-semibold">sample file</a> and compare it to your import file to ensure you have the file perfect for the import.
               </p>
 
-              <div className="grid grid-cols-[200px_1fr] gap-4 items-start">
-                <label className="text-sm font-medium text-red-500 pt-1">Duplicate Handling: * <span className="text-gray-400 font-normal">ⓘ</span></label>
+              <div className="grid grid-cols-[200px_1fr] gap-4 items-start border-t border-border/20 pt-6">
+                <label className="text-xs font-bold uppercase tracking-wider text-red-500 pt-1 font-mono">Duplicate Handling *</label>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
-                    <input type="radio" id="dup-skip" name="duplicateHandling" checked={importConfig.duplicateHandling === "skip"} onChange={() => setImportConfig({...importConfig, duplicateHandling: "skip"})} className="mt-1 text-blue-600 focus:ring-blue-500" />
+                    <input type="radio" id="dup-skip" name="duplicateHandling" checked={importConfig.duplicateHandling === "skip"} onChange={() => setImportConfig({...importConfig, duplicateHandling: "skip"})} className="mt-1 accent-primary h-4 w-4" />
                     <label htmlFor="dup-skip" className="text-sm">
-                      <span className="font-medium text-gray-800 block mb-1">Skip Duplicates</span>
-                      <span className="text-gray-500 leading-relaxed">Retains the accounts in Aupulens ERP and does not import the duplicates in the import file.</span>
+                      <span className="font-semibold text-foreground block mb-1">Skip Duplicates</span>
+                      <span className="text-xs text-muted-foreground leading-relaxed">Retains the accounts in Aupulens ERP and does not import the duplicates in the import file.</span>
                     </label>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <input type="radio" id="dup-overwrite" name="duplicateHandling" checked={importConfig.duplicateHandling === "overwrite"} onChange={() => setImportConfig({...importConfig, duplicateHandling: "overwrite"})} className="mt-1 text-blue-600 focus:ring-blue-500" />
+                    <input type="radio" id="dup-overwrite" name="duplicateHandling" checked={importConfig.duplicateHandling === "overwrite"} onChange={() => setImportConfig({...importConfig, duplicateHandling: "overwrite"})} className="mt-1 accent-primary h-4 w-4" />
                     <label htmlFor="dup-overwrite" className="text-sm">
-                      <span className="font-medium text-gray-800 block mb-1">Overwrite accounts</span>
-                      <span className="text-gray-500 leading-relaxed">Imports the duplicates in the import file and overwrites the existing accounts in Aupulens ERP.</span>
+                      <span className="font-semibold text-foreground block mb-1">Overwrite accounts</span>
+                      <span className="text-xs text-muted-foreground leading-relaxed">Imports the duplicates in the import file and overwrites the existing accounts in Aupulens ERP.</span>
                     </label>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-[200px_1fr] gap-4 items-center">
-                <label className="text-sm font-medium text-gray-700">Character Encoding <span className="text-gray-400 font-normal">ⓘ</span></label>
+              <div className="grid grid-cols-[200px_1fr] gap-4 items-center border-t border-border/20 pt-6">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80 font-mono">Character Encoding</label>
                 <Select defaultValue="utf8">
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-none">
                     <SelectValue placeholder="UTF-8 (Unicode)" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="utf8">UTF-8 (Unicode)</SelectItem>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="utf8" className="rounded-none">UTF-8 (Unicode)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="bg-[#fffdf2] border border-[#f5e8b5] p-3 rounded-md flex items-center text-sm font-semibold text-gray-800">
-                <Lightbulb className="h-4 w-4 text-yellow-500 mr-2" /> Page Tips
-              </div>
-
-              <div className="flex justify-between items-center pt-4 border-t">
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6" onClick={handleImportParse} disabled={!importFile || loading}>
+              <div className="flex justify-between items-center pt-6 border-t border-border/20">
+                <Button className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={handleImportParse} disabled={!importFile || loading}>
                   {loading ? "Parsing..." : "Next >"}
                 </Button>
-                <Button variant="outline" className="bg-gray-50" onClick={() => setIsImportOpen(false)}>Cancel</Button>
+                <Button variant="outline" className="rounded-none cursor-pointer" onClick={() => setIsImportOpen(false)}>Cancel</Button>
               </div>
             </div>
           )}
 
           {importStep === 2 && (
             <div className="space-y-4 px-10 py-6">
-              <h3 className="font-medium">Map Fields</h3>
-              <p className="text-sm text-gray-500">Map your file columns to Aupulens fields.</p>
-              <div className="space-y-3">
+              <h3 className="font-bold text-foreground">Map Fields</h3>
+              <p className="text-xs text-muted-foreground">Map your file columns to Aupulens fields.</p>
+              <div className="space-y-3 pt-4">
                 {[
                   { id: "accountName", label: "Account Name*" },
                   { id: "accountCode", label: "Account Code" },
@@ -977,68 +1050,68 @@ function ChartOfAccountsPageInner() {
                   <div key={field.id} className="grid grid-cols-2 gap-4 items-center">
                     <label className="text-sm font-medium">{field.label}</label>
                     <Select value={(importMapping as any)[field.id]} onValueChange={(v) => setImportMapping({...importMapping, [field.id]: v})}>
-                      <SelectTrigger>
+                      <SelectTrigger className="rounded-none">
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-none">
                         {importColumns.map(col => (
-                          <SelectItem key={col} value={col}>{col}</SelectItem>
+                          <SelectItem key={col} value={col} className="rounded-none">{col}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between items-center pt-4 border-t">
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6" onClick={() => setImportStep(3)} disabled={!importMapping.accountName || !importMapping.accountType}>Next &gt;</Button>
-                <Button variant="outline" className="bg-gray-50" onClick={() => setImportStep(1)}>Back</Button>
+              <div className="flex justify-between items-center pt-6 border-t border-border/20 mt-6">
+                <Button className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={() => setImportStep(3)} disabled={!importMapping.accountName || !importMapping.accountType}>Next &gt;</Button>
+                <Button variant="outline" className="rounded-none cursor-pointer" onClick={() => setImportStep(1)}>Back</Button>
               </div>
             </div>
           )}
 
           {importStep === 3 && (
             <div className="space-y-4 px-10 py-6">
-              <h3 className="font-medium">Preview</h3>
-              <p className="text-sm text-gray-500">Previewing first 5 rows to be imported.</p>
-              <div className="overflow-x-auto border rounded-lg text-sm">
+              <h3 className="font-bold text-foreground">Preview Data</h3>
+              <p className="text-xs text-muted-foreground">Previewing first 5 rows to be imported.</p>
+              <div className="border border-border/30 rounded-none overflow-hidden text-sm">
                 <Table className="w-full text-left">
-                  <TableHeader className="bg-gray-50 border-b">
+                  <TableHeader className="bg-muted/40 border-b border-border/20">
                     <TableRow>
-                      <TableHead className="p-2">Account Name</TableHead>
-                      <TableHead className="p-2">Account Type</TableHead>
+                      <TableHead className="p-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Account Name</TableHead>
+                      <TableHead className="p-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Account Type</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="divide-y divide-border/20">
                     {importPreview.map((row, i) => (
-                      <TableRow key={i} className="border-b">
-                        <TableCell className="p-2">{row[importColumns.indexOf(importMapping.accountName)] || "-"}</TableCell>
-                        <TableCell className="p-2">{row[importColumns.indexOf(importMapping.accountType)] || "-"}</TableCell>
+                      <TableRow key={i} className="bg-card">
+                        <TableCell className="p-3 font-semibold text-foreground">{row[importColumns.indexOf(importMapping.accountName)] || "-"}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground">{row[importColumns.indexOf(importMapping.accountType)] || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-              <div className="flex justify-between items-center pt-4 border-t">
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6" onClick={handleImportExecute} disabled={loading}>{loading ? "Importing..." : "Import"}</Button>
-                <Button variant="outline" className="bg-gray-50" onClick={() => setImportStep(2)}>Back</Button>
+              <div className="flex justify-between items-center pt-6 border-t border-border/20 mt-6">
+                <Button className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={handleImportExecute} disabled={loading}>{loading ? "Importing..." : "Import"}</Button>
+                <Button variant="outline" className="rounded-none cursor-pointer" onClick={() => setImportStep(2)}>Back</Button>
               </div>
             </div>
           )}
 
           {importStep === 4 && importResult && (
-            <div className="space-y-4 py-4 text-center">
-              <div className="bg-green-100 text-green-800 p-4 rounded-lg inline-block mx-auto mb-2">
+            <div className="space-y-4 px-10 py-8 text-center bg-card">
+              <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-4 py-2 font-mono text-xs uppercase tracking-widest inline-block mx-auto mb-2 rounded-none">
                 Import Complete
               </div>
-              <p className="text-gray-700">Successfully imported {importResult.imported} accounts.</p>
-              <p className="text-gray-500 text-sm">Skipped: {importResult.skipped} | Overwritten: {importResult.overwritten}</p>
+              <h3 className="text-lg font-bold text-foreground">Successfully imported {importResult.imported} accounts.</h3>
+              <p className="text-muted-foreground text-xs font-mono">Skipped: {importResult.skipped} | Overwritten: {importResult.overwritten}</p>
               {importResult.errors?.length > 0 && (
-                <div className="mt-4 text-left bg-red-50 p-2 rounded text-red-800 text-xs h-32 overflow-y-auto">
+                <div className="mt-4 text-left bg-rose-500/5 border border-rose-500/15 p-3 rounded-none text-rose-500 font-mono text-xs h-32 overflow-y-auto">
                   {importResult.errors.map((e: string, i: number) => <div key={i}>{e}</div>)}
                 </div>
               )}
-              <DialogFooter className="mt-4">
-                <Button onClick={() => setIsImportOpen(false)}>Done</Button>
+              <DialogFooter className="mt-6 border-t pt-4">
+                <Button onClick={() => setIsImportOpen(false)} className="rounded-none cursor-pointer w-full">Done</Button>
               </DialogFooter>
             </div>
           )}
@@ -1047,13 +1120,12 @@ function ChartOfAccountsPageInner() {
 
       {/* Export Modal */}
       <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[550px] rounded-none border border-border/30 bg-background">
           <DialogHeader>
-            <DialogTitle>{exportMode === "all" ? "Export Chart of Accounts" : "Export Current View"}</DialogTitle>
+            <DialogTitle className="text-xl font-bold tracking-tighter">{exportMode === "all" ? "Export Chart of Accounts" : "Export Current View"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            <div className="bg-blue-50/50 text-blue-700 p-3 rounded-md text-sm flex items-start border border-blue-100">
-              <span className="mr-2 text-blue-600 font-bold">i</span> 
+            <div className="bg-primary/5 text-primary border border-border/10 p-4 rounded-none text-xs font-medium leading-relaxed">
               {exportMode === "all" 
                 ? "You can export your data from Aupulens ERP in CSV, XLS or XLSX format." 
                 : "Only the current view with its visible columns will be exported from Aupulens ERP in CSV or XLS format."
@@ -1062,75 +1134,74 @@ function ChartOfAccountsPageInner() {
 
             {exportMode === "all" && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Export Template <span className="text-gray-400 cursor-pointer">ⓘ</span></label>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 font-mono">Export Template</label>
                 <Select defaultValue="default">
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-none">
                     <SelectValue placeholder="Select an Export Template" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Select an Export Template</SelectItem>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="default" className="rounded-none">Select an Export Template</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-red-500">Decimal Format*</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-red-500 font-mono">Decimal Format *</label>
               <Select defaultValue="1">
-                <SelectTrigger className="w-[60%]">
+                <SelectTrigger className="w-[60%] rounded-none">
                   <SelectValue placeholder="1234567.89" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1234567.89</SelectItem>
-                  <SelectItem value="2">1,234,567.89</SelectItem>
+                <SelectContent className="rounded-none">
+                  <SelectItem value="1" className="rounded-none">1234567.89</SelectItem>
+                  <SelectItem value="2" className="rounded-none">1,234,567.89</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-3">
-              <label className="text-sm font-medium text-red-500">Export File Format*</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-red-500 font-mono">Export File Format *</label>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <input type="radio" name="exportFormat" id="fmt-csv" checked={exportFormat === "csv"} onChange={() => setExportFormat("csv")} className="text-blue-600 focus:ring-blue-500" />
-                  <label htmlFor="fmt-csv" className="text-sm text-gray-700">CSV (Comma Separated Value)</label>
+                  <input type="radio" name="exportFormat" id="fmt-csv" checked={exportFormat === "csv"} onChange={() => setExportFormat("csv")} className="accent-primary h-4 w-4" />
+                  <label htmlFor="fmt-csv" className="text-xs text-foreground/80 font-semibold">CSV (Comma Separated Value)</label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <input type="radio" name="exportFormat" id="fmt-xls" checked={exportFormat === "xls"} onChange={() => setExportFormat("xls")} className="text-blue-600 focus:ring-blue-500" />
-                  <label htmlFor="fmt-xls" className="text-sm text-gray-700">XLS (Microsoft Excel 1997-2004 Compatible)</label>
+                  <input type="radio" name="exportFormat" id="fmt-xls" checked={exportFormat === "xls"} onChange={() => setExportFormat("xls")} className="accent-primary h-4 w-4" />
+                  <label htmlFor="fmt-xls" className="text-xs text-foreground/80 font-semibold">XLS (Microsoft Excel 1997-2004 Compatible)</label>
                 </div>
                 {exportMode === "all" && (
                   <div className="flex items-center space-x-2">
-                    <input type="radio" name="exportFormat" id="fmt-xlsx" checked={exportFormat === "xlsx"} onChange={() => setExportFormat("xlsx")} className="text-blue-600 focus:ring-blue-500" />
-                    <label htmlFor="fmt-xlsx" className="text-sm text-gray-700">XLSX (Microsoft Excel)</label>
+                    <input type="radio" name="exportFormat" id="fmt-xlsx" checked={exportFormat === "xlsx"} onChange={() => setExportFormat("xlsx")} className="accent-primary h-4 w-4" />
+                    <label htmlFor="fmt-xlsx" className="text-xs text-foreground/80 font-semibold">XLSX (Microsoft Excel)</label>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">File Protection Password</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 font-mono">File Protection Password</label>
               <div className="relative w-full">
-                <Input type="password" />
-                <Eye className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 cursor-pointer" />
+                <Input type="password" className="rounded-none pr-10" />
+                <Eye className="absolute right-3 top-3 h-4 w-4 text-muted-foreground/50 cursor-pointer" />
               </div>
-              <p className="text-xs text-gray-400 leading-relaxed pt-1">
+              <p className="text-[10px] text-muted-foreground/60 leading-relaxed font-mono mt-1">
                 Your password must be at least 12 characters and include one uppercase letter, lowercase letter, number, and special character.
               </p>
             </div>
 
-            <div className="text-[13px] text-gray-500 leading-relaxed">
-              <strong className="text-gray-700">Note:</strong> You can export only the first {exportMode === "all" ? "25,000" : "10,000"} rows. If you have more rows, please export in smaller batches using filters.
+            <div className="text-[11px] font-mono text-muted-foreground/70 leading-relaxed border-t border-border/20 pt-4">
+              <strong>Note:</strong> You can export only the first {exportMode === "all" ? "25,000" : "10,000"} rows. If you have more rows, please export in smaller batches using filters.
             </div>
           </div>
           
-          <DialogFooter className="sm:justify-start gap-2">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => handleExport(exportMode)}>Export</Button>
-            <Button variant="outline" onClick={() => setIsExportOpen(false)}>Cancel</Button>
+          <DialogFooter className="border-t pt-4 gap-2">
+            <Button className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider px-6 rounded-none cursor-pointer" onClick={() => handleExport(exportMode)}>Export</Button>
+            <Button variant="outline" className="rounded-none cursor-pointer" onClick={() => setIsExportOpen(false)}>Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-    </div>
     </DashboardLayout>
   );
 }

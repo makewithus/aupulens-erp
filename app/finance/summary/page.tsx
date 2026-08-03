@@ -6,6 +6,16 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp,
@@ -19,18 +29,12 @@ import {
   Activity,
   Calendar,
   FileText,
-  ShoppingCart,
   Undo2,
   Users,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
 } from "lucide-react";
-import {
-  StatsRowSkeleton,
-  ChartSkeleton,
-} from "@/components/ui/loading-skeletons";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 
 interface FinanceSummary {
   revenue: { current: number; previous: number; change: number };
@@ -123,7 +127,7 @@ export default function FinanceSummaryPage() {
   };
 
   const getMetricVariant = (change: number, reverse: boolean = false) => {
-    if (change === 0) return { color: "text-muted-foreground", icon: Activity };
+    if (change === 0) return { color: "text-muted-foreground", bg: "bg-muted/10", icon: Activity };
     const positive = change > 0;
     const isGood = reverse ? !positive : positive;
     return {
@@ -138,38 +142,47 @@ export default function FinanceSummaryPage() {
     return [
       {
         title: "Total Revenue",
-        value: formatCurrency(summary.revenue.current),
+        value: summary.revenue.current,
         change: summary.revenue.change,
         icon: DollarSign,
-        color: "blue",
+        visual: <UsersGraph />,
         reverse: false,
       },
       {
         title: "Total Expenses",
-        value: formatCurrency(summary.expenses.current),
+        value: summary.expenses.current,
         change: summary.expenses.change,
         icon: CreditCard,
-        color: "rose",
+        visual: <ActivePulse />,
         reverse: true,
       },
       {
         title: "Net Income",
-        value: formatCurrency(summary.netIncome.current),
+        value: summary.netIncome.current,
         change: summary.netIncome.change,
         icon: Wallet,
-        color: "emerald",
+        visual: <UsersGraph />,
         reverse: false,
       },
       {
         title: "Cash Flow",
-        value: formatCurrency(summary.cashFlow.current),
+        value: summary.cashFlow.current,
         change: summary.cashFlow.change,
         icon: Activity,
-        color: "purple",
+        visual: <ActivePulse />,
         reverse: false,
       },
     ];
   }, [summary]);
+
+  const stateColors: Record<string, string> = {
+    posted: "text-emerald-500",
+    approved: "text-emerald-500",
+    done: "text-emerald-500",
+    draft: "text-gray-500",
+    pending: "text-amber-500",
+    rejected: "text-rose-500",
+  };
 
   return (
     <DashboardLayout
@@ -184,20 +197,17 @@ export default function FinanceSummaryPage() {
       onRefresh={fetchSummary}
       profilePath="/finance/profile"
     >
-      <div className="space-y-8 max-w-[1600px] mx-auto pb-12">
-        {/* Header Section */}
+      <div className="space-y-6">
+        {/* Header Toolbar */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Financial Summary
             </h1>
-            <p className="text-sm font-bold text-muted-foreground uppercase opacity-60 tracking-wider">
-              Real-time performance metrics and ledger overview
-            </p>
           </div>
-          <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 none-xl border-2">
+          <div className="flex items-center gap-3 px-4 py-2 border border-border/40 font-mono text-[11px] uppercase tracking-wider text-muted-foreground bg-white/[0.02]">
             <Calendar className="h-4 w-4 text-primary" />
-            <span className="text-[10px] font-black uppercase tracking-widest">
+            <span>
               {new Date().toLocaleDateString("en-IN", {
                 month: "long",
                 year: "numeric",
@@ -206,311 +216,311 @@ export default function FinanceSummaryPage() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="none-3xl border-2 h-32" />
-              ))}
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card className="none-3xl border-2 h-[400px]" />
-              <Card className="none-3xl border-2 h-[400px]" />
-            </div>
+        {error && (
+          <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
+            {error}
           </div>
-        ) : summary ? (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Main Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {widgets.map((w, i) => {
+        )}
+
+        {/* Stats Row */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+                  <div className="p-8 space-y-4">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-12 w-36" />
+                  </div>
+                </Card>
+              ))
+            ) : (
+              widgets.map((w, i) => {
                 const variant = getMetricVariant(w.change, w.reverse);
-                return (
-                  <Card
-                    key={i}
-                    className="none-3xl border-2 shadow-xl shadow-primary/5 hover:shadow-primary/10 transition-all group overflow-hidden"
+                const rightContent = (
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border border-border/20 rounded-none",
+                      variant.bg,
+                      variant.color
+                    )}
                   >
-                    <CardContent className="p-6 relative">
-                      <div className="flex justify-between items-start mb-4">
-                        <div
-                          className={`h-12 w-12 none-2xl flex items-center justify-center bg-primary/5 group-hover:bg-primary group-hover:text-white transition-all`}
-                        >
-                          <w.icon className="h-6 w-6" />
-                        </div>
-                        <div
-                          className={`flex items-center gap-1 px-2 py-1 none-lg ${variant.bg} ${variant.color} text-[10px] font-black`}
-                        >
-                          <variant.icon className="h-3 w-3" />
-                          {Math.abs(w.change).toFixed(1)}%
-                        </div>
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
-                        {w.title}
-                      </p>
-                      <h3 className="text-3xl font-black tracking-tighter tabular-nums">
-                        {w.value}
-                      </h3>
-                      <div className="absolute top-0 right-0 h-full w-2 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </CardContent>
-                  </Card>
+                    <variant.icon className="h-3 w-3" />
+                    {Math.abs(w.change).toFixed(1)}%
+                  </div>
                 );
-              })}
-            </div>
 
-            {/* Recent Transactions Section */}
-            {summary.recentTransactions && (
-              <div className="space-y-6 mt-8">
-                <h2 className="text-2xl font-black uppercase tracking-tighter text-primary">
-                  Recent Activity
-                </h2>
+                return (
+                  <StatCard
+                    key={i}
+                    title={w.title}
+                    value={formatCurrency(w.value)}
+                    rightContent={rightContent}
+                    visual={w.visual}
+                    className="border border-border/40 shadow-none bg-background rounded-none"
+                  />
+                );
+              })
+            )}
+          </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Recent Bills */}
-                  <Card className="none-4xl border-2 overflow-hidden">
-                    <div className="p-6 border-b-2 bg-rose-500/5 flex items-center gap-3">
-                      <Receipt className="h-5 w-5 text-rose-600" />
-                      <h3 className="text-sm font-black uppercase tracking-tight">
-                        Recent Vendor Bills
-                      </h3>
-                    </div>
-                    <CardContent className="p-0">
-                      {summary.recentTransactions.bills.length > 0 ? (
-                        <div className="divide-y-2">
-                          {summary.recentTransactions.bills.map((bill) => (
-                            <div
+          {/* Recent Activity Grid */}
+          {!isLoading && summary && summary.recentTransactions && (
+            <div className="space-y-6 pt-6">
+              
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Bills */}
+                <Card className="overflow-hidden border border-border/40 bg-background rounded-none shadow-none">
+                  <div className="p-6 border-b border-border/20 bg-rose-500/[0.02] flex items-center gap-3">
+                   
+                    <h3 className="text-[18px] font-medium tracking-tight text-foreground">
+                      Recent Vendor Bills
+                    </h3>
+                  </div>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="border-border/40">
+                        <TableRow>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Bill Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Vendor</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
+                          <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {summary.recentTransactions.bills.length > 0 ? (
+                          summary.recentTransactions.bills.map((bill) => (
+                            <TableRow
                               key={bill._id}
                               onClick={() => router.push("/finance/bills")}
-                              className="p-4 hover:bg-primary/5 cursor-pointer transition-colors group"
+                              className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="font-black text-sm">
-                                    {bill.name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground font-bold">
-                                    {bill.partner}
-                                  </p>
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
+                                {bill.name}
+                              </TableCell>
+                              <TableCell className="px-6 py-5">
+                                <div className="text-sm font-medium text-foreground/80">{bill.partner}</div>
+                                <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
+                                  {new Date(bill.date).toLocaleDateString("en-IN")}
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-black text-rose-600">
-                                    {formatCurrency(bill.amount)}
-                                  </p>
-                                  <span
-                                    className={cn(
-                                      "text-[9px] font-black uppercase px-2 py-0.5 none-full",
-                                      bill.state === "posted"
-                                        ? "bg-emerald-500/10 text-emerald-600"
-                                        : "bg-amber-500/10 text-amber-600",
-                                    )}
-                                  >
-                                    {bill.state}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {new Date(bill.date).toLocaleDateString(
-                                  "en-IN",
-                                )}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground opacity-40">
-                          <Receipt className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-xs font-bold uppercase">
-                            No recent bills
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                              </TableCell>
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-rose-500">
+                                {formatCurrency(bill.amount)}
+                              </TableCell>
+                              <TableCell className="px-6 py-5 text-right">
+                                <Badge
+                                  className={cn(
+                                    "rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-wider hover:bg-transparent shadow-none",
+                                    stateColors[bill.state] || "text-muted-foreground"
+                                  )}
+                                >
+                                  {bill.state}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground/40 text-xs font-mono uppercase">
+                              No recent bills
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
 
-                  {/* Recent Invoices */}
-                  <Card className="none-4xl border-2 overflow-hidden">
-                    <div className="p-6 border-b-2 bg-blue-500/5 flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-sm font-black uppercase tracking-tight">
-                        Recent Customer Invoices
-                      </h3>
-                    </div>
-                    <CardContent className="p-0">
-                      {summary.recentTransactions.invoices.length > 0 ? (
-                        <div className="divide-y-2">
-                          {summary.recentTransactions.invoices.map((inv) => (
-                            <div
+                {/* Recent Invoices */}
+                <Card className="overflow-hidden border border-border/40 bg-background rounded-none shadow-none">
+                  <div className="p-6 border-b border-border/20 bg-blue-500/[0.02] flex items-center gap-3">
+                    
+                    <h3 className="text-[18px] font-medium tracking-tight text-foreground">
+                      Recent Customer Invoices
+                    </h3>
+                  </div>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="border-border/40">
+                        <TableRow>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Invoice Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Customer</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
+                          <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {summary.recentTransactions.invoices.length > 0 ? (
+                          summary.recentTransactions.invoices.map((inv) => (
+                            <TableRow
                               key={inv._id}
                               onClick={() => router.push("/finance/invoices")}
-                              className="p-4 hover:bg-primary/5 cursor-pointer transition-colors group"
+                              className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="font-black text-sm">
-                                    {inv.name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground font-bold">
-                                    {inv.partner}
-                                  </p>
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
+                                {inv.name}
+                              </TableCell>
+                              <TableCell className="px-6 py-5">
+                                <div className="text-sm font-medium text-foreground/80">{inv.partner}</div>
+                                <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
+                                  {new Date(inv.date).toLocaleDateString("en-IN")}
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-black text-blue-600">
-                                    {formatCurrency(inv.amount)}
-                                  </p>
-                                  <span
-                                    className={cn(
-                                      "text-[9px] font-black uppercase px-2 py-0.5 none-full",
-                                      inv.state === "posted"
-                                        ? "bg-emerald-500/10 text-emerald-600"
-                                        : "bg-amber-500/10 text-amber-600",
-                                    )}
-                                  >
-                                    {inv.state}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {new Date(inv.date).toLocaleDateString("en-IN")}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground opacity-40">
-                          <FileText className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-xs font-bold uppercase">
-                            No recent invoices
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                              </TableCell>
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-blue-500">
+                                {formatCurrency(inv.amount)}
+                              </TableCell>
+                              <TableCell className="px-6 py-5 text-right">
+                                <Badge
+                                  className={cn(
+                                    "rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-wider hover:bg-transparent shadow-none",
+                                    stateColors[inv.state] || "text-muted-foreground"
+                                  )}
+                                >
+                                  {inv.state}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground/40 text-xs font-mono uppercase">
+                              No recent invoices
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
 
-                  {/* Recent Expenses */}
-                  <Card className="none-4xl border-2 overflow-hidden">
-                    <div className="p-6 border-b-2 bg-purple-500/5 flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-purple-600" />
-                      <h3 className="text-sm font-black uppercase tracking-tight">
-                        Recent Employee Expenses
-                      </h3>
-                    </div>
-                    <CardContent className="p-0">
-                      {summary.recentTransactions.expenses.length > 0 ? (
-                        <div className="divide-y-2">
-                          {summary.recentTransactions.expenses.map((exp) => (
-                            <div
+                {/* Recent Expenses */}
+                <Card className="overflow-hidden border border-border/40 bg-background rounded-none shadow-none">
+                  <div className="p-6 border-b border-border/20 bg-purple-500/[0.02] flex items-center gap-3">
+                    
+                    <h3 className="text-[18px] font-medium tracking-tight text-foreground">
+                      Recent Employee Expenses
+                    </h3>
+                  </div>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="border-border/40">
+                        <TableRow>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Expense Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Employee</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Amount</TableHead>
+                          <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {summary.recentTransactions.expenses.length > 0 ? (
+                          summary.recentTransactions.expenses.map((exp) => (
+                            <TableRow
                               key={exp._id}
                               onClick={() => router.push("/finance/expenses")}
-                              className="p-4 hover:bg-primary/5 cursor-pointer transition-colors group"
+                              className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="font-black text-sm">
-                                    {exp.name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground font-bold flex items-center gap-1">
-                                    <Users className="h-3 w-3" />
-                                    {exp.employee}
-                                  </p>
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
+                                {exp.name}
+                              </TableCell>
+                              <TableCell className="px-6 py-5">
+                                <div className="text-sm font-medium text-foreground/80 flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-muted-foreground/60" />
+                                  {exp.employee}
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-black text-purple-600">
-                                    {formatCurrency(exp.amount)}
-                                  </p>
-                                  <span
-                                    className={cn(
-                                      "text-[9px] font-black uppercase px-2 py-0.5 none-full",
-                                      exp.status === "approved"
-                                        ? "bg-emerald-500/10 text-emerald-600"
-                                        : exp.status === "rejected"
-                                          ? "bg-rose-500/10 text-rose-600"
-                                          : "bg-amber-500/10 text-amber-600",
-                                    )}
-                                  >
-                                    {exp.status}
-                                  </span>
+                                <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
+                                  {new Date(exp.date).toLocaleDateString("en-IN")}
                                 </div>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {new Date(exp.date).toLocaleDateString("en-IN")}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground opacity-40">
-                          <CreditCard className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-xs font-bold uppercase">
-                            No recent expenses
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                              </TableCell>
+                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-purple-500">
+                                {formatCurrency(exp.amount)}
+                              </TableCell>
+                              <TableCell className="px-6 py-5 text-right">
+                                <Badge
+                                  className={cn(
+                                    "rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-wider hover:bg-transparent shadow-none",
+                                    stateColors[exp.status] || "text-muted-foreground"
+                                  )}
+                                >
+                                  {exp.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground/40 text-xs font-mono uppercase">
+                              No recent expenses
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
 
-                  {/* Recent Returns */}
-                  <Card className="none-4xl border-2 overflow-hidden">
-                    <div className="p-6 border-b-2 bg-amber-500/5 flex items-center gap-3">
-                      <Undo2 className="h-5 w-5 text-amber-600" />
-                      <h3 className="text-sm font-black uppercase tracking-tight">
-                        Recent Returns
-                      </h3>
-                    </div>
-                    <CardContent className="p-0">
-                      {summary.recentTransactions.returns.length > 0 ? (
-                        <div className="divide-y-2">
-                          {summary.recentTransactions.returns.map((ret) => (
-                            <div
+                {/* Recent Returns */}
+                <Card className="overflow-hidden border border-border/40 bg-background rounded-none shadow-none">
+                  <div className="p-6 border-b border-border/20 bg-amber-500/[0.02] flex items-center gap-3">
+                    
+                    <h3 className="text-[18px] font-medium tracking-tight text-foreground">
+                      Recent Returns
+                    </h3>
+                  </div>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="border-border/40">
+                        <TableRow>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Return Ref</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Partner</TableHead>
+                          <TableHead className="px-6 py-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Date</TableHead>
+                          <TableHead className="px-6 py-4 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground/50">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {summary.recentTransactions.returns.length > 0 ? (
+                          summary.recentTransactions.returns.map((ret) => (
+                            <TableRow
                               key={ret._id}
                               onClick={() => router.push("/finance/returns")}
-                              className="p-4 hover:bg-primary/5 cursor-pointer transition-colors group"
+                              className="group cursor-pointer hover:bg-white/[0.01] transition-colors"
                             >
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <p className="font-black text-sm">
-                                    {ret.name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground font-bold">
-                                    {ret.partner}
-                                  </p>
-                                </div>
-                                <span
+                              <TableCell className="px-6 py-5 font-mono text-xs font-semibold text-foreground">
+                                {ret.name}
+                              </TableCell>
+                              <TableCell className="px-6 py-5">
+                                <div className="text-sm font-medium text-foreground/80">{ret.partner}</div>
+                              </TableCell>
+                              <TableCell className="px-6 py-5 font-mono text-xs text-foreground/75">
+                                {new Date(ret.date).toLocaleDateString("en-IN")}
+                              </TableCell>
+                              <TableCell className="px-6 py-5 text-right">
+                                <Badge
                                   className={cn(
-                                    "text-[9px] font-black uppercase px-2 py-0.5 none-full",
-                                    ret.status === "done"
-                                      ? "bg-emerald-500/10 text-emerald-600"
-                                      : "bg-amber-500/10 text-amber-600",
+                                    "rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-wider hover:bg-transparent shadow-none",
+                                    stateColors[ret.status] || "text-muted-foreground"
                                   )}
                                 >
                                   {ret.status}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {new Date(ret.date).toLocaleDateString("en-IN")}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground opacity-40">
-                          <Undo2 className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-xs font-bold uppercase">
-                            No recent returns
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground/40 text-xs font-mono uppercase">
+                              No recent returns
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="h-[60vh] flex flex-col items-center justify-center text-center space-y-4 opacity-20">
-            <Activity className="h-24 w-24" />
-            <p className="text-xl font-black uppercase tracking-widest">
-              Financial data pipeline offline
-            </p>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

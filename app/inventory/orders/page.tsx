@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,21 +33,21 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   ShoppingCart,
   Package,
   Clock,
-  CheckCircle,
+  CheckCircle2,
   BarChart3,
   X,
+  Search,
 } from "lucide-react";
-import {
-  StatsRowSkeleton,
-  TableSkeleton,
-} from "@/components/ui/loading-skeletons";
-import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
 import { DraggableVisualization } from "@/components/finance/DraggableVisualization";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 
 interface OrderItem {
   itemCode: string;
@@ -87,6 +87,24 @@ interface InventoryItem {
   unitPrice: number;
 }
 
+const statusColors: Record<string, string> = {
+  pending: "text-amber-500",
+  processing: "text-blue-500",
+  fulfilled: "text-cyan-500",
+  shipped: "text-indigo-500",
+  delivered: "text-emerald-500",
+  cancelled: "text-muted-foreground",
+};
+
+const statusLabels: Record<string, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  fulfilled: "Fulfilled",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
 export default function OrdersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -102,6 +120,9 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Search input
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -172,7 +193,7 @@ export default function OrdersPage() {
   const fetchStockItems = useCallback(async () => {
     try {
       const [prodRes, stockRes] = await Promise.all([
-        fetch("/api/sales/products?limit=1000"), // Fetch all/many products
+        fetch("/api/sales/products?limit=1000"),
         fetch("/api/inventory/stock"),
       ]);
 
@@ -336,47 +357,24 @@ export default function OrdersPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const config = {
-      pending: {
-        className:
-          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-        label: "Pending",
-      },
-      processing: {
-        className:
-          "bg-blue-800/10 text-blue-800 dark:text-blue-400 border-blue-800/20",
-        label: "Processing",
-      },
-      fulfilled: {
-        className:
-          "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-        label: "Fulfilled",
-      },
-      shipped: {
-        className:
-          "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-        label: "Shipped",
-      },
-      delivered: {
-        className:
-          "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-        label: "Delivered",
-      },
-      cancelled: {
-        className:
-          "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
-        label: "Cancelled",
-      },
-    };
-
-    const style = config[status as keyof typeof config] || config.pending;
-
+    const label = statusLabels[status] || status;
     return (
       <Badge
-        className={`${style.className} border font-medium`}
-        variant="outline"
+        className={`
+          rounded-none
+          border-0
+          bg-transparent
+          px-0
+          font-mono
+          text-[12px]
+          uppercase
+          tracking-[0.12em]
+          hover:bg-transparent
+          shadow-none
+          ${statusColors[status] || "text-muted-foreground"}
+        `}
       >
-        {style.label}
+        {label}
       </Badge>
     );
   };
@@ -400,18 +398,25 @@ export default function OrdersPage() {
       : "0";
   };
 
-  if (status === "loading" || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // Client-side search filtering
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchesSearch =
+        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (order.customerEmail || "").toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  }, [orders, searchQuery]);
 
-  const filteredOrders =
-    statusFilter === "all"
-      ? orders
-      : orders.filter((order) => order.status === statusFilter);
+  // Compute metrics for KPIs
+  const kpis = useMemo(() => {
+    const total = orders.length;
+    const pending = orders.filter((o) => o.status === "pending").length;
+    const processing = orders.filter((o) => o.status === "processing").length;
+    const delivered = orders.filter((o) => o.status === "delivered").length;
+    return { total, pending, processing, delivered };
+  }, [orders]);
 
   return (
     <DashboardLayout
@@ -431,511 +436,596 @@ export default function OrdersPage() {
       onRefresh={fetchOrders}
     >
       <div className="space-y-6">
-        <FinancePageHeader
-          title="Order Fulfillment Tracking"
-          description="Track and manage order fulfillment processes"
-          actions={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const statusCounts = {
-                    pending: orders.filter((o) => o.status === "pending")
-                      .length,
-                    processing: orders.filter((o) => o.status === "processing")
-                      .length,
-                    fulfilled: orders.filter((o) => o.status === "fulfilled")
-                      .length,
-                    shipped: orders.filter((o) => o.status === "shipped")
-                      .length,
-                    delivered: orders.filter((o) => o.status === "delivered")
-                      .length,
-                  };
+        {/* Header Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Order Fulfillment Tracking
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            {/* <Button
+              variant="outline"
+              onClick={() => {
+                const statusCounts = {
+                  pending: orders.filter((o) => o.status === "pending").length,
+                  processing: orders.filter((o) => o.status === "processing").length,
+                  fulfilled: orders.filter((o) => o.status === "fulfilled").length,
+                  shipped: orders.filter((o) => o.status === "shipped").length,
+                  delivered: orders.filter((o) => o.status === "delivered").length,
+                };
 
-                  setVizData([
-                    { status: "Pending", count: statusCounts.pending },
-                    { status: "Processing", count: statusCounts.processing },
-                    { status: "Fulfilled", count: statusCounts.fulfilled },
-                    { status: "Shipped", count: statusCounts.shipped },
-                    { status: "Delivered", count: statusCounts.delivered },
-                  ]);
-                  setIsVizOpen(true);
-                }}
+                setVizData([
+                  { status: "Pending", count: statusCounts.pending },
+                  { status: "Processing", count: statusCounts.processing },
+                  { status: "Fulfilled", count: statusCounts.fulfilled },
+                  { status: "Shipped", count: statusCounts.shipped },
+                  { status: "Delivered", count: statusCounts.delivered },
+                ]);
+                setIsVizOpen(true);
+              }}
+              className="h-12 px-6 rounded-none font-mono text-[13px] uppercase tracking-wider cursor-pointer border border-border/40 hover:bg-white/5"
+            >
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Visualize
+            </Button> */}
+
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Order
+                </Button>
+              </DialogTrigger>
+              <DialogContent
+                className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background"
+                onInteractOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
               >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Visualize
-              </Button>
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Order
-                  </Button>
-                </DialogTrigger>
-                <DialogContent
-                  className="max-w-5xl max-h-[90vh] overflow-y-auto"
-                  onInteractOutside={(e) => e.preventDefault()}
-                  onEscapeKeyDown={(e) => e.preventDefault()}
-                >
-                  <DialogHeader>
-                    <DialogTitle>Create New Order</DialogTitle>
-                    <DialogDescription>
-                      Fill in the details to create a new fulfillment order
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateOrder} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="orderNumber">Order Number (auto-assigned)</Label>
-                        <Input
-                          id="orderNumber"
-                          value={newOrder.orderNumber}
-                          readOnly
-                          disabled
-                          placeholder="Generating..."
-                          className="bg-muted"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="customerName">Customer Name *</Label>
-                        <Input
-                          id="customerName"
-                          list="inventory-order-customers"
-                          value={newOrder.customerName}
-                          onChange={(e) => {
-                            const match = customers.find(
-                              (c: any) => (c.header?.displayName || c.header?.name) === e.target.value,
-                            );
-                            setNewOrder({
-                              ...newOrder,
-                              customerName: e.target.value,
-                              customerEmail: match?.contact_details?.email || newOrder.customerEmail,
-                            });
-                          }}
-                          placeholder="Type to search existing customers or enter a new name"
-                          required
-                        />
-                        <datalist id="inventory-order-customers">
-                          {customers.map((c: any) => (
-                            <option key={c._id} value={c.header?.displayName || c.header?.name} />
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-medium tracking-tight">Create New Order</DialogTitle>
+                  <DialogDescription>
+                    Fill in the details to create a new fulfillment order
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateOrder} className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="orderNumber">Order Number (auto-assigned)</Label>
+                      <Input
+                        id="orderNumber"
+                        value={newOrder.orderNumber}
+                        readOnly
+                        disabled
+                        placeholder="Generating..."
+                        className="bg-muted rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerName">Customer Name *</Label>
+                      <Input
+                        id="customerName"
+                        list="inventory-order-customers"
+                        value={newOrder.customerName}
+                        onChange={(e) => {
+                          const match = customers.find(
+                            (c: any) => (c.header?.displayName || c.header?.name) === e.target.value,
+                          );
+                          setNewOrder({
+                            ...newOrder,
+                            customerName: e.target.value,
+                            customerEmail: match?.contact_details?.email || newOrder.customerEmail,
+                          });
+                        }}
+                        placeholder="Type to search existing customers or enter a new name"
+                        required
+                        className="rounded-none"
+                      />
+                      <datalist id="inventory-order-customers">
+                        {customers.map((c: any) => (
+                          <option key={c._id} value={c.header?.displayName || c.header?.name} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerEmail">Customer Email</Label>
+                      <Input
+                        id="customerEmail"
+                        type="email"
+                        value={newOrder.customerEmail}
+                        onChange={(e) =>
+                          setNewOrder({
+                            ...newOrder,
+                            customerEmail: e.target.value,
+                          })
+                        }
+                        placeholder="customer@example.com"
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="warehouse">
+                        Fulfillment Warehouse *
+                      </Label>
+                      <Select
+                        value={newOrder.warehouse}
+                        onValueChange={(value) =>
+                          setNewOrder({ ...newOrder, warehouse: value })
+                        }
+                      >
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {warehouses.map((wh) => (
+                            <SelectItem key={wh._id} value={wh.name} className="rounded-none">
+                              {wh.name} ({wh.warehouseCode})
+                            </SelectItem>
                           ))}
-                        </datalist>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="customerEmail">Customer Email</Label>
-                        <Input
-                          id="customerEmail"
-                          type="email"
-                          value={newOrder.customerEmail}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              customerEmail: e.target.value,
-                            })
-                          }
-                          placeholder="customer@example.com"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="warehouse">
-                          Fulfillment Warehouse *
-                        </Label>
-                        <Select
-                          value={newOrder.warehouse}
-                          onValueChange={(value) =>
-                            setNewOrder({ ...newOrder, warehouse: value })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select warehouse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouses.map((wh) => (
-                              <SelectItem key={wh._id} value={wh.name}>
-                                {wh.name} ({wh.warehouseCode})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="orderDate">Order Date *</Label>
-                        <Input
-                          id="orderDate"
-                          type="date"
-                          value={newOrder.orderDate}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              orderDate: e.target.value,
-                            })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="expectedDelivery">
-                          Expected Delivery *
-                        </Label>
-                        <Input
-                          id="expectedDelivery"
-                          type="date"
-                          value={newOrder.expectedDelivery}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              expectedDelivery: e.target.value,
-                            })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2 col-span-2">
-                        <Label htmlFor="shippingAddress">
-                          Shipping Address *
-                        </Label>
-                        <Input
-                          id="shippingAddress"
-                          value={newOrder.shippingAddress}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              shippingAddress: e.target.value,
-                            })
-                          }
-                          placeholder="123 Street, City, State, PIN"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="trackingNumber">
-                          Tracking Number (Optional)
-                        </Label>
-                        <Input
-                          id="trackingNumber"
-                          value={newOrder.trackingNumber}
-                          onChange={(e) =>
-                            setNewOrder({
-                              ...newOrder,
-                              trackingNumber: e.target.value,
-                            })
-                          }
-                          placeholder="TRACK123456"
-                        />
-                      </div>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    <div className="space-y-2 border-t pt-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <Label>Order Items *</Label>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleAddItem}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Item
-                        </Button>
-                      </div>
-                      {newOrder.items.map((item, index) => (
-                        <div
-                          key={index}
-                          className="grid grid-cols-12 gap-2 items-end"
-                        >
-                          <div className="col-span-4 space-y-1">
-                            <Label className="text-xs">Item</Label>
-                            <Select
-                              value={item.itemCode}
-                              onValueChange={(value) =>
-                                handleItemChange(index, "itemCode", value)
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select item" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(stockItems || [])
-                                  .filter(
-                                    (si) =>
-                                      !newOrder.warehouse ||
-                                      si.warehouse === "Main Warehouse" ||
-                                      si.warehouse === newOrder.warehouse,
-                                  )
-                                  .map((stockItem) => (
-                                    <SelectItem
-                                      key={stockItem.itemCode}
-                                      value={stockItem.itemCode}
-                                    >
-                                      {stockItem.itemName} ({stockItem.itemCode}
-                                      ) - Qty: {stockItem.quantity}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="col-span-3 space-y-1">
-                            <Label className="text-xs">Item Name</Label>
-                            <Input
-                              value={item.itemName}
-                              disabled
-                              placeholder="Auto-filled"
-                              className="bg-muted"
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-1">
-                            <Label className="text-xs">Quantity</Label>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "quantity",
-                                  parseInt(e.target.value) || 0,
-                                )
-                              }
-                              placeholder="0"
-                              required
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-1">
-                            <Label className="text-xs">Unit Price (₹)</Label>
-                            <Input
-                              type="number"
-                              value={item.unitPrice}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "unitPrice",
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
-                              placeholder="0.00"
-                              required
-                            />
-                          </div>
-                          <div className="col-span-1 flex items-end">
-                            {newOrder.items.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveItem(index)}
-                                className="h-10 w-10 p-0"
-                              >
-                                <X className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="orderDate">Order Date *</Label>
+                      <Input
+                        id="orderDate"
+                        type="date"
+                        value={newOrder.orderDate}
+                        onChange={(e) =>
+                          setNewOrder({
+                            ...newOrder,
+                            orderDate: e.target.value,
+                          })
+                        }
+                        required
+                        className="rounded-none"
+                      />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="expectedDelivery">
+                        Expected Delivery *
+                      </Label>
+                      <Input
+                        id="expectedDelivery"
+                        type="date"
+                        value={newOrder.expectedDelivery}
+                        onChange={(e) =>
+                          setNewOrder({
+                            ...newOrder,
+                            expectedDelivery: e.target.value,
+                          })
+                        }
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="shippingAddress">
+                        Shipping Address *
+                      </Label>
+                      <Input
+                        id="shippingAddress"
+                        value={newOrder.shippingAddress}
+                        onChange={(e) =>
+                          setNewOrder({
+                            ...newOrder,
+                            shippingAddress: e.target.value,
+                          })
+                        }
+                        placeholder="123 Street, City, State, PIN"
+                        required
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="trackingNumber">
+                        Tracking Number (Optional)
+                      </Label>
+                      <Input
+                        id="trackingNumber"
+                        value={newOrder.trackingNumber}
+                        onChange={(e) =>
+                          setNewOrder({
+                            ...newOrder,
+                            trackingNumber: e.target.value,
+                          })
+                        }
+                        placeholder="TRACK123456"
+                        className="rounded-none"
+                      />
+                    </div>
+                  </div>
 
-                    <div className="flex justify-end gap-3">
+                  <div className="space-y-2 border-t pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <Label>Order Items *</Label>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsAddDialogOpen(false)}
+                        size="sm"
+                        onClick={handleAddItem}
+                        className="rounded-none"
                       >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        Create Order
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Item
                       </Button>
                     </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </>
-          }
-        />
+                    {newOrder.items.map((item, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-12 gap-2 items-end"
+                      >
+                        <div className="col-span-4 space-y-1">
+                          <Label className="text-xs">Item</Label>
+                          <Select
+                            value={item.itemCode}
+                            onValueChange={(value) =>
+                              handleItemChange(index, "itemCode", value)
+                            }
+                          >
+                            <SelectTrigger className="rounded-none">
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-none">
+                              {(stockItems || [])
+                                .filter(
+                                  (si) =>
+                                    !newOrder.warehouse ||
+                                    si.warehouse === "Main Warehouse" ||
+                                    si.warehouse === newOrder.warehouse,
+                                )
+                                .map((stockItem) => (
+                                  <SelectItem
+                                    key={stockItem.itemCode}
+                                    value={stockItem.itemCode}
+                                    className="rounded-none"
+                                  >
+                                    {stockItem.itemName} ({stockItem.itemCode}
+                                    ) - Qty: {stockItem.quantity}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-3 space-y-1">
+                          <Label className="text-xs">Item Name</Label>
+                          <Input
+                            value={item.itemName}
+                            disabled
+                            placeholder="Auto-filled"
+                            className="bg-muted rounded-none"
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                          <Label className="text-xs">Quantity</Label>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 0,
+                              )
+                            }
+                            placeholder="0"
+                            required
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                          <Label className="text-xs">Unit Price (₹)</Label>
+                          <Input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "unitPrice",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            placeholder="0.00"
+                            required
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div className="col-span-1 flex items-end">
+                          {newOrder.items.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveItem(index)}
+                              className="h-10 w-10 p-0 rounded-none cursor-pointer"
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Orders
-              </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orders.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <Clock className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">
-                {orders.filter((o) => o.status === "pending").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Processing</CardTitle>
-              <Package className="h-4 w-4 text-blue-800" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-800">
-                {orders.filter((o) => o.status === "processing").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-              <CheckCircle className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {orders.filter((o) => o.status === "delivered").length}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAddDialogOpen(false)}
+                      className="rounded-none"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="rounded-none"
+                    >
+                      Create Order
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        {error && (
-          <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
-            {error}
+        {/* Stats banner matching Employee styles */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Orders"
+              value={kpis.total}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="Pending Orders"
+              value={kpis.pending}
+              visual={<ActivePulse />}
+            />
+            <StatCard
+              title="Processing Orders"
+              value={kpis.processing}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="Delivered Orders"
+              value={kpis.delivered}
+              visual={<ActivePulse />}
+            />
           </div>
-        )}
 
-        {/* Orders Table */}
-        <Card className="border-border/40">
-          <CardHeader className="bg-muted/30">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-base font-semibold">
-                Orders
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({filteredOrders.length} total)
-                </span>
-              </CardTitle>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="fulfilled">Fulfilled</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Unified Card matching HR Employee structure */}
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            {/* Card Header & Controls Toolbar */}
+            <div className="border-b border-border/20 px-8 py-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="shrink-0">
+                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                    All Fulfillment Orders
+                  </h2>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {filteredOrders.length}{" "}
+                    {filteredOrders.length === 1 ? "Order" : "Orders"}
+                  </p>
+                </div>
+
+                {/* Toolbar Controls */}
+                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                  {/* Search Input */}
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by order # or customer..."
+                      className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none transition-all duration-300 placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:bg-white/[0.015] focus-visible:ring-0 w-full text-foreground"
+                    />
+                  </div>
+
+                  {/* Status Select Filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                      <SelectValue placeholder="Fulfillment Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/30">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                      <SelectItem value="shipped">Shipped</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
+
+            {/* Table Content */}
+            <CardContent className="p-0">
+              {error && (
+                <div className="m-8 p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
+                  {error}
+                </div>
+              )}
+
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="font-semibold">Order #</TableHead>
-                    <TableHead className="font-semibold">Customer</TableHead>
-                    <TableHead className="font-semibold">Items</TableHead>
-                    <TableHead className="font-semibold">Warehouse</TableHead>
-                    <TableHead className="font-semibold">Order Date</TableHead>
-                    <TableHead className="font-semibold">Delivery</TableHead>
-                    <TableHead className="font-semibold">Progress</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Order #
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Customer
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Items
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Warehouse
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Order & Expected Date
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Fulfillment Progress
+                    </TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      Status State
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {filteredOrders.length === 0 ? (
+                <TableBody className="divide-y divide-border/30">
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-5 w-24" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-24 opacity-50" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-16" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-28" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right">
+                          <Skeleton className="h-5 w-20 ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="text-center text-muted-foreground py-12"
-                      >
-                        No orders found. Create your first order to get started.
+                      <TableCell colSpan={7} className="py-24 text-center">
+                        <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                        <h3 className="text-lg font-medium text-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "No orders match your filters"
+                            : "No fulfillment orders found"}
+                        </h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "Try adjusting your search or status query."
+                            : "Create your first order to get started."}
+                        </p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredOrders.map((order) => (
                       <TableRow
                         key={order._id}
-                        className="hover:bg-muted/30 transition-colors"
+                        className="hover:bg-white/[0.015] transition-colors duration-300"
                       >
-                        <TableCell className="font-semibold text-sm">
+                        {/* Order # */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-foreground">
                           {order.orderNumber}
                         </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
+
+                        {/* Customer */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="font-medium text-foreground">
                             {order.customerName}
                           </div>
                           {order.customerEmail && (
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground/70 font-mono mt-0.5">
                               {order.customerEmail}
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="font-semibold">
+
+                        {/* Items */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="font-semibold text-foreground">
                             {order.items.length} items
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground/60 mt-0.5 font-mono">
                             Qty: {order.totalQuantity}
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+
+                        {/* Warehouse */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
                           {order.warehouse}
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(order.orderDate)}
+
+                        {/* Order Date & expected delivery */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          <div className="font-medium">{formatDate(order.orderDate)}</div>
+                          <div className="text-xs text-muted-foreground/60 mt-0.5">
+                            Expected: {formatDate(order.expectedDeliveryDate)}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(order.expectedDeliveryDate)}
-                        </TableCell>
-                        <TableCell>
+
+                        {/* Progress */}
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
                           <div className="flex items-center gap-2">
-                            <div className="w-full bg-muted rounded-full h-2">
+                            <div className="w-24 bg-muted rounded-none h-1.5 overflow-hidden">
                               <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                className="bg-primary h-full transition-all duration-500"
                                 style={{
                                   width: `${getFulfillmentProgress(order.items)}%`,
                                 }}
                               />
                             </div>
-                            <span className="text-xs font-medium tabular-nums">
+                            <span className="text-xs font-mono text-foreground/75 tabular-nums">
                               {getFulfillmentProgress(order.items)}%
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>{getStatusBadge(order.status)}</TableCell>
+
+                        {/* Status Badge */}
+                        <TableCell className="px-8 py-7 text-right">
+                          {getStatusBadge(order.status)}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
-            </div>
+            </CardContent>
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              <div className="flex items-center justify-between px-8 py-5 border-t border-border/20 bg-muted/5">
+                <p className="text-xs font-mono text-muted-foreground/70 uppercase tracking-wider">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} records
                 </p>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
+                  >
                     Previous
                   </Button>
-                  <span className="text-sm">Page {page} of {totalPages}</span>
-                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  <span className="text-xs font-mono px-2 text-foreground/80">Page {page} of {totalPages}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
+                  >
                     Next
                   </Button>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         {/* Draggable Visualization */}
         <DraggableVisualization

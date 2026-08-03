@@ -165,7 +165,7 @@ export default function SignUpPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   return (
-    <OnboardingLayout>
+    <OnboardingLayout currentStep={step}>
       <div className="space-y-6">
         <OnboardingHeader />
         <OnboardingProgress currentStep={step} />

@@ -296,9 +296,6 @@ export default function ReportsPage() {
           <h1 className="text-4xl font-black uppercase tracking-tighter text-primary">
             Business Reports
           </h1>
-          <p className="text-sm font-bold text-muted-foreground uppercase opacity-60 tracking-wider">
-            Generate comprehensive reports across all modules
-          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

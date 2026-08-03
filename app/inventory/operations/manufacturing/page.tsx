@@ -1,78 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Search,
   Plus,
+  RefreshCw,
   Eye,
-  Edit2,
-  ChevronRight,
   CheckCircle2,
-  XCircle,
-  RotateCcw,
-  Factory,
-  FlaskConical,
-  Package,
-  Truck,
-  ClipboardCheck,
-  Ban,
-  Circle,
+  ArrowRight,
 } from "lucide-react";
-import type { ManufacturingOrder } from "@/types/manufacturing";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";
 import { toast } from "sonner";
-import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import {
   PRODUCTION_STATUS,
   PRODUCTION_STATUS_LABELS,
-  PRODUCTION_STATUS_COLORS,
-  PRODUCTION_FLOW_STEPS,
   type ProductionStatus,
   getNextProductionStatuses,
 } from "@/lib/constants/statuses";
-import { ManufacturingList } from "@/components/inventory/manufacturing/ManufacturingList";
-import { FinancePageHeader } from "@/components/finance/FinancePageHeader";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 
-/* ---- Step icon map ---- */
-const STEP_ICONS: Record<string, any> = {
-  [PRODUCTION_STATUS.DEMAND_FORECAST]: ClipboardCheck,
-  [PRODUCTION_STATUS.PRODUCTION_ORDER]: Factory,
-  [PRODUCTION_STATUS.MATERIAL_RESERVED]: Package,
-  [PRODUCTION_STATUS.MATERIAL_ISSUED]: Truck,
-  [PRODUCTION_STATUS.IN_PRODUCTION]: Factory,
-  [PRODUCTION_STATUS.QC_PENDING]: FlaskConical,
-  [PRODUCTION_STATUS.QC_PASSED]: CheckCircle2,
-  [PRODUCTION_STATUS.QC_FAILED]: XCircle,
-  [PRODUCTION_STATUS.REWORK]: RotateCcw,
-  [PRODUCTION_STATUS.FINISHED]: CheckCircle2,
-  [PRODUCTION_STATUS.CANCELLED]: Ban,
-};
-
-function ProductionBadge({ status }: { status: ProductionStatus }) {
-  const colors = PRODUCTION_STATUS_COLORS[status] || {
-    bg: "bg-gray-100",
-    text: "text-gray-600",
+interface ManufacturingOrder {
+  _id: string;
+  header: {
+    name: string;
+    quantity: number;
+    productId?: {
+      header?: {
+        name?: string;
+      };
+    };
   };
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}
-    >
-      {PRODUCTION_STATUS_LABELS[status] || status}
-    </span>
-  );
+  productionStatus: string;
+  reworkCount?: number;
 }
+
+const statusColors: Record<string, string> = {
+  [PRODUCTION_STATUS.DEMAND_FORECAST]: "text-gray-500",
+  [PRODUCTION_STATUS.PRODUCTION_ORDER]: "text-blue-500",
+  [PRODUCTION_STATUS.MATERIAL_RESERVED]: "text-indigo-500",
+  [PRODUCTION_STATUS.MATERIAL_ISSUED]: "text-cyan-500",
+  [PRODUCTION_STATUS.IN_PRODUCTION]: "text-amber-500",
+  [PRODUCTION_STATUS.QC_PENDING]: "text-orange-500",
+  [PRODUCTION_STATUS.QC_PASSED]: "text-emerald-500",
+  [PRODUCTION_STATUS.QC_FAILED]: "text-red-500",
+  [PRODUCTION_STATUS.REWORK]: "text-rose-500",
+  [PRODUCTION_STATUS.FINISHED]: "text-emerald-500",
+  [PRODUCTION_STATUS.CANCELLED]: "text-muted-foreground",
+};
 
 export default function ManufacturingPage() {
   const { data: session, status } = useSession();
-  const [orders, setOrders] = useState<any[]>([]);
+  const router = useRouter();
+
+  const [orders, setOrders] = useState<ManufacturingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [products, setProducts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -147,6 +163,7 @@ export default function ManufacturingPage() {
   };
 
   const saveOrder = async () => {
+    setIsSubmitting(true);
     try {
       const url = formData._id
         ? `/api/inventory/operations/manufacturing/${formData._id}`
@@ -164,6 +181,8 @@ export default function ManufacturingPage() {
       fetchResources();
     } catch (e) {
       toast.error("Error saving");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -193,70 +212,73 @@ export default function ManufacturingPage() {
     }
   };
 
-const workflowSteps = [
-  {
-    key: PRODUCTION_STATUS.DEMAND_FORECAST,
-    label: "Forecast",
-  },
-  {
-    key: PRODUCTION_STATUS.PRODUCTION_ORDER,
-    label: "Order",
-  },
-  {
-    key: PRODUCTION_STATUS.MATERIAL_RESERVED,
-    label: "Reserve",
-  },
-  {
-    key: PRODUCTION_STATUS.MATERIAL_ISSUED,
-    label: "Issue",
-  },
-  {
-    key: PRODUCTION_STATUS.IN_PRODUCTION,
-    label: "Production",
-  },
-  {
-    key: PRODUCTION_STATUS.QC_PENDING,
-    label: "QC",
-  },
-  {
-    key: PRODUCTION_STATUS.FINISHED,
-    label: "Finished",
-  },
-];
+  const getNextAction = (order: ManufacturingOrder) => {
+    const next = getNextProductionStatuses(
+      order.productionStatus as ProductionStatus
+    ).filter(
+      (status) => status !== PRODUCTION_STATUS.CANCELLED
+    )[0];
 
-const workflowIndex: Record<string, number> = {
-  [PRODUCTION_STATUS.DEMAND_FORECAST]: 0,
-  [PRODUCTION_STATUS.PRODUCTION_ORDER]: 1,
-  [PRODUCTION_STATUS.MATERIAL_RESERVED]: 2,
-  [PRODUCTION_STATUS.MATERIAL_ISSUED]: 3,
-  [PRODUCTION_STATUS.IN_PRODUCTION]: 4,
+    return next
+      ? PRODUCTION_STATUS_LABELS[next]
+      : undefined;
+  };
 
-  // QC states all map to the QC step
-  [PRODUCTION_STATUS.QC_PENDING]: 5,
-  [PRODUCTION_STATUS.QC_PASSED]: 5,
-  [PRODUCTION_STATUS.QC_FAILED]: 5,
-  [PRODUCTION_STATUS.REWORK]: 5,
+  const handleContinue = (order: ManufacturingOrder) => {
+    const next = getNextProductionStatuses(
+      order.productionStatus as ProductionStatus
+    ).filter(
+      (status) => status !== PRODUCTION_STATUS.CANCELLED
+    )[0];
 
-  [PRODUCTION_STATUS.FINISHED]: 6,
+    if (next) {
+      advanceProductionStatus(order._id, next);
+    }
+  };
 
-  // Cancelled stays wherever it was
-  [PRODUCTION_STATUS.CANCELLED]: 0,
-};
+  // Client-side search and status filters
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const productName = order.header.productId?.header?.name || "";
+      const matchesSearch =
+        order.header.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        productName.toLowerCase().includes(searchQuery.toLowerCase());
 
-const getCurrentStep = (order: any) =>
-  workflowIndex[order.productionStatus] ?? 0;
+      const matchesStatus =
+        statusFilter === "all" || order.productionStatus === statusFilter;
 
-const getNextAction = (order: ManufacturingOrder) => {
-  const next = getNextProductionStatuses(
-    order.productionStatus as ProductionStatus
-  ).filter(
-    (status) => status !== PRODUCTION_STATUS.CANCELLED
-  )[0];
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchQuery, statusFilter]);
 
-  return next
-    ? PRODUCTION_STATUS_LABELS[next]
-    : undefined;
-};
+  // Compute KPIs
+  const kpis = useMemo(() => {
+    const total = orders.length;
+    const inProduction = orders.filter(
+      (o) => o.productionStatus === PRODUCTION_STATUS.IN_PRODUCTION
+    ).length;
+    const qcPending = orders.filter(
+      (o) => o.productionStatus === PRODUCTION_STATUS.QC_PENDING
+    ).length;
+    const completed = orders.filter(
+      (o) => o.productionStatus === PRODUCTION_STATUS.FINISHED
+    ).length;
+
+    return {
+      total,
+      inProduction,
+      qcPending,
+      completed,
+    };
+  }, [orders]);
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -273,44 +295,268 @@ const getNextAction = (order: ManufacturingOrder) => {
       userRole={session?.user?.role || "inventory"}
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
       onRefresh={fetchOrders}
+      profilePath="/inventory/profile"
     >
       <div className="space-y-6">
-        <FinancePageHeader
-          title="Manufacturing Orders"
-          description="Production orders that consume inventory to build finished goods."
-          actions={
-            <Button onClick={() => handleAction(null, "create")}>
-              <Plus className="h-4 w-4 mr-2" /> Create MO
-            </Button>
-          }
-        />
+        {/* Page Header Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Manufacturing Orders
+            </h1>
+          </div>
+          <Button
+            onClick={() => handleAction(null, "create")}
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Create MO
+          </Button>
+        </div>
 
-        {loading ? (
-          <TableSkeleton rows={4} columns={2} />
-        ) : (
-          <ManufacturingList
-            orders={orders}
-            workflowSteps={workflowSteps}
-            statusLabels={PRODUCTION_STATUS_LABELS}
-            getCurrentStep={getCurrentStep}
-            getNextAction={getNextAction}
-            onView={(order) => handleAction(order, "view")}
-            onContinue={(order) => {
-              const next = getNextProductionStatuses(
-                order.productionStatus as ProductionStatus
-              )
-                .filter(
-                  (status) => status !== PRODUCTION_STATUS.CANCELLED
-                )[0];
+        {/* HR style Stats row */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+            <StatCard
+              title="Total Orders"
+              value={kpis.total}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="In Production"
+              value={kpis.inProduction}
+              visual={<ActivePulse />}
+            />
+            <StatCard
+              title="QC Pending"
+              value={kpis.qcPending}
+              visual={<UsersGraph />}
+            />
+            <StatCard
+              title="Completed MOs"
+              value={kpis.completed}
+              visual={<ActivePulse />}
+            />
+          </div>
 
-              if (next) {
-                advanceProductionStatus(order._id, next);
-              }
-            }}
-          />
-        )}
+          {/* Unified Card matching HR Employee structure */}
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            {/* Card Header & Controls Toolbar */}
+            <div className="border-b border-border/20 px-8 py-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="shrink-0">
+                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                    All Orders
+                  </h2>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {filteredOrders.length}{" "}
+                    {filteredOrders.length === 1 ? "Order" : "Orders"}
+                  </p>
+                </div>
+
+                {/* Toolbar Controls */}
+                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                  {/* Search Input */}
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search orders or products..."
+                      className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none transition-all duration-300 placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:bg-white/[0.015] focus-visible:ring-0 w-full text-foreground"
+                    />
+                  </div>
+
+                  {/* Status Select Filter */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                      <SelectValue placeholder="Production Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/30">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {Object.values(PRODUCTION_STATUS).map((status) => (
+                        <SelectItem key={status} value={status} className="rounded-none">
+                          {PRODUCTION_STATUS_LABELS[status] || status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Table Content */}
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Reference
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Product
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Quantity
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Reworks
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Production Status
+                    </TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      Suggested Action
+                    </TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <div className="space-y-2">
+                            <Skeleton className="h-5 w-36" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-48" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Skeleton className="h-8 w-28" />
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-24 text-center">
+                        <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                        <h3 className="text-lg font-medium text-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "No orders match your filters"
+                            : "No manufacturing orders found"}
+                        </h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {searchQuery || statusFilter !== "all"
+                            ? "Try adjusting your search or filters."
+                            : "Create your first manufacturing order to begin production."}
+                        </p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredOrders.map((order) => {
+                      const productName =
+                        order.header.productId?.header?.name ?? "-";
+                      const nextAction = getNextAction(order);
+                      const canContinue =
+                        order.productionStatus !== PRODUCTION_STATUS.FINISHED &&
+                        order.productionStatus !== PRODUCTION_STATUS.CANCELLED;
+
+                      return (
+                        <TableRow
+                          key={order._id}
+                          className="group transition-colors duration-300 hover:bg-white/[0.015]"
+                        >
+                          {/* Reference */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-foreground">
+                            {order.header.name}
+                          </TableCell>
+
+                          {/* Product */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                            {productName}
+                          </TableCell>
+
+                          {/* Quantity */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 font-mono">
+                            {order.header.quantity}
+                          </TableCell>
+
+                          {/* Reworks */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 font-mono">
+                            {order.reworkCount ?? 0}
+                          </TableCell>
+
+                          {/* Production Status */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                            <Badge
+                              className={`
+                                rounded-none
+                                border-0
+                                bg-transparent
+                                px-0
+                                font-mono
+                                text-[12px]
+                                uppercase
+                                tracking-[0.12em]
+                                hover:bg-transparent
+                                shadow-none
+                                ${statusColors[order.productionStatus] || "text-muted-foreground"}
+                              `}
+                            >
+                              {PRODUCTION_STATUS_LABELS[order.productionStatus as ProductionStatus] || order.productionStatus}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Suggested Action */}
+                          <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                            {nextAction && canContinue ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleContinue(order)}
+                                className="h-8 rounded-none bg-primary text-primary-foreground text-[11px] font-mono uppercase tracking-wider hover:bg-primary/95 px-3 cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                {nextAction}
+                                <ArrowRight className="h-3 w-3" />
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] font-mono text-muted-foreground/60 uppercase tracking-widest">
+                                None
+                              </span>
+                            )}
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell className="px-8 py-7 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleAction(order, "view")}
+                                className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground cursor-pointer"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      {/* Popup Modal */}
       <ModularModal
         open={isModalOpen}
         onOpenChange={(open) => {
@@ -321,13 +567,29 @@ const getNextAction = (order: ManufacturingOrder) => {
         className="w-[80vw] max-w-[1400px]"
         footer={
           isViewOnly ? (
-            <Button onClick={() => setIsModalOpen(false)}>Close</Button>
+            <Button
+              variant="outline"
+              className="rounded-none cursor-pointer"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Close
+            </Button>
           ) : (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              <Button
+                variant="outline"
+                className="rounded-none cursor-pointer"
+                onClick={() => setIsModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={saveOrder}>Save</Button>
+              <Button
+                onClick={saveOrder}
+                disabled={isSubmitting}
+                className="rounded-none cursor-pointer"
+              >
+                {isSubmitting ? "Saving..." : "Save"}
+              </Button>
             </div>
           )
         }
