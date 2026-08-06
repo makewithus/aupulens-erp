@@ -60,7 +60,6 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.106.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@json2csv/plainjs": "^7.0.6",
@@ -93,6 +92,7 @@
     "next-auth": "^5.0.0-beta.31",
     "next-themes": "^0.4.6",
     "nodemailer": "^9.0.3",
+    "openai": "^7.4.0",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "radix-ui": "^1.6.1",

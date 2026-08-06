@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
+import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +15,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No command provided" }, { status: 400 });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.warn("ANTHROPIC_API_KEY not set. Using mocked response.");
+    const tenantId = (session.user as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!process.env.AZURE_OPENAI_API_KEY) {
+      console.warn("AZURE_OPENAI_API_KEY not set. Using mocked response.");
       return NextResponse.json({
         action: "action",
         message: `(Mock) Understood intent for context ${context?.pathname || 'unknown'}: ${command}`
@@ -49,16 +50,21 @@ Return a JSON object with the following structure:
 Do not include any markdown formatting, only pure JSON. Example: {"action":"navigate", "url":"/finance/accounting/vouchers", "message":"Navigating to vouchers"}
     `;
 
-    const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt);
 
-    let responseText = "";
-    if (message.content[0].type === "text") {
-      responseText = message.content[0].text;
+    // NOTE: narrowing on `result.gated` alone doesn't discriminate the union
+    // here because this project's tsconfig has strictNullChecks disabled
+    // (verified in isolation — the same pattern narrows fine with it on).
+    // Checking for the `text` property instead narrows correctly either way.
+    if (!("text" in result)) {
+      return NextResponse.json(
+        { error: result.error, code: result.code, action: "unknown" },
+        { status: 403 }
+      );
     }
+
+    let responseText = result.text;
 
     // Remove markdown code block if present
     if (responseText.startsWith("\`\`\`json")) {

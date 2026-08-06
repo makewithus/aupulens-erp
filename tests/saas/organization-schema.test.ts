@@ -72,9 +72,9 @@ describe("Organization schema — Phase 2 field defaults (new documents)", () =>
     expect(org.aiCallsPerMonth).toBe(100);
   });
 
-  it("settings.ai.model defaults to claude-sonnet-4-6", () => {
+  it("settings.ai.model has no schema-level default (falls back to CLAUDE_DEFAULT_MODEL at call time)", () => {
     const org = makeMinimalOrg();
-    expect(org.settings?.ai?.model).toBe("claude-sonnet-4-6");
+    expect(org.settings?.ai?.model).toBeUndefined();
   });
 
   it("settings.ai.maxTokensPerCall defaults to 1024", () => {

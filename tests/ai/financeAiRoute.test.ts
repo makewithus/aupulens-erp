@@ -20,8 +20,8 @@ const {
   mockInvoiceFind,
   mockBuildPostedJournalReport,
   mockBuildPostedIncomeExpenseSeries,
-  mockCallClaude,
-  mockCallClaudeWithHistory,
+  mockResolveTenantAiSettings,
+  mockCallClaudeForTenant,
   mockChatHistoryFindOne,
   mockChatHistoryFindOneAndUpdate,
 } = vi.hoisted(() => ({
@@ -31,8 +31,8 @@ const {
   mockInvoiceFind: vi.fn(),
   mockBuildPostedJournalReport: vi.fn(),
   mockBuildPostedIncomeExpenseSeries: vi.fn(),
-  mockCallClaude: vi.fn(),
-  mockCallClaudeWithHistory: vi.fn(),
+  mockResolveTenantAiSettings: vi.fn(),
+  mockCallClaudeForTenant: vi.fn(),
   mockChatHistoryFindOne: vi.fn(),
   mockChatHistoryFindOneAndUpdate: vi.fn(),
 }));
@@ -55,9 +55,12 @@ vi.mock("@/lib/accounting/reports", () => ({
   buildPostedIncomeExpenseSeries: mockBuildPostedIncomeExpenseSeries,
 }));
 
-vi.mock("@/lib/ai/claude", () => ({
-  callClaude: mockCallClaude,
-  callClaudeWithHistory: mockCallClaudeWithHistory,
+// The route now goes through the tenant-aware wrapper (Phase 0 follow-up:
+// bare callClaude()/callClaudeWithHistory() skipped the kill-switch/monthly
+// cap entirely) — mock that wrapper instead of the underlying client.
+vi.mock("@/lib/ai/tenantAi", () => ({
+  resolveTenantAiSettings: mockResolveTenantAiSettings,
+  callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
 vi.mock("@/models/ChatHistory", () => ({
@@ -115,9 +118,9 @@ beforeEach(() => {
   mockBuildPostedJournalReport.mockResolvedValue(makeLedgerReport());
   mockBuildPostedIncomeExpenseSeries.mockResolvedValue([]);
 
-  // Default Claude response
-  mockCallClaude.mockResolvedValue("Finance overview response.");
-  mockCallClaudeWithHistory.mockResolvedValue("Finance overview response.");
+  // Default: tenant is ungated, default tier/settings; AI call succeeds.
+  mockResolveTenantAiSettings.mockResolvedValue({ tier: "starter", aiSettings: {} });
+  mockCallClaudeForTenant.mockResolvedValue({ gated: false, text: "Finance overview response." });
 
   // Default: no prior ChatHistory
   mockChatHistoryFindOne.mockReturnValue({ lean: () => Promise.resolve(null) });
@@ -248,7 +251,7 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
     expect(update.$setOnInsert).toMatchObject({ module: "finance", tenantId: TENANT_A });
   });
 
-  it("uses callClaudeWithHistory when prior turns exist", async () => {
+  it("passes prior turns through to callClaudeForTenant's history option", async () => {
     mockChatHistoryFindOne.mockReturnValue({
       lean: () =>
         Promise.resolve({
@@ -259,13 +262,52 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
         }),
     });
     await POST(makeRequest({ message: "follow-up?" }));
-    expect(mockCallClaudeWithHistory).toHaveBeenCalled();
-    expect(mockCallClaude).not.toHaveBeenCalled();
+    const opts = mockCallClaudeForTenant.mock.calls[0][4];
+    expect(opts.history).toEqual([
+      { role: "user", content: "first question" },
+      { role: "assistant", content: "first answer" },
+    ]);
   });
 
-  it("uses callClaude (single-turn) for a fresh conversation", async () => {
+  it("passes an empty history for a fresh conversation", async () => {
     await POST(makeRequest({ message: "fresh question" }));
-    expect(mockCallClaude).toHaveBeenCalled();
-    expect(mockCallClaudeWithHistory).not.toHaveBeenCalled();
+    const opts = mockCallClaudeForTenant.mock.calls[0][4];
+    expect(opts.history).toEqual([]);
+  });
+});
+
+describe("finance/ai-assistant — tenant AI gating (kill-switch / monthly cap)", () => {
+  it("returns 403 with AI_DISABLED and does not persist ChatHistory when the workspace AI kill-switch is on", async () => {
+    mockCallClaudeForTenant.mockResolvedValue({
+      gated: true,
+      code: "AI_DISABLED",
+      error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them.",
+    });
+    const res = await POST(makeRequest({ message: "revenue?" }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("AI_DISABLED");
+    expect(mockChatHistoryFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 with AI_LIMIT_REACHED and does not persist ChatHistory when the monthly cap is hit", async () => {
+    mockCallClaudeForTenant.mockResolvedValue({
+      gated: true,
+      code: "AI_LIMIT_REACHED",
+      error: "Monthly AI call limit reached (100 / 100 calls used this month).",
+      currentTier: "starter",
+      requiredAction: "upgrade",
+    });
+    const res = await POST(makeRequest({ message: "revenue?" }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("AI_LIMIT_REACHED");
+    expect(body.requiredAction).toBe("upgrade");
+    expect(mockChatHistoryFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("resolves tenant AI settings using the authenticated tenant, not a hardcoded one", async () => {
+    await POST(makeRequest({ message: "revenue?" }));
+    expect(mockResolveTenantAiSettings).toHaveBeenCalledWith(TENANT_A);
   });
 });

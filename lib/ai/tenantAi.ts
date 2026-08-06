@@ -1,22 +1,24 @@
 /**
- * Tenant-aware Claude wrapper (Phase 2 Step 7).
+ * Tenant-aware AI wrapper (Phase 2 Step 7; Azure OpenAI migration Phase 0).
  *
- * Every AI route that was migrated to Claude in Phase 1 should call
- * callClaudeForTenant() instead of callClaude() / callClaudeWithHistory()
- * for the main user-visible response.  Internal classification calls
- * (e.g. intent analysis, data extraction) may still use callClaude() directly
- * to avoid counting internal bookkeeping against the user's quota.
+ * Every AI route should call callClaudeForTenant() instead of callClaude() /
+ * callClaudeWithHistory() (lib/ai/claude.ts — now Azure OpenAI-backed, see
+ * that file's naming note) for the main user-visible response. Internal
+ * classification calls (e.g. intent analysis, data extraction) may still use
+ * callClaude() directly to avoid counting internal bookkeeping against the
+ * user's quota.
  *
  * What callClaudeForTenant() adds vs the bare callClaude():
  *   (a) Workspace AI kill-switch  → AI_DISABLED gated result
  *   (b) Monthly cap enforcement   → AI_LIMIT_REACHED gated result
- *   (c) Tenant model preference   → uses org.settings.ai.model as primary model
+ *   (c) Tenant model preference   → uses org.settings.ai.model (an Azure OpenAI
+ *                                   deployment name) as primary model
  *   (d) Tenant token limit        → uses org.settings.ai.maxTokensPerCall as primary
  *   (e) Usage increment on success → via lib/ai/usage.ts incrementAiUsage()
  *
  * Gated results are plain values (not exceptions), so callers can switch on
- * result.gated without a try/catch.  Claude API failures still throw — let
- * the route's existing fallback logic handle them.
+ * result.gated without a try/catch. Azure OpenAI call failures still throw —
+ * let the route's existing fallback logic handle them.
  */
 
 import connectDB from "@/lib/db";
@@ -96,7 +98,7 @@ export async function resolveTenantAiSettings(tenantId: string): Promise<{
  *                      is absent.
  * @param opts.systemPrompt Always passed through unchanged (tenant does not override).
  *
- * Throws when the Anthropic API call fails — usage is NOT incremented in that case.
+ * Throws when the Azure OpenAI call fails — usage is NOT incremented in that case.
  * Gated states are returned as values, not exceptions.
  */
 export async function callClaudeForTenant(
@@ -139,7 +141,7 @@ export async function callClaudeForTenant(
     systemPrompt: restOpts.systemPrompt,  // always caller-controlled
   };
 
-  // Call Anthropic — throws on API failure so increment is skipped on error.
+  // Call Azure OpenAI — throws on API failure so increment is skipped on error.
   let text: string;
   if (history && history.length > 0) {
     text = await callClaudeWithHistory(history, userMessage, resolvedOpts);

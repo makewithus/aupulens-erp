@@ -5,6 +5,7 @@ import Shipment from '@/models/Shipment';
 import AirFreight from '@/models/AirFreight';
 import HSCode from '@/models/HSCode';
 import { callClaude } from '@/lib/ai/claude';
+import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 
 interface TaskIntent {
   intent: string;
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
 
     // Handle action cancellation
     if (cancelAction) {
@@ -58,8 +60,16 @@ export async function POST(request: NextRequest) {
       const missingFields = requirements.fields.filter(field => !currentTask.providedData[field]);
       
       // Use combined analysis to get both intent confirmation and data extraction
-      const { intent: confirmedIntent, extractedData } = await analyzeIntentAndExtractData(message, missingFields);
-      
+      const { intent: confirmedIntent, extractedData, gated } = await analyzeIntentAndExtractData(
+        message, tenantId, tier, aiSettings, missingFields
+      );
+      if (gated) {
+        return NextResponse.json(
+          { error: gated.error, code: gated.code, currentTier: gated.currentTier, requiredAction: gated.requiredAction },
+          { status: 403 }
+        );
+      }
+
       // If user is trying to do something different, handle as new task
       if (confirmedIntent.intent !== currentTask.intent && confirmedIntent.intent !== 'none') {
         // User changed their mind - treat as new task
@@ -128,7 +138,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Analyze the message for task creation intent
-    const { intent: taskAnalysis } = await analyzeIntentAndExtractData(message);
+    const { intent: taskAnalysis, gated: taskGated } = await analyzeIntentAndExtractData(
+      message, tenantId, tier, aiSettings
+    );
+    if (taskGated) {
+      return NextResponse.json(
+        { error: taskGated.error, code: taskGated.code, currentTier: taskGated.currentTier, requiredAction: taskGated.requiredAction },
+        { status: 403 }
+      );
+    }
 
     if (taskAnalysis.intent === 'none') {
       // Regular conversation - provide manufacturing data
@@ -216,7 +234,20 @@ async function generateResponse(message: string, data: any): Promise<string> {
 }
 
 // Task Analysis Functions
-async function analyzeIntentAndExtractData(message: string, missingFields?: string[]): Promise<{ intent: TaskIntent; extractedData?: Record<string, any> }> {
+interface GatedError {
+  error: string;
+  code: string;
+  currentTier?: string;
+  requiredAction?: string;
+}
+
+async function analyzeIntentAndExtractData(
+  message: string,
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2],
+  missingFields?: string[]
+): Promise<{ intent: TaskIntent; extractedData?: Record<string, any>; gated?: GatedError }> {
   let prompt = `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
 {
   "intent": "create_hs_code|update_hs_code|delete_hs_code|create_air_freight|update_air_freight|delete_air_freight|create_shipment|update_shipment|delete_shipment|none",
@@ -280,10 +311,22 @@ Include the extracted missing fields in the "data" object as well.`;
 Query: "${message}"`;
 
   try {
-    const text = await callClaude(prompt, {
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       systemPrompt: 'You are a manufacturing ERP task classifier. Reply only with the JSON object — no explanation, no markdown.',
       maxTokens: 512,
     });
+    if (!("text" in result)) {
+      return {
+        intent: { intent: 'none', entity: '', action: '', confidence: 0 },
+        gated: {
+          error: result.error,
+          code: result.code,
+          currentTier: result.currentTier,
+          requiredAction: result.requiredAction,
+        },
+      };
+    }
+    const text = result.text;
 
     // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);

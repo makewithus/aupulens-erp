@@ -7,7 +7,8 @@ import Payroll from "@/models/Payroll";
 import Attendance from "@/models/Attendance";
 import LeaveRequest from "@/models/LeaveRequest";
 import Department from "@/models/Department";
-import { callClaude, callClaudeWithHistory, type ChatTurn } from "@/lib/ai/claude";
+import { type ChatTurn } from "@/lib/ai/claude";
+import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import ChatHistory from "@/models/ChatHistory";
 
 export async function POST(request: NextRequest) {
@@ -44,7 +45,23 @@ export async function POST(request: NextRequest) {
     );
 
     const data = await fetchHRData(tenantId);
-    const response = await generateResponse(message, data, priorTurns);
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
+    // strictNullChecks is off project-wide, which breaks discriminated-union
+    // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
+    // instead works either way (see lib/ai/claude.ts migration notes).
+    if (!("text" in genResult)) {
+      return NextResponse.json(
+        {
+          error: genResult.error,
+          code: genResult.code,
+          currentTier: genResult.currentTier,
+          requiredAction: genResult.requiredAction,
+        },
+        { status: 403 }
+      );
+    }
+    const response = genResult.text;
 
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
@@ -119,11 +136,18 @@ async function fetchHRData(tenantId: string) {
   };
 }
 
+type GenerateResult =
+  | { gated: false; text: string }
+  | { gated: true; error: string; code: string; currentTier?: string; requiredAction?: string };
+
 async function generateResponse(
   message: string,
   data: any,
-  priorTurns: ChatTurn[] = []
-): Promise<string> {
+  priorTurns: ChatTurn[],
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+): Promise<GenerateResult> {
   const prompt = `You are an expert HR AI assistant for an ERP system.
 
 User Question: "${message}"
@@ -143,12 +167,22 @@ Instructions:
   };
 
   try {
-    if (priorTurns.length > 0) {
-      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      ...opts,
+      history: priorTurns,
+    });
+    if ("text" in result) {
+      return { gated: false, text: result.text };
     }
-    return await callClaude(prompt, opts);
+    return {
+      gated: true,
+      error: result.error,
+      code: result.code,
+      currentTier: result.currentTier,
+      requiredAction: result.requiredAction,
+    };
   } catch {
-    return generateSimpleResponse(message, data);
+    return { gated: false, text: generateSimpleResponse(message, data) };
   }
 }
 

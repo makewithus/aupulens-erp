@@ -10,7 +10,8 @@ import {
   fetchAdminUsersData,
   fetchAdminGeneralData,
 } from "@/lib/ai/adminDataFetcher";
-import { callClaude, callClaudeWithHistory, type ChatTurn } from "@/lib/ai/claude";
+import { callClaude, type ChatTurn } from "@/lib/ai/claude";
+import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import ChatHistory from "@/models/ChatHistory";
 
 interface QueryIntent {
@@ -75,13 +76,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the natural-language response via Claude (with conversation history)
-    const response = await generateResponseWithClaude(
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const genResult = await generateResponseWithClaude(
       message,
       data,
       intent,
       simulationResult,
-      priorTurns
+      priorTurns,
+      tenantId,
+      tier,
+      aiSettings
     );
+    // strictNullChecks is off project-wide, which breaks discriminated-union
+    // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
+    // instead works either way (see lib/ai/claude.ts migration notes).
+    if (!("text" in genResult)) {
+      return NextResponse.json(
+        {
+          error: genResult.error,
+          code: genResult.code,
+          currentTier: genResult.currentTier,
+          requiredAction: genResult.requiredAction,
+        },
+        { status: 403 }
+      );
+    }
+    const response = genResult.text;
 
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
@@ -229,15 +249,22 @@ function performFinancialSimulation(data: any, params: any) {
 
 // ─── Response Generation (Claude) ────────────────────────────────────────────
 
+type GenerateResult =
+  | { gated: false; text: string }
+  | { gated: true; error: string; code: string; currentTier?: string; requiredAction?: string };
+
 async function generateResponseWithClaude(
   message: string,
   data: any,
   intent: QueryIntent,
   simulationResult: any,
-  priorTurns: ChatTurn[] = []
-): Promise<string> {
+  priorTurns: ChatTurn[],
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+): Promise<GenerateResult> {
   if (data.error) {
-    return "I encountered an error while fetching your data. Please try again.";
+    return { gated: false, text: "I encountered an error while fetching your data. Please try again." };
   }
 
   const simulationSection = simulationResult
@@ -266,12 +293,22 @@ INSTRUCTIONS:
   };
 
   try {
-    if (priorTurns.length > 0) {
-      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      ...opts,
+      history: priorTurns,
+    });
+    if ("text" in result) {
+      return { gated: false, text: result.text };
     }
-    return await callClaude(prompt, opts);
+    return {
+      gated: true,
+      error: result.error,
+      code: result.code,
+      currentTier: result.currentTier,
+      requiredAction: result.requiredAction,
+    };
   } catch {
-    return generateSimpleFallback(data, intent);
+    return { gated: false, text: generateSimpleFallback(data, intent) };
   }
 }
 

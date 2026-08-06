@@ -7,10 +7,13 @@
  *
  * Design decisions documented here:
  *   - Usage count reset boundary: UTC calendar month ("YYYYMM")
- *   - Increment policy: only on successful Claude response (never on gate or error)
+ *   - Increment policy: only on successful AI response (never on gate or error)
  *   - Cap source: getTierLimits(org.tier).aiCallsPerMonth — never hard-coded
  *   - Tenant preference priority: aiSettings.model > opts.model > CLAUDE_DEFAULT_MODEL
  *     (same for maxTokensPerCall vs opts.maxTokens)
+ *   - lib/ai/claude.ts is mocked here (Azure OpenAI-backed as of Phase 0 migration —
+ *     see that file's naming note); this suite only exercises tenantAi.ts's own
+ *     gating/preference logic, not the underlying provider call.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -35,7 +38,7 @@ const {
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
 vi.mock("@/lib/ai/claude", () => ({
-  CLAUDE_DEFAULT_MODEL:      "claude-sonnet-4-6",
+  CLAUDE_DEFAULT_MODEL:      "gpt-4o-default-deployment",
   CLAUDE_DEFAULT_MAX_TOKENS: 1024,
   callClaude:                mockCallClaude,
   callClaudeWithHistory:     mockCallClaudeWithHistory,
@@ -334,7 +337,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
     expect(mockCallClaude).toHaveBeenCalledWith(
       "hello",
-      expect.objectContaining({ model: "claude-sonnet-4-6" })
+      expect.objectContaining({ model: "gpt-4o-default-deployment" })
     );
   });
 

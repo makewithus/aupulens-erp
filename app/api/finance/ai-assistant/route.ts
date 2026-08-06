@@ -9,7 +9,8 @@ import {
   buildPostedJournalReport,
 } from '@/lib/accounting/reports';
 import { DOCUMENT_STATUS } from '@/lib/constants/statuses';
-import { callClaude, callClaudeWithHistory, type ChatTurn } from '@/lib/ai/claude';
+import { type ChatTurn } from '@/lib/ai/claude';
+import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import ChatHistory from '@/models/ChatHistory';
 import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
 import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
@@ -79,7 +80,23 @@ export async function POST(request: NextRequest) {
 
     // Fetch finance-specific data
     const data = await fetchFinanceData(tenantId);
-    const response = await generateResponse(message, data, priorTurns);
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
+    // strictNullChecks is off project-wide, which breaks discriminated-union
+    // narrowing on `genResult.gated` (see lib/ai/claude.ts migration notes) —
+    // narrowing on `"text" in genResult` instead works either way.
+    if (!("text" in genResult)) {
+      return NextResponse.json(
+        {
+          error: genResult.error,
+          code: genResult.code,
+          currentTier: genResult.currentTier,
+          requiredAction: genResult.requiredAction,
+        },
+        { status: 403 }
+      );
+    }
+    const response = genResult.text;
 
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
@@ -168,11 +185,18 @@ async function fetchFinanceData(tenantId: string) {
   };
 }
 
+type GenerateResult =
+  | { gated: false; text: string }
+  | { gated: true; error: string; code: string; currentTier?: string; requiredAction?: string };
+
 async function generateResponse(
   message: string,
   data: any,
-  priorTurns: ChatTurn[] = []
-): Promise<string> {
+  priorTurns: ChatTurn[],
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+): Promise<GenerateResult> {
   const prompt = `You are an expert finance AI assistant for an ERP system.
 
 User Question: "${message}"
@@ -202,12 +226,22 @@ Instructions:
   };
 
   try {
-    if (priorTurns.length > 0) {
-      return await callClaudeWithHistory(priorTurns, prompt, opts);
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      ...opts,
+      history: priorTurns,
+    });
+    if ("text" in result) {
+      return { gated: false, text: result.text };
     }
-    return await callClaude(prompt, opts);
+    return {
+      gated: true,
+      error: result.error,
+      code: result.code,
+      currentTier: result.currentTier,
+      requiredAction: result.requiredAction,
+    };
   } catch {
-    return generateSimpleResponse(message, data);
+    return { gated: false, text: generateSimpleResponse(message, data) };
   }
 }
 

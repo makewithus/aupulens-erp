@@ -101,9 +101,13 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
       city: { type: String },
       pincode: { type: String },
       enabledModules: { type: [String], default: [] },
-      // Per-workspace AI preferences (Phase 2 — Step 7)
+      // Per-workspace AI preferences (Phase 2 — Step 7; Azure OpenAI migration Phase 0)
+      // `model` is an Azure OpenAI deployment name override. No schema-level
+      // default is set deliberately — deployment names are environment-specific,
+      // unlike Anthropic's universal public model IDs. When unset, lib/ai/tenantAi.ts
+      // falls back to CLAUDE_DEFAULT_MODEL (AZURE_OPENAI_DEPLOYMENT_NAME).
       ai: {
-        model: { type: String, default: "claude-sonnet-4-6" },
+        model: { type: String },
         maxTokensPerCall: { type: Number, default: 1024 },
         disabled: { type: Boolean, default: false },
       },
