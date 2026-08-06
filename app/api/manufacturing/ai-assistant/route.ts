@@ -4,7 +4,6 @@ import connectDB from '@/lib/db';
 import Shipment from '@/models/Shipment';
 import AirFreight from '@/models/AirFreight';
 import HSCode from '@/models/HSCode';
-import { callClaude } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 
 interface TaskIntent {
@@ -371,60 +370,6 @@ Query: "${message}"`;
   }
 }
 
-async function analyzeTaskIntent(message: string): Promise<TaskIntent> {
-  const prompt = `Analyze this manufacturing task request and determine what action to perform. Reply ONLY with a JSON object in this exact format:
-{
-  "intent": "create_hs_code|update_hs_code|delete_hs_code|create_air_freight|update_air_freight|delete_air_freight|create_shipment|update_shipment|delete_shipment|none",
-  "entity": "hs_code|air_freight|shipment",
-  "action": "create|update|delete",
-  "confidence": 0.0-1.0,
-  "data": {}
-}
-
-Available entities and their fields:
-- hs_code: hsCode (string), description (string), category (string), dutyRate (number), taxRate (number)
-- air_freight: flightNumber (string), airline (string), origin (string), destination (string), departureTime (string), arrivalTime (string), cargo (string)
-- shipment: shipmentNumber (string), customerName (string), origin (string), destination (string), freightProvider (string), shipmentType (string), weight (number), volume (number), items (array), totalValue (number), currency (string)
-
-For update/delete operations, extract the record ID from patterns like:
-- "update SHP-982374 with status cancelled" (ID: SHP-982374)
-- "delete hs code ABC123" (ID: ABC123)
-- "change shipment XYZ-001 status to delivered" (ID: XYZ-001)
-
-Extract any data values mentioned in the message and put them in the "data" object, including the ID for updates/deletes.
-
-Query: "${message}"`;
-
-  try {
-    const text = await callClaude(prompt, {
-      systemPrompt: 'You are a manufacturing ERP task classifier. Reply only with the JSON object — no explanation, no markdown.',
-      maxTokens: 256,
-    });
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      const parsedIntent = {
-        intent: parsed.intent || 'none',
-        entity: parsed.entity || '',
-        action: parsed.action || '',
-        confidence: parsed.confidence || 0,
-        data: parsed.data || {}
-      };
-
-      if (!parsedIntent.intent || parsedIntent.intent === 'none' || (parsedIntent.confidence && parsedIntent.confidence < 0.6)) {
-        return simpleTaskAnalysis(message);
-      }
-
-      return parsedIntent;
-    }
-
-    return simpleTaskAnalysis(message);
-  } catch {
-    return simpleTaskAnalysis(message);
-  }
-}
-
 function simpleTaskAnalysis(message: string): TaskIntent {
   const lowerMessage = message.toLowerCase();
 
@@ -555,89 +500,6 @@ function getTaskRequirements(intent: string) {
 
     default:
       return null;
-  }
-}
-
-async function extractDataWithClaude(message: string, missingFields: string[]): Promise<Record<string, any>> {
-  const prompt = `Extract the following fields from this user message. Return ONLY a valid JSON object with the extracted values. If a field cannot be found, omit it from the JSON. Do not include explanations or additional text.
-
-Fields to extract: ${missingFields.join(', ')}
-
-Field descriptions and expected formats:
-- shipmentNumber: string like "SHP-123" or "SHIP-456"
-- customerName: string, name of the customer
-- origin: string, origin location/city/country
-- destination: string, destination location/city/country
-- freightProvider: string, name of freight provider
-- shipmentType: "air", "sea", "road", or "rail"
-- weight: number, weight value (e.g., 10.3)
-- volume: number, volume value (e.g., 2.3)
-- totalValue: number, monetary value (e.g., 5000)
-- currency: 3-letter currency code like "USD", "EUR", "GBP"
-- items: array of objects with description, quantity, weight, value, hsCode
-- id: string, record identifier like "SHP-982374" or "ABC123"
-- status: "cancelled", "pending", "in_transit", "delivered", "completed", "active", "inactive"
-- hsCode: string, HS code like "1234.56.78"
-- description: string, description text
-- category: string, category name
-- dutyRate: number, duty rate percentage
-- taxRate: number, tax rate percentage
-- flightNumber: string, flight number like "AA123" or "BA456"
-- airline: string, airline name
-- departureTime: string, departure time/date
-- arrivalTime: string, arrival time/date
-- cargo: string, cargo description
-
-For items field, parse natural language descriptions like:
-- "10 water cooler and 20 bottles" → [{"description": "water cooler", "quantity": 10}, {"description": "bottles", "quantity": 20}]
-- "5 laptops (SKU: LT-001) and 3 monitors (SKU: MN-002)" → [{"description": "laptops", "quantity": 5, "hsCode": "LT-001"}, {"description": "monitors", "quantity": 3, "hsCode": "MN-002"}]
-
-User message: "${message}"`;
-
-  try {
-    const text = await callClaude(prompt, {
-      systemPrompt: 'You are a data extraction assistant. Reply only with the JSON object — no explanation, no markdown.',
-      maxTokens: 512,
-    });
-
-    // Extract JSON from the response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-
-      // Validate and clean the extracted data
-      const cleanedData: Record<string, any> = {};
-
-      for (const [key, value] of Object.entries(parsed)) {
-        if (missingFields.includes(key) && value !== null && value !== undefined && value !== '') {
-          if (key === 'weight' || key === 'volume' || key === 'totalValue' || key === 'dutyRate' || key === 'taxRate') {
-            const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-            if (!isNaN(numValue)) {
-              cleanedData[key] = numValue;
-            }
-          } else if (key === 'items' && Array.isArray(value)) {
-            const validItems = value.filter((item: any) =>
-              item && typeof item === 'object' && item.description && typeof item.quantity === 'number'
-            );
-            if (validItems.length > 0) {
-              cleanedData[key] = validItems;
-            }
-          } else if (key === 'currency' && typeof value === 'string') {
-            cleanedData[key] = value.toUpperCase();
-          } else if (key === 'status' && typeof value === 'string') {
-            cleanedData[key] = value.toLowerCase().replace(/\s+/g, '_');
-          } else if (typeof value === 'string' || typeof value === 'boolean') {
-            cleanedData[key] = value;
-          }
-        }
-      }
-
-      return cleanedData;
-    }
-
-    return extractDataFromMessage(message, missingFields);
-  } catch {
-    return extractDataFromMessage(message, missingFields);
   }
 }
 

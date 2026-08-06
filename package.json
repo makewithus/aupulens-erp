@@ -12,11 +12,11 @@
     "seed:invoices": "npx tsx scripts/seed-invoices.ts",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "electron": "electron .",
-    "electron:dev": "concurrently \"set NODE_ENV=development && next dev\" \"wait-on http://localhost:3000 && set NODE_ENV=development && electron .\"",
-    "electron:build": "set ELECTRON_BUILD=true && next build && electron-builder",
-    "electron:build:win": "set ELECTRON_BUILD=true && next build && electron-builder --win",
-    "electron:build:mac": "set ELECTRON_BUILD=true && next build && electron-builder --mac",
-    "electron:build:linux": "set ELECTRON_BUILD=true && next build && electron-builder --linux"
+    "electron:dev": "concurrently \"cross-env NODE_ENV=development next dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON_BUILD=true next build && electron-builder",
+    "electron:build:win": "cross-env ELECTRON_BUILD=true next build && electron-builder --win",
+    "electron:build:mac": "cross-env ELECTRON_BUILD=true next build && electron-builder --mac",
+    "electron:build:linux": "cross-env ELECTRON_BUILD=true next build && electron-builder --linux"
   },
   "build": {
     "appId": "com.aupulens.erp",
@@ -119,6 +119,7 @@
     "@types/react-dom": "^19",
     "baseline-browser-mapping": "^2.10.33",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^39.0.0",
     "electron-builder": "^26.0.12",
     "eslint": "^9",

@@ -25,11 +25,11 @@ export const manufacturingSidebarConfig: SidebarSection[] = [
         href: "/manufacturing/dashboard",
         icon: LayoutDashboard,
       },
-      // {
-      //   title: "AI Assistant",
-      //   href: "/manufacturing/ai-assistant",
-      //   icon: Sparkles,
-      // },
+      {
+        title: "AI Assistant",
+        href: "/manufacturing/ai-assistant",
+        icon: Sparkles,
+      },
     ],
   },
   {
