@@ -3,8 +3,9 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Organization from "@/models/Organization";
 import User from "@/models/User";
-import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { ENTITY_STATUS, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
 import { buildTenantUrl } from "@/lib/config";
+import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
 import { Types } from "mongoose";
 
 function normalizeSubdomain(value: string): string {
@@ -85,6 +86,12 @@ export async function POST(req: NextRequest) {
 
     organization.ownerUserId = ownerUser._id as any;
     await organization.save();
+
+    await appendSubscriptionEvent({
+      tenantId: organization.subdomain,
+      type: SUBSCRIPTION_EVENT_TYPE.CREATED,
+      tier: organization.tier,
+    });
 
     return NextResponse.json(
       {

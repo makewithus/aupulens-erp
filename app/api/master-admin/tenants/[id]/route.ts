@@ -4,6 +4,8 @@ import connectDB from "@/lib/db";
 import Organization from "@/models/Organization";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { ORGANIZATION_TIER_VALUES, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
+import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
 
 export async function PATCH(
   req: NextRequest,
@@ -24,7 +26,12 @@ export async function PATCH(
       ownerPassword,
       isActive,
       subscriptionStatus,
+      tier,
     } = await req.json();
+
+    if (tier !== undefined && !ORGANIZATION_TIER_VALUES.includes(tier)) {
+      return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
+    }
 
     await connectDB();
 
@@ -41,6 +48,24 @@ export async function PATCH(
     if (isActive !== undefined) organization.isActive = isActive;
     if (subscriptionStatus)
       organization.subscriptionStatus = subscriptionStatus;
+
+    // Real tier-change event (Phase 3) — no self-serve billing/payment
+    // gateway exists yet (Phase 6.7), so this is the one real tier-change
+    // path in the app today: a master-admin manually changing a tenant's
+    // plan (e.g. after an off-platform sales conversation), not a fake
+    // checkout flow. Logged as a real SubscriptionEvent either way.
+    const previousTier = organization.tier;
+    if (tier !== undefined && tier !== previousTier) {
+      organization.tier = tier;
+      const prevRank = ORGANIZATION_TIER_VALUES.indexOf(previousTier);
+      const newRank = ORGANIZATION_TIER_VALUES.indexOf(tier);
+      await appendSubscriptionEvent({
+        tenantId: organization.subdomain,
+        type: newRank > prevRank ? SUBSCRIPTION_EVENT_TYPE.UPGRADED : SUBSCRIPTION_EVENT_TYPE.DOWNGRADED,
+        tier,
+        meta: { previousTier, changedBy: session.user.id },
+      });
+    }
 
     await organization.save();
 

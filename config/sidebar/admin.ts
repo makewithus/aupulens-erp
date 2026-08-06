@@ -15,6 +15,7 @@ import {
   Sparkles,
   CheckSquare,
   Truck,
+  CreditCard,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -103,12 +104,16 @@ export const adminSidebarConfig: SidebarSection[] = [
         href: "/admin/reports",
         icon: FileText,
       },
-      // {
-      //   title: 'Settings',
-      //   href: '/admin/settings',
-      //   icon: Settings,
-      //   disabled: true,
-      // },
+      {
+        title: "Settings",
+        href: "/admin/settings",
+        icon: Settings,
+      },
+      {
+        title: "Billing",
+        href: "/admin/billing",
+        icon: CreditCard,
+      },
     ],
   },
 ];

@@ -1,11 +1,15 @@
 import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
 import { authConfig } from "./auth.config";
+import { resolveOAuthSignIn } from "@/lib/auth/oauthSignIn";
 
 declare module "next-auth" {
   interface Session {
@@ -13,11 +17,13 @@ declare module "next-auth" {
       id: string;
       role: string;
       tenantId: string;
+      permissions?: string[];
     } & DefaultSession["user"];
   }
   interface User {
     role: string;
     tenantId: string;
+    permissions?: string[];
   }
 }
 
@@ -26,12 +32,47 @@ declare module "@auth/core/jwt" {
     id?: string;
     role?: string;
     tenantId?: string;
+    permissions?: string[];
   }
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
+  callbacks: {
+    ...authConfig.callbacks,
+    // OAuth-only (Credentials is handled by CredentialsProvider.authorize()
+    // below — resolveOAuthSignIn() passes credentials through immediately).
+    // Tenant is resolved from the request hostname, same parser middleware
+    // uses (lib/tenant/resolution.ts), so there's no divergence between how
+    // the two determine which workspace a login belongs to.
+    async signIn({ user, account }) {
+      return resolveOAuthSignIn(user, account, async () => {
+        const h = await headers();
+        return h.get("host") || "";
+      });
+    },
+  },
   providers: [
+    // Google/Microsoft are only registered when their credentials are
+    // configured — an unconfigured provider would otherwise show a broken
+    // "Sign in with Google" button that fails on click.
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET
+      ? [
+          MicrosoftEntraID({
+            clientId: process.env.MICROSOFT_CLIENT_ID,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+            issuer: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID || "common"}/v2.0`,
+          }),
+        ]
+      : []),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -142,6 +183,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email,
             role: user.role,
             tenantId: user.tenantId,
+            permissions: user.permissions,
           };
         } catch (error: any) {
           throw error;

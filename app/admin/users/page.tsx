@@ -30,6 +30,7 @@ interface User {
   designation?: string;
   status: string;
   createdAt: string;
+  permissions?: string[];
 }
 
 export default function UsersPage() {

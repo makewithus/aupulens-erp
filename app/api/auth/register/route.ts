@@ -4,7 +4,8 @@ import { Types } from "mongoose";
 import connectDB from "@/lib/db";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
-import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { ENTITY_STATUS, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
+import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
 
 const DEFAULT_TENANT_ID = "default-tenant";
 
@@ -124,6 +125,15 @@ export async function POST(req: NextRequest) {
             isGstRegistered: !!isGstRegistered,
             enabledModules: enabledModules || [],
           },
+        });
+
+        // Real billing-history event (Phase 3) — org.tier uses the schema
+        // default ("starter") at this point, no real payment has occurred
+        // yet (no payment gateway wired in — see lib/sales/paymentGateway.ts).
+        await appendSubscriptionEvent({
+          tenantId: organization.subdomain,
+          type: SUBSCRIPTION_EVENT_TYPE.CREATED,
+          tier: organization.tier,
         });
       }
     }

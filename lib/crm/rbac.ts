@@ -14,42 +14,9 @@
  * enforcement too (e.g. demo/staging); enforcement is ON by default.
  */
 import { NextResponse } from "next/server";
+import { CRM_PERMISSIONS, type CrmPermission } from "@/lib/crm/permissions";
 
-export const CRM_PERMISSIONS = [
-  // Activities
-  "activity.read", "activity.create", "activity.update", "activity.delete",
-  // Tasks
-  "task.read", "task.create", "task.update", "task.delete", "task.assign",
-  // Opportunities
-  "opportunity.read", "opportunity.create", "opportunity.update", "opportunity.delete", "opportunity.close",
-  // Leads
-  "lead.read", "lead.create", "lead.update", "lead.delete",
-  // Accounts
-  "account.read", "account.create", "account.update", "account.delete",
-  // Quotes
-  "quote.read", "quote.create", "quote.update", "quote.delete",
-  // Contracts
-  "contract.read", "contract.create", "contract.update", "contract.delete",
-  "contract.renew", "contract.approve", "contract.cancel",
-  // Renewals
-  "renewal.manage", "renewal.view",
-  // Health & Risk
-  "health.view", "health.refresh",
-  "risk.view", "risk.manage",
-  // Expansion
-  "expansion.view", "expansion.create",
-  // Forecast
-  "forecast.view",
-  // Campaigns
-  "campaign.read", "campaign.create", "campaign.update", "campaign.delete",
-  "campaign.archive", "campaign.export", "campaign.analytics",
-  // Enterprise Globals
-  "export", "import", "merge", "manage_workflows", "manage_pipelines", "view_sensitive_data",
-  // Communications
-  "communication.view", "communication.create", "communication.send", "communication.delete", "communication.export",
-] as const;
-
-export type CrmPermission = (typeof CRM_PERMISSIONS)[number];
+export { CRM_PERMISSIONS, type CrmPermission };
 
 // A permission string is treated as "read" if it contains "read" or "view"
 // (covers both the `entity.read`/`entity.view` dot-notation and the older
@@ -64,15 +31,27 @@ function isReadPermission(permission: string): boolean {
  * a real User.role value in this codebase) always return true.
  * Read permissions always return true (role-gated at the route level only).
  * ENFORCE_RBAC=false disables write enforcement too.
+ *
+ * Per-user override (Phase 3): User.permissions[] — previously declared on
+ * the schema but never read anywhere — is checked next. It's an ALLOW-list
+ * an org admin grants an individual user beyond their role's baseline (e.g.
+ * letting one specific sales rep approve large discounts without promoting
+ * them). It only ever grants extra access, never revokes what the role
+ * already provides.
  */
 export function hasPermission(session: any, permission: CrmPermission): boolean {
   if (!session?.user) return false;
   const role = (session.user.role || "").toLowerCase();
   if (["admin", "master-admin"].includes(role)) return true;
   if (isReadPermission(permission)) return true;
+
+  const userPermissions: string[] = Array.isArray(session.user.permissions) ? session.user.permissions : [];
+  if (userPermissions.includes(permission)) return true;
+
   if (process.env.ENFORCE_RBAC === "false") return true;
 
-  // Future: map roles to permission sets for finer-grained write access.
+  // Future: map roles (not just individual users) to permission sets for
+  // finer-grained write access.
   // const rolePermissions = ROLE_PERMISSION_MAP[role] || [];
   // return rolePermissions.includes(permission);
   return false;
@@ -94,6 +73,11 @@ export function requireRole(session: any, allowedPermissions: string[]): NextRes
 
   const isWriteCheck = allowedPermissions.some((p) => !isReadPermission(p));
   if (!isWriteCheck) return null;
+
+  // Per-user override — see hasPermission()'s doc comment.
+  const userPermissions: string[] = Array.isArray(session.user.permissions) ? session.user.permissions : [];
+  if (allowedPermissions.some((p) => userPermissions.includes(p))) return null;
+
   if (process.env.ENFORCE_RBAC === "false") return null;
 
   return NextResponse.json(

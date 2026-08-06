@@ -8,6 +8,13 @@ import { ModularModal } from "@/components/dashboard/ModularModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { masterAdminSidebarConfig } from "@/config/sidebar/master-admin";
@@ -175,6 +182,32 @@ export default function MasterAdminPage() {
         const data = await res.json();
         toast.error("Error", {
           description: data.error || "Failed to update organization",
+        });
+      }
+    } catch (error) {
+      toast.error("Error", {
+        description: "Something went wrong",
+      });
+    }
+  };
+
+  const changeTenantTier = async (org: any, tier: string) => {
+    try {
+      const res = await fetch(`/api/master-admin/tenants/${org._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+
+      if (res.ok) {
+        toast.success("Plan Updated", {
+          description: `${org.name} is now on the ${tier} plan`,
+        });
+        fetchOrganizations();
+      } else {
+        const data = await res.json();
+        toast.error("Error", {
+          description: data.error || "Failed to update plan",
         });
       }
     } catch (error) {
@@ -741,6 +774,24 @@ export default function MasterAdminPage() {
                       <span className="text-xs font-bold uppercase py-0.5 px-2 bg-primary/5 none-md">
                         {org.subscriptionStatus}
                       </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
+                        Plan
+                      </span>
+                      <Select
+                        value={org.tier || "starter"}
+                        onValueChange={(value) => changeTenantTier(org, value)}
+                      >
+                        <SelectTrigger className="h-7 w-32 text-xs font-bold uppercase border-0 bg-primary/5">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="starter">Starter</SelectItem>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="enterprise">Enterprise</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">

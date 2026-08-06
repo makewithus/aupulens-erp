@@ -25,6 +25,8 @@ import {
   Lock,
   Key,
 } from "lucide-react";
+import { GRANTABLE_CRM_PERMISSIONS } from "@/lib/crm/permissions";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface User {
   _id: string;
@@ -36,6 +38,7 @@ interface User {
   employeeId?: string;
   designation?: string;
   status: string;
+  permissions?: string[];
 }
 
 interface EditUserDialogProps {
@@ -64,6 +67,7 @@ export function EditUserDialog({
     designation: "",
     password: "",
     confirmPassword: "",
+    permissions: [] as string[],
   });
   const [departments, setDepartments] = useState<any[]>([]);
 
@@ -99,6 +103,7 @@ export function EditUserDialog({
         designation: user.designation || "",
         password: "",
         confirmPassword: "",
+        permissions: user.permissions || [],
       });
       setShowPasswordFields(false);
       setError("");
@@ -128,7 +133,7 @@ export function EditUserDialog({
     setError("");
 
     try {
-      const updateData: Record<string, string> = {};
+      const updateData: Record<string, string | string[]> = {};
       if (formData.name !== user.name) updateData.name = formData.name;
       if (formData.email !== user.email) updateData.email = formData.email;
       if (formData.phone !== user.phone) updateData.phone = formData.phone;
@@ -139,6 +144,8 @@ export function EditUserDialog({
         updateData.employeeId = formData.employeeId;
       if (formData.designation !== (user.designation || ""))
         updateData.designation = formData.designation;
+      if (JSON.stringify(formData.permissions) !== JSON.stringify(user.permissions || []))
+        updateData.permissions = formData.permissions;
       if (showPasswordFields && formData.password)
         updateData.password = formData.password;
 
@@ -325,6 +332,36 @@ export function EditUserDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Extra CRM Permissions (beyond role default)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Grants this specific user additional CRM write access beyond what their role normally
+              allows — e.g. letting one rep approve contracts without promoting them to admin. Read/view
+              access is always allowed regardless of role.
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border-2 rounded-md p-3">
+              {GRANTABLE_CRM_PERMISSIONS.map((perm) => (
+                <label key={perm} className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={formData.permissions.includes(perm)}
+                    disabled={loading}
+                    onCheckedChange={(checked) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        permissions: checked
+                          ? [...prev.permissions, perm]
+                          : prev.permissions.filter((p) => p !== perm),
+                      }));
+                    }}
+                  />
+                  {perm}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 

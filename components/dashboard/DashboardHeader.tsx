@@ -34,6 +34,7 @@ import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
 import { HeaderActions } from "./HeaderActions";
 import { GlobalSearch } from "./GlobalSearch";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { ModuleTabs } from "./ModuleTabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -451,6 +452,8 @@ export function DashboardHeader({
           <div className="flex items-center gap-1.5 sm:gap-2">
 
             <GlobalSearch sidebarConfig={sidebarConfig} />
+
+            <WorkspaceSwitcher />
 
             <HeaderActions
               isRefreshing={isRefreshing}

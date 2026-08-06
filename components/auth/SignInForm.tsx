@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getProviders } from "next-auth/react";
+
+type OAuthProvider = NonNullable<Awaited<ReturnType<typeof getProviders>>>[string];
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +48,41 @@ function SignInFormContent() {
     email: "",
     password: "",
   });
+
+  const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
+
+  useEffect(() => {
+    // Only shows buttons for providers actually configured server-side
+    // (auth.ts only registers Google/Microsoft when their env vars are
+    // set) — asking NextAuth's own /api/auth/providers endpoint rather
+    // than guessing client-side avoids a button that fails on click.
+    getProviders().then((providers) => {
+      if (!providers) return;
+      setOauthProviders(Object.values(providers).filter((p) => p.type === "oidc" || p.type === "oauth"));
+    });
+  }, []);
+
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+
+  const handleOAuthSignIn = async (providerId: string) => {
+    setOauthLoading(providerId);
+    try {
+      await signIn(providerId, { callbackUrl: "/" });
+    } catch {
+      toast.error("Could not start sign-in. Please try again.");
+      setOauthLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    // Pre-filled by the workspace switcher (components/dashboard/WorkspaceSwitcher.tsx)
+    // when jumping to a different org's login page — saves re-typing, still
+    // requires the real password for that workspace.
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      setFormData((prev) => ({ ...prev, email: emailParam }));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -301,6 +338,29 @@ function SignInFormContent() {
           )}
         </button>
       </div>
+
+      {oauthProviders.length > 0 && (
+        <div className="space-y-3 pt-6 border-t border-border">
+          <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/60">
+            Or continue with
+          </p>
+          {oauthProviders.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={() => handleOAuthSignIn(provider.id)}
+              disabled={oauthLoading !== null}
+              className="w-full h-10 flex items-center justify-center gap-2 text-sm border border-border hover:border-foreground/40 transition-colors disabled:opacity-50"
+            >
+              {oauthLoading === provider.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                `Continue with ${provider.name}`
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </form>
   );
 }

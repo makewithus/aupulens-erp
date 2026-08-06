@@ -83,6 +83,7 @@ export async function resolveOAuthSignIn(
     user.id = String((dbUser as any)._id);
     user.role = dbUser.role;
     user.tenantId = dbUser.tenantId;
+    user.permissions = (dbUser as any).permissions;
 
     return true;
   }
@@ -155,6 +156,7 @@ export async function resolveOAuthSignIn(
   user.id = String(newUser._id);
   user.role = invite.role;
   user.tenantId = tenantId;
+  user.permissions = newUser.permissions;
 
   return true;
 }

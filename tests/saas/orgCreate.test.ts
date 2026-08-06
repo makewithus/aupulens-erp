@@ -56,6 +56,15 @@ vi.mock("@/lib/constants/statuses", () => ({
   SUBSCRIPTION_STATUS_VALUES: ["trial", "active", "suspended", "cancelled"],
   ORGANIZATION_TIER: { STARTER: "starter", PROFESSIONAL: "professional", ENTERPRISE: "enterprise" },
   ORGANIZATION_TIER_VALUES: ["starter", "professional", "enterprise"],
+  SUBSCRIPTION_EVENT_TYPE: { CREATED: "created", UPGRADED: "upgraded", DOWNGRADED: "downgraded" },
+  SUBSCRIPTION_EVENT_TYPE_VALUES: ["created", "upgraded", "downgraded", "renewed", "payment_succeeded", "payment_failed", "canceled"],
+}));
+
+// Phase 3: org/create now logs a real billing event on success — irrelevant
+// to what this suite is testing (org/user creation + tenant isolation), so
+// it's mocked to a no-op like every other cross-cutting dependency here.
+vi.mock("@/lib/billing/appendSubscriptionEvent", () => ({
+  appendSubscriptionEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ── Helper ────────────────────────────────────────────────────────────────────
