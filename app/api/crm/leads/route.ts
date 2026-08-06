@@ -3,9 +3,10 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmLead from "@/models/crm/Lead";
 import CrmActivity from "@/models/crm/Activity";
-import { calculateLeadScore } from "@/lib/crm/leadScoring";
+import { scoreLeadWithAi } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
 import { detectDuplicates } from "@/lib/crm/ai/duplicateAssistant";
+import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -85,10 +86,30 @@ export async function POST(req: NextRequest) {
 
     body.tenantId = session.user.tenantId;
     body.createdBy = session.user.id;
-    body.lead_score = calculateLeadScore(body);
-    
+
+    // Real AI scoring (Phase 2): tries an LLM assessment of this specific
+    // lead first, falls back to the deterministic rule-based score
+    // (lib/crm/leadScoring.ts's calculateLeadScore) when AI is disabled,
+    // over its monthly cap, or unavailable for any reason.
+    const { score, insight } = await scoreLeadWithAi(session.user.tenantId, body);
+    body.lead_score = score;
+
     const lead = await CrmLead.create(body);
-    
+
+    if (insight.ok) {
+      // Severity here reflects "worth a rep's attention", not literal risk —
+      // a low-scoring lead is the one worth flagging, a high-scoring one isn't.
+      const severity = score < 30 ? "Medium" : "Low";
+      await recordAiInsight({
+        tenantId: session.user.tenantId,
+        entityType: "Lead",
+        entityId: String(lead._id),
+        insightType: "Recommendation",
+        insight,
+        severity,
+      });
+    }
+
     await CrmActivity.create({
       tenantId: session.user.tenantId,
       type: 'Note',

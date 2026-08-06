@@ -148,6 +148,11 @@ export const crmSidebarConfig: SidebarSection[] = [
         href: "/crm/ai",
         icon: Sparkles,
       },
+      {
+        title: "AI Control Center",
+        href: "/crm/ai/dashboard",
+        icon: LayoutDashboard,
+      },
     ],
   },
   {

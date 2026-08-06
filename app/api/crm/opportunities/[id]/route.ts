@@ -8,6 +8,8 @@ import CrmTask from "@/models/crm/Task";
 import { requireRole } from "@/lib/crm/rbac";
 import { validateOpportunityStage } from "@/lib/crm/opportunityStageEngine";
 import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
+import { getLlmCrmInsight } from "@/lib/crm/ai/llmInsight";
+import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 import CrmCase from "@/models/crm/Case";
 import "@/models/crm/Contact";
 import "@/models/crm/Account";
@@ -37,8 +39,53 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   );
   
   const dynamicRisk = health.level;
-  
-  return NextResponse.json({ success: true, data: { ...(opp as any), dynamicRisk, healthFlags: health.flags } });
+
+  // Real AI deal-risk assessment (Phase 2): only called when the rule-based
+  // health check already flagged concern, so a healthy deal never incurs AI
+  // cost/latency on every view. The rule engine stays the source of truth
+  // for *whether* something's wrong (deterministic, predictable); the LLM's
+  // job is explaining *why* in plain language and suggesting a next action.
+  let aiAssessment: { summary: string; reasoning: string; suggestedAction?: string; confidence: number } | null = null;
+  if (dynamicRisk !== "Healthy") {
+    const insight = await getLlmCrmInsight(
+      session.user.tenantId,
+      "Assess this sales opportunity's deal risk. A rule-based health check already flagged concerns (see ruleBasedFlags) — explain in plain language why this deal is at risk and suggest one concrete next action to save or advance it.",
+      JSON.stringify({
+        deal_name: (opp as any).deal_name,
+        stage: (opp as any).stage,
+        amount: (opp as any).amount,
+        probability: (opp as any).probability,
+        expected_close_date: (opp as any).expected_close_date,
+        stage_entered_at: (opp as any).stage_entered_at,
+        ruleBasedRiskLevel: dynamicRisk,
+        ruleBasedFlags: health.flags,
+        lastActivityDate: lastActivity ? (lastActivity as any).activity_date : null,
+        stakeholderCount: (opp as any).stakeholders?.length || 0,
+      })
+    );
+    if (insight.ok) {
+      aiAssessment = {
+        summary: insight.summary,
+        reasoning: insight.reasoning,
+        suggestedAction: insight.suggestedAction,
+        confidence: insight.confidence,
+      };
+      if (dynamicRisk === "Critical" || dynamicRisk === "At Risk") {
+        await recordAiInsight({
+          tenantId: session.user.tenantId,
+          entityType: "Opportunity",
+          entityId: params.id,
+          insightType: "Risk",
+          insight,
+        });
+      }
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: { ...(opp as any), dynamicRisk, healthFlags: health.flags, aiAssessment },
+  });
 }
 
 export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {

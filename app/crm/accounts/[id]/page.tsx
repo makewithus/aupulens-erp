@@ -27,7 +27,7 @@ export default function Account360Page(props: { params: Promise<{ id: string }> 
   if (loading) return <div className="p-6">Loading Account 360...</div>;
   if (!data) return <div className="p-6">Account not found</div>;
 
-  const { account, stats } = data;
+  const { account, stats, churnRisk, aiAnalysis } = data;
 
   return (
     <div className="p-6 space-y-6">
@@ -80,6 +80,52 @@ export default function Account360Page(props: { params: Promise<{ id: string }> 
             <div><span className="text-muted-foreground">Billing:</span> {account.billing_address || '-'}</div>
             <div><span className="text-muted-foreground">LTV:</span> ${account.lifetime_value}</div>
           </div>
+
+          {churnRisk && (
+            <div className="mt-6 pt-6 border-t border-neutral-800">
+              <h3 className="font-bold mb-3 flex items-center gap-2">
+                Churn Risk
+                <Badge
+                  variant="outline"
+                  className={
+                    churnRisk.level === "Critical" ? "border-red-900/50 text-red-400" :
+                    churnRisk.level === "High" ? "border-orange-900/50 text-orange-400" :
+                    churnRisk.level === "Medium" ? "border-yellow-900/50 text-yellow-400" :
+                    "border-emerald-900/50 text-emerald-400"
+                  }
+                >
+                  {churnRisk.level} ({churnRisk.score})
+                </Badge>
+              </h3>
+              {churnRisk.reasons?.length > 0 && (
+                <ul className="list-disc pl-4 text-sm text-neutral-400 space-y-1 mb-3">
+                  {churnRisk.reasons.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                </ul>
+              )}
+              {churnRisk.aiSuggestedAction && (
+                <div className="text-xs bg-indigo-950/30 border border-indigo-900/50 rounded px-3 py-2 text-indigo-300">
+                  AI-suggested retention action: {churnRisk.aiSuggestedAction}
+                </div>
+              )}
+            </div>
+          )}
+
+          {aiAnalysis?.nextBestActions?.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-neutral-800">
+              <h3 className="font-bold mb-3">Next Best Action</h3>
+              {aiAnalysis.nextBestActions.map((a: any, i: number) => (
+                <div key={i} className="text-sm bg-neutral-800/50 rounded px-3 py-2 mb-2">
+                  <div className="font-semibold text-neutral-200">{a.action} <span className="text-xs text-neutral-500">({a.priority}, {a.confidence}% confidence)</span></div>
+                  <div className="text-xs text-neutral-500 mt-1">{a.reason}</div>
+                </div>
+              ))}
+              {aiAnalysis.suggestedFollowUpMessage && (
+                <div className="text-xs bg-indigo-950/30 border border-indigo-900/50 rounded px-3 py-2 text-indigo-300 mt-2">
+                  Draft follow-up: “{aiAnalysis.suggestedFollowUpMessage}”
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="activities" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4">
           <ActivityTimeline linkedRecordId={account._id} />

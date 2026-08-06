@@ -24,6 +24,8 @@ import CrmActivity from "@/models/crm/Activity";
 import CrmCase from "@/models/crm/Case";
 import CrmContract from "@/models/crm/Contract";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
+import { getLlmCrmInsight } from "@/lib/crm/ai/llmInsight";
+import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
 // ─── Pure function (no DB calls, for quick inline checks) ────────────────────
 
@@ -90,6 +92,8 @@ export interface ChurnRiskResult {
   score: number;
   reasons: string[];
   daysSinceLastActivity: number;
+  /** Real LLM-generated retention suggestion — only populated for High/Critical (see call site for why). */
+  aiSuggestedAction?: string;
 }
 
 export async function computeAndStoreChurnRisk(
@@ -162,6 +166,8 @@ export async function computeAndStoreChurnRisk(
 
   // ── Persist to account record ──────────────────────────────────────────────
   const account = await CrmAccount.findOne({ _id: accountId, tenantId });
+  let aiSuggestedAction: string | undefined;
+
   if (account) {
     const prevRisk = account.status; // track status change
     (account as any).churn_risk = level;
@@ -187,9 +193,39 @@ export async function computeAndStoreChurnRisk(
         timestamp: new Date(),
       });
     }
+
+    // Real AI retention reasoning (Phase 2) — only called for High/Critical,
+    // both to avoid AI cost on every routine (Low/Medium) risk computation
+    // and because a healthy account doesn't need a retention play. The
+    // deterministic score/level above stays authoritative for the flip to
+    // "At Risk" status; the LLM only adds a human-readable justification and
+    // a concrete next action, surfaced via CrmAIInsight.
+    if (level === "High" || level === "Critical") {
+      const insight = await getLlmCrmInsight(
+        tenantId,
+        "Assess this account's churn risk. A rule-based engine already flagged it based on the reasons given — explain briefly what's driving the risk and suggest one concrete retention action a CSM should take now.",
+        JSON.stringify({
+          company_name: (account as any).company_name,
+          riskLevel: level,
+          riskScore: score,
+          reasons,
+          daysSinceLastActivity,
+        })
+      );
+      if (insight.ok) {
+        aiSuggestedAction = insight.suggestedAction;
+        await recordAiInsight({
+          tenantId,
+          entityType: "Account",
+          entityId: accountId,
+          insightType: "Churn",
+          insight,
+        });
+      }
+    }
   }
 
-  return { level: level as ChurnRiskResult["level"], score, reasons, daysSinceLastActivity };
+  return { level: level as ChurnRiskResult["level"], score, reasons, daysSinceLastActivity, aiSuggestedAction };
 }
 
 export interface ChurnRiskSummary {

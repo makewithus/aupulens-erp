@@ -14,8 +14,7 @@ import CrmQuote from "@/models/crm/Quote";
 import CrmCampaign from "@/models/crm/Campaign";
 import CrmFieldVisit from "@/models/crm/FieldVisit";
 import CrmHandoff from "@/models/crm/Handoff";
-import { predictChurn } from "@/lib/crm/ai/churnPrediction";
-import { determineNextBestAction } from "@/lib/crm/ai/nextBestAction";
+import { getNextBestActionWithAi } from "@/lib/crm/ai/nextBestAction";
 import { requireRole } from "@/lib/crm/rbac";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -120,10 +119,11 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   }
 
   // ── Compute health + churn risk (also persists to DB) ──────────────────────
-  const [healthResult, churnResult, expansionSummary] = await Promise.all([
+  const [healthResult, churnResult, expansionSummary, nextBestActionResult] = await Promise.all([
     computeAndStoreAccountHealth(id, tenantId, session.user.id),
     computeAndStoreChurnRisk(id, tenantId, session.user.id),
     getExpansionSummary(id, tenantId),
+    getNextBestActionWithAi(tenantId, "Account", account),
   ]);
 
   return NextResponse.json({
@@ -147,6 +147,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
         score: churnResult.score,
         reasons: churnResult.reasons,
         daysSinceLastActivity: churnResult.daysSinceLastActivity,
+        aiSuggestedAction: churnResult.aiSuggestedAction,
       },
       expansion: expansionSummary,
       upcomingContracts,
@@ -156,8 +157,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       handoffs,
       aiAnalysis: {
         healthScore: healthResult.score,
-        churnPrediction: predictChurn(account, [], []), // Passed empty for now, in a real implementation we would fetch these.
-        nextBestActions: determineNextBestAction("Account", account)
+        nextBestActions: nextBestActionResult.actions,
+        suggestedFollowUpMessage: nextBestActionResult.suggestedFollowUpMessage,
       }
     },
   });

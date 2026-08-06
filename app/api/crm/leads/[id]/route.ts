@@ -5,8 +5,9 @@ import CrmLead from "@/models/crm/Lead";
 import "@/models/crm/Account";
 import "@/models/crm/Contact";
 import "@/models/crm/Opportunity";
-import { calculateLeadScore } from "@/lib/crm/leadScoring";
+import { scoreLeadWithAi } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
+import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -54,9 +55,22 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   }
   
   Object.assign(lead, body);
-  lead.lead_score = calculateLeadScore(lead);
+  const { score, insight } = await scoreLeadWithAi(session.user.tenantId, lead);
+  lead.lead_score = score;
   await lead.save();
-  
+
+  if (insight.ok) {
+    const severity = score < 30 ? "Medium" : "Low";
+    await recordAiInsight({
+      tenantId: session.user.tenantId,
+      entityType: "Lead",
+      entityId: String(lead._id),
+      insightType: "Recommendation",
+      insight,
+      severity,
+    });
+  }
+
   return NextResponse.json({ success: true, data: lead });
 }
 

@@ -10,6 +10,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   const params = use(props.params);
   const [opp, setOpp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [conversationSummaries, setConversationSummaries] = useState<any[]>([]);
 
   const fetchOpp = async () => {
     const res = await fetch(`/api/crm/opportunities/${params.id}`);
@@ -19,6 +20,12 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   };
 
   useEffect(() => { fetchOpp(); }, [params.id]);
+
+  useEffect(() => {
+    fetch(`/api/crm/conversation-summaries?recordType=Opportunity&recordId=${params.id}`)
+      .then((res) => res.json())
+      .then((data) => { if (data.success) setConversationSummaries(data.data); });
+  }, [params.id]);
 
   const updateStage = async (newStage: string) => {
     const res = await fetch(`/api/crm/opportunities/${params.id}`, {
@@ -241,7 +248,57 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
               </div>
             )}
           </div>
-          
+
+          {opp.aiAssessment && (
+            <div className="bg-neutral-900 border border-indigo-900/50 p-6 rounded-lg">
+              <h3 className="font-bold mb-2 flex items-center gap-2">
+                AI Assessment
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {opp.aiAssessment.confidence}% confidence
+                </Badge>
+              </h3>
+              <p className="text-sm text-neutral-300 mb-2">{opp.aiAssessment.summary}</p>
+              <p className="text-xs text-neutral-500 mb-3">{opp.aiAssessment.reasoning}</p>
+              {opp.aiAssessment.suggestedAction && (
+                <div className="text-xs bg-indigo-950/30 border border-indigo-900/50 rounded px-3 py-2 text-indigo-300">
+                  Suggested: {opp.aiAssessment.suggestedAction}
+                </div>
+              )}
+            </div>
+          )}
+
+          {conversationSummaries.length > 0 && (
+            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <h3 className="font-bold mb-3">Call &amp; Meeting Summaries</h3>
+              <div className="space-y-3">
+                {conversationSummaries.map((s: any) => (
+                  <div key={s._id} className="text-sm border-b border-neutral-800 pb-3 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                          s.sentiment === "Positive" ? "border-emerald-900/50 text-emerald-400" :
+                          s.sentiment === "Negative" ? "border-red-900/50 text-red-400" : ""
+                        }`}
+                      >
+                        {s.sentiment}
+                      </Badge>
+                      <span className="text-[10px] text-neutral-500">
+                        {new Date(s.generatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-neutral-300">{s.summary}</p>
+                    {s.actionItems?.length > 0 && (
+                      <ul className="list-disc pl-4 text-xs text-neutral-500 mt-1">
+                        {s.actionItems.map((a: string, i: number) => <li key={i}>{a}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
              <h3 className="font-bold mb-4">Tags</h3>
              <div className="flex flex-wrap gap-2">
