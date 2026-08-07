@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  ShieldAlert,
   Receipt,
   TrendingUp,
   CreditCard,
@@ -37,6 +38,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         title: "AI Assistant",
         href: "/finance/ai-assistant",
         icon: Sparkles,
+      },
+      {
+        title: "AI Copilot",
+        href: "/finance/ai-copilot",
+        icon: ShieldAlert,
       },
     ],
   },

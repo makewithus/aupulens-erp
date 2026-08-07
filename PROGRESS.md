@@ -1001,3 +1001,23 @@ lacked role-gating that matched their pages. Fixed:
   a real, **editable, disabled** `CrmAutomationRule` that appears in the
   automations list query (the same source the Visual Builder / rule list read).
   **PASS.**
+
+## Part B — Spec-to-implementation matrix (`SPEC_READINESS.md`)
+
+Produced `SPEC_READINESS.md` — a line-by-line map of the full CTO spec to the
+running app, written to be used by navigation (every ✅ has a click path), for
+the test team. Each ✅ re-verified this pass (Build / Suite / Live script /
+Cross-feature / Nav), not copied forward.
+
+**Second reachability gap found + fixed while building the matrix:** the AI
+Copilot (spec module 8) anomaly detection + draft-correspondence were **API-only
+with no UI** — a tester couldn't reach them. Added **`/finance/ai-copilot`**
+(anomaly scan + AI explanation + per-invoice "Draft reminder") and wired it into
+the Finance sidebar (Overview ▸ AI Copilot). Module 8 is now genuinely
+reachable.
+
+Honest partials/deferrals recorded in the matrix: OAuth Google/MS (needs live
+creds), Aupulens Connect / Razorpay-WhatsApp (6.7), Tally & broad ERP migration
+(module 1 / 6.9), Document Intelligence OCR (module 12 / 6.4) — all
+credential-gated and documented; Role-Based Workspaces (9) and arbitrary
+custom-form designer (part of 10) are functional-but-basic (🟡).
