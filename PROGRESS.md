@@ -575,3 +575,34 @@ status — **no wasted AI call, no invented insights**.
   AI call.
 - 6 new parser-validation unit tests (vocabulary coercion, dropping invalid,
   gated outcome). 793 tests pass.
+
+---
+
+## Scope E — AI Studio: cost analytics (done) + scoped RAG + health-check panel (done)
+
+Analytics with real numbers and the stale-model health-check panel were already
+built (Phase 6.6 + the health-check task above); this scope adds **scoped RAG**.
+
+**Scoped RAG** (`lib/ai/rag.ts` + `models/AiEmbedding.ts`):
+- **index** — embeds a tenant's own invoices + CRM notes via
+  `text-embedding-ada-002` (1536-dim), upserted per source doc (bounded to 50/
+  source to cap cost).
+- **retrieve** — tries MongoDB Atlas **`$vectorSearch`** (index
+  `ai_embedding_index`); on any error/absence falls back to in-memory **cosine
+  similarity** over the tenant's stored vectors. The answer shows which path ran.
+- **answer** — gpt-4o answers grounded STRICTLY in retrieved chunks (cites
+  bracket numbers), told to say "I don't have that" rather than invent.
+- Every query is **tenant-scoped** end to end.
+- Route `POST /api/admin/ai-studio/rag` (`action: index | query`, admin-only) +
+  a knowledge-base panel on `/admin/ai-studio` (build index, ask, see answer +
+  retrieval method). Atlas index setup documented in `SETUP_AI.md`.
+
+**Live verification (real embeddings + real gpt-4o + real DB)**
+(`scripts/verify-rag.ts`):
+- Indexed **30 real docs** (15 invoices + 15 CRM notes), embeddingConfigured=true.
+- Query "What invoices do we have and what is their status?" → real grounded
+  answer citing retrieved invoices (e.g. "Invoice INV-0051 … total 1180 [1]"),
+  via **cosine_fallback** (no Atlas index on this cluster — the documented path).
+- Cross-tenant retrieve for a different tenant → **0 chunks** (tenant-scoped).
+- 3 unit tests (cosine ranking, tenant-scoped fallback query, vector-search
+  path). 796 tests pass.

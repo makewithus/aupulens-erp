@@ -150,3 +150,26 @@ sandbox this migration was performed in, which has no real Azure credentials
 — see the Phase 0 report for details). Once removed, there will be no
 remaining reference to Anthropic/Claude as a provider anywhere in the
 codebase or environment configuration.
+
+## Scoped RAG — optional Atlas Vector Search index (Scope E)
+
+The AI Studio knowledge base (`lib/ai/rag.ts`) works out of the box using an
+in-memory **cosine similarity** fallback over the `AiEmbedding` collection — no
+setup required. For larger datasets you can enable MongoDB Atlas **Vector
+Search** for faster retrieval:
+
+1. In Atlas → your cluster → **Search** → **Create Search Index** → **Vector
+   Search**.
+2. Name it exactly **`ai_embedding_index`** on the `aiembeddings` collection.
+3. Field mapping:
+   ```json
+   {
+     "fields": [
+       { "type": "vector", "path": "embedding", "numDimensions": 1536, "similarity": "cosine" },
+       { "type": "filter", "path": "tenantId" }
+     ]
+   }
+   ```
+`retrieve()` automatically uses `$vectorSearch` when this index exists and
+silently falls back to cosine when it doesn't — the AI Studio answer shows which
+path was used. Either way retrieval is filtered by `tenantId`.

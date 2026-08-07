@@ -18,11 +18,36 @@ export default function AiStudioPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Scoped RAG panel state.
+  const [ragQuestion, setRagQuestion] = useState("");
+  const [ragAnswer, setRagAnswer] = useState<any>(null);
+  const [ragBusy, setRagBusy] = useState(false);
+  const [indexInfo, setIndexInfo] = useState<any>(null);
+
   useEffect(() => {
     fetch("/api/admin/ai-usage")
       .then((res) => res.json())
       .then((d) => { if (d.success) setData(d.data); setLoading(false); });
   }, []);
+
+  const buildIndex = async () => {
+    setRagBusy(true); setIndexInfo(null);
+    try {
+      const res = await fetch("/api/admin/ai-studio/rag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "index" }) });
+      const d = await res.json();
+      setIndexInfo(d.success ? { ok: true, ...d.data } : { ok: false, message: d.message });
+    } finally { setRagBusy(false); }
+  };
+
+  const askRag = async () => {
+    if (!ragQuestion.trim()) return;
+    setRagBusy(true); setRagAnswer(null);
+    try {
+      const res = await fetch("/api/admin/ai-studio/rag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "query", question: ragQuestion }) });
+      const d = await res.json();
+      setRagAnswer(d.success ? d.data : { error: d.message });
+    } finally { setRagBusy(false); }
+  };
 
   return (
     <DashboardLayout
@@ -158,9 +183,58 @@ export default function AiStudioPage() {
               )}
             </div>
 
+            {/* Scoped RAG — ask questions grounded in THIS workspace's own data. */}
+            <div className="border-2 rounded-xl p-5 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-semibold">Knowledge base (scoped RAG)</p>
+                <button
+                  onClick={buildIndex}
+                  disabled={ragBusy}
+                  className="text-xs border rounded-md px-3 py-1.5 hover:bg-muted disabled:opacity-50"
+                >
+                  {ragBusy ? "Working…" : "Build / refresh index"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Embeds this workspace&apos;s invoices and CRM notes, then answers questions grounded strictly in them.
+              </p>
+              {indexInfo && (
+                <p className={`text-xs ${indexInfo.ok ? "text-emerald-600" : "text-red-600"}`}>
+                  {indexInfo.ok
+                    ? `Indexed ${indexInfo.indexed} document(s) (${indexInfo.bySource?.invoice} invoices, ${indexInfo.bySource?.crm_note} notes).`
+                    : indexInfo.message}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={ragQuestion}
+                  onChange={(e) => setRagQuestion(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") askRag(); }}
+                  placeholder="e.g. Which invoices are unpaid, and what did we discuss with them?"
+                  className="flex-1 border rounded-md px-3 py-2 text-sm bg-transparent"
+                />
+                <button onClick={askRag} disabled={ragBusy || !ragQuestion.trim()} className="text-sm bg-primary text-primary-foreground rounded-md px-4 disabled:opacity-50">
+                  Ask
+                </button>
+              </div>
+              {ragAnswer && (
+                ragAnswer.error ? (
+                  <p className="text-xs text-red-600">{ragAnswer.error}</p>
+                ) : (
+                  <div className="text-sm space-y-2">
+                    <p className="whitespace-pre-wrap">{ragAnswer.answer}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Retrieval: {ragAnswer.method === "vector_search" ? "Atlas Vector Search" : "cosine fallback"} · {ragAnswer.chunks?.length ?? 0} source(s)
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+
             <p className="text-xs text-muted-foreground">
-              RAG knowledge bases and multi-agent orchestration are a documented future increment (see PROGRESS.md) —
-              this covers usage/cost analytics and the model/kill-switch controls (in AI Preferences).
+              Multi-agent orchestration is a documented future increment (see PROGRESS.md).
+              This page covers usage/cost analytics, the model-config health check, the platform
+              trial ceiling, and scoped RAG over your workspace&apos;s own data.
             </p>
           </>
         )}
