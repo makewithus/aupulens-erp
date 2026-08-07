@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send, Sparkles, Maximize2 } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
@@ -32,6 +33,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Voice input — append each finalized phrase to the prompt as the user speaks.
+  const { supported: micSupported, listening, interim, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+  });
 
   const sendQuery = async (queryText: string, customMessagesHistory?: Message[]) => {
     setIsLoading(true);
@@ -447,9 +453,26 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             }}
           />
           <div className={cn("flex items-center justify-between mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
-            <span className="text-[9px] text-neutral-500 font-mono">
-              ⏎ to send · ⇧⏎ for newline
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={toggleMic}
+                  title={listening ? "Stop voice input" : "Speak your message"}
+                  className={cn(
+                    "h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
+                    listening
+                      ? "bg-red-500/20 text-red-400 animate-pulse"
+                      : isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-400" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-600"
+                  )}
+                >
+                  <Mic className="w-3 h-3" />
+                </button>
+              )}
+              <span className="text-[9px] text-neutral-500 font-mono truncate">
+                {listening ? (interim || "Listening…") : "⏎ to send · ⇧⏎ for newline"}
+              </span>
+            </div>
             <button
               onClick={() => {
                 if (input.trim() && !isLoading) {
