@@ -105,15 +105,28 @@ describe("getAiPeriod", () => {
 // ── resolveTenantAiSettings ───────────────────────────────────────────────────
 
 describe("resolveTenantAiSettings", () => {
-  it("returns tier and aiSettings from the org doc", async () => {
+  it("returns tier and aiSettings from the org doc (valid Azure deployment override passes through)", async () => {
     mockOrgFindOne.mockResolvedValue({
       tier: "professional",
-      settings: { ai: { model: "claude-opus-4-8", maxTokensPerCall: 2048, disabled: false } },
+      settings: { ai: { model: "gpt-4o-custom", maxTokensPerCall: 2048, disabled: false } },
     });
     const { tier, aiSettings } = await resolveTenantAiSettings(TENANT_A);
     expect(tier).toBe("professional");
-    expect(aiSettings.model).toBe("claude-opus-4-8");
+    expect(aiSettings.model).toBe("gpt-4o-custom");
     expect(aiSettings.maxTokensPerCall).toBe(2048);
+  });
+
+  it("strips a stale Anthropic (claude-*) model override so it falls back to the Azure deployment", async () => {
+    // Orgs created before the Azure migration have "claude-sonnet-4-6"
+    // persisted — passing that as an Azure deployment name 400s every call.
+    mockOrgFindOne.mockResolvedValue({
+      tier: "professional",
+      settings: { ai: { model: "claude-sonnet-4-6", maxTokensPerCall: 2048, disabled: false } },
+    });
+    const { aiSettings } = await resolveTenantAiSettings(TENANT_A);
+    expect(aiSettings.model).toBeUndefined(); // stripped -> falls back to CLAUDE_DEFAULT_MODEL
+    expect(aiSettings.maxTokensPerCall).toBe(2048); // other settings preserved
+    expect(aiSettings.disabled).toBe(false);
   });
 
   it("falls back to 'starter' tier when org.tier is absent", async () => {

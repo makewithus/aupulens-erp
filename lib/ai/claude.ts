@@ -1,4 +1,5 @@
 import { AzureOpenAI } from "openai";
+import { Agent } from "undici";
 
 // Lazy singleton — avoids initialisation errors when Azure OpenAI env vars
 // are absent in environments that don't exercise AI routes (e.g. CI, build).
@@ -11,6 +12,29 @@ import { AzureOpenAI } from "openai";
 // kept stable so this migration didn't require touching those call sites.
 // A follow-up rename pass (file + exports) is a reasonable future cleanup
 // but was treated as out of scope for the provider migration itself.
+/**
+ * Custom fetch with a raised connect timeout. This Azure AI Foundry endpoint
+ * can take ~17s to first-respond from some network locations, which exceeds
+ * undici's (Node's fetch) DEFAULT 10s connect timeout — surfacing as a
+ * spurious "Request timed out" before the real response ever arrives (curl,
+ * which has no such default, completes fine). Scoped to AI calls only via a
+ * dedicated dispatcher (not a global one), and lazily required so this
+ * Node-only module never trips an Edge bundle.
+ */
+let _azureFetch: typeof fetch | undefined;
+function getAzureFetch(): typeof fetch {
+  if (!_azureFetch) {
+    const dispatcher = new Agent({
+      connect: { timeout: 60_000 },
+      headersTimeout: 120_000,
+      bodyTimeout: 120_000,
+    });
+    _azureFetch = ((input: any, init: any = {}) =>
+      fetch(input, { ...init, dispatcher })) as typeof fetch;
+  }
+  return _azureFetch;
+}
+
 let _client: AzureOpenAI | null = null;
 function getClient(): AzureOpenAI {
   if (!_client) {
@@ -31,7 +55,19 @@ function getClient(): AzureOpenAI {
     // below) so tenant-specific model overrides (Organization.settings.ai.model)
     // still work. All calls use the single gpt-4o chat deployment; cost is
     // controlled via per-feature max_tokens caps, not a separate cheap model.
-    _client = new AzureOpenAI({ apiKey, endpoint, apiVersion });
+    //
+    // timeout + custom fetch: the endpoint is slow to first-respond (~17s),
+    // so raise the SDK timeout AND use a fetch with a raised undici connect
+    // timeout (see getAzureFetch) — the connect timeout is the actual thing
+    // that was aborting the request early.
+    _client = new AzureOpenAI({
+      apiKey,
+      endpoint,
+      apiVersion,
+      timeout: 120_000,
+      maxRetries: 1,
+      fetch: getAzureFetch(),
+    });
   }
   return _client;
 }

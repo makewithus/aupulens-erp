@@ -282,3 +282,71 @@ to confirm and paste real responses, because the resource has no deployments.
 
 **Test results: 747/747 → 753/753** (6 new safety-guard tests). `tsc`,
 `eslint`, `vitest` all clean.
+
+---
+
+## Go-Live — Azure is LIVE and verified (real calls, not mocks)
+
+The deployment gap is resolved and the AI is genuinely working end-to-end.
+
+**Root cause of the earlier 404s:** the models were deployed in a *different*
+resource than `.env` pointed at. `gpt-4o` + `text-embedding-ada-002` live in
+**`krrish-6151-resource`** (an AI Foundry resource, endpoint
+`krrish-6151-resource.services.ai.azure.com`), but `.env` had
+**`aupulens-openai`**'s endpoint + key — a separate, empty resource in the
+same RG. Fixed by pointing `AZURE_OPENAI_ENDPOINT` at the Foundry resource and
+the key at its key (verified the Foundry endpoint serves the classic Azure
+OpenAI `/openai/deployments/.../chat/completions` path — raw curl returned 401
+for a bad key and 200 for the real one).
+
+**Real bug #1 found + fixed — connect timeout.** The Foundry endpoint is slow
+to first-respond (~17s from here). Node's `fetch` (undici) has a **default 10s
+connect timeout**, so every SDK call aborted at ~10.5s with a spurious "Request
+timed out" — while `curl` (no such default) succeeded at 17s. Isolated it to
+the undici layer (raw `node fetch` failed identically; raw fetch with a custom
+`undici.Agent({connect:{timeout:60s}})` succeeded — HTTP 200 in 17.1s). Fix:
+`lib/ai/claude.ts` now builds the `AzureOpenAI` client with a custom fetch
+backed by a dedicated undici `Agent` (60s connect, 120s headers/body) + a 120s
+SDK timeout. Added `undici` as an explicit dependency. Scoped to AI calls only
+(not a global dispatcher).
+
+**Real bug #2 found + fixed — stale Anthropic model override in the DB.** Live
+testing (impossible before) surfaced that 4 of 28 orgs (incl. `default-tenant`)
+still had `settings.ai.model = "claude-sonnet-4-6"` persisted from the
+pre-Azure era — Phase 0 removed the schema *default* but existing documents
+kept the stored value. Since `callClaudeForTenant` uses the tenant's model
+override as the Azure deployment name, those tenants got a 400
+("model 'claude-sonnet-4-6' does not support deploymentless inference") on
+*every* AI call. Two-part fix: (a) durable guard in `resolveTenantAiSettings`
+strips any `claude-*` model override so it falls back to the real Azure
+deployment (with a new test); (b) one-time migration
+`scripts/migrate-clear-stale-ai-model.ts` cleared the stored values (DB now
+shows 0 stale, all unset). This is exactly the class of bug mocks can't catch.
+
+**Live self-checks (real `gpt-4o` / `text-embedding-ada-002`, key redacted):**
+
+- *Finance completion* — prompt: "In one short sentence, what does a positive
+  net income mean for a business?" → response: "A positive net income means a
+  business's revenues exceed its expenses, indicating profitability."
+- *Lead scoring (lightweight)* — prompt: score a Referral/10k-50k lead, JSON
+  only → response: `{"score":85,"confidence":90,"summary":"...strong
+  likelihood of conversion...","reasoning":...,"suggestedAction":...}`.
+  **Real token usage: prompt=85, completion=131, total=216** — the full
+  structured output fits comfortably under the `suggestion` cap of **256**
+  (validated: won't truncate a good response, still hard-stops a runaway one).
+- *Embeddings* — `text-embedding-ada-002` returned a real **1536-dim** vector.
+- *Failure mode* — a deliberately wrong deployment name returns a clear
+  **404 DeploymentNotFound**, not a silent failure.
+- *Usage counter* — a real `callClaudeForTenant` for `default-tenant` moved the
+  `AiUsage` counter **0 → 1**, confirming the monthly cap / kill-switch is
+  live-wired end to end (not just unit-tested).
+
+**Test results: 753/753 → 754/754** (new stale-model-stripping test). `tsc`,
+`eslint`, `vitest` all clean. Kept `scripts/smoke-azure.ts` + `smoke-usage.ts`
++ `check-ai-budget.ts` + `migrate-clear-stale-ai-model.ts` as go-live
+utilities; removed the throwaway network-diagnosis scripts.
+
+**Budget guardrail still pending your call:** 24/28 tenants on the enterprise
+tier (10k/mo cap). Now that AI genuinely runs and costs real money, this
+matters — say whether to downgrade the test tenants or add the env-driven
+trial ceiling.

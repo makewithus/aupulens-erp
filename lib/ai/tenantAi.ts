@@ -78,9 +78,22 @@ export async function resolveTenantAiSettings(tenantId: string): Promise<{
     { tier: 1, "settings.ai": 1 }
   ).lean<{ tier?: string; settings?: { ai?: TenantAiSettings } }>();
 
+  const aiSettings: TenantAiSettings = { ...(org?.settings?.ai ?? {}) };
+
+  // Defensive: some orgs created before the Azure migration still have a
+  // stale Anthropic model name (e.g. "claude-sonnet-4-6") persisted in
+  // settings.ai.model. Passing that as an Azure deployment name 400s every
+  // AI call for that tenant. Ignore any non-Azure (claude-*) override so it
+  // falls back to CLAUDE_DEFAULT_MODEL (the real Azure deployment). A one-off
+  // migration (scripts/migrate-clear-stale-ai-model.ts) also clears these
+  // from the DB, but this guard prevents recurrence and protects any missed.
+  if (typeof aiSettings.model === "string" && /^claude/i.test(aiSettings.model)) {
+    delete aiSettings.model;
+  }
+
   return {
     tier: org?.tier ?? "starter",
-    aiSettings: org?.settings?.ai ?? {},
+    aiSettings,
   };
 }
 
