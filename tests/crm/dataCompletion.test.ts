@@ -1,4 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// analyzeLeadCompleteness is pure, but the module now also exposes an AI
+// completion layer that imports @/lib/ai/tenantAi -> @/lib/db (whose top-level
+// guard throws without MONGODB_URI). Mock the DB so the pure function imports.
+vi.mock("@/lib/db", () => ({ default: vi.fn() }));
+vi.mock("@/models/Organization", () => ({ default: function Organization() {} }));
+
 import { analyzeLeadCompleteness } from "@/lib/crm/dataCompletion";
 
 describe("analyzeLeadCompleteness", () => {

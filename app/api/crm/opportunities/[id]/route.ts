@@ -10,6 +10,7 @@ import { validateOpportunityStage } from "@/lib/crm/opportunityStageEngine";
 import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
 import { getLlmCrmInsight } from "@/lib/crm/ai/llmInsight";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
+import { calculateWinProbability, estimateWinProbabilityWithAi } from "@/lib/crm/winProbability";
 import CrmCase from "@/models/crm/Case";
 import "@/models/crm/Contact";
 import "@/models/crm/Account";
@@ -82,9 +83,30 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     }
   }
 
+  // Win probability (Native ERP AI functionality #7). Deterministic baseline
+  // is free and always computed. The AI estimate is only spent on deals that
+  // are already flagged (not Healthy) — mirroring the deal-risk cost discipline
+  // above, so a healthy deal never incurs extra AI cost on every view. When AI
+  // is gated/unavailable the estimate degrades to the deterministic number.
+  const deterministicWinProb = calculateWinProbability(opp as any);
+  let winProbability = deterministicWinProb;
+  let winProbabilityAiUsed = false;
+  if (dynamicRisk !== "Healthy") {
+    const wp = await estimateWinProbabilityWithAi(session.user.tenantId, opp as any);
+    winProbability = wp.probability;
+    winProbabilityAiUsed = wp.insight.ok;
+  }
+
   return NextResponse.json({
     success: true,
-    data: { ...(opp as any), dynamicRisk, healthFlags: health.flags, aiAssessment },
+    data: {
+      ...(opp as any),
+      dynamicRisk,
+      healthFlags: health.flags,
+      aiAssessment,
+      winProbability,
+      winProbabilityAiUsed,
+    },
   });
 }
 

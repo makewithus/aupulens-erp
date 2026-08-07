@@ -36,7 +36,11 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 vi.mock("@/lib/crm/rbac", () => ({ requireRole: mockRequireRole }));
-vi.mock("@/lib/crm/ai/duplicateAssistant", () => ({ detectDuplicates: mockDetectDuplicates }));
+// The route uses the AI-assisted dedup wrapper; mock it to return the same
+// shape ({ aiUsed, duplicates }). mockDetectDuplicates supplies the array.
+vi.mock("@/lib/crm/ai/duplicateAssistant", () => ({
+  detectDuplicatesWithAi: (..._a: any[]) => Promise.resolve({ aiUsed: false, duplicates: mockDetectDuplicates() }),
+}));
 
 vi.mock("@/models/crm/Lead", () => ({
   default: {

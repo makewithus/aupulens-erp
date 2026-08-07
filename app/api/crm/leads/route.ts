@@ -5,7 +5,7 @@ import CrmLead from "@/models/crm/Lead";
 import CrmActivity from "@/models/crm/Activity";
 import { scoreLeadWithAi } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
-import { detectDuplicates } from "@/lib/crm/ai/duplicateAssistant";
+import { detectDuplicatesWithAi } from "@/lib/crm/ai/duplicateAssistant";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
 export async function GET(req: NextRequest) {
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         { tenantId: session.user.tenantId },
         "lead_name email phone company_name",
       ).lean();
-      const fuzzyMatches = detectDuplicates(body, candidates, "Lead");
+      const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Lead");
       if (fuzzyMatches.length > 0) {
         const matches = fuzzyMatches.map((m) => ({
           ...m,

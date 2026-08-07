@@ -430,3 +430,41 @@ that *hides* the misconfiguration rather than surfacing it.
   `checkTenantModelOverrides()` returned **stale count 1**, flagged with reason
   "Stale Anthropic model name (pre-Azure migration)…"; after unset → **0**.
 - 6 classifier unit tests pass.
+
+---
+
+## Scope A — all 10 Native ERP AI functionalities: validated live + clean fallback
+
+`scripts/verify-native-ai.ts` exercises every one against **real gpt-4o**, then
+forces the global ceiling to prove each falls back deterministically (no
+exception) when AI is unavailable. Actual output captured:
+
+| # | Functionality | AI-ON (real gpt-4o) | FALLBACK (gated) |
+|---|---|---|---|
+| 1 | Lead scoring | score 85, conf 90 (LLM) | deterministic 45 |
+| 2 | Next best action | real tailored recommendation | "Send Proposal" (rule) |
+| 3 | Deal risk | real risk narrative + action | rule-based level only |
+| 4 | Conversation summary | stored (LLM) | no-op, activity still saved |
+| 5 | Call-note summary | (same path as #4) | no-op |
+| 6 | Follow-up message | real 2-3 sentence draft | none (no draft) |
+| 7 | Win probability | 75% (LLM) | deterministic 53% |
+| 8 | Churn risk | real retention action | rule score + level only |
+| 9 | Duplicate detection | **caught "IBM" = "International Business Machines" @95%** | 0 (Levenshtein abstains — correct) |
+| 10 | Data completion | **inferred `expected_timeline="Q3"` from notes** | manual-fill list, nothing invented |
+
+**What changed this pass:** #7/#9/#10 were deterministic-only before. Added
+genuine AI layers following the established `getLlmCrmInsight` + fallback
+pattern: `lib/crm/winProbability.ts`, an AI completion layer in
+`lib/crm/dataCompletion.ts` (`suggestLeadCompletions` — suggests, never
+auto-writes), and `detectDuplicatesWithAi` in `duplicateAssistant.ts` (semantic
+adjudication merged with the deterministic hits, deterministic kept when both
+match). Wired in: leads/contacts create routes now use AI-assisted dedup;
+opportunity detail route adds win probability (AI only when already flagged, so
+a healthy deal costs nothing extra); new on-demand
+`POST /api/crm/leads/[id]/complete` for data-completion suggestions.
+
+**The two edge cases that matter most, both verified:** (a) the semantic dupe
+("IBM") the old matcher structurally could not catch is now caught, and (b) the
+gated path returns a sensible deterministic value for all 10 with zero
+exceptions — the whole point of "AI-native with clean fallback". 8 new
+deterministic-fallback unit tests pass.

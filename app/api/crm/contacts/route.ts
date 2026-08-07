@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmContact from "@/models/crm/Contact";
 import { requireRole } from "@/lib/crm/rbac";
-import { detectDuplicates } from "@/lib/crm/ai/duplicateAssistant";
+import { detectDuplicatesWithAi } from "@/lib/crm/ai/duplicateAssistant";
 import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: NextRequest) {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         { tenantId: session.user.tenantId },
         "first_name last_name email phone",
       ).lean();
-      const fuzzyMatches = detectDuplicates(body, candidates, "Contact");
+      const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Contact");
       if (fuzzyMatches.length > 0) {
         const matches = fuzzyMatches.map((m) => ({
           ...m,
