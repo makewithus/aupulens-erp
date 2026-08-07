@@ -638,3 +638,38 @@ back to a deterministic template when AI is gated/unavailable.
   email (tone auto-escalated), professional body.
 - 9 new unit tests (each anomaly type + non-flag cases + both fallbacks).
   805 tests pass.
+
+---
+
+## Scope G — Universal search: semantic embedding upgrade (keyword fallback retained)
+
+The universal search already spanned CRM/Sales/Inventory/HR/Projects (Phase 6.1,
+extracted to `lib/search/universalSearch.ts` in Scope B). Scope G layers
+**semantic** search on top:
+
+- `runSemanticSearch` embeds the query (`text-embedding-ada-002`) and retrieves
+  via the same tenant-scoped RAG path (Atlas `$vectorSearch` → cosine fallback)
+  over the indexed invoices + CRM notes — so a natural-language query matches
+  records it shares no keyword with. Role-gated like keyword search (CRM/Sales
+  sources), and returns `[]` (never throws) when embeddings are off/unindexed.
+- `runCombinedSearch` runs the keyword baseline ALWAYS and merges semantic hits
+  on top (de-duplicated by id) — so results never regress vs. before. Exposed via
+  `GET /api/search?semantic=true` and used automatically by the AI Command
+  Center's `search` intent (NL queries benefit most).
+
+**Live verification (real embeddings + real DB)** (`scripts/verify-semantic-search.ts`):
+- Query "money customers still owe us" → **keyword: 0** results (no literal
+  match) but **semantic: 5** (invoices at 80-81% relevance, including an overdue
+  one) → **PASS: semantic surfaced matches keyword missed**.
+- Keyword baseline for "INV" still returns 5 (fallback path intact).
+- 6 unit tests (role gating, embeddings-off skip, retrieval-error skip,
+  keyword-only vs merged). **811 tests pass.**
+
+---
+
+## A–G scope: COMPLETE
+
+All of A–G implemented, each with live gpt-4o/embedding verification against the
+real DB, edge cases, and per-feature commits. Full suite: **811 passing**, `tsc`
++ `eslint` clean. Kept verification scripts under `scripts/verify-*.ts` and
+`scripts/check-*.ts` as reproducible live checks.

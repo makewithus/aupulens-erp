@@ -86,3 +86,56 @@ export async function runUniversalSearch(tenantId: string, role: string, term: s
   const settled = await Promise.all(tasks.map((p) => p.catch(() => [] as SearchResult[])));
   return settled.flat();
 }
+
+/**
+ * Semantic search over the tenant's embedded knowledge base (Scope G).
+ *
+ * Uses text-embedding-ada-002 + the same tenant-scoped retrieval as RAG (Atlas
+ * $vectorSearch with cosine fallback) so a query like "money customers still
+ * owe us" matches overdue invoices it shares no keyword with. Returns [] (never
+ * throws) when embeddings aren't configured or nothing is indexed — the caller
+ * keeps the keyword results as the baseline/fallback.
+ *
+ * Scoped to sources a "sales" (CRM/Sales) role can see, matching the keyword
+ * search's role rules; the indexed sources are invoices + CRM notes.
+ */
+export async function runSemanticSearch(tenantId: string, role: string, term: string, k = 5): Promise<SearchResult[]> {
+  if (!term || term.length < 2) return [];
+  const r = (role || "").toLowerCase();
+  const isAdmin = r === "admin" || r === "master-admin";
+  if (!(isAdmin || r === "sales")) return []; // indexed sources are CRM/Sales-owned
+
+  // Lazy imports keep the keyword path free of the embedding client / RAG deps.
+  const { EMBEDDING_DEFAULT_MODEL, embedText } = await import("@/lib/ai/claude");
+  if (!EMBEDDING_DEFAULT_MODEL) return [];
+
+  try {
+    const { retrieve } = await import("@/lib/ai/rag");
+    const queryVector = await embedText(term);
+    const { chunks } = await retrieve(tenantId, queryVector, k);
+    return chunks.map((c) => ({
+      type: c.sourceType === "invoice" ? "Invoice (semantic)" : "CRM Note (semantic)",
+      id: c.sourceId,
+      title: c.text.length > 80 ? `${c.text.slice(0, 80)}…` : c.text,
+      subtitle: `relevance ${(c.score * 100).toFixed(0)}%`,
+      url: c.sourceType === "invoice" ? `/sales/invoices/${c.sourceId}` : `/crm/leads`,
+    }));
+  } catch {
+    return []; // any embedding/retrieval failure → keyword results still stand
+  }
+}
+
+/**
+ * Combined search: keyword baseline (always) + optional semantic layer merged on
+ * top, de-duplicated by id. Keyword is the fallback, so search never gets worse
+ * than before when embeddings are off/unindexed.
+ */
+export async function runCombinedSearch(tenantId: string, role: string, term: string, opts: { semantic?: boolean } = {}): Promise<{ results: SearchResult[]; semanticUsed: boolean }> {
+  const keyword = await runUniversalSearch(tenantId, role, term);
+  if (!opts.semantic) return { results: keyword, semanticUsed: false };
+
+  const semantic = await runSemanticSearch(tenantId, role, term);
+  const seen = new Set(keyword.map((x) => x.id));
+  const merged = [...keyword, ...semantic.filter((s) => !seen.has(s.id))];
+  return { results: merged, semanticUsed: semantic.length > 0 };
+}

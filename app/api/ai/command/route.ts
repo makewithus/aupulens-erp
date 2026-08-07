@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
-import { runUniversalSearch } from "@/lib/search/universalSearch";
+import { runCombinedSearch } from "@/lib/search/universalSearch";
 import { COMMAND_ACTIONS, COMMAND_ACTION_TYPES, CommandActionError, isCommandAction } from "@/lib/ai/commandActions";
 import AiCommandProposal from "@/models/AiCommandProposal";
 import CrmLead from "@/models/crm/Lead";
@@ -70,7 +70,8 @@ Return ONLY JSON (no markdown):
         return NextResponse.json({ action: "navigate", url: parsed.url, message: parsed.message || "Navigating…" });
 
       case "search": {
-        const results = await runUniversalSearch(tenantId, role, parsed.searchTerm || command);
+        // Natural-language commands benefit most from the semantic layer.
+        const { results } = await runCombinedSearch(tenantId, role, parsed.searchTerm || command, { semantic: true });
         return NextResponse.json({
           action: "search",
           results,
