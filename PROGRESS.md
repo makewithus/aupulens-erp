@@ -1021,3 +1021,20 @@ creds), Aupulens Connect / Razorpay-WhatsApp (6.7), Tally & broad ERP migration
 (module 1 / 6.9), Document Intelligence OCR (module 12 / 6.4) — all
 credential-gated and documented; Role-Based Workspaces (9) and arbitrary
 custom-form designer (part of 10) are functional-but-basic (🟡).
+
+## Final gate (pre-QA pass) — all green
+
+- `tsc --noEmit`: **0 errors**
+- `eslint`: **0 errors** (style-only warnings remain, pre-existing)
+- `vitest run`: **868 passing** (was 811 at the start of this pass → +57 across
+  the AI scope carryover, hardening, expansion, and readiness tests; this pass
+  added the `requireAdmin` gating tests)
+- `next build`: **green** — compiled successfully, **468/468** static pages,
+  BUILD_ID emitted; all new routes present in the route table
+  (`/calendar`, `/marketplace`, `/finance/ai-copilot`, `/admin/org-structure`,
+  `/admin/business-twin`, `/sales/print-format-builder` + their APIs).
+
+**Deliverables for the test team:** `SPEC_READINESS.md` (nav-based spec matrix)
+and `TESTING.md` (click-by-click walkthrough).
+
+**Desktop client: not touched this pass** (parked by instruction).
