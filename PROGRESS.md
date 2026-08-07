@@ -918,3 +918,30 @@ expansion work:
 
 Added a dated "re-confirmed current" stamp to the top of the file. No code work
 — correctly deferred until the credentials exist.
+
+---
+
+## Part 4 (6.12) — Marketplace (publish / browse / install shareable packages)
+
+Built on the now-mature Visual Builder, approval-policy, and print-format tools:
+a catalog where a tenant publishes a reusable config and any tenant installs it.
+- `models/MarketplacePackage.ts` — published packages (category: workflow /
+  approval-policy / print-format) with a **sanitized** payload (no tenant/user
+  ids) + install counter.
+- `lib/marketplace/packages.ts` — pure `sanitize*` functions (strip ids,
+  vocabulary-validate) and `installPackage` which creates **fresh, tenant-owned**
+  records (a `CrmAutomationRule` / `CrmApprovalPolicy` / `DocumentSettings`
+  update) in the INSTALLING tenant — created **disabled** for review.
+- API: `GET /api/marketplace` (browse published), `POST /api/marketplace/publish`
+  (sanitizes before storing), `POST /api/marketplace/[id]/install` (writes only
+  to the caller's tenant, bumps install count).
+- UI: `/marketplace` — category-filtered cards with an Install button.
+
+**Security property:** a published payload can never carry another workspace's
+data (sanitized on publish), and install only ever mutates the caller's tenant.
+
+**Live verification (real DB, cross-tenant)** (`scripts/verify-marketplace.ts`):
+published a workflow from tenant A (payload confirmed to leak **no** tenant/user
+ids) → installed into tenant B → a **real tenant-B-owned, disabled**
+`CrmAutomationRule` was created. PASS. 7 sanitizer unit tests. 857 → **864**;
+`tsc`/`eslint` clean.
