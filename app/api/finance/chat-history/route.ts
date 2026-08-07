@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -67,13 +68,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
     } else {
-      // Create new chat
+      // Create new chat — module + conversationId are required by the schema.
       chat = await ChatHistory.create({
         userId: session.user.id,
         title: title || "New Chat",
         messages,
         isArchived: false,
         tenantId,
+        module: "finance",
+        conversationId: randomUUID(),
       });
     }
 

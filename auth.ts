@@ -183,7 +183,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email,
             role: user.role,
             tenantId: user.tenantId,
-            permissions: user.permissions,
+            // Spread into a plain string[] — user.permissions is a Mongoose
+            // array (class instance) that structuredClone can't clone during
+            // JWT encoding, which crashes login with DataCloneError.
+            permissions: user.permissions ? [...user.permissions] : [],
           };
         } catch (error: any) {
           throw error;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
         isArchived: false,
         tenantId,
         module: "hr",
+        conversationId: randomUUID(),
       });
     }
 

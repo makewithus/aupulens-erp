@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -83,12 +84,14 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ chat });
     } else {
-      // Create new chat
+      // Create new chat — module + conversationId are required by the schema.
       const chat = await ChatHistory.create({
         userId: session.user.id,
         title: title || "New Chat",
         messages: messages || [],
         tenantId,
+        module: "admin",
+        conversationId: randomUUID(),
       });
 
       return NextResponse.json({ chat });
