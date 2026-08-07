@@ -869,3 +869,30 @@ Team's **effective localization correctly inherited** currency=USD (from Region)
 taxRegime=GST-IN (from Company), timezone=America/New_York. PASS.
 8 pure-helper unit tests. 843 → **851**; `tsc`/`eslint` clean; suite green at
 every step (additive model → no regressions).
+
+---
+
+## Part 2.5 (6.11) — Digital Business Twin (relationship graph + one simulation)
+
+- `lib/twin/graph.ts` — builds a **real** money-flow graph from aggregation
+  queries across existing models: Customer → Invoice (receivables) and Vendor →
+  Bill (payables, from accounting `in_invoice`), bounded to the top customers by
+  value so it stays a readable map. Also exposes the outstanding receivables the
+  simulation uses.
+- `lib/twin/cashflow.ts` — pure, tested: `projectWeeklyCashflow` (buckets
+  receivables into weekly inflows + running cash position) and **one genuinely
+  useful simulation**, `simulateInvoiceDelay` ("what if invoice X pays N days
+  late?") returning baseline vs simulated weekly cash and the per-week delta.
+  Deliberately scoped to that one simulation, not a broad "predicts everything"
+  claim.
+- API: `GET /api/twin` (graph + receivables), `POST /api/twin/simulate`.
+- UI: `/admin/business-twin` — a React Flow money-flow graph with receivable/
+  payable stat cards, plus a "simulate a late payment" control that renders the
+  weekly baseline-vs-late cash table with the dip highlighted.
+
+**Live verification (real DB)** (`scripts/verify-twin.ts`): built a **42-node**
+graph (12 customers, 25 invoices, 2 vendors, 3 bills) with real stats
+(receivable 108,161 / payable 13,500) and **22 outstanding receivables**; the
+late-invoice simulation produced a real weekly projection + delta and an honest
+summary. 6 pure cash-flow unit tests (including the dip case). 851 → **857**;
+`tsc`/`eslint` clean.
