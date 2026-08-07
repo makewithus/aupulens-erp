@@ -17,11 +17,11 @@ function getClient(): AzureOpenAI {
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
-    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const deployment = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT;
     if (!apiKey || !endpoint || !apiVersion || !deployment) {
       throw new Error(
         "Azure OpenAI is not configured. Set AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, " +
-          "AZURE_OPENAI_API_VERSION and AZURE_OPENAI_DEPLOYMENT_NAME in your .env file. " +
+          "AZURE_OPENAI_API_VERSION and AZURE_OPENAI_CHAT_DEPLOYMENT in your .env file. " +
           "See SETUP_AI.md for how to obtain these from the Azure Portal / Azure AI Foundry."
       );
     }
@@ -29,18 +29,28 @@ function getClient(): AzureOpenAI {
     // pin every call to one fixed deployment. Instead the deployment/model
     // name is resolved per call (see CLAUDE_DEFAULT_MODEL / opts.model
     // below) so tenant-specific model overrides (Organization.settings.ai.model)
-    // keep working exactly as they did under the Anthropic client.
+    // and the cheap/light model tier both work.
     _client = new AzureOpenAI({ apiKey, endpoint, apiVersion });
   }
   return _client;
 }
 
-/** Azure OpenAI deployment name used when no per-call/tenant override is given. */
-export const CLAUDE_DEFAULT_MODEL = process.env.AZURE_OPENAI_DEPLOYMENT_NAME ?? "";
+/** Default Azure OpenAI *chat* deployment when no per-call/tenant override is given. */
+export const CLAUDE_DEFAULT_MODEL = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT ?? "";
 export const CLAUDE_DEFAULT_MAX_TOKENS = 1024;
 
+/**
+ * Cheap/light chat deployment for high-volume, low-stakes calls (lead
+ * scoring, data completion, summaries, intent classification). Falls back to
+ * the main chat deployment when a separate light deployment isn't configured,
+ * so callers can always request "light" without breaking single-deployment
+ * setups. See SETUP_AI.md for provisioning the light deployment.
+ */
+export const CLAUDE_LIGHT_MODEL =
+  process.env.AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT || process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || "";
+
 export interface ClaudeCallOptions {
-  /** Azure OpenAI deployment name. Defaults to AZURE_OPENAI_DEPLOYMENT_NAME. */
+  /** Azure OpenAI chat deployment name. Defaults to AZURE_OPENAI_CHAT_DEPLOYMENT. */
   model?: string;
   /** Maximum tokens in the response. Defaults to 1024. */
   maxTokens?: number;
@@ -113,4 +123,28 @@ export async function callClaudeWithHistory(
     throw new Error("Azure OpenAI returned no text content");
   }
   return text;
+}
+
+/** Default Azure OpenAI *embedding* deployment (semantic search, RAG). */
+export const EMBEDDING_DEFAULT_MODEL = process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "";
+
+/**
+ * Produce an embedding vector for a piece of text via Azure OpenAI's
+ * embeddings endpoint (uses AZURE_OPENAI_EMBEDDING_DEPLOYMENT). Used by
+ * semantic search (Phase 6.7). Throws if the embedding deployment isn't
+ * configured so callers can fall back to keyword search rather than silently
+ * returning nothing.
+ */
+export async function embedText(text: string, opts: { model?: string } = {}): Promise<number[]> {
+  const deployment = opts.model || EMBEDDING_DEFAULT_MODEL;
+  if (!deployment) {
+    throw new Error(
+      "Azure OpenAI embeddings are not configured. Set AZURE_OPENAI_EMBEDDING_DEPLOYMENT in your .env file."
+    );
+  }
+  const client = getClient();
+  const response = await client.embeddings.create({ model: deployment, input: text });
+  const vector = response.data[0]?.embedding;
+  if (!vector) throw new Error("Azure OpenAI returned no embedding");
+  return vector;
 }

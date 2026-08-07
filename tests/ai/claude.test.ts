@@ -25,14 +25,14 @@ const ENV_KEYS = [
   "AZURE_OPENAI_API_KEY",
   "AZURE_OPENAI_ENDPOINT",
   "AZURE_OPENAI_API_VERSION",
-  "AZURE_OPENAI_DEPLOYMENT_NAME",
+  "AZURE_OPENAI_CHAT_DEPLOYMENT",
 ] as const;
 
 function setValidEnv() {
   process.env.AZURE_OPENAI_API_KEY = "test-key-abc";
   process.env.AZURE_OPENAI_ENDPOINT = "https://test-resource.openai.azure.com";
   process.env.AZURE_OPENAI_API_VERSION = "2024-10-21";
-  process.env.AZURE_OPENAI_DEPLOYMENT_NAME = "test-deployment";
+  process.env.AZURE_OPENAI_CHAT_DEPLOYMENT = "test-deployment";
 }
 
 function clearEnv() {
@@ -40,7 +40,7 @@ function clearEnv() {
 }
 
 // CLAUDE_DEFAULT_MODEL is computed once at module-import time from
-// AZURE_OPENAI_DEPLOYMENT_NAME (deployment names have no sensible universal
+// AZURE_OPENAI_CHAT_DEPLOYMENT (deployment names have no sensible universal
 // default, unlike Anthropic's public model IDs), so every test re-imports a
 // fresh module instance after setting env — same pattern the pre-migration
 // test used for its lazy client singleton.

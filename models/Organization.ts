@@ -105,7 +105,7 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
       // `model` is an Azure OpenAI deployment name override. No schema-level
       // default is set deliberately — deployment names are environment-specific,
       // unlike Anthropic's universal public model IDs. When unset, lib/ai/tenantAi.ts
-      // falls back to CLAUDE_DEFAULT_MODEL (AZURE_OPENAI_DEPLOYMENT_NAME).
+      // falls back to CLAUDE_DEFAULT_MODEL (AZURE_OPENAI_CHAT_DEPLOYMENT).
       ai: {
         model: { type: String },
         maxTokensPerCall: { type: Number, default: 1024 },

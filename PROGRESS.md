@@ -22,7 +22,7 @@ Status: **Done, approved by user.**
 - Tests updated for the new provider: `tests/ai/claude.test.ts` rewritten to mock `openai`'s `AzureOpenAI`; `tests/saas/aiLimits.test.ts` and `organization-schema.test.ts` updated for the new default-model value.
 - `SETUP_AI.md` created at repo root.
 
-**Judgment calls:** kept `lib/ai/claude.ts`'s filename/exports despite being Azure-backed now (avoids touching call sites — flagged as a future cleanup). `CLAUDE_DEFAULT_MODEL` reads `AZURE_OPENAI_DEPLOYMENT_NAME` at module-load time rather than being hardcoded (Azure deployment names have no universal default).
+**Judgment calls:** kept `lib/ai/claude.ts`'s filename/exports despite being Azure-backed now (avoids touching call sites — flagged as a future cleanup). `CLAUDE_DEFAULT_MODEL` reads the chat-deployment env var at module-load time rather than being hardcoded (Azure deployment names have no universal default). *(Go-live update: the env var was reconciled from `AZURE_OPENAI_DEPLOYMENT_NAME` to the real `AZURE_OPENAI_CHAT_DEPLOYMENT` — see the "Go-Live" section at the end.)*
 
 **Real TS gotcha found and worked around:** `if (result.gated) return...; result.text` doesn't type-check in this project because `tsconfig.json` has `strictNullChecks: false`, which breaks normal discriminated-union narrowing (confirmed via isolated repro — passes with `--strictNullChecks`, fails without). Did not touch the project-wide tsconfig. Fixed locally everywhere this pattern occurs by narrowing on `"text" in result"` instead of `result.gated`, which works either way. This recurs throughout Phase 0's follow-up below — noted once here, not repeated per occurrence.
 
@@ -190,3 +190,25 @@ Status: **2 of 12 built and tested this pass (6.1, 6.6); the other 10 are honest
 **Done but not live-verifiable without real credentials:** every AI code path (verified against a mocked `callClaudeForTenant`, not a live Azure model — needs real `AZURE_OPENAI_*`); OAuth sign-in (needs real Google/Microsoft app credentials); the cron schedule (needs a `CRON_SECRET` + a deploy).
 
 **Explicitly scoped down / deferred (with reasons above and in `SETUP_INTEGRATIONS.md`):** Command Center real-execution (security-sensitive, Phase 4); AI-memory-to-Manufacturing + Manufacturing confirm-UI (frontend polish, backend already safe, Phase 4); server-side PDF binary (needs Chromium or a full template rewrite, Phase 5); and Phase 6 items 6.2–6.5 and 6.7–6.12 (each a real, sizable module — several needing external service credentials).
+
+---
+
+## Go-Live — Step A (config reconciliation + live smoke test)
+
+Status: **Config reconciliation DONE and clean; live smoke test BLOCKED by a genuine Azure setup gap — stopped here per the "missing external credential" rule, before Step B/C.**
+
+**Step A.1 — env var reconciliation (done).** Real credentials use `AZURE_OPENAI_CHAT_DEPLOYMENT` (+ a new `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`), not Phase 0's `AZURE_OPENAI_DEPLOYMENT_NAME`. Reconciled properly (not aliased): updated `lib/ai/claude.ts` (the reader + the config-error message), `tests/ai/claude.test.ts`, `.env.example`, `SETUP_AI.md`, and `models/Organization.ts`. Grep confirms zero remaining `AZURE_OPENAI_DEPLOYMENT_NAME` references anywhere except one intentional line in this doc explaining the rename itself.
+
+**Step A.2 — embeddings support (done).** Added `embedText()` + `EMBEDDING_DEFAULT_MODEL` to `lib/ai/claude.ts` (reads `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`), plus `CLAUDE_LIGHT_MODEL` (reads `AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT`, falls back to the main chat deployment) ready for Step B's model tiering. Nothing calls embeddings yet (Step C.1 will).
+
+**Step A.3 — live smoke test (BLOCKED — this is the stop condition).** Ran a real, non-mocked call against the live endpoint (`scripts/smoke-azure.ts`, kept for you to re-run). Result: **every chat + embedding call returns HTTP 404 `DeploymentNotFound`.** Diagnosed precisely with raw `curl`, not guessed:
+  - The API key + endpoint are **valid** — `GET /openai/models` returns 200 (lists available *base* models), so auth and the resource are fine.
+  - But `GET /openai/deployments?api-version=2023-03-15-preview` returns **`{"data": []}`** — the `aupulens-openai` resource has **zero model deployments**. Neither `gpt-4o` (chat) nor `text-embedding-ada-002` (embedding) is actually deployed.
+  - This isn't an SDK or code issue — raw curl to the deployment path returns the same `DeploymentNotFound`. The code is correct; the Azure resource just has no deployments in it yet.
+  - **What you need to do:** in the Azure Portal (or Azure AI Foundry) for the `aupulens-openai` resource, create model deployments and set `AZURE_OPENAI_CHAT_DEPLOYMENT` / `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` in `.env` to the exact deployment names you choose (they can be anything — the env var must match the name in the Portal). Then re-run `npx tsx scripts/smoke-azure.ts` — it verifies a real completion, an embedding, and that a wrong deployment name errors clearly. Creating deployments needs Portal/management access this environment doesn't have, which is why I can't do it from here.
+
+**Step A.4 — budget guardrail (checked; needs a decision).** Ran `scripts/check-ai-budget.ts` against the live DB (28 tenants). Findings:
+  - `maxTokensPerCall` is a safe **1024** for every tenant; no tenant has an unset/unlimited value. Monthly caps are always tier-derived (never unset) — architecturally there's no "unlimited cap" hole.
+  - **BUT 24 of 28 tenants are on the `enterprise` tier = a 10,000 calls/month cap each** (~240k calls/mo across all tenants). For a ₹10k trial that is *not* conservative. Most are obviously throwaway test orgs (`test`, `test18`, `xyz`, `mmmmmmmmmmm`, …), but a few (`aupulens`, `makewithus`, `mwus-dev`) may be real — so I did **not** unilaterally downgrade tenant tiers or globally lower the enterprise cap (that's a data/business decision, and the wrong call would throttle a real workspace). There's zero interim spend risk because the AI is fully blocked anyway (no deployment). **Recommended before flipping AI on:** either downgrade the test tenants to `starter`, or (safer/reversible) I can add an env-driven global trial ceiling (`AI_GLOBAL_MONTHLY_CAP`) that hard-caps calls under the tier cap during the trial — your call, I'll implement whichever you pick.
+
+**Not started (correctly): Steps B and C.** The instruction says do not proceed past Step A until it's confirmed working live. It can't be, because the resource has no deployments — a genuine external-setup gap only you can close (Portal access). So model tiering (B) and the remaining Phase 6 work (C) are not started. `tsc`/`eslint`/`vitest` all clean (747/747) with the reconciliation in place. Once you create the Azure deployments (and decide the budget guardrail), say the word and I'll re-run the live smoke test and continue straight into Step B → C.
