@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "check:model-health": "npx tsx scripts/check-model-health.ts",
     "seed:invoices": "npx tsx scripts/seed-invoices.ts",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "electron": "electron .",

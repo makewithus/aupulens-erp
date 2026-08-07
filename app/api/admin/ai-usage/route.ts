@@ -3,8 +3,9 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import AiUsage from "@/models/AiUsage";
 import Organization from "@/models/Organization";
-import { getAiPeriod } from "@/lib/ai/usage";
+import { getAiPeriod, getGlobalMonthlyCap, getGlobalAiUsageCount } from "@/lib/ai/usage";
 import { getTierLimits } from "@/lib/constants/tiers";
+import { checkTenantModelOverrides } from "@/lib/ai/modelHealth";
 
 /**
  * Per-tenant AI cost/usage analytics (Phase 6.6, "AI Studio").
@@ -34,6 +35,29 @@ export async function GET() {
   const currentPeriod = getAiPeriod();
   const current = (history as any[]).find((h) => h.period === currentPeriod)?.count ?? 0;
 
+  const isMasterAdmin = session!.user.role === "master-admin";
+
+  // Model-override health check (stale/invalid settings.ai.model). A workspace
+  // admin only sees their OWN tenant's status; a master-admin sees the whole
+  // platform (so they can spot and fix any tenant silently 400-ing on AI).
+  const healthReport = await checkTenantModelOverrides();
+  const modelHealth = {
+    deployedChatModels: healthReport.deployedChatModels,
+    configured: healthReport.configured,
+    // Scope the flagged list to the caller's authority.
+    stale: isMasterAdmin
+      ? healthReport.stale
+      : healthReport.stale.filter((s) => s.subdomain === tenantId),
+    // This workspace's own override status (null if it uses the default).
+    ownOverride:
+      healthReport.overrides.find((o) => o.subdomain === tenantId) ?? null,
+  };
+
+  // Platform-wide trial-budget ceiling (visible so an admin understands a
+  // possible AI_GLOBAL_LIMIT_REACHED even while under their own tier cap).
+  const globalCap = getGlobalMonthlyCap();
+  const globalUsed = await getGlobalAiUsageCount(currentPeriod);
+
   return NextResponse.json({
     success: true,
     data: {
@@ -45,6 +69,16 @@ export async function GET() {
       percentUsed: cap > 0 ? Math.round((current / cap) * 100) : 0,
       aiDisabled: (org as any)?.settings?.ai?.disabled ?? false,
       history: (history as any[]).map((h) => ({ period: h.period, count: h.count })),
+      modelHealth,
+      globalCeiling: {
+        cap: globalCap,
+        used: globalUsed,
+        remaining: Math.max(0, globalCap - globalUsed),
+        percentUsed: globalCap > 0 ? Math.round((globalUsed / globalCap) * 100) : 0,
+        // Only a master-admin sees the raw platform-wide number is meaningful;
+        // for a workspace admin it's still shown as context for the shared cap.
+        visibleToAll: true,
+      },
     },
   });
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
-import { Loader2, Sparkles, Settings } from "lucide-react";
+import { Loader2, Sparkles, Settings, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 function formatPeriod(p: string) {
   // "YYYYMM" -> "Mon YYYY"
@@ -83,6 +83,61 @@ export default function AiStudioPage() {
                 />
               </div>
             </div>
+
+            {/* Stale/invalid model-override health check — loud, not a silent per-call 400. */}
+            {data.modelHealth && (
+              data.modelHealth.stale?.length > 0 ? (
+                <div className="border-2 border-red-500/40 bg-red-500/5 rounded-xl p-5">
+                  <p className="text-sm font-semibold mb-2 flex items-center gap-2 text-red-600">
+                    <AlertTriangle className="h-4 w-4" /> Model configuration problem
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    These workspaces pin an AI model that is not a currently-deployed Azure deployment
+                    ({data.modelHealth.deployedChatModels?.join(", ") || "none"}). Every AI call for them fails.
+                    Clear the override or point it at a deployed model.
+                  </p>
+                  <div className="space-y-1.5">
+                    {data.modelHealth.stale.map((s: any) => (
+                      <div key={s.subdomain} className="text-xs flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-mono font-semibold">{s.subdomain}</span>
+                        <span className="font-mono text-red-600">&quot;{s.model}&quot;</span>
+                        <span className="text-muted-foreground">— {s.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 rounded-xl p-5">
+                  <p className="text-sm font-semibold mb-1 flex items-center gap-2 text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" /> Model configuration healthy
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {data.modelHealth.ownOverride
+                      ? <>This workspace pins <span className="font-mono">{data.modelHealth.ownOverride.model}</span>, which is a deployed model.</>
+                      : <>No stale model overrides. Deployed: <span className="font-mono">{data.modelHealth.deployedChatModels?.join(", ") || "none"}</span>.</>}
+                  </p>
+                </div>
+              )
+            )}
+
+            {/* Platform-wide trial-budget ceiling (shared across all workspaces). */}
+            {data.globalCeiling && (
+              <div className="border-2 rounded-xl p-5">
+                <div className="flex justify-between mb-2">
+                  <p className="text-sm font-semibold">Platform trial ceiling (shared)</p>
+                  <p className="text-xs text-muted-foreground">{data.globalCeiling.used} / {data.globalCeiling.cap}</p>
+                </div>
+                <div className="w-full bg-muted rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${data.globalCeiling.percentUsed >= 90 ? "bg-red-500" : data.globalCeiling.percentUsed >= 70 ? "bg-amber-500" : "bg-primary"}`}
+                    style={{ width: `${Math.min(100, data.globalCeiling.percentUsed)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  A budget safeguard above your plan cap — shared across all workspaces. AI pauses platform-wide if this is reached.
+                </p>
+              </div>
+            )}
 
             <div className="border-2 rounded-xl p-5">
               <p className="text-sm font-semibold mb-3">Usage History</p>

@@ -396,3 +396,37 @@ calls/hour trips the ceiling in hours and every workspace stops). The number is
 sized off *identifiable active* tenants, not all 28.
 
 Override anytime with `AI_GLOBAL_MONTHLY_CAP=<n>` in `.env`.
+
+---
+
+## Stale/invalid model-override health check (guardrail)
+
+**Problem it prevents:** a tenant's `settings.ai.model` override that doesn't
+name a currently-deployed Azure deployment (a leftover `claude-*` name, a typo,
+a deleted deployment) makes every AI call for that tenant 400 with
+`DeploymentNotFound` — a silent, per-call failure that only surfaces as a broken
+feature. `resolveTenantAiSettings` already strips `claude-*` defensively, but
+that *hides* the misconfiguration rather than surfacing it.
+
+**What was added:**
+- `lib/ai/modelHealth.ts` — `getDeployedChatModelNames()` (from
+  `AZURE_OPENAI_CHAT_DEPLOYMENT` + optional `AZURE_OPENAI_EXTRA_CHAT_DEPLOYMENTS`),
+  a pure `classifyModelOverride()` (deployed → valid; `claude-*` → stale
+  migration name; `*embed*` → wrong type; else → not deployed), and
+  `checkTenantModelOverrides()` scanning every tenant with an override.
+- **Deploy-time gate:** `scripts/check-model-health.ts` (`npm run
+  check:model-health`) — exits **non-zero** if any stale override exists, so a
+  bad config fails the deploy loudly instead of shipping quietly.
+- **Admin-visible panel:** AI Studio (`/admin/ai-studio`) now shows a red
+  "Model configuration problem" panel listing each flagged workspace + reason,
+  or a green "healthy" panel otherwise. A workspace admin sees only their own
+  tenant; a master-admin sees the whole platform. The same page now also shows
+  the platform trial-ceiling bar.
+
+**Live verification (real DB):**
+- `check-model-health.ts` against the real DB: deployed = `gpt-4o`, 0 overrides,
+  ✅ all good (the earlier migration cleared the 4 stale ones).
+- Temporarily set `default-tenant`'s override to `claude-sonnet-4-6` →
+  `checkTenantModelOverrides()` returned **stale count 1**, flagged with reason
+  "Stale Anthropic model name (pre-Azure migration)…"; after unset → **0**.
+- 6 classifier unit tests pass.
