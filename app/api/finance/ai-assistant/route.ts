@@ -11,6 +11,7 @@ import {
 import { DOCUMENT_STATUS } from '@/lib/constants/statuses';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
+import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import ChatHistory from '@/models/ChatHistory';
 import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
 import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
@@ -205,7 +206,7 @@ Data Category: Finance
 Action Type: Analysis & Insights
 
 Available Data:
-${JSON.stringify(data, null, 2)}
+${safeContextJson(data, { maxArray: 6 })}
 
 Instructions:
 1. Analyze the user's question carefully
@@ -221,7 +222,7 @@ Instructions:
 
   const opts = {
     systemPrompt:
-      'You are a precise finance analytics assistant. Use only the provided data. Never invent numbers.',
+      'You are a precise finance analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.',
     maxTokens: 1024,
   };
 

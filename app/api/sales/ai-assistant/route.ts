@@ -7,6 +7,7 @@ import SalesQuotation from '@/models/SalesQuotation';
 import DeliveryChallan from '@/models/DeliveryChallan';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
+import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
@@ -167,7 +168,7 @@ async function generateResponse(
 User Question: "${message}"
 
 Available Sales Data:
-${JSON.stringify(data, null, 2)}
+${safeContextJson(data, { maxArray: 6 })}
 
 Instructions:
 1. Answer using the provided data only. Do not invent numbers.
@@ -177,7 +178,7 @@ Instructions:
 5. If data is missing or insufficient, say so clearly.`;
 
   const opts = {
-    systemPrompt: "You are a precise sales analytics assistant. Use only the provided data. Never invent numbers.",
+    systemPrompt: "You are a precise sales analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.",
     maxTokens: 1024,
   };
 

@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai/adminDataFetcher";
 import { callClaude, type ChatTurn } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import ChatHistory from "@/models/ChatHistory";
 
 interface QueryIntent {
@@ -268,28 +269,43 @@ async function generateResponseWithClaude(
   }
 
   const simulationSection = simulationResult
-    ? `\nFINANCIAL SIMULATION RESULT:\n${JSON.stringify(simulationResult, null, 2)}\n`
+    ? `\nFINANCIAL SIMULATION RESULT (already computed — explain it):\n${safeContextJson(simulationResult)}\n`
     : "";
 
-  const prompt = `You are an expert business intelligence assistant for an ERP system.
+  // Only the aggregate SUMMARY goes to the model, and it's sanitized (no Mongo
+  // ObjectIds, no partnerId/customerId/etc.) so internal identifiers can never
+  // leak into an answer and the context stays small (faster + more accurate).
+  const summaryOnly = (data && typeof data === "object" && "summary" in data) ? { summary: (data as any).summary } : data;
+  const safeData = safeContextJson(summaryOnly, { maxArray: 6 });
 
-USER QUESTION: "${message}"
-DATA CATEGORY: ${intent.category}
-ACTION: ${intent.action}
+  const prompt = `USER QUESTION: "${message}"
 
-LIVE ERP DATA:
-${JSON.stringify(data, null, 2)}
+WORKSPACE SNAPSHOT (aggregate figures only — for answering data questions):
+${safeData}
 ${simulationSection}
-INSTRUCTIONS:
-1. Answer the question using the provided data only. Do not hallucinate figures.
-2. Format currency values with the ₹ symbol (this is an Indian ERP).
-3. If a financial simulation was run, explain what would change and by how much.
-4. Use bullet points for clarity. Be concise but complete.
-5. If data is missing or insufficient, say so clearly.`;
+Decide what kind of question this is and answer accordingly:
+
+• If it's a DATA / ANALYTICS question ("how many…", "what's my revenue…",
+  "show me…"): answer using ONLY the figures in the snapshot above. Never invent
+  numbers. Format money with ₹.
+
+• If it's a HOW-TO / HELP question ("how do I create a lead", "where do I…"):
+  give clear, numbered, step-by-step guidance for using the Aupulens ERP app —
+  which page/menu to open and what to fill in. Do NOT reference the snapshot data
+  and do NOT show any record values or codes for this type of question.
+
+Rules for EVERY answer:
+1. Answer directly — do NOT announce which type of question it is.
+2. Never expose internal identifiers (database IDs, partner/customer/order IDs) —
+   refer to things by their human name/number instead.
+3. Be well-organised: a one-line summary, then tight bullet points or numbered
+   steps. No rambling, no raw JSON.
+4. If the snapshot lacks what's needed, say so briefly and suggest where to look.`;
 
   const opts = {
-    systemPrompt: "You are a precise ERP analytics assistant. Use only the data provided. Never invent numbers.",
-    maxTokens: 1024,
+    systemPrompt:
+      "You are Aupulens' precise ERP assistant. Answer like a helpful product expert: organised, concise, and accurate. For data questions use only the figures given (never invent numbers); for how-to questions give clear app navigation steps. NEVER print internal database IDs or raw JSON in your reply.",
+    maxTokens: 700,
   };
 
   try {
