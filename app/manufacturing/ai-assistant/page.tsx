@@ -230,31 +230,19 @@ export default function ManufacturingAIAssistant() {
     setIsLoading(true);
 
     try {
-      // Check if this is a confirmation response
-      const isConfirmationResponse = pendingAction && (
-        userInputText.toLowerCase().includes('yes') ||
-        userInputText.toLowerCase().includes('confirm') ||
-        userInputText.toLowerCase().includes('proceed') ||
-        userInputText.toLowerCase().includes('ok') ||
-        userInputText.toLowerCase().includes('go ahead')
-      );
-
-      const isCancellationResponse = pendingAction && (
-        userInputText.toLowerCase().includes('no') ||
-        userInputText.toLowerCase().includes('cancel') ||
-        userInputText.toLowerCase().includes('stop') ||
-        userInputText.toLowerCase().includes('nevermind')
-      );
-
+      // A typed message is NEVER auto-interpreted as a confirmation. Executing
+      // a data mutation requires an explicit click on the Confirm button below
+      // (handleConfirmAction) — typing "yes" no longer triggers execution, so an
+      // ambiguous reply like "yes, but change the qty" can't silently run.
       const response = await fetch('/api/manufacturing/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userInputText,
-          confirmAction: isConfirmationResponse,
-          actionData: isConfirmationResponse ? pendingAction : null,
+          confirmAction: false,
+          actionData: null,
           currentTask: currentTask,
-          cancelAction: isCancellationResponse
+          cancelAction: false
         })
       });
 
@@ -345,6 +333,65 @@ export default function ManufacturingAIAssistant() {
       setIsLoading(false);
     }
   };
+
+  // Explicit confirm/cancel of a pending action — the ONLY way to execute a
+  // data mutation from the assistant (replaces the old keyword matching on the
+  // typed message). Triggered by the Confirm / Cancel buttons rendered below
+  // the assistant's confirmation prompt.
+  const resolvePendingAction = async (confirm: boolean) => {
+    if (!pendingAction || isLoading) return;
+    setIsLoading(true);
+    setMessages(prev => [...prev, {
+      id: (Date.now() + 2).toString(),
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      isLoading: true,
+    }]);
+
+    try {
+      const response = await fetch('/api/manufacturing/ai-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: confirm ? 'Confirm action' : 'Cancel action',
+          confirmAction: confirm,
+          actionData: confirm ? pendingAction : null,
+          cancelAction: !confirm,
+          currentTask,
+        }),
+      });
+      const data = await response.json();
+
+      // Either path clears the pending action — it has now been resolved.
+      setPendingAction(null);
+      setIsConfirming(false);
+      if (!data.pendingAction) setCurrentTask(null);
+
+      setMessages(prev => prev.filter(msg => !msg.isLoading).concat({
+        id: (Date.now() + 3).toString(),
+        role: 'assistant',
+        content: data.response || (confirm ? 'Action completed.' : 'Action cancelled.'),
+        timestamp: new Date(),
+      }));
+
+      // Persist the updated conversation.
+      if (currentChatId) await saveCurrentChat();
+    } catch (error) {
+      console.error('Error resolving action:', error);
+      setMessages(prev => prev.filter(msg => !msg.isLoading).concat({
+        id: (Date.now() + 3).toString(),
+        role: 'assistant',
+        content: 'I apologize, but I encountered an error resolving that action. Please try again.',
+        timestamp: new Date(),
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmAction = () => resolvePendingAction(true);
+  const handleCancelAction = () => resolvePendingAction(false);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -597,6 +644,37 @@ export default function ManufacturingAIAssistant() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Explicit confirm gate — a data mutation only runs on a button click,
+              never by typing "yes". */}
+          {isConfirming && pendingAction && (
+            <div className="px-4 py-3 border-t border-amber-700/40 bg-amber-950/30 flex-shrink-0">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-sm text-amber-200">
+                  This will make a change to your data. Confirm to proceed?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleConfirmAction}
+                    disabled={isLoading}
+                    className="h-9 px-4 bg-emerald-700 hover:bg-emerald-600 text-white"
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelAction}
+                    disabled={isLoading}
+                    className="h-9 px-4 border-gray-600 text-gray-200 hover:bg-gray-800"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Input at Bottom */}
           <div className="p-4 border-t border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">

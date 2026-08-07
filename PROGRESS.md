@@ -507,3 +507,34 @@ on an ambiguous destructive target.
   lenient (accepts title/taskDescription/description; maps "tomorrow"→1 day).
 - 9 new registry/preview unit tests (preview-never-mutates contract, invalid
   status/unknown action rejection, destructive flag). 780 tests pass.
+
+---
+
+## Scope C — Manufacturing assistant: explicit confirm button + ChatHistory persistence + isolation
+
+**Explicit UI confirm button (replaces keyword matching):** the Manufacturing
+assistant page previously inferred confirmation by scanning the typed message
+for "yes"/"confirm"/"ok"/"go ahead" (and cancel for "no"/"stop"/…) — so an
+ambiguous reply like *"yes, but change the quantity"* could silently execute a
+mutation. Removed that entirely. A pending action now renders an explicit
+**Confirm / Cancel** button bar; typing never triggers execution
+(`confirmAction:false` always on typed messages). The mutation only runs via
+`resolvePendingAction(true)` → the backend's existing `confirmAction && actionData`
+→ `executeAction` path.
+
+**ChatHistory persistence extended to Manufacturing:** the page already had the
+full chat-history sidebar UI, but the routes it called
+(`/api/manufacturing/chat-history` + `/archive`) **did not exist** — every save
+404'd. Added them (GET list / POST create+update / DELETE / PATCH archive),
+mirroring Finance but correctly stamping the schema-required
+`module: "manufacturing"` **and** a unique `conversationId` (the older Finance
+route predates both required fields). Every query is scoped by userId + tenantId
++ module.
+
+**Explicit cross-tenant isolation test + live check:**
+- `tests/ai/manufacturingChatHistory.test.ts` (9 tests): create stamps
+  module+conversationId; GET/DELETE/PATCH are all bound to the calling tenant;
+  tenant B's scoped GET can never list tenant A's chats.
+- `scripts/verify-mfg-chat.ts` (real DB): a chat created for `verify-tenant-A`
+  is seen by A's scoped query (1) and **invisible** to B's (0). PASS, cleaned up.
+- 787 tests pass total.
