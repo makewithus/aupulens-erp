@@ -808,3 +808,30 @@ preview route so unsaved tweaks render live.
   toggle produces HTML that **contains each override and genuinely differs** —
   the customization is really applied, not cosmetic.
 - 6 new pure-routing unit tests. 831 → **837**; `tsc`/`eslint` clean.
+
+---
+
+## Part 2.3 (6.5) — Smart Enterprise Calendar (unified aggregation + AI conflicts)
+
+- `models/CalendarEvent.ts` — user-created events (meetings/reminders/deadlines).
+- `lib/calendar/aggregateEvents.ts` — `getCalendarEvents` merges those with
+  **derived** events pulled live from across modules (CRM tasks, HR leave &
+  attendance, finance payments, payroll) into one normalised, **role-scoped**
+  list (a user only sees sources their role can access). Plus a pure
+  `detectConflicts` (crowded deadline days; deadlines colliding with team
+  leave/absence).
+- `lib/calendar/conflictInsight.ts` — AI **prioritisation** of conflicts via
+  `callClaudeForTenant`, kept in the small `suggestion` token cap (lightweight
+  classification, not a chat), with a deterministic severity-ordered fallback.
+- API: `GET/POST /api/calendar`, `GET /api/calendar/conflicts?ai=true`.
+- **Rebuilt the orphaned `components/crm/TaskCalendar.tsx`** (was CRM-tasks-only,
+  imported nowhere) into a unified week grid — colour-coded by source, with an
+  AI "Detect conflicts" button and conflict-day highlighting — and mounted it at
+  the new `/calendar` page.
+
+**Live verification (real DB + real gpt-4o)** (`scripts/verify-calendar.ts`):
+- Aggregated **508 real events** across a 3-month window (500 tasks, 7 payments,
+  1 leave); **41 conflicts** detected in real data.
+- A crafted 2-deadlines-on-a-leave-day collision → flagged **high** severity;
+  AI prioritisation ran (real gpt-4o) and suggested rescheduling.
+- 6 pure conflict-detector unit tests. 837 → **843**; `tsc`/`eslint` clean.
