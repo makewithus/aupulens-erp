@@ -113,8 +113,8 @@ function AcceptInviteContent() {
       {state.status === "needs-signin" && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground font-mono">
-            Sign in with the email this invitation was sent to, then open this same link again
-            to finish joining the workspace.
+            Sign in with the email this invitation was sent to — you&apos;ll be brought
+            straight back here to finish joining the workspace.
           </p>
           <Link
             href={`/auth?callbackUrl=${encodeURIComponent(returnUrl)}`}

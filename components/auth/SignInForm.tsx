@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
+import { safeCallbackUrl } from "@/lib/auth/safeCallbackUrl";
 
 export function SignInForm() {
   return (
@@ -51,6 +52,13 @@ function SignInFormContent() {
 
   const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
 
+  // callbackUrl support (Part 1.2): a user who arrives from /accept-invite (or
+  // any protected page) should land back where they came from after signing in,
+  // not on their default dashboard. Validation (same-origin only, open-redirect
+  // safe) lives in lib/auth/safeCallbackUrl so it's unit-tested. Returns null
+  // when there's no safe callback, leaving the normal role-dashboard flow.
+  const getSafeCallbackUrl = (): string | null => safeCallbackUrl(searchParams.get("callbackUrl"));
+
   useEffect(() => {
     // Only shows buttons for providers actually configured server-side
     // (auth.ts only registers Google/Microsoft when their env vars are
@@ -67,7 +75,8 @@ function SignInFormContent() {
   const handleOAuthSignIn = async (providerId: string) => {
     setOauthLoading(providerId);
     try {
-      await signIn(providerId, { callbackUrl: "/" });
+      // Honour a safe callbackUrl (e.g. from /accept-invite); otherwise "/".
+      await signIn(providerId, { callbackUrl: getSafeCallbackUrl() ?? "/" });
     } catch {
       toast.error("Could not start sign-in. Please try again.");
       setOauthLoading(null);
@@ -207,8 +216,11 @@ function SignInFormContent() {
           }
         };
 
+        // Land back where the user came from (e.g. /accept-invite) when a safe
+        // callbackUrl is present; otherwise fall back to the role dashboard.
+        const safeCallback = getSafeCallbackUrl();
         window.location.href =
-          getRoleDashboard(role);
+          safeCallback ?? getRoleDashboard(role);
       }
     } catch {
       setError(

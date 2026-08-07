@@ -717,3 +717,25 @@ tenantless/empty/absent session, and — at the route level — that a converted
 route returns 401 and **never queries the DB** (no default-tenant read) when
 tenantId is missing, while a real tenant proceeds scoped correctly.
 **Tests 811 → 817**, `tsc`/`eslint` clean.
+
+---
+
+## Part 1.2 — Accept-invite callbackUrl support
+
+**The gap:** `/accept-invite` already links to `/auth?callbackUrl=<invite-link>`,
+but `SignInForm.tsx` ignored `callbackUrl` and always redirected to the role
+dashboard — so an invited user had to manually re-open the invite link after
+signing in.
+
+**Fix:** `SignInForm` now reads `callbackUrl` and, on successful credential OR
+OAuth login, returns the user there instead of the dashboard. Validation lives in
+`lib/auth/safeCallbackUrl.ts` (unit-tested): only **same-origin relative paths**
+are honoured — absolute URLs, protocol-relative (`//evil.com`), backslash tricks
+(`/\evil.com`), and `javascript:`/encoded-absolute payloads are all rejected to
+prevent an open-redirect. When there's no safe callbackUrl, the flow is
+**unchanged** (role dashboard). Updated the invite-page copy since the user is
+now auto-returned rather than told to re-open the link.
+
+**Tests:** `tests/auth/safeCallbackUrl.test.ts` (7) covers the happy path
+(plain + URL-encoded invite links), the no-callback default, and every
+open-redirect vector. Tests 817 → 824, `tsc`/`eslint` clean.
