@@ -13,6 +13,7 @@ import {
 import { callClaude, type ChatTurn } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
+import { extractAttachment } from "@/lib/ai/extractFile";
 import ChatHistory from "@/models/ChatHistory";
 
 interface QueryIntent {
@@ -63,6 +64,46 @@ export async function POST(request: NextRequest) {
     const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
       (m: any) => ({ role: m.role, content: m.content })
     );
+
+    // ── Attachment path (PDF / DOCX / image) ─────────────────────────────────
+    // When the user attaches a file, answer about THE FILE (extracted text, or
+    // the image via gpt-4o vision) rather than the workspace data — focused and
+    // faster. Always streamed.
+    if (body.attachment?.dataUrl && body.attachment?.type) {
+      const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+      const att = body.attachment as { name?: string; type: string; dataUrl: string };
+      const base64 = att.dataUrl.includes(",") ? att.dataUrl.split(",")[1] : att.dataUrl;
+      const buffer = Buffer.from(base64, "base64");
+      const extracted = await extractAttachment(buffer, att.type, att.name || "");
+
+      if (extracted.kind === "unsupported") {
+        return NextResponse.json({ error: extracted.reason }, { status: 200 });
+      }
+
+      const isImage = extracted.kind === "image";
+      const attachPrompt = isImage
+        ? `The user attached an image named "${att.name || "image"}". Look at it and answer their question about it clearly and concisely. Do not print internal IDs or raw JSON.\n\nUSER QUESTION: "${message}"`
+        : `The user attached a document named "${att.name || "document"}". Its extracted text is below (may be truncated). Answer their question using ONLY this content; if it doesn't contain the answer, say so.\n\n=== DOCUMENT CONTENT ===\n${(extracted as any).text}\n=== END ===\n\nUSER QUESTION: "${message}"`;
+
+      const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, attachPrompt, {
+        systemPrompt: "You are Aupulens' assistant analysing a user-attached file. Be accurate, organised and concise. Never print internal database IDs or raw JSON.",
+        maxTokens: 900,
+        imageDataUrl: isImage ? att.dataUrl : undefined,
+        history: priorTurns,
+      });
+      if (!("stream" in streamRes)) {
+        return NextResponse.json({ error: streamRes.error, code: streamRes.code }, { status: 403 });
+      }
+      const enc = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try { for await (const d of streamRes.stream) controller.enqueue(enc.encode(d)); }
+          catch { controller.enqueue(enc.encode("Sorry — I couldn't finish reading that attachment. Please try again.")); }
+          finally { controller.close(); }
+        },
+      });
+      return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
+    }
 
     // Classify the query to decide which data set to fetch
     const intent = await analyzeQueryIntent(message);

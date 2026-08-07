@@ -83,6 +83,21 @@ export interface ClaudeCallOptions {
   maxTokens?: number;
   /** Optional system-level instructions prepended to every call. */
   systemPrompt?: string;
+  /** Optional image (data URL) sent to gpt-4o's vision input alongside the text. */
+  imageDataUrl?: string;
+}
+
+/**
+ * Build the user-message `content` — a plain string normally, or a multimodal
+ * array (text + image) when an image is attached (gpt-4o vision). Kept in one
+ * place so callClaude / callClaudeStream stay consistent.
+ */
+function buildUserContent(text: string, imageDataUrl?: string): any {
+  if (!imageDataUrl) return text;
+  return [
+    { type: "text", text },
+    { type: "image_url", image_url: { url: imageDataUrl } },
+  ];
 }
 
 /**
@@ -104,7 +119,7 @@ export async function callClaude(
       ...(opts.systemPrompt
         ? [{ role: "system" as const, content: opts.systemPrompt }]
         : []),
-      { role: "user" as const, content: userMessage },
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl) },
     ],
   });
 
@@ -172,7 +187,7 @@ export async function* callClaudeStream(
     messages: [
       ...(opts.systemPrompt ? [{ role: "system" as const, content: opts.systemPrompt }] : []),
       ...history.map((t) => ({ role: t.role, content: t.content })),
-      { role: "user" as const, content: userMessage },
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl) },
     ],
   });
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send, Sparkles, Maximize2, Mic } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import ReactMarkdown from "react-markdown";
@@ -39,6 +39,18 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
   });
 
+  // File attachment (PDF / DOCX / image) — read as a data URL to send with the prompt.
+  const [attachment, setAttachment] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) { setMessages((p) => [...p, { role: "assistant", text: "That file is too large (max 8 MB)." }]); return; }
+    const reader = new FileReader();
+    reader.onload = () => setAttachment({ name: file.name, type: file.type, dataUrl: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+
   const sendQuery = async (queryText: string, customMessagesHistory?: Message[]) => {
     setIsLoading(true);
 
@@ -54,10 +66,12 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     try {
       // Stream the answer token-by-token (ChatGPT-style). On a gate/error the
       // server replies with JSON instead — detected via content-type.
+      const sentAttachment = attachment;
+      setAttachment(null); // consumed
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText, stream: true }),
+        body: JSON.stringify({ message: queryText, stream: true, attachment: sentAttachment }),
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -428,6 +442,26 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             ? "border-neutral-800/80 bg-neutral-900/50 hover:border-neutral-700/80 focus-within:border-neutral-700 focus-within:ring-1 focus-within:ring-neutral-700/30"
             : "border-neutral-200 bg-neutral-50 hover:border-neutral-300 focus-within:border-neutral-400 focus-within:ring-1 focus-within:ring-neutral-200"
         )}>
+          {/* Attached file chip */}
+          {attachment && (
+            <div className={cn(
+              "flex items-center gap-2 mb-2 px-2 py-1.5 rounded text-[11px] border",
+              isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700"
+            )}>
+              <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
+              <span className="truncate flex-1">{attachment.name}</span>
+              <button type="button" onClick={() => setAttachment(null)} className="text-neutral-500 hover:text-red-400 shrink-0" title="Remove attachment">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,image/png,image/jpeg,image/webp,image/gif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="hidden"
+            onChange={(e) => { handleFile(e.target.files?.[0]); if (e.target) e.target.value = ""; }}
+          />
           <textarea
             ref={textareaRef}
             value={input}
@@ -435,8 +469,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (input.trim() && !isLoading) {
-                  sendQuery(input.trim());
+                if ((input.trim() || attachment) && !isLoading) {
+                  sendQuery(input.trim() || "Please analyse this attachment.");
                   setInput("");
                 }
               }
@@ -454,6 +488,17 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           />
           <div className={cn("flex items-center justify-between mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
             <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach a PDF, Word doc, or image"
+                className={cn(
+                  "h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
+                  attachment ? "bg-indigo-500/20 text-indigo-400" : isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-400" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-600"
+                )}
+              >
+                <Paperclip className="w-3 h-3" />
+              </button>
               {micSupported && (
                 <button
                   type="button"
@@ -475,12 +520,12 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={() => {
-                if (input.trim() && !isLoading) {
-                  sendQuery(input.trim());
+                if ((input.trim() || attachment) && !isLoading) {
+                  sendQuery(input.trim() || "Please analyse this attachment.");
                   setInput("");
                 }
               }}
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && !attachment) || isLoading}
               className={cn(
                 "h-6 px-2.5 rounded disabled:opacity-40 text-[9px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer",
                 isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-300" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-700"
