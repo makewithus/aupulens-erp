@@ -7,59 +7,19 @@
  * workspace with AI off still gets a solid auto-mapping.
  */
 
-import { getEntitySchema, type EntitySchema } from "@/lib/migration/entitySchemas";
+import { getEntitySchema } from "@/lib/migration/entitySchemas";
+import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import {
   resolveTenantAiSettings,
   callClaudeForTenant,
 } from "@/lib/ai/tenantAi";
 
+export { deterministicMapping };
+
 export interface MappingSuggestion {
   /** targetFieldKey -> sourceColumn (only confident matches included). */
   mapping: Record<string, string>;
   aiUsed: boolean;
-}
-
-function normalize(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-/**
- * Deterministic matcher: for each target field, pick the source column whose
- * normalized name best matches the field's aliases (exact-normalized > alias
- * contained-in-column > column contained-in-alias). A source column is never
- * assigned to two target fields.
- */
-export function deterministicMapping(
-  schema: EntitySchema,
-  columns: string[],
-): Record<string, string> {
-  const mapping: Record<string, string> = {};
-  const used = new Set<string>();
-  const normCols = columns.map((c) => ({ raw: c, norm: normalize(c) }));
-
-  for (const field of schema.fields) {
-    const aliasNorms = [normalize(field.key), field.label ? normalize(field.label) : "", ...field.aliases.map(normalize)].filter(Boolean);
-    let bestCol: string | null = null;
-    let bestScore = 0;
-    for (const col of normCols) {
-      if (used.has(col.raw)) continue;
-      let score = 0;
-      for (const a of aliasNorms) {
-        if (col.norm === a) score = Math.max(score, 100);
-        else if (col.norm.includes(a) && a.length >= 3) score = Math.max(score, 70);
-        else if (a.includes(col.norm) && col.norm.length >= 3) score = Math.max(score, 60);
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestCol = col.raw;
-      }
-    }
-    if (bestCol && bestScore >= 60) {
-      mapping[field.key] = bestCol;
-      used.add(bestCol);
-    }
-  }
-  return mapping;
 }
 
 /**

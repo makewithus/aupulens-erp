@@ -20,6 +20,7 @@ import {
   Building2,
   Network,
   Store,
+  DatabaseZap,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -103,6 +104,11 @@ export const adminSidebarConfig: SidebarSection[] = [
   {
     title: "Enterprise",
     items: [
+      {
+        title: "Data Migration",
+        href: "/migration",
+        icon: DatabaseZap,
+      },
       {
         title: "Calendar",
         href: "/calendar",

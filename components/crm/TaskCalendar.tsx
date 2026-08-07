@@ -73,28 +73,32 @@ export default function TaskCalendar() {
         </div>
       )}
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
-          {weekDays.map((day) => (
-            <div key={day.toISOString()} className={`p-3 text-center border-r border-neutral-800 last:border-r-0 ${conflictDays.has(format(day, "yyyy-MM-dd")) ? "bg-amber-950/30" : ""}`}>
-              <p className="text-sm font-bold">{format(day, "EEEE")}</p>
-              <p className="text-xs text-muted-foreground">{format(day, "MMM d")}</p>
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 h-[60vh]">
-          {weekDays.map((day) => {
-            const dayEvents = events.filter((e) => new Date(e.start).toDateString() === day.toDateString());
-            return (
-              <div key={day.toISOString()} className="p-2 border-r border-neutral-800 last:border-r-0 overflow-y-auto">
-                {dayEvents.map((e) => (
-                  <div key={`${e.source}-${e.id}`} title={`${e.source}: ${e.title}`} className={`p-1 mb-1 text-[10px] rounded truncate px-2 border ${SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar}`}>
-                    {e.title}
-                  </div>
-                ))}
+      {/* Horizontally scrollable on narrow screens so the 7-day week never
+          squashes into unreadable columns on a phone. */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-x-auto">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
+            {weekDays.map((day) => (
+              <div key={day.toISOString()} className={`p-3 text-center border-r border-neutral-800 last:border-r-0 ${conflictDays.has(format(day, "yyyy-MM-dd")) ? "bg-amber-950/30" : ""}`}>
+                <p className="text-sm font-bold">{format(day, "EEEE")}</p>
+                <p className="text-xs text-muted-foreground">{format(day, "MMM d")}</p>
               </div>
-            );
-          })}
+            ))}
+          </div>
+          <div className="grid grid-cols-7 h-[60vh]">
+            {weekDays.map((day) => {
+              const dayEvents = events.filter((e) => new Date(e.start).toDateString() === day.toDateString());
+              return (
+                <div key={day.toISOString()} className="p-2 border-r border-neutral-800 last:border-r-0 overflow-y-auto">
+                  {dayEvents.map((e) => (
+                    <div key={`${e.source}-${e.id}`} title={`${e.source}: ${e.title}`} className={`p-1 mb-1 text-[10px] rounded truncate px-2 border ${SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar}`}>
+                      {e.title}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
