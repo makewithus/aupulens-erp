@@ -606,3 +606,35 @@ built (Phase 6.6 + the health-check task above); this scope adds **scoped RAG**.
 - Cross-tenant retrieve for a different tenant → **0 chunks** (tenant-scoped).
 - 3 unit tests (cosine ranking, tenant-scoped fallback query, vector-search
   path). 796 tests pass.
+
+---
+
+## Scope F — AI Copilot: real Finance anomaly detection + draft correspondence
+
+Meeting/call summaries are already covered by Scope A (conversation/call-note
+summaries). This scope adds the two remaining Copilot pieces.
+
+**Finance anomaly detection** (`lib/finance/anomalyDetection.ts`): a deterministic
+scan over the tenant's invoices flags three classes — **amount_outlier**
+(> mean + 2.5σ, needs ≥5 invoices + real spread), **duplicate_suspect** (same
+customer + identical amount within 7 days → possible double-billing), and
+**long_overdue** (overdue + dated > 60 days). Detection is deterministic
+(statistics, predictable); an AI layer (`explainAnomalies`) narrates *which to
+tackle first and why*, with the deterministic descriptions as the fallback.
+Route: `GET /api/finance/ai/anomalies`.
+
+**Draft correspondence** (`lib/finance/draftCorrespondence.ts` +
+`POST /api/finance/ai/draft-correspondence`): AI-drafts a payment reminder for an
+invoice (tone auto-escalates friendly → firm → final_notice by days overdue),
+returning editable subject+body for a human to review — it never sends. Falls
+back to a deterministic template when AI is gated/unavailable.
+
+**Live verification (real gpt-4o + real DB)** (`scripts/verify-finance-ai.ts`):
+- Scanned **28 real invoices** (mean 4748, σ 6492) → 12 anomalies
+  (1 outlier, 1 long-overdue, 10 duplicate-suspects in the seed data).
+- A synthetic set exercised all 3 types; AI explanation was real and grounded
+  ("Invoice INV-OUTLIER … Highly overdue (200 days) … amount outlier …").
+- Draft correspondence for a 200-days-overdue invoice → real **"Final Notice"**
+  email (tone auto-escalated), professional body.
+- 9 new unit tests (each anomaly type + non-flag cases + both fallbacks).
+  805 tests pass.
