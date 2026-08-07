@@ -11,6 +11,7 @@
  * as skipped and never throws the whole cron run.
  */
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 import { fetchAdminFinanceData, fetchAdminSalesData } from "@/lib/ai/adminDataFetcher";
 import { calculateForecast } from "@/lib/crm/forecast";
 import dbConnect from "@/lib/db";
@@ -55,7 +56,7 @@ export async function generateBusinessHealthSummary(tenantId: string): Promise<H
         `Data:\n${JSON.stringify(metrics)}`,
       {
         systemPrompt: "You are a precise business analyst. Use only the data provided; never invent figures. Reply with raw JSON only.",
-        maxTokens: 700,
+        maxTokens: AI_MAX_TOKENS.summary,
       }
     );
 

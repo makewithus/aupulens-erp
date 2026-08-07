@@ -10,6 +10,7 @@
  */
 
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 import dbConnect from "@/lib/db";
 import CrmConversationSummary from "@/models/crm/ConversationSummary";
 
@@ -51,7 +52,7 @@ Note:
     const result = await callClaudeForTenant(params.tenantId, tier, aiSettings, prompt, {
       systemPrompt:
         "You are a precise CRM note summarizer. Base your summary strictly on the note text given — never invent decisions, risks, or action items not present in it. Reply with raw JSON only.",
-      maxTokens: 512,
+      maxTokens: AI_MAX_TOKENS.summary,
     });
 
     if (!("text" in result)) {

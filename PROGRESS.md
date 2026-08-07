@@ -199,7 +199,7 @@ Status: **Config reconciliation DONE and clean; live smoke test BLOCKED by a gen
 
 **Step A.1 — env var reconciliation (done).** Real credentials use `AZURE_OPENAI_CHAT_DEPLOYMENT` (+ a new `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`), not Phase 0's `AZURE_OPENAI_DEPLOYMENT_NAME`. Reconciled properly (not aliased): updated `lib/ai/claude.ts` (the reader + the config-error message), `tests/ai/claude.test.ts`, `.env.example`, `SETUP_AI.md`, and `models/Organization.ts`. Grep confirms zero remaining `AZURE_OPENAI_DEPLOYMENT_NAME` references anywhere except one intentional line in this doc explaining the rename itself.
 
-**Step A.2 — embeddings support (done).** Added `embedText()` + `EMBEDDING_DEFAULT_MODEL` to `lib/ai/claude.ts` (reads `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`), plus `CLAUDE_LIGHT_MODEL` (reads `AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT`, falls back to the main chat deployment) ready for Step B's model tiering. Nothing calls embeddings yet (Step C.1 will).
+**Step A.2 — embeddings support (done).** Added `embedText()` + `EMBEDDING_DEFAULT_MODEL` to `lib/ai/claude.ts` (reads `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`). *(Update, next pass: the light-tier model plan was dropped — only `gpt-4o` + `text-embedding-ada-002` are used; the `CLAUDE_LIGHT_MODEL`/`AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT` idea from this step was removed and replaced by per-feature `max_tokens` caps in `lib/ai/featureLimits.ts` — see the "Two-model AI completion" section at the end.)*
 
 **Step A.3 — live smoke test (BLOCKED — this is the stop condition).** Ran a real, non-mocked call against the live endpoint (`scripts/smoke-azure.ts`, kept for you to re-run). Result: **every chat + embedding call returns HTTP 404 `DeploymentNotFound`.** Diagnosed precisely with raw `curl`, not guessed:
   - The API key + endpoint are **valid** — `GET /openai/models` returns 200 (lists available *base* models), so auth and the resource are fine.
@@ -212,3 +212,73 @@ Status: **Config reconciliation DONE and clean; live smoke test BLOCKED by a gen
   - **BUT 24 of 28 tenants are on the `enterprise` tier = a 10,000 calls/month cap each** (~240k calls/mo across all tenants). For a ₹10k trial that is *not* conservative. Most are obviously throwaway test orgs (`test`, `test18`, `xyz`, `mmmmmmmmmmm`, …), but a few (`aupulens`, `makewithus`, `mwus-dev`) may be real — so I did **not** unilaterally downgrade tenant tiers or globally lower the enterprise cap (that's a data/business decision, and the wrong call would throttle a real workspace). There's zero interim spend risk because the AI is fully blocked anyway (no deployment). **Recommended before flipping AI on:** either downgrade the test tenants to `starter`, or (safer/reversible) I can add an env-driven global trial ceiling (`AI_GLOBAL_MONTHLY_CAP`) that hard-caps calls under the tier cap during the trial — your call, I'll implement whichever you pick.
 
 **Not started (correctly): Steps B and C.** The instruction says do not proceed past Step A until it's confirmed working live. It can't be, because the resource has no deployments — a genuine external-setup gap only you can close (Portal access). So model tiering (B) and the remaining Phase 6 work (C) are not started. `tsc`/`eslint`/`vitest` all clean (747/747) with the reconciliation in place. Once you create the Azure deployments (and decide the budget guardrail), say the word and I'll re-run the live smoke test and continue straight into Step B → C.
+
+---
+
+## Two-model AI completion pass — config + cost control + safety guards done; live verification BLOCKED (same Azure gap)
+
+Went to complete/live-verify the AI feature scope (A–G) on the strict
+two-model plan (`gpt-4o` + `text-embedding-ada-002`, **no** light tier).
+Re-checked the live Azure resource first, per the required self-check.
+
+**BLOCKER, unchanged and re-confirmed:** the `aupulens-openai` resource
+**still has zero model deployments.** `GET /openai/deployments` returns
+`{"data": []}` (verified again this pass), and every completion/embedding
+call still 404s `DeploymentNotFound`. So despite the note that the models
+are "already deployed," they are not deployed on the resource this
+`AZURE_OPENAI_ENDPOINT` points at. Until a chat + embedding deployment
+actually exist on that resource (or `.env` points at the resource where
+they were created), **no live AI call can succeed**, so none of the
+required live self-checks (paste real request/response + token count) can be
+produced. That specific verification is paused on this external gap — not
+faked.
+
+**What was done anyway (genuinely independent of a live call, real + tested):**
+
+- **Light-tier model plan fully removed** (as instructed). Grep-confirmed
+  zero remaining `AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT` / `CLAUDE_LIGHT_MODEL` /
+  `gpt-4o-mini` / `gpt-3.5` references anywhere in code, env files, or docs.
+  Removed the export and the "model tiering" section from `SETUP_AI.md` and
+  `.env.example`.
+- **Cost control via per-feature `max_tokens` caps** (`lib/ai/featureLimits.ts`,
+  the replacement for the cheap tier). Chosen values + reasoning:
+  `suggestion: 256` (lead scoring, deal risk, churn, win-probability,
+  next-best-action, data completion — compact JSON, fires on every
+  create/update), `intent: 200` (Command Center classification — tiny
+  navigate/action JSON), `summary: 384` (call/conversation + business-health
+  summaries — short bullet arrays), `draft: 300`, `anomaly: 300`,
+  `chat: 1024` (only the genuinely conversational module assistants keep the
+  large cap), `rag: 700`. Wired into `llmInsight.ts` (was 512→256),
+  `conversationSummary.ts` (512→384), `businessHealth.ts` (700→384), and the
+  Command Center route (default 1024→200). *(Actual measured token counts to
+  validate these caps against real usage are pending the live-call blocker —
+  the caps are set from expected structured-output sizes and can be tuned
+  once real responses are observable.)*
+- **AI safety guards — explicit tests added** (`tests/ai/aiSafetyGuards.test.ts`,
+  `tests/ai/chatHistoryIsolation.test.ts`, 6 tests): a deliberately tight cap
+  of 3/month allows calls 1–3 and blocks the 4th with `AI_LIMIT_REACHED`,
+  feature-agnostic (proven with a lead-scoring-style and a Finance-style
+  prompt), with no model call and no usage increment on the blocked request;
+  and cross-tenant AI-memory isolation — a `ChatHistory` read is always
+  scoped to the *calling* tenant, so tenant B's identical-conversationId
+  query is bound to B and can't surface tenant A's history (read + write
+  sides both asserted). These are exactly the "with no cheap tier, the cap is
+  the backstop" and "cross-tenant leak is a real risk" guards called for.
+- **CRM `VoiceNotes.tsx` — real transcription, no model needed** (the one AI
+  item unaffected by the two-model constraint since it's browser-native).
+  Replaced the hardcoded `"Voice note transcribed (Pending API integration)"`
+  string with real client-side `SpeechRecognition`/`webkitSpeechRecognition`
+  transcription (same pattern as the Command Center), running alongside the
+  audio recording, with an editable transcript before save and a graceful
+  "not supported in this browser" fallback. Also dropped the `recordId:
+  "mock_id"` placeholder — the note now links to a real record when a
+  `recordId` prop is supplied, else saves as an unlinked general note.
+
+**Not done (blocked on the live Azure gap):** the live self-checks and the
+live-verified *completion* of scope sections A–G. The feature code for most
+of A already exists from Phase 2 (real gpt-4o calls with deterministic
+fallback); what this pass could not do is exercise them against a live model
+to confirm and paste real responses, because the resource has no deployments.
+
+**Test results: 747/747 → 753/753** (6 new safety-guard tests). `tsc`,
+`eslint`, `vitest` all clean.

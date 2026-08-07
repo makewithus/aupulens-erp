@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,7 +52,9 @@ Do not include any markdown formatting, only pure JSON. Example: {"action":"navi
     `;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt);
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      maxTokens: AI_MAX_TOKENS.intent,
+    });
 
     // NOTE: narrowing on `result.gated` alone doesn't discriminate the union
     // here because this project's tsconfig has strictNullChecks disabled

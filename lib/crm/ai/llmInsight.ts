@@ -14,6 +14,7 @@
  */
 
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 
 export interface LlmInsightResult {
   ok: true;
@@ -80,7 +81,9 @@ Respond with ONLY a JSON object — no markdown fences, no prose before or after
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       systemPrompt:
         "You are a precise CRM analyst. Base your assessment strictly on the record data given — never invent facts, names, or numbers not present in it. Reply with raw JSON only, no markdown.",
-      maxTokens: 512,
+      // Compact JSON output (score/riskLevel/confidence/summary/action) —
+      // capped small since this fires on every lead/opp/account create/update.
+      maxTokens: AI_MAX_TOKENS.suggestion,
     });
 
     if (!("text" in result)) {

@@ -48,8 +48,7 @@ From the deployment you created (**Model deployments** → your deployment →
 |---|---|
 | `AZURE_OPENAI_CHAT_DEPLOYMENT` | The chat-model deployment name you chose in step 2 above |
 | `AZURE_OPENAI_API_VERSION` | The `api-version` query param shown in the deployment's Target URI, e.g. `2024-10-21` |
-| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | The name of an **embeddings** model deployment (e.g. `text-embedding-3-small`) — used by semantic/universal search |
-| `AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT` | *(optional)* a cheaper/smaller chat deployment — see "Model tiering" below |
+| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | The name of an **embeddings** model deployment (`text-embedding-ada-002`) — used by semantic/universal search |
 
 ## 4. Set them
 
@@ -62,28 +61,22 @@ AZURE_OPENAI_ENDPOINT=
 AZURE_OPENAI_API_VERSION=
 AZURE_OPENAI_CHAT_DEPLOYMENT=
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=
-AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT=   # optional, see Model tiering
 ```
 
 `.env.example` has the same keys as placeholders — copy it to `.env` if
 you're starting fresh (`cp .env.example .env`) and fill in real values.
 
-## Model tiering (cost control)
+## Cost control (single model)
 
-High-volume, low-stakes AI calls (lead scoring, data-completion suggestions,
-call/conversation summaries, Command Center intent classification) don't need
-the same model as the reasoning-heavy Finance assistant. To route them to a
-cheaper model:
-
-1. In the Azure Portal, deploy a second, smaller/cheaper chat model in the
-   **same** Azure OpenAI resource (e.g. `gpt-4o-mini`).
-2. Set its deployment name as `AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT` in `.env`.
-
-The code (`lib/ai/claude.ts`, `CLAUDE_LIGHT_MODEL`) automatically falls back to
-`AZURE_OPENAI_CHAT_DEPLOYMENT` when the light deployment isn't set, so this is
-safe to leave unset — those routes just use the main deployment until you add
-a cheaper one. **This second deployment is a manual Azure Portal step** — the
-app can't create it for you.
+This system uses exactly two Azure deployments — `gpt-4o` for every chat
+call and `text-embedding-ada-002` for search. There is **no** cheap/light
+chat tier. Cost is controlled by capping `max_tokens` per feature: high-
+frequency suggestion features (lead scoring, duplicate detection, data
+completion, next-best-action, intent classification) request short
+structured outputs with small caps, while conversational assistant chats use
+a larger cap. The per-feature caps live in `lib/ai/featureLimits.ts`; the
+per-tenant monthly call cap + kill-switch (`lib/ai/tenantAi.ts`) is the hard
+backstop against runaway spend.
 
 **In a deployment platform** (Vercel, Azure App Service, etc.): set the same
 four keys as environment variables in that platform's settings — the app

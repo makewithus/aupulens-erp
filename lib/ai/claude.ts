@@ -29,7 +29,8 @@ function getClient(): AzureOpenAI {
     // pin every call to one fixed deployment. Instead the deployment/model
     // name is resolved per call (see CLAUDE_DEFAULT_MODEL / opts.model
     // below) so tenant-specific model overrides (Organization.settings.ai.model)
-    // and the cheap/light model tier both work.
+    // still work. All calls use the single gpt-4o chat deployment; cost is
+    // controlled via per-feature max_tokens caps, not a separate cheap model.
     _client = new AzureOpenAI({ apiKey, endpoint, apiVersion });
   }
   return _client;
@@ -38,16 +39,6 @@ function getClient(): AzureOpenAI {
 /** Default Azure OpenAI *chat* deployment when no per-call/tenant override is given. */
 export const CLAUDE_DEFAULT_MODEL = process.env.AZURE_OPENAI_CHAT_DEPLOYMENT ?? "";
 export const CLAUDE_DEFAULT_MAX_TOKENS = 1024;
-
-/**
- * Cheap/light chat deployment for high-volume, low-stakes calls (lead
- * scoring, data completion, summaries, intent classification). Falls back to
- * the main chat deployment when a separate light deployment isn't configured,
- * so callers can always request "light" without breaking single-deployment
- * setups. See SETUP_AI.md for provisioning the light deployment.
- */
-export const CLAUDE_LIGHT_MODEL =
-  process.env.AZURE_OPENAI_CHAT_DEPLOYMENT_LIGHT || process.env.AZURE_OPENAI_CHAT_DEPLOYMENT || "";
 
 export interface ClaudeCallOptions {
   /** Azure OpenAI chat deployment name. Defaults to AZURE_OPENAI_CHAT_DEPLOYMENT. */
