@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Organization from "@/models/Organization";
 import MarketplacePackage, { type MarketplaceCategory } from "@/models/MarketplacePackage";
 import { sanitizeForCategory } from "@/lib/marketplace/packages";
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const guard = requireTenantId(session);
   if (guard) return guard;
+  const adminGuard = requireAdmin(session);
+  if (adminGuard) return adminGuard;
 
   const body = await req.json();
   const { name, description, category, config } = body;

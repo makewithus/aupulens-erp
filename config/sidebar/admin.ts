@@ -16,6 +16,10 @@ import {
   CheckSquare,
   Truck,
   CreditCard,
+  CalendarDays,
+  Building2,
+  Network,
+  Store,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -96,6 +100,31 @@ export const adminSidebarConfig: SidebarSection[] = [
   //     },
   //   ],
   // },
+  {
+    title: "Enterprise",
+    items: [
+      {
+        title: "Calendar",
+        href: "/calendar",
+        icon: CalendarDays,
+      },
+      {
+        title: "Org Structure",
+        href: "/admin/org-structure",
+        icon: Building2,
+      },
+      {
+        title: "Business Twin",
+        href: "/admin/business-twin",
+        icon: Network,
+      },
+      {
+        title: "Marketplace",
+        href: "/marketplace",
+        icon: Store,
+      },
+    ],
+  },
   {
     title: "System",
     items: [

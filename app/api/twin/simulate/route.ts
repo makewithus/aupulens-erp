@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { getOutstandingReceivables } from "@/lib/twin/graph";
 import { simulateInvoiceDelay } from "@/lib/twin/cashflow";
 
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const guard = requireTenantId(session);
   if (guard) return guard;
+  const adminGuard = requireAdmin(session);
+  if (adminGuard) return adminGuard;
 
   const body = await req.json();
   const invoiceId = body.invoiceId;

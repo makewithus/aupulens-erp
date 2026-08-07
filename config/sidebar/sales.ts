@@ -15,6 +15,8 @@ import {
   FileMinus,
   Repeat,
   CreditCard,
+  Palette,
+  CalendarDays,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -106,6 +108,21 @@ export const salesSidebarConfig: SidebarSection[] = [
         title: "AI Assistant",
         href: "/sales/ai-assistant",
         icon: Sparkles,
+      },
+    ],
+  },
+  {
+    title: "Tools",
+    items: [
+      {
+        title: "Print-Format Builder",
+        href: "/sales/print-format-builder",
+        icon: Palette,
+      },
+      {
+        title: "Calendar",
+        href: "/calendar",
+        icon: CalendarDays,
       },
     ],
   },

@@ -945,3 +945,38 @@ published a workflow from tenant A (payload confirmed to leak **no** tenant/user
 ids) → installed into tenant B → a **real tenant-B-owned, disabled**
 `CrmAutomationRule` was created. PASS. 7 sanitizer unit tests. 857 → **864**;
 `tsc`/`eslint` clean.
+
+---
+
+# ============ FINAL PRE-QA READINESS PASS (2026-08-07) ============
+# Verification + bug-fixing only. Desktop client NOT touched.
+
+## Part A — Route-reachability sweep
+
+**Integration bug found + fixed:** 5 pages built this rollout existed in `app/`
+but were **not in any sidebar** (unreachable by a real tester), and their APIs
+lacked role-gating that matched their pages. Fixed:
+
+| Route | Reachable via (nav) | 404/500? | Role-gate (page) | Role-gate (API) |
+|---|---|---|---|---|
+| `/calendar` | Admin▸Enterprise, Sales▸Tools, HR▸Reports | no | any auth (middleware) | requireTenantId + role-scoped data |
+| `/marketplace` | Admin▸Enterprise | no | any auth (middleware) | browse: any auth; publish/install: **admin** |
+| `/admin/org-structure` | Admin▸Enterprise | no | admin (middleware `/admin`) | **admin** (added) |
+| `/admin/business-twin` | Admin▸Enterprise | no | admin (middleware `/admin`) | **admin** (added) |
+| `/sales/print-format-builder` | Sales▸Tools | no | sales/admin (middleware `/sales`) | uses existing sales-gated APIs |
+| `/admin/ai-studio` | Admin▸System | no | admin | admin |
+| `/crm/workflows` (Visual Builder) | CRM sidebar | no | sales/admin (`/crm`) | `/api/crm/automations` (manage_workflows) |
+| `/crm/automations` (rule list/form) | CRM sidebar | no | sales/admin (`/crm`) | manage_workflows |
+
+**Fixes committed:**
+- Added an "Enterprise" sidebar group to `config/sidebar/admin.ts` (Calendar,
+  Org Structure, Business Twin, Marketplace); a "Tools" group to `sales.ts`
+  (Print-Format Builder, Calendar); Calendar to `hr.ts`.
+- `middleware.ts`: cross-role top-level pages `/calendar` + `/marketplace` now
+  require authentication (were unmatched → rendered a shell for logged-out
+  visitors).
+- `lib/auth/requireAdmin.ts` (new) applied to `/api/org/units` (+consolidated),
+  `/api/twin` (+simulate), `/api/marketplace/publish`, `/api/marketplace/[id]/install`
+  — their pages are admin-only / their actions mutate config, but the APIs sat
+  outside the `/api/admin` middleware prefix, so a non-admin could have called
+  them directly. Now 403 for non-admins.

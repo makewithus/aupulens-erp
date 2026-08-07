@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { buildBusinessGraph, getOutstandingReceivables } from "@/lib/twin/graph";
 
 /**
@@ -12,6 +13,8 @@ export async function GET() {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const guard = requireTenantId(session);
   if (guard) return guard;
+  const adminGuard = requireAdmin(session);
+  if (adminGuard) return adminGuard;
 
   const [graph, receivables] = await Promise.all([
     buildBusinessGraph(session.user.tenantId),

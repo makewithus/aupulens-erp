@@ -307,6 +307,16 @@ export default auth(async (req) => {
     }
   }
 
+  // Cross-role top-level pages/APIs (Smart Enterprise Calendar, Marketplace) —
+  // available to ANY authenticated user (data is role-scoped inside each route).
+  // Without this, these unmatched top-level routes would render their shell for
+  // an unauthenticated visitor (the API calls 401, leaving a blank/loading page).
+  if (pathname.startsWith("/calendar") || pathname.startsWith("/marketplace")) {
+    if (!user) {
+      return handleUnauthorized(isApiRoute, "/auth");
+    }
+  }
+
   // Subscription/trial enforcement + tier/module gating share one cached
   // org-data fetch. Applied after role checks so it only ever narrows access
   // a role check already granted, never widens it.

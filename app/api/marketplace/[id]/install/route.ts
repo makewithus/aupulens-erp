@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import MarketplacePackage from "@/models/MarketplacePackage";
 import { installPackage } from "@/lib/marketplace/packages";
 
@@ -16,6 +17,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   const guard = requireTenantId(session);
   if (guard) return guard;
+  const adminGuard = requireAdmin(session);
+  if (adminGuard) return adminGuard;
 
   const { id } = await params;
   if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
