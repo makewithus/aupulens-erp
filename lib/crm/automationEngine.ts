@@ -84,8 +84,12 @@ async function executeRule(rule: any, entity: string, entityId: string, payload:
             related_record_type: entity,
             related_record_id: entityId,
             due_date: new Date(Date.now() + 86400000), // Next day
+            // CrmTask requires assigned_to_id — the old code only set owner_id,
+            // so every automation-created task failed validation. Assign to the
+            // payload owner or the rule's creator.
+            assigned_to_id: payload.owner_id || payload.assigned_to_id || rule.createdBy,
             owner_id: payload.owner_id || rule.createdBy,
-            priority: "High",
+            priority: action.payload.priority || "High",
             createdBy: rule.createdBy
           });
           break;

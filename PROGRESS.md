@@ -538,3 +538,40 @@ route predates both required fields). Every query is scoped by userId + tenantId
 - `scripts/verify-mfg-chat.ts` (real DB): a chat created for `verify-tenant-A`
   is seen by A's scoped query (1) and **invisible** to B's (0). PASS, cleaned up.
 - 787 tests pass total.
+
+---
+
+## Scope D — NL-to-rule workflow automation (end-to-end) + business-health low-data handling
+
+**NL → automation rule:** `lib/crm/ai/nlToRule.ts` turns a plain-English
+description into a structured `CrmAutomationRule`, **validated against the
+engine's actual vocabulary** (11 triggers / 6 entities / 8 operators / 12 action
+types) — a hallucinated trigger/entity is coerced to a safe default with a
+warning, invalid conditions/unsupported actions are dropped, and a rule with no
+supported action is rejected outright. New route `POST /api/crm/automations/parse`
+(gated by `manage_workflows`) returns the parsed rule for **review** — it does
+not save; the user persists it via the existing create route (human in the loop).
+The rule is created **disabled** for review.
+
+Also fixed a real pre-existing engine bug: `automationEngine.ts`'s `create_task`
+action set `owner_id` but not the schema-required `assigned_to_id`, so **every**
+automation-created task silently failed validation. Now it assigns correctly —
+which is what makes the flow genuinely end-to-end.
+
+**Business-health low/no-data handling:** `generateBusinessHealthSummary` used to
+call the LLM even for a tenant with zero data (the fetchers return a zeros
+summary *object*, so a naive presence check wasn't enough). Added
+`hasMeaningfulData` that inspects the actual activity numbers
+(revenue/transactions/orders/pipeline/opps); a low-data tenant now gets a
+deterministic "not enough activity yet" summary and a new `insufficient_data`
+status — **no wasted AI call, no invented insights**.
+
+**Live verification (real gpt-4o + real DB):** `scripts/verify-nl-rule.ts`:
+- "When a new lead is created with a High priority, create a follow-up task"
+  → parsed to trigger=record_created, entity=Lead, condition priority=equals=High,
+  action=create_task (0 warnings) → saved → engine fired → execution logged
+  **status=Completed** (task actually created) — full end-to-end.
+- Empty tenant → status **insufficient_data**, deterministic summary stored, no
+  AI call.
+- 6 new parser-validation unit tests (vocabulary coercion, dropping invalid,
+  gated outcome). 793 tests pass.

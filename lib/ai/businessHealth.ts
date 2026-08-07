@@ -24,7 +24,24 @@ function todayPeriod(): string {
 
 export interface HealthSummaryOutcome {
   tenantId: string;
-  status: "generated" | "skipped_gated" | "skipped_error";
+  status: "generated" | "skipped_gated" | "skipped_error" | "insufficient_data";
+}
+
+/**
+ * A tenant with no invoices/sales/pipeline has nothing for the model to
+ * summarize. Detecting that up front lets us write a deterministic
+ * "not enough data yet" summary instead of spending an AI call on empty input
+ * (which also risks the model inventing insights from nothing).
+ *
+ * NOTE: the fetchers return a summary OBJECT even for an empty tenant (all
+ * zeros), so mere presence isn't enough — we check the actual activity numbers.
+ */
+function hasMeaningfulData(metrics: { finance: any; sales: any; totalPipeline: number }, openOppsCount: number): boolean {
+  const f = metrics.finance;
+  const s = metrics.sales;
+  const financeActivity = !!f && ((f.totalRevenue ?? 0) > 0 || (f.totalTransactions ?? 0) > 0);
+  const salesActivity = !!s && ((s.totalOrders ?? 0) > 0 || (s.totalRevenue ?? 0) > 0);
+  return financeActivity || salesActivity || metrics.totalPipeline > 0 || openOppsCount > 0;
 }
 
 export async function generateBusinessHealthSummary(tenantId: string): Promise<HealthSummaryOutcome> {
@@ -44,6 +61,28 @@ export async function generateBusinessHealthSummary(tenantId: string): Promise<H
       weightedPipeline: forecast.weightedPipeline,
       totalPipeline: forecast.totalPipeline,
     };
+
+    // Low/no-data tenant: don't spend an AI call on empty input. Persist a
+    // deterministic placeholder summary so the dashboard shows something honest.
+    if (!hasMeaningfulData(metrics, (openOpps as any[]).length)) {
+      const period = todayPeriod();
+      await BusinessHealthSummary.findOneAndUpdate(
+        { tenantId, period },
+        {
+          $set: {
+            summary: "Not enough activity yet to generate a business-health summary. Add invoices, sales orders, or opportunities and this will populate automatically.",
+            highlights: [],
+            concerns: [],
+            revenueForecast: undefined,
+            metrics,
+            generatedAt: new Date(),
+          },
+          $setOnInsert: { tenantId, period },
+        },
+        { upsert: true }
+      );
+      return { tenantId, status: "insufficient_data" };
+    }
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const result = await callClaudeForTenant(
