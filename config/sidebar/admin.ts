@@ -105,6 +105,11 @@ export const adminSidebarConfig: SidebarSection[] = [
         icon: FileText,
       },
       {
+        title: "AI Studio",
+        href: "/admin/ai-studio",
+        icon: Sparkles,
+      },
+      {
         title: "Settings",
         href: "/admin/settings",
         icon: Settings,

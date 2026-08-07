@@ -37,6 +37,23 @@ export function GlobalSearch({
   const searchRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Universal Enterprise Search (Phase 6.1): as the user types, query real
+  // records across modules via /api/search (role-scoped server-side), shown
+  // alongside the existing page-navigation filter below.
+  const [records, setRecords] = useState<any[]>([]);
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) { setRecords([]); return; }
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((data) => { if (data.success) setRecords(data.data); })
+        .catch(() => {});
+    }, 250);
+    return () => { clearTimeout(t); controller.abort(); };
+  }, [searchQuery]);
+
   const allPages = sidebarConfig.flatMap((section) =>
     section.items.map((item) => ({
       title: item.title,
@@ -131,7 +148,7 @@ export function GlobalSearch({
         )}
       </div>
 
-      {showSearchResults && filteredPages.length > 0 && (
+      {showSearchResults && (filteredPages.length > 0 || records.length > 0) && (
         <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden border border-border bg-background shadow-lg">
           <div
             className={cn(
@@ -150,6 +167,34 @@ export function GlobalSearch({
               }, 1000);
             }}
           >
+            {records.length > 0 && (
+              <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/40">
+                Records
+              </div>
+            )}
+            {records.map((rec, index) => (
+              <button
+                key={`rec-${index}`}
+                onClick={() => handleSearchSelect(rec.url)}
+                className="flex w-full items-center gap-3 border-b border-border/40 px-4 py-3 text-left transition-colors hover:bg-muted/50 last:border-0"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-primary/10 text-[9px] font-bold uppercase text-primary">
+                  {rec.type?.slice(0, 3)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{rec.title}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {rec.type}{rec.subtitle ? ` · ${rec.subtitle}` : ""}
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+            {filteredPages.length > 0 && (
+              <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/40">
+                Pages
+              </div>
+            )}
             {filteredPages.map((page, index) => {
               const Icon = page.icon;
 
@@ -200,11 +245,12 @@ export function GlobalSearch({
 
       {showSearchResults &&
         searchQuery &&
-        filteredPages.length === 0 && (
+        filteredPages.length === 0 &&
+        records.length === 0 && (
           <div className="absolute right-0 top-full z-50 mt-2 w-80 border border-border bg-background p-4 shadow-lg">
             <p className="text-center text-sm text-muted-foreground">
               <>
-                No pages found for{" "}
+                No results found for{" "}
                 <span className="text-foreground">
                     &quot;{searchQuery}&quot;
                 </span>
