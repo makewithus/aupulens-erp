@@ -4,9 +4,10 @@ import Organization from "@/models/Organization";
 import { evaluateInvoiceReminders, evaluateBillReminders } from "@/lib/sales/reminderEngine";
 
 // Same CRON_SECRET bearer-check shape as app/api/cron/crm/automations —
-// triggered by an external scheduler hitting this route periodically, no
-// in-repo cron config exists (see app/api/cron/crm/* for precedent).
-export async function POST(req: NextRequest) {
+// now actually scheduled via vercel.json (repo root, Phase 4). Vercel Cron
+// sends GET, so GET is exported as an alias of the same handler; POST kept
+// for any manual/external trigger.
+async function handler(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -29,3 +30,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, results });
 }
+
+export { handler as GET, handler as POST };

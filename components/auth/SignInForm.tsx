@@ -199,6 +199,9 @@ function SignInFormContent() {
             case "hr":
               return "/hr/dashboard";
 
+            case "project":
+              return "/projects";
+
             default:
               return "/admin/dashboard";
           }

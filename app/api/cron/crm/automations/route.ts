@@ -11,8 +11,16 @@ import CrmOpportunity from "@/models/crm/Opportunity";
  * - sla_breached
  * - contract_expiring
  * - task_overdue
+ *
+ * Real scheduling (Phase 4): nothing previously called this route at all —
+ * no vercel.json crons block, no external scheduler config anywhere in the
+ * repo. Now scheduled via vercel.json (repo root). Vercel Cron always sends
+ * GET (with an auto-injected `Authorization: Bearer $CRON_SECRET` header
+ * when a CRON_SECRET env var is set) — this route was POST-only, so GET is
+ * exported as the same handler for that to actually work; POST is kept for
+ * any manual/external trigger that already targets it.
  */
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -53,3 +61,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, executed: results });
 }
+
+export { handler as GET, handler as POST };

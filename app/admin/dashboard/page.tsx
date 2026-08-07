@@ -16,6 +16,7 @@ import { DashboardStats } from "@/components/admin/DashboardStats";
 import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
+import { BusinessHealthCard } from "@/components/dashboard/BusinessHealthCard";
 
 interface DashboardSummary {
   finance: {
@@ -251,6 +252,8 @@ export default function AdminDashboard() {
             System Overview
           </h1>
         </div>
+
+        <BusinessHealthCard />
 
         <DashboardStats
           summary={summary}

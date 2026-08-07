@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Zap, Plus } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { NewAutomationRuleModal } from "@/components/crm/NewAutomationRuleModal";
 
 export default function AutomationsPage() {
   const [rules, setRules] = useState<any[]>([]);
@@ -45,9 +46,7 @@ export default function AutomationsPage() {
             Build and manage workflow rules, triggers, and actions.
           </p>
         </div>
-        <Button className="bg-primary h-8 text-xs">
-          <Plus className="w-4 h-4 mr-1" /> New Rule
-        </Button>
+        <NewAutomationRuleModal onCreated={fetchRules} />
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">

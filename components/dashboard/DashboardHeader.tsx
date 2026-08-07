@@ -126,6 +126,11 @@ const MODULES = [
     title: "CRM",
     href: "/crm/dashboard",
   },
+  {
+    id: "projects",
+    title: "Projects",
+    href: "/projects",
+  },
 ];
 
 interface BreadcrumbItem {

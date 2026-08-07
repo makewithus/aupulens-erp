@@ -120,6 +120,8 @@ export default auth(async (req) => {
         return "/manufacturing/dashboard";
       case "hr":
         return "/hr/dashboard";
+      case "project":
+        return "/projects";
       default:
         return role === "master-admin" ? "/master-admin" : "/auth";
     }
@@ -278,6 +280,20 @@ export default auth(async (req) => {
     }
     if (
       user.role !== "hr" &&
+      user.role !== "admin" &&
+      user.role !== "master-admin"
+    ) {
+      return handleForbidden(isApiRoute, user.role as string);
+    }
+  }
+
+  // Check if user is accessing Projects routes / APIs
+  if (pathname.startsWith("/projects") || pathname.startsWith("/api/projects")) {
+    if (!user) {
+      return handleUnauthorized(isApiRoute, "/auth");
+    }
+    if (
+      user.role !== "project" &&
       user.role !== "admin" &&
       user.role !== "master-admin"
     ) {
