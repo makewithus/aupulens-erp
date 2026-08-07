@@ -835,3 +835,37 @@ preview route so unsaved tweaks render live.
 - A crafted 2-deadlines-on-a-leave-day collision → flagged **high** severity;
   AI prioritisation ran (real gpt-4o) and suggested rescheduling.
 - 6 pure conflict-detector unit tests. 837 → **843**; `tsc`/`eslint` clean.
+
+---
+
+## Part 2.4 (6.8) — Enterprise Organization Management (8-level hierarchy)
+
+Built **additively** (an overlay — does NOT replace Department/Employee, so every
+existing module query is unaffected):
+- `models/OrgUnit.ts` — one self-referential tree modelling all 8 levels
+  (Company → Region → Branch → Office → Warehouse → Department → Team →
+  Employee) via a `level` field, a **materialized `path`** (ancestor ids) for
+  single-query subtree lookups, per-node `localization` (currency / language /
+  timezone / taxRegime), and optional `linkedDepartmentId`/`linkedEmployeeId`
+  so nodes reference existing data instead of duplicating it.
+- `lib/org/hierarchy.ts` — pure, tested: `isValidChildLevel` (strict level
+  ordering, skips allowed), `resolveLocalization` (inherit each field from the
+  nearest ancestor that sets it), `buildTree`, `consolidateSubtree`.
+- API: `GET/POST /api/org/units` (create validates level order + computes path),
+  `GET /api/org/units/[id]/consolidated` — subtree counts by level, **effective
+  inherited localization**, and real headcount rolled up from linked
+  Departments + Employee-level nodes.
+- UI: `/admin/org-structure` — tree view, add-unit form, and a live consolidated
+  report panel per node.
+- **Migration path (opt-in, not auto-run):** `scripts/migrate-seed-orgunits.ts`
+  seeds a Company root + a linked Department node per existing Department
+  (mirroring Department parent links), idempotent per tenant — existing data
+  untouched.
+
+**Live verification (real DB)** (`scripts/verify-org-hierarchy.ts`): built a full
+Company→…→Employee chain; level validation **rejected** placing a Company under a
+Team; the US-Region **materialized-path subtree returned exactly 7** nodes; and a
+Team's **effective localization correctly inherited** currency=USD (from Region),
+taxRegime=GST-IN (from Company), timezone=America/New_York. PASS.
+8 pure-helper unit tests. 843 → **851**; `tsc`/`eslint` clean; suite green at
+every step (additive model → no regressions).
