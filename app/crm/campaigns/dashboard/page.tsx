@@ -58,7 +58,7 @@ export default function CampaignDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
           title="Total Budget Spend" 
-          value={`$${(globalROI?.totalBudget || 0).toLocaleString()}`}
+          value={`₹${(globalROI?.totalBudget || 0).toLocaleString()}`}
           sub={`${reports?.overview?.activeCampaigns || 0} active campaigns`}
           icon={DollarSign}
           colorClass="text-neutral-200"
@@ -66,7 +66,7 @@ export default function CampaignDashboardPage() {
         />
         <MetricCard 
           title="Total Attributed Revenue" 
-          value={`$${(globalROI?.totalRevenue || 0).toLocaleString()}`}
+          value={`₹${(globalROI?.totalRevenue || 0).toLocaleString()}`}
           sub="Closed Won + Contracts"
           icon={TrendingUp}
           colorClass="text-green-400"
@@ -114,7 +114,7 @@ export default function CampaignDashboardPage() {
                     <tr key={c.channel} className="border-b border-neutral-800/50 hover:bg-neutral-800/20">
                       <td className="py-3 font-medium text-neutral-300">{c.channel}</td>
                       <td className="py-3 text-right text-blue-400">{c.leads.toLocaleString()}</td>
-                      <td className="py-3 text-right font-mono font-bold text-green-400">${c.revenue.toLocaleString()}</td>
+                      <td className="py-3 text-right font-mono font-bold text-green-400">₹{c.revenue.toLocaleString()}</td>
                     </tr>
                   ))}
                   {reports?.channelAttribution?.length === 0 && (

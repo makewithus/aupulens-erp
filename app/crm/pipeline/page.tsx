@@ -87,15 +87,15 @@ export default function PipelinePage() {
             </div>
             <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
               <p className="text-xs text-muted-foreground">Pipeline Value</p>
-              <p className="text-xl font-bold text-green-500">${analytics.totalPipelineValue.toLocaleString()}</p>
+              <p className="text-xl font-bold text-green-500">₹{analytics.totalPipelineValue.toLocaleString()}</p>
             </div>
             <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
               <p className="text-xs text-muted-foreground">Weighted Value</p>
-              <p className="text-xl font-bold text-blue-400">${analytics.weightedPipeline.toLocaleString()}</p>
+              <p className="text-xl font-bold text-blue-400">₹{analytics.weightedPipeline.toLocaleString()}</p>
             </div>
             <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
               <p className="text-xs text-muted-foreground">Avg Deal Size</p>
-              <p className="text-xl font-bold">${analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+              <p className="text-xl font-bold">₹{analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
             </div>
             <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
               <p className="text-xs text-muted-foreground">Win Rate</p>
@@ -126,7 +126,7 @@ export default function PipelinePage() {
                           <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} 
                             className={`p-4 bg-neutral-800 border border-neutral-700 rounded shadow-sm ${snapshot.isDragging ? 'opacity-70' : ''}`}>
                             <div className="font-bold">{item.deal_name}</div>
-                            <div className="text-sm text-green-400 font-mono mt-1">${item.amount?.toLocaleString()}</div>
+                            <div className="text-sm text-green-400 font-mono mt-1">₹{item.amount?.toLocaleString()}</div>
                             <div className="text-xs text-muted-foreground mt-2 flex justify-between">
                               <span>{new Date(item.expected_close_date || Date.now()).toLocaleDateString()}</span>
                               <span>{item.probability}%</span>

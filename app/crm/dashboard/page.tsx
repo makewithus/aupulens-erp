@@ -213,14 +213,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
         {/* <StatCard 
           title="90-day renewal pipeline" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `$${totalRenewalValue.toLocaleString()}`}
+          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `â¹${totalRenewalValue.toLocaleString()}`}
           subtitle={loading ? "..." : `${(renewalData?.expiring90 || 0)} upcoming renewals`}
           visual={loading ? null : <UsersGraph />}
           className="border border-border/40 bg-background"
         /> */}
         <StatCard 
           title="Expansion pipeline" 
-          value={`$${totalExpansionValue.toLocaleString()}`}
+          value={`â¹${totalExpansionValue.toLocaleString()}`}
           subtitle="Weighted revenue"
           visual={<ActivePulse />}
           className="border border-border/40 bg-background"
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                   <div className="flex flex-wrap items-center justify-between gap-4 p-4 border border-border/45 bg-muted/5 rounded-none">
                     <div className="space-y-1">
                       <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Total forecast value</span>
-                      <h3 className="text-xl font-bold font-mono text-foreground">${(totalRenewalValue + totalExpansionValue).toLocaleString()}</h3>
+                      <h3 className="text-xl font-bold font-mono text-foreground">₹{(totalRenewalValue + totalExpansionValue).toLocaleString()}</h3>
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Renewal success rate</span>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Value at risk</span>
-                      <h3 className="text-xl font-bold font-mono text-red-500">${(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</h3>
+                      <h3 className="text-xl font-bold font-mono text-red-500">₹{(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</h3>
                     </div>
                   </div>
 
@@ -381,9 +381,9 @@ export default function DashboardPage() {
                       {expansionData?.quarterly?.map((q: any) => (
                         <TableRow key={q.quarter} className="border-b border-border/30 hover:bg-muted/10">
                           <TableCell className="py-4 text-sm font-semibold text-foreground">{q.quarter}</TableCell>
-                          <TableCell className="py-4 text-right font-mono text-xs text-blue-500/80 dark:text-blue-400/80">${q.renewalRevenue.toLocaleString()}</TableCell>
-                          <TableCell className="py-4 text-right font-mono text-xs text-emerald-500/80 dark:text-emerald-400/80">${q.expansionRevenue.toLocaleString()}</TableCell>
-                          <TableCell className="py-4 text-right font-mono text-sm font-bold text-foreground">${q.totalRevenue.toLocaleString()}</TableCell>
+                          <TableCell className="py-4 text-right font-mono text-xs text-blue-500/80 dark:text-blue-400/80">₹{q.renewalRevenue.toLocaleString()}</TableCell>
+                          <TableCell className="py-4 text-right font-mono text-xs text-emerald-500/80 dark:text-emerald-400/80">₹{q.expansionRevenue.toLocaleString()}</TableCell>
+                          <TableCell className="py-4 text-right font-mono text-sm font-bold text-foreground">₹{q.totalRevenue.toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
                       {expansionData?.quarterly?.length === 0 && (
@@ -492,7 +492,7 @@ export default function DashboardPage() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between gap-4">
                           <h4 className="text-xs font-bold text-foreground">renewal revenue risk</h4>
-                          <span className="font-mono text-xs font-bold text-orange-500">${(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</span>
+                          <span className="font-mono text-xs font-bold text-orange-500">₹{(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</span>
                         </div>
                         <p className="text-[11px] text-muted-foreground/75 leading-relaxed">
                           Value tied up in high-risk health accounts.

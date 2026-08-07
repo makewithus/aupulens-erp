@@ -26,7 +26,7 @@ export default function SalesDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPI title="Today's Tasks" value="12" sub="4 High Priority" icon={Activity} />
         <KPI title="Overdue Follow-ups" value="3" sub="Action required" icon={AlertTriangle} />
-        <KPI title="Pipeline Value" value="$145,000" sub="8 Open Opportunities" icon={TrendingUp} />
+        <KPI title="Pipeline Value" value="₹145,000" sub="8 Open Opportunities" icon={TrendingUp} />
         <KPI title="New Leads" value="7" sub="Assigned this week" icon={Users} />
       </div>
       

@@ -280,7 +280,7 @@ export default function QuoteLineItems({
         <div className="w-56 text-xs space-y-1">
           <div className="flex justify-between text-neutral-400">
             <span>Subtotal</span>
-            <span>${totals.subtotal.toFixed(2)}</span>
+            <span>₹{totals.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-red-400">
             <span>Discount</span>
@@ -292,7 +292,7 @@ export default function QuoteLineItems({
           </div>
           <div className="flex justify-between font-bold text-sm text-white border-t border-neutral-700 pt-1">
             <span>Grand Total</span>
-            <span>${totals.grandTotal.toFixed(2)}</span>
+            <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>

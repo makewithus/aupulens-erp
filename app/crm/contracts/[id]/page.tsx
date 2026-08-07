@@ -110,8 +110,8 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
               <Link href={`/crm/accounts/${data.account_id?._id}`} className="hover:text-primary transition-colors">
                 {data.account_id?.company_name}
               </Link>
-              <span className="mx-2 text-neutral-600">•</span>
-              <span className="font-mono text-green-400 font-semibold">${data.contract_value?.toLocaleString()}</span>
+              <span className="mx-2 text-neutral-600">â¢</span>
+              <span className="font-mono text-green-400 font-semibold">₹{data.contract_value?.toLocaleString()}</span>
               <span className="text-sm text-neutral-500 ml-1">/ {data.billing_frequency}</span>
             </div>
           </div>
@@ -182,8 +182,8 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
               <div><p className="text-neutral-500 mb-1">Start Date</p><p className="font-medium">{new Date(data.start_date).toLocaleDateString()}</p></div>
               <div><p className="text-neutral-500 mb-1">End Date</p><p className="font-medium">{new Date(data.end_date).toLocaleDateString()}</p></div>
               <div><p className="text-neutral-500 mb-1">Billing Frequency</p><p className="font-medium">{data.billing_frequency}</p></div>
-              <div><p className="text-neutral-500 mb-1">Value</p><p className="font-medium font-mono">${data.contract_value?.toLocaleString()}</p></div>
-              <div><p className="text-neutral-500 mb-1">Owner</p><p className="font-medium">{data.owner_id?.name || "—"}</p></div>
+              <div><p className="text-neutral-500 mb-1">Value</p><p className="font-medium font-mono">₹{data.contract_value?.toLocaleString()}</p></div>
+              <div><p className="text-neutral-500 mb-1">Owner</p><p className="font-medium">{data.owner_id?.name || "â"}</p></div>
               <div><p className="text-neutral-500 mb-1">Created</p><p className="font-medium">{new Date(data.createdAt).toLocaleDateString()}</p></div>
             </div>
 
@@ -247,7 +247,7 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
                 </div>
                 <p className="text-sm text-neutral-300">{data.renewal_opportunity_id.deal_name}</p>
                 <div className="mt-3 flex justify-between items-center text-sm font-mono">
-                  <span className="text-green-400">${data.renewal_opportunity_id.amount?.toLocaleString()}</span>
+                  <span className="text-green-400">₹{data.renewal_opportunity_id.amount?.toLocaleString()}</span>
                   <span className="text-neutral-400">{data.renewal_opportunity_id.probability}% Prob</span>
                 </div>
                 <Button className="w-full mt-4 bg-neutral-800 hover:bg-neutral-700 text-sm h-8" asChild>

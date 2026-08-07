@@ -9,9 +9,9 @@ export default function MobilePipeline() {
   const stages = ["Discovery", "Proposal", "Negotiation", "Closed Won"];
 
   const deals = [
-    { id: 1, name: "Acme Corp Redesign", amount: "$45,000", stage: "Discovery", risk: true },
-    { id: 2, name: "Stark Ind Licenses", amount: "$120,000", stage: "Discovery", risk: false },
-    { id: 3, name: "Wayne Ent Security", amount: "$85,000", stage: "Proposal", risk: false },
+    { id: 1, name: "Acme Corp Redesign", amount: "₹45,000", stage: "Discovery", risk: true },
+    { id: 2, name: "Stark Ind Licenses", amount: "₹120,000", stage: "Discovery", risk: false },
+    { id: 3, name: "Wayne Ent Security", amount: "₹85,000", stage: "Proposal", risk: false },
   ];
 
   return (

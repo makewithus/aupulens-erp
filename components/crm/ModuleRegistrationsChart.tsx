@@ -25,7 +25,7 @@ export function ModuleRegistrationsChart() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // ── Seeded RNG ──
+    // ââ Seeded RNG ââ
     let seed = 1337;
     function rng() {
       seed = (seed * 16807 + 0) % 2147483647;
@@ -44,7 +44,7 @@ export function ModuleRegistrationsChart() {
       return v.toString();
     }
 
-    // ── UAC cumulative data (growing from ~0 to ~71235) ──
+    // ââ UAC cumulative data (growing from ~0 to ~71235) ââ
     const uacStart = new Date(2022, 5, 1); // Jun 2022
     const uacMonths = 48; // 4 years of monthly data
     const uacData: Array<{ date: Date; value: number }> = [];
@@ -208,7 +208,7 @@ export function ModuleRegistrationsChart() {
       tooltipDate.textContent = fmtFullDate(d.date);
       tooltipValue.innerHTML = `<span class="w-2 h-2 rounded-[1px] inline-block mr-1.5" style="background:${
         isDark ? "#fff" : "#000"
-      }"></span> Registrations <b>${d.value.toLocaleString()}</b>`;
+      }"></span> Registrations <b>₹{d.value.toLocaleString()}</b>`;
 
       tooltip.style.display = "block";
       const tipX = mx + 16;

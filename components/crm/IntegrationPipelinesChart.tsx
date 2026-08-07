@@ -25,7 +25,7 @@ export function IntegrationPipelinesChart() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // ── Seeded RNG ──
+    // ââ Seeded RNG ââ
     let seed = 1337;
     function rng() {
       seed = (seed * 16807 + 0) % 2147483647;
@@ -44,7 +44,7 @@ export function IntegrationPipelinesChart() {
       return v.toString();
     }
 
-    // ── OFT cumulative data (growing from ~0 to ~2961) ──
+    // ââ OFT cumulative data (growing from ~0 to ~2961) ââ
     const oftStart = new Date(2022, 5, 1);
     const oftMonths = 48;
     const oftData: Array<{ date: Date; value: number }> = [];
@@ -207,7 +207,7 @@ export function IntegrationPipelinesChart() {
 
       const d = oftData[idx];
       tooltipDate.textContent = fmtFullDate(d.date);
-      tooltipValue.innerHTML = `<span class="w-2 h-2 rounded-[1px] inline-block mr-1.5" style="background:${color}"></span> Pipelines <b>${d.value.toLocaleString()}</b>`;
+      tooltipValue.innerHTML = `<span class="w-2 h-2 rounded-[1px] inline-block mr-1.5" style="background:${color}"></span> Pipelines <b>₹{d.value.toLocaleString()}</b>`;
 
       tooltip.style.display = "block";
       const tipX = mx + 16;

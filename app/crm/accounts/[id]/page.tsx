@@ -121,7 +121,7 @@ export default function Account360Page(props: { params: Promise<{ id: string }> 
               ))}
               {aiAnalysis.suggestedFollowUpMessage && (
                 <div className="text-xs bg-indigo-950/30 border border-indigo-900/50 rounded px-3 py-2 text-indigo-300 mt-2">
-                  Draft follow-up: “{aiAnalysis.suggestedFollowUpMessage}”
+                  Draft follow-up: â{aiAnalysis.suggestedFollowUpMessage}â
                 </div>
               )}
             </div>
@@ -548,11 +548,11 @@ function AccountOpportunities({ accountId }: { accountId: string }) {
         </div>
         <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Pipeline Value</p>
-          <p className="text-xl font-bold">${pipelineValue.toLocaleString()}</p>
+          <p className="text-xl font-bold">₹{pipelineValue.toLocaleString()}</p>
         </div>
         <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Forecast</p>
-          <p className="text-xl font-bold text-blue-400">${forecastRevenue.toLocaleString()}</p>
+          <p className="text-xl font-bold text-blue-400">₹{forecastRevenue.toLocaleString()}</p>
         </div>
         <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Win Rate</p>
@@ -560,7 +560,7 @@ function AccountOpportunities({ accountId }: { accountId: string }) {
         </div>
         <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Expected Rev.</p>
-          <p className="text-xl font-bold text-green-500">${closedWonRevenue.toLocaleString()}</p>
+          <p className="text-xl font-bold text-green-500">₹{closedWonRevenue.toLocaleString()}</p>
         </div>
         <div className={`bg-neutral-950 border p-4 rounded-lg text-center ${atRiskCount > 0 ? 'border-red-900' : 'border-neutral-800'}`}>
           <p className="text-sm text-muted-foreground">Deals At Risk</p>

@@ -680,9 +680,8 @@ export default function AIAssistant() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Message Aupulens Assistant..."
+                    placeholder={isLoading ? "You can keep typing… (reply in progress)" : "Message Aupulens Assistant..."}
                     className="w-full pl-4 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
-                    disabled={isLoading}
                     rows={1}
                   />
                   <Button 

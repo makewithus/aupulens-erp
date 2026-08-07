@@ -24,7 +24,7 @@ export default function ExecutiveDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI title="Total Revenue" value="$4.5M" sub="+12% YoY Growth" icon={DollarSign} />
+        <KPI title="Total Revenue" value="₹4.5M" sub="+12% YoY Growth" icon={DollarSign} />
         <KPI title="Global Conversion" value="22%" sub="Lead to Contract" icon={TrendingUp} />
         <KPI title="Retention Rate" value="94%" sub="Net Revenue Retention" icon={Activity} />
         <KPI title="Global ROI" value="+150%" sub="Marketing Spend ROI" icon={PieChart} />

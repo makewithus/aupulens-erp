@@ -164,7 +164,7 @@ export function CampaignROIChart() {
       if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
 
-      // ── Atmosphere glow ──
+      // ââ Atmosphere glow ââ
       const atmGrad = ctx.createRadialGradient(cX, cY, R * 0.6, cX, cY, R * 1.4);
       atmGrad.addColorStop(0, "rgba(99, 102, 241, 0.02)");
       atmGrad.addColorStop(0.5, "rgba(139, 92, 246, 0.04)");
@@ -175,7 +175,7 @@ export function CampaignROIChart() {
       ctx.fillStyle = atmGrad;
       ctx.fill();
 
-      // ── Wireframe latitude/longitude rings ──
+      // ââ Wireframe latitude/longitude rings ââ
       ctx.strokeStyle = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
       ctx.lineWidth = 0.5;
 
@@ -215,7 +215,7 @@ export function CampaignROIChart() {
         ctx.stroke();
       }
 
-      // ── Project all nodes ──
+      // ââ Project all nodes ââ
       const projected = nodes.map((n) => {
         const p3 = sphereToXYZ(n.lat, n.lon, R);
         const rp = rotatePoint(p3);
@@ -223,7 +223,7 @@ export function CampaignROIChart() {
         return { ...n, p3: rp, p2: pp, visible: rp.z > -R * 0.3 };
       });
 
-      // ── Draw edges (behind sphere first, then front) ──
+      // ââ Draw edges (behind sphere first, then front) ââ
       const sortedEdges = edges
         .map((e) => {
           const a = projected[e[0]],
@@ -259,7 +259,7 @@ export function CampaignROIChart() {
         ctx.stroke();
       });
 
-      // ── Draw particles ──
+      // ââ Draw particles ââ
       particles.forEach((p) => {
         p.t += p.speed;
         if (p.t > 1) p.t -= 1;
@@ -297,7 +297,7 @@ export function CampaignROIChart() {
         ctx.fill();
       });
 
-      // ── Draw nodes (sorted by depth, farthest first) ──
+      // ââ Draw nodes (sorted by depth, farthest first) ââ
       projected.sort((a, b) => a.p3.z - b.p3.z);
 
       let hoveredNode: any = null;
@@ -366,7 +366,7 @@ export function CampaignROIChart() {
 
       // Tooltip
       if (hoveredNode) {
-        tooltip.innerHTML = `<b style="color:${hoveredNode.color}">${hoveredNode.name}</b><br><span style="color:#757575">Total Leads:</span> ${hoveredNode.msgs}`;
+        tooltip.innerHTML = `<b style="color:${hoveredNode.color}">₹{hoveredNode.name}</b><br><span style="color:#757575">Total Leads:</span> ${hoveredNode.msgs}`;
         tooltip.style.display = "block";
         tooltip.style.left = hoveredNode.p2.x + 18 + "px";
         tooltip.style.top = hoveredNode.p2.y - 20 + "px";

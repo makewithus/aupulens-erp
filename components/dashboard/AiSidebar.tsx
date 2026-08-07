@@ -435,8 +435,9 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 }
               }
             }}
-            disabled={isLoading}
-            placeholder="Ask anything..."
+            // Intentionally NOT disabled while loading — the user can keep typing
+            // their next prompt; only sending is blocked until the reply is done.
+            placeholder={isLoading ? "You can keep typing… (reply in progress)" : "Ask anything..."}
             className={cn(
               "w-full bg-transparent border-none text-[14px] focus:outline-none focus:ring-0 resize-none font-sans min-h-[44px] max-h-[200px]",
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"

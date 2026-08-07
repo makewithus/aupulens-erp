@@ -15,7 +15,7 @@ import {
   RefreshCw, TrendingUp,
 } from "lucide-react";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "bg-neutral-700 text-neutral-100",
@@ -64,7 +64,7 @@ function SummaryCard({
   );
 }
 
-// ─── New Contract Modal (inline) ──────────────────────────────────────────────
+// âââ New Contract Modal (inline) ââââââââââââââââââââââââââââââââââââââââââââââ
 
 function NewContractModal({
   open,
@@ -181,7 +181,7 @@ function NewContractModal({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// âââ Page âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const ALL_STATUSES = [
   "Draft", "Pending Signature", "Active", "Renewal Due",
@@ -271,7 +271,7 @@ export default function ContractsPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard label="Total Contract Value" value={`$${totalValue.toLocaleString()}`}
+        <SummaryCard label="Total Contract Value" value={`₹${totalValue.toLocaleString()}`}
           sub={`${contracts.length} contracts`} />
         <SummaryCard label="Active" value={activeCount} color="text-green-400"
           icon={CheckCircle2} />
@@ -279,7 +279,7 @@ export default function ContractsPage() {
           icon={AlertTriangle} />
         {renewalSummary && (
           <SummaryCard label="Expiring in 30 days" value={renewalSummary.expiring30}
-            sub={`$${(renewalSummary.renewalPipelineValue90Days || 0).toLocaleString()} 90-day pipeline`}
+            sub={`₹${(renewalSummary.renewalPipelineValue90Days || 0).toLocaleString()} 90-day pipeline`}
             color="text-orange-400" icon={Clock} />
         )}
       </div>
@@ -375,14 +375,14 @@ export default function ContractsPage() {
               return (
                 <TableRow key={c._id} className="border-neutral-800 hover:bg-neutral-800/50">
                   <TableCell className="font-mono font-medium text-sm">{c.contract_number}</TableCell>
-                  <TableCell className="text-sm">{c.account_id?.company_name || "—"}</TableCell>
+                  <TableCell className="text-sm">{c.account_id?.company_name || "â"}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     ${(c.contract_value || 0).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-sm text-neutral-400">{c.billing_frequency}</TableCell>
                   <TableCell>
                     <span className={`text-sm ${isExpired ? "text-red-400 font-bold" : isUrgent ? "text-orange-400 font-semibold" : ""}`}>
-                      {c.end_date ? new Date(c.end_date).toLocaleDateString() : "—"}
+                      {c.end_date ? new Date(c.end_date).toLocaleDateString() : "â"}
                       {!isExpired && isUrgent && <span className="ml-1 text-xs">({days}d)</span>}
                       {isExpired && <span className="ml-1 text-xs">(EXPIRED)</span>}
                     </span>

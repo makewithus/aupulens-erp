@@ -57,7 +57,7 @@ export default function LeadDetailPage(props: { params: Promise<{ id: string }> 
     
     // Auto-fill budget and timeline to pass validation if qualifying
     if (newStatus === "Qualified") {
-      if (!lead.budget_range) payload.budget_range = "$10k - $50k";
+      if (!lead.budget_range) payload.budget_range = "₹10k - ₹50k";
       if (!lead.expected_timeline) payload.expected_timeline = "3 Months";
     }
 

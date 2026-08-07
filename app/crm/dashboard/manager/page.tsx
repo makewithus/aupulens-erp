@@ -24,7 +24,7 @@ export default function ManagerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI title="Team Pipeline" value="$1.2M" sub="24 Open Opportunities" icon={BarChart} />
+        <KPI title="Team Pipeline" value="₹1.2M" sub="24 Open Opportunities" icon={BarChart} />
         <KPI title="Avg Conversion Rate" value="28%" sub="Lead to Won" icon={Target} />
         <KPI title="Total Activity Volume" value="450" sub="Calls/Emails this week" icon={Users} />
         <KPI title="Avg Lead Aging" value="14 Days" sub="Time in pipeline" icon={Clock} />

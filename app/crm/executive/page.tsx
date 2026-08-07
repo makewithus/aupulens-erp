@@ -37,7 +37,7 @@ export default function ExecutiveCommandCenter() {
         <Card className="bg-neutral-900 border-neutral-800">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-neutral-400">Likely Forecast (Q3)</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-400">${data.forecast.likely.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-400">₹{data.forecast.likely.toLocaleString()}</div>
             <p className="text-xs text-neutral-500 mt-1">Best Case: ${data.forecast.best.toLocaleString()}</p>
           </CardContent>
         </Card>
@@ -52,7 +52,7 @@ export default function ExecutiveCommandCenter() {
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-neutral-400">Retention Rate</CardTitle></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-400">{data.retention.rate}%</div>
-            <p className="text-xs text-red-400 mt-1">${data.retention.churnRiskTotal.toLocaleString()} At Risk</p>
+            <p className="text-xs text-red-400 mt-1">₹{data.retention.churnRiskTotal.toLocaleString()} At Risk</p>
           </CardContent>
         </Card>
         <Card className="bg-neutral-900 border-neutral-800">

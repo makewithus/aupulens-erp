@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link";
 import { Plus, AlertCircle, FolderKanban } from "lucide-react";
 
-// ─── Status colour map ────────────────────────────────────────────────────────
+// âââ Status colour map ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const STATUS_COLOR_REDESIGNED: Record<string, string> = {
   Approved: "text-[#8AE06C]",
@@ -32,7 +32,7 @@ const STATUS_COLOR_REDESIGNED: Record<string, string> = {
   Revised: "text-[#A77DFF]",
 };
 
-// ─── Summary cards ────────────────────────────────────────────────────────────
+// âââ Summary cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function SummaryCard({
   label,
@@ -56,7 +56,7 @@ function SummaryCard({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// âââ Page âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<any[]>([]);
@@ -79,7 +79,7 @@ export default function QuotesPage() {
     fetchQuotes();
   }, [search, statusFilter]);
 
-  // ── Metrics ────────────────────────────────────────────────────────────────
+  // ââ Metrics ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const totalGrandTotal = quotes.reduce((a, q) => a + (q.grand_total || 0), 0);
   const pendingCount = quotes.filter((q) => q.status === "Pending Approval").length;
   const approvedCount = quotes.filter((q) => q.status === "Approved").length;
@@ -124,7 +124,7 @@ export default function QuotesPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Value"
-          value={`$${totalGrandTotal.toLocaleString()}`}
+          value={`₹${totalGrandTotal.toLocaleString()}`}
           sub={`${quotes.length} ${quotes.length === 1 ? "quote" : "quotes"}`}
         />
         <SummaryCard
@@ -303,12 +303,12 @@ export default function QuotesPage() {
 
                       {/* Account */}
                       <TableCell className="text-sm text-muted-foreground">
-                        {q.account_id?.company_name || "—"}
+                        {q.account_id?.company_name || "â"}
                       </TableCell>
 
                       {/* Opportunity */}
                       <TableCell className="text-sm text-muted-foreground">
-                        {q.opportunity_id?.deal_name || "—"}
+                        {q.opportunity_id?.deal_name || "â"}
                       </TableCell>
 
                       {/* Grand Total */}
@@ -344,14 +344,14 @@ export default function QuotesPage() {
                               : "text-sm text-muted-foreground"
                           }
                         >
-                          {q.validity_date ? new Date(q.validity_date).toLocaleDateString() : "—"}
+                          {q.validity_date ? new Date(q.validity_date).toLocaleDateString() : "â"}
                           {isExpired && <AlertCircle className="w-3.5 h-3.5" />}
                         </span>
                       </TableCell>
 
                       {/* Sent */}
                       <TableCell className="font-mono text-[11px] text-muted-foreground/60">
-                        {q.sent_at ? new Date(q.sent_at).toLocaleDateString() : "—"}
+                        {q.sent_at ? new Date(q.sent_at).toLocaleDateString() : "â"}
                       </TableCell>
 
                       {/* Actions */}

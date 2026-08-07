@@ -21,7 +21,7 @@ import {
   APPROVAL_TIER_LABELS,
 } from "@/lib/crm/quoteCalculations";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// âââ Types ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 interface LineItem {
   item_name: string;
@@ -57,7 +57,7 @@ const EMPTY_ITEM: LineItem = {
   bundle_name: "",
 };
 
-// ─── Approval tier badge ──────────────────────────────────────────────────────
+// âââ Approval tier badge ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function ApprovalTierBadge({ avgDiscount }: { avgDiscount: number }) {
   const tier = discountApprovalTier(avgDiscount);
@@ -83,7 +83,7 @@ function ApprovalTierBadge({ avgDiscount }: { avgDiscount: number }) {
   );
 }
 
-// ─── QuoteBuilder ─────────────────────────────────────────────────────────────
+// âââ QuoteBuilder âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export default function QuoteBuilder({
   oppId,
@@ -292,7 +292,7 @@ export default function QuoteBuilder({
                   )}
                   {item.is_bundled && (
                     <Badge className="text-xs bg-blue-800 text-blue-100">
-                      Bundle: {item.bundle_name || "—"}
+                      Bundle: {item.bundle_name || "â"}
                     </Badge>
                   )}
                 </div>
@@ -458,7 +458,7 @@ export default function QuoteBuilder({
         <div className="w-72 space-y-2 text-sm">
           <div className="flex justify-between text-neutral-400">
             <span>Subtotal</span>
-            <span>${totals.subtotal.toFixed(2)}</span>
+            <span>₹{totals.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-red-400">
             <span>Discount</span>
@@ -470,7 +470,7 @@ export default function QuoteBuilder({
           </div>
           <div className="flex justify-between font-bold text-lg pt-2 border-t border-neutral-700 text-white">
             <span>Grand Total</span>
-            <span>${totals.grandTotal.toFixed(2)}</span>
+            <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>
           <div className="text-xs text-neutral-500 text-right">
             Avg discount: {totals.avgDiscountPercent.toFixed(1)}%
