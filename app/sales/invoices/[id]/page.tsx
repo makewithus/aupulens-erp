@@ -58,8 +58,23 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const whatsappShare = () => {
-    const url = `${window.location.origin}/api/sales/invoices/${params.id}/pdf`;
+  const whatsappShare = async () => {
+    // Mint a signed, time-limited PUBLIC link (Phase 5) so the recipient —
+    // who has no ERP login — can actually open the invoice. Previously this
+    // shared the session-gated /pdf route, which 401'd for any external
+    // recipient.
+    let url = "";
+    try {
+      const res = await fetch(`/api/sales/invoices/${params.id}/share-link`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) url = data.data.url;
+    } catch {
+      /* fall through to the toast below */
+    }
+    if (!url) {
+      toast.error("Could not generate a shareable link. Please try again.");
+      return;
+    }
     const message = encodeURIComponent(`Here is your invoice ${invoice?.number}: ${url}`);
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
@@ -104,7 +119,7 @@ export default function InvoiceDetailPage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={whatsappShare}><MessageCircle className="w-4 h-4 mr-2" /> WhatsApp</Button>
             <a href={`/api/sales/invoices/${invoice._id}/pdf`} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" /> Download PDF</Button>
+              <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" /> Print / Save as PDF</Button>
             </a>
             {["saved", "overdue", "partially_paid"].includes(invoice.status) && (
               <Link href={`/sales/payments/new?customerId=${invoice.customerId?._id || invoice.customerId}&invoiceId=${invoice._id}`}>

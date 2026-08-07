@@ -88,7 +88,13 @@ export default auth(async (req) => {
   // blanket session check below would reject middleware's own internal call,
   // silently fail-opening module gating.
   const isInternalApi = pathname.startsWith("/api/internal/");
-  const isPublicApi = pathname === "/api/tenant/status" || isCronApi || isInternalApi;
+  // /api/public/* is intentionally session-less — access is gated by a
+  // per-resource HMAC-signed token the route verifies itself (see
+  // lib/publicLinks.ts + app/api/public/invoice/[id]). Used for
+  // externally-shareable links (e.g. a WhatsApp-shared invoice a recipient
+  // with no ERP login must be able to open).
+  const isPublicSignedApi = pathname.startsWith("/api/public/");
+  const isPublicApi = pathname === "/api/tenant/status" || isCronApi || isInternalApi || isPublicSignedApi;
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
