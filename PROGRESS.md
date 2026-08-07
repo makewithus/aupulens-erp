@@ -350,3 +350,49 @@ utilities; removed the throwaway network-diagnosis scripts.
 tier (10k/mo cap). Now that AI genuinely runs and costs real money, this
 matters — say whether to downgrade the test tenants or add the env-driven
 trial ceiling.
+
+---
+
+## AI_GLOBAL_MONTHLY_CAP — env-driven global ceiling (decision: NOT tier downgrade)
+
+**Decision:** Add a platform-wide monthly ceiling that sits ABOVE the per-tier
+caps, rather than downgrading tenant tiers. Rationale: 24/28 tenants are
+enterprise-tier and several may be *real* workspaces indistinguishable from
+test orgs — downgrading risks breaking a live customer. A global ceiling is
+orthogonal: it never touches a tier, and hard-stops total platform spend at the
+trial budget regardless of how many tenants are active.
+
+**Implementation:** `lib/ai/usage.ts` — `getGlobalMonthlyCap()` reads
+`AI_GLOBAL_MONTHLY_CAP` (default 17000). A reserved `__platform__` tenantId
+counter is incremented alongside each per-tenant counter on every successful
+call, so `getGlobalAiUsageCount()` is O(1). `lib/ai/tenantAi.ts` checks the
+global ceiling FIRST (gated code `AI_GLOBAL_LIMIT_REACHED`), before the
+per-tenant tier cap.
+
+### The math (grounded in real measurements + real Azure pricing)
+
+- **Cost per call (measured + priced):**
+  - Measured lead-scoring call = 85 in / 131 out tokens. Features range from
+    small (`suggestion` 256-cap) to `chat` (1024-cap), so we blend UP for
+    safety: assume an *average* call ≈ **400 input + 250 output tokens**.
+  - Azure gpt-4o pricing: **$2.50 / 1M input**, **$10.00 / 1M output**.
+  - Input: 400 × $2.50/1M = $0.0010. Output: 250 × $10/1M = $0.0025.
+  - Per call ≈ **$0.0035**, rounded up to **$0.004** for headroom.
+  - FX ₹84/USD → **₹0.336 per call**.
+- **Budget allocation:** trial budget ₹10,000. Allocate **₹6,000 (60%)** to AI,
+  leaving ₹4,000 margin for Mongo/hosting/other.
+- **Cap = ₹6,000 / ₹0.336 ≈ 17,857 calls/month.** Rounded DOWN to a clean
+  **17,000** for extra margin.
+- **Worst-case spend at the cap:** 17,000 × ₹0.336 = **₹5,712** — inside the
+  ₹6,000 AI allocation, ₹10k total budget safe.
+
+### Sanity check against real activity
+
+`scripts/check-active-tenants.ts` (real DB): **7 identifiably active tenants**
+(have leads / opportunities / invoices / ai-usage / chat) out of 28 orgs.
+17,000 / 7 ≈ **2,428 calls per active tenant per month** — generous for a
+trial, while still hard-stopping a runaway loop (a bad loop doing thousands of
+calls/hour trips the ceiling in hours and every workspace stops). The number is
+sized off *identifiable active* tenants, not all 28.
+
+Override anytime with `AI_GLOBAL_MONTHLY_CAP=<n>` in `.env`.

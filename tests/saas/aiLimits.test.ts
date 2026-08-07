@@ -247,12 +247,18 @@ describe("callClaudeForTenant — under cap", () => {
     expect(result).toEqual({ gated: false, text: "Claude says hello" });
   });
 
-  it("increments usage by exactly 1 on success", async () => {
+  it("increments both the tenant and the platform counter by 1 on success", async () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 5 });
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
-    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(1);
+    // One increment for the tenant, one for the "__platform__" global ceiling.
+    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(2);
     expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: TENANT_A }),
+      { $inc: { count: 1 } },
+      { upsert: true }
+    );
+    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "__platform__" }),
       { $inc: { count: 1 } },
       { upsert: true }
     );
@@ -262,7 +268,7 @@ describe("callClaudeForTenant — under cap", () => {
     mockAiUsageFindOne.mockResolvedValue(null); // no document
     const result = await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
     expect(result.gated).toBe(false);
-    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(2); // tenant + platform
   });
 });
 
@@ -443,7 +449,7 @@ describe("callClaudeForTenant — tenant isolation", () => {
     expect(resultB.gated).toBe(false); // B is not affected
   });
 
-  it("increments usage for the calling tenant only", async () => {
+  it("increments usage for the calling tenant only (plus the platform counter, never another tenant)", async () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 5 });
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
     expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledWith(
@@ -451,7 +457,11 @@ describe("callClaudeForTenant — tenant isolation", () => {
       expect.anything(),
       expect.anything()
     );
-    // Should only have been called once (for TENANT_A, not TENANT_B)
-    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(1);
+    // The only tenantIds touched are TENANT_A and the platform sentinel —
+    // never TENANT_B.
+    const touched = mockAiUsageFindOneAndUpdate.mock.calls.map((c: any[]) => c[0]?.tenantId);
+    expect(touched).toEqual(expect.arrayContaining([TENANT_A, "__platform__"]));
+    expect(touched).not.toContain(TENANT_B);
+    expect(mockAiUsageFindOneAndUpdate).toHaveBeenCalledTimes(2);
   });
 });

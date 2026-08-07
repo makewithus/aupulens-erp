@@ -15,6 +15,14 @@ import connectDB from "@/lib/db";
 import AiUsage from "@/models/AiUsage";
 
 /**
+ * Reserved tenantId used to track PLATFORM-WIDE (all-tenants-combined) usage
+ * for the global monthly ceiling. It is not a real subdomain, so it can never
+ * collide with a tenant. Incremented alongside the per-tenant counter on every
+ * successful call; read by the AI_GLOBAL_MONTHLY_CAP backstop.
+ */
+export const PLATFORM_TENANT_ID = "__platform__";
+
+/**
  * Returns the UTC calendar-month period string "YYYYMM" for the given (or current) date.
  * Used as the partition key for per-tenant usage counters.
  */
@@ -46,4 +54,38 @@ export async function incrementAiUsage(tenantId: string, period: string): Promis
     { $inc: { count: 1 } },
     { upsert: true }
   );
+}
+
+/**
+ * Global monthly ceiling that sits ABOVE the per-tenant tier caps — a hard
+ * platform-wide backstop against runaway cost during the paid trial (a bad
+ * loop hammering AI, or many tenants active at once). Deliberately NOT a tier
+ * downgrade: several enterprise-tier tenants may be real workspaces we can't
+ * distinguish from test orgs, so we never touch their tier — this ceiling is
+ * orthogonal and applies to everyone combined.
+ *
+ * Value derivation (see PROGRESS.md "AI_GLOBAL_MONTHLY_CAP" section for the
+ * full math). Defaults to 17000 calls/month if the env var is unset/invalid.
+ */
+export function getGlobalMonthlyCap(): number {
+  const raw = process.env.AI_GLOBAL_MONTHLY_CAP;
+  const n = raw != null ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 17000;
+}
+
+/**
+ * Current platform-wide successful-call count for the period (all tenants
+ * combined). Read from the reserved PLATFORM_TENANT_ID counter, so this stays
+ * O(1) rather than aggregating across every tenant on each call.
+ */
+export async function getGlobalAiUsageCount(period: string): Promise<number> {
+  return getAiUsageCount(PLATFORM_TENANT_ID, period);
+}
+
+/**
+ * Increment the platform-wide counter. Called alongside the per-tenant
+ * increment on every successful call so the global ceiling stays accurate.
+ */
+export async function incrementGlobalAiUsage(period: string): Promise<void> {
+  return incrementAiUsage(PLATFORM_TENANT_ID, period);
 }

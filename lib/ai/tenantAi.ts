@@ -32,7 +32,14 @@ import {
   type ClaudeCallOptions,
   type ChatTurn,
 } from "@/lib/ai/claude";
-import { getAiPeriod, getAiUsageCount, incrementAiUsage } from "@/lib/ai/usage";
+import {
+  getAiPeriod,
+  getAiUsageCount,
+  incrementAiUsage,
+  getGlobalMonthlyCap,
+  getGlobalAiUsageCount,
+  incrementGlobalAiUsage,
+} from "@/lib/ai/usage";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +63,7 @@ export type TenantAiResult =
   | { gated: false; text: string }
   | {
       gated: true;
-      code: "AI_DISABLED" | "AI_LIMIT_REACHED";
+      code: "AI_DISABLED" | "AI_LIMIT_REACHED" | "AI_GLOBAL_LIMIT_REACHED";
       error: string;
       currentTier?: string;
       requiredAction?: string;
@@ -131,8 +138,24 @@ export async function callClaudeForTenant(
     };
   }
 
-  // (b) Monthly cap — cap value comes from tier, never hard-coded
   const period = getAiPeriod();
+
+  // (b0) Global platform ceiling — a hard backstop ABOVE the per-tier caps,
+  // sized from the trial budget (see PROGRESS.md). Checked first so no tenant,
+  // regardless of tier, can push total platform spend past the trial budget.
+  const globalCap = getGlobalMonthlyCap();
+  const globalCount = await getGlobalAiUsageCount(period);
+  if (globalCount >= globalCap) {
+    return {
+      gated: true,
+      code: "AI_GLOBAL_LIMIT_REACHED",
+      error: `Platform-wide monthly AI limit reached (${globalCount} / ${globalCap} calls used across all workspaces this month). This is a trial-budget safeguard — contact the platform administrator.`,
+      currentTier: tier,
+      requiredAction: "contact_admin",
+    };
+  }
+
+  // (b) Monthly cap — cap value comes from tier, never hard-coded
   const { aiCallsPerMonth: cap } = getTierLimits(tier);
   const currentCount = await getAiUsageCount(tenantId, period);
   if (currentCount >= cap) {
@@ -162,8 +185,10 @@ export async function callClaudeForTenant(
     text = await callClaude(userMessage, resolvedOpts);
   }
 
-  // (e) Increment ONLY after a successful response.
+  // (e) Increment ONLY after a successful response — both the per-tenant
+  // counter and the platform-wide counter that backs the global ceiling.
   await incrementAiUsage(tenantId, period);
+  await incrementGlobalAiUsage(period);
 
   return { gated: false, text };
 }
