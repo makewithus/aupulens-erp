@@ -46,22 +46,44 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     setMessages(nextMessages);
 
     try {
+      // Stream the answer token-by-token (ChatGPT-style). On a gate/error the
+      // server replies with JSON instead — detected via content-type.
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText }),
+        body: JSON.stringify({ message: queryText, stream: true }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || contentType.includes("application/json")) {
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to get response");
       }
 
+      let streamed = "";
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (reader) {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          streamed += decoder.decode(value, { stream: true });
+          const current = streamed;
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === "assistant") {
+              newMsgs[newMsgs.length - 1] = { role: "assistant", text: current };
+            }
+            return newMsgs;
+          });
+        }
+      }
+
+      const finalText = streamed || "(no response)";
       setMessages((prev) => {
         const newMsgs = [...prev];
         if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === "assistant") {
-          newMsgs[newMsgs.length - 1] = { role: "assistant", text: data.response };
+          newMsgs[newMsgs.length - 1] = { role: "assistant", text: finalText };
         }
         return newMsgs;
       });
@@ -73,10 +95,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           title: queryText.slice(0, 50),
           messages: [
             { role: "user", content: queryText, timestamp: new Date() },
-            { role: "assistant", content: data.response, timestamp: new Date() },
+            { role: "assistant", content: finalText, timestamp: new Date() },
           ],
         }),
-      });
+      }).catch(() => {});
 
     } catch (error) {
       console.error("Error:", error);
@@ -107,13 +129,6 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     setInput(targetMsg.text);
     setMessages((prev) => prev.slice(0, index));
     setTimeout(() => textareaRef.current?.focus(), 50);
-  };
-
-  const handleRetry = (userIndex: number) => {
-    const userMsg = messages[userIndex];
-    if (userMsg.role !== "user") return;
-    const nextHistory = messages.slice(0, userIndex + 1);
-    sendQuery(userMsg.text, nextHistory);
   };
 
   useEffect(() => {
@@ -203,22 +218,22 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       );
     },
     h1({ children }: any) {
-      return <h1 className={cn("text-xs font-bold uppercase tracking-wider mt-4 mb-2 first:mt-0", isDark ? "text-white" : "text-neutral-950")}>{children}</h1>;
+      return <h1 className={cn("text-[15px] font-bold mt-4 mb-2 first:mt-0", isDark ? "text-white" : "text-neutral-950")}>{children}</h1>;
     },
     h2({ children }: any) {
-      return <h2 className={cn("text-xs font-semibold mt-3 mb-1.5 first:mt-0", isDark ? "text-neutral-200" : "text-neutral-800")}>{children}</h2>;
+      return <h2 className={cn("text-[14px] font-semibold mt-3 mb-1.5 first:mt-0", isDark ? "text-neutral-200" : "text-neutral-800")}>{children}</h2>;
     },
     h3({ children }: any) {
-      return <h3 className={cn("text-xs font-medium mt-3 mb-1", isDark ? "text-neutral-300" : "text-neutral-700")}>{children}</h3>;
+      return <h3 className={cn("text-[14px] font-medium mt-3 mb-1", isDark ? "text-neutral-300" : "text-neutral-700")}>{children}</h3>;
     },
     p({ children }: any) {
-      return <p className={cn("mb-2.5 last:mb-0 leading-relaxed text-[12.5px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</p>;
+      return <p className={cn("mb-2.5 last:mb-0 leading-7 text-[14px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</p>;
     },
     ul({ children }: any) {
-      return <ul className={cn("list-disc pl-4 space-y-1 my-2.5 text-[12.5px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</ul>;
+      return <ul className={cn("list-disc pl-4 space-y-1 my-2.5 text-[14px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</ul>;
     },
     ol({ children }: any) {
-      return <ol className={cn("list-decimal pl-4 space-y-1 my-2.5 text-[12.5px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</ol>;
+      return <ol className={cn("list-decimal pl-4 space-y-1 my-2.5 text-[14px] font-sans", isDark ? "text-neutral-300" : "text-neutral-650")}>{children}</ol>;
     },
     li({ children }: any) {
       return <li className="leading-relaxed">{children}</li>;
@@ -226,7 +241,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     blockquote({ children }: any) {
       return (
         <div className={cn(
-          "border-l-2 px-3 py-2 my-2.5 rounded-r text-[12.5px] font-mono",
+          "border-l-2 px-3 py-2 my-2.5 rounded-r text-[14px] font-mono",
           isDark ? "border-indigo-500 bg-indigo-950/10 text-neutral-300" : "border-indigo-400 bg-indigo-50/30 text-neutral-700"
         )}>
           {children}
@@ -363,7 +378,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   ) : (
                     <div className={cn("prose max-w-none text-xs font-sans", isDark ? "prose-invert text-neutral-300" : "text-neutral-700")}>
                       {msg.role === "user" ? (
-                        <p className={cn("whitespace-pre-wrap leading-relaxed text-[12.5px]", isDark ? "text-neutral-300" : "text-neutral-650")}>{msg.text}</p>
+                        <p className={cn("whitespace-pre-wrap leading-7 text-[14px]", isDark ? "text-neutral-300" : "text-neutral-650")}>{msg.text}</p>
                       ) : (
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                           {msg.text}
@@ -373,52 +388,23 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
 
-                {/* Hover actions */}
-                {!msg.isLoading && (
+                {/* Hover actions — only Edit (on your own prompts). Copy/Retry
+                    were removed as clutter. */}
+                {!msg.isLoading && msg.role === "user" && (
                   <div className={cn(
                     "absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 border px-1 py-0.5 rounded shadow-lg backdrop-blur-sm",
                     isDark ? "bg-neutral-950/90 border-neutral-800 shadow-black/40" : "bg-white border-neutral-200 shadow-neutral-200/50"
                   )}>
                     <button
-                      onClick={() => navigator.clipboard.writeText(msg.text)}
+                      onClick={() => handleEditMessage(i)}
                       className={cn(
-                        "p-1 text-[9px] uppercase tracking-wider font-mono cursor-pointer",
+                        "p-1 text-[11px] tracking-wide font-sans cursor-pointer",
                         isDark ? "text-neutral-500 hover:text-white" : "text-neutral-400 hover:text-neutral-800"
                       )}
-                      title="Copy message"
+                      title="Edit message"
                     >
-                      Copy
+                      Edit
                     </button>
-                    {msg.role === "user" && (
-                      <>
-                        <span className={cn("text-[10px] select-none", isDark ? "text-neutral-800" : "text-neutral-200")}>|</span>
-                        <button
-                          onClick={() => handleEditMessage(i)}
-                          className={cn(
-                            "p-1 text-[9px] uppercase tracking-wider font-mono cursor-pointer",
-                            isDark ? "text-neutral-500 hover:text-white" : "text-neutral-400 hover:text-neutral-800"
-                          )}
-                          title="Edit message"
-                        >
-                          Edit
-                        </button>
-                      </>
-                    )}
-                    {msg.role === "assistant" && i > 0 && (
-                      <>
-                        <span className={cn("text-[10px] select-none", isDark ? "text-neutral-800" : "text-neutral-200")}>|</span>
-                        <button
-                          onClick={() => handleRetry(i - 1)}
-                          className={cn(
-                            "p-1 text-[9px] uppercase tracking-wider font-mono cursor-pointer",
-                            isDark ? "text-neutral-500 hover:text-white" : "text-neutral-400 hover:text-neutral-800"
-                          )}
-                          title="Retry"
-                        >
-                          Retry
-                        </button>
-                      </>
-                    )}
                   </div>
                 )}
               </div>
@@ -452,7 +438,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             disabled={isLoading}
             placeholder="Ask anything..."
             className={cn(
-              "w-full bg-transparent border-none text-[12.5px] focus:outline-none focus:ring-0 resize-none font-sans min-h-[44px] max-h-[200px]",
+              "w-full bg-transparent border-none text-[14px] focus:outline-none focus:ring-0 resize-none font-sans min-h-[44px] max-h-[200px]",
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"
             )}
             style={{

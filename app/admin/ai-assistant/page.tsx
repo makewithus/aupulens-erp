@@ -271,27 +271,47 @@ export default function AIAssistant() {
     setIsLoading(true);
 
     try {
+      // Stream the response token-by-token (ChatGPT-style). The server returns
+      // a plain text/event stream we read incrementally; on a gate/error it
+      // returns JSON instead, which we detect via the content-type.
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInputText }),
+        body: JSON.stringify({ message: userInputText, stream: true }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || contentType.includes("application/json")) {
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to get response");
       }
 
-      const assistantMessage = {
-        ...loadingMessage,
-        content: data.response,
-        isLoading: false,
-      };
+      // Read the stream and append deltas to the assistant message as they arrive.
+      let streamed = "";
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (reader) {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          streamed += decoder.decode(value, { stream: true });
+          const currentText = streamed;
+          // Once the first token lands, replace the "Thinking…" spinner with the
+          // text as it streams in.
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === loadingMessage.id
+                ? { ...msg, content: currentText, isLoading: false }
+                : msg
+            )
+          );
+        }
+      }
 
+      const finalText = streamed || "(no response)";
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === loadingMessage.id ? assistantMessage : msg
+          msg.id === loadingMessage.id ? { ...msg, content: finalText, isLoading: false } : msg
         )
       );
 
@@ -307,8 +327,8 @@ export default function AIAssistant() {
           },
           {
             role: "assistant" as const,
-            content: data.response,
-            timestamp: assistantMessage.timestamp,
+            content: finalText,
+            timestamp: new Date(),
           },
         ];
 
@@ -620,15 +640,15 @@ export default function AIAssistant() {
                       )}
                       
                       <div className={cn(
-                        'px-4 py-3 text-[13px] leading-relaxed shadow-sm w-full', 
-                        message.role === 'user' 
-                          ? 'bg-neutral-800 text-neutral-100 rounded-2xl rounded-tr-sm border border-neutral-700/50' 
-                          : 'bg-neutral-900/80 text-neutral-300 rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
+                        'px-4 py-3 text-[15px] leading-7 shadow-sm w-full',
+                        message.role === 'user'
+                          ? 'bg-neutral-800 text-neutral-100 rounded-2xl rounded-tr-sm border border-neutral-700/50'
+                          : 'bg-neutral-900/80 text-neutral-100 rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
                       )}>
                         {message.isLoading ? (
                           <div className="flex items-center gap-2 text-purple-400">
                             <div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                            <span className="text-sm">Thinking...</span>
+                            <span className="text-[15px]">Thinking…</span>
                           </div>
                         ) : (
                           <>
@@ -661,7 +681,7 @@ export default function AIAssistant() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Message Aupulens Assistant..."
-                    className="w-full pl-4 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[13px] text-neutral-200 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
+                    className="w-full pl-4 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
                     disabled={isLoading}
                     rows={1}
                   />

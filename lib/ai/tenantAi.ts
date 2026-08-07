@@ -27,6 +27,7 @@ import { getTierLimits } from "@/lib/constants/tiers";
 import {
   callClaude,
   callClaudeWithHistory,
+  callClaudeStream,
   CLAUDE_DEFAULT_MODEL,
   CLAUDE_DEFAULT_MAX_TOKENS,
   type ClaudeCallOptions,
@@ -191,4 +192,57 @@ export async function callClaudeForTenant(
   await incrementGlobalAiUsage(period);
 
   return { gated: false, text };
+}
+
+/**
+ * Streaming counterpart to callClaudeForTenant — same gating (kill-switch,
+ * global ceiling, tenant cap) applied UP FRONT; when allowed, returns an async
+ * generator of text deltas for the UI to render token-by-token. Usage is
+ * incremented once the stream completes successfully (so a stream that never
+ * runs — gated — is never counted).
+ */
+export type TenantAiStreamResult =
+  | { gated: true; code: "AI_DISABLED" | "AI_LIMIT_REACHED" | "AI_GLOBAL_LIMIT_REACHED"; error: string; currentTier?: string; requiredAction?: string }
+  | { gated: false; stream: AsyncGenerator<string, void, unknown> };
+
+export async function callClaudeForTenantStream(
+  tenantId: string,
+  tier: string,
+  aiSettings: TenantAiSettings,
+  userMessage: string,
+  opts: ClaudeCallOptions & { history?: ChatTurn[] } = {}
+): Promise<TenantAiStreamResult> {
+  if (aiSettings.disabled === true) {
+    return { gated: true, code: "AI_DISABLED", error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them." };
+  }
+
+  const period = getAiPeriod();
+
+  const globalCap = getGlobalMonthlyCap();
+  const globalCount = await getGlobalAiUsageCount(period);
+  if (globalCount >= globalCap) {
+    return { gated: true, code: "AI_GLOBAL_LIMIT_REACHED", error: `Platform-wide monthly AI limit reached (${globalCount} / ${globalCap}). This is a trial-budget safeguard — contact the platform administrator.`, currentTier: tier, requiredAction: "contact_admin" };
+  }
+
+  const { aiCallsPerMonth: cap } = getTierLimits(tier);
+  const currentCount = await getAiUsageCount(tenantId, period);
+  if (currentCount >= cap) {
+    return { gated: true, code: "AI_LIMIT_REACHED", error: `Monthly AI call limit reached (${currentCount} / ${cap} calls used this month).`, currentTier: tier, requiredAction: "upgrade" };
+  }
+
+  const { history, ...restOpts } = opts;
+  const resolvedOpts: ClaudeCallOptions = {
+    model: aiSettings.model ?? restOpts.model ?? CLAUDE_DEFAULT_MODEL,
+    maxTokens: aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+    systemPrompt: restOpts.systemPrompt,
+  };
+
+  // Wrap the raw stream so usage is incremented exactly once, after a clean finish.
+  async function* gatedStream(): AsyncGenerator<string, void, unknown> {
+    yield* callClaudeStream(history ?? [], userMessage, resolvedOpts);
+    await incrementAiUsage(tenantId, period);
+    await incrementGlobalAiUsage(period);
+  }
+
+  return { gated: false, stream: gatedStream() };
 }

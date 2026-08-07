@@ -11,7 +11,7 @@ import {
   fetchAdminGeneralData,
 } from "@/lib/ai/adminDataFetcher";
 import { callClaude, type ChatTurn } from "@/lib/ai/claude";
-import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import ChatHistory from "@/models/ChatHistory";
 
@@ -78,6 +78,53 @@ export async function POST(request: NextRequest) {
 
     // Generate the natural-language response via Claude (with conversation history)
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+
+    // ── Streaming path (ChatGPT-style token-by-token) ────────────────────────
+    // The client sends { stream: true } and reads the response body as it
+    // arrives. Same prompt/quality as the non-stream path; persists the turns
+    // to ChatHistory once the stream finishes.
+    if (body.stream) {
+      const built = buildAdminPrompt(message, data, simulationResult);
+      if (!built) {
+        return NextResponse.json({ error: "I encountered an error while fetching your data. Please try again." }, { status: 200 });
+      }
+      const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, built.prompt, {
+        systemPrompt: built.systemPrompt,
+        maxTokens: built.maxTokens,
+        history: priorTurns,
+      });
+      // strictNullChecks is off — narrow on "stream" in result, not .gated.
+      if (!("stream" in streamRes)) {
+        return NextResponse.json(
+          { error: streamRes.error, code: streamRes.code, currentTier: streamRes.currentTier, requiredAction: streamRes.requiredAction },
+          { status: 403 },
+        );
+      }
+
+      const encoder = new TextEncoder();
+      let full = "";
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const delta of streamRes.stream) {
+              full += delta;
+              controller.enqueue(encoder.encode(delta));
+            }
+          } catch {
+            // If the model errors mid-stream, end gracefully with what we have.
+            if (!full) controller.enqueue(encoder.encode("Sorry — I couldn't complete that response. Please try again."));
+          } finally {
+            controller.close();
+            // The client persists the conversation (same as the non-stream
+            // path) — no server-side save here, to avoid duplicate records.
+          }
+        },
+      });
+      return new Response(readable, {
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId },
+      });
+    }
+
     const genResult = await generateResponseWithClaude(
       message,
       data,
@@ -254,27 +301,21 @@ type GenerateResult =
   | { gated: false; text: string }
   | { gated: true; error: string; code: string; currentTier?: string; requiredAction?: string };
 
-async function generateResponseWithClaude(
+/**
+ * Build the sanitized prompt + options for the main answer. Shared by the
+ * non-streaming and streaming code paths so both produce identical-quality
+ * answers. Returns null when the fetched data errored.
+ */
+function buildAdminPrompt(
   message: string,
   data: any,
-  intent: QueryIntent,
   simulationResult: any,
-  priorTurns: ChatTurn[],
-  tenantId: string,
-  tier: string,
-  aiSettings: Parameters<typeof callClaudeForTenant>[2]
-): Promise<GenerateResult> {
-  if (data.error) {
-    return { gated: false, text: "I encountered an error while fetching your data. Please try again." };
-  }
+): { prompt: string; systemPrompt: string; maxTokens: number } | null {
+  if (data?.error) return null;
 
   const simulationSection = simulationResult
     ? `\nFINANCIAL SIMULATION RESULT (already computed — explain it):\n${safeContextJson(simulationResult)}\n`
     : "";
-
-  // Only the aggregate SUMMARY goes to the model, and it's sanitized (no Mongo
-  // ObjectIds, no partnerId/customerId/etc.) so internal identifiers can never
-  // leak into an answer and the context stays small (faster + more accurate).
   const summaryOnly = (data && typeof data === "object" && "summary" in data) ? { summary: (data as any).summary } : data;
   const safeData = safeContextJson(summaryOnly, { maxArray: 6 });
 
@@ -302,15 +343,34 @@ Rules for EVERY answer:
    steps. No rambling, no raw JSON.
 4. If the snapshot lacks what's needed, say so briefly and suggest where to look.`;
 
-  const opts = {
+  return {
+    prompt,
     systemPrompt:
       "You are Aupulens' precise ERP assistant. Answer like a helpful product expert: organised, concise, and accurate. For data questions use only the figures given (never invent numbers); for how-to questions give clear app navigation steps. NEVER print internal database IDs or raw JSON in your reply.",
     maxTokens: 700,
   };
+}
+
+async function generateResponseWithClaude(
+  message: string,
+  data: any,
+  intent: QueryIntent,
+  simulationResult: any,
+  priorTurns: ChatTurn[],
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+): Promise<GenerateResult> {
+  const built = buildAdminPrompt(message, data, simulationResult);
+  if (!built) {
+    return { gated: false, text: "I encountered an error while fetching your data. Please try again." };
+  }
+  const { prompt, systemPrompt, maxTokens } = built;
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      ...opts,
+      systemPrompt,
+      maxTokens,
       history: priorTurns,
     });
     if ("text" in result) {

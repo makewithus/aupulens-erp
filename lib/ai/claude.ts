@@ -152,6 +152,36 @@ export async function callClaudeWithHistory(
   return text;
 }
 
+/**
+ * Streaming variant — yields text deltas as the model generates them, so the UI
+ * can render token-by-token (the ChatGPT-style experience). The endpoint is slow
+ * to the FIRST token (~15s) but then streams quickly, so the wait feels far
+ * shorter than waiting for the whole response at once.
+ */
+export async function* callClaudeStream(
+  history: ChatTurn[],
+  userMessage: string,
+  opts: ClaudeCallOptions = {}
+): AsyncGenerator<string, void, unknown> {
+  const client = getClient();
+
+  const stream = await client.chat.completions.create({
+    model: opts.model ?? CLAUDE_DEFAULT_MODEL,
+    max_completion_tokens: opts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+    stream: true,
+    messages: [
+      ...(opts.systemPrompt ? [{ role: "system" as const, content: opts.systemPrompt }] : []),
+      ...history.map((t) => ({ role: t.role, content: t.content })),
+      { role: "user" as const, content: userMessage },
+    ],
+  });
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) yield delta;
+  }
+}
+
 /** Default Azure OpenAI *embedding* deployment (semantic search, RAG). */
 export const EMBEDDING_DEFAULT_MODEL = process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "";
 
