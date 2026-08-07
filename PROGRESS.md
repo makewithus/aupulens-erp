@@ -468,3 +468,42 @@ a healthy deal costs nothing extra); new on-demand
 gated path returns a sensible deterministic value for all 10 with zero
 exceptions — the whole point of "AI-native with clean fallback". 8 new
 deterministic-fallback unit tests pass.
+
+---
+
+## Scope B — AI Command Center: real search, real explain, generalized confirm-gated executor
+
+**Real "search data":** extracted the Phase-6.1 universal search into
+`lib/search/universalSearch.ts` (`runUniversalSearch`) so the header search box
+AND the Command Center's `search` intent run the same role-scoped, cross-module
+(CRM/Sales/Inventory/HR/Projects) query. `app/api/search/route.ts` is now a thin
+wrapper over it.
+
+**Real "explain reports":** the `explain_report` intent pulls a compact LIVE
+metrics snapshot (open opps, total/weighted pipeline, stage breakdown, lead
+counts) and has gpt-4o explain it grounded strictly in those numbers, with a
+non-AI fallback that returns the raw snapshot when gated.
+
+**Generalized propose→preview→confirm→execute→audit executor** (mirrors
+Finance's `AiActionProposal`): new `models/AiCommandProposal.ts` (free-form
+`actionType`, `destructive` flag, TTL-expiry), `lib/ai/commandActions.ts`
+registry (`create_task`, `update_lead_status`, and the destructive `delete_lead`),
+and three routes — `POST /api/ai/command/actions` (propose/preview, **never
+mutates**), `.../[id]/confirm` (the ONLY mutating route; executes + writes a
+`CrmAuditLog`), `.../[id]/reject`. The main `/api/ai/command` route classifies
+NL → intent and dispatches; actions resolve a lead by name and refuse to guess
+on an ambiguous destructive target.
+
+**Live verification (real gpt-4o + real DB):**
+- **Destructive example stops at confirm** (`scripts/verify-command-executor.ts`):
+  proposed `delete_lead` → status `proposed`, **lead still exists** ("proposal
+  is inert"); only after confirm → lead deleted **and** a `deleted` audit record
+  written; reject path left a second lead untouched.
+- **Intent routing** (`scripts/verify-command-intents.ts`): "find leads at
+  Nimbus"→search, "explain my pipeline"→explain_report(pipeline), "take me to
+  the invoices page"→navigate, "delete the lead John Smith"→action/delete_lead,
+  "create a task to call the CFO tomorrow"→action/create_task. The last surfaced
+  a param-naming variation (`taskDescription` vs `title`) → made the action
+  lenient (accepts title/taskDescription/description; maps "tomorrow"→1 day).
+- 9 new registry/preview unit tests (preview-never-mutates contract, invalid
+  status/unknown action rejection, destructive flag). 780 tests pass.
