@@ -55,8 +55,7 @@ const ACTION_TYPES = [
 /**
  * Real, functional rule builder (Phase 4) — replaces the "New Rule" button
  * that previously had no onClick handler at all. This is a form, not a
- * drag-and-drop visual canvas (see app/crm/workflows/page.tsx's "Visual
- * Workflow Designer" for the still-static mock version) — a deliberate
+ * drag-and-drop visual canvas (see app/crm/workflows for the React Flow visual builder — same backend) — a deliberate
  * scope decision: the backend (models/crm/AutomationRule.ts,
  * lib/crm/automationEngine.ts) already supports exactly this
  * trigger+conditions+actions shape, and a real form that actually creates a

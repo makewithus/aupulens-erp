@@ -739,3 +739,33 @@ now auto-returned rather than told to re-open the link.
 **Tests:** `tests/auth/safeCallbackUrl.test.ts` (7) covers the happy path
 (plain + URL-encoded invite links), the no-callback default, and every
 open-redirect vector. Tests 817 → 824, `tsc`/`eslint` clean.
+
+---
+
+## Part 2.1 (6.10) — Visual ERP Builder (React Flow canvas over AutomationRule)
+
+Replaced the static "Visual Workflow Designer" mock (`app/crm/workflows`) with a
+real **React Flow** (`@xyflow/react` v12) drag-and-drop canvas that is a visual
+layer over the SAME `AutomationRule` backend the form builder uses:
+- `components/crm/VisualWorkflowBuilder.tsx` — custom Trigger / Condition /
+  Action nodes with inline config selects, connectable, with minimap/controls.
+- `lib/crm/workflowGraph.ts` — a **pure** `compileGraphToRule` that turns the
+  node graph into the exact `{ name, entity, trigger, conditions, actions }`
+  payload `POST /api/crm/automations` expects, with the same vocabulary
+  validation (one trigger, ≥1 action, unknown values coerced with warnings,
+  invalid conditions/actions dropped). Publish → same endpoint → same real,
+  executing rules. The form builder (`NewAutomationRuleModal`) stays as an
+  alternate entry point.
+
+**Real bug caught by the production build (not just tests):** the client
+component imported the rule vocabulary from `nlToRule.ts`, which transitively
+pulls the Node-only AI client (`undici`/`node:crypto`) — this **failed
+`next build`** ("UnhandledSchemeError: node:crypto") and would have broken the
+page at runtime. Fixed by extracting the vocabulary into a dependency-free
+`lib/crm/automationVocabulary.ts` that both server (`nlToRule`) and client
+(`VisualWorkflowBuilder`) import. **`next build` now succeeds (exit 0).**
+
+**Tests:** `tests/crm/workflowGraph.test.ts` (7) — valid compile, name/trigger/
+action requirements, vocabulary coercion, dropping invalid, malformed-JSON
+payload tolerance. 824 → 831 tests; `tsc`/`eslint` clean; **full `next build`
+green**.
