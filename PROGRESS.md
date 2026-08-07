@@ -769,3 +769,42 @@ page at runtime. Fixed by extracting the vocabulary into a dependency-free
 action requirements, vocabulary coercion, dropping invalid, malformed-JSON
 payload tolerance. 824 → 831 tests; `tsc`/`eslint` clean; **full `next build`
 green**.
+
+---
+
+## Part 2.2 (6.3) — Low-Code: configurable multi-step approval chains + print-format builder
+
+**Approval workflow (replaces the hardcoded 3-tier discount router):**
+`models/crm/ApprovalPolicy.ts` — a tenant-editable, ordered chain of steps, each
+routed to an approver role and gated by optional thresholds (avg discount % and/
+or amount). `lib/crm/approvalEngine.ts` now:
+- uses the configured policy when one exists (multi-step chain via the pure,
+  tested `applicableSteps`), else falls back to the **legacy 3-tier behaviour
+  unchanged** (backward compatible);
+- `approveQuote` **advances the chain** — approving a non-final step routes to
+  the next applicable step and keeps the quote pending, finalizing only after
+  the last step. Chain state tracked via new `step_index`/`total_steps`/
+  `approver_role`/`policy_id` fields on `ApprovalRequest`.
+- API: `GET/POST /api/crm/approval-policies` (gated by `manage_workflows`).
+
+**Real pre-existing bug fixed:** the engine looked up approvers by `role:"Admin"`
+but the User enum is lowercase `"admin"`, so the fallback **never matched and
+every non-auto approval threw** "No Manager or Admin user found". `findApprover`
+is now case-insensitive with a lowercase-`admin` fallback.
+
+**Print-format builder (on top of the invoice-template selection system):**
+`app/sales/print-format-builder/page.tsx` — pick a base template and tweak the
+print format (accent colour, striped rows, HSN visibility, font, footer note)
+with a **live preview** that re-renders as you change things, then save. Save
+persists to `DocumentSettings` (which the PDF/preview renderer already consumes)
+and sets the default template. Added a `POST` override mode to the template
+preview route so unsaved tweaks render live.
+
+**Live verification (real DB + real renderer):**
+- `scripts/verify-approval-chain.ts`: a 2-step policy routed a 30%-discount quote
+  Submit → Manager (step 1/2) → approve → Executive (step 2/2, quote still
+  pending) → approve → **Approved**. PASS.
+- `scripts/verify-print-format.ts`: rendering with red vs green accent + striped
+  toggle produces HTML that **contains each override and genuinely differs** —
+  the customization is really applied, not cosmetic.
+- 6 new pure-routing unit tests. 831 → **837**; `tsc`/`eslint` clean.

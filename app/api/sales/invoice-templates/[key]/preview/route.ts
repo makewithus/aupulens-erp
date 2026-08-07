@@ -92,3 +92,61 @@ export async function GET(
     return NextResponse.json({ success: false, message: "Error rendering preview" }, { status: 500 });
   }
 }
+
+/**
+ * Live preview with UNSAVED overrides (Print-Format Builder, 6.3). Same render
+ * as GET, but the body's `overrides.{branding,display,layout}` are merged over
+ * the tenant's saved DocumentSettings first — so the builder can show how a
+ * tweak (accent colour, striped rows, footer text, …) will look before saving.
+ */
+export async function POST(request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  try {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    await connectDB();
+    const tenantId = session.user.tenantId;
+    const { key } = await params;
+    const body = await request.json().catch(() => ({}));
+    const overrides = body?.overrides || {};
+
+    const [savedSettings, org] = await Promise.all([
+      (DocumentSettings as any).findOne({ tenantId }).lean(),
+      Organization.findOne({ subdomain: tenantId }).lean(),
+    ]);
+
+    // Merge overrides over the saved settings, section by section.
+    const settingsDoc = {
+      ...(savedSettings || {}),
+      display: { ...(savedSettings?.display || {}), ...(overrides.display || {}) },
+      layout: { ...(savedSettings?.layout || {}), ...(overrides.layout || {}) },
+      branding: { ...(savedSettings?.branding || {}), ...(overrides.branding || {}) },
+    };
+
+    const def = getTemplateDefinition(key);
+    const orgSettings = (org as any)?.settings || {};
+
+    const ctx = await buildTemplateContext({
+      invoice: SAMPLE_INVOICE,
+      settingsDoc,
+      company: {
+        name: (org as any)?.name || "Aupulens Traders",
+        gstin: orgSettings.gstin || "29ABCDE1234F1Z8",
+        logo: orgSettings.logo,
+        address: [orgSettings.addressLine1, orgSettings.addressLine2, orgSettings.city, orgSettings.pincode].filter(Boolean).join(", "),
+        state: orgSettings.state || "Maharashtra",
+      },
+      bank: { accountName: "Business Current Account", accountNumber: "0123456789", bankName: "Sample Bank", ifsc: "SMPL0000123", upiId: "sample@upi" },
+      signatureUrl: null,
+      documentType: "invoice",
+    });
+
+    const html = renderInvoiceTemplateFragment(def, ctx);
+    return NextResponse.json({ success: true, data: { html, orientation: def.orientation } });
+  } catch (error: any) {
+    console.error("Template preview (override) error:", error);
+    return NextResponse.json({ success: false, message: "Error rendering preview" }, { status: 500 });
+  }
+}

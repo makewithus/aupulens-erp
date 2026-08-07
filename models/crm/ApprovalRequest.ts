@@ -12,6 +12,13 @@ export interface IApprovalRequest extends Document {
   decision_notes?: string;
   decided_at?: Date;
   createdBy: mongoose.Types.ObjectId;
+  // Multi-step approval chain (6.3). step_index is 0-based within the chain;
+  // total_steps is the chain length; approver_role records which role this step
+  // targets. Absent on legacy single-tier requests.
+  step_index?: number;
+  total_steps?: number;
+  approver_role?: string;
+  policy_id?: mongoose.Types.ObjectId;
 }
 
 const ApprovalRequestSchema = new Schema<IApprovalRequest>({
@@ -25,7 +32,11 @@ const ApprovalRequestSchema = new Schema<IApprovalRequest>({
   request_notes: { type: String },
   decision_notes: { type: String },
   decided_at: { type: Date },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  step_index: { type: Number },
+  total_steps: { type: Number },
+  approver_role: { type: String },
+  policy_id: { type: Schema.Types.ObjectId, ref: 'CrmApprovalPolicy' },
 }, { timestamps: true });
 
 ApprovalRequestSchema.index({ tenantId: 1 });
