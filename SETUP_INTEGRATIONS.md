@@ -5,6 +5,17 @@ services and scheduling the app now depends on, and what each still needs to
 go fully live. Same style: what it is, where to get credentials, which env
 vars, how to verify.
 
+> **Re-confirmed current (2026-08-07).** The credential-gated integrations
+> below — 6.4 Document Intelligence/OCR, 6.7 Razorpay + WhatsApp Business API,
+> 6.9 Tally — remain accurately documented and correctly deferred (no code work
+> without the credentials). Every "seam" referenced here was re-verified to
+> still exist after the AI-scope and hardening/expansion work:
+> `lib/crm/automationEngine.ts` still has the `send_whatsapp` action case,
+> `lib/billing/appendSubscriptionEvent.ts` + `/admin/billing`,
+> `lib/sales/paymentGateway.ts` / `paymentGatewayService.ts` stubs,
+> `app/api/crm/import`, and Cloudinary uploads (`lib/upload.ts`). Env-var names
+> are unchanged and don't collide with anything added since.
+
 ---
 
 ## 1. Scheduled jobs (Cron)

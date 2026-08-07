@@ -896,3 +896,25 @@ graph (12 customers, 25 invoices, 2 vendors, 3 bills) with real stats
 late-invoice simulation produced a real weekly projection + delta and an honest
 summary. 6 pure cash-flow unit tests (including the dip case). 851 → **857**;
 `tsc`/`eslint` clean.
+
+---
+
+## Part 3 — Credential-gated modules: documentation re-confirmed current (no code)
+
+Re-verified that `SETUP_INTEGRATIONS.md` still accurately documents the four
+credential-gated integrations, with the exact credentials/env vars each needs,
+and that every referenced code "seam" survived the AI-scope + hardening/
+expansion work:
+- **6.7 Razorpay** — `RAZORPAY_KEY_ID/KEY_SECRET/WEBHOOK_SECRET`; seam
+  `lib/sales/paymentGateway*.ts` stubs + `appendSubscriptionEvent` + `/admin/billing`. ✓
+- **6.7 WhatsApp Business API** — `WHATSAPP_PHONE_NUMBER_ID/ACCESS_TOKEN/
+  BUSINESS_ACCOUNT_ID/WEBHOOK_VERIFY_TOKEN`; seam = the `send_whatsapp` action
+  in `lib/crm/automationEngine.ts` (confirmed still present after my create_task
+  fix there). ✓
+- **6.9 Tally** — XML gateway/exports, no cloud creds but needs real sample
+  exports; seam = `app/api/crm/import`. ✓
+- **6.4 Azure Document Intelligence** — `AZURE_DOC_INTELLIGENCE_ENDPOINT/KEY`;
+  Cloudinary (`lib/upload.ts`) for source files. ✓
+
+Added a dated "re-confirmed current" stamp to the top of the file. No code work
+— correctly deferred until the credentials exist.
