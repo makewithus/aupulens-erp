@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/Invoice";
@@ -16,7 +17,9 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
     const { saleOrderId } = await req.json();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     if (!saleOrderId) {
       return NextResponse.json(

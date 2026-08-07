@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Warehouse from "@/models/Warehouse";
@@ -12,7 +13,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
     const warehouses = await Warehouse.find({ tenantId })
@@ -37,7 +40,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
     const body = await req.json();

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/SaleOrder";
@@ -51,7 +52,9 @@ export async function GET(
     const { id } = await params;
 
     await connectDB();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const order = await SaleOrder.findOne({
       _id: id,
       tenantId,
@@ -88,7 +91,9 @@ export async function PATCH(
     const body = await request.json();
 
     await connectDB();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     // Backward-compatible mapping from legacy sale-order statuses.
     if (body.status) {
@@ -214,7 +219,9 @@ export async function DELETE(
     const { id } = await params;
 
     await connectDB();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     const order = await SaleOrder.findOneAndDelete({
       _id: id,

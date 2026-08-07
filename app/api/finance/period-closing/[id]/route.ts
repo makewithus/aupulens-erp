@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import PeriodClosing from "@/models/PeriodClosing";
@@ -18,7 +19,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
     const item = await PeriodClosing.findOne({ _id: id, tenantId })
@@ -50,7 +53,9 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
     const userId = (session.user as any).id;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await dbConnect();
 
@@ -129,7 +134,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
     const existing = await PeriodClosing.findOne({ _id: id, tenantId });

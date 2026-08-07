@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import BillOfMaterial from "@/models/BillOfMaterial";
@@ -14,7 +15,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const bom = await BillOfMaterial.findOne({ _id: id, tenantId })
@@ -48,7 +51,9 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
 
@@ -98,7 +103,9 @@ export async function DELETE(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
     const deleted = await BillOfMaterial.findOneAndDelete({ _id: id, tenantId });

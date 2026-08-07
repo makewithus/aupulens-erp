@@ -19,7 +19,10 @@ export async function logActivity({ activity, details, req }: LogActivityParams)
     const userAgent = req?.headers.get('user-agent') || 'unknown';
 
     await ActivityLog.create({
-      tenantId: (session.user as any).tenantId || "default-tenant",
+      // Never misattribute an activity log to the shared default-tenant bucket
+      // when the session lacks a tenant — record it as "unknown" so it's
+      // visibly anomalous rather than silently folded into a real tenant.
+      tenantId: (session.user as any).tenantId || "unknown",
       userId: session.user.id,
       userName: session.user.name,
       userEmail: session.user.email,

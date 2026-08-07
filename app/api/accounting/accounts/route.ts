@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Account from "@/models/Account";
@@ -42,7 +43,9 @@ export async function GET(request: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
     const query: any = { tenantId };
 
     const type = request.nextUrl.searchParams.get("type");
@@ -103,7 +106,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const body = await request.json();
 
@@ -119,7 +124,7 @@ export async function POST(request: Request) {
     const account = await Account.create({
       ...body,
       internal_group,
-      tenantId: session.user.tenantId || "default-tenant",
+      tenantId,
       createdBy: session.user.id,
     });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/SaleOrder";
@@ -15,7 +16,9 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "orders_trend";
     const dateRange = Number(searchParams.get("dateRange") || "30");

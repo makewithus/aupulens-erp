@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
@@ -31,7 +32,9 @@ export async function GET(request: Request) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
     const { searchParams } = new URL(request.url);
 
     // Backward-compatible default: no query params → exactly the old behavior
@@ -100,7 +103,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const body = await request.json();
 

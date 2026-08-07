@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import Shipment from '@/models/Shipment';
@@ -12,7 +13,9 @@ export async function GET(request: Request) {
 
     
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     
     // Parse URL search params
@@ -58,7 +61,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const body = await request.json();
     
     if (!body.shipmentNumber || !body.customerName || !body.origin || !body.destination || !body.freightProvider) {
@@ -88,7 +93,9 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const body = await request.json();
     const { _id, ...updateData } = body;
 
@@ -121,7 +128,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

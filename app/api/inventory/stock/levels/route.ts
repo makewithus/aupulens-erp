@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Stock from "@/models/Stock";
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest) {
     }
 
     const productIds = productIdsParam.split(",").filter(Boolean);
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     await connectDB();
 

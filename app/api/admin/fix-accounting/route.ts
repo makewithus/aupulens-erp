@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/Invoice";
 import Expense from "@/models/Expense";
@@ -15,7 +16,9 @@ export async function GET() {
     const guard = await requireMaintenanceAccess();
     if (guard.error) return guard.error;
 
-    const tenantId = (guard.session!.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(guard.session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (guard.session!.user as any).tenantId;
     await connectDB();
 
     const results = {

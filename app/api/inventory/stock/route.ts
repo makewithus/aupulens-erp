@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Stock from "@/models/Stock";
@@ -13,7 +14,9 @@ export async function GET(req: Request) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     // Aggregate stock by product
     const stockLevels = await Stock.aggregate([
@@ -61,7 +64,9 @@ export async function POST(req: Request) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const guard = await checkNegativeStockGuard(tenantId, productId, Number(quantity));
     if (guard.ok === false) {

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import JournalEntry from "@/models/JournalEntry";
 import { DOCUMENT_STATUS, VOUCHER_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import mongoose from "mongoose";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function POST(
   req: NextRequest,

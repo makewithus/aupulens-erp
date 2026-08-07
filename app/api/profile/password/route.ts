@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/db';
@@ -13,7 +14,9 @@ export async function POST(req: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const { currentPassword, newPassword } = await req.json();
 
     if (!currentPassword || !newPassword) {

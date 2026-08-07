@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
@@ -16,7 +17,9 @@ export async function GET(
 
     const { id } = await params;
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const product = await Product.findOne({
       _id: id,
@@ -50,7 +53,9 @@ export async function PATCH(
     const { id } = await params;
     await connectDB();
     const body = sanitizeProductPayload(await request.json());
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const product = await Product.findOneAndUpdate(
       { _id: id, tenantId },
@@ -99,7 +104,9 @@ export async function DELETE(
 
     const { id } = await params;
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const product = await Product.findOneAndDelete({
       _id: id,

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Payroll from "@/models/Payroll";
 import Employee from "@/models/Employee";
 import Attendance from "@/models/Attendance";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const { searchParams } = new URL(req.url);

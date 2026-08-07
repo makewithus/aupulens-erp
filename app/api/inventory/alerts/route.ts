@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryItem from '@/models/InventoryItem';
@@ -12,7 +13,9 @@ export async function GET() {
 
     
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 await connectDB();
     
     // Get all low stock items (quantity at or below reorder level)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -22,7 +23,9 @@ const MODULE = "manufacturing" as const;
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const tenantId = (session.user as any).tenantId || "default-tenant";
+  const tenantIdGuard = requireTenantId(session);
+  if (tenantIdGuard) return tenantIdGuard;
+  const tenantId = (session.user as any).tenantId;
 
   await dbConnect();
   const includeArchived = new URL(request.url).searchParams.get("includeArchived") === "true";
@@ -36,7 +39,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const tenantId = (session.user as any).tenantId || "default-tenant";
+  const tenantIdGuard = requireTenantId(session);
+  if (tenantIdGuard) return tenantIdGuard;
+  const tenantId = (session.user as any).tenantId;
 
   const { chatId, title, messages } = await request.json();
   await dbConnect();
@@ -67,7 +72,9 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const tenantId = (session.user as any).tenantId || "default-tenant";
+  const tenantIdGuard = requireTenantId(session);
+  if (tenantIdGuard) return tenantIdGuard;
+  const tenantId = (session.user as any).tenantId;
 
   const chatId = new URL(request.url).searchParams.get("chatId");
   if (!chatId) return NextResponse.json({ error: "Chat ID required" }, { status: 400 });

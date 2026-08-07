@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
@@ -15,7 +16,9 @@ export async function GET(
 
     const { id } = await params;
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const customer = await Customer.findOne({
       _id: id,
@@ -52,7 +55,9 @@ export async function PATCH(
     const { id } = await params;
     await connectDB();
     const body = await request.json();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     // Sanitize body to remove empty strings or "default" for ObjectId fields
     if (
@@ -111,7 +116,9 @@ export async function DELETE(
 
     const { id } = await params;
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const customer = await Customer.findOneAndDelete({
       _id: id,

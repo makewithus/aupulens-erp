@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Department from "@/models/Department";
@@ -16,7 +17,9 @@ export async function GET(
     }
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const department = await Department.findOne({ _id: id, tenantId })
@@ -48,7 +51,9 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const body = await req.json();
     await connectDB();
 
@@ -98,7 +103,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const department = await Department.findOneAndDelete({

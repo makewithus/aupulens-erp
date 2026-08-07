@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import StockMove from "@/models/StockMove";
@@ -21,7 +22,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const move = await StockMove.findOne({ _id: id, tenantId })
@@ -61,7 +64,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const sessionTenantId = (session.user as any).tenantId || "default-tenant";
+    const sessionTenantIdGuard = requireTenantId(session);
+    if (sessionTenantIdGuard) return sessionTenantIdGuard;
+    const sessionTenantId = (session.user as any).tenantId;
     const body = await req.json();
     await connectDB();
 
@@ -286,7 +291,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
 
     const move = await StockMove.findOneAndDelete({

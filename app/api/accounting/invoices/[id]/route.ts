@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Invoice from "@/models/Invoice";
@@ -242,7 +243,11 @@ export async function GET(
     }
 
     const user = session.user as any;
-    const tenantId = user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+
+    if (tenantIdGuard) return tenantIdGuard;
+
+    const tenantId = user.tenantId;
 
     await connectDB();
     const { id } = await params;
@@ -274,7 +279,11 @@ export async function PATCH(
     }
 
     const user = session.user as any;
-    const tenantId = user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+
+    if (tenantIdGuard) return tenantIdGuard;
+
+    const tenantId = user.tenantId;
 
     await connectDB();
     const { id } = await params;
@@ -370,7 +379,11 @@ export async function DELETE(
     }
 
     const user = session.user as any;
-    const tenantId = user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+
+    if (tenantIdGuard) return tenantIdGuard;
+
+    const tenantId = user.tenantId;
 
     await connectDB();
     const { id } = await params;

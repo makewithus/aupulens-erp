@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import Invoice from '@/models/Invoice';
@@ -11,7 +12,6 @@ import {
   type PaymentState,
 } from '@/lib/constants/statuses';
 import { assertTransactionNotLocked, TransactionLockError } from '@/lib/accounting/transactionLock';
-import { requireTenantId } from '@/lib/auth/requireTenantId';
 
 export async function PATCH(
   req: Request,

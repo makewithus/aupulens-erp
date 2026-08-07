@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import ManufacturingOrder from "@/models/ManufacturingOrder";
@@ -19,7 +20,9 @@ export async function GET(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const order = await ManufacturingOrder.findOne({ _id: id, tenantId })
       .populate("header.productId", "header.name")
@@ -44,7 +47,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
     const body = await req.json();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     await connectDB();
 
@@ -238,7 +243,9 @@ export async function DELETE(
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const deleted = await ManufacturingOrder.findOneAndDelete({ _id: id, tenantId });
     if (!deleted)

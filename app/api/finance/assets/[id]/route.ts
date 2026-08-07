@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Asset from "@/models/Asset";
@@ -21,7 +22,9 @@ export async function PATCH(
 
     const body = await req.json();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     const asset = await Asset.findOneAndUpdate(
       { _id: id, tenantId },
@@ -65,7 +68,9 @@ export async function DELETE(
     await connectDB();
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     const asset = await Asset.findOneAndDelete({ _id: id, tenantId });
 

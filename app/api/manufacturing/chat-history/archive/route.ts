@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import ChatHistory from "@/models/ChatHistory";
@@ -7,7 +8,9 @@ import ChatHistory from "@/models/ChatHistory";
 export async function PATCH(request: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const tenantId = (session.user as any).tenantId || "default-tenant";
+  const tenantIdGuard = requireTenantId(session);
+  if (tenantIdGuard) return tenantIdGuard;
+  const tenantId = (session.user as any).tenantId;
 
   const { chatId, isArchived } = await request.json();
   if (!chatId || typeof isArchived !== "boolean") {

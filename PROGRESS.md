@@ -673,3 +673,47 @@ All of A–G implemented, each with live gpt-4o/embedding verification against t
 real DB, edge cases, and per-feature commits. Full suite: **811 passing**, `tsc`
 + `eslint` clean. Kept verification scripts under `scripts/verify-*.ts` and
 `scripts/check-*.ts` as reproducible live checks.
+
+---
+
+## Part 1.1 — `|| "default-tenant"` fallback hardening (security)
+
+**The risk (your Phase 3 flag):** an authenticated session missing `tenantId`
+(a JWT/session regression) would SILENTLY read/write the shared `default-tenant`
+bucket instead of failing — a cross-tenant data hazard. A prior session hardened
+only the highest-risk Finance/HR-payroll *writes* (14 handlers); the remaining
+~200 occurrences across reads and other writes still fell back.
+
+**This pass completed the remediation:** converted **215 occurrences across 118
+files** from the silent fallback to a hard 401 via the existing
+`requireTenantId(session)` helper (returns a 401 `NextResponse` when tenantId is
+missing, else null). The transformation was scripted (guard-per-variable) with
+`tsc --noEmit` + full `eslint` + `vitest` as the safety net, then the handful of
+inline/odd cases fixed by hand.
+
+**Concrete before/after** (e.g. `GET /api/manufacturing/chat-history`):
+- *Before:* `const tenantId = session.user.tenantId || "default-tenant";` →
+  a tenantless session queries `ChatHistory.find({ tenantId: "default-tenant" })`
+  — silently returns another workspace's chats.
+- *After:*
+  ```
+  const tenantIdGuard = requireTenantId(session);
+  if (tenantIdGuard) return tenantIdGuard;   // → 401, DB never queried
+  const tenantId = session.user.tenantId;
+  ```
+
+**Deliberately left as legitimate exceptions** (documented, not changed):
+- `app/api/auth/register`, `.../password-reset/request`, `.../password-reset/confirm`
+  — **pre-authentication** flows that derive the tenant from the *request*
+  (subdomain/body/header), not a session; `DEFAULT_TENANT_ID` is the base-domain
+  default for a signup/reset with no subdomain. No session to hard-fail on.
+- `app/api/tenant/status` — a string *comparison* against `"default-tenant"`, not
+  a fallback.
+- `lib/logger.ts` — changed to log `"unknown"` (not `"default-tenant"`) so a
+  tenantless activity log is visibly anomalous rather than misattributed.
+
+**Test:** `tests/auth/requireTenantId.test.ts` (6) proves the helper 401s on a
+tenantless/empty/absent session, and — at the route level — that a converted
+route returns 401 and **never queries the DB** (no default-tenant read) when
+tenantId is missing, while a real tenant proceeds scoped correctly.
+**Tests 811 → 817**, `tsc`/`eslint` clean.

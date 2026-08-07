@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import JournalEntry from "@/models/JournalEntry";
@@ -14,7 +15,6 @@ import {
 } from "@/lib/accounting/journal-validation";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
-import { requireTenantId } from "@/lib/auth/requireTenantId";
 
 export async function GET(
   req: NextRequest,
@@ -26,7 +26,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
     const item = await JournalEntry.findOne({ _id: id, tenantId })

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { DOCUMENT_STATUS, ENTITY_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
@@ -16,7 +17,9 @@ export async function GET() {
 
     await connectDB();
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     console.log(tenantId)
 
     const [

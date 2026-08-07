@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Pricelist from "@/models/Pricelist";
@@ -15,7 +16,9 @@ export async function GET(
 
     await connectDB();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     const item = await Pricelist.findOne({
       _id: id,
@@ -51,7 +54,9 @@ export async function PATCH(
 
     await connectDB();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const body = await request.json();
 
     const item = await Pricelist.findOneAndUpdate(
@@ -89,7 +94,9 @@ export async function DELETE(
 
     await connectDB();
     const { id } = await params;
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 
     const item = await Pricelist.findOneAndDelete({
       _id: id,

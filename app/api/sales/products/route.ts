@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
@@ -22,7 +23,9 @@ export async function GET(req: any) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     // Build Filter
     const filter: any = {
@@ -105,7 +108,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const body = sanitizeProductPayload(await request.json());
 
@@ -118,7 +123,7 @@ export async function POST(request: Request) {
 
     const product = await Product.create({
       ...body,
-      tenantId: session.user.tenantId || "default-tenant",
+      tenantId,
       createdBy: session.user.id,
     });
 
@@ -129,7 +134,7 @@ export async function POST(request: Request) {
       try {
         const itemCode = body.tab_general_information?.default_code || product._id.toString();
         await InventoryItem.create({
-          tenantId: session.user.tenantId || "default-tenant",
+          tenantId,
           itemCode: itemCode,
           name: body.header.name,
           description: body.tab_general_information?.description || "",

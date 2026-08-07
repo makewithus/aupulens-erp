@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import CustomsClearance from '@/models/CustomsClearance';
@@ -12,7 +13,9 @@ export async function GET() {
 
     
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
 await connectDB();
     const clearances = await CustomsClearance.find({ tenantId }).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ clearances });
@@ -30,7 +33,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const body = await request.json();
     
     if (!body.clearanceNumber || !body.shipmentNumber || !body.customsOffice || !body.country) {

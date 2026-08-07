@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import DeliveryChallan from "@/models/DeliveryChallan";
@@ -17,7 +18,9 @@ export async function GET(
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const { id } = await params;
     await connectDB();
     const challan = await DeliveryChallan.findOne({ _id: id, tenantId }).lean();
@@ -53,7 +56,9 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const { id } = await params;
     await connectDB();
 
@@ -99,7 +104,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     const { id } = await params;
     await connectDB();
     const challan = await DeliveryChallan.findOneAndDelete({ _id: id, tenantId });

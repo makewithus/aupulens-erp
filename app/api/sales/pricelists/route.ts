@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Pricelist from "@/models/Pricelist";
@@ -11,7 +12,9 @@ export async function GET(request: Request) {
     }
 
     await connectDB();
-    const tenantId = session.user.tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = session.user.tenantId;
 
     const items = await Pricelist.find({
       tenantId,
@@ -37,7 +40,9 @@ export async function POST(request: Request) {
     }
 
 
-    const tenantId = (session.user as any).tenantId || "default-tenant";
+    const tenantIdGuard = requireTenantId(session);
+    if (tenantIdGuard) return tenantIdGuard;
+    const tenantId = (session.user as any).tenantId;
     await connectDB();
     const body = await request.json();
 
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
 
     const item = await Pricelist.create({
       ...body,
-      tenantId: session.user.tenantId || "default-tenant",
+      tenantId,
     });
 
     return NextResponse.json({ item }, { status: 201 });
