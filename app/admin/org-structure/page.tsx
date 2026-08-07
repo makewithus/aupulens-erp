@@ -43,7 +43,7 @@ export default function OrgStructurePage() {
     fetch("/api/org/units").then((r) => r.json()).then((d) => {
       if (d.success) { setTree(d.data.tree); setUnits(d.data.units); }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   };
   useEffect(load, []);
 

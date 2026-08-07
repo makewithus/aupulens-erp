@@ -25,7 +25,8 @@ export default function MarketplacePage() {
     setLoading(true);
     fetch(`/api/marketplace${filter ? `?category=${filter}` : ""}`)
       .then((r) => r.json())
-      .then((d) => { if (d.success) setPackages(d.data); setLoading(false); });
+      .then((d) => { if (d.success) setPackages(d.data); setLoading(false); })
+      .catch(() => setLoading(false));
   };
   useEffect(load, [filter]);
 

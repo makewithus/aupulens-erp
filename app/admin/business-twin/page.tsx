@@ -26,7 +26,7 @@ export default function BusinessTwinPage() {
     fetch("/api/twin").then((r) => r.json()).then((d) => {
       if (d.success) { setData(d.data); if (d.data.receivables[0]) setInvoiceId(d.data.receivables[0].id); }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   const { nodes, edges } = useMemo(() => {

@@ -980,3 +980,24 @@ lacked role-gating that matched their pages. Fixed:
   — their pages are admin-only / their actions mutate config, but the APIs sat
   outside the `/api/admin` middleware prefix, so a non-admin could have called
   them directly. Now 403 for non-admins.
+
+## Part C — Cross-feature interaction spot-checks (`scripts/verify-cross-feature.ts`)
+
+- **C1 — AI kill-switch ON:** with `settings.ai.disabled=true`, all four AI
+  paths degraded cleanly, none threw — Lead scoring → deterministic 45
+  (aiUsed=false); Command Center → gated `AI_DISABLED`; Calendar AI conflicts →
+  deterministic summary (aiUsed=false); RAG → gated, no throw. **PASS.**
+- **C2 — global cap on a NEW AI site:** forcing `AI_GLOBAL_MONTHLY_CAP` to the
+  current platform count gated the Calendar conflict-prioritisation call (a site
+  added after the cap was built); it fell back to the deterministic summary.
+  **PASS** — the cap covers the new call sites.
+- **C3 — tenant-guard 401 in the UI:** a `requireTenantId` 401 returns a clean
+  JSON body, and every new page ends its loading state OUTSIDE the `if (d.success)`
+  guard, so a 401 shows the empty state, not an infinite spinner or crash. Added
+  `.catch(() => setLoading(false))` to Business Twin / Org Structure / Marketplace
+  (Print-Format Builder already uses try/finally; Calendar already had .catch) so
+  even a hard network failure degrades to the empty state. **PASS.**
+- **C4 — marketplace install round-trip:** installing a workflow package created
+  a real, **editable, disabled** `CrmAutomationRule` that appears in the
+  automations list query (the same source the Visual Builder / rule list read).
+  **PASS.**
