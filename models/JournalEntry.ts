@@ -121,6 +121,7 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
 JournalEntrySchema.index({ "header.name": 1, tenantId: 1 }, { unique: true });
 JournalEntrySchema.index({ voucherType: 1, tenantId: 1 });
 JournalEntrySchema.index({ voucherStatus: 1, tenantId: 1 });
+JournalEntrySchema.index({ tenantId: 1, createdAt: -1 });
 
 const JournalEntry: Model<IJournalEntry> =
   (mongoose.models.JournalEntry as Model<IJournalEntry>) ||

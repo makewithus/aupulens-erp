@@ -98,6 +98,7 @@ const PaymentSchema = new Schema<IPayment>(
 PaymentSchema.index({ tenantId: 1, paymentNumber: 1 }, { unique: true });
 PaymentSchema.index({ tenantId: 1, customerId: 1 });
 PaymentSchema.index({ tenantId: 1, status: 1 });
+PaymentSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Payment: Model<IPayment> =
   (mongoose.models.Payment as Model<IPayment>) || mongoose.model<IPayment>("Payment", PaymentSchema);

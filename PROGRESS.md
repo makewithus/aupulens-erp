@@ -1038,3 +1038,36 @@ custom-form designer (part of 10) are functional-but-basic (🟡).
 and `TESTING.md` (click-by-click walkthrough).
 
 **Desktop client: not touched this pass** (parked by instruction).
+
+## Post-QA fixes (2026-08-07) — crash, AI quality, streaming, UI, performance
+
+Reported by the test team. Fixed:
+
+1. **ChatHistory 500 crash** — admin/finance/hr chat-history POST created records
+   without the schema-required `module` + `conversationId`; sales/inventory
+   chat-history routes didn't exist (404). All six now stamp both; sales/inventory
+   routes created.
+2. **AI response quality** ("partnerId: 6a4a…" garbage) — `lib/ai/sanitizeContext`
+   strips internal IDs/ObjectIds + caps arrays before any data reaches a prompt;
+   all module assistants now send sanitized aggregate context and the prompts
+   distinguish DATA vs HOW-TO questions and forbid printing IDs/raw JSON.
+   Live-verified "how to create a lead" now returns clean numbered steps, zero
+   leaked IDs.
+3. **Streaming responses (ChatGPT-style)** — `callClaudeStream` +
+   `callClaudeForTenantStream` (gating up front, usage counted after completion);
+   admin ai-assistant route streams on `{stream:true}`; AiSidebar + admin page
+   render token-by-token (verified 30 incremental chunks live).
+4. **UI** — removed the useless Copy/Retry buttons; bumped the tiny 12.5–13px
+   fonts to 14–15px for readability.
+5. **Performance** — the real system-wide slowness was **missing compound
+   indexes**: list queries filter by tenantId + sort by createdAt/invoiceDate but
+   several heavy models (SalesInvoice, accounting Invoice, JournalEntry, Employee,
+   Customer, Payment, InventoryItem) lacked `{tenantId, <sortField>: -1}`, forcing
+   full-collection scans + in-memory sorts. Added them (+ fixed InventoryItem's
+   cross-tenant bare `{status}`/`{category}` indexes). **Verified via `.explain()`:
+   a CrmLead list over 5001 docs now does an IXSCAN examining only the 20 rows it
+   returns (was scanning all 5001).** Also bounded the CRM lead/contact create
+   dedup query (was fetching every lead in the tenant on each create) to a
+   targeted, capped candidate set.
+
+Tests 868 → 873; `tsc`/`eslint` clean.

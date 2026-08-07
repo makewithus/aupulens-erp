@@ -57,8 +57,11 @@ const InventoryItemSchema: Schema<IInventoryItem> = new Schema(
 );
 
 InventoryItemSchema.index({ tenantId: 1, itemCode: 1 }, { unique: true });
-InventoryItemSchema.index({ status: 1 });
-InventoryItemSchema.index({ category: 1 });
+// Perf: compound with tenantId (the bare status/category indexes were
+// cross-tenant — a scan of every tenant's items) + a newest-first list index.
+InventoryItemSchema.index({ tenantId: 1, status: 1 });
+InventoryItemSchema.index({ tenantId: 1, category: 1 });
+InventoryItemSchema.index({ tenantId: 1, createdAt: -1 });
 
 const InventoryItem =
   (mongoose.models?.InventoryItem as mongoose.Model<IInventoryItem>) ||

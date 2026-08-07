@@ -215,6 +215,7 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
 
 CustomerSchema.index({ "header.name": 1 });
 CustomerSchema.index({ tenantId: 1, "header.displayName": 1 });
+CustomerSchema.index({ tenantId: 1, createdAt: -1 });
 
 // Keep the legacy header.name populated for any existing consumer (invoice PDFs,
 // popups, etc.) that never learned about displayName.

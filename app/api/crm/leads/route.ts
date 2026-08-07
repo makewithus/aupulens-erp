@@ -67,10 +67,17 @@ export async function POST(req: NextRequest) {
     // Fuzzy duplicate detection (name/email/phone similarity) — skipped when
     // the caller has already confirmed via the "Create anyway" dialog.
     if (!body.confirmDuplicate) {
-      const candidates = await CrmLead.find(
-        { tenantId: session.user.tenantId },
-        "lead_name email phone company_name",
-      ).lean();
+      // Perf: don't scan every lead in the tenant (could be thousands). Fetch a
+      // bounded, targeted candidate set — anything sharing the new lead's email,
+      // phone or company (the fields dedup actually compares), plus the most
+      // recent leads as a fallback net — capped so create stays fast.
+      const or: any[] = [];
+      if (body.email) or.push({ email: body.email });
+      if (body.phone) or.push({ phone: body.phone });
+      if (body.company_name) or.push({ company_name: body.company_name });
+      const candidates = or.length
+        ? await CrmLead.find({ tenantId: session.user.tenantId, $or: or }, "lead_name email phone company_name").limit(50).lean()
+        : await CrmLead.find({ tenantId: session.user.tenantId }, "lead_name email phone company_name").sort({ createdAt: -1 }).limit(50).lean();
       const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Lead");
       if (fuzzyMatches.length > 0) {
         const matches = fuzzyMatches.map((m) => ({

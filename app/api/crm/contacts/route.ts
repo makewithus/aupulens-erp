@@ -76,10 +76,13 @@ export async function POST(req: NextRequest) {
     // Fuzzy duplicate detection (name/email/phone similarity) — skipped when
     // the caller has already confirmed via the "Create anyway" dialog.
     if (!body.confirmDuplicate) {
-      const candidates = await CrmContact.find(
-        { tenantId: session.user.tenantId },
-        "first_name last_name email phone",
-      ).lean();
+      // Perf: bounded, targeted candidate set instead of scanning every contact.
+      const or: any[] = [];
+      if (body.email) or.push({ email: body.email });
+      if (body.phone) or.push({ phone: body.phone });
+      const candidates = or.length
+        ? await CrmContact.find({ tenantId: session.user.tenantId, $or: or }, "first_name last_name email phone").limit(50).lean()
+        : await CrmContact.find({ tenantId: session.user.tenantId }, "first_name last_name email phone").sort({ createdAt: -1 }).limit(50).lean();
       const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Contact");
       if (fuzzyMatches.length > 0) {
         const matches = fuzzyMatches.map((m) => ({

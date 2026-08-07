@@ -227,6 +227,7 @@ EmployeeSchema.index({ tenantId: 1, employeeCode: 1 }, { unique: true });
 EmployeeSchema.index({ tenantId: 1, email: 1 });
 EmployeeSchema.index({ tenantId: 1, departmentId: 1 });
 EmployeeSchema.index({ tenantId: 1, lifecycleStatus: 1 });
+EmployeeSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Employee: Model<IEmployee> =
   (mongoose.models.Employee as Model<IEmployee>) ||

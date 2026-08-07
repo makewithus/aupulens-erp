@@ -184,6 +184,9 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
 
 // Enforce unique invoice number per tenant
 SalesInvoiceSchema.index({ tenantId: 1, number: 1 }, { unique: true });
+// Perf: list queries filter by tenant and sort newest-first (invoiceDate, createdAt).
+SalesInvoiceSchema.index({ tenantId: 1, invoiceDate: -1, createdAt: -1 });
+SalesInvoiceSchema.index({ tenantId: 1, status: 1 });
 
 export const SalesInvoice =
   mongoose.models.SalesInvoice || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);

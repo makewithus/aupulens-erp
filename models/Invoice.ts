@@ -140,6 +140,7 @@ InvoiceSchema.index({ tenantId: 1, moveType: 1 });
 InvoiceSchema.index({ tenantId: 1, state: 1 });
 InvoiceSchema.index({ tenantId: 1, paymentState: 1 });
 InvoiceSchema.index({ tenantId: 1, moveType: 1, state: 1 });
+InvoiceSchema.index({ tenantId: 1, invoiceDate: -1, createdAt: -1 });
 InvoiceSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Invoice: Model<IInvoice> =

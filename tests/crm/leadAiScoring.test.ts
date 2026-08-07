@@ -45,7 +45,12 @@ vi.mock("@/lib/crm/ai/duplicateAssistant", () => ({
 vi.mock("@/models/crm/Lead", () => ({
   default: {
     findOne: mockLeadFindOne,
-    find: (...args: any[]) => { mockLeadFind(...args); return { lean: () => Promise.resolve([]) }; },
+    // Chainable stub: the dedup candidate query now uses .sort()/.limit()/.lean().
+    find: (...args: any[]) => {
+      mockLeadFind(...args);
+      const chain: any = { sort: () => chain, limit: () => chain, lean: () => Promise.resolve([]) };
+      return chain;
+    },
     create: mockLeadCreate,
   },
 }));
