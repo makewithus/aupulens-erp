@@ -6,15 +6,19 @@ import SaleOrder from '@/models/SaleOrder';
 import SalesQuotation from '@/models/SalesQuotation';
 import DeliveryChallan from '@/models/DeliveryChallan';
 import { type ChatTurn } from '@/lib/ai/claude';
-import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
+import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
+import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
+    const role = (session?.user as any)?.role;
 
-    if (!session || session.user?.role !== 'sales') {
+    // The assistant page admits both `sales` and `admin` — the API must match,
+    // otherwise an admin viewing the page gets a 401 on every message.
+    if (!session || (role !== 'sales' && role !== 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -24,7 +28,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId: incomingConversationId } = body;
+    // Accept both `message` and the legacy `query` key the page used to send.
+    const message: string | undefined = body.message ?? body.query;
+    const incomingConversationId: string | undefined = body.conversationId;
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -35,17 +41,68 @@ export async function POST(request: NextRequest) {
     const conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    // Restore prior turns for multi-turn context
-    const existingHistory = await ChatHistory.findOne(
-      { tenantId, conversationId },
-      { messages: 1 }
-    ).lean();
-    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
-      (m: any) => ({ role: m.role, content: m.content })
-    );
+    // Prior turns for multi-turn context: prefer client-supplied history (the
+    // assistant page owns persistence via /api/sales/chat-history), otherwise
+    // restore from the DB by conversationId for any other caller.
+    let priorTurns: ChatTurn[] = [];
+    if (Array.isArray(body.history) && body.history.length > 0) {
+      priorTurns = body.history
+        .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+        .map((m: any) => ({ role: m.role, content: m.content }));
+    } else {
+      const existingHistory = await ChatHistory.findOne(
+        { tenantId, conversationId },
+        { messages: 1 }
+      ).lean();
+      priorTurns = (existingHistory?.messages ?? []).map(
+        (m: any) => ({ role: m.role, content: m.content })
+      );
+    }
 
     const data = await fetchSalesData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const { prompt, systemPrompt, maxTokens } = buildSalesPrompt(message, data);
+
+    // Streaming path — the client reads the body incrementally for an instant
+    // feel and persists the conversation itself (no server-side double-save).
+    if (body.stream) {
+      const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, prompt, {
+        systemPrompt,
+        maxTokens,
+        history: priorTurns,
+      });
+      if (!("stream" in streamRes)) {
+        return NextResponse.json(
+          { error: streamRes.error, code: streamRes.code, currentTier: streamRes.currentTier, requiredAction: streamRes.requiredAction },
+          { status: 403 },
+        );
+      }
+      const encoder = new TextEncoder();
+      let full = "";
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const delta of streamRes.stream) {
+              full += delta;
+              controller.enqueue(encoder.encode(delta));
+            }
+          } catch {
+            // Model errored mid-stream — fall back to a deterministic summary.
+            if (!full) controller.enqueue(encoder.encode(generateSimpleResponse(message, data)));
+          } finally {
+            controller.close();
+          }
+        },
+      });
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "x-conversation-id": conversationId,
+        },
+      });
+    }
+
     const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
@@ -155,14 +212,10 @@ type GenerateResult =
   | { gated: false; text: string }
   | { gated: true; error: string; code: string; currentTier?: string; requiredAction?: string };
 
-async function generateResponse(
-  message: string,
-  data: any,
-  priorTurns: ChatTurn[],
-  tenantId: string,
-  tier: string,
-  aiSettings: Parameters<typeof callClaudeForTenant>[2]
-): Promise<GenerateResult> {
+// Single source of truth for the prompt so the streaming and non-streaming
+// paths produce identical-quality answers. Not exported — route files may only
+// export HTTP handlers.
+function buildSalesPrompt(message: string, data: any) {
   const prompt = `You are an expert sales AI assistant for an ERP system.
 
 User Question: "${message}"
@@ -177,14 +230,28 @@ Instructions:
 4. Use bullet points for clarity. Be concise but complete.
 5. If data is missing or insufficient, say so clearly.`;
 
-  const opts = {
-    systemPrompt: "You are a precise sales analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.",
+  return {
+    prompt,
+    systemPrompt:
+      "You are a precise sales analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
     maxTokens: 1024,
   };
+}
+
+async function generateResponse(
+  message: string,
+  data: any,
+  priorTurns: ChatTurn[],
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+): Promise<GenerateResult> {
+  const { prompt, systemPrompt, maxTokens } = buildSalesPrompt(message, data);
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      ...opts,
+      systemPrompt,
+      maxTokens,
       history: priorTurns,
     });
     if ("text" in result) {

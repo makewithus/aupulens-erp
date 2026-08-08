@@ -257,7 +257,6 @@ export default function OrdersPage() {
         if (d.number) setNewOrder((prev) => ({ ...prev, orderNumber: d.number }));
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAddDialogOpen]);
 
   const handleCreateOrder = async (e: React.FormEvent) => {

@@ -311,7 +311,14 @@ export default auth(async (req) => {
   // available to ANY authenticated user (data is role-scoped inside each route).
   // Without this, these unmatched top-level routes would render their shell for
   // an unauthenticated visitor (the API calls 401, leaving a blank/loading page).
-  if (pathname.startsWith("/calendar") || pathname.startsWith("/marketplace")) {
+  if (
+    pathname.startsWith("/calendar") ||
+    pathname.startsWith("/marketplace") ||
+    pathname.startsWith("/migration") ||
+    pathname.startsWith("/integrations") ||
+    pathname.startsWith("/document-intelligence") ||
+    pathname.startsWith("/studio")
+  ) {
     if (!user) {
       return handleUnauthorized(isApiRoute, "/auth");
     }

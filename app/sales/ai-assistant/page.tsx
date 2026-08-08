@@ -11,6 +11,7 @@ import { Send, Trash2, Archive, Plus, MessageSquare, Mic } from 'lucide-react';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { toast } from 'sonner';
 
 interface Message {
@@ -46,6 +47,7 @@ export default function SalesAIAssistant() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -57,7 +59,14 @@ export default function SalesAIAssistant() {
   }, [status, router, session]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-follow the stream when the user is already near the bottom —
+    // otherwise scrolling up to re-read is impossible while tokens arrive.
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+    if (nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -84,41 +93,21 @@ export default function SalesAIAssistant() {
     }
   };
 
-  const saveCurrentChat = async () => {
-    if (!currentChatId || messages.length === 0) return;
-
+  const loadChat = (chat: ChatHistoryItem) => {
+    // No success toast on load — only surface a failure if it can't be opened.
     try {
-      const chatMessages = messages.map(msg => ({
+      if (!chat || !Array.isArray(chat.messages)) throw new Error('Chat not found');
+      const loadedMessages: Message[] = chat.messages.map((msg, idx) => ({
+        id: `${chat._id}-${idx}`,
         role: msg.role,
         content: msg.content,
-        timestamp: msg.timestamp
+        timestamp: new Date(msg.timestamp)
       }));
-
-      await fetch('/api/sales/chat-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: currentChatId,
-          messages: chatMessages
-        })
-      });
-    } catch (error) {
-      console.error('Error saving chat:', error);
+      setMessages(loadedMessages);
+      setCurrentChatId(chat._id);
+    } catch {
+      toast.error('Failed to load chat', { description: 'This conversation could not be opened.' });
     }
-  };
-
-  const loadChat = (chat: ChatHistoryItem) => {
-    const loadedMessages: Message[] = chat.messages.map((msg, idx) => ({
-      id: `${chat._id}-${idx}`,
-      role: msg.role,
-      content: msg.content,
-      timestamp: new Date(msg.timestamp)
-    }));
-    setMessages(loadedMessages);
-    setCurrentChatId(chat._id);
-    toast.success('Chat loaded', {
-      description: `Loaded chat: ${chat.title}`
-    });
   };
 
   const deleteChat = async (chatId: string, event: React.MouseEvent) => {
@@ -213,57 +202,78 @@ export default function SalesAIAssistant() {
     setIsLoading(true);
 
     try {
+      // Prior conversation (this render's messages, before the new turn) is
+      // sent for multi-turn context.
+      const priorTurns = messages
+        .filter(m => !m.isLoading && m.content)
+        .map(m => ({ role: m.role, content: m.content }));
+
       const response = await fetch('/api/sales/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userInputText })
+        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns })
       });
 
-      const data = await response.json();
+      // Gated / error — surface the server's message instead of a blank reply.
+      if (!response.ok || !response.body) {
+        let msg = 'I apologize, but I encountered an error processing your request.';
+        try { const j = await response.json(); if (j?.error) msg = j.error; } catch { /* not json */ }
+        setMessages(prev => prev.filter(m => !m.isLoading).concat({
+          id: (Date.now() + 1).toString(), role: 'assistant', content: msg, timestamp: new Date(),
+        }));
+        toast.error('Failed to get response. Please try again.');
+        return;
+      }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.response || 'I apologize, but I encountered an error processing your request.',
-        timestamp: new Date()
-      };
+      // Stream deltas into a single live assistant bubble for an instant feel.
+      const assistantId = (Date.now() + 1).toString();
+      setMessages(prev => prev.filter(m => !m.isLoading).concat({
+        id: assistantId, role: 'assistant', content: '', timestamp: new Date(),
+      }));
 
-      setMessages(prev => prev.filter(msg => !msg.isLoading).concat(assistantMessage));
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let streamed = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        streamed += decoder.decode(value, { stream: true });
+        const current = streamed;
+        setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content: current } : m)));
+      }
+      const finalText = streamed.trim() || 'I apologize, but I encountered an error processing your request.';
+      setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content: finalText } : m)));
 
+      // Persist via the chat-history CRUD route (single source of truth).
       if (isFirstMessage) {
         const title = userInputText.slice(0, 50).toUpperCase();
         const newMessages = [
-          {
-            role: 'user' as const,
-            content: userInputText,
-            timestamp: userMessage.timestamp
-          },
-          {
-            role: 'assistant' as const,
-            content: data.response,
-            timestamp: assistantMessage.timestamp
-          }
+          { role: 'user' as const, content: userInputText, timestamp: userMessage.timestamp },
+          { role: 'assistant' as const, content: finalText, timestamp: new Date() },
         ];
-
         const saveResponse = await fetch('/api/sales/chat-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            messages: newMessages
-          })
+          body: JSON.stringify({ title, messages: newMessages }),
         });
-
         if (saveResponse.ok) {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
           await fetchChatHistory();
-          toast.success('Chat saved', {
-            description: 'New conversation started and saved.'
-          });
         }
-      } else {
-        setTimeout(() => saveCurrentChat(), 500);
+      } else if (currentChatId) {
+        // Rebuild the full transcript explicitly (avoids stale-closure saves).
+        const allMessages = [
+          ...priorTurns.map((m, i) => ({ role: m.role, content: m.content, timestamp: messages[i]?.timestamp || new Date() })),
+          { role: 'user' as const, content: userInputText, timestamp: userMessage.timestamp },
+          { role: 'assistant' as const, content: finalText, timestamp: new Date() },
+        ];
+        await fetch('/api/sales/chat-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
+        });
+        await fetchChatHistory();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -296,8 +306,8 @@ export default function SalesAIAssistant() {
         onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
         profileHref="/sales/profile"
       >
-        <div className="flex h-[calc(100vh-8rem)] gap-4 bg-gradient-to-br from-gray-950 via-black to-gray-900 p-4">
-          <div className="w-64 border-r border-gray-800 pr-4 space-y-2">
+        <div className="flex h-[calc(100vh-8rem)] gap-4 bg-background p-4">
+          <div className="w-64 border-r border-border pr-4 space-y-2">
             <ShimmerSkeleton className="h-10 w-full" />
             <ShimmerSkeleton className="h-16 w-full" />
             <ShimmerSkeleton className="h-16 w-full" />
@@ -330,11 +340,11 @@ export default function SalesAIAssistant() {
     >
       <div className="flex h-[calc(100vh-8rem)] ">
         {/* Chat History Sidebar */}
-        <div className="w-64 border-r border-gray-800 bg-gray-950/30 backdrop-blur-sm flex flex-col">
-          <div className="p-4 border-b border-gray-800 flex-shrink-0">
+        <div className="w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+          <div className="p-4 border-b border-border flex-shrink-0">
             <Button 
               onClick={startNewChat}
-              className="w-full bg-blue-800"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Chat
@@ -344,7 +354,7 @@ export default function SalesAIAssistant() {
           <div className="flex-1 overflow-y-auto">
             {/* Recent Chats */}
             <div className="p-3">
-              <h3 className="text-xs font-semibold text-gray-400 mb-2 flex items-center">
+              <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center">
                 <MessageSquare className="w-3 h-3 mr-1" />
                 Recent Chats
               </h3>
@@ -353,23 +363,23 @@ export default function SalesAIAssistant() {
                   <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : chatHistory.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">No chat history yet</p>
+                <p className="text-xs text-muted-foreground text-center py-4">No chat history yet</p>
               ) : (
                 <div className="space-y-1">
                   {chatHistory.map((chat) => (
                     <div
                       key={chat._id}
                       onClick={() => loadChat(chat)}
-                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-gray-800/50 ${
-                        currentChatId === chat._id ? 'bg-gray-800/70 ring-1 ring-blue-500/50' : ''
+                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-muted ${
+                        currentChatId === chat._id ? 'bg-muted ring-1 ring-primary/40' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-300 truncate" title={chat.title}>
+                          <p className="text-xs font-medium text-foreground truncate" title={chat.title}>
                             {chat.title}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(chat.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -377,7 +387,7 @@ export default function SalesAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400"
                             onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)}
                             title="Archive"
                           >
@@ -386,7 +396,7 @@ export default function SalesAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400"
                             onClick={(e) => deleteChat(chat._id, e)}
                             disabled={deletingChatId === chat._id}
                             title="Delete"
@@ -407,8 +417,8 @@ export default function SalesAIAssistant() {
 
             {/* Archived Chats */}
             {archivedChats.length > 0 && (
-              <div className="p-3 border-t border-gray-800">
-                <h3 className="text-xs font-semibold text-gray-400 mb-2 flex items-center">
+              <div className="p-3 border-t border-border">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center">
                   <Archive className="w-3 h-3 mr-1" />
                   Archived Chats
                 </h3>
@@ -417,16 +427,16 @@ export default function SalesAIAssistant() {
                     <div
                       key={chat._id}
                       onClick={() => loadChat(chat)}
-                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-gray-800/50 ${
-                        currentChatId === chat._id ? 'bg-gray-800/70 ring-1 ring-blue-500/50' : ''
+                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-muted ${
+                        currentChatId === chat._id ? 'bg-muted ring-1 ring-primary/40' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-400 truncate" title={chat.title}>
+                          <p className="text-xs font-medium text-muted-foreground truncate" title={chat.title}>
                             {chat.title}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(chat.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -434,7 +444,7 @@ export default function SalesAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400"
                             onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)}
                             title="Restore"
                           >
@@ -443,7 +453,7 @@ export default function SalesAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400"
                             onClick={(e) => deleteChat(chat._id, e)}
                             disabled={deletingChatId === chat._id}
                             title="Delete"
@@ -467,21 +477,21 @@ export default function SalesAIAssistant() {
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Chat Title Header */}
-          <div className="p-4 border-b border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">
-            <h2 className="text-xl font-bold text-gray-200">
+          <div className="p-4 border-b border-border bg-card/50 backdrop-blur-sm flex-shrink-0">
+            <h2 className="text-xl font-bold text-foreground">
               {currentChatId ? chatHistory.find(c => c._id === currentChatId)?.title || 'Sales AI Assistant' : 'Sales AI Assistant'}
             </h2>
           </div>
 
           {/* Messages Area with Scroll */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-16 h-16 rounded-full  flex items-center justify-center mb-4">
                   <MessageSquare className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-200 mb-2">Sales AI Assistant</h2>
-                <p className="text-gray-400 max-w-md">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Sales AI Assistant</h2>
+                <p className="text-muted-foreground max-w-md">
                   Ask me anything about your orders, revenue, products, quotations, or sales reports.
                 </p>
               </div>
@@ -492,34 +502,31 @@ export default function SalesAIAssistant() {
                   className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4" />
                     </div>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-none px-4 py-3 ${
+                    className={`max-w-[70%] rounded-lg px-4 py-3 ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                        : 'bg-gray-800/50 text-gray-100 backdrop-blur-sm'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
                     }`}
                   >
                     {message.isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
                         <span className="text-sm">Thinking...</span>
                       </div>
+                    ) : message.role === 'assistant' ? (
+                      <AiMarkdown content={message.content} />
                     ) : (
-                      <div className="prose prose-invert max-w-none">
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">{message.content}</p>
-                      </div>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">{message.content}</p>
                     )}
-                    <p className="text-xs opacity-70 mt-2">
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
                   </div>
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium text-gray-200">
+                    <div className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center shrink-0">
+                      <span className="text-sm font-medium">
                         {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                       </span>
                     </div>
@@ -531,7 +538,7 @@ export default function SalesAIAssistant() {
           </div>
 
           {/* Input at Bottom */}
-          <div className="p-4 border-t border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">
+          <div className="p-4 border-t border-border bg-card/50 backdrop-blur-sm flex-shrink-0">
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <Textarea
@@ -539,15 +546,14 @@ export default function SalesAIAssistant() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask me about orders, revenue, products, quotations, sales reports..."
-                  className="min-h-[60px] max-h-[200px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 pr-10"
-                  disabled={isLoading}
+                  placeholder="Ask Anything"
+                  className="min-h-[60px] max-h-[200px] resize-none bg-background border-border text-foreground placeholder:text-muted-foreground pr-10"
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="absolute right-2 bottom-2 h-8 w-8 p-0 text-gray-400 hover:text-gray-300"
+                  className="absolute right-2 bottom-2 h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                   disabled={isLoading}
                 >
                   <Mic className="w-4 h-4" />
@@ -556,7 +562,7 @@ export default function SalesAIAssistant() {
               <Button 
                 type="submit" 
                 disabled={isLoading || !input.trim()}
-                className="h-[60px] px-6 bg-blue-800"
+                className="h-[60px] px-6 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -565,7 +571,7 @@ export default function SalesAIAssistant() {
                 )}
               </Button>
             </form>
-            <div className="text-xs text-gray-600 text-center mt-2">
+            <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for Sales • Powered by Aupulens
             </div>
           </div>

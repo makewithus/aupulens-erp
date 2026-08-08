@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmContact from "@/models/crm/Contact";
 import { requireRole } from "@/lib/crm/rbac";
-import { detectDuplicatesWithAi } from "@/lib/crm/ai/duplicateAssistant";
 import { escapeRegex } from "@/lib/utils/regex";
 
 export async function GET(req: NextRequest) {
@@ -62,37 +61,15 @@ export async function POST(req: NextRequest) {
 
     if (!body.first_name) return NextResponse.json({ success: false, message: "First name is required" }, { status: 400 });
 
+    // Fast, indexed exact-duplicate guard (email/phone) — one quick lookup, no AI.
     if (body.email || body.phone) {
       const orConditions: any[] = [];
       if (body.email) orConditions.push({ email: body.email });
       if (body.phone) orConditions.push({ phone: body.phone });
 
-      const duplicate = await CrmContact.findOne({ tenantId: session.user.tenantId, $or: orConditions });
+      const duplicate = await CrmContact.findOne({ tenantId: session.user.tenantId, $or: orConditions }).lean();
       if (duplicate) {
         return NextResponse.json({ success: false, duplicate: true, matches: [duplicate] }, { status: 409 });
-      }
-    }
-
-    // Fuzzy duplicate detection (name/email/phone similarity) — skipped when
-    // the caller has already confirmed via the "Create anyway" dialog.
-    if (!body.confirmDuplicate) {
-      // Perf: bounded, targeted candidate set instead of scanning every contact.
-      const or: any[] = [];
-      if (body.email) or.push({ email: body.email });
-      if (body.phone) or.push({ phone: body.phone });
-      const candidates = or.length
-        ? await CrmContact.find({ tenantId: session.user.tenantId, $or: or }, "first_name last_name email phone").limit(50).lean()
-        : await CrmContact.find({ tenantId: session.user.tenantId }, "first_name last_name email phone").sort({ createdAt: -1 }).limit(50).lean();
-      const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Contact");
-      if (fuzzyMatches.length > 0) {
-        const matches = fuzzyMatches.map((m) => ({
-          ...m,
-          record: candidates.find((c: any) => String(c._id) === String(m.recordId)),
-        }));
-        return NextResponse.json(
-          { success: false, duplicate: true, fuzzy: true, matches },
-          { status: 409 },
-        );
       }
     }
 

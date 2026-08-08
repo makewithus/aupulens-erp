@@ -88,7 +88,7 @@ export default function BusinessTwinPage() {
         <div className="flex items-end gap-3 flex-wrap">
           <label className="text-xs">
             <span className="block text-muted-foreground mb-1">Invoice</span>
-            <select value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} className="text-sm border rounded px-2 py-1.5 bg-transparent min-w-[180px]">
+            <select value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} className="text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground min-w-[180px] [&>option]:bg-background [&>option]:text-foreground">
               {data?.receivables?.map((r: any) => <option key={r.id} value={r.id}>{r.label || r.id} · {r.amount}</option>)}
             </select>
           </label>

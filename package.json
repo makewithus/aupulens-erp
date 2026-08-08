@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "build:local": "cross-env NEXT_DIST_DIR=.next-build next build",
+    "start:local": "cross-env NEXT_DIST_DIR=.next-build next start",
     "lint": "eslint",
     "test": "vitest run",
     "check:model-health": "npx tsx scripts/check-model-health.ts",
@@ -14,10 +16,10 @@
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "electron": "electron .",
     "electron:dev": "concurrently \"cross-env NODE_ENV=development next dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "cross-env ELECTRON_BUILD=true next build && electron-builder",
-    "electron:build:win": "cross-env ELECTRON_BUILD=true next build && electron-builder --win",
-    "electron:build:mac": "cross-env ELECTRON_BUILD=true next build && electron-builder --mac",
-    "electron:build:linux": "cross-env ELECTRON_BUILD=true next build && electron-builder --linux"
+    "electron:build": "cross-env ELECTRON_BUILD=true NEXT_DIST_DIR=.next-build next build && electron-builder",
+    "electron:build:win": "cross-env ELECTRON_BUILD=true NEXT_DIST_DIR=.next-build next build && electron-builder --win",
+    "electron:build:mac": "cross-env ELECTRON_BUILD=true NEXT_DIST_DIR=.next-build next build && electron-builder --mac",
+    "electron:build:linux": "cross-env ELECTRON_BUILD=true NEXT_DIST_DIR=.next-build next build && electron-builder --linux"
   },
   "build": {
     "appId": "com.aupulens.erp",

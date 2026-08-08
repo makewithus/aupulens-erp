@@ -1,6 +1,8 @@
 'use client';
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { AiTextarea } from "@/components/ai/AiTextarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
@@ -96,6 +98,26 @@ export default function LeadsPage() {
     const timer = setTimeout(() => fetchLeads(), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // AI-native pre-fill: if the assistant prepared a lead, open the form with the
+  // extracted values pre-filled and surface its suggestions. The user still
+  // reviews and clicks "Create Lead".
+  useEffect(() => {
+    const p = consumePrefill("lead");
+    if (!p) return;
+    setForm((prev) => {
+      const next: any = { ...prev };
+      for (const k of Object.keys(EMPTY_FORM)) {
+        const v = (p.data as any)?.[k];
+        if (v !== undefined && v !== null && v !== "") next[k] = String(v);
+      }
+      return next;
+    });
+    setSheetOpen(true);
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+    }
+  }, []);
 
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -469,11 +491,12 @@ export default function LeadsPage() {
             {/* Notes */}
             <div className="space-y-1.5">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any additional context about this lead..."
+              <AiTextarea
+                label="Lead notes"
+                aiContext={{ lead_name: form.lead_name, company_name: form.company_name, industry: form.industry }}
+                placeholder="Any additional context about this lead... (AI will suggest — press Tab to accept)"
                 value={form.notes}
-                onChange={(e) => set("notes", e.target.value)}
+                onValueChange={(v) => set("notes", v)}
                 rows={3}
                 disabled={submitting}
               />

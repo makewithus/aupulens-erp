@@ -9,6 +9,7 @@ import TenantInitializer from "@/components/providers/TenantInitializer";
 import TenantWrapper from "@/components/providers/TenantWrapper";
 import { ConfirmProvider } from "@/providers/confirm-provider";
 import ConfirmRoot from "@/components/providers/ConfirmRoot";
+import { auth } from "@/auth";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -27,15 +28,20 @@ export const metadata: Metadata = {
   description: "Professional ERP system for managing business operations",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Seed the client SessionProvider with the server session so useSession() is
+  // authoritative on the FIRST render — no "loading" flash of the dashboard
+  // before the auth state is known, and no bounce-to-login glitch.
+  const session = await auth();
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${roboto.variable} ${robotoMono.variable} font-mono antialiased`}>
-        <SessionProvider>
+        <SessionProvider session={session}>
           <ThemeProvider>
             <ToastRoot>
               <ConfirmRoot>

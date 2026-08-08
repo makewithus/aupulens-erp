@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
@@ -232,6 +233,32 @@ export default function EmployeesPage() {
       toast.error("Delete error");
     }
   };
+
+  // AI-native pre-fill: if the assistant prepared an employee, open the create
+  // modal with the extracted fields filled in. The user reviews and clicks the
+  // real "Create" button (nothing is auto-submitted).
+  useEffect(() => {
+    const p = consumePrefill("employee");
+    if (!p) return;
+    handleOpenCreate();
+    const d: any = p.data || {};
+    setFormData((prev: any) => ({
+      ...prev,
+      employeeCode: d.employeeCode || prev.employeeCode,
+      firstName: d.firstName || prev.firstName,
+      lastName: d.lastName || prev.lastName,
+      email: d.email || prev.email,
+      phone: d.phone || prev.phone,
+      designation: d.designation || prev.designation,
+      gender: ["male", "female", "other"].includes(String(d.gender || "").toLowerCase()) ? String(d.gender).toLowerCase() : prev.gender,
+      dateOfJoining: d.dateOfJoining || prev.dateOfJoining,
+      employmentType: ["full-time", "part-time", "contract", "intern"].includes(String(d.employmentType || "")) ? d.employmentType : prev.employmentType,
+    }));
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async () => {
     if (

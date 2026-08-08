@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import AiCommandProposal from "@/models/AiCommandProposal";
 import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
-import { COMMAND_ACTIONS, CommandActionError, isCommandAction } from "@/lib/ai/commandActions";
+import { COMMAND_ACTIONS, CommandActionError, isCommandAction, executeCommandBatch } from "@/lib/ai/commandActions";
 
 /**
  * Step 2 of the generalized Command Center confirm gate: the user has
@@ -32,6 +32,23 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       await proposal.save();
       return NextResponse.json({ success: false, message: "This proposal has expired. Please ask again." }, { status: 410 });
     }
+    // ── Batch: run each confirmed step in order (partial progress reported) ──
+    if (proposal.actionType === "batch") {
+      const steps = ((proposal.params as any)?.steps || []) as { actionType: string; params: any }[];
+      const outcome = await executeCommandBatch(steps, session.user.tenantId, session.user.id);
+      proposal.status = AI_ACTION_STATUS.EXECUTED;
+      proposal.executedAt = new Date();
+      await proposal.save();
+      if (outcome.failedIndex !== null) {
+        const failed = outcome.results[outcome.failedIndex];
+        return NextResponse.json(
+          { success: false, message: `Completed ${outcome.completed} of ${outcome.total} step(s). Step ${outcome.failedIndex + 1} (${failed.actionType}) failed: ${failed.error}`, data: { outcome } },
+          { status: 400 },
+        );
+      }
+      return NextResponse.json({ success: true, data: { proposal, outcome } });
+    }
+
     if (!isCommandAction(proposal.actionType)) {
       return NextResponse.json({ success: false, message: "Unknown action type" }, { status: 400 });
     }

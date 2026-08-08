@@ -15,6 +15,7 @@ const {
   mockLeadFindOne,
   mockLeadFind,
   mockLeadCreate,
+  mockLeadUpdateOne,
   mockActivityCreate,
   mockResolveTenantAiSettings,
   mockCallClaudeForTenant,
@@ -27,6 +28,7 @@ const {
   mockLeadFindOne: vi.fn(),
   mockLeadFind: vi.fn(),
   mockLeadCreate: vi.fn(),
+  mockLeadUpdateOne: vi.fn(),
   mockActivityCreate: vi.fn(),
   mockResolveTenantAiSettings: vi.fn(),
   mockCallClaudeForTenant: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/models/crm/Lead", () => ({
       return chain;
     },
     create: mockLeadCreate,
+    updateOne: mockLeadUpdateOne,
   },
 }));
 vi.mock("@/models/crm/Activity", () => ({ default: { create: mockActivityCreate } }));
@@ -88,12 +91,19 @@ beforeEach(() => {
   mockDetectDuplicates.mockReturnValue([]); // no fuzzy duplicate
   mockResolveTenantAiSettings.mockResolvedValue({ tier: "starter", aiSettings: {} });
   mockLeadCreate.mockImplementation(async (doc: any) => ({ ...doc, _id: "lead-1" }));
+  mockLeadUpdateOne.mockResolvedValue({});
   mockActivityCreate.mockResolvedValue({});
   mockAiInsightCreate.mockResolvedValue({});
 });
 
-describe("POST /api/crm/leads — AI scoring", () => {
-  it("uses the LLM's score when the AI call succeeds", async () => {
+// Scoring/insight now run in the background (fire-and-forget) so create responds
+// instantly. Let those queued promises settle before asserting on them.
+const flushBackground = async () => {
+  for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
+describe("POST /api/crm/leads — instant create + background AI scoring", () => {
+  it("responds instantly with the deterministic score, then refines with the LLM score in the background", async () => {
     mockCallClaudeForTenant.mockResolvedValue({
       gated: false,
       text: JSON.stringify({ score: 91, confidence: 80, summary: "Strong lead", reasoning: "Referral + budget" }),
@@ -101,15 +111,23 @@ describe("POST /api/crm/leads — AI scoring", () => {
     const res = await POST(makeRequest(makeLeadBody()));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data.lead_score).toBe(91);
+    // Instant response uses the deterministic score (company_name 10 + Referral 15).
+    expect(body.data.lead_score).toBe(25);
+
+    // Background: the LLM score (91) is written via updateOne afterwards.
+    await flushBackground();
+    expect(mockLeadUpdateOne).toHaveBeenCalled();
+    const update = mockLeadUpdateOne.mock.calls[0][1];
+    expect(update.$set.lead_score).toBe(91);
   });
 
-  it("records a CrmAIInsight when the AI call succeeds", async () => {
+  it("records a CrmAIInsight in the background when the AI call succeeds", async () => {
     mockCallClaudeForTenant.mockResolvedValue({
       gated: false,
       text: JSON.stringify({ score: 91, confidence: 80, summary: "Strong lead", reasoning: "Referral + budget" }),
     });
     await POST(makeRequest(makeLeadBody()));
+    await flushBackground();
     expect(mockAiInsightCreate).toHaveBeenCalledTimes(1);
     const insight = mockAiInsightCreate.mock.calls[0][0];
     expect(insight.entityType).toBe("Lead");
@@ -117,7 +135,7 @@ describe("POST /api/crm/leads — AI scoring", () => {
     expect(insight.confidence).toBe(80);
   });
 
-  it("falls back to the deterministic score and does NOT record an insight when AI is gated (kill-switch)", async () => {
+  it("keeps the deterministic score and records no insight when AI is gated (kill-switch)", async () => {
     mockCallClaudeForTenant.mockResolvedValue({
       gated: true,
       code: "AI_DISABLED",
@@ -128,22 +146,25 @@ describe("POST /api/crm/leads — AI scoring", () => {
     const body = await res.json();
     // calculateLeadScore(body): company_name(10) + source Referral(15) = 25
     expect(body.data.lead_score).toBe(25);
+    await flushBackground();
     expect(mockAiInsightCreate).not.toHaveBeenCalled();
   });
 
-  it("falls back to the deterministic score and does NOT record an insight when the AI call throws", async () => {
+  it("keeps the deterministic score and records no insight when the AI call throws", async () => {
     mockCallClaudeForTenant.mockRejectedValue(new Error("boom"));
     const res = await POST(makeRequest(makeLeadBody()));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.lead_score).toBe(25);
+    await flushBackground();
     expect(mockAiInsightCreate).not.toHaveBeenCalled();
   });
 
-  it("still creates the lead successfully (not blocked by AI) when the model reply is unparseable", async () => {
+  it("still creates the lead successfully (never blocked by AI) when the model reply is unparseable", async () => {
     mockCallClaudeForTenant.mockResolvedValue({ gated: false, text: "not json" });
     const res = await POST(makeRequest(makeLeadBody()));
     expect(res.status).toBe(200);
     expect(mockLeadCreate).toHaveBeenCalled();
+    await flushBackground();
   });
 });

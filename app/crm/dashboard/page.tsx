@@ -213,14 +213,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
         {/* <StatCard 
           title="90-day renewal pipeline" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `â¹${totalRenewalValue.toLocaleString()}`}
+          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `₹${totalRenewalValue.toLocaleString()}`}
           subtitle={loading ? "..." : `${(renewalData?.expiring90 || 0)} upcoming renewals`}
           visual={loading ? null : <UsersGraph />}
           className="border border-border/40 bg-background"
         /> */}
         <StatCard 
           title="Expansion pipeline" 
-          value={`â¹${totalExpansionValue.toLocaleString()}`}
+          value={`₹${totalExpansionValue.toLocaleString()}`}
           subtitle="Weighted revenue"
           visual={<ActivePulse />}
           className="border border-border/40 bg-background"

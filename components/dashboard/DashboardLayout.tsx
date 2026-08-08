@@ -7,6 +7,7 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { AiSidebar } from "./AiSidebar";
 import { cn } from "@/lib/utils";
 import { clearAllStores } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 import Lenis from "lenis";
 
 interface DashboardLayoutProps {
@@ -53,7 +54,11 @@ export function DashboardLayout({
   const mainScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false);
+  // AI panel open-state lives in a module-level store so it (and the chat inside)
+  // survives client-side navigation instead of resetting on every page change.
+  const isAiSidebarOpen = useAiChatStore((s) => s.isOpen);
+  const toggleAiSidebar = useAiChatStore((s) => s.toggle);
+  const closeAiSidebar = useAiChatStore((s) => s.close);
 
   useEffect(() => {
     if (!mainScrollRef.current || !contentRef.current) return;
@@ -129,7 +134,7 @@ export function DashboardLayout({
         onRefresh={onRefresh}
         profilePath={profile}
         sidebarConfig={sections}
-        onToggleAi={() => setIsAiSidebarOpen(!isAiSidebarOpen)}
+        onToggleAi={toggleAiSidebar}
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
@@ -160,7 +165,7 @@ export function DashboardLayout({
           </div>
         </main>
 
-        {isAiSidebarOpen && <AiSidebar onClose={() => setIsAiSidebarOpen(false)} />}
+        {isAiSidebarOpen && <AiSidebar onClose={closeAiSidebar} />}
       </div>
     </div>
   );

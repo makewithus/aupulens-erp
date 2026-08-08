@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { Send, Trash2, Plus, MessageSquare, Menu, X } from "lucide-react";
+import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -314,12 +315,11 @@ export default function HRAIAssistantPage() {
                       <div className="h-2 w-2 rounded-full bg-current animate-bounce" style={{ animationDelay: "0.1s" }} />
                       <div className="h-2 w-2 rounded-full bg-current animate-bounce" style={{ animationDelay: "0.2s" }} />
                     </div>
+                  ) : msg.role === "assistant" ? (
+                    <AiMarkdown content={msg.content} />
                   ) : (
                     <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                   )}
-                  <div className="text-[10px] opacity-60 mt-1">
-                    {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
                 </div>
               </div>
             ))}

@@ -17,6 +17,7 @@ const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   display: "swap",
 });
+import { CommandCenterInput } from "./CommandCenterInput";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
@@ -455,6 +456,8 @@ export function DashboardHeader({
 
           {/* RIGHT SECTION */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Global AI Command Center */}
+            <CommandCenterInput />
 
             <GlobalSearch sidebarConfig={sidebarConfig} />
 

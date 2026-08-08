@@ -87,12 +87,12 @@ export default function OrgStructurePage() {
             <p className="text-sm font-semibold">Add unit</p>
             <div className="grid grid-cols-2 gap-2">
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="text-sm border rounded px-2 py-1.5 bg-transparent col-span-2" />
-              <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className="text-sm border rounded px-2 py-1.5 bg-transparent">
-                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+              <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className="text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground">
+                {LEVELS.map((l) => <option key={l} value={l} className="bg-background text-foreground">{l}</option>)}
               </select>
-              <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })} className="text-sm border rounded px-2 py-1.5 bg-transparent">
-                <option value="">— No parent (root) —</option>
-                {units.map((u) => <option key={String(u._id)} value={String(u._id)}>{u.level}: {u.name}</option>)}
+              <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })} className="text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground">
+                <option value="" className="bg-background text-foreground">— No parent (root) —</option>
+                {units.map((u) => <option key={String(u._id)} value={String(u._id)} className="bg-background text-foreground">{u.level}: {u.name}</option>)}
               </select>
               <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} placeholder="Currency (e.g. INR)" className="text-sm border rounded px-2 py-1.5 bg-transparent" />
               <input value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} placeholder="Timezone (e.g. Asia/Kolkata)" className="text-sm border rounded px-2 py-1.5 bg-transparent" />

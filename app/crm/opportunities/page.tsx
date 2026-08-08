@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,16 @@ export default function OpportunitiesPage() {
     product_service_line: "",
     next_action: ""
   });
+
+  // AI-native pre-fill (sweep): open the create dialog with AI-extracted fields.
+  useEffect(() => {
+    const p = consumePrefill("opportunity");
+    if (!p) return;
+    setFormData((f: any) => { const n: any = { ...f }; for (const k of Object.keys(f)) { const v = (p.data as any)?.[k]; if (v !== undefined && v !== null && v !== "") n[k] = String(v); } return n; });
+    setIsCreateModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reference lookups (Mocking this part for UI, in real app fetched from APIs)
   const [accounts, setAccounts] = useState<any[]>([]);

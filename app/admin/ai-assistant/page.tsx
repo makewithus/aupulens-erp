@@ -22,11 +22,15 @@ import {
   CheckCircle2,
   Bot,
   User,
+  Paperclip,
+  FileText,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShimmerSkeleton } from "@/components/ui/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { toast } from "sonner";
 
 interface Message {
@@ -35,6 +39,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isLoading?: boolean;
+  attachments?: { name: string; type: string; dataUrl: string }[];
 }
 
 interface ChatHistoryItem {
@@ -83,6 +88,45 @@ export default function AIAssistant() {
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // File attachments (PDF / DOCX / images) — multiple supported. Each is read as
+  // a data URL and sent with the prompt so the assistant can read and answer.
+  type Attachment = { name: string; type: string; dataUrl: string };
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB each
+  const MAX_ATTACHMENTS = 8;
+
+  const addFiles = (files: FileList | File[] | null | undefined) => {
+    const list = files ? Array.from(files) : [];
+    for (const file of list) {
+      if (!file) continue;
+      if (file.size > MAX_FILE_BYTES) { toast.error(`"${file.name || "A file"}" is too large (max 8 MB).`); continue; }
+      // Pasted screenshots often arrive with no filename — give them a sensible one.
+      const name = file.name || (file.type.startsWith("image/") ? `pasted-image.${(file.type.split("/")[1] || "png")}` : "pasted-file");
+      const reader = new FileReader();
+      reader.onload = () =>
+        setAttachments((prev) => (prev.length >= MAX_ATTACHMENTS ? prev : [...prev, { name, type: file.type, dataUrl: reader.result as string }]));
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Paste one or more images/files (e.g. copied screenshots) straight into the box.
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  };
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
@@ -246,16 +290,18 @@ export default function AIAssistant() {
   const handleSubmit = async (e: React.FormEvent, overrideInput?: string) => {
     e.preventDefault();
     const textToSend = overrideInput || input;
-    if (!textToSend.trim() || isLoading) return;
+    if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
-    const userInputText = textToSend.trim();
+    const userInputText = textToSend.trim()
+      || (attachments.length ? `Please read the attached file(s) and summarise the key details.` : "");
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: userInputText,
       timestamp: new Date(),
+      attachments: attachments.length ? attachments : undefined,
     };
 
     const loadingMessage: Message = {
@@ -274,10 +320,12 @@ export default function AIAssistant() {
       // Stream the response token-by-token (ChatGPT-style). The server returns
       // a plain text/event stream we read incrementally; on a gate/error it
       // returns JSON instead, which we detect via the content-type.
+      const sentAttachments = attachments;
+      setAttachments([]); // consumed by this send
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInputText, stream: true }),
+        body: JSON.stringify({ message: userInputText, stream: true, attachments: sentAttachments }),
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -645,6 +693,21 @@ export default function AIAssistant() {
                           ? 'bg-neutral-800 text-neutral-100 rounded-2xl rounded-tr-sm border border-neutral-700/50'
                           : 'bg-neutral-900/80 text-neutral-100 rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
                       )}>
+                        {message.attachments && message.attachments.length > 0 && (
+                          <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+                            {message.attachments.map((att, ai) => (
+                              att.type.startsWith("image/") ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img key={ai} src={att.dataUrl} alt={att.name} title={att.name} className="h-16 w-16 rounded border border-neutral-700 object-cover shrink-0" />
+                              ) : (
+                                <span key={ai} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-neutral-700 bg-neutral-800 text-[12px] text-neutral-300 shrink-0 max-w-[180px]">
+                                  <FileText className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+                                  <span className="truncate">{att.name}</span>
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        )}
                         {message.isLoading ? (
                           <div className="flex items-center gap-2 text-purple-400">
                             <div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
@@ -674,20 +737,64 @@ export default function AIAssistant() {
           <div className="border-t border-gray-800/50 p-4 bg-black/30 backdrop-blur-sm z-10 shrink-0">
             <div className="max-w-3xl mx-auto">
               <form onSubmit={handleSubmit} className="relative">
+                {/* Attached files — horizontal, scrollable, no wrapping */}
+                {attachments.length > 0 && (
+                  <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+                    {attachments.map((att, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-neutral-900 text-[13px] text-neutral-300 shrink-0 max-w-[220px]">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewIndex(i)}
+                          className="flex items-center gap-2 min-w-0 text-left cursor-pointer hover:opacity-80"
+                          title="Click to preview"
+                        >
+                          {att.type.startsWith("image/") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={att.dataUrl} alt={att.name} className="w-6 h-6 rounded object-cover shrink-0" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          )}
+                          <span className="truncate max-w-[150px]">{att.name}</span>
+                        </button>
+                        <button type="button" onClick={() => removeAttachment(i)} className="text-neutral-500 hover:text-neutral-200 shrink-0" title="Remove file">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="relative flex items-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,image/*"
+                    className="hidden"
+                    onChange={(e) => { addFiles(e.target.files); if (e.target) e.target.value = ""; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                    title="Attach a document (PDF, DOCX, image)"
+                    className="absolute left-2 h-8 w-8 flex items-center justify-center rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 disabled:opacity-50 transition-all"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                   <Textarea
                     ref={textareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={isLoading ? "You can keep typing… (reply in progress)" : "Message Aupulens Assistant..."}
-                    className="w-full pl-4 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
+                    onPaste={handlePaste}
+                    placeholder="Ask Anything"
+                    className="w-full pl-12 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
                     rows={1}
                   />
-                  <Button 
-                    type="submit" 
-                    size="icon" 
-                    disabled={!input.trim() || isLoading}
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={(!input.trim() && attachments.length === 0) || isLoading}
                     className="absolute right-2 h-8 w-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 transition-all"
                   >
                     {isLoading ? (
@@ -724,6 +831,10 @@ export default function AIAssistant() {
           </div>
         </div>
       </div>
+
+      {previewIndex !== null && attachments[previewIndex] && (
+        <AttachmentPreview attachment={attachments[previewIndex]} onClose={() => setPreviewIndex(null)} />
+      )}
     </DashboardLayout>
   );
 }

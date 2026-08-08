@@ -5,7 +5,7 @@ import CrmLead from "@/models/crm/Lead";
 import "@/models/crm/Account";
 import "@/models/crm/Contact";
 import "@/models/crm/Opportunity";
-import { scoreLeadWithAi } from "@/lib/crm/leadScoring";
+import { scoreLeadWithAi, calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
@@ -55,21 +55,29 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   }
   
   Object.assign(lead, body);
-  const { score, insight } = await scoreLeadWithAi(session.user.tenantId, lead);
-  lead.lead_score = score;
+  // Instant deterministic score; save + respond immediately. The LLM refinement
+  // runs in the background so the update isn't blocked on an AI round-trip.
+  lead.lead_score = calculateLeadScore(lead);
   await lead.save();
 
-  if (insight.ok) {
-    const severity = score < 30 ? "Medium" : "Low";
-    await recordAiInsight({
-      tenantId: session.user.tenantId,
-      entityType: "Lead",
-      entityId: String(lead._id),
-      insightType: "Recommendation",
-      insight,
-      severity,
-    });
-  }
+  const tenantId = session.user.tenantId;
+  const leadId = String(lead._id);
+  const snapshot = typeof (lead as any).toObject === "function" ? (lead as any).toObject() : { ...lead };
+  void (async () => {
+    try {
+      const { score, insight } = await scoreLeadWithAi(tenantId, snapshot);
+      if (typeof score === "number") {
+        await CrmLead.updateOne({ _id: leadId, tenantId }, { $set: { lead_score: score } });
+      }
+      if (insight?.ok) {
+        await recordAiInsight({
+          tenantId, entityType: "Lead", entityId: leadId,
+          insightType: "Recommendation", insight,
+          severity: score < 30 ? "Medium" : "Low",
+        });
+      }
+    } catch { /* background best-effort */ }
+  })();
 
   return NextResponse.json({ success: true, data: lead });
 }

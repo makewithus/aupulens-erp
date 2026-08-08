@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -143,6 +144,46 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
       .then((d) => d.success && setReportingTagDefs(d.data))
       .catch(() => {});
   }, []);
+
+  // AI-native pre-fill: when the assistant prepared a customer, merge the
+  // extracted fields into the real form and surface its suggestions. The user
+  // still reviews and clicks the real "Save"/"Create" button (only on create).
+  useEffect(() => {
+    if (customerId) return;
+    const p = consumePrefill("customer");
+    if (!p) return;
+    const d: any = p.data || {};
+    const name = String(d.name || d.customerName || d.companyName || "").trim();
+    const isCompany = typeof d.is_company === "boolean" ? d.is_company : Boolean(d.companyName && !d.firstName);
+    setForm((f) => ({
+      ...f,
+      header: {
+        ...f.header,
+        name: name || f.header.name,
+        displayName: name || f.header.displayName,
+        is_company: isCompany,
+        customerType: isCompany ? "business" : "individual",
+        salutation: d.salutation || f.header.salutation,
+        companyName: d.companyName || (isCompany ? name : f.header.companyName),
+        firstName: d.firstName || f.header.firstName,
+        lastName: d.lastName || f.header.lastName,
+      },
+      contact_details: {
+        ...f.contact_details,
+        email: d.email || f.contact_details.email,
+        phone: d.phone || f.contact_details.phone,
+        mobile: d.mobile || f.contact_details.mobile,
+      },
+      gstin: d.gstin || f.gstin,
+      pan: d.pan || f.pan,
+      currency: d.currency || f.currency,
+    }));
+    if (d.gstin) setGstinInput(String(d.gstin).toUpperCase());
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId]);
 
   const update = (patch: Partial<CustomerFormValue>) => setForm((f) => ({ ...f, ...patch }));
   const updateNested = <K extends keyof CustomerFormValue>(key: K, patch: Partial<CustomerFormValue[K]>) =>

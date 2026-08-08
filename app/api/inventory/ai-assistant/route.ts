@@ -7,6 +7,7 @@ import Batch from '@/models/Batch';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
+import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
@@ -147,7 +148,7 @@ Instructions:
 5. If data is missing or insufficient, say so clearly.`;
 
   const opts = {
-    systemPrompt: "You are a precise inventory analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.",
+    systemPrompt: "You are a precise inventory analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
     maxTokens: 1024,
   };
 

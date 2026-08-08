@@ -1,3 +1,20 @@
 {
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+  "files.watcherExclude": {
+    "**/.next/**": true,
+    "**/.next-build/**": true,
+    "**/.next-verify/**": true,
+    "**/node_modules/**": true,
+    "**/out/**": true
+  },
+  "search.exclude": {
+    "**/.next": true,
+    "**/.next-build": true,
+    "**/.next-verify": true,
+    "**/out": true
+  },
+  "files.exclude": {
+    "**/.next-build": true,
+    "**/.next-verify": true
+  }
 }

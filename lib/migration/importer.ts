@@ -46,6 +46,7 @@ const HANDLERS: Record<string, EntityHandler> = {
     model: Customer,
     transform: (rec, ctx) => ({
       tenantId: ctx.tenantId,
+      createdBy: new mongoose.Types.ObjectId(ctx.userId),
       header: {
         name: rec.name,
         displayName: rec.displayName || rec.name,
@@ -66,7 +67,7 @@ const HANDLERS: Record<string, EntityHandler> = {
                 street: rec.street || undefined,
                 street2: rec.street2 || undefined,
                 city: rec.city || undefined,
-                stateName: rec.stateName || undefined,
+                state_name: rec.stateName || undefined,
                 zip: rec.zip || undefined,
               },
             ]
@@ -118,7 +119,6 @@ const HANDLERS: Record<string, EntityHandler> = {
           standard_price: num(rec.cost) ?? 0,
           description: rec.description || undefined,
         },
-        hsn_code: rec.hsn || undefined,
       };
     },
     existingFilter: (rec, tenantId) => {

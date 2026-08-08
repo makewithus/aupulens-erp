@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
 import { Send, Trash2, Archive, Plus, MessageSquare, Mic } from 'lucide-react';
+import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -110,18 +111,20 @@ export default function InventoryAIAssistant() {
   };
 
   const loadChat = (chat: ChatHistoryItem) => {
-    const loadedMessages: Message[] = chat.messages.map((msg, idx) => ({
-      id: `${chat._id}-${idx}`,
-      role: msg.role,
-      content: msg.content,
-      timestamp: new Date(msg.timestamp)
-    }));
-    setMessages(loadedMessages);
-    setCurrentChatId(chat._id);
-    toast({
-      title: 'Chat loaded',
-      description: `Loaded chat: ${chat.title}`
-    });
+    // No success toast on load — only surface a failure if it can't be opened.
+    try {
+      if (!chat || !Array.isArray(chat.messages)) throw new Error('Chat not found');
+      const loadedMessages: Message[] = chat.messages.map((msg, idx) => ({
+        id: `${chat._id}-${idx}`,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp)
+      }));
+      setMessages(loadedMessages);
+      setCurrentChatId(chat._id);
+    } catch {
+      toast({ title: 'Failed to load chat', description: 'This conversation could not be opened.' });
+    }
   };
 
   const deleteChat = async (chatId: string, event: React.MouseEvent) => {
@@ -512,15 +515,15 @@ export default function InventoryAIAssistant() {
                   className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4" />
                     </div>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-none px-4 py-3 ${
+                    className={`max-w-[70%] rounded-lg px-4 py-3 ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                        : 'bg-gray-800/50 text-gray-100 backdrop-blur-sm'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
                     }`}
                   >
                     {message.isLoading ? (
@@ -528,14 +531,11 @@ export default function InventoryAIAssistant() {
                         <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                         <span className="text-sm">Thinking...</span>
                       </div>
+                    ) : message.role === 'assistant' ? (
+                      <AiMarkdown content={message.content} />
                     ) : (
-                      <div className="prose prose-invert max-w-none">
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">{message.content}</p>
-                      </div>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">{message.content}</p>
                     )}
-                    <p className="text-xs opacity-70 mt-2">
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
                   </div>
                   {message.role === 'user' && (
                     <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">

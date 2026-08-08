@@ -66,7 +66,7 @@ export function useSpeechToText(opts: { lang?: string; onFinalText?: (text: stri
     setListening(false);
   }, []);
 
-  const toggle = useCallback(() => { listening ? stop() : start(); }, [listening, start, stop]);
+  const toggle = useCallback(() => { if (listening) stop(); else start(); }, [listening, start, stop]);
 
   return { supported, listening, interim, start, stop, toggle };
 }

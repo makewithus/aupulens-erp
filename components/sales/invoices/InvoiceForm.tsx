@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
 import { toast } from "sonner";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
 import { computeInvoiceTotals, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
 import { CustomerPicker, type PickerCustomer } from "./CustomerPicker";
@@ -145,6 +146,41 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const [selectedTemplate, setSelectedTemplate] = useState("modern");
 
   const invoiceNumber = `${prefix}${numberSuffix}`;
+
+  // ── AI-native pre-fill ───────────────────────────────────────────
+  // Consume an AI-prepared invoice (extracted from a document/prompt) into the
+  // REAL form. The customer is resolved server-side; if it wasn't found, the
+  // suggestion tells the user to add it via the inline "+ customer". The user
+  // reviews and clicks the real Save button — nothing is auto-submitted.
+  useEffect(() => {
+    if (mode !== "create") return;
+    const p = consumePrefill("invoice");
+    if (!p) return;
+    const d: any = p.data || {};
+    if (d.customerId) setSelectedCustomerId(String(d.customerId));
+    if (Array.isArray(d.lineItems) && d.lineItems.length) {
+      const mapped = d.lineItems
+        .filter((li: any) => li && String(li.name || "").trim())
+        .map((li: any) => ({
+          ...emptyLine(),
+          name: String(li.name || ""),
+          description: String(li.description || ""),
+          hsn: String(li.hsn || ""),
+          qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
+          unitPrice: Number(li.unitPrice) || 0,
+          taxRate: Number(li.taxRate) || 0,
+        }));
+      if (mapped.length) setLineItems(mapped);
+    }
+    if (d.reference) setReference(String(d.reference));
+    if (d.notes) setNotes(String(d.notes));
+    if (d.invoiceDate) setInvoiceDate(String(d.invoiceDate));
+    if (d.dueDate) setDueDate(String(d.dueDate));
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // ── Initial data load ────────────────────────────────────────────
   useEffect(() => {

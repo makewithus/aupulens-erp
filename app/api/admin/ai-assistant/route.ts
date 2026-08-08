@@ -13,7 +13,12 @@ import {
 import { callClaude, type ChatTurn } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
+import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { extractAttachment } from "@/lib/ai/extractFile";
+import { extractContent, validateDocument } from "@/lib/docIntel/textExtract";
+import { extractDocument } from "@/lib/docIntel/extractor";
+import { DOC_INTEL_TYPE, DOC_INTEL_STATUS } from "@/lib/docIntel/extractionSchemas";
+import ExtractedDocument from "@/models/ExtractedDocument";
 import ChatHistory from "@/models/ChatHistory";
 
 interface QueryIntent {
@@ -65,30 +70,79 @@ export async function POST(request: NextRequest) {
       (m: any) => ({ role: m.role, content: m.content })
     );
 
-    // ── Attachment path (PDF / DOCX / image) ─────────────────────────────────
-    // When the user attaches a file, answer about THE FILE (extracted text, or
-    // the image via gpt-4o vision) rather than the workspace data — focused and
-    // faster. Always streamed.
-    if (body.attachment?.dataUrl && body.attachment?.type) {
+    // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
+    // Reads every attached file — documents become text, images go to gpt-4o
+    // vision — and answers about them. Always streamed. Accepts the new
+    // `attachments` array and the legacy single `attachment` for back-compat.
+    const rawAtts: Array<{ name?: string; type: string; dataUrl: string }> =
+      Array.isArray(body.attachments) ? body.attachments : (body.attachment ? [body.attachment] : []);
+    const atts = rawAtts.filter((a) => a?.dataUrl && a?.type).slice(0, 8);
+    if (atts.length > 0) {
       const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-      const att = body.attachment as { name?: string; type: string; dataUrl: string };
-      const base64 = att.dataUrl.includes(",") ? att.dataUrl.split(",")[1] : att.dataUrl;
-      const buffer = Buffer.from(base64, "base64");
-      const extracted = await extractAttachment(buffer, att.type, att.name || "");
+      const enc0 = new TextEncoder();
+      const txtHeaders = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId };
+      const bufferOf = (a: { dataUrl: string }) => {
+        const base64 = a.dataUrl.includes(",") ? a.dataUrl.split(",")[1] : a.dataUrl;
+        return Buffer.from(base64, "base64");
+      };
 
-      if (extracted.kind === "unsupported") {
-        return NextResponse.json({ error: extracted.reason }, { status: 200 });
+      // ── Create-a-bill-from-document intent (uses the FIRST document) ─────────
+      const wantsBill =
+        /\b(create|make|generate|add|book|record|prepare|draft|extract)\b/i.test(message) &&
+        /\b(bill|invoice|expense|voucher|vendor|purchase)\b/i.test(message);
+      if (wantsBill) {
+        const att = atts[0];
+        const fileErr = validateDocument(att.name || "document");
+        if (fileErr) return new Response(enc0.encode(fileErr), { headers: txtHeaders });
+        let content;
+        try {
+          content = await extractContent(att.name || "document", bufferOf(att));
+        } catch (e: any) {
+          return new Response(enc0.encode(`I couldn't read that document: ${e?.message || "unreadable"}.`), { headers: txtHeaders });
+        }
+        const outcome = await extractDocument(tenantId, DOC_INTEL_TYPE.VENDOR_BILL, content);
+        if (!("data" in outcome)) {
+          return new Response(enc0.encode(`I couldn't extract the bill details: ${outcome.error}`), { headers: txtHeaders });
+        }
+        const staged = await ExtractedDocument.create({
+          tenantId,
+          docType: DOC_INTEL_TYPE.VENDOR_BILL,
+          fileName: att.name || "document",
+          status: DOC_INTEL_STATUS.EXTRACTED,
+          extraction: outcome.data as unknown as Record<string, unknown>,
+          aiConfidence: (outcome.data as any).confidence,
+          createdBy: userId,
+        });
+        const d: any = outcome.data;
+        const extra = atts.length > 1 ? `\n\n_(I used the first of ${atts.length} files. To create separate bills, send them one at a time.)_` : "";
+        const msg = `I've read **${att.name || "your document"}** and prepared a **draft vendor bill** for your review (nothing has been posted yet):\n\n- **Vendor:** ${d.vendorName || "\u2014"}\n- **Bill #:** ${d.billNumber || "\u2014"}\n- **Bill date:** ${d.billDate || "\u2014"}\n- **Total:** \u20b9${Number(d.totalAmount || 0).toLocaleString("en-IN")}\n\nReview the extracted fields and confirm to create the bill here: [Open Document Intelligence](/document-intelligence).${extra}`;
+        void staged;
+        return new Response(enc0.encode(msg), { headers: txtHeaders });
       }
 
-      const isImage = extracted.kind === "image";
-      const attachPrompt = isImage
-        ? `The user attached an image named "${att.name || "image"}". Look at it and answer their question about it clearly and concisely. Do not print internal IDs or raw JSON.\n\nUSER QUESTION: "${message}"`
-        : `The user attached a document named "${att.name || "document"}". Its extracted text is below (may be truncated). Answer their question using ONLY this content; if it doesn't contain the answer, say so.\n\n=== DOCUMENT CONTENT ===\n${(extracted as any).text}\n=== END ===\n\nUSER QUESTION: "${message}"`;
+      // ── General: read every attachment (docs \u2192 text, images \u2192 vision) ──
+      const imageUrls: string[] = [];
+      const docTexts: string[] = [];
+      const unsupported: string[] = [];
+      for (const a of atts) {
+        const extracted = await extractAttachment(bufferOf(a), a.type, a.name || "");
+        if (extracted.kind === "image") imageUrls.push(a.dataUrl);
+        else if (extracted.kind === "text") docTexts.push(`=== ${a.name || "document"} ===\n${(extracted as any).text}`);
+        else unsupported.push(a.name || "a file");
+      }
+      if (imageUrls.length === 0 && docTexts.length === 0) {
+        return NextResponse.json({ error: `I couldn't read the attached file(s)${unsupported.length ? `: ${unsupported.join(", ")}` : ""}.` }, { status: 200 });
+      }
+
+      const parts: string[] = [`The user attached ${atts.length} file(s).`];
+      if (docTexts.length) parts.push("Document content is below.");
+      if (imageUrls.length) parts.push(`${imageUrls.length} image(s) are attached for you to look at.`);
+      const attachPrompt = `${parts.join(" ")} Answer using ONLY the attached content (text + images); if the answer isn't present, say so.\n\n${docTexts.join("\n\n")}\n\nUSER QUESTION: "${message}"`;
 
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, attachPrompt, {
-        systemPrompt: "You are Aupulens' assistant analysing a user-attached file. Be accurate, organised and concise. Never print internal database IDs or raw JSON.",
-        maxTokens: 900,
-        imageDataUrl: isImage ? att.dataUrl : undefined,
+        systemPrompt: "You are Aupulens' assistant analysing one or more user-attached files. Be accurate, organised and concise. Never print internal database IDs or raw JSON." + AI_ASSISTANT_GUIDANCE,
+        maxTokens: 1100,
+        imageDataUrls: imageUrls.length ? imageUrls : undefined,
         history: priorTurns,
       });
       if (!("stream" in streamRes)) {
@@ -98,7 +152,7 @@ export async function POST(request: NextRequest) {
       const readable = new ReadableStream({
         async start(controller) {
           try { for await (const d of streamRes.stream) controller.enqueue(enc.encode(d)); }
-          catch { controller.enqueue(enc.encode("Sorry — I couldn't finish reading that attachment. Please try again.")); }
+          catch { controller.enqueue(enc.encode("Sorry \u2014 I couldn't finish reading those attachments. Please try again.")); }
           finally { controller.close(); }
         },
       });
@@ -387,7 +441,7 @@ Rules for EVERY answer:
   return {
     prompt,
     systemPrompt:
-      "You are Aupulens' precise ERP assistant. Answer like a helpful product expert: organised, concise, and accurate. For data questions use only the figures given (never invent numbers); for how-to questions give clear app navigation steps. NEVER print internal database IDs or raw JSON in your reply.",
+      "You are Aupulens' precise ERP assistant. Answer like a helpful product expert: organised, concise, and accurate. For data questions use only the figures given (never invent numbers); for how-to questions give clear app navigation steps. NEVER print internal database IDs or raw JSON in your reply." + AI_ASSISTANT_GUIDANCE,
     maxTokens: 700,
   };
 }

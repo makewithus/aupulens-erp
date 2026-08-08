@@ -149,7 +149,7 @@ export default function PrintFormatBuilder() {
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Font style</label>
-              <select value={opts.fontStyle} onChange={(e) => setOpts({ ...opts, fontStyle: e.target.value })} className="w-full text-sm border rounded-md px-2 py-1.5 bg-transparent mt-1">
+              <select value={opts.fontStyle} onChange={(e) => setOpts({ ...opts, fontStyle: e.target.value })} className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground mt-1 [&>option]:bg-background [&>option]:text-foreground">
                 {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>

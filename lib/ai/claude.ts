@@ -46,7 +46,7 @@ function getClient(): AzureOpenAI {
       throw new Error(
         "Azure OpenAI is not configured. Set AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, " +
           "AZURE_OPENAI_API_VERSION and AZURE_OPENAI_CHAT_DEPLOYMENT in your .env file. " +
-          "See SETUP_AI.md for how to obtain these from the Azure Portal / Azure AI Foundry."
+          "See README.md / docs for how to obtain these from the Azure Portal / Azure AI Foundry."
       );
     }
     // No `deployment` passed to the client here, deliberately — that would
@@ -85,6 +85,8 @@ export interface ClaudeCallOptions {
   systemPrompt?: string;
   /** Optional image (data URL) sent to gpt-4o's vision input alongside the text. */
   imageDataUrl?: string;
+  /** Optional multiple images (data URLs) for gpt-4o vision (merged with imageDataUrl). */
+  imageDataUrls?: string[];
 }
 
 /**
@@ -92,11 +94,12 @@ export interface ClaudeCallOptions {
  * array (text + image) when an image is attached (gpt-4o vision). Kept in one
  * place so callClaude / callClaudeStream stay consistent.
  */
-function buildUserContent(text: string, imageDataUrl?: string): any {
-  if (!imageDataUrl) return text;
+function buildUserContent(text: string, imageDataUrl?: string, imageDataUrls?: string[]): any {
+  const images = [...(imageDataUrls || []), ...(imageDataUrl ? [imageDataUrl] : [])].filter(Boolean);
+  if (images.length === 0) return text;
   return [
     { type: "text", text },
-    { type: "image_url", image_url: { url: imageDataUrl } },
+    ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
   ];
 }
 
@@ -119,7 +122,7 @@ export async function callClaude(
       ...(opts.systemPrompt
         ? [{ role: "system" as const, content: opts.systemPrompt }]
         : []),
-      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl) },
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl, opts.imageDataUrls) },
     ],
   });
 
@@ -151,7 +154,7 @@ export async function callClaudeWithHistory(
       ? [{ role: "system" as const, content: opts.systemPrompt }]
       : []),
     ...history.map((t) => ({ role: t.role, content: t.content })),
-    { role: "user" as const, content: newUserMessage },
+    { role: "user" as const, content: buildUserContent(newUserMessage, opts.imageDataUrl, opts.imageDataUrls) },
   ];
 
   const response = await client.chat.completions.create({
@@ -187,7 +190,7 @@ export async function* callClaudeStream(
     messages: [
       ...(opts.systemPrompt ? [{ role: "system" as const, content: opts.systemPrompt }] : []),
       ...history.map((t) => ({ role: t.role, content: t.content })),
-      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl) },
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl, opts.imageDataUrls) },
     ],
   });
 

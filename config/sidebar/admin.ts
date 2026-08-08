@@ -21,6 +21,9 @@ import {
   Network,
   Store,
   DatabaseZap,
+  Plug,
+  ScanText,
+  Workflow,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -108,6 +111,21 @@ export const adminSidebarConfig: SidebarSection[] = [
         title: "Data Migration",
         href: "/migration",
         icon: DatabaseZap,
+      },
+      {
+        title: "Aupulens Connect",
+        href: "/integrations",
+        icon: Plug,
+      },
+      {
+        title: "Document Intelligence",
+        href: "/document-intelligence",
+        icon: ScanText,
+      },
+      {
+        title: "Aupulens Studio",
+        href: "/studio",
+        icon: Workflow,
       },
       {
         title: "Calendar",

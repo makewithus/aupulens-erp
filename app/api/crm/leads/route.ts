@@ -3,9 +3,8 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import CrmLead from "@/models/crm/Lead";
 import CrmActivity from "@/models/crm/Activity";
-import { scoreLeadWithAi } from "@/lib/crm/leadScoring";
+import { scoreLeadWithAi, calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
-import { detectDuplicatesWithAi } from "@/lib/crm/ai/duplicateAssistant";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
 
 export async function GET(req: NextRequest) {
@@ -53,79 +52,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
     
+    // Fast, indexed exact-duplicate guard (email/phone) — a single quick lookup,
+    // enough to stop obvious re-submissions without any AI cost.
     if (body.email || body.phone) {
       const orConditions: any[] = [];
       if (body.email) orConditions.push({ email: body.email });
       if (body.phone) orConditions.push({ phone: body.phone });
 
-      const duplicate = await CrmLead.findOne({ tenantId: session.user.tenantId, $or: orConditions });
+      const duplicate = await CrmLead.findOne({ tenantId: session.user.tenantId, $or: orConditions }).lean();
       if (duplicate) {
         return NextResponse.json({ success: false, duplicate: true, matches: [duplicate] }, { status: 409 });
-      }
-    }
-
-    // Fuzzy duplicate detection (name/email/phone similarity) — skipped when
-    // the caller has already confirmed via the "Create anyway" dialog.
-    if (!body.confirmDuplicate) {
-      // Perf: don't scan every lead in the tenant (could be thousands). Fetch a
-      // bounded, targeted candidate set — anything sharing the new lead's email,
-      // phone or company (the fields dedup actually compares), plus the most
-      // recent leads as a fallback net — capped so create stays fast.
-      const or: any[] = [];
-      if (body.email) or.push({ email: body.email });
-      if (body.phone) or.push({ phone: body.phone });
-      if (body.company_name) or.push({ company_name: body.company_name });
-      const candidates = or.length
-        ? await CrmLead.find({ tenantId: session.user.tenantId, $or: or }, "lead_name email phone company_name").limit(50).lean()
-        : await CrmLead.find({ tenantId: session.user.tenantId }, "lead_name email phone company_name").sort({ createdAt: -1 }).limit(50).lean();
-      const { duplicates: fuzzyMatches } = await detectDuplicatesWithAi(session.user.tenantId, body, candidates, "Lead");
-      if (fuzzyMatches.length > 0) {
-        const matches = fuzzyMatches.map((m) => ({
-          ...m,
-          record: candidates.find((c: any) => String(c._id) === String(m.recordId)),
-        }));
-        return NextResponse.json(
-          { success: false, duplicate: true, fuzzy: true, matches },
-          { status: 409 },
-        );
       }
     }
 
     body.tenantId = session.user.tenantId;
     body.createdBy = session.user.id;
 
-    // Real AI scoring (Phase 2): tries an LLM assessment of this specific
-    // lead first, falls back to the deterministic rule-based score
-    // (lib/crm/leadScoring.ts's calculateLeadScore) when AI is disabled,
-    // over its monthly cap, or unavailable for any reason.
-    const { score, insight } = await scoreLeadWithAi(session.user.tenantId, body);
-    body.lead_score = score;
+    // Instant deterministic score so the lead is immediately useful. The LLM
+    // refines it in the background (below) — it must NOT block the response
+    // (that LLM round-trip was the multi-second create latency users hit).
+    body.lead_score = calculateLeadScore(body);
 
     const lead = await CrmLead.create(body);
 
-    if (insight.ok) {
-      // Severity here reflects "worth a rep's attention", not literal risk —
-      // a low-scoring lead is the one worth flagging, a high-scoring one isn't.
-      const severity = score < 30 ? "Medium" : "Low";
-      await recordAiInsight({
-        tenantId: session.user.tenantId,
-        entityType: "Lead",
-        entityId: String(lead._id),
-        insightType: "Recommendation",
-        insight,
-        severity,
-      });
-    }
-
-    await CrmActivity.create({
-      tenantId: session.user.tenantId,
-      type: 'Note',
-      subject: `Lead Created: ${lead.lead_name}`,
-      linked_lead_id: lead._id,
-      performed_by_id: session.user.id,
-      createdBy: session.user.id,
-      activity_date: new Date()
-    });
+    // Respond immediately; everything non-essential runs after (fire-and-forget
+    // on the Node server). The user's form returns as soon as the row is saved.
+    const tenantId = session.user.tenantId;
+    const userId = session.user.id;
+    void (async () => {
+      try {
+        await CrmActivity.create({
+          tenantId, type: 'Note',
+          subject: `Lead Created: ${lead.lead_name}`,
+          linked_lead_id: lead._id,
+          performed_by_id: userId,
+          createdBy: userId,
+          activity_date: new Date(),
+        });
+        // Refine the score with the LLM and store an insight — best-effort.
+        const { score, insight } = await scoreLeadWithAi(tenantId, body);
+        if (typeof score === "number" && score !== lead.lead_score) {
+          await CrmLead.updateOne({ _id: lead._id, tenantId }, { $set: { lead_score: score } });
+        }
+        if (insight?.ok) {
+          await recordAiInsight({
+            tenantId, entityType: "Lead", entityId: String(lead._id),
+            insightType: "Recommendation", insight,
+            severity: score < 30 ? "Medium" : "Low",
+          });
+        }
+      } catch { /* background best-effort — never affects the create response */ }
+    })();
 
     return NextResponse.json({ success: true, data: lead });
   } catch (error: any) {

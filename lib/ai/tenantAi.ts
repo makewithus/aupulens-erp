@@ -177,6 +177,7 @@ export async function callClaudeForTenant(
     maxTokens:    aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
     systemPrompt: restOpts.systemPrompt,  // always caller-controlled
     imageDataUrl: restOpts.imageDataUrl,  // vision attachment, caller-controlled
+    imageDataUrls: restOpts.imageDataUrls,  // multiple vision attachments
   };
 
   // Call Azure OpenAI — throws on API failure so increment is skipped on error.
@@ -237,6 +238,7 @@ export async function callClaudeForTenantStream(
     maxTokens: aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
     systemPrompt: restOpts.systemPrompt,
     imageDataUrl: restOpts.imageDataUrl,
+    imageDataUrls: restOpts.imageDataUrls,
   };
 
   // Wrap the raw stream so usage is incremented exactly once, after a clean finish.

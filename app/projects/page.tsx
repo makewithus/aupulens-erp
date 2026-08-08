@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { consumePrefill } from "@/lib/ai/aiPrefill";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { projectsSidebarConfig } from "@/config/sidebar/projects";
@@ -34,6 +35,16 @@ export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", status: "planning", priority: "Medium", dueDate: "" });
+
+  // AI-native pre-fill (sweep): open the create dialog with AI-extracted fields.
+  useEffect(() => {
+    const p = consumePrefill("project");
+    if (!p) return;
+    setForm((f: any) => { const n: any = { ...f }; for (const k of Object.keys(f)) { const v = (p.data as any)?.[k]; if (v !== undefined && v !== null && v !== "") n[k] = v; } return n; });
+    setOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchProjects = () => {
     fetch("/api/projects")

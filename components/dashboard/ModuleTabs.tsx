@@ -21,7 +21,7 @@ export function ModuleTabs({
   onNavigate,
 }: ModuleTabsProps) {
   return (
-    <nav className="hidden lg:flex items-center gap-10 ml-12">
+    <nav className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink min-w-0 overflow-hidden">
       {modules.map((module) => {
         const isActive = module.id === activeModule;
 
@@ -38,7 +38,7 @@ export function ModuleTabs({
           >
             <span
               className={cn(
-                "relative text-[16px] font-medium tracking-[-0.04em] transition-all duration-300",
+                "relative text-[13px] xl:text-[14px] font-medium tracking-[-0.04em] transition-all duration-300",
                 isActive
                   ? "opacity-100"
                   : "opacity-100 group-hover:opacity-100"

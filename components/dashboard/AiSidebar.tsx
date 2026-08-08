@@ -2,8 +2,12 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
+import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
+import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,20 +21,24 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
-interface Message {
-  role: string;
-  text: string;
-  isLoading?: boolean;
-}
+// Message shape lives in the shared store so the thread survives navigation.
+type Message = AiChatMessage;
 
 export function AiSidebar({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Chat thread + New Chat live in the module-level store so they persist across
+  // client-side navigation (e.g. when the AI opens a create form for you).
+  const messages = useAiChatStore((s) => s.messages);
+  const setMessages = useAiChatStore((s) => s.setMessages);
+  const newChat = useAiChatStore((s) => s.newChat);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyChats, setHistoryChats] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,26 +47,56 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
   });
 
-  // File attachment (PDF / DOCX / image) — read as a data URL to send with the prompt.
-  const [attachment, setAttachment] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
+  // File attachments (PDF / DOCX / images) — multiple supported. Each is read as
+  // a data URL and sent with the prompt.
+  type Attachment = { name: string; type: string; dataUrl: string };
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
-  const handleFile = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_FILE_BYTES) { setMessages((p) => [...p, { role: "assistant", text: "That file is too large (max 8 MB)." }]); return; }
-    const reader = new FileReader();
-    reader.onload = () => setAttachment({ name: file.name, type: file.type, dataUrl: reader.result as string });
-    reader.readAsDataURL(file);
+  const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB each
+  const MAX_ATTACHMENTS = 8;
+
+  const addFiles = (files: FileList | File[] | null | undefined) => {
+    const list = files ? Array.from(files) : [];
+    for (const file of list) {
+      if (!file) continue;
+      if (file.size > MAX_FILE_BYTES) { setMessages((p) => [...p, { role: "assistant", text: `"${file.name || "A file"}" is too large (max 8 MB).` }]); continue; }
+      // Pasted screenshots often arrive with no filename — give them a sensible one.
+      const name = file.name || (file.type.startsWith("image/") ? `pasted-image.${(file.type.split("/")[1] || "png")}` : "pasted-file");
+      const reader = new FileReader();
+      reader.onload = () =>
+        setAttachments((prev) => (prev.length >= MAX_ATTACHMENTS ? prev : [...prev, { name, type: file.type, dataUrl: reader.result as string }]));
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Paste one or more images/files (e.g. copied screenshots) straight into the box.
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addFiles(files); }
   };
 
   const sendQuery = async (queryText: string, customMessagesHistory?: Message[]) => {
     setIsLoading(true);
 
+    // Capture attachments up front so they render on the user's message (and
+    // stay visible while the AI is thinking) before we clear the composer.
+    const sentAttachments = attachments;
     const baseHistory = customMessagesHistory || messages;
     const nextMessages = [...baseHistory];
 
     if (customMessagesHistory === undefined) {
-      nextMessages.push({ role: "user", text: queryText });
+      nextMessages.push({ role: "user", text: queryText, attachments: sentAttachments.length ? sentAttachments : undefined });
     }
     nextMessages.push({ role: "assistant", text: "", isLoading: true });
     setMessages(nextMessages);
@@ -66,12 +104,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     try {
       // Stream the answer token-by-token (ChatGPT-style). On a gate/error the
       // server replies with JSON instead — detected via content-type.
-      const sentAttachment = attachment;
-      setAttachment(null); // consumed
+      setAttachments([]); // consumed
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText, stream: true, attachment: sentAttachment }),
+        body: JSON.stringify({ message: queryText, stream: true, attachments: sentAttachments }),
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -143,17 +180,203 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     sendQuery(userText, [...messages, { role: "user", text: userText }]);
   };
 
+  // Verb-led messages ("create a customer…", "add a lead and a task…") and
+  // navigation phrases ("go to leads", "open invoices") are routed to the
+  // Command Center. Everything else (and anything with an attachment) is a
+  // normal Q&A/analysis.
+  const ACTION_RX = /\b(create|add|make|new|generate|draft|delete|remove|update|change|set|book|record|raise|issue)\b/i;
+  const NAV_RX = /\b(go to|goto|open|navigate|take me|show me|bring up|jump to)\b/i;
+  // "Create an <entity>" → the AI-native flow: extract the fields, pre-fill the
+  // REAL create form, take the user there, and let them verify + click Create.
+  const CREATE_VERB_RX = /\b(create|add|new|make|generate|draft|capture|log|prepare|register|enter)\b/i;
+  const CREATE_TARGETS: { rx: RegExp; target: string; route: string; label: string }[] = [
+    { rx: /\blead\b/i, target: "lead", route: "/crm/leads", label: "lead" },
+    { rx: /\b(customer|client)\b/i, target: "customer", route: "/sales/customers/new", label: "customer" },
+    { rx: /\binvoice\b/i, target: "invoice", route: "/sales/invoices/new", label: "invoice" },
+    { rx: /\b(employee|staff)\b/i, target: "employee", route: "/hr/employees", label: "employee" },
+    { rx: /\b(opportunity|deal)\b/i, target: "opportunity", route: "/crm/opportunities", label: "opportunity" },
+    { rx: /\bcontact\b/i, target: "contact", route: "/crm/contacts", label: "contact" },
+    { rx: /\b(account|company)\b/i, target: "account", route: "/crm/accounts", label: "account" },
+    { rx: /\bcase\b/i, target: "case", route: "/crm/cases", label: "case" },
+    { rx: /\bproject\b/i, target: "project", route: "/projects", label: "project" },
+  ];
+
+  const handleSend = async (text: string) => {
+    const q = text.trim();
+    if (!q && attachments.length === 0) return;
+    if (isLoading) return;
+
+    const sentAttachments = attachments;
+    const attForMsg = sentAttachments.length ? sentAttachments : undefined;
+
+    // ── AI-native create: pre-fill the real form and navigate there ──────────
+    const targetDef = CREATE_VERB_RX.test(q) ? CREATE_TARGETS.find((t) => t.rx.test(q)) : undefined;
+    if (targetDef) {
+      const base = messages;
+      setIsLoading(true);
+      setAttachments([]);
+      setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: "", isLoading: true }]);
+      try {
+        // Include recent conversation so details discussed earlier (e.g. an
+        // analysed attachment) are used even if this message has no new file.
+        const history = base
+          .filter((m) => !m.isLoading && m.text)
+          .slice(-8)
+          .map((m) => ({ role: m.role, content: m.text }));
+        const res = await fetch("/api/ai/prefill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: targetDef.target, message: q, attachments: sentAttachments, history }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
+          const sugg = data.suggestions?.length
+            ? `\n\n**A couple of things to double-check:**\n${data.suggestions.map((s: string) => `- ${s}`).join("\n")}`
+            : "";
+          // Cross-entity dependency awareness (e.g. invoice needs a customer).
+          const dep = data.missingDependency
+            ? `\n\n⚠️ There's no ${data.missingDependency.type} named **${data.missingDependency.name}** yet — add it with the "+" on the form (or ask me to create the ${data.missingDependency.type} first), then it'll be selectable.`
+            : "";
+          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${dep}${sugg}` }]);
+          setIsLoading(false);
+          router.push(targetDef.route);
+          return;
+        }
+        setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: data.message || `I couldn't prepare the ${targetDef.label} form. Please add a bit more detail and try again.` }]);
+        setIsLoading(false);
+        return;
+      } catch {
+        setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: "Something went wrong preparing the form. Please try again." }]);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    const isCommand = ACTION_RX.test(q) || NAV_RX.test(q);
+    if (attachments.length > 0 || !isCommand) {
+      sendQuery(q || "Please analyse the attached file(s).");
+      return;
+    }
+
+    const base = messages;
+    setIsLoading(true);
+    setMessages([...base, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
+    try {
+      const res = await fetch("/api/ai/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: q, context: { pathname: typeof window !== "undefined" ? window.location.pathname : "" } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.action === "confirm" && data.proposalId) {
+        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.summary || data.message || "Confirm to proceed.", proposal: { proposalId: data.proposalId, destructive: !!data.destructive, status: "pending" } }]);
+        setIsLoading(false);
+        return;
+      }
+      if (res.ok && data.action === "navigate" && data.url) {
+        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.message || "Opening the page…" }]);
+        setIsLoading(false);
+        router.push(data.url);
+        return;
+      }
+      // Not an action after all → answer conversationally (sendQuery re-renders
+      // the list from this base + user, replacing the transient bubble).
+      setIsLoading(false);
+      await sendQuery(q, [...base, { role: "user", text: q }]);
+    } catch {
+      setMessages([...base, { role: "user", text: q }, { role: "assistant", text: "Sorry, I couldn't process that. Please try again." }]);
+      setIsLoading(false);
+    }
+  };
+
+  const confirmProposal = async (proposalId: string) => {
+    setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: "Working on it…", proposal: { ...m.proposal, status: m.proposal.status } } : m)));
+    try {
+      const res = await fetch(`/api/ai/command/actions/${proposalId}/confirm`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      const ok = res.ok && data.success;
+      setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: ok ? "✓ Done — I've completed that for you." : (data.message || "I couldn't complete that action."), proposal: { ...m.proposal, status: ok ? "confirmed" : "failed" } } : m)));
+      if (ok) router.refresh();
+    } catch {
+      setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: "I couldn't complete that action. Please try again.", proposal: { ...m.proposal, status: "failed" } } : m)));
+    }
+  };
+
+  const rejectProposal = async (proposalId: string) => {
+    try { await fetch(`/api/ai/command/actions/${proposalId}/reject`, { method: "POST" }); } catch { /* best-effort */ }
+    setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: "Cancelled — nothing was changed.", proposal: { ...m.proposal, status: "rejected" } } : m)));
+  };
+
   const handleEditMessage = (index: number) => {
     const targetMsg = messages[index];
     if (targetMsg.role !== "user") return;
+    // Load the prompt back into the composer WITHOUT removing the existing
+    // conversation — the earlier answer stays visible so nothing is lost. The
+    // user can tweak the text and re-ask as a new turn.
     setInput(targetMsg.text);
-    setMessages((prev) => prev.slice(0, index));
     setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
+  const handleClear = async () => {
+    const ok = await confirmDialog({
+      title: "Clear this conversation?",
+      description: "This removes the messages from the panel. Saved chats stay in History.",
+    });
+    if (!ok) return;
+    newChat();
+    setInput("");
+    setShowHistory(false);
+  };
+
+  // "+ New Chat" — start fresh. Only asks to confirm if there's an unsaved thread.
+  const handleNewChat = async () => {
+    if (messages.length > 0) {
+      const ok = await confirmDialog({
+        title: "Start a new chat?",
+        description: "Your current messages stay saved in History — this just clears the panel.",
+      });
+      if (!ok) return;
+    }
+    newChat();
+    setInput("");
+    setShowHistory(false);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  };
+
+  const openHistory = async () => {
+    setShowHistory(true);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/admin/chat-history");
+      const data = await res.json();
+      setHistoryChats(Array.isArray(data.chats) ? data.chats : []);
+    } catch {
+      setHistoryChats([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const loadHistoryChat = (chat: any) => {
+    const loaded: Message[] = (chat.messages || []).map((m: any) => ({ role: m.role, text: m.content }));
+    setMessages(loaded);
+    setShowHistory(false);
+  };
+
+  // Prefetch the full-screen assistant + the AI-fill create forms so opening
+  // them is instant (no blank-load glitch when the AI navigates there).
   useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    try {
+      router.prefetch("/admin/ai-assistant");
+      router.prefetch("/crm/leads");
+      router.prefetch("/sales/customers/new");
+    } catch { /* noop */ }
+  }, [router]);
+
+  useEffect(() => {
+    if (!showHistory) endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, showHistory]);
 
   // Markdown customized components object
   const markdownComponents = {
@@ -288,12 +511,19 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>AI Assistant</h2>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleNewChat}
+            className={cn(
+              "inline-flex items-center gap-1 px-2 py-1 text-[10px] border rounded font-mono uppercase tracking-wider transition-all cursor-pointer mr-1",
+              isDark ? "text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-700 hover:bg-neutral-900" : "text-neutral-600 border-neutral-200 hover:text-neutral-900 hover:border-neutral-300 hover:bg-neutral-100"
+            )}
+            title="Start a new chat"
+          >
+            <Plus className="w-3 h-3" /> New
+          </button>
           {messages.length > 0 && (
             <button
-              onClick={() => {
-                setMessages([]);
-                setInput("");
-              }}
+              onClick={handleClear}
               className={cn(
                 "px-2 py-1 text-[10px] border rounded font-mono uppercase tracking-wider transition-all cursor-pointer mr-1",
                 isDark ? "text-neutral-500 border-transparent hover:text-neutral-300 hover:border-neutral-850" : "text-neutral-500 border-transparent hover:text-neutral-800 hover:border-neutral-200"
@@ -303,6 +533,18 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
               Clear
             </button>
           )}
+          <button
+            onClick={() => (showHistory ? setShowHistory(false) : openHistory())}
+            className={cn(
+              "p-1.5 rounded transition-colors cursor-pointer",
+              showHistory
+                ? (isDark ? "text-white bg-neutral-900" : "text-neutral-800 bg-neutral-100")
+                : (isDark ? "text-neutral-500 hover:text-white hover:bg-neutral-900" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100")
+            )}
+            title="Chat history"
+          >
+            <Clock className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => {
               onClose();
@@ -334,7 +576,35 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         "flex-1 overflow-y-auto flex flex-col justify-start",
         isDark ? "bg-gradient-to-b from-neutral-950 to-neutral-950/40" : "bg-neutral-50/30"
       )}>
-        {messages.length === 0 ? (
+        {showHistory ? (
+          <div className="flex-grow p-3 space-y-1 animate-in fade-in duration-150">
+            <div className={cn("px-1 py-2 text-[10px] font-mono uppercase tracking-wider", isDark ? "text-neutral-500" : "text-neutral-500")}>Recent conversations</div>
+            {loadingHistory ? (
+              <div className="flex items-center gap-2 px-2 py-4 text-xs text-neutral-500 font-mono">
+                <div className="h-3 w-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" /> Loading…
+              </div>
+            ) : historyChats.length === 0 ? (
+              <p className="px-2 py-4 text-xs text-neutral-500 font-mono">No saved conversations yet.</p>
+            ) : (
+              historyChats.map((chat) => (
+                <button
+                  key={chat._id}
+                  onClick={() => loadHistoryChat(chat)}
+                  className={cn(
+                    "w-full text-left flex items-start gap-2 px-2.5 py-2 rounded border transition-colors cursor-pointer",
+                    isDark ? "border-neutral-900 hover:bg-neutral-900/40 hover:border-neutral-800" : "border-neutral-150 hover:bg-neutral-50 hover:border-neutral-200"
+                  )}
+                >
+                  <MessageSquare className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", isDark ? "text-neutral-600" : "text-neutral-400")} />
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block truncate text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700")}>{chat.title || "Untitled chat"}</span>
+                    <span className={cn("block text-[10px] font-mono", isDark ? "text-neutral-600" : "text-neutral-400")}>{new Date(chat.updatedAt || chat.createdAt).toLocaleString()}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
 
             {/* Compact suggested chips */}
@@ -390,6 +660,22 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
+                  {/* Attachments the user sent — visible while thinking and after */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+                      {msg.attachments.map((att, ai) => (
+                        att.type.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={ai} src={att.dataUrl} alt={att.name} title={att.name} className="h-14 w-14 rounded border border-neutral-700 object-cover shrink-0" />
+                        ) : (
+                          <span key={ai} className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] shrink-0 max-w-[160px]", isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700")}>
+                            <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
+                            <span className="truncate">{att.name}</span>
+                          </span>
+                        )
+                      ))}
+                    </div>
+                  )}
                   {msg.isLoading ? (
                     <div className="flex items-center gap-2 text-neutral-500 font-mono text-xs py-1">
                       <div className="h-3 w-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
@@ -404,6 +690,30 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                           {msg.text}
                         </ReactMarkdown>
                       )}
+                    </div>
+                  )}
+
+                  {/* AI action confirm gate — nothing runs until the user clicks */}
+                  {msg.proposal && msg.proposal.status === "pending" && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={() => confirmProposal(msg.proposal!.proposalId)}
+                        className={cn(
+                          "px-3 py-1.5 rounded text-[11px] font-medium cursor-pointer transition-colors",
+                          msg.proposal.destructive ? "bg-red-600 hover:bg-red-700 text-white" : "bg-purple-600 hover:bg-purple-500 text-white",
+                        )}
+                      >
+                        {msg.proposal.destructive ? "Delete" : "Confirm"}
+                      </button>
+                      <button
+                        onClick={() => rejectProposal(msg.proposal!.proposalId)}
+                        className={cn(
+                          "px-3 py-1.5 rounded text-[11px] font-medium border cursor-pointer transition-colors",
+                          isDark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-900" : "border-neutral-300 text-neutral-700 hover:bg-neutral-100",
+                        )}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
                 </div>
@@ -442,42 +752,63 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             ? "border-neutral-800/80 bg-neutral-900/50 hover:border-neutral-700/80 focus-within:border-neutral-700 focus-within:ring-1 focus-within:ring-neutral-700/30"
             : "border-neutral-200 bg-neutral-50 hover:border-neutral-300 focus-within:border-neutral-400 focus-within:ring-1 focus-within:ring-neutral-200"
         )}>
-          {/* Attached file chip */}
-          {attachment && (
-            <div className={cn(
-              "flex items-center gap-2 mb-2 px-2 py-1.5 rounded text-[11px] border",
-              isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700"
-            )}>
-              <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
-              <span className="truncate flex-1">{attachment.name}</span>
-              <button type="button" onClick={() => setAttachment(null)} className="text-neutral-500 hover:text-red-400 shrink-0" title="Remove attachment">
-                <X className="w-3 h-3" />
-              </button>
+          {/* Attached files — horizontal, scrollable, no wrapping */}
+          {attachments.length > 0 && (
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+              {attachments.map((att, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-[11px] border shrink-0 max-w-[180px]",
+                    isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700"
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewIndex(i)}
+                    className="flex items-center gap-2 min-w-0 text-left cursor-pointer hover:opacity-80"
+                    title="Click to preview"
+                  >
+                    {att.type.startsWith("image/") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={att.dataUrl} alt={att.name} className="w-6 h-6 rounded object-cover shrink-0" />
+                    ) : (
+                      <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
+                    )}
+                    <span className="truncate">{att.name}</span>
+                  </button>
+                  <button type="button" onClick={() => removeAttachment(i)} className="text-neutral-500 hover:text-red-400 shrink-0" title="Remove">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".pdf,.docx,image/png,image/jpeg,image/webp,image/gif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
-            onChange={(e) => { handleFile(e.target.files?.[0]); if (e.target) e.target.value = ""; }}
+            onChange={(e) => { addFiles(e.target.files); if (e.target) e.target.value = ""; }}
           />
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={handlePaste}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if ((input.trim() || attachment) && !isLoading) {
-                  sendQuery(input.trim() || "Please analyse this attachment.");
+                if ((input.trim() || attachments.length) && !isLoading) {
+                  handleSend(input.trim());
                   setInput("");
                 }
               }
             }}
             // Intentionally NOT disabled while loading — the user can keep typing
             // their next prompt; only sending is blocked until the reply is done.
-            placeholder={isLoading ? "You can keep typing… (reply in progress)" : "Ask anything..."}
+            placeholder="Ask Anything"
             className={cn(
               "w-full bg-transparent border-none text-[14px] focus:outline-none focus:ring-0 resize-none font-sans min-h-[44px] max-h-[200px]",
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"
@@ -494,7 +825,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 title="Attach a PDF, Word doc, or image"
                 className={cn(
                   "h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
-                  attachment ? "bg-indigo-500/20 text-indigo-400" : isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-400" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-600"
+                  attachments.length ? "bg-indigo-500/20 text-indigo-400" : isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-400" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-600"
                 )}
               >
                 <Paperclip className="w-3 h-3" />
@@ -520,12 +851,12 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             </div>
             <button
               onClick={() => {
-                if ((input.trim() || attachment) && !isLoading) {
-                  sendQuery(input.trim() || "Please analyse this attachment.");
+                if ((input.trim() || attachments.length) && !isLoading) {
+                  handleSend(input.trim());
                   setInput("");
                 }
               }}
-              disabled={(!input.trim() && !attachment) || isLoading}
+              disabled={(!input.trim() && attachments.length === 0) || isLoading}
               className={cn(
                 "h-6 px-2.5 rounded disabled:opacity-40 text-[9px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer",
                 isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-300" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-700"
@@ -546,6 +877,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+
+      {previewIndex !== null && attachments[previewIndex] && (
+        <AttachmentPreview attachment={attachments[previewIndex]} onClose={() => setPreviewIndex(null)} />
+      )}
     </aside>
   );
 }

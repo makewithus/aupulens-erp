@@ -130,7 +130,6 @@ export function PaymentForm() {
     setAmountReceived(due.toFixed(2));
     setApplied({ [prefillInvoiceId]: due.toFixed(2) });
     setTouchedManually(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillInvoiceId, invoices]);
   useEffect(() => {
     if (touchedManually || !invoices.length) return;

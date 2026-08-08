@@ -65,13 +65,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/admin");
+      router.replace("/auth/admin");
     } else if (status === "authenticated") {
       if (
         session?.user?.role !== "admin" &&
         session?.user?.role !== "master-admin"
       ) {
-        router.push("/auth/admin");
+        router.replace("/auth/admin");
       } else {
         fetchDashboardData();
       }

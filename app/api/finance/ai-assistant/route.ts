@@ -12,6 +12,7 @@ import { DOCUMENT_STATUS } from '@/lib/constants/statuses';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
+import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import ChatHistory from '@/models/ChatHistory';
 import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
 import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
@@ -222,7 +223,7 @@ Instructions:
 
   const opts = {
     systemPrompt:
-      'You are a precise finance analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.',
+      'You are a precise finance analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.' + AI_ASSISTANT_GUIDANCE,
     maxTokens: 1024,
   };
 
