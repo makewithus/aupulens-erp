@@ -116,10 +116,18 @@ export default function QuoteDetailPage(props: {
   const [actionPending, setActionPending] = useState(false);
 
   const fetchQuote = async () => {
-    const res = await fetch(`/api/crm/quotes/${id}`, { cache: "no-store" });
-    const d = await res.json();
-    if (d.success) setData(d.data);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/crm/quotes/${id}`, { cache: "no-store" });
+      // Never call res.json() blindly — a 5xx can return an empty body, which
+      // throws "Unexpected end of JSON input" as an uncaught promise rejection.
+      const d = await res.json().catch(() => null);
+      if (res.ok && d?.success) setData(d.data);
+      else toast.error(d?.message || "Failed to load this quote.");
+    } catch {
+      toast.error("Failed to load this quote.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

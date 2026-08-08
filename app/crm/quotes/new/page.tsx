@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
 import { ChevronLeft, Search } from "lucide-react";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface SelectOption {
   _id: string;
@@ -126,6 +127,38 @@ export default function NewQuotePage() {
   const [quoteNum, setQuoteNum] = useState(
     `QT-${Date.now().toString(36).toUpperCase().slice(-6)}`
   );
+  // AI-native pre-fill: the assistant extracted a quote (line items, validity,
+  // etc.) — hand it to QuoteBuilder as initialData. `prefillKey` bumps so the
+  // builder remounts with the new data (its state is seeded from initialData).
+  const [prefill, setPrefill] = useState<any>(null);
+  const [prefillKey, setPrefillKey] = useState(0);
+  useAiPrefill("quote", (p) => {
+    const d: any = p.data || {};
+    if (d.quote_number) setQuoteNum(String(d.quote_number));
+    if (d.account_id) setAccId(String(d.account_id));
+    if (d.opportunity_id) setOppId(String(d.opportunity_id));
+    setPrefill({
+      line_items: Array.isArray(d.line_items)
+        ? d.line_items
+            .filter((li: any) => li && String(li.item_name || "").trim())
+            .map((li: any) => ({
+              item_name: String(li.item_name || ""),
+              description: String(li.description || ""),
+              quantity: Number(li.quantity) > 0 ? Number(li.quantity) : 1,
+              unit_price: Number(li.unit_price) || 0,
+              discount_percent: Number(li.discount_percent) || 0,
+              tax_percent: li.tax_percent !== undefined && li.tax_percent !== "" ? Number(li.tax_percent) : 18,
+            }))
+        : [],
+      validity_date: d.validity_date || "",
+      notes: d.notes || "",
+      terms_and_conditions: d.terms_and_conditions || "",
+    });
+    setPrefillKey((k) => k + 1);
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+  });
   const router = useRouter();
 
   const handleSave = async (data: any) => {
@@ -192,7 +225,7 @@ export default function NewQuotePage() {
             onChange={setOppId}
             fetchUrl="/api/crm/opportunities?"
             labelKey={(item) =>
-              `${item.deal_name} — $${item.amount?.toLocaleString() || 0}`
+              `${item.deal_name} — ₹${item.amount?.toLocaleString() || 0}`
             }
             placeholder="Select opportunity..."
           />
@@ -209,7 +242,7 @@ export default function NewQuotePage() {
       </div>
 
       {/* Quote builder */}
-      <QuoteBuilder onSave={handleSave} oppId={oppId} accountId={accId} />
+      <QuoteBuilder key={prefillKey} initialData={prefill} onSave={handleSave} oppId={oppId} accountId={accId} />
     </div>
   );
 }

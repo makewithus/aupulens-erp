@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import CrmContact from "@/models/crm/Contact";
 import { requireRole } from "@/lib/crm/rbac";
 import { escapeRegex } from "@/lib/utils/regex";
+import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
   await dbConnect();
   try {
     const body = await req.json();
+    // Drop empty/invalid enum values (e.g. an unselected preferred_communication
+    // "") so optional enum fields are omitted rather than 500ing.
+    sanitizeEnumFields(CrmContact, body);
 
     if (!body.first_name) return NextResponse.json({ success: false, message: "First name is required" }, { status: 400 });
 

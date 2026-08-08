@@ -6,6 +6,7 @@ import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import CrmTask from "@/models/crm/Task";
 import { calculateSlaTarget } from "@/lib/crm/slaEngine";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
+import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
   
   await dbConnect();
   const body = await req.json();
+  sanitizeEnumFields(CrmCase, body);
   body.tenantId = session.user.tenantId;
   body.createdBy = session.user.id;
   body.sla_target_at = calculateSlaTarget(body.severity || 'Low');

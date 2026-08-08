@@ -4,6 +4,8 @@ import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi"
 import { extractAttachment } from "@/lib/ai/extractFile";
 import connectDB from "@/lib/db";
 import Customer from "@/models/Customer";
+import CrmAccount from "@/models/crm/Account";
+import CrmOpportunity from "@/models/crm/Opportunity";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -56,7 +58,9 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
     route: "/crm/contacts",
     label: "CRM contact",
     spec: `Fields (JSON keys): first_name (REQUIRED), last_name, email, mobile, designation, department, role_in_buying, preferred_communication.
-- Split a full name into first_name + last_name. Keep phone/mobile with country code.`,
+- Split a full name into first_name + last_name. Keep phone/mobile with country code.
+- "role_in_buying" MUST be exactly one of: Decision Maker, Influencer, Finance Contact, Technical Contact, Procurement, Support Contact, Executive Sponsor, End User — or "" if unclear.
+- "preferred_communication" MUST be exactly one of: Email, Phone, WhatsApp, Meeting — or "" if unclear. Never guess.`,
   },
   account: {
     route: "/crm/accounts",
@@ -79,7 +83,16 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
     route: "/crm/opportunities",
     label: "sales opportunity/deal",
     spec: `Fields (JSON keys): deal_name (REQUIRED), amount, expected_close_date, stage, priority, forecast_category, source, product_service_line, next_action.
-- "amount" as a plain number. "expected_close_date" as YYYY-MM-DD. "priority" one of Low/Medium/High.`,
+- "amount" as a plain number. "expected_close_date" as YYYY-MM-DD. "priority" one of Low/Medium/High.
+- "stage" MUST be exactly one of: Prospecting, Discovery, Requirement Gathering, Solution Fit, Proposal Sent, Negotiation, Approval, Closed Won, Closed Lost. Map any similar phrase to the closest of these (e.g. a "proposal"/"price quote" stage → "Proposal Sent"). If unclear, use "Prospecting".
+- "forecast_category" MUST be exactly one of: Omitted, Pipeline, Best Case, Commit, Closed — or "" if unclear.`,
+  },
+  quote: {
+    route: "/crm/quotes/new",
+    label: "sales quote",
+    spec: `Fields (JSON keys): quote_number, account_name (the customer/company the quote is FOR), opportunity_name (the deal/opportunity it relates to, if any), validity_date, notes, terms_and_conditions, line_items.
+- "line_items" is an ARRAY of objects: { item_name (REQUIRED), description, quantity (number, default 1), unit_price (number, no currency symbol), discount_percent (number 0-100, default 0), tax_percent (GST percent as a plain number, e.g. 18, default 18) }.
+- Extract EVERY line item you can find in the document/instruction, in order. "validity_date" as YYYY-MM-DD. Amounts and percents as plain numbers (no ₹, %, or commas).`,
   },
 };
 
@@ -191,6 +204,30 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
           missingDependency = { type: "customer", name: nameQ };
           suggestions.unshift(`No customer named "${nameQ}" exists yet — create them first (use the "+" on the customer field), then select them.`);
         }
+      }
+    }
+
+    // A quote needs an Account (and usually an Opportunity). Resolve the named
+    // account/opportunity to real ids so the form's selects are pre-picked; if a
+    // name was given but not found, flag it so the user knows to create/select it.
+    if (target === "quote") {
+      await connectDB();
+      const accQ = String(data.account_name || "").trim();
+      if (accQ) {
+        const rx = new RegExp(`^${escapeRegex(accQ)}$`, "i");
+        const acc: any = await CrmAccount.findOne({ tenantId, company_name: rx }, "_id").lean();
+        if (acc) data.account_id = String(acc._id);
+        else {
+          missingDependency = { type: "account", name: accQ };
+          suggestions.unshift(`No account named "${accQ}" exists yet — create it (CRM → Accounts) or pick a different account, then select it here.`);
+        }
+      }
+      const oppQ = String(data.opportunity_name || "").trim();
+      if (oppQ) {
+        const rx = new RegExp(`^${escapeRegex(oppQ)}$`, "i");
+        const opp: any = await CrmOpportunity.findOne({ tenantId, deal_name: rx }, "_id").lean();
+        if (opp) data.opportunity_id = String(opp._id);
+        else suggestions.unshift(`No opportunity named "${oppQ}" was found — pick the right one in the Opportunity field.`);
       }
     }
 

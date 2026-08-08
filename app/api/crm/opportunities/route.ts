@@ -5,6 +5,7 @@ import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { requireRole } from "@/lib/crm/rbac";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
+import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 import "@/models/crm/Account";
 
 export async function GET(req: NextRequest) {
@@ -65,6 +66,9 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
     const body = await req.json();
+    // Drop any invalid/empty enum values (e.g. an AI-invented stage like
+    // "Proposal / Price Quote") so schema defaults apply instead of a 500.
+    sanitizeEnumFields(CrmOpportunity, body);
     body.tenantId = session.user.tenantId;
     body.createdBy = session.user.id;
     // Handle both legacy and new fields
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
     body.deal_name = body.deal_name || body.name;
     body.owner_id = body.owner_id || session.user.id;
     body.ownerId = body.ownerId || body.owner_id;
-    
+
     body.stage = body.stage || 'Prospecting';
     body.stage_history = [{ stage: body.stage, entered_at: new Date() }];
 

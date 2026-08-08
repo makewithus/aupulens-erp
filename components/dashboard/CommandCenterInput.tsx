@@ -142,7 +142,7 @@ export function CommandCenterInput() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative hidden lg:flex items-center">
+    <form onSubmit={handleSubmit} className="relative flex items-center">
       <div className="relative group flex items-center">
         <Sparkles className={cn("absolute left-3 h-4 w-4 transition-colors", isProcessing ? "text-primary animate-pulse" : "text-muted-foreground group-focus-within:text-primary")} />
         <Input
@@ -151,7 +151,7 @@ export function CommandCenterInput() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={isProcessing}
-          className="w-48 lg:w-56 xl:w-72 pl-9 pr-14 h-9 bg-muted/50 border-border/60 focus:bg-background rounded-full focus:ring-1 focus:ring-primary focus:border-primary transition-all text-sm placeholder:text-xs"
+          className="w-32 sm:w-48 lg:w-56 xl:w-72 pl-9 pr-14 h-9 bg-muted/50 border-border/60 focus:bg-background rounded-full focus:ring-1 focus:ring-primary focus:border-primary transition-all text-sm placeholder:text-xs"
         />
         <div className="absolute right-1 flex items-center gap-0.5">
           {query && !isProcessing && (

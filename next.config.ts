@@ -43,6 +43,31 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
 
+  // Silence the benign jose Edge-Runtime warning. The auth middleware runs on
+  // the Edge runtime and must decode the JWT session via `jose`; jose's entry
+  // statically pulls in its deflate helper (CompressionStream /
+  // DecompressionStream), but that code path — compressed JWE ("zip") — is
+  // never exercised by NextAuth. Next's Edge linter flags the unused API as a
+  // false positive. Scoped tightly to jose's deflate module + that exact
+  // message so genuine "Node.js API in the Edge Runtime" warnings still surface.
+  webpack: (config) => {
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      (warning: any) => {
+        const msg = typeof warning?.message === "string" ? warning.message : "";
+        const res = String(
+          warning?.module?.resource || warning?.module?.userRequest || "",
+        );
+        return (
+          (/Edge Runtime/.test(msg) &&
+            /(CompressionStream|DecompressionStream)/.test(msg)) ||
+          /[\\/]jose[\\/].*[\\/]deflate\.js$/.test(res)
+        );
+      },
+    ];
+    return config;
+  },
+
   async headers() {
     return [
       {

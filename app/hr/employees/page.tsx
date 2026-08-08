@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
@@ -237,9 +237,7 @@ export default function EmployeesPage() {
   // AI-native pre-fill: if the assistant prepared an employee, open the create
   // modal with the extracted fields filled in. The user reviews and clicks the
   // real "Create" button (nothing is auto-submitted).
-  useEffect(() => {
-    const p = consumePrefill("employee");
-    if (!p) return;
+  useAiPrefill("employee", (p) => {
     handleOpenCreate();
     const d: any = p.data || {};
     setFormData((prev: any) => ({
@@ -257,8 +255,7 @@ export default function EmployeesPage() {
     if (p.suggestions && p.suggestions.length) {
       toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   const handleSubmit = async () => {
     if (

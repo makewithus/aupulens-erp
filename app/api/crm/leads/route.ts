@@ -6,6 +6,7 @@ import CrmActivity from "@/models/crm/Activity";
 import { scoreLeadWithAi, calculateLeadScore } from "@/lib/crm/leadScoring";
 import { requireRole } from "@/lib/crm/rbac";
 import { recordAiInsight } from "@/lib/crm/ai/recordInsight";
+import { sanitizeEnumFields } from "@/lib/db/sanitizeEnums";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -51,7 +52,10 @@ export async function POST(req: NextRequest) {
     if (!body.lead_name || !body.source || !body.owner_id) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
-    
+    // Drop any invalid/empty enum values (source/priority/status) so a bad AI
+    // value can't 500 — schema defaults / omit take over.
+    sanitizeEnumFields(CrmLead, body);
+
     // Fast, indexed exact-duplicate guard (email/phone) — a single quick lookup,
     // enough to stop obvious re-submissions without any AI cost.
     if (body.email || body.phone) {

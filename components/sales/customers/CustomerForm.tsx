@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,10 +148,9 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   // AI-native pre-fill: when the assistant prepared a customer, merge the
   // extracted fields into the real form and surface its suggestions. The user
   // still reviews and clicks the real "Save"/"Create" button (only on create).
-  useEffect(() => {
-    if (customerId) return;
-    const p = consumePrefill("customer");
-    if (!p) return;
+  // In edit mode use a sentinel target that never matches a real stash, so an
+  // unrelated pending prefill is left intact (consumePrefill only clears on match).
+  useAiPrefill(customerId ? "__customer_edit_noop__" : "customer", (p) => {
     const d: any = p.data || {};
     const name = String(d.name || d.customerName || d.companyName || "").trim();
     const isCompany = typeof d.is_company === "boolean" ? d.is_company : Boolean(d.companyName && !d.firstName);
@@ -182,8 +181,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     if (p.suggestions && p.suggestions.length) {
       toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerId]);
+  });
 
   const update = (patch: Partial<CustomerFormValue>) => setForm((f) => ({ ...f, ...patch }));
   const updateNested = <K extends keyof CustomerFormValue>(key: K, patch: Partial<CustomerFormValue[K]>) =>

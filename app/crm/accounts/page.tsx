@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from "react";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
@@ -47,14 +47,11 @@ export default function AccountsPage() {
 
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
-  useEffect(() => {
-    const p = consumePrefill("account");
-    if (!p) return;
+  useAiPrefill("account", (p) => {
     setForm((f: any) => { const n: any = { ...f }; for (const k of Object.keys(f)) { const v = (p.data as any)?.[k]; if (v !== undefined && v !== null && v !== "") n[k] = v; } return n; });
     setSheetOpen(true);
     if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   const fetchAccounts = async () => {
     setLoading(true);

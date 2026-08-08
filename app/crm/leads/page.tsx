@@ -1,7 +1,7 @@
 'use client';
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { AiTextarea } from "@/components/ai/AiTextarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,10 +101,9 @@ export default function LeadsPage() {
 
   // AI-native pre-fill: if the assistant prepared a lead, open the form with the
   // extracted values pre-filled and surface its suggestions. The user still
-  // reviews and clicks "Create Lead".
-  useEffect(() => {
-    const p = consumePrefill("lead");
-    if (!p) return;
+  // reviews and clicks "Create Lead". Works whether we navigated here or were
+  // already on this page (see useAiPrefill).
+  useAiPrefill("lead", (p) => {
     setForm((prev) => {
       const next: any = { ...prev };
       for (const k of Object.keys(EMPTY_FORM)) {
@@ -117,7 +116,7 @@ export default function LeadsPage() {
     if (p.suggestions && p.suggestions.length) {
       toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
     }
-  }, []);
+  });
 
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
 import { toast } from "sonner";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { computeInvoiceTotals, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
 import { CustomerPicker, type PickerCustomer } from "./CustomerPicker";
@@ -152,10 +152,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   // REAL form. The customer is resolved server-side; if it wasn't found, the
   // suggestion tells the user to add it via the inline "+ customer". The user
   // reviews and clicks the real Save button — nothing is auto-submitted.
-  useEffect(() => {
-    if (mode !== "create") return;
-    const p = consumePrefill("invoice");
-    if (!p) return;
+  useAiPrefill(mode === "create" ? "invoice" : "__invoice_edit_noop__", (p) => {
     const d: any = p.data || {};
     if (d.customerId) setSelectedCustomerId(String(d.customerId));
     if (Array.isArray(d.lineItems) && d.lineItems.length) {
@@ -179,8 +176,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     if (p.suggestions && p.suggestions.length) {
       toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  });
 
   // ── Initial data load ────────────────────────────────────────────
   useEffect(() => {

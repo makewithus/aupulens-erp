@@ -363,7 +363,7 @@ export default function QuoteBuilder({
                   disabled={readOnly}
                 />
                 <div className="text-right font-mono text-sm font-bold text-green-400">
-                  ${(calc?.line_total || 0).toFixed(2)}
+                  ₹{(calc?.line_total || 0).toFixed(2)}
                 </div>
                 <Button
                   variant="ghost"
@@ -462,11 +462,11 @@ export default function QuoteBuilder({
           </div>
           <div className="flex justify-between text-red-400">
             <span>Discount</span>
-            <span>-${totals.discountTotal.toFixed(2)}</span>
+            <span>-₹{totals.discountTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-yellow-400">
             <span>Tax</span>
-            <span>+${totals.taxTotal.toFixed(2)}</span>
+            <span>+₹{totals.taxTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-bold text-lg pt-2 border-t border-neutral-700 text-white">
             <span>Grand Total</span>

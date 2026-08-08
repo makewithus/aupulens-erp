@@ -24,9 +24,22 @@ export interface AiPrefill {
 
 const KEY = "aupulens:ai-prefill";
 
+/**
+ * Window event dispatched right after a prefill is stashed. The target page may
+ * ALREADY be mounted (the user triggered "create an X" while sitting on the X
+ * list page) — in that case router.push(sameRoute) is a no-op and a
+ * consume-on-mount effect never re-fires. Listening for this event lets an
+ * already-mounted page consume the stash too. Cross-page navigation is still
+ * covered by the on-mount consume.
+ */
+export const PREFILL_EVENT = "aupulens:ai-prefill:stashed";
+
 export function stashPrefill(p: AiPrefill): void {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(p));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(PREFILL_EVENT, { detail: { target: p.target } }));
+    }
   } catch {
     /* storage unavailable — the target page just opens an empty form */
   }

@@ -48,7 +48,9 @@ export async function GET(req: NextRequest, props: RouteProps) {
     timestamp: new Date(),
   });
 
-  return NextResponse.json({ success: true, data: { ...quote.toObject(), approvalHistory } });
+  // `quote` is a plain object (fetched with .lean()), so spread it directly —
+  // calling .toObject() here would throw (it only exists on Mongoose documents).
+  return NextResponse.json({ success: true, data: { ...quote, approvalHistory } });
 }
 
 // ─── PUT /api/crm/quotes/[id] ────────────────────────────────────────────────

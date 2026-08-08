@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus } from "lucide-react";
+import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -194,6 +194,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     { rx: /\b(customer|client)\b/i, target: "customer", route: "/sales/customers/new", label: "customer" },
     { rx: /\binvoice\b/i, target: "invoice", route: "/sales/invoices/new", label: "invoice" },
     { rx: /\b(employee|staff)\b/i, target: "employee", route: "/hr/employees", label: "employee" },
+    { rx: /\b(quote|quotation)\b/i, target: "quote", route: "/crm/quotes/new", label: "quote" },
     { rx: /\b(opportunity|deal)\b/i, target: "opportunity", route: "/crm/opportunities", label: "opportunity" },
     { rx: /\bcontact\b/i, target: "contact", route: "/crm/contacts", label: "contact" },
     { rx: /\b(account|company)\b/i, target: "account", route: "/crm/accounts", label: "account" },
@@ -664,12 +665,15 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
                       {msg.attachments.map((att, ai) => (
-                        att.type.startsWith("image/") ? (
+                        // Only render an <img> when we still have the data URL. After the
+                        // chat is persisted, dataUrl is stripped — so fall back to a chip
+                        // instead of emitting <img src=""> (which warns + shows broken).
+                        att.type.startsWith("image/") && att.dataUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img key={ai} src={att.dataUrl} alt={att.name} title={att.name} className="h-14 w-14 rounded border border-neutral-700 object-cover shrink-0" />
                         ) : (
-                          <span key={ai} className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] shrink-0 max-w-[160px]", isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700")}>
-                            <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
+                          <span key={ai} title={att.name} className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] shrink-0 max-w-[160px]", isDark ? "bg-neutral-850 border-neutral-700 text-neutral-300" : "bg-neutral-100 border-neutral-200 text-neutral-700")}>
+                            {att.type.startsWith("image/") ? <ImageIcon className="w-3 h-3 shrink-0 text-indigo-400" /> : <FileText className="w-3 h-3 shrink-0 text-indigo-400" />}
                             <span className="truncate">{att.name}</span>
                           </span>
                         )
@@ -769,9 +773,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                     className="flex items-center gap-2 min-w-0 text-left cursor-pointer hover:opacity-80"
                     title="Click to preview"
                   >
-                    {att.type.startsWith("image/") ? (
+                    {att.type.startsWith("image/") && att.dataUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={att.dataUrl} alt={att.name} className="w-6 h-6 rounded object-cover shrink-0" />
+                    ) : att.type.startsWith("image/") ? (
+                      <ImageIcon className="w-3 h-3 shrink-0 text-indigo-400" />
                     ) : (
                       <FileText className="w-3 h-3 shrink-0 text-indigo-400" />
                     )}

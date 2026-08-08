@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { consumePrefill } from "@/lib/ai/aiPrefill";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -75,14 +75,12 @@ export default function OpportunitiesPage() {
   });
 
   // AI-native pre-fill (sweep): open the create dialog with AI-extracted fields.
-  useEffect(() => {
-    const p = consumePrefill("opportunity");
-    if (!p) return;
+  // Fires whether we navigated here or were already on this page.
+  useAiPrefill("opportunity", (p) => {
     setFormData((f: any) => { const n: any = { ...f }; for (const k of Object.keys(f)) { const v = (p.data as any)?.[k]; if (v !== undefined && v !== null && v !== "") n[k] = String(v); } return n; });
     setIsCreateModalOpen(true);
     if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   // Reference lookups (Mocking this part for UI, in real app fetched from APIs)
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -237,7 +235,7 @@ export default function OpportunitiesPage() {
     }
   };
 
-  const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val || 0);
+  const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(val || 0);
 
   return (
     <div className="space-y-6">
