@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plus, Trash2, GripVertical, X, Settings } from "lucide-react";
+import { Plus, Trash2, GripVertical, X, Settings, Sparkles, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface QuoteLineItem {
   itemId?: string;
@@ -119,6 +120,64 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
   }, [session?.user?.name, quoteId]);
 
   const update = (patch: Partial<QuoteFormValue>) => setForm((f) => ({ ...f, ...patch }));
+
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [termsLoading, setTermsLoading] = useState(false);
+  // Draft the Customer Notes / Terms with AI (assistive — the user still edits
+  // and saves). Reuses the sales notes/terms drafter.
+  const draftWithAi = async (field: "notes" | "terms") => {
+    const setLoading = field === "notes" ? setNotesLoading : setTermsLoading;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/sales/invoices/ai-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, context: "sales quote" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.data?.text) {
+        if (field === "notes") update({ customerNotes: data.data.text });
+        else update({ terms: data.data.text });
+      } else {
+        toast.error(data.message || "Couldn't draft that. Please try again.");
+      }
+    } catch {
+      toast.error("Couldn't reach the AI drafting service.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // AI-native pre-fill: consume an AI-prepared sales quote into this real form
+  // (create mode only). Customer is resolved server-side; user reviews + Saves.
+  useAiPrefill(quoteId ? "__sales_quote_edit_noop__" : "sales_quote", (p) => {
+    const d: any = p.data || {};
+    const patch: Partial<QuoteFormValue> = {};
+    if (d.customerId) patch.customerId = String(d.customerId);
+    if (d.reference) patch.reference = String(d.reference);
+    if (d.quote_date) patch.quoteDate = String(d.quote_date);
+    if (d.expiry_date) patch.expiryDate = String(d.expiry_date);
+    if (d.subject) patch.subject = String(d.subject);
+    if (d.notes) patch.customerNotes = String(d.notes);
+    if (d.terms) patch.terms = String(d.terms);
+    if (Array.isArray(d.line_items) && d.line_items.length) {
+      const mapped = d.line_items
+        .filter((li: any) => li && String(li.name || "").trim())
+        .map((li: any) => ({
+          name: String(li.name || ""),
+          qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
+          unitPrice: Number(li.unit_price) || 0,
+          discount: 0,
+          discountMode: "percent" as const,
+          taxRate: Number(li.tax_rate) || 0,
+        }));
+      if (mapped.length) patch.lineItems = mapped;
+    }
+    update(patch);
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+  });
 
   const updateLine = (i: number, patch: Partial<QuoteLineItem>) => {
     const next = [...form.lineItems];
@@ -507,11 +566,31 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Customer Notes</Label>
+            <div className="flex items-center justify-between">
+              <Label>Customer Notes</Label>
+              <button
+                type="button"
+                onClick={() => draftWithAi("notes")}
+                disabled={notesLoading}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-60 cursor-pointer"
+              >
+                {notesLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Draft with AI
+              </button>
+            </div>
             <Textarea value={form.customerNotes} onChange={(e) => update({ customerNotes: e.target.value })} rows={3} />
           </div>
           <div className="space-y-1.5">
-            <Label>Terms &amp; Conditions</Label>
+            <div className="flex items-center justify-between">
+              <Label>Terms &amp; Conditions</Label>
+              <button
+                type="button"
+                onClick={() => draftWithAi("terms")}
+                disabled={termsLoading}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-60 cursor-pointer"
+              >
+                {termsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Draft with AI
+              </button>
+            </div>
             <Textarea
               placeholder="Enter the terms and conditions of your business to be displayed in your transaction"
               value={form.terms || ""}
@@ -632,7 +711,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         Additional Fields: Start adding custom fields for your quotes by going to Settings → Sales → Quotes.
       </p>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {activeTab === "quote" ? (
             <>

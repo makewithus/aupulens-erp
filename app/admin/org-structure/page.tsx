@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { Building2, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 
 /**
  * Enterprise Organization Management (6.8) — view/build the 8-level hierarchy,
@@ -32,6 +35,7 @@ function TreeRows({ nodes, depth, onSelect, selectedId }: { nodes: any[]; depth:
 }
 
 export default function OrgStructurePage() {
+  const { data: session } = useSession();
   const [tree, setTree] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,10 +72,26 @@ export default function OrgStructurePage() {
     else toast.error(d.message || "Failed to add unit");
   };
 
-  if (loading) return <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+  const layoutProps = {
+    sidebarSections: adminSidebarConfig,
+    dashboardTitle: "Admin",
+    pageName: "Organization Structure",
+    breadcrumbs: [{ label: "Admin", href: "/admin/dashboard" }, { label: "Organization Structure" }],
+    userName: session?.user?.name || "",
+    userEmail: session?.user?.email || "",
+    userRole: (session?.user as any)?.role,
+    onSignOut: () => signOut({ callbackUrl: "/auth/admin" }),
+  };
+
+  if (loading) return (
+    <DashboardLayout {...layoutProps}>
+      <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+    </DashboardLayout>
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout {...layoutProps}>
+    <div className="max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold flex items-center gap-2 mb-1"><Building2 className="h-6 w-6 text-indigo-500" /> Organization Structure</h1>
       <p className="text-sm text-muted-foreground mb-6">8-level hierarchy with inherited localization and consolidated reporting.</p>
 
@@ -131,5 +151,6 @@ export default function OrgStructurePage() {
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }

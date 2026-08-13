@@ -75,7 +75,7 @@ export default function HRDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

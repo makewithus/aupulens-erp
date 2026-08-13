@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ export default function JournalTemplatesPage() {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/accounting/journal-templates");
+      const res = await cachedFetch("/api/finance/accounting/journal-templates");
       const data = await res.json();
       if (data.success) setTemplates(data.data);
       else toast.error(data.message || "Failed to load templates");
@@ -39,7 +40,7 @@ export default function JournalTemplatesPage() {
   const handleDelete = async (id: string) => {
     const ok = await confirmDialog({ title: "Delete template?", description: "This journal template will be permanently removed." });
     if (!ok) return;
-    const res = await fetch(`/api/finance/accounting/journal-templates/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/finance/accounting/journal-templates/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
       toast.success("Template deleted");

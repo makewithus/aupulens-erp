@@ -26,10 +26,13 @@ type Updater = AiChatMessage[] | ((prev: AiChatMessage[]) => AiChatMessage[]);
 interface AiChatStore {
   isOpen: boolean;
   messages: AiChatMessage[];
+  /** Server conversation id — keeps multi-turn memory tied to one thread. */
+  conversationId: string | null;
   open: () => void;
   close: () => void;
   toggle: () => void;
   setMessages: (updater: Updater) => void;
+  setConversationId: (id: string | null) => void;
   newChat: () => void;
 }
 
@@ -38,12 +41,14 @@ export const useAiChatStore = create<AiChatStore>()(
     (set) => ({
       isOpen: false,
       messages: [],
+      conversationId: null,
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false }),
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),
       setMessages: (updater) =>
         set((s) => ({ messages: typeof updater === "function" ? (updater as (p: AiChatMessage[]) => AiChatMessage[])(s.messages) : updater })),
-      newChat: () => set({ messages: [] }),
+      setConversationId: (id) => set({ conversationId: id }),
+      newChat: () => set({ messages: [], conversationId: null }),
     }),
     {
       name: "aupulens-ai-chat",
@@ -51,6 +56,7 @@ export const useAiChatStore = create<AiChatStore>()(
       // Persist only the finished thread; drop in-progress bubbles and the heavy
       // attachment data URLs (keep name/type so chips still render after reload).
       partialize: (s) => ({
+        conversationId: s.conversationId,
         messages: s.messages
           .filter((m) => !m.isLoading && !(m.role === "assistant" && !m.text))
           .map((m) => (m.attachments ? { ...m, attachments: m.attachments.map((a) => ({ name: a.name, type: a.type, dataUrl: "" })) } : m)),

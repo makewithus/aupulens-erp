@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useRef } from "react";
+import { Mic, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAiComplete } from "@/lib/hooks/useAiComplete";
+import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 
 interface AiTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange" | "value"> {
   value: string;
@@ -24,6 +27,12 @@ interface AiTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextArea
 export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled = true, className, onKeyDown, ...props }: AiTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const { suggestion, clear } = useAiComplete(value, label, { enabled: aiEnabled, context: aiContext });
+
+  // Voice dictation (Azure) — speak to fill the field; transcript is appended.
+  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => onValueChange(value ? `${value} ${t}` : t),
+    onError: (m) => toast.error(m),
+  });
 
   const accept = () => {
     if (!suggestion) return;
@@ -66,6 +75,20 @@ export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled =
         className={cn(shared, "relative border-input bg-transparent")}
         {...props}
       />
+      {micSupported ? (
+        <button
+          type="button"
+          onClick={toggleMic}
+          disabled={transcribing}
+          title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Dictate with your voice"}
+          className={cn(
+            "absolute right-2 top-2 h-6 w-6 rounded flex items-center justify-center transition-colors disabled:cursor-wait",
+            listening ? "bg-red-500/20 text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted",
+          )}
+        >
+          {transcribing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
+        </button>
+      ) : null}
       {suggestion ? (
         <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
           Tab ↹ to accept

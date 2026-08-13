@@ -90,12 +90,12 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
-    // JWT token validity: 8 hours. If the user is active, token is refreshed.
+    // JWT token validity: 24 hours. If the user is active, token is refreshed.
     // Cookie has NO maxAge (see below) so it is a browser SESSION cookie —
     // it is deleted the moment the browser is closed, ensuring fresh opens
     // always require login.
-    maxAge: 8 * 60 * 60,   // 8 h server-side JWT validity
-    updateAge: 60 * 60,    // refresh every 1 h of active use
+    maxAge: 24 * 60 * 60,   // 24 h server-side JWT validity
+    updateAge: 60 * 60,     // refresh every 1 h of active use
   },
   // We remove the explicit `cookies` override. NextAuth (Auth.js v5) automatically 
   // uses the `__Secure-` prefix on HTTPS and strips it on HTTP.

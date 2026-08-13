@@ -21,6 +21,19 @@ export function StatCard({
   rightContent,
   className,
 }: StatCardProps) {
+  // Adaptive font: shrink a LITTLE as the value gets longer so big ₹ amounts fit
+  // fully on one line — never truncated with "…" and never split mid-number.
+  // Caps are conservative so it fits even in the narrow 4-column pipeline tiles.
+  const valueLen =
+    typeof value === "string" ? value.length : typeof value === "number" ? String(value).length : 0;
+  const valueSize =
+    valueLen > 12
+      ? "text-xl sm:text-2xl"
+      : valueLen > 9
+      ? "text-2xl sm:text-3xl"
+      : valueLen > 6
+      ? "text-3xl sm:text-4xl"
+      : "text-4xl sm:text-5xl";
   return (
     <Card
       className={cn(
@@ -35,9 +48,10 @@ export function StatCard({
               {title}
             </p>
 
-            {/* Responsive size + min-w-0/break so large ₹ amounts never overflow
-                or get clipped on narrow screens. */}
-            <h2 className="break-words tabular-nums text-4xl sm:text-5xl xl:text-[56px] font-black leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80">
+            <h2 className={cn(
+              "tabular-nums font-black leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80",
+              valueSize,
+            )}>
               {value}
             </h2>
 

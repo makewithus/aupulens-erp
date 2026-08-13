@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -45,7 +46,7 @@ export default function CurrencyAdjustmentsPage() {
   const fetchAdjustments = async (f: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/finance/accounting/currency-adjustments?filter=${f}`);
+      const res = await cachedFetch(`/api/finance/accounting/currency-adjustments?filter=${f}`);
       const data = await res.json();
       if (data.success) setAdjustments(data.data);
     } catch {
@@ -77,7 +78,7 @@ export default function CurrencyAdjustmentsPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/finance/accounting/currency-adjustments", {
+      const res = await cachedFetch("/api/finance/accounting/currency-adjustments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currency, dateOfAdjustment, exchangeRate: Number(exchangeRate), notes }),

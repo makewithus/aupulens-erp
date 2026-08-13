@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,7 +60,7 @@ export default function CustomersPage() {
 
   const fetchViews = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/customer-views");
+      const res = await cachedFetch("/api/sales/customer-views");
       const data = await res.json();
       if (data.success) {
         setViews(data.data);
@@ -77,7 +78,7 @@ export default function CustomersPage() {
       const params = new URLSearchParams();
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
-      const res = await fetch(`/api/sales/customers?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/customers?${params.toString()}`);
       const json = await res.json();
       setCustomers(json.items || []);
     } catch (error) {
@@ -97,7 +98,7 @@ export default function CustomersPage() {
   }, [load]);
 
   const toggleFavorite = async (view: any) => {
-    await fetch(`/api/sales/customer-views/${view._id}`, {
+    await cachedFetch(`/api/sales/customer-views/${view._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isFavorite: !view.isFavorite }),

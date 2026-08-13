@@ -7,12 +7,15 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { salesSidebarConfig } from '@/config/sidebar/sales';
-import { Send, Trash2, Archive, Plus, MessageSquare, Mic } from 'lucide-react';
+import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Paperclip } from 'lucide-react';
+import { useChatAttachments } from '@/lib/hooks/useChatAttachments';
+import { ChatAttachmentBar } from '@/components/ai/ChatAttachmentBar';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { toast } from 'sonner';
+import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
 
 interface Message {
   id: string;
@@ -40,6 +43,11 @@ export default function SalesAIAssistant() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onError: (m) => toast.error(m),
+  });
+  const { attachments, addFiles, removeAttachment, handlePaste, fileInputRef, clear: clearAttachments } = useChatAttachments({ onError: (m) => toast.error(m) });
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
@@ -178,10 +186,11 @@ export default function SalesAIAssistant() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
-    const userInputText = input.trim();
+    const sentAttachments = attachments;
+    const userInputText = input.trim() || (sentAttachments.length ? 'Please read the attached file(s) and help accordingly.' : '');
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -199,6 +208,7 @@ export default function SalesAIAssistant() {
 
     setMessages(prev => [...prev, userMessage, loadingMessage]);
     setInput('');
+    clearAttachments();
     setIsLoading(true);
 
     try {
@@ -211,7 +221,7 @@ export default function SalesAIAssistant() {
       const response = await fetch('/api/sales/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns })
+        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, attachments: sentAttachments })
       });
 
       // Gated / error — surface the server's message instead of a blank reply.
@@ -539,6 +549,7 @@ export default function SalesAIAssistant() {
 
           {/* Input at Bottom */}
           <div className="p-4 border-t border-border bg-card/50 backdrop-blur-sm flex-shrink-0">
+            <ChatAttachmentBar attachments={attachments} removeAttachment={removeAttachment} fileInputRef={fileInputRef} addFiles={addFiles} />
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <Textarea
@@ -546,22 +557,30 @@ export default function SalesAIAssistant() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   placeholder="Ask Anything"
-                  className="min-h-[60px] max-h-[200px] resize-none bg-background border-border text-foreground placeholder:text-muted-foreground pr-10"
+                  className="min-h-[60px] max-h-[200px] resize-none bg-background border-border text-foreground placeholder:text-muted-foreground pl-10 pr-10"
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="absolute right-2 bottom-2 h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                  disabled={isLoading}
-                >
-                  <Mic className="w-4 h-4" />
+                <Button type="button" size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="Attach a document or image" className="absolute left-2 bottom-2 h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                  <Paperclip className="w-4 h-4" />
                 </Button>
+                {micSupported && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={toggleMic}
+                    disabled={isLoading || transcribing}
+                    title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
+                    className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? "text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Mic className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-              <Button 
-                type="submit" 
-                disabled={isLoading || !input.trim()}
+              <Button
+                type="submit"
+                disabled={isLoading || (!input.trim() && attachments.length === 0)}
                 className="h-[60px] px-6 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isLoading ? (

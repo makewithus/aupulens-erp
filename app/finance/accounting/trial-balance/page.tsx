@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -73,7 +74,7 @@ export default function TrialBalancePage() {
       }
 
       const query = params.toString();
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/finance/reports/trial-balance${query ? `?${query}` : ""}`,
       );
       const json = await res.json();
@@ -87,7 +88,7 @@ export default function TrialBalancePage() {
   }, [dateRange]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -65,7 +66,7 @@ export default function PayablesPage() {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
-      const res = await fetch(`/api/finance/bills?${params.toString()}`);
+      const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bills');
       
       const data = await res.json();
@@ -79,9 +80,7 @@ export default function PayablesPage() {
   }, [statusFilter]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/finance');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'finance' && session?.user?.role !== 'admin') {
         router.push('/auth/finance');
       } else {
@@ -126,7 +125,7 @@ export default function PayablesPage() {
         total,
       };
       
-      const res = await fetch('/api/finance/bills', {
+      const res = await cachedFetch('/api/finance/bills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(billData),
@@ -162,7 +161,7 @@ export default function PayablesPage() {
 
   const handleMarkPaid = async (billId: string) => {
     try {
-      const res = await fetch(`/api/finance/bills/${billId}`, {
+      const res = await cachedFetch(`/api/finance/bills/${billId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

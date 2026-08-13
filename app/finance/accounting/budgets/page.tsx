@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ export default function BudgetsPage() {
   const fetchBudgets = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/accounting/budgets");
+      const res = await cachedFetch("/api/finance/accounting/budgets");
       const data = await res.json();
       if (data.success) setBudgets(data.data);
       else toast.error(data.message || "Failed to load budgets");
@@ -39,7 +40,7 @@ export default function BudgetsPage() {
   const handleDelete = async (id: string) => {
     const ok = await confirmDialog({ title: "Delete budget?", description: "This budget will be permanently removed." });
     if (!ok) return;
-    const res = await fetch(`/api/finance/accounting/budgets/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/finance/accounting/budgets/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
       toast.success("Budget deleted");

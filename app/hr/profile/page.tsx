@@ -25,7 +25,7 @@ export default function HRProfilePage() {
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
   }, [status, router]);
 
   useEffect(() => {

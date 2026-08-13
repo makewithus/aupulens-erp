@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId: incomingConversationId } = body;
+    const { message, conversationId: incomingConversationId, history: clientHistory } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -61,14 +61,26 @@ export async function POST(request: NextRequest) {
     const conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    // Restore prior turns for multi-turn context
-    const existingHistory = await ChatHistory.findOne(
-      { tenantId, conversationId },
-      { messages: 1 }
-    ).lean();
-    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
-      (m: any) => ({ role: m.role, content: m.content })
-    );
+    // Restore prior turns for multi-turn context. The client sends its live
+    // thread as `history` — that's the source of truth for the streaming path
+    // (which doesn't persist mid-thread), so a pasted document / earlier detail
+    // stays in context even though this turn carries no conversationId match.
+    // Fall back to the DB-stored thread when the client sends nothing.
+    let priorTurns: ChatTurn[] = [];
+    if (Array.isArray(clientHistory) && clientHistory.length) {
+      priorTurns = clientHistory
+        .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+        .slice(-10)
+        .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 6000) }));
+    } else {
+      const existingHistory = await ChatHistory.findOne(
+        { tenantId, conversationId },
+        { messages: 1 }
+      ).lean();
+      priorTurns = (existingHistory?.messages ?? []).map(
+        (m: any) => ({ role: m.role, content: m.content })
+      );
+    }
 
     // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
     // Reads every attached file — documents become text, images go to gpt-4o

@@ -11,9 +11,7 @@ export default function InventoryDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/inventory");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       if (
         session?.user?.role !== "inventory" &&
         session?.user?.role !== "admin"

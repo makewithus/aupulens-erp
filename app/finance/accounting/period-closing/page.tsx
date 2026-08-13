@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -167,7 +168,7 @@ export default function PeriodClosingPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/period-closing");
+      const res = await cachedFetch("/api/finance/period-closing");
       const json = await res.json();
       setItems(json.items || []);
     } catch (error) {
@@ -178,14 +179,14 @@ export default function PeriodClosingPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
   const handleCreate = async () => {
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/finance/period-closing", {
+      const res = await cachedFetch("/api/finance/period-closing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -213,7 +214,7 @@ export default function PeriodClosingPage() {
   ) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/period-closing/${id}`, {
+      const res = await cachedFetch(`/api/finance/period-closing/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -241,7 +242,7 @@ export default function PeriodClosingPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this period?" })) return;
     try {
-      const res = await fetch(`/api/finance/period-closing/${id}`, {
+      const res = await cachedFetch(`/api/finance/period-closing/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {

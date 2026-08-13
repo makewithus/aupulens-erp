@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { useAiPrefill } from '@/lib/hooks/useAiPrefill';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
 import { Card, CardContent } from '@/components/ui/card';
@@ -108,10 +111,30 @@ export default function BatchLotPage() {
     customsStatus: 'cleared',
   });
 
+  // AI-native pre-fill: open the Add Batch dialog with AI-extracted fields.
+  useAiPrefill('batch', (p) => {
+    const d: any = p.data || {};
+    setNewBatch((prev) => ({
+      ...prev,
+      batchNumber: d.batch_number ? String(d.batch_number) : prev.batchNumber,
+      lotNumber: d.lot_number ? String(d.lot_number) : prev.lotNumber,
+      itemCode: d.item_code ? String(d.item_code) : prev.itemCode,
+      itemName: d.item_name ? String(d.item_name) : prev.itemName,
+      quantity: Number(d.quantity) > 0 ? Number(d.quantity) : prev.quantity,
+      warehouse: d.warehouse ? String(d.warehouse) : prev.warehouse,
+      location: d.location ? String(d.location) : prev.location,
+      manufactureDate: d.manufacture_date ? String(d.manufacture_date) : prev.manufactureDate,
+      expiryDate: d.expiry_date ? String(d.expiry_date) : prev.expiryDate,
+      status: ['active', 'inactive', 'expired'].includes(d.status) ? d.status : prev.status,
+      bondedWarehouse: typeof d.bonded_warehouse === 'boolean' ? d.bonded_warehouse : prev.bondedWarehouse,
+      customsStatus: ['cleared', 'pending', 'in_bond'].includes(d.customs_status) ? d.customs_status : prev.customsStatus,
+    }));
+    setIsAddDialogOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info('Review before saving', { description: p.suggestions.join('  •  ') });
+  });
+
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/inventory');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'inventory' && session?.user?.role !== 'admin') {
         router.push('/auth/inventory');
       }
@@ -124,7 +147,7 @@ export default function BatchLotPage() {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
-      const res = await fetch(`/api/inventory/batch?${params.toString()}`);
+      const res = await cachedFetch(`/api/inventory/batch?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch batches');
       
       const data = await res.json();
@@ -139,7 +162,7 @@ export default function BatchLotPage() {
 
   const fetchWarehouses = useCallback(async () => {
     try {
-      const res = await fetch('/api/inventory/warehouse');
+      const res = await cachedFetch('/api/inventory/warehouse');
       if (res.ok) {
         const data = await res.json();
         setWarehouses(data.warehouses.filter((w: Warehouse) => w.status === 'active'));
@@ -161,7 +184,7 @@ export default function BatchLotPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/inventory/batch', {
+      const res = await cachedFetch('/api/inventory/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBatch),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -24,7 +25,7 @@ export default function BalanceSheetPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/finance/reports/balance-sheet?date=${date}`,
       );
       const json = await res.json();
@@ -37,7 +38,7 @@ export default function BalanceSheetPage() {
   }, [date]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

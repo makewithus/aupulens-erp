@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ export interface GalleryTemplate {
 function TemplatePreviewThumbnail({ templateKey }: { templateKey: string }) {
   const [html, setHtml] = useState<string | null>(null);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.25);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,18 +48,31 @@ function TemplatePreviewThumbnail({ templateKey }: { templateKey: string }) {
 
   const baseWidth = orientation === "landscape" ? 1100 : 800;
   const baseHeight = orientation === "landscape" ? 800 : 1100;
-  const scale = 0.32;
 
-  if (!html) {
-    return <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Loading…</div>;
-  }
+  // Scale the page to exactly fit the card width (responsive), so the preview is
+  // crisp and fills the card instead of a fixed 0.32 that clipped/cramped it.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / baseWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [baseWidth]);
 
   return (
-    <div
-      className="absolute top-0 left-0 pointer-events-none origin-top-left"
-      style={{ width: baseWidth, height: baseHeight, transform: `scale(${scale})` }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+      {!html ? (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Loading…</div>
+      ) : (
+        <div
+          className="absolute top-0 left-0 pointer-events-none origin-top-left"
+          style={{ width: baseWidth, height: baseHeight, transform: `scale(${scale})` }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )}
+    </div>
   );
 }
 

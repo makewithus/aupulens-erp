@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,9 +95,9 @@ export default function DeliveryChallansPage() {
   const loadResources = useCallback(async () => {
     try {
       const [wRes, cRes, pRes] = await Promise.all([
-        fetch("/api/inventory/warehouse"),
-        fetch("/api/sales/customers"),
-        fetch("/api/sales/products"),
+        cachedFetch("/api/inventory/warehouse"),
+        cachedFetch("/api/sales/customers"),
+        cachedFetch("/api/sales/products"),
       ]);
       const wJson = await wRes.json();
       const cJson = await cRes.json();
@@ -111,7 +113,7 @@ export default function DeliveryChallansPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/delivery-challans");
+      const res = await cachedFetch("/api/sales/delivery-challans");
       const json = await res.json();
       setData(json.items || []);
     } catch (error) {
@@ -123,7 +125,7 @@ export default function DeliveryChallansPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/sales");
+    
     if (status === "authenticated") {
       load();
       loadResources();
@@ -150,6 +152,32 @@ export default function DeliveryChallansPage() {
     });
     setIsModalOpen(true);
   };
+
+  // AI-native pre-fill: open the create modal with AI-extracted challan data.
+  useAiPrefill("delivery_challan", (p) => {
+    const d: any = p.data || {};
+    handleOpenCreate();
+    setFormData((prev: any) => ({
+      ...prev,
+      customer: d.customer_name ? String(d.customer_name) : prev.customer,
+      customerEmail: d.customer_email ? String(d.customer_email) : prev.customerEmail,
+      deliveryAddress: d.delivery_address ? String(d.delivery_address) : prev.deliveryAddress,
+      vehicleNumber: d.vehicle_number ? String(d.vehicle_number) : prev.vehicleNumber,
+      driverName: d.driver_name ? String(d.driver_name) : prev.driverName,
+      deliveryDate: d.delivery_date ? String(d.delivery_date) : prev.deliveryDate,
+      notes: d.notes ? String(d.notes) : prev.notes,
+      items: Array.isArray(d.items) && d.items.length
+        ? d.items
+            .filter((it: any) => it && String(it.description || "").trim())
+            .map((it: any) => ({
+              description: String(it.description || ""),
+              quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+              unit: String(it.unit || "pcs"),
+            }))
+        : prev.items,
+    }));
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+  });
 
   const handleOpenView = (item: any) => {
     setCurrentId(item._id);
@@ -179,7 +207,7 @@ export default function DeliveryChallansPage() {
         : "/api/sales/delivery-challans";
       const method = currentId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -207,7 +235,7 @@ export default function DeliveryChallansPage() {
   const handleConfirmDelete = async () => {
     if (!deleteInfo) return;
     try {
-      const res = await fetch(`/api/sales/delivery-challans/${deleteInfo.id}`, {
+      const res = await cachedFetch(`/api/sales/delivery-challans/${deleteInfo.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -222,7 +250,7 @@ export default function DeliveryChallansPage() {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/sales/delivery-challans/${id}`, {
+      const res = await cachedFetch(`/api/sales/delivery-challans/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -239,7 +267,7 @@ export default function DeliveryChallansPage() {
 
   const handleCreateWarehouse = async () => {
     try {
-      const res = await fetch("/api/inventory/warehouse", {
+      const res = await cachedFetch("/api/inventory/warehouse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(warehouseFormData),

@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { SUBSCRIPTION_BILLING_FREQUENCY } from "@/lib/constants/statuses";
 import { uploadToCloudinary } from "@/lib/upload";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface LineItem {
   itemId?: string;
@@ -102,6 +103,36 @@ export function SubscriptionForm() {
   const addLine = () =>
     setLineItems((items) => [...items, { name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0 }]);
   const removeLine = (i: number) => setLineItems((items) => items.filter((_, idx) => idx !== i));
+
+  // AI-native pre-fill: consume an AI-prepared subscription into this form.
+  // Customer resolved server-side; the user reviews and clicks Save.
+  useAiPrefill("subscription", (p) => {
+    const d: any = p.data || {};
+    if (d.customerId) setCustomerId(String(d.customerId));
+    if (d.plan_name) setPlanName(String(d.plan_name));
+    if (d.reference) setReferenceNumber(String(d.reference));
+    if (d.start_date) setStartDate(String(d.start_date));
+    if (d.trial_days !== undefined && d.trial_days !== "") setTrialDays(String(d.trial_days));
+    if (d.billing_frequency) setBillingFrequency(String(d.billing_frequency));
+    if (d.notes) setCustomerNotes(String(d.notes));
+    if (d.terms) setTerms(String(d.terms));
+    if (Array.isArray(d.line_items) && d.line_items.length) {
+      const mapped = d.line_items
+        .filter((li: any) => li && String(li.name || "").trim())
+        .map((li: any) => ({
+          name: String(li.name || ""),
+          qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
+          unitPrice: Number(li.unit_price) || 0,
+          discount: 0,
+          discountMode: "percent" as const,
+          taxRate: Number(li.tax_rate) || 0,
+        }));
+      if (mapped.length) setLineItems(mapped);
+    }
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+  });
 
   const totals = useMemo(() => {
     const items: InvoiceLineInput[] = lineItems.map((li) => ({
@@ -549,7 +580,7 @@ export function SubscriptionForm() {
       </>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
           Save as Draft
         </Button>

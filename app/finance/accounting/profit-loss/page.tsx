@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -28,7 +29,7 @@ export default function ProfitLossPage() {
       if (dateRange?.from && dateRange?.to) {
         url += `?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`;
       }
-      const res = await fetch(url);
+      const res = await cachedFetch(url);
       const json = await res.json();
       setData(json);
     } catch (error) {
@@ -39,7 +40,7 @@ export default function ProfitLossPage() {
   }, [dateRange]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -198,9 +199,9 @@ export default function ProfitLossPage() {
       </div>
       <div className="space-y-2">
         {sectionData &&
-          Object.values(sectionData.accounts).map((acc: any) => (
+          Object.entries(sectionData.accounts).map(([key, acc]: [string, any]) => (
             <div
-              key={acc.code}
+              key={key}
               className="flex justify-between items-center py-2 hover:bg-muted/30 px-2 rounded-md transition-colors"
             >
               <div className="flex flex-col">

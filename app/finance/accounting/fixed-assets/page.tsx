@@ -1,5 +1,7 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useEffect, useState, useCallback } from "react";
@@ -41,7 +43,7 @@ export default function FixedAssetsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/assets");
+      const res = await cachedFetch("/api/finance/assets");
       const json = await res.json();
       setAssets(json.items || []);
     } catch (error) {
@@ -52,7 +54,7 @@ export default function FixedAssetsPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -78,6 +80,27 @@ export default function FixedAssetsPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the asset details → open the create modal pre-filled.
+  // Account ids are resolved server-side when named; the user reviews/picks the
+  // asset & depreciation accounts and clicks Save.
+  useAiPrefill("fixed_asset", (p) => {
+    const d = p.data || {};
+    setFormData({
+      name: d.name || "",
+      purchaseDate: d.purchaseDate ? new Date(d.purchaseDate) : new Date(),
+      originalValue: Number(d.originalValue) || 0,
+      salvageValue: Number(d.salvageValue) || 0,
+      method: d.method === "degressive" ? "degressive" : "linear",
+      durationYears: Number(d.durationYears) > 0 ? Number(d.durationYears) : 5,
+      accounts: {
+        assetAccountId: d.accounts?.assetAccountId || "",
+        depreciationAccountId: d.accounts?.depreciationAccountId || "",
+      },
+      status: "draft",
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async () => {
     if (
       !formData.name ||
@@ -95,7 +118,7 @@ export default function FixedAssetsPage() {
         ? `/api/finance/assets/${formData._id}`
         : "/api/finance/assets";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -116,7 +139,7 @@ export default function FixedAssetsPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure you want to delete this asset?" })) return;
     try {
-      const res = await fetch(`/api/finance/assets/${id}`, {
+      const res = await cachedFetch(`/api/finance/assets/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -132,7 +155,7 @@ export default function FixedAssetsPage() {
 
   const handleConfirm = async (asset: any) => {
     try {
-      const res = await fetch(`/api/finance/assets/${asset._id}`, {
+      const res = await cachedFetch(`/api/finance/assets/${asset._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "running" }),
@@ -150,7 +173,7 @@ export default function FixedAssetsPage() {
 
   const handleCompute = async (assetId: string) => {
     try {
-      const res = await fetch("/api/finance/assets/compute", {
+      const res = await cachedFetch("/api/finance/assets/compute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId }),

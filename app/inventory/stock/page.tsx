@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -83,7 +84,7 @@ export default function StockTrackingPage() {
 
   // Initial Load (Resources + Stock)
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/inventory");
+    
     if (status === "authenticated") {
       fetchResources();
       fetchStockLevels();
@@ -93,8 +94,8 @@ export default function StockTrackingPage() {
   const fetchResources = async () => {
     try {
       const [accRes, plRes] = await Promise.all([
-        fetch("/api/accounting/accounts"),
-        fetch("/api/sales/pricelists"),
+        cachedFetch("/api/accounting/accounts"),
+        cachedFetch("/api/sales/pricelists"),
       ]);
       const accData = await accRes.json();
       const plData = await plRes.json();
@@ -107,7 +108,7 @@ export default function StockTrackingPage() {
 
   const fetchStockLevels = async () => {
     try {
-      const res = await fetch("/api/inventory/stock");
+      const res = await cachedFetch("/api/inventory/stock");
       const data = await res.json();
       setStockMap(data.stock || {});
     } catch (err) {
@@ -133,7 +134,7 @@ export default function StockTrackingPage() {
         query: debouncedQuery,
       });
 
-      const res = await fetch(`/api/sales/products?${params}`);
+      const res = await cachedFetch(`/api/sales/products?${params}`);
       const data = await res.json();
 
       setProducts(data.items || []);
@@ -207,7 +208,7 @@ export default function StockTrackingPage() {
   const confirmDelete = async () => {
     if (!deleteConfirmationId) return;
     try {
-      const res = await fetch(`/api/sales/products/${deleteConfirmationId}`, {
+      const res = await cachedFetch(`/api/sales/products/${deleteConfirmationId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete product");
@@ -230,7 +231,7 @@ export default function StockTrackingPage() {
         : "/api/sales/products";
       const method = formData._id ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -258,7 +259,7 @@ export default function StockTrackingPage() {
     try {
       const diff = stockUpdateData.newQty - stockUpdateData.currentQty;
 
-      const res = await fetch("/api/inventory/stock", {
+      const res = await cachedFetch("/api/inventory/stock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

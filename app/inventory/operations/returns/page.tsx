@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,9 +48,9 @@ export default function ReturnsPage() {
   const fetchResources = async () => {
     try {
       const [pRes, cRes, uRes] = await Promise.all([
-        fetch("/api/sales/products?limit=100"),
-        fetch("/api/sales/customers"),
-        fetch("/api/users"),
+        cachedFetch("/api/sales/products?limit=100"),
+        cachedFetch("/api/sales/customers"),
+        cachedFetch("/api/users"),
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
@@ -70,7 +72,7 @@ export default function ReturnsPage() {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/inventory/operations/returns");
+      const res = await cachedFetch("/api/inventory/operations/returns");
       const data = await res.json();
       setItems(data.items || []);
     } catch (e) {
@@ -96,6 +98,29 @@ export default function ReturnsPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native pre-fill: open the New Return modal with AI-extracted details.
+  useAiPrefill("inventory_return", (p) => {
+    const d: any = p.data || {};
+    const lines = (Array.isArray(d.items) ? d.items : [])
+      .filter((it: any) => it && (it.productId || it.name))
+      .map((it: any) => ({ productId: it.productId || "", demand: Number(it.qty) > 0 ? Number(it.qty) : 1, done: 0 }));
+    setFormData({
+      header: {
+        name: d.reference ? String(d.reference) : "",
+        operationType: "outgoing",
+        scheduledDate: d.scheduled_date ? new Date(d.scheduled_date) : new Date(),
+        sourceDocument: d.source_document ? String(d.source_document) : "",
+        ...(d.partnerId ? { partnerId: String(d.partnerId) } : {}),
+      },
+      operations_tab: lines,
+      additional_info: { ...(d.note ? { note: String(d.note) } : {}) },
+      status: "draft",
+    });
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+  });
+
   const handleView = (t: any) => {
     setFormData(t);
     setIsViewOnly(true);
@@ -110,7 +135,7 @@ export default function ReturnsPage() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/inventory/operations/transfers/${id}`, {
+      const res = await cachedFetch(`/api/inventory/operations/transfers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -131,7 +156,7 @@ export default function ReturnsPage() {
         : "/api/inventory/operations/returns";
       const method = formData._id ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

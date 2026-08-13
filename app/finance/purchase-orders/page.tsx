@@ -1,5 +1,7 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -50,7 +52,7 @@ export default function PurchaseOrdersPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/purchase-orders");
+      const res = await cachedFetch("/api/finance/purchase-orders");
       const data = await res.json();
       setOrders(data.items || []);
     } catch (error) {
@@ -89,6 +91,29 @@ export default function PurchaseOrdersPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the PO's vendor + item lines → open the create modal
+  // pre-filled. Vendor and products are resolved to real ids server-side when
+  // named; the user reviews and clicks Create.
+  useAiPrefill("finance_purchase_order", (p) => {
+    const d = p.data || {};
+    const lines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines.map((ln: any) => {
+          const productQty = Number(ln.productQty) > 0 ? Number(ln.productQty) : 1;
+          const priceUnit = Number(ln.priceUnit) || 0;
+          return { productId: ln.productId || null, name: ln.name || "", productQty, priceUnit, priceSubtotal: productQty * priceUnit };
+        })
+      : [];
+    const amountUntaxed = lines.reduce((acc: number, l: any) => acc + (l.priceSubtotal || 0), 0);
+    setFormData({
+      ...(d.partnerId ? { partnerId: d.partnerId } : {}),
+      dateOrder: d.dateOrder || new Date().toISOString().split("T")[0],
+      orderLines: lines,
+      status: DOCUMENT_STATUS.DRAFT,
+      totals: { amountUntaxed, amountTax: 0, amountTotal: amountUntaxed },
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async () => {
     if (!formData.partnerId) {
       toast.error("Vendor is required");
@@ -121,7 +146,7 @@ export default function PurchaseOrdersPage() {
         })),
       };
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -145,7 +170,7 @@ export default function PurchaseOrdersPage() {
   const handleStatusChange = async (status: string) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/purchase-orders/${formData._id}`, {
+      const res = await cachedFetch(`/api/finance/purchase-orders/${formData._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -165,7 +190,7 @@ export default function PurchaseOrdersPage() {
   const handleDelete = async (id: string) => {
     if (!(await confirmDialog({ title: "Delete this purchase order?" }))) return;
     try {
-      const res = await fetch(`/api/finance/purchase-orders/${id}`, {
+      const res = await cachedFetch(`/api/finance/purchase-orders/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

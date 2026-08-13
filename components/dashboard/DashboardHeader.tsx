@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Users,
   Menu,
+  ChevronLeft,
 } from "lucide-react";
 
 const robotoMono = Roboto_Mono({
@@ -317,6 +318,17 @@ export function DashboardHeader({
                 className="h-8 w-auto object-contain transition-all duration-300"
               />
             </Link>
+
+            {/* Back — so users don't have to return to a dashboard to move around. */}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => router.back()}
+              title="Go back"
+              className="h-8 w-8 rounded-none shrink-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
             {/* Mobile nav trigger - the only way to reach navigation below the lg breakpoint, since DashboardSidebar is `hidden lg:flex` */}
             <div className="lg:hidden">

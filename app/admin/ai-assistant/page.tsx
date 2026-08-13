@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { toast } from "sonner";
+import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 
 interface Message {
   id: string;
@@ -80,6 +81,10 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onError: (m) => toast.error(m),
+  });
   const [showHistory, setShowHistory] = useState(true);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
@@ -788,9 +793,20 @@ export default function AIAssistant() {
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
                     placeholder="Ask Anything"
-                    className="w-full pl-12 pr-12 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
+                    className="w-full pl-12 pr-20 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
                     rows={1}
                   />
+                  {micSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleMic}
+                      disabled={isLoading || transcribing}
+                      title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
+                      className={`absolute right-11 h-8 w-8 flex items-center justify-center rounded-xl transition-all ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-purple-400" : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"}`}
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  )}
                   <Button
                     type="submit"
                     size="icon"

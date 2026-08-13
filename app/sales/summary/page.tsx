@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -45,7 +46,7 @@ export default function SalesSummaryPage() {
   const fetchSummary = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/sales/summary");
+      const res = await cachedFetch("/api/sales/summary");
       if (!res.ok) throw new Error("Failed to load summary");
       const data = await res.json();
       setSummary(data);

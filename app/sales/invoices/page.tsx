@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -24,7 +25,7 @@ export default function SalesInvoicesLandingPage() {
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales/invoices?search=${search}&status=${statusFilter}`);
+      const res = await cachedFetch(`/api/sales/invoices?search=${search}&status=${statusFilter}`);
       const data = await res.json();
       if (data.success) {
         setInvoices(data.data);

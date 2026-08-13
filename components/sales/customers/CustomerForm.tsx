@@ -781,7 +781,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => router.push("/sales/customers")}>
           Cancel
         </Button>

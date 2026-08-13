@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Search, Mic, X, Sparkles, Loader2, Send } from "lucide-react";
+import { useState } from "react";
+import { Mic, X, Sparkles, Loader2, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 
 export function CommandCenterInput() {
   const [query, setQuery] = useState("");
-  const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   // A pending AI action awaiting the user's explicit confirmation (the
   // "assist, don't override" gate — nothing is mutated until Confirm is clicked).
@@ -18,50 +18,14 @@ export function CommandCenterInput() {
   const [confirming, setConfirming] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  
-  // Speech recognition setup (browser dependent)
-  const recognitionRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setQuery(transcript);
-        handleProcessCommand(transcript);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-        toast.error("Microphone error. Please try again.");
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    }
-  }, []);
-
-  const toggleListen = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      if (recognitionRef.current) {
-        setQuery("");
-        recognitionRef.current.start();
-        setIsListening(true);
-        toast.info("Listening...");
-      } else {
-        toast.error("Speech recognition not supported in this browser.");
-      }
-    }
-  };
+  // Voice input via Azure speech-to-text (server-side; works in Electron + all
+  // browsers). Speaking a command transcribes it, drops it in the box, and runs
+  // it — e.g. "go to leads" or "create a lead for Acme".
+  const { listening: isListening, transcribing, toggle: toggleListen } = useSpeechToText({
+    onFinalText: (t) => { setQuery(t); void handleProcessCommand(t); },
+    onError: (m) => toast.error(m),
+  });
 
   const handleProcessCommand = async (command: string) => {
     if (!command.trim()) return;
@@ -180,10 +144,11 @@ export function CommandCenterInput() {
               variant="ghost"
               size="icon"
               onClick={toggleListen}
-              disabled={isProcessing}
-              className={cn("h-7 w-7 rounded-full", isListening ? "text-red-500 bg-red-500/10 hover:bg-red-500/20" : "text-muted-foreground hover:text-foreground")}
+              disabled={isProcessing || transcribing}
+              title={isListening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak a command"}
+              className={cn("h-7 w-7 rounded-full", isListening ? "text-red-500 bg-red-500/10 hover:bg-red-500/20" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              {isProcessing ? (
+              {isProcessing || transcribing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               ) : (
                 <Mic className={cn("h-3.5 w-3.5", isListening && "animate-pulse")} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -154,7 +155,7 @@ export default function SubscriptionsPage() {
 
   const fetchViews = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/subscription-views");
+      const res = await cachedFetch("/api/sales/subscription-views");
       const data = await res.json();
       if (data.success) {
         setViews(data.data);
@@ -173,7 +174,7 @@ export default function SubscriptionsPage() {
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
-      const res = await fetch(`/api/sales/subscriptions?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/subscriptions?${params.toString()}`);
       const json = await res.json();
       if (json.success) setSubscriptions(json.data || []);
     } catch (error) {
@@ -193,7 +194,7 @@ export default function SubscriptionsPage() {
   }, [load]);
 
   const toggleFavorite = async (view: any) => {
-    await fetch(`/api/sales/subscription-views/${view._id}`, {
+    await cachedFetch(`/api/sales/subscription-views/${view._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isFavorite: !view.isFavorite }),

@@ -1,6 +1,8 @@
 "use client";
 
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -39,7 +41,7 @@ export default function ExpensesPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/expenses");
+      const res = await cachedFetch("/api/finance/expenses");
       const json = await res.json();
       setExpenses(json.items || []);
     } catch (error) {
@@ -50,7 +52,7 @@ export default function ExpensesPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -74,6 +76,26 @@ export default function ExpensesPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: the assistant extracts expense details → open the create modal
+  // pre-filled with them. The user still reviews/picks the account and clicks
+  // Submit, so nothing is written without human approval.
+  useAiPrefill("expense", (p) => {
+    const d = p.data || {};
+    setFormData({
+      description: d.description || "",
+      category: d.category || "others",
+      total: Number(d.total) || 0,
+      taxAmount: Number(d.taxAmount) || 0,
+      isTaxIncluded: !!d.isTaxIncluded,
+      paidBy: d.paidBy || "employee",
+      expenseDate: d.expenseDate ? new Date(d.expenseDate) : new Date(),
+      status: "draft",
+      notes: d.notes || "",
+      ...(d.accountId ? { accountId: d.accountId } : {}),
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async (statusOverride?: string) => {
     if (!formData.description || !formData.accountId) {
       toast.error("Description and Account are required");
@@ -92,7 +114,7 @@ export default function ExpensesPage() {
         status: statusOverride || formData.status || "draft",
       };
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -122,7 +144,7 @@ export default function ExpensesPage() {
   const handleUpdateStatus = async (newStatus: string) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/expenses/${formData._id}`, {
+      const res = await cachedFetch(`/api/finance/expenses/${formData._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, status: newStatus }),
@@ -149,7 +171,7 @@ export default function ExpensesPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure?" })) return;
     try {
-      const res = await fetch(`/api/finance/expenses/${id}`, {
+      const res = await cachedFetch(`/api/finance/expenses/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

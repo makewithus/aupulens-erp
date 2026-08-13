@@ -7,12 +7,13 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
-import { Send, Trash2, Archive, Plus, MessageSquare, Mic } from 'lucide-react';
+import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Paperclip, X } from 'lucide-react';
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
 import { Toaster } from '@/components/ui/toaster';
 
 interface Message {
@@ -43,6 +44,37 @@ export default function InventoryAIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Voice-to-text (Azure) — speak your question; transcript is appended.
+  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onError: (m) => toast({ title: 'Microphone', description: m }),
+  });
+
+  // File attachments (PDF / DOCX / images) — multiple; paste supported. Sent
+  // with the message so the assistant can read documents/screenshots.
+  type Attachment = { name: string; type: string; dataUrl: string };
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_BYTES = 8 * 1024 * 1024;
+  const MAX_ATTACHMENTS = 8;
+  const addFiles = (files: FileList | File[] | null | undefined) => {
+    for (const file of files ? Array.from(files) : []) {
+      if (!file) continue;
+      if (file.size > MAX_FILE_BYTES) { toast({ title: 'File too large', description: `"${file.name || 'A file'}" exceeds 8 MB.` }); continue; }
+      const name = file.name || (file.type.startsWith('image/') ? `pasted-image.${file.type.split('/')[1] || 'png'}` : 'pasted-file');
+      const reader = new FileReader();
+      reader.onload = () => setAttachments((prev) => (prev.length >= MAX_ATTACHMENTS ? prev : [...prev, { name, type: file.type, dataUrl: reader.result as string }]));
+      reader.readAsDataURL(file);
+    }
+  };
+  const removeAttachment = (i: number) => setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items; if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); } }
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  };
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -206,10 +238,11 @@ export default function InventoryAIAssistant() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
-    const userInputText = input.trim();
+    const sentAttachments = attachments;
+    const userInputText = input.trim() || (sentAttachments.length ? 'Please read the attached file(s) and help accordingly.' : '');
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -227,13 +260,14 @@ export default function InventoryAIAssistant() {
 
     setMessages(prev => [...prev, userMessage, loadingMessage]);
     setInput('');
+    setAttachments([]);
     setIsLoading(true);
 
     try {
       const response = await fetch('/api/inventory/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userInputText })
+        body: JSON.stringify({ query: userInputText, attachments: sentAttachments })
       });
 
       const data = await response.json();
@@ -552,6 +586,25 @@ export default function InventoryAIAssistant() {
 
           {/* Input at Bottom */}
           <div className="p-4 border-t border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">
+            {attachments.length > 0 && (
+              <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+                {attachments.map((att, i) => (
+                  <span key={i} title={att.name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-700 bg-gray-900 text-[11px] text-gray-300 shrink-0 max-w-[180px]">
+                    <Paperclip className="w-3 h-3 shrink-0 text-blue-400" />
+                    <span className="truncate">{att.name}</span>
+                    <button type="button" onClick={() => removeAttachment(i)} className="text-gray-500 hover:text-red-400 shrink-0"><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.txt,.csv"
+              className="hidden"
+              onChange={(e) => { addFiles(e.target.files); if (e.target) e.target.value = ''; }}
+            />
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <Textarea
@@ -559,23 +612,39 @@ export default function InventoryAIAssistant() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   placeholder="Ask me about inventory, ledgers, transactions, reports..."
-                  className="min-h-[60px] max-h-[200px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 pr-10"
+                  className="min-h-[60px] max-h-[200px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 pl-10 pr-10"
                   disabled={isLoading}
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="absolute right-2 bottom-2 h-8 w-8 p-0 text-gray-400 hover:text-gray-300"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
+                  title="Attach a document or image"
+                  className="absolute left-2 bottom-2 h-8 w-8 p-0 text-gray-400 hover:text-gray-300"
                 >
-                  <Mic className="w-4 h-4" />
+                  <Paperclip className="w-4 h-4" />
                 </Button>
+                {micSupported && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={toggleMic}
+                    disabled={isLoading || transcribing}
+                    title={listening ? 'Stop and transcribe' : transcribing ? 'Transcribing…' : 'Speak your message'}
+                    className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? 'text-red-400 animate-pulse' : transcribing ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    <Mic className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-              <Button 
-                type="submit" 
-                disabled={isLoading || !input.trim()}
+              <Button
+                type="submit"
+                disabled={isLoading || (!input.trim() && attachments.length === 0)}
                 className="h-[60px] px-6 bg-blue-800"
               >
                 {isLoading ? (

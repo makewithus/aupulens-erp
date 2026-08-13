@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
-import { signOut } from "next-auth/react";
 import { APP_BASE_URL } from "@/lib/config";
 
 function getTenantFromHost(hostname: string): string | null {
@@ -53,23 +52,12 @@ export default function TenantInitializer() {
 
         setTenantId(extractedTenant);
 
-        const path = window.location.pathname;
-        const isAuthPage = path.startsWith("/auth") || path.startsWith("/onboarding");
-
-        // Fetch session once on mount
+        // Populate the auth store from the session. A VALID session cookie must
+        // keep the user signed in across tab/browser restarts (closing a tab or
+        // the PC dying should NOT force re-login) — so we no longer force a
+        // logout on fresh loads. An expired/absent session is still rejected by
+        // the middleware + server auth, which redirect to login.
         await checkSession(false);
-
-        const currentUser = useAuthStore.getState().user;
-        if (currentUser && !isAuthPage) {
-          const isSessionActive = sessionStorage.getItem("session_active") === "true";
-          if (!isSessionActive) {
-            // Fresh tab or browser load, but session cookie was preserved.
-            // Log out immediately to require login credentials!
-            useAuthStore.getState().logout();
-            await signOut({ callbackUrl: "/auth" });
-            return;
-          }
-        }
 
         if (extractedTenant === "default-tenant") {
           setIsActive(true);

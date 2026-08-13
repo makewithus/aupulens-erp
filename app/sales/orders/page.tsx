@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -183,12 +184,12 @@ export default function SalesOrdersPage() {
   const loadResources = async () => {
     try {
       const [pRes, prodRes, uRes, accRes, priceRes, wRes] = await Promise.all([
-        fetch("/api/sales/customers"),
-        fetch("/api/sales/products?status=published"),
-        fetch("/api/users"),
-        fetch("/api/accounting/accounts"),
-        fetch("/api/sales/pricelists"),
-        fetch("/api/inventory/warehouse"),
+        cachedFetch("/api/sales/customers"),
+        cachedFetch("/api/sales/products?status=published"),
+        cachedFetch("/api/users"),
+        cachedFetch("/api/accounting/accounts"),
+        cachedFetch("/api/sales/pricelists"),
+        cachedFetch("/api/inventory/warehouse"),
       ]);
       const [pData, prodData, uData, accData, priceData, wData] =
         await Promise.all([
@@ -213,7 +214,7 @@ export default function SalesOrdersPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/sale-orders?status=sale,done,cancel");
+      const res = await cachedFetch("/api/sales/sale-orders?status=sale,done,cancel");
       const json = await res.json();
       setData(json.items || []);
     } catch (error) {
@@ -225,7 +226,7 @@ export default function SalesOrdersPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/sales");
+    
     if (status === "authenticated") {
       load();
       loadResources();
@@ -285,7 +286,7 @@ export default function SalesOrdersPage() {
         : "/api/sales/sale-orders";
       const method = currentOrder ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -309,7 +310,7 @@ export default function SalesOrdersPage() {
   const handleCreatePartner = async () => {
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/sales/customers", {
+      const res = await cachedFetch("/api/sales/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partnerFormData),
@@ -328,7 +329,7 @@ export default function SalesOrdersPage() {
   const handleCreateProduct = async () => {
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/sales/products", {
+      const res = await cachedFetch("/api/sales/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(productFormData),
@@ -347,7 +348,7 @@ export default function SalesOrdersPage() {
   const handleCreatePricelist = async () => {
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pricelistFormData),
@@ -366,7 +367,7 @@ export default function SalesOrdersPage() {
   const handleCreateWarehouse = async () => {
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/inventory/warehouse", {
+      const res = await cachedFetch("/api/inventory/warehouse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(warehouseFormData),
@@ -400,7 +401,7 @@ export default function SalesOrdersPage() {
 
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nestedPricelistFormData),
@@ -439,7 +440,7 @@ export default function SalesOrdersPage() {
 
     setIsChildSubmitting(true);
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),
@@ -465,7 +466,7 @@ export default function SalesOrdersPage() {
     if (!currentOrder?._id) return;
 
     try {
-      await fetch(`/api/sales/sale-orders/${currentOrder._id}`, {
+      await cachedFetch(`/api/sales/sale-orders/${currentOrder._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chatter: updatedChatter }),
@@ -480,7 +481,7 @@ export default function SalesOrdersPage() {
   const handleAction = async (id: string, action: string) => {
     try {
       let body: any = { status: action };
-      const res = await fetch(`/api/sales/sale-orders/${id}`, {
+      const res = await cachedFetch(`/api/sales/sale-orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -496,7 +497,7 @@ export default function SalesOrdersPage() {
 
   const handleQ2CTransition = async (id: string, nextStatus: string) => {
     try {
-      const res = await fetch(`/api/sales/sale-orders/${id}`, {
+      const res = await cachedFetch(`/api/sales/sale-orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ q2cStatus: nextStatus }),
@@ -516,7 +517,7 @@ export default function SalesOrdersPage() {
 
   const handleViewInvoice = async (invoiceId: string) => {
     try {
-      const res = await fetch(`/api/accounting/invoices/${invoiceId}`);
+      const res = await cachedFetch(`/api/accounting/invoices/${invoiceId}`);
       if (!res.ok) throw new Error("Failed to load invoice");
       const inv = await res.json();
       setInvoiceFormData(inv);
@@ -528,7 +529,7 @@ export default function SalesOrdersPage() {
 
   const handleCreateInvoice = async (orderId: string) => {
     try {
-      const res = await fetch("/api/accounting/invoices/from-order", {
+      const res = await cachedFetch("/api/accounting/invoices/from-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ saleOrderId: orderId }),

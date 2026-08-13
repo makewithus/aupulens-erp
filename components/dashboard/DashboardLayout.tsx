@@ -116,7 +116,12 @@ export function DashboardLayout({
   }, []);
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <div
+      className="h-screen bg-background flex flex-col"
+      // Expose the AI sidebar's width so viewport-fixed form action bars can
+      // offset their right edge and not slide under the panel when it's open.
+      style={{ ["--ai-sidebar-w" as string]: isAiSidebarOpen ? "450px" : "0px" }}
+    >
       <DashboardHeader
         companyName={companyName}
         dashboardTitle={dashboardTitle}

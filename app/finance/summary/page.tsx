@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -96,7 +97,7 @@ export default function FinanceSummaryPage() {
   const fetchSummary = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/finance/summary");
+      const res = await cachedFetch("/api/finance/summary");
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
       setSummary(data.summary);
@@ -110,9 +111,7 @@ export default function FinanceSummaryPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/finance");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       fetchSummary();
     }
   }, [status, router, fetchSummary]);

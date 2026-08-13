@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,7 +43,7 @@ export default function PricelistPage() {
 
   const loadResources = async () => {
     try {
-      const res = await fetch("/api/sales/products");
+      const res = await cachedFetch("/api/sales/products");
       const json = await res.json();
       setProducts(json.items || []);
     } catch (error) {
@@ -52,7 +54,7 @@ export default function PricelistPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/pricelists");
+      const res = await cachedFetch("/api/sales/pricelists");
       const json = await res.json();
       setData(json.items || []);
     } catch (error) {
@@ -64,7 +66,7 @@ export default function PricelistPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/sales");
+    
     if (status === "authenticated") {
       load();
       loadResources();
@@ -82,6 +84,33 @@ export default function PricelistPage() {
     });
     setIsModalOpen(true);
   };
+
+  // AI-native pre-fill: open the create modal with AI-extracted pricelist data
+  // (name, currency, and a price rule). User reviews and clicks Save.
+  useAiPrefill("pricelist", (p) => {
+    const d: any = p.data || {};
+    const hasRule = d.fixed_price !== undefined || d.min_qty !== undefined || d.start_date || d.end_date;
+    setCurrentItem(null);
+    setIsViewOnly(false);
+    setFormData({
+      name: d.name ? String(d.name) : "",
+      currencyId: d.currency ? String(d.currency) : "INR",
+      items: hasRule
+        ? [{
+            applied_on: "3_global",
+            compute_price: "fixed",
+            fixed_price: Number(d.fixed_price) || 0,
+            percent_price: 0,
+            min_quantity: Number(d.min_qty) || 0,
+            ...(d.start_date ? { date_start: String(d.start_date) } : {}),
+            ...(d.end_date ? { date_end: String(d.end_date) } : {}),
+          }]
+        : [],
+      active: true,
+    });
+    setIsModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+  });
 
   const handleOpenView = (item: any) => {
     setCurrentItem(item);
@@ -105,7 +134,7 @@ export default function PricelistPage() {
         : "/api/sales/pricelists";
       const method = currentItem ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -139,7 +168,7 @@ export default function PricelistPage() {
   const handleConfirmDelete = async () => {
     if (!deleteInfo) return;
     try {
-      const res = await fetch(`/api/sales/pricelists/${deleteInfo.id}`, {
+      const res = await cachedFetch(`/api/sales/pricelists/${deleteInfo.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");

@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Loader2, Save, Palette } from "lucide-react";
+import { ScaledHtmlPreview } from "@/components/sales/ScaledHtmlPreview";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { salesSidebarConfig } from "@/config/sidebar/sales";
 
 /**
  * Print-Format Builder (6.3 Low-Code Customization) — sits on top of the
@@ -16,6 +20,7 @@ import { Loader2, Save, Palette } from "lucide-react";
 const FONTS = ["Stylish", "Classic", "Modern", "Compact"];
 
 export default function PrintFormatBuilder() {
+  const { data: session } = useSession();
   const [templates, setTemplates] = useState<any[]>([]);
   const [templateKey, setTemplateKey] = useState<string>("");
   const [templateId, setTemplateId] = useState<string>("");
@@ -109,10 +114,26 @@ export default function PrintFormatBuilder() {
     } catch { toast.error("Failed to save print format."); } finally { setSaving(false); }
   };
 
-  if (loading) return <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+  const layoutProps = {
+    sidebarSections: salesSidebarConfig,
+    dashboardTitle: "Sales",
+    pageName: "Print-Format Builder",
+    breadcrumbs: [{ label: "Sales", href: "/sales/summary" }, { label: "Print-Format Builder" }],
+    userName: session?.user?.name || "",
+    userEmail: session?.user?.email || "",
+    userRole: (session?.user as any)?.role,
+    onSignOut: () => signOut({ callbackUrl: "/auth/sales" }),
+  };
+
+  if (loading) return (
+    <DashboardLayout {...layoutProps}>
+      <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+    </DashboardLayout>
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout {...layoutProps}>
+    <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Palette className="h-6 w-6 text-indigo-500" /> Print-Format Builder</h1>
@@ -170,14 +191,16 @@ export default function PrintFormatBuilder() {
           </button>
         </div>
 
-        {/* Live preview */}
+        {/* Live preview — scaled to fit the panel width so the whole page is
+            clear, and re-rendered live as options change. */}
         <div className="border-2 rounded-xl p-4 bg-white overflow-auto relative" style={{ minHeight: 500 }}>
-          {previewing && <div className="absolute top-3 right-3 text-xs text-neutral-500 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> updating…</div>}
+          {previewing && <div className="absolute top-3 right-3 text-xs text-neutral-500 flex items-center gap-1 z-10"><Loader2 className="h-3 w-3 animate-spin" /> updating…</div>}
           {previewHtml
-            ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            ? <ScaledHtmlPreview html={previewHtml} className="w-full" />
             : <div className="text-sm text-neutral-400 flex items-center justify-center h-full">Preview will appear here.</div>}
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }

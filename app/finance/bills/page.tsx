@@ -1,6 +1,8 @@
 "use client";
 
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import React, { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
@@ -39,8 +41,8 @@ export default function VendorBillsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       const [res, cRes] = await Promise.all([
-        fetch(`/api/finance/bills?${params.toString()}`),
-        fetch("/api/sales/customers"),
+        cachedFetch(`/api/finance/bills?${params.toString()}`),
+        cachedFetch("/api/sales/customers"),
       ]);
       const data = await res.json();
       const cData = await cRes.json();
@@ -93,6 +95,40 @@ export default function VendorBillsPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the bill's vendor + line items → open the create modal
+  // pre-filled. The vendor is resolved to a real id server-side when named; the
+  // user reviews the lines and picks the expense accounts, then posts.
+  useAiPrefill("bill", (p) => {
+    const d = p.data || {};
+    const today = new Date().toISOString().split("T")[0];
+    const lines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines.map((ln: any) => {
+          const quantity = Number(ln.quantity) > 0 ? Number(ln.quantity) : 1;
+          const priceUnit = Number(ln.priceUnit) || 0;
+          return { productId: null, name: ln.name || "", quantity, priceUnit, priceSubtotal: quantity * priceUnit };
+        })
+      : [];
+    const amountUntaxed = lines.reduce((acc: number, l: any) => acc + (l.priceSubtotal || 0), 0);
+    setFormData({
+      moveType: "in_invoice",
+      ...(d.partnerId ? { partnerId: d.partnerId } : {}),
+      invoiceDate: d.invoiceDate || today,
+      dueDate: d.dueDate || today,
+      payment_reference: d.payment_reference || "",
+      invoiceLines: lines,
+      state: DOCUMENT_STATUS.DRAFT,
+      currencyId: "INR",
+      amountUntaxed,
+      amountTax: 0,
+      amountTotal: amountUntaxed,
+      paymentState: PAYMENT_STATE.NOT_PAID,
+      poMatchType: "2_way",
+      poMatchStatus: "pending",
+      manualReviewRequired: false,
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async (statusOverride?: string) => {
     if (!formData.partnerId) {
       toast.error("Vendor is required");
@@ -111,7 +147,7 @@ export default function VendorBillsPage() {
         state: statusOverride || formData.state || DOCUMENT_STATUS.DRAFT,
       };
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -141,7 +177,7 @@ export default function VendorBillsPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this bill?" })) return;
     try {
-      const res = await fetch(`/api/finance/bills/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/finance/bills/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Bill deleted");
         load();
@@ -183,7 +219,7 @@ export default function VendorBillsPage() {
     }
     setIsSubmittingInvoice(true);
     try {
-      const res = await fetch("/api/accounting/invoices", {
+      const res = await cachedFetch("/api/accounting/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(invoiceFormData),

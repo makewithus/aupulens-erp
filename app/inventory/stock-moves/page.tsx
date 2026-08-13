@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,7 +78,7 @@ export default function StockMovesPage() {
 
   // Auth guard
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/inventory");
+    
     if (status === "authenticated") {
       fetchMoves();
       fetchResources();
@@ -91,7 +93,7 @@ export default function StockMovesPage() {
       if (statusFilter !== "all") params.set("moveStatus", statusFilter);
       if (typeFilter !== "all") params.set("moveType", typeFilter);
 
-      const res = await fetch(`/api/inventory/stock-moves?${params}`);
+      const res = await cachedFetch(`/api/inventory/stock-moves?${params}`);
       const data = await res.json();
       setMoves(data.items || []);
     } catch (e) {
@@ -109,8 +111,8 @@ export default function StockMovesPage() {
   const fetchResources = async () => {
     try {
       const [whRes, pRes] = await Promise.all([
-        fetch("/api/inventory/warehouse"),
-        fetch("/api/sales/products?limit=200"),
+        cachedFetch("/api/inventory/warehouse"),
+        cachedFetch("/api/sales/products?limit=200"),
       ]);
       if (whRes.ok) {
         const d = await whRes.json();
@@ -132,6 +134,26 @@ export default function StockMovesPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native pre-fill: open the Stock Move modal with AI-extracted details.
+  useAiPrefill("stock_move", (p) => {
+    const d: any = p.data || {};
+    const base = JSON.parse(JSON.stringify(DEFAULT_FORM));
+    setFormData({
+      ...base,
+      moveType: ["internal", "inbound", "outbound"].includes(d.move_type) ? d.move_type : base.moveType,
+      scheduledDate: d.scheduled_date ? String(d.scheduled_date) : base.scheduledDate,
+      sourceDocument: d.source_document ? String(d.source_document) : base.sourceDocument,
+      notes: d.notes ? String(d.notes) : base.notes,
+    });
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+    const hints: string[] = Array.isArray(p.suggestions) ? [...p.suggestions] : [];
+    if (d.source_warehouse) hints.push(`Source warehouse: "${d.source_warehouse}".`);
+    if (d.destination_warehouse) hints.push(`Destination warehouse: "${d.destination_warehouse}".`);
+    if (Array.isArray(d.items) && d.items.length) hints.push(`Add ${d.items.length} product line(s): ${d.items.map((it: any) => it?.name).filter(Boolean).join(", ")}.`);
+    if (hints.length) toast.info("Review before saving", { description: hints.join("  •  "), duration: 10000 });
+  });
+
   const handleView = (m: any) => {
     setFormData(m);
     setIsViewOnly(true);
@@ -151,7 +173,7 @@ export default function StockMovesPage() {
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/inventory/stock-moves/${deleteId}`, {
+      const res = await cachedFetch(`/api/inventory/stock-moves/${deleteId}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -177,7 +199,7 @@ export default function StockMovesPage() {
         : "/api/inventory/stock-moves";
       const method = isEdit ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -211,7 +233,7 @@ export default function StockMovesPage() {
         };
       }
 
-      const res = await fetch(`/api/inventory/stock-moves/${id}`, {
+      const res = await cachedFetch(`/api/inventory/stock-moves/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

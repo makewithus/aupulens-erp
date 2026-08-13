@@ -7,7 +7,10 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
-import { Send, Trash2, Plus, MessageSquare, Menu, X } from "lucide-react";
+import { Send, Trash2, Plus, MessageSquare, Menu, X, Mic, Paperclip } from "lucide-react";
+import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
+import { useChatAttachments } from "@/lib/hooks/useChatAttachments";
+import { ChatAttachmentBar } from "@/components/ai/ChatAttachmentBar";
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +38,11 @@ export default function HRAIAssistantPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+    onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onError: (m) => toast.error(m),
+  });
+  const { attachments, addFiles, removeAttachment, handlePaste, fileInputRef, clear: clearAttachments } = useChatAttachments({ onError: (m) => toast.error(m) });
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -44,7 +52,7 @@ export default function HRAIAssistantPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
   }, [status, router]);
 
   useEffect(() => {
@@ -108,10 +116,11 @@ export default function HRAIAssistantPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
-    const userInput = input.trim();
+    const sentAttachments = attachments;
+    const userInput = input.trim() || (sentAttachments.length ? "Please read the attached file(s) and help accordingly." : "");
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -128,13 +137,14 @@ export default function HRAIAssistantPage() {
 
     setMessages((prev) => [...prev, userMessage, loadingMessage]);
     setInput("");
+    clearAttachments();
     setIsLoading(true);
 
     try {
       const res = await fetch("/api/hr/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: userInput, message: userInput }),
+        body: JSON.stringify({ query: userInput, message: userInput, attachments: sentAttachments }),
       });
       const data = await res.json();
 
@@ -328,17 +338,27 @@ export default function HRAIAssistantPage() {
 
           {/* Input */}
           <div className="p-4 border-t border-border/40">
+            <ChatAttachmentBar attachments={attachments} removeAttachment={removeAttachment} fileInputRef={fileInputRef} addFiles={addFiles} />
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 placeholder="Ask about employees, payroll, attendance..."
                 className="flex-1 min-h-[44px] max-h-[120px] resize-none"
                 rows={1}
               />
-              <Button type="submit" disabled={!input.trim() || isLoading} className="h-11 w-11 p-0">
+              <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="Attach a document or image" className="h-11 w-11 p-0 text-muted-foreground hover:text-foreground">
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              {micSupported && (
+                <Button type="button" variant="ghost" onClick={toggleMic} disabled={isLoading || transcribing} title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"} className={`h-11 w-11 p-0 ${listening ? "text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <Mic className="h-4 w-4" />
+              </Button>
+              )}
+              <Button type="submit" disabled={(!input.trim() && attachments.length === 0) || isLoading} className="h-11 w-11 p-0">
                 <Send className="h-4 w-4" />
               </Button>
             </form>

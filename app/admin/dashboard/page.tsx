@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import {
   TrendingUp,
@@ -82,6 +83,13 @@ export default function AdminDashboard() {
     setIsLoading(true);
     try {
       const res = await fetch("/api/admin/dashboard");
+      // A 401/403 here means the session is actually invalid even if the client
+      // session state hasn't flipped yet — go to login instead of showing stale
+      // dashboard chrome.
+      if (res.status === 401 || res.status === 403) {
+        router.replace("/auth/admin");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setSummary(data.summary);
@@ -122,11 +130,19 @@ export default function AdminDashboard() {
     };
   };
 
-  if (status === "unauthenticated") {
-    return null;
-  }
+  // Confirmed authenticated admin? Until we know, show a NEUTRAL splash — never
+  // the dashboard chrome. This kills the "flash of dashboard then redirect to
+  // login" for broken/expired sessions: they see the splash, then login.
+  const isAuthorizedAdmin =
+    status === "authenticated" &&
+    (session?.user?.role === "admin" || session?.user?.role === "master-admin");
 
-  if (status === "loading" || isLoading) {
+  if (status === "loading") return <AuthSplash />;
+  if (!isAuthorizedAdmin) return <AuthSplash message="Redirecting to sign in…" />;
+
+  // Authenticated admin from here — the data-loading skeleton (dashboard chrome)
+  // is fine to show because auth is confirmed.
+  if (isLoading) {
     return (
       <DashboardLayout
         sidebarSections={adminSidebarConfig}

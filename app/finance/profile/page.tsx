@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -59,7 +60,7 @@ export default function FinanceProfilePage() {
       setError('');
       
       // Fetch current user's profile
-      const res = await fetch('/api/profile');
+      const res = await cachedFetch('/api/profile');
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to fetch profile');
@@ -85,9 +86,7 @@ export default function FinanceProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/finance');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       fetchProfile();
     }
   }, [status, router, fetchProfile]);
@@ -100,7 +99,7 @@ export default function FinanceProfilePage() {
     setSuccess('');
 
     try {
-      const res = await fetch('/api/profile', {
+      const res = await cachedFetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
@@ -143,7 +142,7 @@ export default function FinanceProfilePage() {
     setSuccess('');
 
     try {
-      const res = await fetch('/api/profile/password', {
+      const res = await cachedFetch('/api/profile/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

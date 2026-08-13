@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plus, Trash2, GripVertical, X, Settings, Paperclip, ShoppingCart } from "lucide-react";
+import { Plus, Trash2, GripVertical, X, Settings, Paperclip, ShoppingCart, Sparkles, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { uploadToCloudinary } from "@/lib/upload";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface LineItem {
   itemId?: string;
@@ -105,6 +106,62 @@ export function SalesOrderForm() {
         }
       });
   }, []);
+
+  // AI-native pre-fill: consume an AI-prepared sales order (from a prompt or an
+  // attached document/image) into this real form. Customer is resolved
+  // server-side; the user reviews and clicks Save — nothing auto-submits.
+  useAiPrefill("sales_order", (p) => {
+    const d: any = p.data || {};
+    if (d.customerId) setCustomerId(String(d.customerId));
+    if (d.reference_number) setReferenceNumber(String(d.reference_number));
+    if (d.order_date) setOrderDate(String(d.order_date));
+    if (d.expected_shipment_date) setExpectedShipmentDate(String(d.expected_shipment_date));
+    if (d.payment_terms) setPaymentTermsLabel(String(d.payment_terms));
+    if (d.notes) setCustomerNotes(String(d.notes));
+    if (d.terms) setTermsAndConditions(String(d.terms));
+    if (Array.isArray(d.line_items) && d.line_items.length) {
+      const mapped = d.line_items
+        .filter((li: any) => li && String(li.name || "").trim())
+        .map((li: any) => ({
+          name: String(li.name || ""),
+          qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
+          unitPrice: Number(li.unit_price) || 0,
+          discount: 0,
+          discountMode: "percent" as const,
+          taxRate: Number(li.tax_rate) || 0,
+        }));
+      if (mapped.length) setLineItems(mapped);
+    }
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+  });
+
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [termsLoading, setTermsLoading] = useState(false);
+  // Draft Customer Notes / Terms with AI (assistive — user still edits + saves).
+  const draftWithAi = async (field: "notes" | "terms") => {
+    const setLoading = field === "notes" ? setNotesLoading : setTermsLoading;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/sales/invoices/ai-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, context: "sales order" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.data?.text) {
+        if (field === "notes") setCustomerNotes(data.data.text);
+        else setTermsAndConditions(data.data.text);
+      } else {
+        toast.error(data.message || "Couldn't draft that. Please try again.");
+      }
+    } catch {
+      toast.error("Couldn't reach the AI drafting service.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateLine = (i: number, patch: Partial<LineItem>) =>
     setLineItems((items) => items.map((li, idx) => (idx === i ? { ...li, ...patch } : li)));
@@ -433,11 +490,21 @@ export function SalesOrderForm() {
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Customer Notes</Label>
+            <div className="flex items-center justify-between">
+              <Label>Customer Notes</Label>
+              <button type="button" onClick={() => draftWithAi("notes")} disabled={notesLoading} className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-60 cursor-pointer">
+                {notesLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Draft with AI
+              </button>
+            </div>
             <Textarea value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} rows={3} />
           </div>
           <div className="space-y-1.5">
-            <Label>Terms &amp; Conditions</Label>
+            <div className="flex items-center justify-between">
+              <Label>Terms &amp; Conditions</Label>
+              <button type="button" onClick={() => draftWithAi("terms")} disabled={termsLoading} className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-60 cursor-pointer">
+                {termsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Draft with AI
+              </button>
+            </div>
             <Textarea
               placeholder="Enter the terms and conditions of your business to be displayed in your transaction"
               value={termsAndConditions}
@@ -553,7 +620,7 @@ export function SalesOrderForm() {
       </>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
           Save as Draft
         </Button>

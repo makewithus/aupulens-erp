@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -42,9 +43,7 @@ export default function ReceivablesPage() {
   const [vizData, setVizData] = useState<Record<string, string | number>[]>([]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/finance');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'finance' && session?.user?.role !== 'admin') {
         router.push('/auth/finance');
       }
@@ -62,7 +61,7 @@ export default function ReceivablesPage() {
       const params = new URLSearchParams({ limit: '200' });
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
 
-      const res = await fetch(`/api/sales/invoices?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch invoices');
 
       const data = await res.json();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -33,7 +34,7 @@ export default function AgedPartnerReportPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/finance/reports/aged?type=${type}`);
+      const res = await cachedFetch(`/api/finance/reports/aged?type=${type}`);
       const json = await res.json();
       setItems(json.items || []);
     } catch (error) {
@@ -44,7 +45,7 @@ export default function AgedPartnerReportPage() {
   }, [type]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

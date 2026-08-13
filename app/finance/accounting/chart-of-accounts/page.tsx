@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState, useMemo } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AccountingSubNav } from "@/components/finance/accounting/AccountingSubNav";
@@ -73,11 +75,11 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
   }, [baseCurrency]);
 
   useEffect(() => {
-    fetch("/api/sales/customers")
+    cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []))
       .catch(() => {});
-    fetch("/api/finance/accounting/journal-templates")
+    cachedFetch("/api/finance/accounting/journal-templates")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setTemplates(d.data);
@@ -134,7 +136,7 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
 
     setSaving(status);
     try {
-      const res = await fetch("/api/finance/journal-entries", {
+      const res = await cachedFetch("/api/finance/journal-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -328,7 +330,7 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
         </div>
       </CardContent>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <Button variant="outline" className="font-mono text-xs uppercase tracking-wider px-6 rounded-none bg-background cursor-pointer" onClick={() => handleSave("draft")} disabled={!!saving}>
           {saving === "draft" ? "Saving..." : "Save as Draft"}
         </Button>
@@ -389,8 +391,8 @@ function ChartOfAccountsPageInner() {
     try {
       setLoading(true);
       const [accRes, typeRes] = await Promise.all([
-        fetch(`/api/finance/accounting/accounts?view=${view}`),
-        fetch("/api/finance/accounting/account-types")
+        cachedFetch(`/api/finance/accounting/accounts?view=${view}`),
+        cachedFetch("/api/finance/accounting/account-types")
       ]);
       const accData = await accRes.json();
       const typeData = await typeRes.json();
@@ -405,7 +407,7 @@ function ChartOfAccountsPageInner() {
 
   const fetchAccountants = async () => {
     try {
-      const res = await fetch("/api/finance/accounting/accountants");
+      const res = await cachedFetch("/api/finance/accounting/accountants");
       const data = await res.json();
       if (res.ok) setAccountants(data.accountants || []);
     } catch (e) {
@@ -428,7 +430,7 @@ function ChartOfAccountsPageInner() {
         : "/api/finance/accounting/accounts";
       const method = editAccountId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -460,9 +462,25 @@ function ChartOfAccountsPageInner() {
     setIsAccountModalOpen(true);
   };
 
+  // AI-native: extract a new ledger account's details → open the create modal
+  // pre-filled. The account type is resolved to a real id server-side when it
+  // was named; the user reviews and clicks Create.
+  useAiPrefill("finance_account", (p) => {
+    const d = p.data || {};
+    setEditAccountId(null);
+    setFormData({
+      accountName: d.accountName || "",
+      accountCode: d.accountCode ? String(d.accountCode) : "",
+      accountType: d.accountType || "",
+      description: d.description || "",
+      watchlist: !!d.watchlist,
+    });
+    setIsAccountModalOpen(true);
+  });
+
   const handleToggleActive = async (id: string, newActiveState: boolean) => {
     try {
-      const res = await fetch(`/api/finance/accounting/accounts/${id}`, {
+      const res = await cachedFetch(`/api/finance/accounting/accounts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: newActiveState }),
@@ -481,7 +499,7 @@ function ChartOfAccountsPageInner() {
   const handleDeleteAccount = async (id: string) => {
     if (!confirm("Are you sure you want to delete this account?")) return;
     try {
-      const res = await fetch(`/api/finance/accounting/accounts/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/finance/accounting/accounts/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
         toast.success("Account deleted");
@@ -496,7 +514,7 @@ function ChartOfAccountsPageInner() {
 
   const handleExport = async (mode: "all" | "view") => {
     try {
-      const res = await fetch("/api/finance/accounting/accounts/export", {
+      const res = await cachedFetch("/api/finance/accounting/accounts/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ view: mode === "view" ? view : "all", format: "csv" })
@@ -522,7 +540,7 @@ function ChartOfAccountsPageInner() {
     formData.append("file", importFile);
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/accounting/accounts/import/parse", {
+      const res = await cachedFetch("/api/finance/accounting/accounts/import/parse", {
         method: "POST",
         body: formData,
       });
@@ -549,7 +567,7 @@ function ChartOfAccountsPageInner() {
     formData.append("duplicateHandling", importConfig.duplicateHandling);
     try {
       setLoading(true);
-      const res = await fetch("/api/finance/accounting/accounts/import/execute", {
+      const res = await cachedFetch("/api/finance/accounting/accounts/import/execute", {
         method: "POST",
         body: formData,
       });

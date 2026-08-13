@@ -7,8 +7,12 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "1; mode=block" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
+    // Allow the microphone for our OWN origin (self) — the AI voice-to-text
+    // feature needs it. Previously "microphone=()" disabled it for everyone,
+    // which made getUserMedia throw NotAllowedError even after the user granted
+    // browser permission. Camera/geolocation/payment stay disabled (unused).
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
+    value: "camera=(), microphone=(self), geolocation=(), payment=()",
   },
   {
     key: "Strict-Transport-Security",

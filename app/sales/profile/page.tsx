@@ -10,9 +10,7 @@ export default function SalesProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/sales');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'sales' && session?.user?.role !== 'admin') {
         router.push('/auth/sales');
       } else {

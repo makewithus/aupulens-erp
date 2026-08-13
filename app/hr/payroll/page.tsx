@@ -144,7 +144,7 @@ export default function PayrollPage() {
   }, [filterStatus]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

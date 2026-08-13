@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,14 +46,14 @@ export default function WarehousePage() {
   };
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/inventory");
+    
     if (status === "authenticated") fetchWarehouses();
   }, [status, router]);
 
   const fetchWarehouses = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/inventory/warehouse");
+      const res = await cachedFetch("/api/inventory/warehouse");
       const data = await res.json();
       setWarehouses(data.warehouses || []);
     } catch (e) {
@@ -67,6 +69,25 @@ export default function WarehousePage() {
     setIsViewOnly(false);
     setIsModalOpen(true);
   };
+
+  // AI-native pre-fill: open the Warehouse modal with AI-extracted fields.
+  useAiPrefill("warehouse", (p) => {
+    const d: any = p.data || {};
+    setFormData({
+      ...JSON.parse(JSON.stringify(defaultFormData)),
+      name: d.name ? String(d.name) : "",
+      warehouseCode: d.warehouse_code ? String(d.warehouse_code) : "",
+      type: ["standard", "bonded", "cold-storage", "transit"].includes(d.type) ? d.type : "standard",
+      location: d.location ? String(d.location) : "",
+      address: d.address ? String(d.address) : "",
+      capacity: Number(d.capacity) > 0 ? Number(d.capacity) : 0,
+      manager: d.manager ? String(d.manager) : "",
+      email: d.email ? String(d.email) : "",
+    });
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  ") });
+  });
 
   const handleOpenEdit = (wh: any) => {
     setFormData(wh);
@@ -93,7 +114,7 @@ export default function WarehousePage() {
         : "/api/inventory/warehouse";
       const method = formData._id ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -114,7 +135,7 @@ export default function WarehousePage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/inventory/warehouse/${deleteId}`, {
+      const res = await cachedFetch(`/api/inventory/warehouse/${deleteId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");

@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Settings, X, AlertTriangle } from "lucide-react";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface InvoiceRow {
   _id: string;
@@ -60,6 +61,21 @@ export function PaymentForm() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [applied, setApplied] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
+
+  // AI-native pre-fill: consume an AI-prepared payment. Customer is resolved
+  // server-side and selected; the user reviews and records the payment.
+  useAiPrefill("payment", (p) => {
+    const d: any = p.data || {};
+    if (d.customerId) setCustomerId(String(d.customerId));
+    if (d.amount_received !== undefined && d.amount_received !== "") setAmountReceived(String(d.amount_received));
+    if (d.bank_charges !== undefined && d.bank_charges !== "") setBankCharges(String(d.bank_charges));
+    if (d.payment_date) setPaymentDate(String(d.payment_date));
+    if (d.payment_mode) setMode(String(d.payment_mode));
+    if (d.reference) setReference(String(d.reference));
+    if (p.suggestions && p.suggestions.length) {
+      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+    }
+  });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   // Guards the "Deposit To" dropdown while its bank-accounts fetch is in
   // flight, so a slow connection can't make it look permanently empty/broken.

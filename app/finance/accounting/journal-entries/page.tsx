@@ -1,5 +1,7 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useEffect, useState, useCallback } from "react";
@@ -69,7 +71,7 @@ export default function JournalEntriesPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
-      const res = await fetch(`/api/finance/journal-entries?${params.toString()}`);
+      const res = await cachedFetch(`/api/finance/journal-entries?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
       setTotal(json.total ?? 0);
@@ -82,7 +84,7 @@ export default function JournalEntriesPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load(page);
   }, [status, router, load, page]);
 
@@ -112,6 +114,37 @@ export default function JournalEntriesPage() {
     setFormData(item);
     setIsModalOpen(true);
   };
+
+  // AI-native: extract the entry's header + balanced postings → open the create
+  // modal pre-filled. Each line's account is resolved to a real id server-side
+  // when named; the user reviews the postings and posts.
+  useAiPrefill("journal_entry", (p) => {
+    const d = p.data || {};
+    const lines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines.map((ln: any) => ({
+          accountId: ln.accountId || "",
+          partnerId: "",
+          label: ln.label || "",
+          debit: Number(ln.debit) || 0,
+          credit: Number(ln.credit) || 0,
+        }))
+      : [
+          { accountId: "", partnerId: "", label: "", debit: 0, credit: 0 },
+          { accountId: "", partnerId: "", label: "", debit: 0, credit: 0 },
+        ];
+    setFormData({
+      header: {
+        name: d.name || "",
+        date: d.date ? new Date(d.date) : new Date(),
+        ref: d.ref || "",
+        journalType: d.journalType || "general",
+      },
+      lineIds: lines,
+      totals: { amountUntaxed: 0, amountTax: 0, amountTotal: 0 },
+      status: "draft",
+    });
+    setIsModalOpen(true);
+  });
 
   const handleSubmit = async (newStatus?: string) => {
     const isDraft = !newStatus || newStatus === "draft";
@@ -158,7 +191,7 @@ export default function JournalEntriesPage() {
         status: newStatus || formData.status || "draft",
       };
 
-      let res = await fetch(url, {
+      let res = await cachedFetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -181,7 +214,7 @@ export default function JournalEntriesPage() {
             setIsSubmitting(false);
             return;
           }
-          res = await fetch(url, {
+          res = await cachedFetch(url, {
             method: isUpdate ? "PATCH" : "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...payload, allowNonStandard: true }),
@@ -213,7 +246,7 @@ export default function JournalEntriesPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure you want to delete this entry?" })) return;
     try {
-      const res = await fetch(`/api/finance/journal-entries/${id}`, {
+      const res = await cachedFetch(`/api/finance/journal-entries/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {

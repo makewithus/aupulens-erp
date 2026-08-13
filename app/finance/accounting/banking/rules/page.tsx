@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ export default function BankingRulesPage() {
   const fetchRules = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/accounting/banking-rules");
+      const res = await cachedFetch("/api/finance/accounting/banking-rules");
       const data = await res.json();
       if (data.success) setRules(data.data);
       else toast.error(data.message || "Failed to load rules");
@@ -39,7 +40,7 @@ export default function BankingRulesPage() {
   const handleDelete = async (id: string) => {
     const ok = await confirmDialog({ title: "Delete rule?", description: "This banking rule will be permanently removed." });
     if (!ok) return;
-    const res = await fetch(`/api/finance/accounting/banking-rules/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/finance/accounting/banking-rules/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
       toast.success("Rule deleted");

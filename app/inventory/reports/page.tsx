@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useAiPrefill } from '@/lib/hooks/useAiPrefill';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,6 +72,16 @@ export default function ReportsPage() {
   
   const [reportType, setReportType] = useState('stock');
   const [dateRange, setDateRange] = useState('last_30_days');
+  const [pendingGenerate, setPendingGenerate] = useState(false);
+
+  // AI-native: "generate a stock report for last 30 days" sets the type + range
+  // and generates it automatically.
+  useAiPrefill('inventory_report', (p) => {
+    const d: any = p.data || {};
+    if (['stock', 'movement', 'aging', 'compliance'].includes(d.report_type)) setReportType(d.report_type);
+    if (['all', 'last_7_days', 'last_30_days', 'this_month', 'last_month', 'this_year'].includes(d.date_range)) setDateRange(d.date_range);
+    setPendingGenerate(true);
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedReport, setGeneratedReport] = useState<{
     type: string;
@@ -88,8 +100,8 @@ export default function ReportsPage() {
 
   const fetchStockReport = async () => {
     const [stockRes, productsRes] = await Promise.all([
-      fetch('/api/inventory/stock'),
-      fetch('/api/sales/products?limit=1000'),
+      cachedFetch('/api/inventory/stock'),
+      cachedFetch('/api/sales/products?limit=1000'),
     ]);
     const stockData = await stockRes.json();
     const productsData = await productsRes.json();
@@ -114,7 +126,7 @@ export default function ReportsPage() {
   };
 
   const fetchMovementReport = async (range: string) => {
-    const res = await fetch('/api/inventory/stock-moves');
+    const res = await cachedFetch('/api/inventory/stock-moves');
     const data = await res.json();
     let items = data.items || [];
 
@@ -161,7 +173,7 @@ export default function ReportsPage() {
   };
 
   const fetchAgingReport = async () => {
-    const res = await fetch('/api/inventory/batch');
+    const res = await cachedFetch('/api/inventory/batch');
     const data = await res.json();
     const now = Date.now();
     const rows = (data.batches || []).map((batch: any) => {
@@ -176,7 +188,7 @@ export default function ReportsPage() {
   };
 
   const fetchComplianceReport = async () => {
-    const res = await fetch('/api/inventory/batch');
+    const res = await cachedFetch('/api/inventory/batch');
     const data = await res.json();
     const rows = (data.batches || [])
       .filter((batch: any) => batch.bondedWarehouse || batch.customsStatus)
@@ -226,6 +238,14 @@ export default function ReportsPage() {
       setIsGenerating(false);
     }
   };
+
+  // After an AI-native prefill set the type/range, generate automatically (state
+  // is up to date by the time this effect runs).
+  useEffect(() => {
+    if (!pendingGenerate) return;
+    setPendingGenerate(false);
+    handleGenerate();
+  }, [pendingGenerate]);
 
   const handleExport = (format: 'csv' | 'xlsx') => {
     if (!generatedReport) return;

@@ -1,72 +1,117 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { startWavRecording, isWavRecordingSupported, type ActiveRecording } from "@/lib/audio/wavRecorder";
 
 /**
- * Browser speech-to-text hook (Web Speech API) — the same native
- * SpeechRecognition the CRM VoiceNotes uses. Zero server/credentials needed and
- * works offline-of-our-backend. `onFinalText` fires with each finalized phrase
- * (so a chat input can append it); `interim` exposes the in-progress phrase for
- * a live preview.
+ * Voice-to-text hook backed by Azure (server-side transcription).
  *
- * (Azure AI Speech can later replace this with server-side transcription for
- * better accuracy / non-Chromium browsers — swap the start()/stop() internals;
- * the hook's public shape stays the same.)
+ * Records the mic as 16 kHz mono PCM WAV (see lib/audio/wavRecorder.ts) — the
+ * exact format Azure AI Speech accepts and the highest-accuracy input — then
+ * POSTs it to /api/ai/transcribe, which runs Azure speech-to-text. Works in
+ * every modern browser AND in the Electron desktop app, unlike the old browser
+ * Web Speech API (which silently failed in Electron / Firefox).
+ *
+ * Public shape kept compatible with the previous hook: `supported`, `listening`
+ * (recording), `interim` (status hint), `start`/`stop`/`toggle`. `transcribing`
+ * is true while the server works. `onFinalText` fires once with the recognised
+ * text when transcription returns.
  */
-export function useSpeechToText(opts: { lang?: string; onFinalText?: (text: string) => void } = {}) {
-  const { lang = "en-IN", onFinalText } = opts;
+export function useSpeechToText(opts: {
+  lang?: string;
+  onFinalText?: (text: string) => void;
+  onError?: (message: string) => void;
+} = {}) {
+  const { lang = "en-IN", onFinalText, onError } = opts;
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [interim, setInterim] = useState("");
-  const recognitionRef = useRef<any>(null);
+
+  const recordingRef = useRef<ActiveRecording | null>(null);
   const onFinalRef = useRef(onFinalText);
+  const onErrorRef = useRef(onError);
   onFinalRef.current = onFinalText;
+  onErrorRef.current = onError;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setSupported(false); return; }
-    setSupported(true);
-
-    const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = lang;
-
-    rec.onresult = (event: any) => {
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const res = event.results[i];
-        if (res.isFinal) {
-          const finalText = res[0].transcript.trim();
-          if (finalText) onFinalRef.current?.(finalText);
-        } else {
-          interimText += res[0].transcript;
-        }
-      }
-      setInterim(interimText);
-    };
-    rec.onend = () => { setListening(false); setInterim(""); };
-    rec.onerror = () => { setListening(false); setInterim(""); };
-
-    recognitionRef.current = rec;
-    return () => { try { rec.stop(); } catch { /* noop */ } };
-  }, [lang]);
-
-  const start = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (!rec || listening) return;
-    try { rec.start(); setListening(true); } catch { /* already started */ }
-  }, [listening]);
-
-  const stop = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (!rec) return;
-    try { rec.stop(); } catch { /* noop */ }
-    setListening(false);
+    setSupported(isWavRecordingSupported());
   }, []);
 
-  const toggle = useCallback(() => { if (listening) stop(); else start(); }, [listening, start, stop]);
+  const start = useCallback(async () => {
+    if (listening || transcribing) return;
+    try {
+      recordingRef.current = await startWavRecording();
+      setListening(true);
+      setInterim("Listening…");
+    } catch (err: any) {
+      recordingRef.current = null;
+      setListening(false);
+      setInterim("");
+      // Only call it a permission problem when the browser actually denied it —
+      // otherwise a granted mic would wrongly show "blocked". getUserMedia shows
+      // the browser's allow/deny prompt itself when permission isn't set yet.
+      const name = err?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
+        onErrorRef.current?.("Microphone permission was denied. Click the lock icon in the address bar → allow Microphone, then try again.");
+      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        onErrorRef.current?.("No microphone was found on this device.");
+      } else if (name === "NotReadableError") {
+        onErrorRef.current?.("Your microphone is in use by another app. Close it and try again.");
+      } else {
+        onErrorRef.current?.("Couldn't start the microphone. Please try again.");
+      }
+    }
+  }, [listening, transcribing]);
 
-  return { supported, listening, interim, start, stop, toggle };
+  const stop = useCallback(async () => {
+    const rec = recordingRef.current;
+    recordingRef.current = null;
+    if (!rec) return;
+    setListening(false);
+    let blob: Blob;
+    try {
+      blob = await rec.stop();
+    } catch {
+      setInterim("");
+      onErrorRef.current?.("Couldn't capture the audio. Please try again.");
+      return;
+    }
+    if (!blob || blob.size <= 44) { // 44 bytes = empty WAV header only
+      setInterim("");
+      onErrorRef.current?.("I didn't catch that — please try again.");
+      return;
+    }
+    setTranscribing(true);
+    setInterim("Transcribing…");
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "speech.wav");
+      fd.append("language", lang);
+      const res = await fetch("/api/ai/transcribe", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const text = String(data.text || "").trim();
+        if (text) onFinalRef.current?.(text);
+        else onErrorRef.current?.("I didn't catch that — please try again.");
+      } else {
+        onErrorRef.current?.(data.message || "Couldn't transcribe the audio.");
+      }
+    } catch {
+      onErrorRef.current?.("Couldn't reach the transcription service.");
+    } finally {
+      setTranscribing(false);
+      setInterim("");
+    }
+  }, [lang]);
+
+  const toggle = useCallback(() => {
+    if (listening) void stop();
+    else void start();
+  }, [listening, start, stop]);
+
+  // Release the mic if the component unmounts mid-recording.
+  useEffect(() => () => { recordingRef.current?.cancel(); recordingRef.current = null; }, []);
+
+  return { supported, listening, transcribing, interim, start, stop, toggle };
 }

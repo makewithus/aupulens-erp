@@ -1,5 +1,7 @@
 "use client";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useEffect, useState, useCallback } from "react";
@@ -254,7 +256,7 @@ export default function VouchersPage() {
       const params = new URLSearchParams();
       if (typeFilter !== "all") params.set("voucherType", typeFilter);
       if (statusFilter !== "all") params.set("voucherStatus", statusFilter);
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/finance/journal-entries?${params.toString()}`,
       );
       const json = await res.json();
@@ -268,7 +270,7 @@ export default function VouchersPage() {
   }, [typeFilter, statusFilter]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -298,6 +300,43 @@ export default function VouchersPage() {
     setFormData(item);
     setIsModalOpen(true);
   };
+
+  // AI-native: extract the voucher's kind + balanced postings → open the create
+  // modal pre-filled. Each line's account is resolved to a real id server-side
+  // when named; the user reviews and saves/posts.
+  useAiPrefill("voucher", (p) => {
+    const d = p.data || {};
+    const VALID_KINDS = ["Record Expense", "Receive Payment", "Make Payment", "Manual Journal"];
+    const actionName = VALID_KINDS.includes(d.voucher_kind) ? d.voucher_kind : "Manual Journal";
+    const lines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines.map((ln: any) => ({
+          accountId: ln.accountId || "",
+          partnerId: "",
+          label: ln.label || "",
+          debit: Number(ln.debit) || 0,
+          credit: Number(ln.credit) || 0,
+        }))
+      : [
+          { accountId: "", partnerId: "", label: "", debit: 0, credit: 0 },
+          { accountId: "", partnerId: "", label: "", debit: 0, credit: 0 },
+        ];
+    setFormData({
+      header: {
+        name: d.name || "",
+        date: d.date ? new Date(d.date) : new Date(),
+        ref: d.ref || "",
+        journalType: d.journalType || "general",
+      },
+      voucherType: "journal",
+      actionName,
+      voucherStatus: VOUCHER_STATUS.DRAFT,
+      approvalRequired: false,
+      lineIds: lines,
+      totals: { amountUntaxed: 0, amountTax: 0, amountTotal: 0 },
+      status: "draft",
+    });
+    setIsModalOpen(true);
+  });
 
   const handleSave = async (saveStatus?: string) => {
     const isDraft = saveStatus === "draft" || !saveStatus;
@@ -347,7 +386,7 @@ export default function VouchersPage() {
           : formData.voucherStatus,
       };
 
-      let res = await fetch(url, {
+      let res = await cachedFetch(url, {
         method: isUpdate ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -368,7 +407,7 @@ export default function VouchersPage() {
             setIsSubmitting(false);
             return;
           }
-          res = await fetch(url, {
+          res = await cachedFetch(url, {
             method: isUpdate ? "PATCH" : "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...payload, allowNonStandard: true }),
@@ -400,7 +439,7 @@ export default function VouchersPage() {
   ) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/journal-entries/${id}`, {
+      const res = await cachedFetch(`/api/finance/journal-entries/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -425,7 +464,7 @@ export default function VouchersPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this voucher?" })) return;
     try {
-      const res = await fetch(`/api/finance/journal-entries/${id}`, {
+      const res = await cachedFetch(`/api/finance/journal-entries/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {

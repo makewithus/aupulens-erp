@@ -79,9 +79,7 @@ export default function ProfilePage() {
   }, [session?.user?.email]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/admin');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       fetchProfile();
     }
   }, [status, router, fetchProfile]);

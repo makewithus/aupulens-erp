@@ -12,7 +12,7 @@ export default function SalesVisualizationPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/auth/sales');
+    
   }, [status, router]);
 
   return (

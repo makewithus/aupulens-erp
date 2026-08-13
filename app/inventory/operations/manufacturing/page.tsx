@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -122,8 +124,8 @@ export default function ManufacturingPage() {
   const fetchResources = async () => {
     try {
       const [pRes, uRes] = await Promise.all([
-        fetch("/api/sales/products?limit=100"),
-        fetch("/api/users"),
+        cachedFetch("/api/sales/products?limit=100"),
+        cachedFetch("/api/users"),
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
@@ -141,7 +143,7 @@ export default function ManufacturingPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/inventory/operations/manufacturing");
+      const res = await cachedFetch("/api/inventory/operations/manufacturing");
       const data = await res.json();
       setOrders(data.orders || []);
     } catch (e) {
@@ -162,6 +164,31 @@ export default function ManufacturingPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native pre-fill: open the Manufacturing Order modal with AI-extracted
+  // details. Product/responsible are id-selects, so they're surfaced as hints.
+  useAiPrefill("manufacturing_order", (p) => {
+    const d: any = p.data || {};
+    const base = JSON.parse(JSON.stringify(defaultFormData));
+    const comps = (Array.isArray(d.components) ? d.components : [])
+      .filter((c: any) => c && (c.productId || c.name))
+      .map((c: any) => ({ productId: c.productId || "", toConsume: Number(c.qty) > 0 ? Number(c.qty) : 1, consumed: 0 }));
+    setFormData({
+      ...base,
+      header: {
+        ...base.header,
+        name: d.product_name ? String(d.product_name) : base.header.name,
+        productId: d.productId ? String(d.productId) : base.header.productId,
+        quantity: Number(d.quantity) > 0 ? Number(d.quantity) : base.header.quantity,
+        scheduledDate: d.scheduled_date ? new Date(d.scheduled_date) : base.header.scheduledDate,
+      },
+      components_tab: comps.length ? comps : base.components_tab,
+      miscellaneous: { ...base.miscellaneous, ...(d.note ? { notes: String(d.note) } : {}) },
+    });
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+  });
+
   const saveOrder = async () => {
     setIsSubmitting(true);
     try {
@@ -169,7 +196,7 @@ export default function ManufacturingPage() {
         ? `/api/inventory/operations/manufacturing/${formData._id}`
         : "/api/inventory/operations/manufacturing";
       const method = formData._id ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -191,7 +218,7 @@ export default function ManufacturingPage() {
     nextStatus: ProductionStatus,
   ) => {
     try {
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/inventory/operations/manufacturing/${id}`,
         {
           method: "PATCH",

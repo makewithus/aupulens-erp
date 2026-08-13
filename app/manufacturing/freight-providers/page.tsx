@@ -69,9 +69,7 @@ export default function FreightProvidersPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/manufacturing');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'manufacturing') {
         router.push('/auth/manufacturing');
       } else {

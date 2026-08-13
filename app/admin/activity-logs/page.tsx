@@ -48,9 +48,7 @@ export default function ActivityLogsPage() {
   const [roleFilter, setRoleFilter] = useState('all');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/admin');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'admin') {
         router.push('/auth/admin');
       } else {

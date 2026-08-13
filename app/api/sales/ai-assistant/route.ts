@@ -9,6 +9,7 @@ import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
+import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
 import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
@@ -28,9 +29,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    // Accept both `message` and the legacy `query` key the page used to send.
-    const message: string | undefined = body.message ?? body.query;
     const incomingConversationId: string | undefined = body.conversationId;
+    const { imageDataUrls, docTexts } = await processChatAttachments(body);
+    // Accept both `message` and the legacy `query` key; allow attachment-only.
+    const rawMessage: string | undefined = body.message ?? body.query;
+    const message: string = rawMessage || ((imageDataUrls.length || docTexts.length) ? 'Please read the attached file(s) and help accordingly.' : '');
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -61,7 +64,9 @@ export async function POST(request: NextRequest) {
 
     const data = await fetchSalesData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const { prompt, systemPrompt, maxTokens } = buildSalesPrompt(message, data);
+    const built = buildSalesPrompt(message, data);
+    const prompt = built.prompt + attachmentsPromptBlock(imageDataUrls, docTexts);
+    const { systemPrompt, maxTokens } = built;
 
     // Streaming path — the client reads the body incrementally for an instant
     // feel and persists the conversation itself (no server-side double-save).
@@ -70,6 +75,7 @@ export async function POST(request: NextRequest) {
         systemPrompt,
         maxTokens,
         history: priorTurns,
+        imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
       });
       if (!("stream" in streamRes)) {
         return NextResponse.json(
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
     // instead works either way (see lib/ai/claude.ts migration notes).
@@ -244,15 +250,20 @@ async function generateResponse(
   priorTurns: ChatTurn[],
   tenantId: string,
   tier: string,
-  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+  aiSettings: Parameters<typeof callClaudeForTenant>[2],
+  imageDataUrls: string[] = [],
+  docTexts: string[] = []
 ): Promise<GenerateResult> {
-  const { prompt, systemPrompt, maxTokens } = buildSalesPrompt(message, data);
+  const built = buildSalesPrompt(message, data);
+  const prompt = built.prompt + attachmentsPromptBlock(imageDataUrls, docTexts);
+  const { systemPrompt, maxTokens } = built;
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       systemPrompt,
       maxTokens,
       history: priorTurns,
+      imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
     });
     if ("text" in result) {
       return { gated: false, text: result.text };

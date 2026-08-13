@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -36,7 +37,7 @@ export default function TransactionLockingPage() {
   const fetchLocks = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/finance/accounting/transaction-locks");
+      const res = await cachedFetch("/api/finance/accounting/transaction-locks");
       const data = await res.json();
       if (data.success) {
         const map: Record<string, any> = {};
@@ -69,7 +70,7 @@ export default function TransactionLockingPage() {
     if (!lockDate) return toast.error("Please select a lock date");
     setSaving(true);
     try {
-      const res = await fetch("/api/finance/accounting/transaction-locks", {
+      const res = await cachedFetch("/api/finance/accounting/transaction-locks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ module: modalModule, isLocked: true, lockedUpToDate: lockDate, reason }),
@@ -93,7 +94,7 @@ export default function TransactionLockingPage() {
     });
     if (!ok) return;
     try {
-      const res = await fetch("/api/finance/accounting/transaction-locks", {
+      const res = await cachedFetch("/api/finance/accounting/transaction-locks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ module: moduleKey, isLocked: false }),

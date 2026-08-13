@@ -99,7 +99,7 @@ export default function DepartmentsPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

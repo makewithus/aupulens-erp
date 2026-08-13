@@ -932,7 +932,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       </main>
 
       {/* FOOTER ACTIONS */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
         <div className="max-w-6xl w-full mx-auto flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving} className="bg-background">
             Save as Draft

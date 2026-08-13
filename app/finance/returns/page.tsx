@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -43,9 +44,9 @@ export default function FinanceReturnsPage() {
   const fetchResources = async () => {
     try {
       const [pRes, cRes, uRes] = await Promise.all([
-        fetch("/api/sales/products?limit=100"),
-        fetch("/api/sales/customers"),
-        fetch("/api/users"),
+        cachedFetch("/api/sales/products?limit=100"),
+        cachedFetch("/api/sales/customers"),
+        cachedFetch("/api/users"),
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
@@ -67,7 +68,7 @@ export default function FinanceReturnsPage() {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/inventory/operations/returns");
+      const res = await cachedFetch("/api/inventory/operations/returns");
       const data = await res.json();
       setItems(data.items || []);
     } catch (e) {
@@ -101,7 +102,7 @@ export default function FinanceReturnsPage() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/inventory/operations/transfers/${id}`, {
+      const res = await cachedFetch(`/api/inventory/operations/transfers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -122,7 +123,7 @@ export default function FinanceReturnsPage() {
         : "/api/inventory/operations/returns";
       const method = formData._id ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

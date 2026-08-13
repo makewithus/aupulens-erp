@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -86,7 +87,7 @@ export default function QuotesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/quotes?status=all");
+      const res = await cachedFetch("/api/sales/quotes?status=all");
       const data = await res.json();
       if (data.success) setQuotes(data.data);
       else toast.error(data.message || "Failed to load quotes");

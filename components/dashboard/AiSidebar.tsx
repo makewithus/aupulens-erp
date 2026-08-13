@@ -9,6 +9,8 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
+import { toast } from "sonner";
+import levenshtein from "js-levenshtein";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
@@ -33,6 +35,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // client-side navigation (e.g. when the AI opens a create form for you).
   const messages = useAiChatStore((s) => s.messages);
   const setMessages = useAiChatStore((s) => s.setMessages);
+  const conversationId = useAiChatStore((s) => s.conversationId);
+  const setConversationId = useAiChatStore((s) => s.setConversationId);
   const newChat = useAiChatStore((s) => s.newChat);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +46,12 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Voice input — append each finalized phrase to the prompt as the user speaks.
-  const { supported: micSupported, listening, interim, toggle: toggleMic } = useSpeechToText({
+  // Voice input (Azure speech-to-text) — records via the mic, transcribes on the
+  // server, and appends the recognised text to the prompt for the user to review
+  // and send. Works in Electron + all browsers (unlike the old browser API).
+  const { supported: micSupported, listening, transcribing, interim, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
+    onError: (m) => toast.error(m),
   });
 
   // File attachments (PDF / DOCX / images) — multiple supported. Each is read as
@@ -52,6 +59,13 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   type Attachment = { name: string; type: string; dataUrl: string };
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  // A create the AI has prepared but is waiting for the user to confirm — used
+  // when something is unclear or a required record is missing, so the assistant
+  // ASKS before opening the form instead of silently redirecting (Claude-Code
+  // style: don't guess on ambiguity — confirm, then act).
+  type PendingCreate = { target: string; route: string; data: Record<string, any>; suggestions: string[]; label: string; question: string };
+  const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB each
   const MAX_ATTACHMENTS = 8;
@@ -86,17 +100,39 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     if (files.length) { e.preventDefault(); addFiles(files); }
   };
 
+  // Map the in-memory thread to the {role, content} shape the API uses for
+  // multi-turn memory. The client thread is the source of truth for the live
+  // conversation (the streaming route doesn't persist mid-thread), so we send it
+  // every turn — this is what lets "tell me about that data" work later.
+  const buildHistory = (base: Message[]): { role: string; content: string }[] =>
+    base.filter((m) => !m.isLoading && m.text).slice(-10).map((m) => ({ role: m.role, content: m.text }));
+
+  // If the current message has no new files, reuse the most recently attached
+  // ones so the user can say "create a journal entry from that" / "summarise
+  // that document" turns later WITHOUT re-uploading. Memory the user expects.
+  const carriedAttachments = (): Attachment[] => {
+    if (attachments.length) return attachments;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const a = messages[i].attachments?.filter((x) => x.dataUrl);
+      if (a && a.length) return a as Attachment[];
+    }
+    return [];
+  };
+
   const sendQuery = async (queryText: string, customMessagesHistory?: Message[]) => {
     setIsLoading(true);
 
     // Capture attachments up front so they render on the user's message (and
-    // stay visible while the AI is thinking) before we clear the composer.
-    const sentAttachments = attachments;
+    // stay visible while the AI is thinking) before we clear the composer. Files
+    // freshly attached to THIS message are shown on the bubble; if there are
+    // none, we still SEND the most recent prior files so context carries over.
+    const freshAttachments = attachments;
+    const sendAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
     const baseHistory = customMessagesHistory || messages;
     const nextMessages = [...baseHistory];
 
     if (customMessagesHistory === undefined) {
-      nextMessages.push({ role: "user", text: queryText, attachments: sentAttachments.length ? sentAttachments : undefined });
+      nextMessages.push({ role: "user", text: queryText, attachments: freshAttachments.length ? freshAttachments : undefined });
     }
     nextMessages.push({ role: "assistant", text: "", isLoading: true });
     setMessages(nextMessages);
@@ -108,8 +144,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText, stream: true, attachments: sentAttachments }),
+        body: JSON.stringify({ message: queryText, stream: true, attachments: sendAttachments, history: buildHistory(baseHistory), conversationId }),
       });
+      const returnedConvId = response.headers.get("x-conversation-id");
+      if (returnedConvId && returnedConvId !== conversationId) setConversationId(returnedConvId);
 
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok || contentType.includes("application/json")) {
@@ -189,29 +227,153 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // "Create an <entity>" → the AI-native flow: extract the fields, pre-fill the
   // REAL create form, take the user there, and let them verify + click Create.
   const CREATE_VERB_RX = /\b(create|add|new|make|generate|draft|capture|log|prepare|register|enter)\b/i;
-  const CREATE_TARGETS: { rx: RegExp; target: string; route: string; label: string }[] = [
-    { rx: /\blead\b/i, target: "lead", route: "/crm/leads", label: "lead" },
-    { rx: /\b(customer|client)\b/i, target: "customer", route: "/sales/customers/new", label: "customer" },
-    { rx: /\binvoice\b/i, target: "invoice", route: "/sales/invoices/new", label: "invoice" },
-    { rx: /\b(employee|staff)\b/i, target: "employee", route: "/hr/employees", label: "employee" },
-    { rx: /\b(quote|quotation)\b/i, target: "quote", route: "/crm/quotes/new", label: "quote" },
-    { rx: /\b(opportunity|deal)\b/i, target: "opportunity", route: "/crm/opportunities", label: "opportunity" },
-    { rx: /\bcontact\b/i, target: "contact", route: "/crm/contacts", label: "contact" },
-    { rx: /\b(account|company)\b/i, target: "account", route: "/crm/accounts", label: "account" },
-    { rx: /\bcase\b/i, target: "case", route: "/crm/cases", label: "case" },
-    { rx: /\bproject\b/i, target: "project", route: "/projects", label: "project" },
+  // `keywords` power a typo-tolerant fallback (fuzzy match) so misspellings like
+  // "procelists" / "invoce" still route to the right create form.
+  const CREATE_TARGETS: { rx: RegExp; target: string; route: string; label: string; keywords: string[] }[] = [
+    { rx: /\blead\b/i, target: "lead", route: "/crm/leads", label: "lead", keywords: ["lead"] },
+    { rx: /\b(customer|client)\b/i, target: "customer", route: "/sales/customers/new", label: "customer", keywords: ["customer", "client"] },
+    { rx: /\binvoice\b/i, target: "invoice", route: "/sales/invoices/new", label: "invoice", keywords: ["invoice"] },
+    // Sales module — must be BEFORE the generic entries so "sales order" isn't
+    // mis-matched. "price list"/"pricelist" checked before "product".
+    { rx: /\b(sales?[\s-]?order)\b/i, target: "sales_order", route: "/sales/sales-orders/new", label: "sales order", keywords: ["salesorder"] },
+    { rx: /\b(price[\s-]?list)\b/i, target: "pricelist", route: "/sales/pricelist", label: "pricelist", keywords: ["pricelist"] },
+    { rx: /\bproduct\b/i, target: "product", route: "/sales/products", label: "product", keywords: ["product"] },
+    { rx: /\b(subscription|recurring)\b/i, target: "subscription", route: "/sales/subscriptions/new", label: "subscription", keywords: ["subscription"] },
+    { rx: /\bpayment\b/i, target: "payment", route: "/sales/payments/new", label: "payment", keywords: ["payment"] },
+    // "delivery challan" → the SALES challan; a plain "delivery" → the Inventory
+    // delivery operation (checked below). So challan keeps only its own keyword.
+    { rx: /\b(delivery[\s-]?challan|challan|delivery[\s-]?note)\b/i, target: "delivery_challan", route: "/sales/delivery-challans", label: "delivery challan", keywords: ["challan"] },
+    // Inventory module.
+    { rx: /\b(batch|lot)\b/i, target: "batch", route: "/inventory/batch", label: "batch", keywords: ["batch"] },
+    { rx: /\bwarehouse\b/i, target: "warehouse", route: "/inventory/warehouse", label: "warehouse", keywords: ["warehouse"] },
+    { rx: /\b(goods[\s-]?receipt|grn|receipt|receiving)\b/i, target: "receipt", route: "/inventory/operations/receipts", label: "goods receipt", keywords: ["receipt", "receiving"] },
+    { rx: /\b(manufacturing|production)\s*(order|run)?\b/i, target: "manufacturing_order", route: "/inventory/operations/manufacturing", label: "manufacturing order", keywords: ["manufacturing", "production"] },
+    { rx: /\b(delivery|dispatch|shipment)\b/i, target: "inventory_delivery", route: "/inventory/operations/deliveries", label: "delivery", keywords: ["delivery", "dispatch", "shipment"] },
+    { rx: /\breturn\b/i, target: "inventory_return", route: "/inventory/operations/returns", label: "return", keywords: ["return"] },
+    { rx: /\b(stock[\s-]?move|stock[\s-]?transfer|internal[\s-]?transfer)\b/i, target: "stock_move", route: "/inventory/stock-moves", label: "stock move", keywords: ["stockmove", "transfer"] },
+    { rx: /\b(inventory[\s-]?order|stock[\s-]?order|purchase[\s-]?order)\b/i, target: "inventory_order", route: "/inventory/orders", label: "inventory order", keywords: [] },
+    { rx: /\b(report|stock report|movement report|aging report|compliance report)\b/i, target: "inventory_report", route: "/inventory/reports", label: "inventory report", keywords: ["report"] },
+    // Finance module. "ledger account"/"chart of accounts" → finance ledger
+    // account (a plain "account" stays the CRM account, below). Finance entries
+    // sit here so they resolve before the generic CRM matches.
+    { rx: /\b(expense|reimbursement|expenditure)\b/i, target: "expense", route: "/finance/expenses", label: "expense", keywords: ["expense", "reimbursement"] },
+    // "vendor bill"/"bill" → the finance vendor bill. Checked before "journal"
+    // and before the generic entries.
+    { rx: /\b(vendor[\s-]?bill|supplier[\s-]?bill|purchase[\s-]?bill|bill)\b/i, target: "bill", route: "/finance/bills", label: "vendor bill", keywords: ["bill"] },
+    // The Transactions/Vouchers page's quick actions — "receive payment" /
+    // "make payment" / "manual journal" (the exact card labels) route here, not
+    // to the sales payment form. Note "make payment" ≠ "make A payment" (the
+    // latter, natural phrasing, falls through to the sales payment target).
+    { rx: /\b(voucher|receive[\s-]?payment|make[\s-]?payment|payment[\s-]?voucher|receipt[\s-]?voucher|manual[\s-]?journal)\b/i, target: "voucher", route: "/finance/accounting/vouchers", label: "voucher", keywords: ["voucher"] },
+    { rx: /\b(journal[\s-]?entry|journal)\b/i, target: "journal_entry", route: "/finance/accounting/journal-entries", label: "journal entry", keywords: ["journal"] },
+    { rx: /\b(fixed[\s-]?asset|depreciat\w*|asset)\b/i, target: "fixed_asset", route: "/finance/accounting/fixed-assets", label: "fixed asset", keywords: ["asset", "depreciation"] },
+    { rx: /\b(ledger[\s-]?account|chart[\s-]?of[\s-]?accounts|gl[\s-]?account|nominal[\s-]?account)\b/i, target: "finance_account", route: "/finance/accounting/chart-of-accounts", label: "ledger account", keywords: [] },
+    { rx: /\b(bank[\s-]?statement|bank[\s-]?reconciliation|reconcile[\s-]?bank|import[\s-]?statement)\b/i, target: "bank_statement", route: "/finance/accounting/bank-reconciliation", label: "bank statement", keywords: ["reconciliation", "statement"] },
+    { rx: /\b(employee|staff)\b/i, target: "employee", route: "/hr/employees", label: "employee", keywords: ["employee"] },
+    // "sales quote" → the Sales-module quote; a plain "quote"/"quotation" → CRM quote.
+    { rx: /\b(sales?[\s-]?(quote|quotation))\b/i, target: "sales_quote", route: "/sales/quotes/new", label: "sales quote", keywords: ["salesquote"] },
+    { rx: /\b(quote|quotation)\b/i, target: "quote", route: "/crm/quotes/new", label: "quote", keywords: ["quote", "quotation"] },
+    { rx: /\b(opportunity|deal)\b/i, target: "opportunity", route: "/crm/opportunities", label: "opportunity", keywords: ["opportunity"] },
+    { rx: /\bcontact\b/i, target: "contact", route: "/crm/contacts", label: "contact", keywords: ["contact"] },
+    { rx: /\b(account|company)\b/i, target: "account", route: "/crm/accounts", label: "account", keywords: ["account", "company"] },
+    { rx: /\bcase\b/i, target: "case", route: "/crm/cases", label: "case", keywords: ["case"] },
+    { rx: /\bproject\b/i, target: "project", route: "/projects", label: "project", keywords: ["project"] },
   ];
+
+  // Module hints let an explicit "under finance" / "in inventory" override a
+  // target that exists in more than one module (e.g. a purchase order lives in
+  // BOTH Finance and Inventory). We respect what the user actually said.
+  const FINANCE_HINT_RX = /\b(finance|financial|accounting|account[s]?[\s-]?payable|payables?|voucher|ledger)\b/i;
+  const INVENTORY_HINT_RX = /\b(inventory|stock|warehouse|godown)\b/i;
+  const FINANCE_PO: (typeof CREATE_TARGETS)[number] = {
+    rx: /\b(purchase[\s-]?order|p\.?o\.?)\b/i, target: "finance_purchase_order",
+    route: "/finance/purchase-orders", label: "purchase order", keywords: [],
+  };
+
+  // Exact regex first; then a typo-tolerant fallback. Fuzzy only fires on
+  // keywords >=5 chars, requires the same first letter, and scales the allowed
+  // edit distance with length — enough to catch real typos without matching
+  // unrelated words (e.g. "note" never matches "quote").
+  const findCreateTarget = (q: string): (typeof CREATE_TARGETS)[number] | undefined => {
+    // Cross-module override: "purchase order" defaults to Inventory, but if the
+    // user named Finance/Payables (and not Inventory), send them to the Finance
+    // purchase order instead. This honours "create a PO under finance".
+    if (/\b(purchase[\s-]?order|p\.?o\.?)\b/i.test(q) && FINANCE_HINT_RX.test(q) && !INVENTORY_HINT_RX.test(q)) {
+      return FINANCE_PO;
+    }
+    // Among ALL targets whose keyword appears, pick the one that occurs EARLIEST
+    // in the text. The user's instruction ("create a journal entry …") leads,
+    // while any pasted data (which may mention "invoice", "sales", "payment"…)
+    // comes after — so position, not array order, decides. This stops "create a
+    // journal entry: Dr Sales … Cr … (INV-001)" from being hijacked to the
+    // invoice/sales form just because the word "invoice" appears in the data.
+    // Ties (two keywords at the same index) fall back to CREATE_TARGETS order,
+    // which still encodes disambiguation (e.g. "delivery challan" before plain
+    // "delivery").
+    let bestExact: { t: (typeof CREATE_TARGETS)[number]; idx: number; order: number } | undefined;
+    CREATE_TARGETS.forEach((t, order) => {
+      const m = t.rx.exec(q);
+      if (!m) return;
+      if (!bestExact || m.index < bestExact.idx || (m.index === bestExact.idx && order < bestExact.order)) {
+        bestExact = { t, idx: m.index, order };
+      }
+    });
+    if (bestExact) return bestExact.t;
+    const matched: string[] = q.toLowerCase().match(/[a-z]+/g) || [];
+    const tokens = matched.filter((w) => w.length >= 4);
+    let best: { t: (typeof CREATE_TARGETS)[number]; dist: number } | undefined;
+    for (const t of CREATE_TARGETS) {
+      for (const kw of t.keywords) {
+        if (kw.length < 5) continue;
+        const maxD = kw.length >= 7 ? 2 : 1;
+        for (const tok of tokens) {
+          if (tok[0] !== kw[0]) continue;
+          const d = levenshtein(tok, kw);
+          if (d <= maxD && (!best || d < best.dist)) best = { t, dist: d };
+        }
+      }
+    }
+    return best?.t;
+  };
 
   const handleSend = async (text: string) => {
     const q = text.trim();
     if (!q && attachments.length === 0) return;
     if (isLoading) return;
 
-    const sentAttachments = attachments;
-    const attForMsg = sentAttachments.length ? sentAttachments : undefined;
+    // ── Resolve a pending "shall I proceed?" question first ───────────────────
+    // If the assistant asked to confirm a prepared create, interpret a yes/no
+    // reply here instead of treating it as a brand-new request.
+    if (pendingCreate && q) {
+      const ans = q.toLowerCase();
+      const yes = /\b(yes|yeah|yep|ya|sure|ok|okay|proceed|go ahead|continue|do it|open( the)?( form)?|confirm|create it anyway|anyway)\b/i.test(ans);
+      const no = /\b(no|nope|cancel|stop|don'?t|never ?mind|not now|wait)\b/i.test(ans);
+      const pc = pendingCreate;
+      if (yes) {
+        setPendingCreate(null);
+        stashPrefill({ target: pc.target, route: pc.route, data: pc.data, suggestions: pc.suggestions });
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: `Opening the ${pc.label} form now — review the details and click **Create** to save.` }]);
+        router.push(pc.route);
+        return;
+      }
+      if (no) {
+        setPendingCreate(null);
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: `Okay — I won't open the ${pc.label} form. Tell me what you'd like to do instead.` }]);
+        return;
+      }
+      // Neither yes nor no → treat as a fresh instruction; drop the pending one.
+      setPendingCreate(null);
+    }
+
+    const freshAttachments = attachments;
+    // Files shown on the user's bubble = only the ones freshly attached now; the
+    // files SENT include the most recent prior upload so "create X from that
+    // data" works turns after the paste (memory the user expects).
+    const attForMsg = freshAttachments.length ? freshAttachments : undefined;
+    const sentAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
 
     // ── AI-native create: pre-fill the real form and navigate there ──────────
-    const targetDef = CREATE_VERB_RX.test(q) ? CREATE_TARGETS.find((t) => t.rx.test(q)) : undefined;
+    const targetDef = CREATE_VERB_RX.test(q) ? findCreateTarget(q) : undefined;
     if (targetDef) {
       const base = messages;
       setIsLoading(true);
@@ -230,16 +392,38 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           body: JSON.stringify({ target: targetDef.target, message: q, attachments: sentAttachments, history }),
         });
         const data = await res.json().catch(() => ({}));
+        // Don't redirect to an EMPTY form: if the AI couldn't extract any usable
+        // field, tell the user what's needed instead of navigating to a blank
+        // form (which looked like "it only redirected and did nothing").
+        const extracted = data?.data && typeof data.data === "object"
+          ? Object.values(data.data).some((v) => Array.isArray(v) ? v.length > 0 : v != null && v !== "")
+          : false;
+        if (res.ok && data.success && !extracted && !data.missingDependency) {
+          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I couldn't pull enough details to fill the ${targetDef.label} form. Tell me the details in your message (or attach a document/image) and I'll prepare it for you.` }]);
+          setIsLoading(false);
+          return;
+        }
         if (res.ok && data.success) {
-          stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
           const sugg = data.suggestions?.length
             ? `\n\n**A couple of things to double-check:**\n${data.suggestions.map((s: string) => `- ${s}`).join("\n")}`
             : "";
-          // Cross-entity dependency awareness (e.g. invoice needs a customer).
-          const dep = data.missingDependency
-            ? `\n\n⚠️ There's no ${data.missingDependency.type} named **${data.missingDependency.name}** yet — add it with the "+" on the form (or ask me to create the ${data.missingDependency.type} first), then it'll be selectable.`
-            : "";
-          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${dep}${sugg}` }]);
+          // A REQUIRED linked record is missing (e.g. the vendor/customer isn't
+          // in the system yet). Rather than silently drop the user on a form
+          // they have to fix, spell it out and ASK before opening it.
+          if (data.missingDependency) {
+            const dep = data.missingDependency;
+            setPendingCreate({
+              target: data.target, route: data.route, data: data.data || {},
+              suggestions: data.suggestions || [], label: targetDef.label,
+              question: dep.name,
+            });
+            setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've got the ${targetDef.label} details ready, but there's **no ${dep.type} named "${dep.name}"** in the system yet.\n\nDo you want me to **open the ${targetDef.label} form anyway** (you can add the ${dep.type} inline with the "+"), or would you rather create the ${dep.type} first? Reply **"yes"** to open it now, or **"no"** to hold off.${sugg}` }]);
+            setIsLoading(false);
+            return;
+          }
+          // Everything resolved → prepare the form and take the user there.
+          stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
+          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${sugg}` }]);
           setIsLoading(false);
           router.push(targetDef.route);
           return;
@@ -840,11 +1024,14 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   onClick={toggleMic}
-                  title={listening ? "Stop voice input" : "Speak your message"}
+                  disabled={transcribing}
+                  title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
                   className={cn(
-                    "h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
+                    "h-6 w-6 rounded flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:cursor-wait",
                     listening
                       ? "bg-red-500/20 text-red-400 animate-pulse"
+                      : transcribing
+                      ? "bg-indigo-500/20 text-indigo-400"
                       : isDark ? "bg-neutral-850 hover:bg-neutral-800 text-neutral-400" : "bg-neutral-200 hover:bg-neutral-300 text-neutral-600"
                   )}
                 >
@@ -852,7 +1039,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               <span className="text-[9px] text-neutral-500 font-mono truncate">
-                {listening ? (interim || "Listening…") : "⏎ to send · ⇧⏎ for newline"}
+                {listening ? (interim || "Listening…") : transcribing ? "Transcribing…" : "⏎ to send · ⇧⏎ for newline"}
               </span>
             </div>
             <button

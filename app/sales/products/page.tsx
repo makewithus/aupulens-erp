@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -165,7 +167,7 @@ export default function ProductsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/products");
+      const res = await cachedFetch("/api/sales/products");
       const json = await res.json();
       setData(json.items || []);
     } catch (error) {
@@ -178,7 +180,7 @@ export default function ProductsPage() {
 
   const loadAccounts = useCallback(async () => {
     try {
-      const res = await fetch("/api/accounting/accounts");
+      const res = await cachedFetch("/api/accounting/accounts");
       const json = await res.json();
       setAccounts(json.items || []);
     } catch (error) {
@@ -188,7 +190,7 @@ export default function ProductsPage() {
 
   const loadPricelists = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/pricelists");
+      const res = await cachedFetch("/api/sales/pricelists");
       const json = await res.json();
       setPricelists(json.items || []);
     } catch (error) {
@@ -235,6 +237,33 @@ export default function ProductsPage() {
     setIsDialogOpen(true);
   };
 
+  // AI-native pre-fill: open the create dialog with AI-extracted product fields
+  // (from a prompt or attached image/doc). User reviews and clicks Save.
+  useAiPrefill("product", (p) => {
+    const d: any = p.data || {};
+    handleOpenCreate();
+    setFormData((prev) => ({
+      ...INITIAL_PRODUCT_STATE,
+      ...prev,
+      header: {
+        ...INITIAL_PRODUCT_STATE.header,
+        name: d.name ? String(d.name) : INITIAL_PRODUCT_STATE.header.name,
+        sale_ok: typeof d.can_be_sold === "boolean" ? d.can_be_sold : INITIAL_PRODUCT_STATE.header.sale_ok,
+        purchase_ok: typeof d.can_be_purchased === "boolean" ? d.can_be_purchased : INITIAL_PRODUCT_STATE.header.purchase_ok,
+      },
+      tab_general_information: {
+        ...INITIAL_PRODUCT_STATE.tab_general_information,
+        type: ["consu", "service", "combo"].includes(d.product_type) ? d.product_type : INITIAL_PRODUCT_STATE.tab_general_information.type,
+        invoice_policy: ["order", "delivery"].includes(d.invoice_policy) ? d.invoice_policy : INITIAL_PRODUCT_STATE.tab_general_information.invoice_policy,
+        list_price: Number(d.sales_price) > 0 ? Number(d.sales_price) : INITIAL_PRODUCT_STATE.tab_general_information.list_price,
+        standard_price: Number(d.cost) > 0 ? Number(d.cost) : INITIAL_PRODUCT_STATE.tab_general_information.standard_price,
+        default_code: d.internal_reference ? String(d.internal_reference) : INITIAL_PRODUCT_STATE.tab_general_information.default_code,
+        description: d.description ? String(d.description) : INITIAL_PRODUCT_STATE.tab_general_information.description,
+      },
+    }));
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+  });
+
   const handleOpenView = (product: Product) => {
     setEditingId(product._id);
     setIsViewOnly(true);
@@ -278,7 +307,7 @@ export default function ProductsPage() {
         : "/api/sales/products";
       const method = editingId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -319,7 +348,7 @@ export default function ProductsPage() {
     if (!deleteInfo) return;
 
     try {
-      const res = await fetch(`/api/sales/products/${deleteInfo.id}`, {
+      const res = await cachedFetch(`/api/sales/products/${deleteInfo.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -392,7 +421,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pricelistFormData),
@@ -428,7 +457,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),

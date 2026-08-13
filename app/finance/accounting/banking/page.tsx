@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -49,7 +50,7 @@ export default function BankingLandingPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchAccounts = async () => {
-    const res = await fetch("/api/finance/accounting/bank-accounts");
+    const res = await cachedFetch("/api/finance/accounting/bank-accounts");
     const data = await res.json();
     if (data.success) {
       setAccounts(data.data);
@@ -66,14 +67,14 @@ export default function BankingLandingPage() {
 
     fetchCurrency();
 
-    fetch("/api/users")
+    cachedFetch("/api/users")
       .then((r) => r.json())
       .then((d) => setUsers((d.users || []).map((u: any) => ({ _id: u._id, name: u.name }))))
       .catch(() => {});
   }, []);
 
   const openConnect = () => {
-    fetch("/api/finance/accounting/bank-feed-providers")
+    cachedFetch("/api/finance/accounting/bank-feed-providers")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setProviders(d.data);
@@ -83,7 +84,7 @@ export default function BankingLandingPage() {
   };
 
   const handleConnectNow = async (providerId: string, providerName: string) => {
-    const res = await fetch("/api/finance/accounting/bank-feed-providers/connect", {
+    const res = await cachedFetch("/api/finance/accounting/bank-feed-providers/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ providerId }),
@@ -116,7 +117,7 @@ export default function BankingLandingPage() {
     if (!form.accountName.trim()) return toast.error("Account Name is required");
     setSaving(true);
     try {
-      const res = await fetch("/api/finance/accounting/bank-accounts", {
+      const res = await cachedFetch("/api/finance/accounting/bank-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

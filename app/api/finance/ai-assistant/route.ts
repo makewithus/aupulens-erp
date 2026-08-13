@@ -13,6 +13,7 @@ import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
+import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
 import ChatHistory from '@/models/ChatHistory';
 import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
 import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
@@ -32,9 +33,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId: incomingConversationId } = body;
+    const { conversationId: incomingConversationId } = body;
+    const message: string = body.message ?? body.query ?? "";
+    const { imageDataUrls, docTexts } = await processChatAttachments(body);
 
-    if (!message) {
+    if (!message && imageDataUrls.length === 0 && docTexts.length === 0) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
     // Fetch finance-specific data
     const data = await fetchFinanceData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` (see lib/ai/claude.ts migration notes) —
     // narrowing on `"text" in genResult` instead works either way.
@@ -197,17 +200,19 @@ async function generateResponse(
   priorTurns: ChatTurn[],
   tenantId: string,
   tier: string,
-  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+  aiSettings: Parameters<typeof callClaudeForTenant>[2],
+  imageDataUrls: string[] = [],
+  docTexts: string[] = []
 ): Promise<GenerateResult> {
   const prompt = `You are an expert finance AI assistant for an ERP system.
 
-User Question: "${message}"
+User Question: "${message || "Please read the attached file(s) and help accordingly."}"
 
 Data Category: Finance
 Action Type: Analysis & Insights
 
 Available Data:
-${safeContextJson(data, { maxArray: 6 })}
+${safeContextJson(data, { maxArray: 6 })}${attachmentsPromptBlock(imageDataUrls, docTexts)}
 
 Instructions:
 1. Analyze the user's question carefully
@@ -225,6 +230,7 @@ Instructions:
     systemPrompt:
       'You are a precise finance analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise.' + AI_ASSISTANT_GUIDANCE,
     maxTokens: 1024,
+    imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
   };
 
   try {

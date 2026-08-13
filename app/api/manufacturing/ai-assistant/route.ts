@@ -5,6 +5,9 @@ import Shipment from '@/models/Shipment';
 import AirFreight from '@/models/AirFreight';
 import HSCode from '@/models/HSCode';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
+import { safeContextJson } from '@/lib/ai/sanitizeContext';
+import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
+import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
 
 interface TaskIntent {
   intent: string;
@@ -27,7 +30,10 @@ export async function POST(request: NextRequest) {
     if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { message, confirmAction, actionData, currentTask, cancelAction } = await request.json();
+    const reqBody = await request.json();
+    const { confirmAction, actionData, currentTask, cancelAction } = reqBody;
+    const { imageDataUrls, docTexts } = await processChatAttachments(reqBody);
+    const message: string = reqBody.message ?? reqBody.query ?? ((imageDataUrls.length || docTexts.length) ? 'Please read the attached file(s) and help accordingly.' : '');
 
     if (!message) {
       return NextResponse.json(
@@ -148,8 +154,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (taskAnalysis.intent === 'none') {
-      // Regular conversation - provide manufacturing data
+      // Regular conversation - provide manufacturing data.
       const data = await fetchManufacturingData(tenantId);
+      // When files are attached (or on any question), answer with the LLM so it
+      // can actually read the documents/images; fall back to the deterministic
+      // overview if the AI is gated/unavailable.
+      if (imageDataUrls.length || docTexts.length) {
+        const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts);
+        return NextResponse.json({ response: aiResp || (await generateResponse(message, data)) });
+      }
       const response = await generateResponse(message, data);
       return NextResponse.json({ response });
     }
@@ -217,6 +230,41 @@ async function fetchManufacturingData(tenantId: string) {
     },
     recentShipments: shipments.slice(0, 5),
   };
+}
+
+/** LLM-backed answer that can read attached documents/images (used when files
+ *  are attached). Returns "" if the AI is gated/unavailable so the caller can
+ *  fall back to the deterministic overview. */
+async function generateAiResponse(
+  message: string,
+  data: any,
+  tenantId: string,
+  tier: string,
+  aiSettings: Parameters<typeof callClaudeForTenant>[2],
+  imageDataUrls: string[],
+  docTexts: string[]
+): Promise<string> {
+  const prompt = `You are an expert manufacturing & logistics AI assistant for an ERP system.
+
+User Question: "${message}"
+
+Available Manufacturing Data:
+${safeContextJson(data, { maxArray: 6 })}${attachmentsPromptBlock(imageDataUrls, docTexts)}
+
+Instructions:
+1. Answer using the provided data and any attached files. Do not invent numbers.
+2. Format currency values with ₹ (Indian ERP).
+3. Use bullet points for clarity. Be concise but complete.`;
+  try {
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      systemPrompt: "You are a precise manufacturing/logistics analytics assistant. For DATA questions use only the figures given; for HOW-TO questions give clear step-by-step app guidance. NEVER print internal database IDs or raw JSON. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
+      maxTokens: 1024,
+      imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
+    });
+    return "text" in result ? result.text : "";
+  } catch {
+    return "";
+  }
 }
 
 async function generateResponse(message: string, data: any): Promise<string> {

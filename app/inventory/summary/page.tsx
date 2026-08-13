@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -52,9 +53,7 @@ export default function InventorySummaryPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/inventory");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       if (
         session?.user?.role !== "inventory" &&
         session?.user?.role !== "admin"
@@ -67,7 +66,7 @@ export default function InventorySummaryPage() {
   const fetchSummary = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/inventory/summary");
+      const res = await cachedFetch("/api/inventory/summary");
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
       setSummary(data.summary);

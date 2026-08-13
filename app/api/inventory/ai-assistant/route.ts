@@ -8,6 +8,7 @@ import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
+import { extractAttachment } from '@/lib/ai/extractFile';
 import ChatHistory from '@/models/ChatHistory';
 
 export async function POST(request: NextRequest) {
@@ -24,9 +25,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId: incomingConversationId } = body;
+    const { conversationId: incomingConversationId } = body;
+    // Accept both `message` and the client's `query` field.
+    const message: string = body.message ?? body.query ?? "";
 
-    if (!message) {
+    // ── Attachments (PDF/DOCX/TXT → text, images → gpt-4o vision) ──────────────
+    const rawAtts: Array<{ name?: string; type: string; dataUrl: string }> =
+      Array.isArray(body.attachments) ? body.attachments : (body.attachment ? [body.attachment] : []);
+    const imageDataUrls: string[] = [];
+    const docTexts: string[] = [];
+    for (const a of rawAtts.filter((x) => x?.dataUrl && x?.type).slice(0, 8)) {
+      if (String(a.type).startsWith("image/")) { imageDataUrls.push(a.dataUrl); continue; }
+      try {
+        const base64 = a.dataUrl.includes(",") ? a.dataUrl.split(",")[1] : a.dataUrl;
+        const extracted = await extractAttachment(Buffer.from(base64, "base64"), a.type, a.name || "");
+        if (extracted.kind === "text" && (extracted as any).text) docTexts.push(`=== ${a.name || "document"} ===\n${(extracted as any).text}`);
+      } catch { /* unreadable file — skip */ }
+    }
+
+    if (!message && imageDataUrls.length === 0 && docTexts.length === 0) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
@@ -46,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const data = await fetchInventoryData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
     // instead works either way (see lib/ai/claude.ts migration notes).
@@ -131,17 +148,23 @@ async function generateResponse(
   priorTurns: ChatTurn[],
   tenantId: string,
   tier: string,
-  aiSettings: Parameters<typeof callClaudeForTenant>[2]
+  aiSettings: Parameters<typeof callClaudeForTenant>[2],
+  imageDataUrls: string[] = [],
+  docTexts: string[] = []
 ): Promise<GenerateResult> {
+  const docsBlock = docTexts.length
+    ? `\n\nAttached document content (use it to answer):\n${docTexts.join("\n\n").slice(0, 12000)}`
+    : "";
+  const imgNote = imageDataUrls.length ? `\n\n(${imageDataUrls.length} image(s) are attached — read them.)` : "";
   const prompt = `You are an expert inventory AI assistant for an ERP system.
 
-User Question: "${message}"
+User Question: "${message || "Please read the attached file(s) and help accordingly."}"
 
 Available Inventory Data:
-${safeContextJson(data, { maxArray: 6 })}
+${safeContextJson(data, { maxArray: 6 })}${docsBlock}${imgNote}
 
 Instructions:
-1. Answer using the provided data only. Do not invent numbers.
+1. Answer using the provided data and any attached files. Do not invent numbers.
 2. Format currency values with ₹ (Indian ERP).
 3. Highlight low stock and out-of-stock items proactively.
 4. Use bullet points for clarity. Be concise but complete.
@@ -150,6 +173,7 @@ Instructions:
   const opts = {
     systemPrompt: "You are a precise inventory analytics assistant. For DATA questions use only the figures given (never invent numbers); for HOW-TO questions give clear step-by-step app guidance and do NOT reference raw data. NEVER print internal database IDs (partner/customer/order IDs) or raw JSON — refer to things by their human name/number. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
     maxTokens: 1024,
+    imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
   };
 
   try {

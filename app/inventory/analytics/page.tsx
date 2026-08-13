@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -74,9 +75,7 @@ export default function InventoryAnalyticsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/inventory');
-    } else if (status === 'authenticated') {
+    if (status === "authenticated") {
       if (session?.user?.role !== 'inventory' && session?.user?.role !== 'admin') {
         router.push('/auth/inventory');
       }
@@ -88,10 +87,10 @@ export default function InventoryAnalyticsPage() {
       setIsLoading(true);
       
       const [warehouseRes, stockRes, batchRes, orderRes] = await Promise.all([
-        fetch('/api/inventory/warehouse'),
-        fetch('/api/inventory/stock'),
-        fetch('/api/inventory/batch'),
-        fetch('/api/inventory/orders'),
+        cachedFetch('/api/inventory/warehouse'),
+        cachedFetch('/api/inventory/stock'),
+        cachedFetch('/api/inventory/batch'),
+        cachedFetch('/api/inventory/orders'),
       ]);
 
       if (warehouseRes.ok) {

@@ -95,9 +95,7 @@ export default function MasterAdminPage() {
   };
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/master");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       if (session?.user?.role !== "master-admin") {
         // Access denied handled by DashboardLayout or simple check
       } else {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -41,8 +43,8 @@ export default function BankReconciliationPage() {
       setLoading(true);
       // Fetch open bank statements and open journal items
       const [stmtRes, ledgerRes] = await Promise.all([
-        fetch("/api/finance/bank/statements?status=open"),
-        fetch("/api/finance/journal-items?reconciled=false"), // Corrected endpoint
+        cachedFetch("/api/finance/bank/statements?status=open"),
+        cachedFetch("/api/finance/journal-items?reconciled=false"), // Corrected endpoint
       ]);
       const stmts = await stmtRes.json();
       const ledger = await ledgerRes.json();
@@ -67,7 +69,7 @@ export default function BankReconciliationPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/finance");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -86,6 +88,34 @@ export default function BankReconciliationPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the statement header + transaction lines → open the
+  // Import modal pre-filled. Partners are resolved to ids server-side when named;
+  // the user picks the Bank Account and clicks Finalize Import.
+  useAiPrefill("bank_statement", (p) => {
+    const d = p.data || {};
+    const lines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines.map((ln: any) => ({
+          date: ln.date ? new Date(ln.date) : new Date(),
+          payment_ref: ln.payment_ref || "",
+          partnerId: ln.partnerId || "",
+          amount: Number(ln.amount) || 0,
+          isReconciled: false,
+        }))
+      : [];
+    setFormData({
+      header: {
+        name: d.name || "",
+        journalId: "",
+        date: d.statement_date ? new Date(d.statement_date) : new Date(),
+        balance_start: Number(d.balance_start) || 0,
+        balance_end_real: Number(d.balance_end_real) || 0,
+      },
+      lineIds: lines,
+      status: "open",
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async () => {
     if (
       !formData.header?.name ||
@@ -100,7 +130,7 @@ export default function BankReconciliationPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/finance/bank/import", {
+      const res = await cachedFetch("/api/finance/bank/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -125,7 +155,7 @@ export default function BankReconciliationPage() {
     }
 
     try {
-      const res = await fetch("/api/finance/bank/reconcile", {
+      const res = await cachedFetch("/api/finance/bank/reconcile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,7 +251,7 @@ export default function BankReconciliationPage() {
                     <div
                       key={idx}
                       onClick={() => setSelectedStatement(line)}
-                      className={`p-4 cursor-pointer transition-all ${selectedStatement?._id === line._id ? "bg-white border-l-4 border-primary shadow-sm" : "hover:bg-white/50"}`}
+                      className={`p-4 cursor-pointer transition-all ${selectedStatement?._id === line._id ? "bg-primary/10 border-l-4 border-primary shadow-sm" : "hover:bg-muted/50"}`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
@@ -287,7 +317,7 @@ export default function BankReconciliationPage() {
                     <div
                       key={idx}
                       onClick={() => setSelectedJournal(line)}
-                      className={`p-4 cursor-pointer transition-all ${selectedJournal?.journalLineId === line.journalLineId ? "bg-white border-l-4 border-primary shadow-sm" : "hover:bg-white/50"}`}
+                      className={`p-4 cursor-pointer transition-all ${selectedJournal?.journalLineId === line.journalLineId ? "bg-primary/10 border-l-4 border-primary shadow-sm" : "hover:bg-muted/50"}`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
@@ -324,7 +354,7 @@ export default function BankReconciliationPage() {
 
         {/* Action Panel */}
         {selectedStatement && selectedJournal && (
-          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-none p-6 flex items-center justify-between animate-in fade-in slide-in-from-bottom-8 z-50">
+          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-card border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.35)] rounded-none p-6 flex items-center justify-between animate-in fade-in slide-in-from-bottom-8 z-50">
             <div className="flex items-center gap-6">
               <div className="text-left">
                 <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">

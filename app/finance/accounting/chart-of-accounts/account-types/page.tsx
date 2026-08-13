@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ export default function AccountTypesPage() {
 
   const fetchTypes = async () => {
     try {
-      const res = await fetch("/api/finance/accounting/account-types");
+      const res = await cachedFetch("/api/finance/accounting/account-types");
       const data = await res.json();
       if (res.ok) {
         setTypes(data.accountTypes || []);
@@ -44,7 +45,7 @@ export default function AccountTypesPage() {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch("/api/finance/accounting/account-types", {
+      const res = await cachedFetch("/api/finance/accounting/account-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -66,7 +67,7 @@ export default function AccountTypesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this account type?")) return;
     try {
-      const res = await fetch(`/api/finance/accounting/account-types/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/finance/accounting/account-types/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
         toast.success("Deleted successfully");

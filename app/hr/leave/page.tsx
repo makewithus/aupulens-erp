@@ -117,7 +117,7 @@ export default function LeavePage() {
   }, [filterStatus]);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
     if (status === "authenticated") load(page);
   }, [status, router, load, page]);
 

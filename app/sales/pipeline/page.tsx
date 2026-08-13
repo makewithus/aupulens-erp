@@ -42,7 +42,7 @@ export default function Q2CPipelinePage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/sales");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 

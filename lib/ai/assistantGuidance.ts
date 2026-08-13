@@ -29,6 +29,22 @@ CREATE FORM FIELDS (authoritative — these match the real forms):
 - Quote (CRM → Quotes → New): Opportunity, Account, and line items — each with Product/Service, Quantity, Unit Price, Discount %, Tax % — plus Validity Date and Quote Number.
 - Customer (Sales → Customers → New): Name (required), Business or Individual, Company Name, First/Last Name, Email, Phone, Mobile, GSTIN, PAN, Currency (defaults ₹ INR).
 - Invoice (Sales → Invoices → New): Customer (required), Invoice Date, Due Date, Reference, line items — each with Item (required), Quantity, Unit Price, Tax % (GST), HSN — and Notes.
+- Sales Quote (Sales → Quotes → New): Customer (required), Reference, Quote Date, Expiry Date, Subject, line items — each with Item (required), Quantity, Unit Price, Tax % — Notes, Terms. (This is the SALES-module quote; the CRM Quote above is separate.)
+- Sales Order (Sales → Sales Orders → New): Customer (required), Reference #, Order Date, Expected Shipment Date, Payment Terms, line items — each with Item (required), Quantity, Unit Price, Tax % — Notes, Terms.
+- Product (Sales → Products): Name (required), Sales Price, Cost, Internal Reference, Product Type (Consumable/Service/Combo), Invoicing Policy (Ordered/Delivered quantities), Can be Sold, Can be Purchased, Description.
+- Pricelist (Sales → Pricelist): Name (required), Currency (₹ INR), and a price rule — Fixed Price, Min Qty, Start Date, End Date.
+- Subscription (Sales → Subscriptions → New): Customer (required), Plan Name, Reference, Start Date, Trial Days, Billing Frequency (Daily/Weekly/Monthly/Quarterly/Yearly), line items — each with Item, Quantity, Unit Price, Tax % — Notes, Terms.
+- Payment (Sales → Payments → Record Payment): Customer (required), Amount Received, Bank Charges, Payment Date, Payment Mode (Cash/Bank Transfer/UPI/Cheque/Card), Reference.
+- Delivery Challan (Sales → Delivery Challans): Customer (required), Customer Email, Delivery Address, Vehicle Number, Driver Name, Delivery Date, items — each with Description, Quantity, Unit — Notes.
+- Batch/Lot (Inventory → Batch): Batch Number (required), Lot Number, Item Code, Item Name, Quantity, Warehouse, Location, Manufacture Date, Expiry Date, Status, Bonded Warehouse, Customs Status.
+- Warehouse (Inventory → Warehouse): Warehouse Name (required), Short Code (required), Type (Standard/Bonded/Cold-storage/Transit), Location/City, Address, Capacity, Manager Name, Email.
+- Goods Receipt (Inventory → Operations → Receipts): Receive From (partner), Reference, Scheduled Date, Source Document, products — each with Item, Quantity — Note.
+- Delivery (Inventory → Operations → Deliveries): Deliver To (partner), Reference, Scheduled Date, Source Document, products — each with Item, Quantity — Note. (This is the inventory delivery/dispatch, NOT the Sales delivery challan.)
+- Return (Inventory → Operations → Returns): Partner, Reference, Scheduled Date, Source Document, products — each with Item, Quantity — Note.
+- Manufacturing Order (Inventory → Operations → Manufacturing): Product to Produce (required), Quantity, Scheduled Date, Responsible, components — each with Item, Quantity — Note.
+- Stock Move (Inventory → Stock Moves): Move Type (Internal/Inbound/Outbound), Scheduled Date, Source Warehouse, Destination Warehouse, Source Document, product lines, Notes.
+- Inventory Order (Inventory → Orders): Customer Name (required), Customer Email, Warehouse, Order Date, Expected Delivery, Shipping Address, items — each with Item Name, Quantity, Unit Price.
+- Inventory Report (Inventory → Reports): Report Type (Stock/Movement/Aging/Compliance) and Date Range (All/Last 7 days/Last 30 days/This month/Last month/This year) — the assistant sets these and generates the report automatically.
 - Employee (HR → Employees): First Name (required), Last Name (required), Email (required), Phone (required), Employee Code, Designation, Gender, Date of Joining, Employment Type (full-time/part-time/contract/intern).
 - Project (Projects): Name (required), Description, Status, Priority (Low/Medium/High), Due Date.
 

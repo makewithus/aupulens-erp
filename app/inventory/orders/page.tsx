@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
@@ -140,10 +143,36 @@ export default function OrdersPage() {
     items: [{ itemCode: "", itemName: "", quantity: 0, fulfilledQuantity: 0, unitPrice: 0 }],
   });
 
+  // AI-native pre-fill: open the New Order dialog with AI-extracted details.
+  useAiPrefill("inventory_order", (p) => {
+    const d: any = p.data || {};
+    setNewOrder((prev) => ({
+      ...prev,
+      customerName: d.customer_name ? String(d.customer_name) : prev.customerName,
+      customerEmail: d.customer_email ? String(d.customer_email) : prev.customerEmail,
+      warehouse: d.warehouse ? String(d.warehouse) : prev.warehouse,
+      orderDate: d.order_date ? String(d.order_date) : prev.orderDate,
+      expectedDelivery: d.expected_delivery ? String(d.expected_delivery) : prev.expectedDelivery,
+      shippingAddress: d.shipping_address ? String(d.shipping_address) : prev.shippingAddress,
+      trackingNumber: d.tracking_number ? String(d.tracking_number) : prev.trackingNumber,
+      items: Array.isArray(d.items) && d.items.length
+        ? d.items
+            .filter((it: any) => it && String(it.item_name || "").trim())
+            .map((it: any) => ({
+              itemCode: String(it.item_code || ""),
+              itemName: String(it.item_name || ""),
+              quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+              fulfilledQuantity: 0,
+              unitPrice: Number(it.unit_price) || 0,
+            }))
+        : prev.items,
+    }));
+    setIsAddDialogOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+  });
+
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/inventory");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       if (
         session?.user?.role !== "inventory" &&
         session?.user?.role !== "admin"
@@ -159,7 +188,7 @@ export default function OrdersPage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
 
-      const res = await fetch(`/api/inventory/orders?${params.toString()}`);
+      const res = await cachedFetch(`/api/inventory/orders?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch orders");
 
       const data = await res.json();
@@ -176,7 +205,7 @@ export default function OrdersPage() {
 
   const fetchWarehouses = useCallback(async () => {
     try {
-      const res = await fetch("/api/inventory/warehouse");
+      const res = await cachedFetch("/api/inventory/warehouse");
       if (res.ok) {
         const data = await res.json();
         setWarehouses(
@@ -193,8 +222,8 @@ export default function OrdersPage() {
   const fetchStockItems = useCallback(async () => {
     try {
       const [prodRes, stockRes] = await Promise.all([
-        fetch("/api/sales/products?limit=1000"),
-        fetch("/api/inventory/stock"),
+        cachedFetch("/api/sales/products?limit=1000"),
+        cachedFetch("/api/inventory/stock"),
       ]);
 
       if (prodRes.ok && stockRes.ok) {
@@ -223,7 +252,7 @@ export default function OrdersPage() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/customers");
+      const res = await cachedFetch("/api/sales/customers");
       if (res.ok) {
         const data = await res.json();
         setCustomers(data.items || []);
@@ -251,7 +280,7 @@ export default function OrdersPage() {
   // ever created always collided with a 409 ("Inventory Orders unusable").
   useEffect(() => {
     if (!isAddDialogOpen || newOrder.orderNumber) return;
-    fetch("/api/inventory/orders/next-number")
+    cachedFetch("/api/inventory/orders/next-number")
       .then((r) => r.json())
       .then((d) => {
         if (d.number) setNewOrder((prev) => ({ ...prev, orderNumber: d.number }));
@@ -276,7 +305,7 @@ export default function OrdersPage() {
       const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
       const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
-      const res = await fetch("/api/inventory/orders", {
+      const res = await cachedFetch("/api/inventory/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

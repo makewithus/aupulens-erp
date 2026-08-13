@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -59,7 +60,7 @@ export default function AlertsPage() {
   const fetchAlerts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/inventory/alerts');
+      const res = await cachedFetch('/api/inventory/alerts');
       if (res.ok) {
         const data = await res.json();
         setAlerts(data.alerts || []);

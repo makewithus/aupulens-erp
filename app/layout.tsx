@@ -9,6 +9,7 @@ import TenantInitializer from "@/components/providers/TenantInitializer";
 import TenantWrapper from "@/components/providers/TenantWrapper";
 import { ConfirmProvider } from "@/providers/confirm-provider";
 import ConfirmRoot from "@/components/providers/ConfirmRoot";
+import { SessionTimeout } from "@/components/providers/SessionTimeout";
 import { auth } from "@/auth";
 
 const roboto = Roboto({
@@ -45,6 +46,7 @@ export default async function RootLayout({
           <ThemeProvider>
             <ToastRoot>
               <ConfirmRoot>
+                <SessionTimeout />
                 <TenantInitializer />
                 <TenantWrapper>{children}</TenantWrapper>
               </ConfirmRoot>

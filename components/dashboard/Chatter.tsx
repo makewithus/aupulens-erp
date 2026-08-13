@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, MessageSquare } from "lucide-react";
+import { Send, MessageSquare, Sparkles, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 interface ChatMessage {
   authorId: any; // Populated User or ID
@@ -26,11 +27,31 @@ export function Chatter({
   isViewOnly,
 }: ChatterProps) {
   const [newMessage, setNewMessage] = useState("");
+  const [drafting, setDrafting] = useState(false);
 
   const handleSend = () => {
     if (!newMessage.trim()) return;
     onSendMessage(newMessage);
     setNewMessage("");
+  };
+
+  // Draft a professional log note with AI (assistive — user edits/sends).
+  const draftWithAi = async () => {
+    setDrafting(true);
+    try {
+      const res = await fetch("/api/sales/invoices/ai-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: "notes", context: `a short operations log note${newMessage ? ` about: ${newMessage}` : ""}` }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.data?.text) setNewMessage(data.data.text);
+      else toast.error(data.message || "Couldn't draft that. Please try again.");
+    } catch {
+      toast.error("Couldn't reach the AI drafting service.");
+    } finally {
+      setDrafting(false);
+    }
   };
 
   return (
@@ -78,20 +99,32 @@ export function Chatter({
       </div>
 
       {!isViewOnly && (
-        <div className="flex gap-2">
-          <Textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Leave a note..."
-            className="min-h-[60px]"
-          />
-          <Button
-            onClick={handleSend}
-            size="icon"
-            className="h-[60px] w-[60px]"
-          >
-            <Send className="h-5 w-5" />
-          </Button>
+        <div>
+          <div className="flex justify-end mb-1">
+            <button
+              type="button"
+              onClick={draftWithAi}
+              disabled={drafting}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-60 cursor-pointer"
+            >
+              {drafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Draft with AI
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <Textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Leave a note..."
+              className="min-h-[60px]"
+            />
+            <Button
+              onClick={handleSend}
+              size="icon"
+              className="h-[60px] w-[60px]"
+            >
+              <Send className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

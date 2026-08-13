@@ -138,9 +138,7 @@ export default function ManufacturingDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/manufacturing");
-    } else if (status === "authenticated") {
+    if (status === "authenticated") {
       /* 
          Allowing expanded access based on recent role updates.
          Ideally, this check should be consistent with middleware/other pages.

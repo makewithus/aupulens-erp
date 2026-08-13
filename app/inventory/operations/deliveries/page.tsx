@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,9 +118,9 @@ export default function DeliveriesPage() {
   const fetchResources = async () => {
     try {
       const [pRes, cRes, uRes] = await Promise.all([
-        fetch("/api/sales/products?limit=100"),
-        fetch("/api/sales/customers"),
-        fetch("/api/users"),
+        cachedFetch("/api/sales/products?limit=100"),
+        cachedFetch("/api/sales/customers"),
+        cachedFetch("/api/users"),
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
@@ -140,7 +142,7 @@ export default function DeliveriesPage() {
   const fetchTransfers = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
+      const res = await cachedFetch(
         "/api/inventory/operations/transfers?type=outgoing",
       );
       const data = await res.json();
@@ -163,6 +165,29 @@ export default function DeliveriesPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native pre-fill: open the New Delivery modal with AI-extracted details.
+  useAiPrefill("inventory_delivery", (p) => {
+    const d: any = p.data || {};
+    const base = JSON.parse(JSON.stringify(defaultFormData));
+    const lines = (Array.isArray(d.items) ? d.items : [])
+      .filter((it: any) => it && (it.productId || it.name))
+      .map((it: any) => ({ productId: it.productId || "", demand: Number(it.qty) > 0 ? Number(it.qty) : 1, done: 0 }));
+    setFormData({
+      ...base,
+      header: {
+        ...base.header,
+        name: d.reference ? String(d.reference) : base.header.name,
+        scheduledDate: d.scheduled_date ? new Date(d.scheduled_date) : base.header.scheduledDate,
+        ...(d.partnerId ? { partnerId: String(d.partnerId) } : {}),
+      },
+      operations_tab: lines.length ? lines : base.operations_tab,
+      additional_info: { ...base.additional_info, ...(d.source_document ? { sourceDocument: String(d.source_document) } : {}), ...(d.note ? { note: String(d.note) } : {}) },
+    });
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 10000 });
+  });
+
   const saveTransfer = async () => {
     setIsSubmitting(true);
     try {
@@ -170,7 +195,7 @@ export default function DeliveriesPage() {
         ? `/api/inventory/operations/transfers/${formData._id}`
         : "/api/inventory/operations/transfers";
       const method = formData._id ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -189,7 +214,7 @@ export default function DeliveriesPage() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/inventory/operations/transfers/${id}`, {
+      const res = await cachedFetch(`/api/inventory/operations/transfers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -210,7 +235,7 @@ export default function DeliveriesPage() {
     payload: Record<string, any>,
   ) => {
     try {
-      const res = await fetch(`/api/inventory/operations/transfers/${id}`, {
+      const res = await cachedFetch(`/api/inventory/operations/transfers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -261,7 +286,7 @@ export default function DeliveriesPage() {
 
   const handleSavePartner = async () => {
     try {
-      const res = await fetch("/api/sales/customers", {
+      const res = await cachedFetch("/api/sales/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partnerFormData),

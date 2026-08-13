@@ -64,7 +64,7 @@ export default function PerformancePage() {
   }, []);
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/hr");
+    
     if (status === "authenticated") load();
   }, [status, router, load]);
 
