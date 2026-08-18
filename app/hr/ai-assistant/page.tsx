@@ -10,6 +10,8 @@ import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { Send, Trash2, Plus, MessageSquare, Menu, X, Mic, Paperclip } from "lucide-react";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useChatAttachments } from "@/lib/hooks/useChatAttachments";
+import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { ChatAttachmentBar } from "@/components/ai/ChatAttachmentBar";
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,7 @@ export default function HRAIAssistantPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(textareaRef, input);
 
   useEffect(() => {
     
@@ -139,6 +142,45 @@ export default function HRAIAssistantPage() {
     setInput("");
     clearAttachments();
     setIsLoading(true);
+
+    // AI-native create: try this FIRST. If the message is a create request —
+    // for THIS module's forms or any OTHER module's — extract the fields and
+    // take the user straight to the real, pre-filled form instead of just
+    // describing the steps. Falls through to normal Q&A otherwise.
+    try {
+      const outcome = await tryAiCreateFlow({ text: userInput, attachments: sentAttachments });
+      if (outcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: outcome.message, timestamp: new Date() };
+        setMessages((prev) => prev.filter((m) => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        // Persist this turn just like a normal Q&A reply, so it shows up in
+        // Recent Chats and the user can pick the thread back up later.
+        if (isFirstMessage) {
+          const title = userInput.slice(0, 50).toUpperCase();
+          fetch("/api/hr/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, messages: [
+              { role: "user", content: userInput, timestamp: userMessage.timestamp },
+              { role: "assistant", content: outcome.message, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved) { setCurrentChatId(saved.chat?._id || null); fetchChatHistory(); }
+          }).catch(() => {});
+        } else if (currentChatId) {
+          const allMsgs = [...messages.filter((m) => !m.isLoading), userMessage, assistantMessage].map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
+          fetch("/api/hr/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: currentChatId, messages: allMsgs }),
+          }).then(() => fetchChatHistory()).catch(() => {});
+        }
+        if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
 
     try {
       const res = await fetch("/api/hr/ai-assistant", {

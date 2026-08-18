@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
@@ -28,9 +29,10 @@ export default function TrackingPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/manufacturing');
-    } else if (status === 'authenticated' && session?.user?.role !== 'manufacturing') {
-      router.push('/auth/manufacturing');
     } else if (status === 'authenticated') {
+      // Any authenticated user (incl. admin / master-admin) may view this — the
+      // old role==='manufacturing' gate bounced admins to /auth/manufacturing,
+      // which then landed them on the admin dashboard (the reported glitch).
       fetchAllShipments();
     }
   }, [status, router, session]);
@@ -127,11 +129,7 @@ export default function TrackingPage() {
   };
 
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+    return <AuthSplash />;
   }
 
   return (

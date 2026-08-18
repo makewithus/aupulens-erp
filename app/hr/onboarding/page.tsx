@@ -1,4 +1,5 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -55,11 +56,11 @@ export default function OnboardingPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/hr/employees?lifecycleStatus=onboarding");
+      const res = await cachedFetch("/api/hr/employees?lifecycleStatus=onboarding");
       const json = await res.json();
       const items = json.items || [];
       // Also include candidates
-      const res2 = await fetch("/api/hr/employees?lifecycleStatus=candidate");
+      const res2 = await cachedFetch("/api/hr/employees?lifecycleStatus=candidate");
       const json2 = await res2.json();
       const combined = [...items, ...(json2.items || [])];
       // Deduplicate by _id in case an employee appears in both results

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -27,10 +28,12 @@ function NewCampaignModal({
   open,
   onClose,
   onCreated,
+  initialData,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  initialData?: any;
 }) {
   const [form, setForm] = useState({
     campaign_name: "",
@@ -47,6 +50,21 @@ function NewCampaignModal({
 
   const field = (name: keyof typeof form, value: any) =>
     setForm((p) => ({ ...p, [name]: value }));
+
+  // AI-native pre-fill: merge in any AI-extracted fields when the assistant
+  // opens this modal with data already prepared.
+  useEffect(() => {
+    if (open && initialData) {
+      setForm((p) => {
+        const n = { ...p };
+        for (const k of Object.keys(p)) {
+          const v = initialData[k];
+          if (v !== undefined && v !== null && v !== "") n[k as keyof typeof n] = v;
+        }
+        return n;
+      });
+    }
+  }, [open, initialData]);
 
   const submit = async () => {
     if (!form.campaign_name || !form.start_date) {
@@ -142,6 +160,14 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [aiCampaignData, setAiCampaignData] = useState<any>(undefined);
+
+  // AI-native: extract the campaign's details → open New Campaign pre-filled.
+  useAiPrefill("campaign", (p) => {
+    setAiCampaignData(p.data || {});
+    setShowModal(true);
+    if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
+  });
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -171,8 +197,9 @@ export default function CampaignsPage() {
     <div className="p-6 space-y-6">
       <NewCampaignModal
         open={showModal}
-        onClose={() => setShowModal(false)}
-        onCreated={() => { setShowModal(false); fetchCampaigns(); }}
+        onClose={() => { setShowModal(false); setAiCampaignData(undefined); }}
+        onCreated={() => { setShowModal(false); setAiCampaignData(undefined); fetchCampaigns(); }}
+        initialData={aiCampaignData}
       />
 
       {/* Header */}
@@ -253,10 +280,10 @@ export default function CampaignsPage() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm text-neutral-300">
-                  ${(c.budget || 0).toLocaleString()}
+                  ₹{(c.budget || 0).toLocaleString()}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm text-green-400">
-                  ${(c.attributed_revenue || 0).toLocaleString()}
+                  ₹{(c.attributed_revenue || 0).toLocaleString()}
                 </TableCell>
                 <TableCell className="text-right">
                   <span className={`font-mono text-sm font-bold ${c.roi_percentage >= 0 ? "text-green-400" : "text-red-400"}`}>

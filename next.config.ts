@@ -25,8 +25,16 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob:",
-      "connect-src 'self' https://api.anthropic.com",
+      // res.cloudinary.com serves back uploaded files/previews (the Document
+      // Upload feature and every form's file-attachment field use Cloudinary).
+      "img-src 'self' data: blob: https://res.cloudinary.com",
+      // api.cloudinary.com is where the browser uploads files DIRECTLY (no
+      // Next.js API route in between — see lib/upload.ts). Without it here,
+      // every Cloudinary upload across the app (Documentation, customer/
+      // subscription/sales-order/invoice attachments) silently fails with the
+      // browser's generic "Failed to fetch" — the request never leaves the
+      // page, so the server-side code is never at fault.
+      "connect-src 'self' https://api.anthropic.com https://api.cloudinary.com",
       "frame-src 'self' https://www.youtube.com",
       "frame-ancestors 'none'",
     ].join("; "),

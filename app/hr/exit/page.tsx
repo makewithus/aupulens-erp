@@ -1,4 +1,5 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -15,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { WorkflowCard } from "@/components/hr/workflow/WorkflowCard";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface ExitEmployee {
   _id: string;
@@ -60,7 +62,7 @@ export default function ExitPage() {
     try {
       setLoading(true);
       const promises = ["on_notice", "exit_initiated", "clearance"].map((s) =>
-        fetch(`/api/hr/employees?lifecycleStatus=${s}`).then((r) => r.json()),
+        cachedFetch(`/api/hr/employees?lifecycleStatus=${s}`).then((r) => r.json()),
       );
       const results = await Promise.all(promises);
       const all = results.flatMap((r) => r.items || []);
@@ -78,9 +80,44 @@ export default function ExitPage() {
   }, []);
 
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
+
+  // AI-native: extract the exit/clearance details for a NAMED employee. That
+  // employee must already be on the exit-eligible list this page loads (on
+  // notice / exit initiated / clearance) — the AI resolves the person, but the
+  // actual "start their exit" lifecycle change happens elsewhere (Employees).
+  // Since `employees` loads async, stash the request and apply it once the
+  // list is ready (or once, whichever comes first) rather than racing it.
+  const [pendingExit, setPendingExit] = useState<{ employeeId: string; name: string; form: any } | null>(null);
+  useAiPrefill("hr_exit", (p) => {
+    const d = p.data || {};
+    setPendingExit({
+      employeeId: d.employeeId || "",
+      name: d.employee_name || "this employee",
+      form: {
+        exitType: ["resignation", "termination", "retirement", "contract_end"].includes(d.exitType) ? d.exitType : "resignation",
+        fnfStatus: ["pending", "calculated", "approved", "settled"].includes(d.fnfStatus) ? d.fnfStatus : "pending",
+        resignationDate: d.resignationDate || "",
+        lastWorkingDate: d.lastWorkingDate || "",
+        fnfAmount: Number(d.fnfAmount) || 0,
+        exitReason: d.exitReason || "",
+      },
+    });
+  });
+  useEffect(() => {
+    if (!pendingExit || loading) return;
+    const emp = employees.find((e) => e._id === pendingExit.employeeId);
+    if (emp) {
+      setSelectedEmp(emp);
+      setExitForm({ ...(emp.exitDetails || {}), ...pendingExit.form });
+      setIsModalOpen(true);
+    } else {
+      toast.error(`${pendingExit.name} isn't on the exit/notice list yet — update their lifecycle status (on notice / exit initiated) in Employees first.`);
+    }
+    setPendingExit(null);
+  }, [pendingExit, employees, loading]);
 
   const filtered = employees.filter(
     (e) =>
@@ -92,7 +129,7 @@ export default function ExitPage() {
   const handleSaveExitDetails = async () => {
     if (!selectedEmp) return;
     try {
-      const res = await fetch(`/api/hr/employees/${selectedEmp._id}`, {
+      const res = await cachedFetch(`/api/hr/employees/${selectedEmp._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ exitDetails: exitForm }),

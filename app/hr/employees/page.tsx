@@ -1,4 +1,5 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -86,6 +87,10 @@ export default function EmployeesPage() {
     "create",
   );
   const [formData, setFormData] = useState<any>({});
+  // Shown as a persistent banner INSIDE the create modal (not a toast — a
+  // toast vanishes in a few seconds and the user can't reread it while
+  // filling the form; this stays visible the whole time the modal is open).
+  const [aiNotice, setAiNotice] = useState<string[] | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
@@ -95,8 +100,8 @@ export default function EmployeesPage() {
     try {
       const empParams = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       const [empRes, deptRes] = await Promise.all([
-        fetch(`/api/hr/employees?${empParams.toString()}`),
-        fetch("/api/hr/departments"),
+        cachedFetch(`/api/hr/employees?${empParams.toString()}`),
+        cachedFetch("/api/hr/departments"),
       ]);
       const empJson = await empRes.json();
       const deptJson = await deptRes.json();
@@ -159,6 +164,7 @@ export default function EmployeesPage() {
 
   const handleOpenCreate = () => {
     setModalMode("create");
+    setAiNotice(null);
     setFormData({
       employeeCode: "",
       firstName: "",
@@ -196,6 +202,7 @@ export default function EmployeesPage() {
 
   const handleOpenEdit = (emp: Employee) => {
     setModalMode("edit");
+    setAiNotice(null);
     setFormData({
       ...emp,
       _id: emp._id,
@@ -219,7 +226,7 @@ export default function EmployeesPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure you want to delete this employee?" })) return;
     try {
-      const res = await fetch(`/api/hr/employees/${id}`, {
+      const res = await cachedFetch(`/api/hr/employees/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -240,6 +247,7 @@ export default function EmployeesPage() {
   useAiPrefill("employee", (p) => {
     handleOpenCreate();
     const d: any = p.data || {};
+    const num = (v: any) => (v !== undefined && v !== null && v !== "" ? Number(v) : 0);
     setFormData((prev: any) => ({
       ...prev,
       employeeCode: d.employeeCode || prev.employeeCode,
@@ -248,13 +256,26 @@ export default function EmployeesPage() {
       email: d.email || prev.email,
       phone: d.phone || prev.phone,
       designation: d.designation || prev.designation,
+      departmentId: d.departmentId || prev.departmentId,
       gender: ["male", "female", "other"].includes(String(d.gender || "").toLowerCase()) ? String(d.gender).toLowerCase() : prev.gender,
       dateOfJoining: d.dateOfJoining || prev.dateOfJoining,
       employmentType: ["full-time", "part-time", "contract", "intern"].includes(String(d.employmentType || "")) ? d.employmentType : prev.employmentType,
+      salary: {
+        ...prev.salary,
+        basic: num(d.basic) || prev.salary?.basic || 0,
+        hra: num(d.hra) || prev.salary?.hra || 0,
+        da: num(d.da) || prev.salary?.da || 0,
+        specialAllowance: num(d.specialAllowance) || prev.salary?.specialAllowance || 0,
+        deductions: {
+          ...prev.salary?.deductions,
+          pf: num(d.pf) || prev.salary?.deductions?.pf || 0,
+          esi: num(d.esi) || prev.salary?.deductions?.esi || 0,
+          professionalTax: num(d.professionalTax) || prev.salary?.deductions?.professionalTax || 0,
+          tds: num(d.tds) || prev.salary?.deductions?.tds || 0,
+        },
+      },
     }));
-    if (p.suggestions && p.suggestions.length) {
-      toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
-    }
+    setAiNotice(p.suggestions && p.suggestions.length ? p.suggestions : null);
   });
 
   const handleSubmit = async () => {
@@ -277,7 +298,7 @@ export default function EmployeesPage() {
         : "/api/hr/employees";
       const method = isUpdate ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -435,6 +456,25 @@ export default function EmployeesPage() {
         } 
       >
         <div className="space-y-6 p-1">
+          {aiNotice && modalMode !== "view" && (
+            <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-widest text-primary">
+                  AI filled this form — double-check before saving
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAiNotice(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <ul className="text-sm text-foreground/80 space-y-1 list-disc list-inside">
+                {aiNotice.map((s, i) => <li key={i}>{s}</li>)}
+              </ul>
+            </div>
+          )}
           {modalMode === "view" ? (
             <div className="space-y-4">
               {/* User Account Link Status */}

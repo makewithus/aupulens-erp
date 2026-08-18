@@ -67,14 +67,24 @@ export function isPathAllowlisted(pathname: string): boolean {
 //
 // When orgEnabledModules is empty (default for orgs created before Step 5) the
 // org check is skipped and only the tier ceiling applies — migration safety.
+//
+// While an org is on an active trial (subscriptionStatus === "trial"; an
+// EXPIRED trial is already blocked earlier by isSubscriptionBlocked, so by the
+// time we get here a "trial" status always means a live, unexpired trial) the
+// tier ceiling is bypassed entirely — trials get the full product to evaluate,
+// and only narrow down to their picked plan's real module limits once they
+// convert to a paid tier. The org's own enabledModules narrowing still applies
+// during a trial — that's an admin choice, not a monetization restriction.
 export function isModuleAccessible(
   moduleName: string,
   tier: OrganizationTier | string | undefined | null,
-  orgEnabledModules: string[]
+  orgEnabledModules: string[],
+  subscriptionStatus?: string
 ): boolean {
+  const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
+  if (subscriptionStatus === "trial") return inOrg;
   const { enabledModules: tierModules } = getTierLimits(tier);
   const inTier = (tierModules as readonly string[]).includes(moduleName);
-  const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   return inTier && inOrg;
 }
 
@@ -137,7 +147,7 @@ export async function applyModuleGating(
   // Org lookup failed → fail open; the route handler or DB layer will surface the error.
   if (!orgData) return null;
 
-  if (!isModuleAccessible(moduleName, orgData.tier, orgData.enabledModules)) {
+  if (!isModuleAccessible(moduleName, orgData.tier, orgData.enabledModules, orgData.subscriptionStatus)) {
     return NextResponse.json(
       buildGateDeniedResponse(moduleName, orgData.tier ?? "starter"),
       { status: 403 }

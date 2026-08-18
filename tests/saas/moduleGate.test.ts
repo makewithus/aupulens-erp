@@ -196,6 +196,36 @@ describe("isModuleAccessible — org settings intersection", () => {
   });
 });
 
+// ── isModuleAccessible — active trial bypasses the tier ceiling ───────────────
+// New orgs default to tier="starter" + subscriptionStatus="trial" with no
+// trialEndDate, so this is what every fresh signup actually gets: full access
+// to evaluate the product, narrowing to their picked plan's real limits only
+// once they convert off "trial".
+
+describe("isModuleAccessible — active trial bypasses the tier ceiling", () => {
+  it("finance/sales/crm/manufacturing accessible on starter while trialing", () => {
+    for (const mod of ["finance", "sales", "crm", "manufacturing"]) {
+      expect(isModuleAccessible(mod, "starter", [], "trial")).toBe(true);
+    }
+  });
+
+  it("still accessible with an undefined/null tier while trialing", () => {
+    expect(isModuleAccessible("finance", undefined, [], "trial")).toBe(true);
+    expect(isModuleAccessible("manufacturing", null, [], "trial")).toBe(true);
+  });
+
+  it("org settings still narrow access during a trial", () => {
+    expect(isModuleAccessible("finance", "starter", ["admin", "hr"], "trial")).toBe(false);
+    expect(isModuleAccessible("hr", "starter", ["admin", "hr"], "trial")).toBe(true);
+  });
+
+  it("non-trial statuses are unaffected — tier ceiling still applies", () => {
+    expect(isModuleAccessible("finance", "starter", [], "active")).toBe(false);
+    expect(isModuleAccessible("finance", "starter", [], undefined)).toBe(false);
+    expect(isModuleAccessible("finance", "starter", [], "cancelled")).toBe(false);
+  });
+});
+
 // ── buildGateDeniedResponse ───────────────────────────────────────────────────
 
 describe("buildGateDeniedResponse — 403 body shape", () => {
@@ -368,6 +398,40 @@ describe("applyModuleGating — 403 responses", () => {
   it("sales blocked on starter", async () => {
     const fetcher = vi.fn().mockResolvedValue(starterOrg);
     const res = await applyModuleGating("/api/sales/quotes", makeUser(), fetcher);
+    expect(res?.status).toBe(403);
+  });
+});
+
+// ── applyModuleGating — active trial bypasses the tier ceiling ────────────────
+
+const starterTrialOrg = { tier: "starter", enabledModules: [], subscriptionStatus: "trial" };
+
+describe("applyModuleGating — active trial bypasses the tier ceiling", () => {
+  it("finance on starter+trial → null (allowed)", async () => {
+    const fetcher = vi.fn().mockResolvedValue(starterTrialOrg);
+    expect(await applyModuleGating("/finance/summary", makeUser(), fetcher)).toBeNull();
+  });
+
+  it("manufacturing on starter+trial → null (allowed)", async () => {
+    const fetcher = vi.fn().mockResolvedValue(starterTrialOrg);
+    expect(await applyModuleGating("/manufacturing/dashboard", makeUser(), fetcher)).toBeNull();
+  });
+
+  it("starter, no subscriptionStatus set (pre-trial-field org) → still gated as before", async () => {
+    const fetcher = vi.fn().mockResolvedValue(starterOrg);
+    const res = await applyModuleGating("/finance/summary", makeUser(), fetcher);
+    expect(res?.status).toBe(403);
+  });
+
+  it("starter, subscriptionStatus 'active' (converted off trial) → tier ceiling re-applies", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ tier: "starter", enabledModules: [], subscriptionStatus: "active" });
+    const res = await applyModuleGating("/finance/summary", makeUser(), fetcher);
+    expect(res?.status).toBe(403);
+  });
+
+  it("org narrowing still applies during a trial", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ tier: "starter", enabledModules: ["admin"], subscriptionStatus: "trial" });
+    const res = await applyModuleGating("/hr/employees", makeUser(), fetcher);
     expect(res?.status).toBe(403);
   });
 });

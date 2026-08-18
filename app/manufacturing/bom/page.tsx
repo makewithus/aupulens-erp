@@ -35,6 +35,7 @@ import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BillOfMaterialPopup } from "@/app/inventory/operations/popups/BillOfMaterialPopup";
 import { toast } from "sonner";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 export default function BillOfMaterialsPage() {
   const { data: session, status } = useSession();
@@ -122,6 +123,28 @@ export default function BillOfMaterialsPage() {
     setIsViewOnly(false); // Open in edit mode
     setIsModalOpen(true);
   };
+
+  // AI-native: extract the finished product + components → open the BOM modal
+  // pre-filled. Products/components are resolved to real ids server-side when
+  // named; the user reviews and clicks Save.
+  useAiPrefill("bom", (p) => {
+    const d = p.data || {};
+    setFormData({
+      ...initialFormState,
+      header: {
+        productId: d.productId || "",
+        bomType: d.bomType || "mrp",
+        quantity: Number(d.quantity) > 0 ? Number(d.quantity) : 1,
+        reference: d.reference || "",
+      },
+      components_tab: Array.isArray(d.components)
+        ? d.components.map((c: any) => ({ productId: c.productId || "", quantity: Number(c.quantity) > 0 ? Number(c.quantity) : 1 }))
+        : [],
+    });
+    setSelectedBom(null);
+    setIsViewOnly(false);
+    setIsModalOpen(true);
+  });
 
   const handleView = (bom: any) => {
     setFormData(bom);
@@ -230,7 +253,7 @@ export default function BillOfMaterialsPage() {
           <div className="flex gap-2">
             <Button
               onClick={handleCreate}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4 mr-2" /> New
             </Button>

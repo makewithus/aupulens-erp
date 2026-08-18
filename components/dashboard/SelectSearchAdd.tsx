@@ -162,7 +162,11 @@ export function SelectSearchAdd({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-(--radix-popover-trigger-width) p-0 rounded-none border-border shadow-xl">
+        {/* The trigger can be very narrow (e.g. a borderless "Select Vendor"
+            inline field). Tie the panel to the trigger width but enforce a sane
+            minimum so vendor/product names stay on one readable line instead of
+            wrapping and clipping. */}
+        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-[18rem] max-w-[90vw] p-0 rounded-none border-border shadow-xl">
           <Command className="rounded-none">
             <CommandInput placeholder={searchPlaceholder} className="h-9" />
             <CommandList className="max-h-[300px]">
@@ -176,25 +180,23 @@ export function SelectSearchAdd({
                       onValueChange(item.value);
                       setOpen(false);
                     }}
-                    className="flex items-center justify-between py-2 cursor-pointer"
+                    className="flex items-center gap-2 py-2 cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          value === item.value ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                      <span className="font-medium">{item.code}</span>
-                      <span className="text-muted-foreground">
-                        {item.label}
-                      </span>
-                      {item.badge && (
-                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
-                          {item.badge}
-                        </span>
+                    <Check
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        value === item.value ? "opacity-100" : "opacity-0",
                       )}
-                    </div>
+                    />
+                    {item.code && <span className="font-medium shrink-0">{item.code}</span>}
+                    <span className="min-w-0 flex-1 truncate text-foreground" title={item.label}>
+                      {item.label}
+                    </span>
+                    {item.badge && (
+                      <span className="ml-auto shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
+                        {item.badge}
+                      </span>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

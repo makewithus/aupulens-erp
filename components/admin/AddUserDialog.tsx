@@ -29,12 +29,15 @@ interface AddUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** AI-native prefill: merged into the form whenever the dialog opens with it set. */
+  initialData?: Partial<{ name: string; email: string; phone: string; password: string; role: string; department: string; designation: string }>;
 }
 
 export function AddUserDialog({
   open,
   onOpenChange,
   onSuccess,
+  initialData,
 }: AddUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +95,14 @@ export function AddUserDialog({
       employeeId: generateEmployeeId(prev.role),
     }));
   }, [formData.role]);
+
+  // AI-native: when the assistant extracted user details, apply them the
+  // moment the dialog opens with them — the user still reviews and clicks Create.
+  useEffect(() => {
+    if (open && initialData) {
+      setFormData((prev) => ({ ...prev, ...initialData }));
+    }
+  }, [open, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

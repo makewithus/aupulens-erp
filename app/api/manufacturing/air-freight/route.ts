@@ -7,7 +7,7 @@ import AirFreight from '@/models/AirFreight';
 export async function GET() {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing') {
+    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing') {
+    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing') {
+    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -103,7 +103,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== 'manufacturing') {
+    if (!session || session.user.role !== 'manufacturing' && session.user.role !== 'admin' && session.user.role !== 'master-admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

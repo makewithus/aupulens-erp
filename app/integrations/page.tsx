@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
   Plug,
@@ -42,6 +46,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 };
 
 export default function IntegrationsPage() {
+  const { data: session, status } = useSession();
   const [catalog, setCatalog] = useState<Connector[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -116,8 +121,21 @@ export default function IntegrationsPage() {
 
   const copy = (url: string) => { navigator.clipboard.writeText(url); toast.success("Webhook URL copied"); };
 
+  if (status === "loading") return <AuthSplash />;
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout
+      sidebarSections={adminSidebarConfig}
+      dashboardTitle="Admin"
+      pageName="Aupulens Connect"
+      breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Aupulens Connect" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={(session?.user as any)?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onRefresh={load}
+    >
+    <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Plug className="h-6 w-6 text-sky-500" /> Aupulens Connect
@@ -248,6 +266,7 @@ export default function IntegrationsPage() {
         </div>
       )}
     </div>
+    </DashboardLayout>
   );
 }
 

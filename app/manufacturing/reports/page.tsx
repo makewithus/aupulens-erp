@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, BarChart3, Download, TrendingUp, TrendingDown } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, BarChart3, Download, TrendingUp, TrendingDown, FileSpreadsheet, FileText } from 'lucide-react';
 import { StatCard } from '@/components/manufacturing/StatCard';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { toast } from 'sonner';
@@ -23,6 +25,34 @@ function downloadCsv(title: string, headers: string[], rows: (string | number)[]
   a.click();
   URL.revokeObjectURL(url);
   toast.success(`${title} exported`);
+}
+
+// Same "print → Save as PDF" pattern used across the Finance report pages
+// (Balance Sheet, Trial Balance, P&L) — no extra PDF library needed.
+function downloadPdf(title: string, headers: string[], rows: (string | number)[][]) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    toast.error('Please allow popups to export as PDF');
+    return;
+  }
+  const escapeHtml = (v: string | number) => String(v).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+  const html = `<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title><style>
+    body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    p { color: #666; font-size: 12px; margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 12px; }
+    th { background: #f3f3f3; font-weight: 600; }
+  </style></head><body>
+    <h1>${escapeHtml(title.replace(/-/g, ' '))}</h1>
+    <p>Generated ${new Date().toLocaleDateString()}</p>
+    <table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <script>window.onload = () => { window.print(); };</script>
+  </body></html>`;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  toast.success(`${title} ready — use "Save as PDF" in the print dialog`);
 }
 
 export default function ReportsPage() {
@@ -42,9 +72,9 @@ export default function ReportsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/manufacturing');
-    } else if (status === 'authenticated' && session?.user?.role !== 'manufacturing') {
-      router.push('/auth/manufacturing');
     }
+    // Any authenticated user (incl. admin / master-admin) may view this — the
+    // old role gate bounced admins to /auth/manufacturing → admin dashboard.
   }, [status, router, session]);
 
   const loadStats = useCallback(async () => {
@@ -75,6 +105,11 @@ export default function ReportsPage() {
     if (status === 'authenticated') loadStats();
   }, [status, loadStats]);
 
+  const [pendingReport, setPendingReport] = useState<{ title: string; headers: string[]; rows: (string | number)[][] } | null>(null);
+
+  // Fetches + shapes the data for the selected report, then asks the user
+  // CSV or PDF instead of guessing — the actual export happens in
+  // exportPendingReport once they pick a format.
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     try {
@@ -84,7 +119,7 @@ export default function ReportsPage() {
         const rows = (data.clearances || []).map((c: any) => [
           c.clearanceNumber, c.status, c.customsStatus || '', new Date(c.createdAt).toISOString().split('T')[0],
         ]);
-        downloadCsv('customs-report', ['Clearance Number', 'Status', 'Customs Status', 'Date'], rows);
+        setPendingReport({ title: 'customs-report', headers: ['Clearance Number', 'Status', 'Customs Status', 'Date'], rows });
       } else {
         const res = await fetch('/api/manufacturing/shipments');
         const data = await res.json();
@@ -92,17 +127,24 @@ export default function ReportsPage() {
           s.shipmentNumber, s.customerName, s.origin, s.destination, s.shipmentType, s.status, s.totalValue,
           new Date(s.createdAt).toISOString().split('T')[0],
         ]);
-        downloadCsv(
-          selectedReport === 'freight' ? 'freight-analysis' : selectedReport === 'performance' ? 'performance-metrics' : 'shipments-report',
-          ['Shipment Number', 'Customer', 'Origin', 'Destination', 'Type', 'Status', 'Value', 'Date'],
+        setPendingReport({
+          title: selectedReport === 'freight' ? 'freight-analysis' : selectedReport === 'performance' ? 'performance-metrics' : 'shipments-report',
+          headers: ['Shipment Number', 'Customer', 'Origin', 'Destination', 'Type', 'Status', 'Value', 'Date'],
           rows,
-        );
+        });
       }
     } catch {
       toast.error('Failed to generate report');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const exportPendingReport = (format: 'csv' | 'pdf') => {
+    if (!pendingReport) return;
+    if (format === 'csv') downloadCsv(pendingReport.title, pendingReport.headers, pendingReport.rows);
+    else downloadPdf(pendingReport.title, pendingReport.headers, pendingReport.rows);
+    setPendingReport(null);
   };
 
   const loadVisualizationData = async () => {
@@ -125,11 +167,7 @@ export default function ReportsPage() {
   };
 
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+    return <AuthSplash />;
   }
 
   return (
@@ -214,7 +252,7 @@ export default function ReportsPage() {
               <Button
                 onClick={handleGenerateReport}
                 disabled={isGenerating}
-                className="bg-blue-800 hover:bg-blue-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Download className="mr-2 h-4 w-4" />
                 {isGenerating ? 'Generating...' : 'Generate Report'}
@@ -240,6 +278,27 @@ export default function ReportsPage() {
           xAxisKey="name"
           dataKeys={[{ key: 'value', name: 'Count', color: '#ea580c' }]}
         />
+
+        <Dialog open={!!pendingReport} onOpenChange={(open) => !open && setPendingReport(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Export report as…</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {pendingReport?.rows.length ?? 0} row{pendingReport?.rows.length === 1 ? '' : 's'} ready. Choose a format.
+            </p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => exportPendingReport('csv')}>
+                <FileSpreadsheet className="h-6 w-6" />
+                CSV
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => exportPendingReport('pdf')}>
+                <FileText className="h-6 w-6" />
+                PDF
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

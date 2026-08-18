@@ -407,7 +407,7 @@ export default function BillPopupContent({
                     <TableBody className="divide-y-2 border-primary/5">
                       {(formData.invoiceLines || []).map(
                         (line: any, idx: number) => (
-                          <TableRow key={idx} className="group hover:bg-white/40">
+                          <TableRow key={idx} className="group hover:bg-muted/40">
                             <TableCell className="p-2 w-48">
                               <SelectSearchAdd
                                 items={products}
@@ -603,7 +603,7 @@ export default function BillPopupContent({
 
             <div className="space-y-6">
               <div className="flex items-center gap-4 group">
-                <div className="h-10 w-10 none-xl bg-white border-2 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                <div className="h-10 w-10 none-xl bg-muted border-2 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                   <CreditCard className="h-5 w-5 opacity-60" />
                 </div>
                 <div>
@@ -618,7 +618,7 @@ export default function BillPopupContent({
               </div>
 
               <div className="flex items-center gap-4 group">
-                <div className="h-10 w-10 none-xl bg-white border-2 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                <div className="h-10 w-10 none-xl bg-muted border-2 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                   <Calculator className="h-5 w-5 opacity-60" />
                 </div>
                 <div>

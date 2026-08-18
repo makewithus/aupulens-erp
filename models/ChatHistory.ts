@@ -6,7 +6,8 @@ export type AiModule =
   | "hr"
   | "sales"
   | "inventory"
-  | "manufacturing";
+  | "manufacturing"
+  | "crm";
 
 export interface IChatMessage {
   role: "user" | "assistant";
@@ -35,7 +36,7 @@ const ChatMessageSchema = new Schema({
 });
 
 const AI_MODULES: AiModule[] = [
-  "admin", "finance", "hr", "sales", "inventory", "manufacturing",
+  "admin", "finance", "hr", "sales", "inventory", "manufacturing", "crm",
 ];
 
 const ChatHistorySchema: Schema<IChatHistory> = new Schema(

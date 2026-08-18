@@ -49,7 +49,7 @@ export default function ActivityLogsPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      if (session?.user?.role !== 'admin') {
+      if (!["admin", "master-admin"].includes((session?.user as any)?.role)) {
         router.push('/auth/admin');
       } else {
         fetchLogs();

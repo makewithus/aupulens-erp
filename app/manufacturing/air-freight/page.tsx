@@ -1,5 +1,7 @@
 'use client';
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
 
 
 import { useCallback, useEffect, useState } from 'react';
@@ -13,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { StatCard } from '@/components/manufacturing/StatCard';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
@@ -103,9 +105,9 @@ export default function AirFreightPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/manufacturing');
-    } else if (status === 'authenticated' && session?.user?.role !== 'manufacturing') {
-      router.push('/auth/manufacturing');
     } else if (status === 'authenticated') {
+      // Any authenticated user (incl. admin / master-admin) may view this — the
+      // old role gate bounced admins to /auth/manufacturing → admin dashboard.
       fetchAirFreights();
       fetchFreightProviders();
       fetchShipments();
@@ -198,6 +200,55 @@ export default function AirFreightPage() {
     setIsDialogOpen(true);
   };
 
+  // AI-native: extract air-freight details → open the create dialog pre-filled.
+  // The user reviews (and picks the freight provider) and clicks Create.
+  useAiPrefill('air_freight', (p) => {
+    const d = p.data || {};
+    setEditingFreight(null);
+    setFormData({
+      flightNumber: d.flightNumber || '',
+      airline: d.airline || '',
+      freightProviderId: '',
+      shipmentId: '',
+      origin: d.origin || '',
+      destination: d.destination || '',
+      departureTime: d.departureTime ? String(d.departureTime).slice(0, 16) : '',
+      arrivalTime: d.arrivalTime ? String(d.arrivalTime).slice(0, 16) : '',
+      status: ['scheduled', 'in-transit', 'delivered', 'delayed', 'cancelled'].includes(d.status) ? d.status : 'scheduled',
+      cargo: d.cargo !== undefined && d.cargo !== null && d.cargo !== '' ? Number(d.cargo) : '',
+      aircraftType: d.aircraftType || '',
+      notes: d.notes || '',
+    });
+    setIsDialogOpen(true);
+  });
+
+  // "Draft with AI" for the notes field — writes a short, context-appropriate
+  // operational note for THIS air-freight booking (not an invoice/payment note).
+  const [draftingNotes, setDraftingNotes] = useState(false);
+  const draftNotesWithAi = async () => {
+    setDraftingNotes(true);
+    try {
+      const res = await fetch('/api/sales/invoices/ai-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field: 'notes',
+          context: `air freight booking${formData.airline ? ` on ${formData.airline}` : ''}${formData.origin && formData.destination ? ` from ${formData.origin} to ${formData.destination}` : ''}`,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.text) {
+        setFormData((prev) => ({ ...prev, notes: data.data.text }));
+      } else {
+        toast({ title: 'Could not draft the note', description: data.message || 'Please try again.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Could not draft the note', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setDraftingNotes(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: 'Are you sure you want to delete this air freight?' })) return;
 
@@ -257,12 +308,11 @@ export default function AirFreightPage() {
     }
   };
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+  // Only the initial auth check blocks the page — a per-fetch `isLoading` must
+  // NOT blank the whole screen on every refresh (that looked like an abnormal
+  // redirect). The table simply populates when the fetch resolves.
+  if (status === 'loading') {
+    return <AuthSplash />;
   }
 
   return (
@@ -299,7 +349,7 @@ export default function AirFreightPage() {
               View Analytics
             </Button>
             <Button 
-              className="bg-blue-800 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={async () => {
                 setEditingFreight(null);
                 setFormData({
@@ -666,18 +716,31 @@ export default function AirFreightPage() {
                   </h3>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="notes" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Notes
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="notes" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Notes
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={draftNotesWithAi}
+                        disabled={draftingNotes}
+                        className="h-7 gap-1.5 text-xs"
+                      >
+                        {draftingNotes ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Draft with AI
+                      </Button>
+                    </div>
                     <textarea
                       id="notes"
                       value={formData.notes}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                         setFormData({ ...formData, notes: e.target.value })
                       }
                       rows={4}
                       placeholder="Enter any additional notes or special instructions..."
-                      className="w-full rounded-none border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full rounded-none border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -695,7 +758,7 @@ export default function AirFreightPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="min-w-24 bg-blue-800 hover:bg-blue-700 text-white"
+                  className="min-w-24 bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {isLoading ? (
                     <>

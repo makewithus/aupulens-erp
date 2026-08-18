@@ -29,7 +29,15 @@ export async function uploadToCloudinary(
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);
 
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+  // Images/video go through Cloudinary's "auto" resource type as before. Every
+  // other file (PDF, DOCX, etc.) MUST upload as "raw" — Cloudinary's "image"
+  // delivery type blocks serving PDF/ZIP by default on newer accounts (a
+  // security setting), which silently swaps the file for an error page. The
+  // browser then tries to render that error page AS a PDF and fails with
+  // "Failed to load PDF document." "raw" delivery isn't subject to that
+  // restriction and reliably serves the original bytes back.
+  const resourceType = file.type.startsWith("image/") || file.type.startsWith("video/") ? "auto" : "raw";
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {
     method: "POST",
     body: formData,
   });

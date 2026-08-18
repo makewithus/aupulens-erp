@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,11 +71,9 @@ export default function FreightProvidersPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      if (session?.user?.role !== 'manufacturing') {
-        router.push('/auth/manufacturing');
-      } else {
-        fetchProviders();
-      }
+      // Any authenticated user (incl. admin / master-admin) may view this — the
+      // old role gate bounced admins to /auth/manufacturing → admin dashboard.
+      fetchProviders();
     }
   }, [fetchProviders, router, session, status]);
 
@@ -166,12 +165,8 @@ export default function FreightProvidersPage() {
       : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
   };
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+  if (status === 'loading') {
+    return <AuthSplash />;
   }
 
   return (
@@ -210,7 +205,7 @@ export default function FreightProvidersPage() {
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-800 hover:bg-blue-700 text-white">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Provider
                 </Button>
@@ -309,7 +304,7 @@ export default function FreightProvidersPage() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" className="bg-blue-800 hover:bg-blue-700">
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                       Add Provider
                     </Button>
                   </div>

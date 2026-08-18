@@ -1,11 +1,13 @@
 'use client';
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,13 +77,24 @@ export default function HSCodesPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      if (session?.user?.role !== 'manufacturing') {
-        router.push('/auth/manufacturing');
-      } else {
-        fetchHSCodes();
-      }
+      // Any authenticated user (incl. admin / master-admin) may view this — the
+      // old role gate bounced admins to /auth/manufacturing → admin dashboard.
+      fetchHSCodes();
     }
   }, [fetchHSCodes, router, session, status]);
+
+  // AI-native: extract the HS code details → open the create dialog pre-filled.
+  // The user reviews and clicks Create.
+  useAiPrefill('hs_code', (p) => {
+    const d = p.data || {};
+    setFormData({
+      hsCode: d.hsCode || '',
+      description: d.description || '',
+      category: d.category || '',
+      restrictions: d.restrictions || '',
+    });
+    setIsCreateOpen(true);
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,12 +158,8 @@ export default function HSCodesPage() {
     }
   };
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+  if (status === 'loading') {
+    return <AuthSplash />;
   }
 
   return (
@@ -180,7 +189,7 @@ export default function HSCodesPage() {
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-800 hover:bg-blue-700 text-white">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="mr-2 h-4 w-4" />
                 Add HS Code
               </Button>
@@ -243,7 +252,7 @@ export default function HSCodesPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-blue-800 hover:bg-blue-700">
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     Add HS Code
                   </Button>
                 </div>

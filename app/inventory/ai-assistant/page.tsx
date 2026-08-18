@@ -15,6 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
 import { Toaster } from '@/components/ui/toaster';
+import { tryAiCreateFlow } from '@/lib/ai/createFlow';
+import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 
 interface Message {
   id: string;
@@ -82,13 +84,14 @@ export default function InventoryAIAssistant() {
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(textareaRef, input);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/inventory');
-    } else if (status === 'authenticated' && session?.user?.role !== 'inventory' && session?.user?.role !== 'admin') {
-      router.push('/auth/inventory');
     }
+    // Any authenticated user (incl. admin / master-admin) may view this — the
+    // old role gate bounced other roles to /auth/inventory → their dashboard.
   }, [status, router, session]);
 
   useEffect(() => {
@@ -262,6 +265,40 @@ export default function InventoryAIAssistant() {
     setInput('');
     setAttachments([]);
     setIsLoading(true);
+
+    // AI-native create: try this FIRST. If the message is a create request —
+    // for THIS module's forms or any OTHER module's — extract the fields and
+    // take the user straight to the real, pre-filled form instead of just
+    // describing the steps. Falls through to normal Q&A otherwise.
+    try {
+      const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments });
+      if (outcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: outcome.message, timestamp: new Date() };
+        setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        // Persist this turn just like a normal Q&A reply, so it shows up in
+        // Recent Chats and the user can pick the thread back up later.
+        if (isFirstMessage) {
+          const title = userInputText.slice(0, 50).toUpperCase();
+          fetch('/api/inventory/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, messages: [
+              { role: 'user', content: userInputText, timestamp: userMessage.timestamp },
+              { role: 'assistant', content: outcome.message, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved?.chat?._id) { setCurrentChatId(saved.chat._id); fetchChatHistory(); }
+          }).catch(() => {});
+        } else {
+          setTimeout(() => saveCurrentChat(), 500);
+        }
+        if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
 
     try {
       const response = await fetch('/api/inventory/ai-assistant', {

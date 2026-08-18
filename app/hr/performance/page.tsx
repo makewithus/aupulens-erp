@@ -1,4 +1,5 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -18,6 +19,7 @@ import {
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { WorkflowCard } from "@/components/hr/workflow/WorkflowCard";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface Employee {
   _id: string;
@@ -53,11 +55,18 @@ export default function PerformancePage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/hr/employees?lifecycleStatus=active");
-      const json = await res.json();
-      setEmployees(json.items || []);
+      const [empRes, reviewRes] = await Promise.all([
+        cachedFetch("/api/hr/employees?lifecycleStatus=active"),
+        cachedFetch("/api/hr/performance"),
+      ]);
+      const empJson = await empRes.json();
+      const reviewJson = await reviewRes.json();
+      setEmployees(empJson.items || []);
+      setReviews(
+        (reviewJson.reviews || []).map((r: any) => ({ ...r, employeeId: String(r.employeeId) })),
+      );
     } catch {
-      toast.error("Failed to load employees");
+      toast.error("Failed to load performance data");
     } finally {
       setLoading(false);
     }
@@ -91,19 +100,61 @@ export default function PerformancePage() {
     setIsModalOpen(true);
   };
 
-  const handleSaveReview = () => {
-    setReviews((prev) => {
-      const idx = prev.findIndex((r) => r.employeeId === formData.employeeId);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = formData;
-        return updated;
-      }
-      return [...prev, formData];
-    });
-    toast.success("Performance review saved");
-    setIsModalOpen(false);
+  const handleSaveReview = async () => {
+    if (!formData.employeeId || !formData.reviewPeriod) {
+      toast.error("Employee and review period are required");
+      return;
+    }
+    try {
+      const res = await cachedFetch("/api/hr/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      toast.success("Performance review saved");
+      setIsModalOpen(false);
+      load();
+    } catch {
+      toast.error("Failed to save performance review");
+    }
   };
+
+  // AI-native: extract the review details for a NAMED (already active)
+  // employee → open the review modal pre-filled. The employee is resolved to
+  // a real id server-side; since `employees` loads async, stash the request
+  // and apply it once the list is ready, same pattern as HR Exit.
+  const [pendingReview, setPendingReview] = useState<{ employeeId: string; name: string; form: any } | null>(null);
+  useAiPrefill("performance_review", (p) => {
+    const d = p.data || {};
+    setPendingReview({
+      employeeId: d.employeeId || "",
+      name: d.employee_name || "this employee",
+      form: {
+        rating: Number(d.rating) >= 1 && Number(d.rating) <= 5 ? Number(d.rating) : 3,
+        reviewPeriod: d.reviewPeriod || `Q${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()}`,
+        goals: d.goals || "",
+        achievements: d.achievements || "",
+        areasOfImprovement: d.areasOfImprovement || "",
+        managerComments: d.managerComments || "",
+      },
+    });
+  });
+  useEffect(() => {
+    if (!pendingReview || loading) return;
+    const emp = employees.find((e) => e._id === pendingReview.employeeId);
+    if (emp) {
+      setFormData({
+        employeeId: emp._id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        ...pendingReview.form,
+      });
+      setIsModalOpen(true);
+    } else {
+      toast.error(`${pendingReview.name} wasn't found among active employees — check the name or their status.`);
+    }
+    setPendingReview(null);
+  }, [pendingReview, employees, loading]);
 
   const getReview = (empId: string) => reviews.find((r) => r.employeeId === empId);
 

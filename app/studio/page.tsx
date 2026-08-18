@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
   Workflow as WorkflowIcon,
@@ -42,6 +46,7 @@ const RUN_ICON: Record<string, React.ReactNode> = {
 const blankWF = (): WF => ({ _id: "", name: "", description: "", triggerType: "manual", eventKey: "", conditions: [], steps: [], enabled: false, version: 1 });
 
 export default function StudioPage() {
+  const { data: session, status } = useSession();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [list, setList] = useState<WF[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,8 +141,21 @@ export default function StudioPage() {
   const setStepParam = (i: number, key: string, val: string) => draft && setDraft({ ...draft, steps: draft.steps.map((s, idx) => idx === i ? { ...s, params: { ...s.params, [key]: val } } : s) });
   const rmStep = (i: number) => draft && setDraft({ ...draft, steps: draft.steps.filter((_, idx) => idx !== i) });
 
+  if (status === "loading") return <AuthSplash />;
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout
+      sidebarSections={adminSidebarConfig}
+      dashboardTitle="Admin"
+      pageName="Aupulens Studio"
+      breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Aupulens Studio" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={(session?.user as any)?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onRefresh={load}
+    >
+    <div className="max-w-6xl mx-auto">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><WorkflowIcon className="h-6 w-6 text-fuchsia-500" /> Aupulens Studio</h1>
@@ -299,5 +317,6 @@ export default function StudioPage() {
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }

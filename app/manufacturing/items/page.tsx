@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 // ─── Type definitions ───────────────────────────────────────────────────────
 
@@ -212,6 +213,28 @@ export default function ItemsPage() {
     setItemViewOnly(false);
     setItemModalOpen(true);
   };
+
+  // AI-native: extract the item details → open the create modal pre-filled. The
+  // user reviews and clicks Save. Prices land in the nested sales/purchase info.
+  useAiPrefill("manufacturing_item", (p) => {
+    const d = p.data || {};
+    setItemFormData({
+      ...ITEM_INITIAL,
+      name: d.name || "",
+      type: d.type === "service" ? "service" : "goods",
+      category: d.category || "",
+      brand: d.brand || "",
+      manufacturer: d.manufacturer || "",
+      unit: d.unit || (d.type === "service" ? "" : "pcs"),
+      sku: d.sku || "",
+      description: d.description || "",
+      salesInfo: { ...ITEM_INITIAL.salesInfo, sellingPrice: Number(d.sellingPrice) || 0 },
+      purchaseInfo: { ...ITEM_INITIAL.purchaseInfo, costPrice: Number(d.costPrice) || 0 },
+    });
+    setSelectedItem(null);
+    setItemViewOnly(false);
+    setItemModalOpen(true);
+  });
 
   const handleViewItem = (item: any) => {
     setItemFormData({ ...item });
@@ -502,7 +525,7 @@ export default function ItemsPage() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div className="flex gap-2">
-                <Button onClick={handleNewItem} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleNewItem} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
                 <Button variant="outline" onClick={fetchItems} disabled={itemsLoading}>
@@ -602,7 +625,7 @@ export default function ItemsPage() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div className="flex gap-2">
-                <Button onClick={handleNewBom} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleNewBom} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
                 <Button variant="outline" onClick={fetchBoms} disabled={bomsLoading}>
@@ -695,7 +718,7 @@ export default function ItemsPage() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div className="flex gap-2">
-                <Button onClick={handleNewCoupon} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleNewCoupon} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
                 <Button variant="outline" onClick={fetchCoupons} disabled={couponsLoading}>
@@ -817,7 +840,7 @@ export default function ItemsPage() {
             {itemViewOnly ? (
               <Button onClick={() => setItemViewOnly(false)}>Edit</Button>
             ) : (
-              <Button onClick={handleSaveItem} disabled={itemSaving} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveItem} disabled={itemSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {itemSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save
               </Button>
@@ -854,7 +877,7 @@ export default function ItemsPage() {
             {bomViewOnly ? (
               <Button onClick={() => setBomViewOnly(false)}>Edit</Button>
             ) : (
-              <Button onClick={handleSaveBom} disabled={bomSaving} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveBom} disabled={bomSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {bomSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save
               </Button>
@@ -891,7 +914,7 @@ export default function ItemsPage() {
             {couponViewOnly ? (
               <Button onClick={() => setCouponViewOnly(false)}>Edit</Button>
             ) : (
-              <Button onClick={handleSaveCoupon} disabled={couponSaving} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveCoupon} disabled={couponSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {couponSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Save
               </Button>

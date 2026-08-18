@@ -3,11 +3,28 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import CustomsClearance from '@/models/CustomsClearance';
+import Shipment from '@/models/Shipment';
+
+const ALLOWED_ROLES = ['admin', 'manufacturing', 'master-admin'];
+
+// The create FORM (and the AI prefill built on top of it) collects a simpler
+// field set than this — declarationNumber/status/dutyAmount — than the
+// model's full schema — clearanceNumber/shipmentNumber/country/
+// declarationType/totalValue/a DOCUMENT_STATUS enum. Those never lined up
+// (the form's "pending"/"under-review"/"cleared" aren't even valid enum
+// values), so every create from the UI 400'd. Mapped below instead of
+// silently rejecting what the form actually sends.
+const STATUS_MAP: Record<string, string> = {
+  pending: 'draft',
+  'under-review': 'pending_approval',
+  cleared: 'approved',
+  rejected: 'rejected',
+};
 
 export async function GET() {
   try {
     const session = await auth();
-    if (!session || !['admin', 'manufacturing'].includes(session.user.role)) {
+    if (!session || !ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,7 +45,7 @@ await connectDB();
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session || !['admin', 'manufacturing'].includes(session.user.role)) {
+    if (!session || !ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -37,17 +54,42 @@ export async function POST(request: Request) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     const body = await request.json();
-    
-    if (!body.clearanceNumber || !body.shipmentNumber || !body.customsOffice || !body.country) {
+    await connectDB();
+
+    // The form only collects shipmentId (a select) — look up its number, the
+    // field the model actually stores, when the caller didn't send it directly.
+    let shipmentNumber = body.shipmentNumber;
+    if (!shipmentNumber && body.shipmentId) {
+      const ship: any = await Shipment.findOne({ _id: body.shipmentId, tenantId }, 'shipmentNumber').lean();
+      shipmentNumber = ship?.shipmentNumber || '';
+    }
+    const clearanceNumber = body.clearanceNumber || body.declarationNumber;
+    const dutyAmount = Number(body.dutyAmount) || 0;
+
+    if (!clearanceNumber || !shipmentNumber || !body.customsOffice) {
       return NextResponse.json(
-        { error: 'Clearance number, shipment number, customs office, and country are required' },
+        { error: 'Declaration/clearance number, a valid shipment, and customs office are required' },
         { status: 400 }
       );
     }
 
-    await connectDB();
-    const clearance = await CustomsClearance.create({ ...body, tenantId });
-    
+    const clearance = await CustomsClearance.create({
+      tenantId,
+      clearanceNumber,
+      shipmentId: body.shipmentId || undefined,
+      shipmentNumber,
+      customsOffice: body.customsOffice,
+      country: body.country || 'India',
+      declarationType: body.declarationType || 'import',
+      totalValue: Number(body.totalValue) || dutyAmount,
+      currency: body.currency || 'INR',
+      totalDuty: dutyAmount,
+      totalTax: Number(body.totalTax) || 0,
+      status: STATUS_MAP[body.status] || body.status || 'draft',
+      submittedDate: body.submissionDate || body.submittedDate,
+      notes: body.notes,
+    });
+
     return NextResponse.json({ clearance }, { status: 201 });
   } catch (error) {
     console.error('Error creating customs clearance:', error);

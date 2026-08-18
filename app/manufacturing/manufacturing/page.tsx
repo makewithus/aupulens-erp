@@ -89,47 +89,37 @@ function ProductionFlowStepper({
   ];
   const isSpecial = specialStatuses.includes(current);
 
-  return (
-    <div className="flex items-center gap-1 overflow-x-auto py-1">
-      {PRODUCTION_FLOW_STEPS.map((step, idx) => {
-        const Icon = STEP_ICONS[step] || Circle;
-        const label = PRODUCTION_STATUS_LABELS[step];
-        const isDone = !isSpecial && currentIdx > idx;
-        const isActive = step === current;
-        const isFuture = !isDone && !isActive;
+  // Compact: a slim row of progress dots (one per step, hover shows its name)
+  // PLUS a single current-stage label — not the old 7x repeated icon+text+
+  // chevron chain, which is what made this column look cluttered/noisy.
+  const CurrentIcon = STEP_ICONS[current] || Circle;
+  const currentLabel = PRODUCTION_STATUS_LABELS[current];
 
-        return (
-          <div key={step} className="flex items-center">
-            <div
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs whitespace-nowrap ${
-                isActive
-                  ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold"
-                  : isDone
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-muted-foreground"
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1 shrink-0">
+        {PRODUCTION_FLOW_STEPS.map((step, idx) => {
+          const isDone = !isSpecial && currentIdx > idx;
+          const isActive = !isSpecial && step === current;
+          return (
+            <span
+              key={step}
+              title={PRODUCTION_STATUS_LABELS[step]}
+              className={`h-1.5 w-4 rounded-full transition-colors ${
+                isActive ? "bg-blue-500" : isDone ? "bg-green-500" : "bg-muted"
               }`}
-            >
-              <Icon className={`h-3.5 w-3.5 ${isDone ? "text-green-500" : ""}`} />
-              {label}
-            </div>
-            {idx < PRODUCTION_FLOW_STEPS.length - 1 && (
-              <ChevronRight className="h-3 w-3 text-muted-foreground mx-0.5 shrink-0" />
-            )}
-          </div>
-        );
-      })}
-      {isSpecial && (
-        <div className="flex items-center">
-          <ChevronRight className="h-3 w-3 text-muted-foreground mx-0.5" />
-          <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
-            {(() => {
-              const Icon = STEP_ICONS[current] || Circle;
-              return <Icon className="h-3.5 w-3.5" />;
-            })()}
-            {PRODUCTION_STATUS_LABELS[current]}
-          </div>
-        </div>
-      )}
+            />
+          );
+        })}
+      </div>
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap ${
+          isSpecial ? "text-red-600 dark:text-red-400" : "text-foreground"
+        }`}
+      >
+        <CurrentIcon className="h-3.5 w-3.5 shrink-0" />
+        {currentLabel}
+      </span>
     </div>
   );
 }
@@ -469,16 +459,19 @@ export default function ManufacturingPage() {
             {loading ? (
               <TableSkeleton rows={5} columns={6} />
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="w-full text-sm">
+              // min-w keeps columns readable and lets the container scroll
+              // horizontally (instead of squishing) on narrow widths — e.g. when
+              // the AI assistant panel is open or on small screens.
+              <div className="w-full overflow-x-auto">
+                <Table className="w-full min-w-[880px] text-sm">
                   <TableHeader className="bg-muted/50 border-b">
                     <TableRow className="text-left text-muted-foreground">
-                      <TableHead className="p-3">Reference</TableHead>
-                      <TableHead className="p-3">Product</TableHead>
-                      <TableHead className="p-3 text-right">Qty</TableHead>
-                      <TableHead className="p-3">Production Flow</TableHead>
-                      <TableHead className="p-3">Status</TableHead>
-                      <TableHead className="p-3">Actions</TableHead>
+                      <TableHead className="p-3 whitespace-nowrap">Reference</TableHead>
+                      <TableHead className="p-3 whitespace-nowrap">Product</TableHead>
+                      <TableHead className="p-3 text-right whitespace-nowrap">Qty</TableHead>
+                      <TableHead className="p-3 whitespace-nowrap">Production Flow</TableHead>
+                      <TableHead className="p-3 whitespace-nowrap">Status</TableHead>
+                      <TableHead className="p-3 whitespace-nowrap">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -488,22 +481,22 @@ export default function ManufacturingPage() {
                       return (
                         <TableRow
                           key={o._id}
-                          className="border-b hover:bg-muted/20 align-top"
+                          className="border-b hover:bg-muted/20 align-middle"
                         >
-                          <TableCell className="p-3 font-medium">
+                          <TableCell className="p-3 font-medium whitespace-nowrap">
                             {o.header.name}
                           </TableCell>
                           <TableCell className="p-3">
                             {o.header?.productId?.header?.name || "-"}
                           </TableCell>
-                          <TableCell className="p-3 text-right">
+                          <TableCell className="p-3 text-right whitespace-nowrap">
                             {o.header.quantity}
                           </TableCell>
-                          <TableCell className="p-3 max-w-md">
+                          <TableCell className="p-3">
                             <ProductionFlowStepper current={ps} />
                           </TableCell>
                           <TableCell className="p-3">
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col items-start gap-1">
                               <ProductionBadge status={ps} />
                               {o.reworkCount > 0 && (
                                 <span className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-0.5">
@@ -514,7 +507,7 @@ export default function ManufacturingPage() {
                             </div>
                           </TableCell>
                           <TableCell className="p-3">
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col items-start gap-1.5">
                               <ProductionActions
                                 order={o}
                                 onAdvance={advanceProductionStatus}

@@ -1,5 +1,7 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -133,7 +135,7 @@ export default function PayrollPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (filterStatus) params.set("status", filterStatus);
-      const res = await fetch(`/api/hr/payroll?${params.toString()}`);
+      const res = await cachedFetch(`/api/hr/payroll?${params.toString()}`);
       const json = await res.json();
       setPayrolls(json.items || []);
     } catch {
@@ -159,6 +161,22 @@ export default function PayrollPage() {
     setIsCreateOpen(true);
   };
 
+  // AI-native: extract the payroll period → open the create modal pre-filled.
+  // The user reviews and clicks Create Payroll Run.
+  useAiPrefill("payroll_run", (p) => {
+    const d = p.data || {};
+    const now = new Date();
+    const month = Number(d.month) >= 1 && Number(d.month) <= 12 ? Number(d.month) : now.getMonth() + 1;
+    const year = Number(d.year) || now.getFullYear();
+    setCreateForm({
+      month,
+      year,
+      startDate: d.startDate || new Date(year, month - 1, 1).toISOString().split("T")[0],
+      endDate: d.endDate || new Date(year, month, 0).toISOString().split("T")[0],
+    });
+    setIsCreateOpen(true);
+  });
+
   const handleCreate = async () => {
     if (!createForm.month || !createForm.year) {
       toast.error("Month and year are required");
@@ -166,7 +184,7 @@ export default function PayrollPage() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/hr/payroll", {
+      const res = await cachedFetch("/api/hr/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -194,7 +212,7 @@ export default function PayrollPage() {
 
   const handleOpenDetail = async (payroll: PayrollRun) => {
     try {
-      const res = await fetch(`/api/hr/payroll/${payroll._id}`);
+      const res = await cachedFetch(`/api/hr/payroll/${payroll._id}`);
       const json = await res.json();
       setSelectedPayroll(json.payroll || json.item || payroll);
       setIsDetailOpen(true);
@@ -223,7 +241,7 @@ export default function PayrollPage() {
       closeConfirm();
       setIsSubmitting(true);
       try {
-        const res = await fetch(`/api/hr/payroll/${selectedPayroll._id}`, {
+        const res = await cachedFetch(`/api/hr/payroll/${selectedPayroll._id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: nextStatus }),
@@ -231,7 +249,7 @@ export default function PayrollPage() {
         if (res.ok) {
           toast.success(`Status advanced to ${statusConfig[nextStatus]?.label || nextStatus}`);
           // Re-fetch full detail so lineItems and all fields are populated
-          const detailRes = await fetch(`/api/hr/payroll/${selectedPayroll._id}`);
+          const detailRes = await cachedFetch(`/api/hr/payroll/${selectedPayroll._id}`);
           const detailJson = await detailRes.json();
           setSelectedPayroll(detailJson.payroll || detailJson.item || (await res.json()).payroll);
           load();
@@ -251,7 +269,7 @@ export default function PayrollPage() {
     openConfirm("Delete this payroll run? Only draft payrolls can be deleted.", async () => {
       closeConfirm();
       try {
-        const res = await fetch(`/api/hr/payroll/${id}`, { method: "DELETE" });
+        const res = await cachedFetch(`/api/hr/payroll/${id}`, { method: "DELETE" });
         if (res.ok) {
           toast.success("Deleted");
           load();

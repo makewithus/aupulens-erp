@@ -55,7 +55,7 @@ export const hrSidebarConfig: SidebarSection[] = [
     title: "Reports",
     items: [
       { title: "HR Reports", href: "/hr/reports", icon: FileText },
-      { title: "Enterprise Calendar", href: "/calendar", icon: Calendar },
+      { title: "Enterprise Calendar", href: "/calendar?module=hr", icon: Calendar },
     ],
   },
 ];

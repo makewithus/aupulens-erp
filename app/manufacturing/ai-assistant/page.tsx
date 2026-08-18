@@ -9,6 +9,8 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Paperclip } from 'lucide-react';
 import { useChatAttachments } from '@/lib/hooks/useChatAttachments';
+import { tryAiCreateFlow } from '@/lib/ai/createFlow';
+import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 import { ChatAttachmentBar } from '@/components/ai/ChatAttachmentBar';
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
@@ -61,13 +63,14 @@ export default function ManufacturingAIAssistant() {
   const [currentTask, setCurrentTask] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(textareaRef, input);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/manufacturing');
-    } else if (status === 'authenticated' && session?.user?.role !== 'manufacturing' && session?.user?.role !== 'admin') {
-      router.push('/auth/manufacturing');
     }
+    // Any authenticated user (incl. admin / master-admin) may view this — the
+    // old role gate bounced other roles to /auth/manufacturing → their dashboard.
   }, [status, router, session]);
 
   useEffect(() => {
@@ -241,6 +244,50 @@ export default function ManufacturingAIAssistant() {
     setInput('');
     clearAttachments();
     setIsLoading(true);
+
+    // AI-native create: try this FIRST. If the message is a create request —
+    // for THIS module's forms or any OTHER module's (e.g. "create an
+    // employee" while sitting in the Manufacturing assistant) — extract the
+    // fields and take the user straight to the real, pre-filled form instead
+    // of just describing the steps. Falls through to the normal Q&A assistant
+    // below when the message isn't a create request at all.
+    try {
+      const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments });
+      if (outcome.handled) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: outcome.message,
+          timestamp: new Date(),
+        };
+        setMessages(prev => prev.filter(msg => !msg.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        // Persist this turn just like a normal Q&A reply, so it shows up in
+        // Recent Chats and the user can pick the thread back up later.
+        if (isFirstMessage) {
+          const title = userInputText.slice(0, 50).toUpperCase();
+          fetch('/api/manufacturing/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title,
+              messages: [
+                { role: 'user', content: userInputText, timestamp: userMessage.timestamp },
+                { role: 'assistant', content: outcome.message, timestamp: assistantMessage.timestamp },
+              ],
+            }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved?.chat?._id) { setCurrentChatId(saved.chat._id); fetchChatHistory(); }
+          }).catch(() => {});
+        } else {
+          setTimeout(() => saveCurrentChat(), 500);
+        }
+        if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
 
     try {
       // A typed message is NEVER auto-interpreted as a confirmation. Executing
@@ -463,7 +510,7 @@ export default function ManufacturingAIAssistant() {
           <div className="p-4 border-b border-gray-800 flex-shrink-0">
             <Button 
               onClick={startNewChat}
-              className="w-full bg-blue-800"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Chat
@@ -621,7 +668,7 @@ export default function ManufacturingAIAssistant() {
                   className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                       <MessageSquare className="w-4 h-4" />
                     </div>
                   )}
@@ -722,7 +769,7 @@ export default function ManufacturingAIAssistant() {
               <Button 
                 type="submit"
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                className="h-[60px] px-6 bg-blue-800"
+                className="h-[60px] px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

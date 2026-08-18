@@ -7,7 +7,7 @@ import CustomsClearance from "@/models/CustomsClearance";
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    if (!session || !["admin", "manufacturing"].includes(session.user.role)) {
+    if (!session || !["admin", "manufacturing", "master-admin"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

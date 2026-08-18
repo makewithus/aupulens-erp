@@ -320,7 +320,7 @@ export function JournalEntryPopupContent({
                       disabled={accountsLoading}
                       onAdd={onAddAccount}
                       dialogTitle="Create New Account"
-                      className="border-none bg-transparent hover:bg-white/50 focus:bg-white"
+                      className="border-none bg-transparent hover:bg-muted/50 focus:bg-muted"
                       keyField="_id"
                       labelField="name"
                       secondaryField="code"
@@ -332,7 +332,7 @@ export function JournalEntryPopupContent({
                       value={line.partnerId}
                       onValueChange={(v) => updateLine(idx, "partnerId", v)}
                       placeholder="Select Partner"
-                      className="border-none bg-transparent hover:bg-white/50 focus:bg-white"
+                      className="border-none bg-transparent hover:bg-muted/50 focus:bg-muted"
                       keyField="_id"
                       labelField="header.name"
                       onAddClick={() => {

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
   ScanText,
@@ -30,6 +34,7 @@ interface DocRow { _id: string; fileName: string; status: string; aiConfidence: 
 const empty: Extraction = { vendorName: "", vendorGstin: "", billNumber: "", billDate: "", dueDate: "", currency: "INR", poReference: "", lineItems: [], subtotal: 0, taxAmount: 0, totalAmount: 0, confidence: 0 };
 
 export default function DocIntelPage() {
+  const { data: session, status } = useSession();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -114,8 +119,21 @@ export default function DocIntelPage() {
     await load();
   };
 
+  if (status === "loading") return <AuthSplash />;
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout
+      sidebarSections={adminSidebarConfig}
+      dashboardTitle="Admin"
+      pageName="Document Intelligence"
+      breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Document Intelligence" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={(session?.user as any)?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onRefresh={load}
+    >
+    <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <ScanText className="h-6 w-6 text-violet-500" /> Document Intelligence
@@ -245,6 +263,7 @@ export default function DocIntelPage() {
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }
 

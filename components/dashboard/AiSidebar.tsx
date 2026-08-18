@@ -8,9 +8,10 @@ import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
+import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
+import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { toast } from "sonner";
-import levenshtein from "js-levenshtein";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
@@ -45,6 +46,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(textareaRef, input);
 
   // Voice input (Azure speech-to-text) — records via the mic, transcribes on the
   // server, and appends the recognised text to the prompt for the user to review
@@ -66,6 +68,14 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // style: don't guess on ambiguity — confirm, then act).
   type PendingCreate = { target: string; route: string; data: Record<string, any>; suggestions: string[]; label: string; question: string };
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
+
+  // An ambiguous create where the MODULE is unclear (e.g. "create a product" —
+  // Inventory or Manufacturing?). We hold the original message + files and, once
+  // the user picks, re-run the prefill against the chosen target. Claude-Code
+  // style: ask instead of guessing which module the user meant.
+  type ChoiceOption = { match: RegExp; target: string; route: string; label: string };
+  type PendingChoice = { message: string; attachments: Attachment[]; options: ChoiceOption[] };
+  const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB each
   const MAX_ATTACHMENTS = 8;
@@ -224,122 +234,82 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // normal Q&A/analysis.
   const ACTION_RX = /\b(create|add|make|new|generate|draft|delete|remove|update|change|set|book|record|raise|issue)\b/i;
   const NAV_RX = /\b(go to|goto|open|navigate|take me|show me|bring up|jump to)\b/i;
-  // "Create an <entity>" → the AI-native flow: extract the fields, pre-fill the
-  // REAL create form, take the user there, and let them verify + click Create.
-  const CREATE_VERB_RX = /\b(create|add|new|make|generate|draft|capture|log|prepare|register|enter)\b/i;
-  // `keywords` power a typo-tolerant fallback (fuzzy match) so misspellings like
-  // "procelists" / "invoce" still route to the right create form.
-  const CREATE_TARGETS: { rx: RegExp; target: string; route: string; label: string; keywords: string[] }[] = [
-    { rx: /\blead\b/i, target: "lead", route: "/crm/leads", label: "lead", keywords: ["lead"] },
-    { rx: /\b(customer|client)\b/i, target: "customer", route: "/sales/customers/new", label: "customer", keywords: ["customer", "client"] },
-    { rx: /\binvoice\b/i, target: "invoice", route: "/sales/invoices/new", label: "invoice", keywords: ["invoice"] },
-    // Sales module — must be BEFORE the generic entries so "sales order" isn't
-    // mis-matched. "price list"/"pricelist" checked before "product".
-    { rx: /\b(sales?[\s-]?order)\b/i, target: "sales_order", route: "/sales/sales-orders/new", label: "sales order", keywords: ["salesorder"] },
-    { rx: /\b(price[\s-]?list)\b/i, target: "pricelist", route: "/sales/pricelist", label: "pricelist", keywords: ["pricelist"] },
-    { rx: /\bproduct\b/i, target: "product", route: "/sales/products", label: "product", keywords: ["product"] },
-    { rx: /\b(subscription|recurring)\b/i, target: "subscription", route: "/sales/subscriptions/new", label: "subscription", keywords: ["subscription"] },
-    { rx: /\bpayment\b/i, target: "payment", route: "/sales/payments/new", label: "payment", keywords: ["payment"] },
-    // "delivery challan" → the SALES challan; a plain "delivery" → the Inventory
-    // delivery operation (checked below). So challan keeps only its own keyword.
-    { rx: /\b(delivery[\s-]?challan|challan|delivery[\s-]?note)\b/i, target: "delivery_challan", route: "/sales/delivery-challans", label: "delivery challan", keywords: ["challan"] },
-    // Inventory module.
-    { rx: /\b(batch|lot)\b/i, target: "batch", route: "/inventory/batch", label: "batch", keywords: ["batch"] },
-    { rx: /\bwarehouse\b/i, target: "warehouse", route: "/inventory/warehouse", label: "warehouse", keywords: ["warehouse"] },
-    { rx: /\b(goods[\s-]?receipt|grn|receipt|receiving)\b/i, target: "receipt", route: "/inventory/operations/receipts", label: "goods receipt", keywords: ["receipt", "receiving"] },
-    { rx: /\b(manufacturing|production)\s*(order|run)?\b/i, target: "manufacturing_order", route: "/inventory/operations/manufacturing", label: "manufacturing order", keywords: ["manufacturing", "production"] },
-    { rx: /\b(delivery|dispatch|shipment)\b/i, target: "inventory_delivery", route: "/inventory/operations/deliveries", label: "delivery", keywords: ["delivery", "dispatch", "shipment"] },
-    { rx: /\breturn\b/i, target: "inventory_return", route: "/inventory/operations/returns", label: "return", keywords: ["return"] },
-    { rx: /\b(stock[\s-]?move|stock[\s-]?transfer|internal[\s-]?transfer)\b/i, target: "stock_move", route: "/inventory/stock-moves", label: "stock move", keywords: ["stockmove", "transfer"] },
-    { rx: /\b(inventory[\s-]?order|stock[\s-]?order|purchase[\s-]?order)\b/i, target: "inventory_order", route: "/inventory/orders", label: "inventory order", keywords: [] },
-    { rx: /\b(report|stock report|movement report|aging report|compliance report)\b/i, target: "inventory_report", route: "/inventory/reports", label: "inventory report", keywords: ["report"] },
-    // Finance module. "ledger account"/"chart of accounts" → finance ledger
-    // account (a plain "account" stays the CRM account, below). Finance entries
-    // sit here so they resolve before the generic CRM matches.
-    { rx: /\b(expense|reimbursement|expenditure)\b/i, target: "expense", route: "/finance/expenses", label: "expense", keywords: ["expense", "reimbursement"] },
-    // "vendor bill"/"bill" → the finance vendor bill. Checked before "journal"
-    // and before the generic entries.
-    { rx: /\b(vendor[\s-]?bill|supplier[\s-]?bill|purchase[\s-]?bill|bill)\b/i, target: "bill", route: "/finance/bills", label: "vendor bill", keywords: ["bill"] },
-    // The Transactions/Vouchers page's quick actions — "receive payment" /
-    // "make payment" / "manual journal" (the exact card labels) route here, not
-    // to the sales payment form. Note "make payment" ≠ "make A payment" (the
-    // latter, natural phrasing, falls through to the sales payment target).
-    { rx: /\b(voucher|receive[\s-]?payment|make[\s-]?payment|payment[\s-]?voucher|receipt[\s-]?voucher|manual[\s-]?journal)\b/i, target: "voucher", route: "/finance/accounting/vouchers", label: "voucher", keywords: ["voucher"] },
-    { rx: /\b(journal[\s-]?entry|journal)\b/i, target: "journal_entry", route: "/finance/accounting/journal-entries", label: "journal entry", keywords: ["journal"] },
-    { rx: /\b(fixed[\s-]?asset|depreciat\w*|asset)\b/i, target: "fixed_asset", route: "/finance/accounting/fixed-assets", label: "fixed asset", keywords: ["asset", "depreciation"] },
-    { rx: /\b(ledger[\s-]?account|chart[\s-]?of[\s-]?accounts|gl[\s-]?account|nominal[\s-]?account)\b/i, target: "finance_account", route: "/finance/accounting/chart-of-accounts", label: "ledger account", keywords: [] },
-    { rx: /\b(bank[\s-]?statement|bank[\s-]?reconciliation|reconcile[\s-]?bank|import[\s-]?statement)\b/i, target: "bank_statement", route: "/finance/accounting/bank-reconciliation", label: "bank statement", keywords: ["reconciliation", "statement"] },
-    { rx: /\b(employee|staff)\b/i, target: "employee", route: "/hr/employees", label: "employee", keywords: ["employee"] },
-    // "sales quote" → the Sales-module quote; a plain "quote"/"quotation" → CRM quote.
-    { rx: /\b(sales?[\s-]?(quote|quotation))\b/i, target: "sales_quote", route: "/sales/quotes/new", label: "sales quote", keywords: ["salesquote"] },
-    { rx: /\b(quote|quotation)\b/i, target: "quote", route: "/crm/quotes/new", label: "quote", keywords: ["quote", "quotation"] },
-    { rx: /\b(opportunity|deal)\b/i, target: "opportunity", route: "/crm/opportunities", label: "opportunity", keywords: ["opportunity"] },
-    { rx: /\bcontact\b/i, target: "contact", route: "/crm/contacts", label: "contact", keywords: ["contact"] },
-    { rx: /\b(account|company)\b/i, target: "account", route: "/crm/accounts", label: "account", keywords: ["account", "company"] },
-    { rx: /\bcase\b/i, target: "case", route: "/crm/cases", label: "case", keywords: ["case"] },
-    { rx: /\bproject\b/i, target: "project", route: "/projects", label: "project", keywords: ["project"] },
-  ];
 
-  // Module hints let an explicit "under finance" / "in inventory" override a
-  // target that exists in more than one module (e.g. a purchase order lives in
-  // BOTH Finance and Inventory). We respect what the user actually said.
-  const FINANCE_HINT_RX = /\b(finance|financial|accounting|account[s]?[\s-]?payable|payables?|voucher|ledger)\b/i;
-  const INVENTORY_HINT_RX = /\b(inventory|stock|warehouse|godown)\b/i;
-  const FINANCE_PO: (typeof CREATE_TARGETS)[number] = {
-    rx: /\b(purchase[\s-]?order|p\.?o\.?)\b/i, target: "finance_purchase_order",
-    route: "/finance/purchase-orders", label: "purchase order", keywords: [],
-  };
-
-  // Exact regex first; then a typo-tolerant fallback. Fuzzy only fires on
-  // keywords >=5 chars, requires the same first letter, and scales the allowed
-  // edit distance with length — enough to catch real typos without matching
-  // unrelated words (e.g. "note" never matches "quote").
-  const findCreateTarget = (q: string): (typeof CREATE_TARGETS)[number] | undefined => {
-    // Cross-module override: "purchase order" defaults to Inventory, but if the
-    // user named Finance/Payables (and not Inventory), send them to the Finance
-    // purchase order instead. This honours "create a PO under finance".
-    if (/\b(purchase[\s-]?order|p\.?o\.?)\b/i.test(q) && FINANCE_HINT_RX.test(q) && !INVENTORY_HINT_RX.test(q)) {
-      return FINANCE_PO;
-    }
-    // Among ALL targets whose keyword appears, pick the one that occurs EARLIEST
-    // in the text. The user's instruction ("create a journal entry …") leads,
-    // while any pasted data (which may mention "invoice", "sales", "payment"…)
-    // comes after — so position, not array order, decides. This stops "create a
-    // journal entry: Dr Sales … Cr … (INV-001)" from being hijacked to the
-    // invoice/sales form just because the word "invoice" appears in the data.
-    // Ties (two keywords at the same index) fall back to CREATE_TARGETS order,
-    // which still encodes disambiguation (e.g. "delivery challan" before plain
-    // "delivery").
-    let bestExact: { t: (typeof CREATE_TARGETS)[number]; idx: number; order: number } | undefined;
-    CREATE_TARGETS.forEach((t, order) => {
-      const m = t.rx.exec(q);
-      if (!m) return;
-      if (!bestExact || m.index < bestExact.idx || (m.index === bestExact.idx && order < bestExact.order)) {
-        bestExact = { t, idx: m.index, order };
+  // Run the prefill flow for a chosen target: extract fields, then either ask
+  // (missing dependency) or stash + navigate to the pre-filled form. Shared by
+  // the normal path and the "which module?" follow-up so both behave identically.
+  const executePrefill = async (
+    targetDef: { target: string; route: string; label: string },
+    message: string,
+    attsToSend: Attachment[],
+    attsForMsg: Attachment[] | undefined,
+    base: Message[],
+  ) => {
+    setIsLoading(true);
+    setAttachments([]);
+    setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: "", isLoading: true }]);
+    try {
+      const history = base.filter((m) => !m.isLoading && m.text).slice(-8).map((m) => ({ role: m.role, content: m.text }));
+      const res = await fetch("/api/ai/prefill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: targetDef.target, message, attachments: attsToSend, history }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const extracted = data?.data && typeof data.data === "object"
+        ? Object.values(data.data).some((v) => Array.isArray(v) ? v.length > 0 : v != null && v !== "")
+        : false;
+      if (res.ok && data.success && !extracted && !data.missingDependency) {
+        setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I couldn't pull enough details to fill the ${targetDef.label} form. Tell me the details in your message (or attach a document/image) and I'll prepare it for you.` }]);
+        setIsLoading(false);
+        return;
       }
-    });
-    if (bestExact) return bestExact.t;
-    const matched: string[] = q.toLowerCase().match(/[a-z]+/g) || [];
-    const tokens = matched.filter((w) => w.length >= 4);
-    let best: { t: (typeof CREATE_TARGETS)[number]; dist: number } | undefined;
-    for (const t of CREATE_TARGETS) {
-      for (const kw of t.keywords) {
-        if (kw.length < 5) continue;
-        const maxD = kw.length >= 7 ? 2 : 1;
-        for (const tok of tokens) {
-          if (tok[0] !== kw[0]) continue;
-          const d = levenshtein(tok, kw);
-          if (d <= maxD && (!best || d < best.dist)) best = { t, dist: d };
+      if (res.ok && data.success) {
+        const sugg = data.suggestions?.length
+          ? `\n\n**A couple of things to double-check:**\n${data.suggestions.map((s: string) => `- ${s}`).join("\n")}`
+          : "";
+        if (data.missingDependency) {
+          const dep = data.missingDependency;
+          setPendingCreate({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [], label: targetDef.label, question: dep.name });
+          setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I've got the ${targetDef.label} details ready, but there's **no ${dep.type} named "${dep.name}"** in the system yet.\n\nDo you want me to **open the ${targetDef.label} form anyway** (you can add the ${dep.type} inline with the "+"), or would you rather create the ${dep.type} first? Reply **"yes"** to open it now, or **"no"** to hold off.${sugg}` }]);
+          setIsLoading(false);
+          return;
         }
+        stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
+        setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${sugg}` }]);
+        setIsLoading(false);
+        router.push(targetDef.route);
+        return;
       }
+      setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: data.message || `I couldn't prepare the ${targetDef.label} form. Please add a bit more detail and try again.` }]);
+      setIsLoading(false);
+    } catch {
+      setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: "Something went wrong preparing the form. Please try again." }]);
+      setIsLoading(false);
     }
-    return best?.t;
   };
+
+  // Modules a bare "product" could belong to. If the user names one we honour it;
+  // if not, we ask rather than guessing (Inventory vs Manufacturing).
+  const MANUF_HINT_RX = /\b(manufactur\w*|production|factory|shop[\s-]?floor)\b/i;
+  const INV_HINT_RX = /\b(inventory|stock|warehouse|godown|sales|catalogue|catalog)\b/i;
 
   const handleSend = async (text: string) => {
     const q = text.trim();
     if (!q && attachments.length === 0) return;
     if (isLoading) return;
+
+    // ── Resolve a pending "which module?" choice first ────────────────────────
+    if (pendingChoice && q) {
+      const opt = pendingChoice.options.find((o) => o.match.test(q));
+      if (opt) {
+        const pc = pendingChoice;
+        setPendingChoice(null);
+        await executePrefill(opt, pc.message, pc.attachments, pc.attachments.length ? pc.attachments : undefined, messages);
+        return;
+      }
+      setPendingChoice(null); // unrecognised reply → treat as a fresh instruction
+    }
 
     // ── Resolve a pending "shall I proceed?" question first ───────────────────
     // If the assistant asked to confirm a prepared create, interpret a yes/no
@@ -375,67 +345,23 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     // ── AI-native create: pre-fill the real form and navigate there ──────────
     const targetDef = CREATE_VERB_RX.test(q) ? findCreateTarget(q) : undefined;
     if (targetDef) {
-      const base = messages;
-      setIsLoading(true);
-      setAttachments([]);
-      setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: "", isLoading: true }]);
-      try {
-        // Include recent conversation so details discussed earlier (e.g. an
-        // analysed attachment) are used even if this message has no new file.
-        const history = base
-          .filter((m) => !m.isLoading && m.text)
-          .slice(-8)
-          .map((m) => ({ role: m.role, content: m.text }));
-        const res = await fetch("/api/ai/prefill", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target: targetDef.target, message: q, attachments: sentAttachments, history }),
+      // A bare "product" is ambiguous — Inventory catalogue or Manufacturing?
+      // If the user didn't say, ASK instead of guessing the wrong module.
+      if (targetDef.target === "product" && !MANUF_HINT_RX.test(q) && !INV_HINT_RX.test(q)) {
+        setPendingChoice({
+          message: q,
+          attachments: sentAttachments,
+          options: [
+            { match: /\b(inventory|stock|sales|catalogue|catalog|1)\b/i, target: "product", route: "/sales/products", label: "product" },
+            { match: /\b(manufactur\w*|production|factory|2)\b/i, target: "manufacturing_item", route: "/manufacturing/items", label: "manufacturing item" },
+          ],
         });
-        const data = await res.json().catch(() => ({}));
-        // Don't redirect to an EMPTY form: if the AI couldn't extract any usable
-        // field, tell the user what's needed instead of navigating to a blank
-        // form (which looked like "it only redirected and did nothing").
-        const extracted = data?.data && typeof data.data === "object"
-          ? Object.values(data.data).some((v) => Array.isArray(v) ? v.length > 0 : v != null && v !== "")
-          : false;
-        if (res.ok && data.success && !extracted && !data.missingDependency) {
-          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I couldn't pull enough details to fill the ${targetDef.label} form. Tell me the details in your message (or attach a document/image) and I'll prepare it for you.` }]);
-          setIsLoading(false);
-          return;
-        }
-        if (res.ok && data.success) {
-          const sugg = data.suggestions?.length
-            ? `\n\n**A couple of things to double-check:**\n${data.suggestions.map((s: string) => `- ${s}`).join("\n")}`
-            : "";
-          // A REQUIRED linked record is missing (e.g. the vendor/customer isn't
-          // in the system yet). Rather than silently drop the user on a form
-          // they have to fix, spell it out and ASK before opening it.
-          if (data.missingDependency) {
-            const dep = data.missingDependency;
-            setPendingCreate({
-              target: data.target, route: data.route, data: data.data || {},
-              suggestions: data.suggestions || [], label: targetDef.label,
-              question: dep.name,
-            });
-            setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've got the ${targetDef.label} details ready, but there's **no ${dep.type} named "${dep.name}"** in the system yet.\n\nDo you want me to **open the ${targetDef.label} form anyway** (you can add the ${dep.type} inline with the "+"), or would you rather create the ${dep.type} first? Reply **"yes"** to open it now, or **"no"** to hold off.${sugg}` }]);
-            setIsLoading(false);
-            return;
-          }
-          // Everything resolved → prepare the form and take the user there.
-          stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
-          setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${sugg}` }]);
-          setIsLoading(false);
-          router.push(targetDef.route);
-          return;
-        }
-        setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: data.message || `I couldn't prepare the ${targetDef.label} form. Please add a bit more detail and try again.` }]);
-        setIsLoading(false);
-        return;
-      } catch {
-        setMessages([...base, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: "Something went wrong preparing the form. Please try again." }]);
-        setIsLoading(false);
+        setAttachments([]);
+        setMessages([...messages, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `Sure — where should I create this product?\n\n- **Inventory** (the shared product catalogue), or\n- **Manufacturing** (a manufacturing item)\n\nReply **"inventory"** or **"manufacturing"** and I'll prepare the right form with your details.` }]);
         return;
       }
+      await executePrefill(targetDef, q, sentAttachments, attForMsg, messages);
+      return;
     }
 
     const isCommand = ACTION_RX.test(q) || NAV_RX.test(q);
@@ -999,13 +925,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             // Intentionally NOT disabled while loading — the user can keep typing
             // their next prompt; only sending is blocked until the reply is done.
             placeholder="Ask Anything"
+            rows={1}
             className={cn(
               "w-full bg-transparent border-none text-[14px] focus:outline-none focus:ring-0 resize-none font-sans min-h-[44px] max-h-[200px]",
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"
             )}
-            style={{
-              height: `${Math.min(200, Math.max(44, (input.split("\n").length || 1) * 18 + 12))}px`,
-            }}
           />
           <div className={cn("flex items-center justify-between mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
             <div className="flex items-center gap-2 min-w-0">

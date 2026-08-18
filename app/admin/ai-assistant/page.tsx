@@ -33,6 +33,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
+import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 
 interface Message {
   id: string;
@@ -93,6 +95,7 @@ export default function AIAssistant() {
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(textareaRef, input);
 
   // File attachments (PDF / DOCX / images) — multiple supported. Each is read as
   // a data URL and sent with the prompt so the assistant can read and answer.
@@ -321,12 +324,34 @@ export default function AIAssistant() {
     setInput("");
     setIsLoading(true);
 
+    const sentAttachments = attachments;
+    setAttachments([]); // consumed by this send
+
+    // AI-native create: try this FIRST. If the message is a create request —
+    // for THIS module's forms or any OTHER module's — extract the fields and
+    // take the user straight to the real, pre-filled form instead of just
+    // describing the steps. Falls through to normal Q&A otherwise.
+    try {
+      const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments });
+      if (outcome.handled) {
+        setMessages((prev) => prev.filter((m) => !m.isLoading).concat({
+          id: (Date.now() + 1).toString(), role: "assistant", content: outcome.message, timestamp: new Date(),
+        }));
+        setIsLoading(false);
+        // Persist this turn just like a normal Q&A reply, so it shows up in
+        // Recent Chats and the user can pick the thread back up later.
+        setTimeout(() => saveCurrentChat(), 500);
+        if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
     try {
       // Stream the response token-by-token (ChatGPT-style). The server returns
       // a plain text/event stream we read incrementally; on a gate/error it
       // returns JSON instead, which we detect via the content-type.
-      const sentAttachments = attachments;
-      setAttachments([]); // consumed by this send
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -704,7 +704,7 @@ export default function OrdersPage() {
                                 )
                                 .map((stockItem) => (
                                   <SelectItem
-                                    key={stockItem.itemCode}
+                                    key={stockItem._id || stockItem.itemCode}
                                     value={stockItem.itemCode}
                                     className="rounded-none"
                                   >

@@ -175,7 +175,7 @@ export function ItemPopup({
             <div>
               <p className="text-sm font-medium mb-2 text-foreground">Other Images</p>
               <div className="border border-dashed rounded-md h-24 flex flex-col items-center justify-center gap-1 text-muted-foreground bg-blue-50/30 dark:bg-blue-900/10 hover:bg-blue-50/50 cursor-pointer transition-colors">
-                <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
                   <Plus className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-xs font-medium text-foreground">Drag &amp; Drop Images</span>
@@ -210,7 +210,7 @@ export function ItemPopup({
                 onClick={() => !isViewOnly && update("itemType", opt.val)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
                   (formData.itemType || "single") === opt.val
-                    ? "bg-blue-600 text-white border-blue-600"
+                    ? "bg-primary text-primary-foreground border-primary"
                     : "border-border text-muted-foreground hover:border-blue-400"
                 } ${isViewOnly ? "cursor-default" : "cursor-pointer"}`}
               >

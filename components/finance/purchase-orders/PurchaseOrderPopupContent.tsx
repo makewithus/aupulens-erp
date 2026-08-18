@@ -215,7 +215,7 @@ export default function PurchaseOrderPopupContent({
                 </TableRow>
               ) : (
                 (formData.orderLines || []).map((line: any, idx: number) => (
-                  <TableRow key={idx} className="group hover:bg-white/40">
+                  <TableRow key={idx} className="group hover:bg-muted/40">
                     <TableCell className="p-2 w-48">
                       <SelectSearchAdd
                         items={products}

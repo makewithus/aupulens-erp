@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import { Store, Download, Loader2, Workflow, ShieldCheck, Palette } from "lucide-react";
 
@@ -16,6 +20,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; color: string }>
 };
 
 export default function MarketplacePage() {
+  const { data: session, status } = useSession();
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("");
@@ -40,8 +45,21 @@ export default function MarketplacePage() {
     } finally { setInstalling(null); }
   };
 
+  if (status === "loading") return <AuthSplash />;
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <DashboardLayout
+      sidebarSections={adminSidebarConfig}
+      dashboardTitle="Admin"
+      pageName="Marketplace"
+      breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Marketplace" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={(session?.user as any)?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onRefresh={load}
+    >
+    <div className="max-w-5xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Store className="h-6 w-6 text-indigo-500" /> Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Install ready-made workflows, approval policies, and print formats.</p>
@@ -86,5 +104,6 @@ export default function MarketplacePage() {
         </div>
       )}
     </div>
+    </DashboardLayout>
   );
 }

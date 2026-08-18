@@ -5,6 +5,7 @@ export interface IDocumentModel extends Document {
   name: string;
   file_url: string;
   file_type: string;
+  size: number;
   version: number;
   parent_document_id: mongoose.Types.ObjectId;
   linked_record_type: string;
@@ -19,6 +20,7 @@ const DocumentSchema = new Schema<IDocumentModel>({
   name: { type: String },
   file_url: { type: String },
   file_type: { type: String },
+  size: { type: Number, default: 0 },
   version: { type: Number, default: 1 },
   parent_document_id: { type: Schema.Types.ObjectId, ref: "DocumentModel" },
   linked_record_type: { type: String },

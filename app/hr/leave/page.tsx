@@ -1,5 +1,7 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useEffect, useState, useCallback } from "react";
@@ -100,8 +102,8 @@ export default function LeavePage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (filterStatus) params.set("status", filterStatus);
       const [leaveRes, empRes] = await Promise.all([
-        fetch(`/api/hr/leave?${params.toString()}`),
-        fetch("/api/hr/employees"),
+        cachedFetch(`/api/hr/leave?${params.toString()}`),
+        cachedFetch("/api/hr/employees"),
       ]);
       const leaveJson = await leaveRes.json();
       const empJson = await empRes.json();
@@ -140,6 +142,22 @@ export default function LeavePage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the leave request details → open the create modal pre-
+  // filled. The employee is resolved to a real id server-side; the user
+  // reviews and submits.
+  useAiPrefill("leave_request", (p) => {
+    const d = p.data || {};
+    setModalMode("create");
+    setFormData({
+      employeeId: d.employeeId || "",
+      leaveType: ["casual", "sick", "earned", "unpaid"].includes(d.leaveType) ? d.leaveType : "casual",
+      startDate: d.startDate || new Date().toISOString().split("T")[0],
+      endDate: d.endDate || new Date().toISOString().split("T")[0],
+      reason: d.reason || "",
+    });
+    setIsModalOpen(true);
+  });
+
   const handleSubmit = async () => {
     if (!formData.employeeId || !formData.startDate || !formData.endDate || !formData.reason) {
       toast.error("All fields are required");
@@ -147,7 +165,7 @@ export default function LeavePage() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/hr/leave", {
+      const res = await cachedFetch("/api/hr/leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -173,7 +191,7 @@ export default function LeavePage() {
       if (action === "rejected" && rejectionReason) {
         body.rejectionReason = rejectionReason;
       }
-      const res = await fetch(`/api/hr/leave/${id}`, {
+      const res = await cachedFetch(`/api/hr/leave/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -194,7 +212,7 @@ export default function LeavePage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this leave request?" })) return;
     try {
-      const res = await fetch(`/api/hr/leave/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/hr/leave/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Deleted");
         load();

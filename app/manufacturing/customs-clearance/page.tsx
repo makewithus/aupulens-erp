@@ -1,11 +1,13 @@
 'use client';
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthSplash } from '@/components/dashboard/AuthSplash';
 import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,15 +98,31 @@ export default function CustomsClearancePage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      if (session?.user?.role !== 'manufacturing') {
-        router.push('/auth/manufacturing');
-      } else {
-        fetchClearances();
-        fetchShipments();
-        fetchHsCodes();
-      }
+      // Any authenticated user (incl. admin / master-admin) may view this — the
+      // old role gate bounced admins to /auth/manufacturing → admin dashboard.
+      fetchClearances();
+      fetchShipments();
+      fetchHsCodes();
     }
   }, [fetchClearances, fetchHsCodes, fetchShipments, router, session, status]);
+
+  // AI-native: extract the clearance details → open the create dialog pre-
+  // filled. The shipment and HS code are resolved to real ids server-side when
+  // named; the user reviews and clicks Create.
+  useAiPrefill('customs_clearance', (p) => {
+    const d = p.data || {};
+    setFormData({
+      declarationNumber: d.declarationNumber || '',
+      shipmentId: d.shipmentId || '',
+      hsCodeId: d.hsCodeId || '',
+      status: ['pending', 'under-review', 'cleared', 'rejected'].includes(d.status) ? d.status : 'pending',
+      submissionDate: d.submissionDate || '',
+      customsOffice: d.customsOffice || '',
+      dutyAmount: d.dutyAmount !== undefined && d.dutyAmount !== null && d.dutyAmount !== '' ? String(d.dutyAmount) : '',
+      currency: 'USD',
+    });
+    setIsCreateOpen(true);
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,12 +224,8 @@ export default function CustomsClearancePage() {
     }
   };
 
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
-      </div>
-    );
+  if (status === 'loading') {
+    return <AuthSplash />;
   }
 
   return (
@@ -250,7 +264,7 @@ export default function CustomsClearancePage() {
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-800 hover:bg-blue-700 text-white">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="mr-2 h-4 w-4" />
                   New Clearance
                 </Button>
@@ -362,7 +376,7 @@ export default function CustomsClearancePage() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" className="bg-blue-800 hover:bg-blue-700">
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                       Create Clearance
                     </Button>
                   </div>

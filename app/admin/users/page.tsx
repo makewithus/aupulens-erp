@@ -4,6 +4,7 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersTable } from "@/components/admin/UsersTable";
 import { useEffect, useState } from "react";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -40,6 +41,23 @@ export default function UsersPage() {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [aiUserData, setAiUserData] = useState<any>(undefined);
+
+  // AI-native: extract the new user's details → open Add User pre-filled.
+  useAiPrefill("admin_user", (p) => {
+    const d = p.data || {};
+    const VALID_ROLES = ["admin", "master-admin", "finance", "hr", "sales", "inventory", "project", "manufacturing"];
+    setAiUserData({
+      name: d.name || "",
+      email: d.email || "",
+      phone: d.phone || "",
+      password: d.password || "",
+      role: VALID_ROLES.includes(d.role) ? d.role : "finance",
+      department: d.department || "",
+      designation: d.designation || "",
+    });
+    setIsAddUserOpen(true);
+  });
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -241,8 +259,9 @@ export default function UsersPage() {
 
       <AddUserDialog
         open={isAddUserOpen}
-        onOpenChange={setIsAddUserOpen}
+        onOpenChange={(o) => { setIsAddUserOpen(o); if (!o) setAiUserData(undefined); }}
         onSuccess={fetchUsers}
+        initialData={aiUserData}
       />
 
       <EditUserDialog

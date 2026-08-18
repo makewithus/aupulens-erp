@@ -403,7 +403,7 @@ export function ExpensePopupContent({
                           ? "Create Bank Account"
                           : "Create Payable Account"
                       }
-                      className="none-xl border-2 h-11 shadow-none bg-white"
+                      className="none-xl border-2 h-11 shadow-none bg-background text-foreground"
                     />
                     {!formData.paymentAccountId && (
                       <p className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1.5 px-1 animate-pulse">

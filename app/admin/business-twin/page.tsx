@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Loader2, Network, TrendingDown } from "lucide-react";
@@ -15,6 +19,7 @@ const KIND_COLOR: Record<string, string> = {
 };
 
 export default function BusinessTwinPage() {
+  const { data: session, status } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [invoiceId, setInvoiceId] = useState("");
@@ -59,10 +64,28 @@ export default function BusinessTwinPage() {
     } finally { setSimBusy(false); }
   };
 
-  if (loading) return <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Building the twin…</div>;
+  if (status === "loading") return <AuthSplash />;
+
+  const layoutProps = {
+    sidebarSections: adminSidebarConfig,
+    dashboardTitle: "Admin",
+    pageName: "Business Twin",
+    breadcrumbs: [{ label: "Admin", href: "/admin/dashboard" }, { label: "Business Twin" }],
+    userName: session?.user?.name || "",
+    userEmail: session?.user?.email || "",
+    userRole: (session?.user as any)?.role,
+    onSignOut: () => signOut({ callbackUrl: "/auth/admin" }),
+  };
+
+  if (loading) return (
+    <DashboardLayout {...layoutProps}>
+      <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Building the twin…</div>
+    </DashboardLayout>
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <DashboardLayout {...layoutProps}>
+    <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><Network className="h-6 w-6 text-indigo-500" /> Digital Business Twin</h1>
         <p className="text-sm text-muted-foreground mt-1">Live money-flow graph + cash-flow simulation, from your real data.</p>
@@ -121,5 +144,6 @@ export default function BusinessTwinPage() {
         ))}
       </div>
     </div>
+    </DashboardLayout>
   );
 }

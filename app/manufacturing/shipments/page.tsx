@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useAiPrefill } from '@/lib/hooks/useAiPrefill';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -154,6 +155,39 @@ export default function ShipmentsPage() {
       fetchHsCodes();
     }
   }, [status, load, fetchFreightProviders, fetchHsCodes]);
+
+  // AI-native: extract shipment details → open the create dialog pre-filled. The
+  // user reviews (and picks the freight provider) and clicks Create.
+  useAiPrefill('shipment', (p) => {
+    const d = p.data || {};
+    const items = Array.isArray(d.items) && d.items.length
+      ? d.items.map((it: any) => ({
+          description: it.description || '',
+          hsCode: it.hsCode || '',
+          quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+          weight: Number(it.weight) || 0,
+          value: Number(it.value) || 0,
+        }))
+      : [{ description: '', hsCode: '', quantity: 1, weight: 0, value: 0 }];
+    const totalValue = items.reduce((acc: number, it: any) => acc + (it.value || 0) * (it.quantity || 1), 0);
+    setNewShipment((prev) => ({
+      ...prev,
+      customerName: d.customerName || '',
+      customerEmail: d.customerEmail || '',
+      origin: d.origin || '',
+      destination: d.destination || '',
+      trackingNumber: d.trackingNumber || '',
+      shipmentType: ['air', 'sea', 'road', 'rail'].includes(d.shipmentType) ? d.shipmentType : 'air',
+      weight: Number(d.weight) || 0,
+      volume: Number(d.volume) || 0,
+      items,
+      totalValue,
+      currency: d.currency || 'INR',
+      estimatedDelivery: d.estimatedDelivery || '',
+      notes: d.notes || '',
+    }));
+    setIsAddDialogOpen(true);
+  });
 
   const filtered = data.filter((shipment) => {
     const matchesQuery = [shipment.shipmentNumber, shipment.customerName, shipment.origin, shipment.destination].some(

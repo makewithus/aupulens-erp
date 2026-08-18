@@ -1,4 +1,5 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -30,7 +31,7 @@ export default function HRReportsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/hr/summary");
+      const res = await cachedFetch("/api/hr/summary");
       const json = await res.json();
       setData(json);
     } catch {

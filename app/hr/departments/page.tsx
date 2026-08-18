@@ -1,5 +1,7 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -84,8 +86,8 @@ export default function DepartmentsPage() {
     try {
       setLoading(true);
       const [deptRes, empRes] = await Promise.all([
-        fetch("/api/hr/departments"),
-        fetch("/api/hr/employees"),
+        cachedFetch("/api/hr/departments"),
+        cachedFetch("/api/hr/employees"),
       ]);
       const deptJson = await deptRes.json();
       const empJson = await empRes.json();
@@ -120,6 +122,24 @@ export default function DepartmentsPage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the department details → open the create modal pre-
+  // filled. The department head (if named) is resolved to a real employee id
+  // server-side; the user reviews and clicks Create.
+  useAiPrefill("department", (p) => {
+    const d = p.data || {};
+    setModalMode("create");
+    setFormData({
+      name: d.name || "",
+      code: d.code || "",
+      description: d.description || "",
+      headOfDepartment: d.headOfDepartment || "",
+      parentDepartmentId: "",
+      costCenter: d.costCenter || "",
+      isActive: true,
+    });
+    setIsModalOpen(true);
+  });
+
   const handleOpenView = (dept: Department) => {
     setModalMode("view");
     setFormData(dept);
@@ -129,7 +149,7 @@ export default function DepartmentsPage() {
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Are you sure you want to delete this department?" })) return;
     try {
-      const res = await fetch(`/api/hr/departments/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/hr/departments/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Department deleted");
         load();
@@ -156,7 +176,7 @@ export default function DepartmentsPage() {
       // Clean empty optional refs
       if (!payload.headOfDepartment) delete payload.headOfDepartment;
       if (!payload.parentDepartmentId) delete payload.parentDepartmentId;
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

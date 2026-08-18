@@ -1,5 +1,7 @@
 "use client";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 
 import { useEffect, useState, useCallback } from "react";
@@ -99,8 +101,8 @@ export default function AttendancePage() {
       if (filterDate && !filterMonth) params.set("date", filterDate);
       if (filterMonth) params.set("month", filterMonth);
       const [attRes, empRes] = await Promise.all([
-        fetch(`/api/hr/attendance?${params.toString()}`),
-        fetch("/api/hr/employees"),
+        cachedFetch(`/api/hr/attendance?${params.toString()}`),
+        cachedFetch("/api/hr/employees"),
       ]);
       const attJson = await attRes.json();
       const empJson = await empRes.json();
@@ -154,10 +156,28 @@ export default function AttendancePage() {
     setIsModalOpen(true);
   };
 
+  // AI-native: extract the attendance details → open the create modal pre-
+  // filled. The employee is resolved to a real id server-side; the user
+  // reviews and submits.
+  useAiPrefill("attendance", (p) => {
+    const d = p.data || {};
+    const ATT_STATUSES = ["present", "absent", "half-day", "on-leave", "holiday", "week-off"];
+    setModalMode("create");
+    setFormData({
+      employeeId: d.employeeId || "",
+      date: d.date || filterDate,
+      checkIn: d.checkIn || "09:00",
+      checkOut: d.checkOut || "18:00",
+      status: ATT_STATUSES.includes(d.status) ? d.status : "present",
+      leaveType: ["casual", "sick", "earned", "unpaid"].includes(d.leaveType) ? d.leaveType : "",
+    });
+    setIsModalOpen(true);
+  });
+
   const handleDelete = async (id: string) => {
     if (!await confirmDialog({ title: "Delete this attendance record?" })) return;
     try {
-      const res = await fetch(`/api/hr/attendance/${id}`, { method: "DELETE" });
+      const res = await cachedFetch(`/api/hr/attendance/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Record deleted");
         load();
@@ -173,7 +193,7 @@ export default function AttendancePage() {
   const handleLockAttendance = async () => {
     if (!await confirmDialog({ title: `Lock all attendance for ${filterDate}? Locked records cannot be edited.` })) return;
     try {
-      const res = await fetch("/api/hr/attendance/lock", {
+      const res = await cachedFetch("/api/hr/attendance/lock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ startDate: filterDate, endDate: filterDate }),
@@ -207,7 +227,7 @@ export default function AttendancePage() {
         payload.checkOut = new Date(`${formData.date}T${formData.checkOut}:00`).toISOString();
       }
 
-      const res = await fetch("/api/hr/attendance", {
+      const res = await cachedFetch("/api/hr/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

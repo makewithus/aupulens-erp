@@ -36,6 +36,11 @@ export const adminSidebarConfig: SidebarSection[] = [
         href: "/admin/dashboard",
         icon: LayoutDashboard,
       },
+      {
+        title: "AI Assistant",
+        href: "/admin/ai-assistant",
+        icon: Sparkles,
+      },
     ],
   },
   // {
@@ -129,7 +134,7 @@ export const adminSidebarConfig: SidebarSection[] = [
       },
       {
         title: "Calendar",
-        href: "/calendar",
+        href: "/calendar?module=admin",
         icon: CalendarDays,
       },
       {

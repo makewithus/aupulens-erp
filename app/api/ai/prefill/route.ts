@@ -9,6 +9,10 @@ import CrmOpportunity from "@/models/crm/Opportunity";
 import Product from "@/models/Product";
 import Account from "@/models/Account";
 import AccountType from "@/models/AccountType";
+import Shipment from "@/models/Shipment";
+import HSCode from "@/models/HSCode";
+import Employee from "@/models/Employee";
+import Department from "@/models/Department";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -45,10 +49,11 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
   employee: {
     route: "/hr/employees",
     label: "employee",
-    spec: `Fields (JSON keys): firstName (REQUIRED), lastName (REQUIRED), email (REQUIRED), phone (REQUIRED), employeeCode, designation, gender, dateOfJoining, employmentType.
+    spec: `Fields (JSON keys): firstName (REQUIRED), lastName (REQUIRED), email (REQUIRED), phone (REQUIRED), employeeCode, designation, department_name, gender, dateOfJoining, employmentType, basic (number), hra (number), da (number), specialAllowance (number), pf (number), esi (number), professionalTax (number), tds (number).
 - "gender" MUST be one of: male, female, other (lowercase) — or "".
 - "employmentType" MUST be one of: full-time, part-time, contract, intern. Default "full-time".
-- "dateOfJoining" as YYYY-MM-DD.`,
+- "dateOfJoining" as YYYY-MM-DD.
+- The salary-structure fields (basic/hra/da/specialAllowance/pf/esi/professionalTax/tds) are plain numbers (no ₹ or commas) — extract every one that's given, e.g. from a "Salary Structure" table (Basic, HRA, DA, Special Allowance, PF Deduction, ESI, Professional Tax, TDS map directly to these keys).`,
   },
   invoice: {
     route: "/sales/invoices/new",
@@ -73,8 +78,26 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
   case: {
     route: "/crm/cases",
     label: "support case",
-    spec: `Fields (JSON keys): title (REQUIRED), description, category, subcategory, severity, status.
-- "severity" one of: Low, Medium, High (default Low). "status" default "New".`,
+    spec: `Fields (JSON keys): title (REQUIRED), account_name (the customer/company the case is FOR — REQUIRED), description, category, subcategory, severity, status.
+- "category" MUST be exactly one of: Product Issue, Billing, Technical Support, Service Request, Complaint, Account Access, Integration Issue, Other. Default "Other" if unclear.
+- "severity" one of: Low, Medium, High, Critical (default Low). "status" one of: New, Open, In Progress, Waiting on Customer, Waiting on Internal Team, Resolved, Closed, Reopened (default "New").`,
+  },
+  campaign: {
+    route: "/crm/campaigns",
+    label: "marketing campaign",
+    spec: `Fields (JSON keys): campaign_name (REQUIRED), channel, status, budget (number), start_date (REQUIRED), end_date, expected_leads (number), expected_revenue (number).
+- "channel" MUST be exactly one of: Organic Search, Paid Search, Facebook, Instagram, LinkedIn, Referral, Event, Trade Show, Direct Website, WhatsApp, Outbound Calling, Partner Channel. Default "Organic Search" if unclear.
+- "status" MUST be one of: Draft, Planned, Active. Default "Draft".
+- Dates as YYYY-MM-DD. Amounts as plain numbers (no ₹ or commas).`,
+  },
+  task: {
+    route: "/crm/tasks",
+    label: "task",
+    spec: `Fields (JSON keys): title (REQUIRED), category, description, due_date (REQUIRED), priority, status.
+- "category" MUST be exactly one of: Call Back, Send Proposal, Schedule Demo, Follow Up on Quote, Collect Documents, Renew Contract, Resolve Issue, Prepare Meeting, Follow Up, Prepare Quote, Onboarding, Other. Default "Other" if unclear.
+- "priority" MUST be one of: Low, Medium, High, Urgent. Default "Medium".
+- "status" MUST be one of: Pending, In Progress, Completed, Overdue, Cancelled. Default "Pending".
+- "due_date" as YYYY-MM-DD — if only a relative day is given ("tomorrow", "next Monday"), resolve it to an actual date.`,
   },
   project: {
     route: "/projects",
@@ -232,6 +255,101 @@ const TARGETS: Record<string, { route: string; label: string; spec: string }> = 
 - "journalType" MUST be one of: general, sales, purchase, bank, cash. Default "general".
 - "lines" is an ARRAY of postings, at least two, that MUST balance (total debit = total credit): { account_name (the ledger account name — REQUIRED), label (narration for this line), debit (number, 0 if none), credit (number, 0 if none) }.
 - Every line must have EITHER a debit OR a credit (not both). Amounts as plain numbers (no ₹ or commas). "date" as YYYY-MM-DD.`,
+  },
+  bom: {
+    route: "/manufacturing/bom",
+    label: "bill of materials",
+    spec: `Fields (JSON keys): product_name (the finished product this BOM produces — REQUIRED), quantity (number, produced quantity, default 1), reference, bomType, components.
+- "bomType" MUST be one of: mrp, phantom, subcontract. Default "mrp".
+- "components" is an ARRAY of raw materials/parts consumed: { name (component name — REQUIRED), qty (number, default 1) }.
+- Extract EVERY component you can find. Quantities as plain numbers.`,
+  },
+  shipment: {
+    route: "/manufacturing/shipments",
+    label: "shipment",
+    spec: `Fields (JSON keys): customerName, customerEmail, origin, destination, shipmentType, weight (number), volume (number), trackingNumber, freightProvider, estimatedDelivery, currency, notes, items.
+- "shipmentType" MUST be one of: air, sea, road, rail. Default "air".
+- "items" is an ARRAY of shipped goods: { description (REQUIRED), hsCode, quantity (number, default 1), weight (number), value (number) }.
+- Dates as YYYY-MM-DD. Amounts/weights as plain numbers. "currency" defaults to "INR" if not stated.`,
+  },
+  admin_user: {
+    route: "/admin/users",
+    label: "system user",
+    spec: `Fields (JSON keys): name (REQUIRED), email (REQUIRED), phone, password, role, department, designation.
+- "role" MUST be exactly one of: admin, master-admin, finance, hr, sales, inventory, project, manufacturing. Default "finance" if not stated.
+- "department" is the human department name (e.g. "Finance", "Sales & Marketing") if given.
+- "password" only if one is explicitly given — never invent one.`,
+  },
+  department: {
+    route: "/hr/departments",
+    label: "department",
+    spec: `Fields (JSON keys): name (the department name — REQUIRED), code (short code, e.g. "ENG"), description, head_name (the employee who heads this department, if named), costCenter.
+- "code" as a short uppercase string if given.`,
+  },
+  leave_request: {
+    route: "/hr/leave",
+    label: "leave request",
+    spec: `Fields (JSON keys): employee_name (who the leave is for — REQUIRED), leaveType, startDate, endDate, reason.
+- "leaveType" MUST be one of: casual, sick, earned, unpaid. Default "casual".
+- Dates as YYYY-MM-DD.`,
+  },
+  attendance: {
+    route: "/hr/attendance",
+    label: "attendance record",
+    spec: `Fields (JSON keys): employee_name (REQUIRED), date, checkIn, checkOut, status, leaveType.
+- "status" MUST be one of: present, absent, half-day, on-leave, holiday, week-off. Default "present".
+- "leaveType" (only if status is on-leave) one of: casual, sick, earned, unpaid.
+- "date" as YYYY-MM-DD. "checkIn"/"checkOut" as HH:mm (24h).`,
+  },
+  performance_review: {
+    route: "/hr/performance",
+    label: "performance review",
+    spec: `Fields (JSON keys): employee_name (who the review is for — REQUIRED, must already be an existing active employee), rating (number 1-5), reviewPeriod (e.g. "Q3 2026"), goals, achievements, areasOfImprovement, managerComments.
+- "rating" default 3 if not stated. "reviewPeriod" default the current quarter if not stated.`,
+  },
+  payroll_run: {
+    route: "/hr/payroll",
+    label: "payroll run",
+    spec: `Fields (JSON keys): month (number 1-12), year (number), startDate, endDate.
+- Dates as YYYY-MM-DD. If a month/year is named but no explicit period dates, leave startDate/endDate "".`,
+  },
+  hr_exit: {
+    route: "/hr/exit",
+    label: "exit & clearance",
+    spec: `Fields (JSON keys): employee_name (the employee who is exiting — REQUIRED, must already be an existing employee in the system), exitType, fnfStatus, resignationDate, lastWorkingDate, fnfAmount (number), exitReason.
+- "exitType" MUST be one of: resignation, termination, retirement, contract_end. Default "resignation".
+- "fnfStatus" MUST be one of: pending, calculated, approved, settled. Default "pending".
+- Dates as YYYY-MM-DD. "fnfAmount" as a plain number (no ₹ or commas).`,
+  },
+  hs_code: {
+    route: "/manufacturing/hs-codes",
+    label: "HS code",
+    spec: `Fields (JSON keys): hsCode (the harmonised system code, e.g. "8517.62.90" — REQUIRED), category, description, restrictions.
+- "restrictions" is optional — leave "" if none stated.`,
+  },
+  customs_clearance: {
+    route: "/manufacturing/customs-clearance",
+    label: "customs clearance",
+    spec: `Fields (JSON keys): declarationNumber, shipment_reference (the shipment number/ID this clearance is for, e.g. "SHP-2026-00891"), hs_code_value (the HS code this clearance uses, e.g. "8517.62.90"), status, submissionDate, customsOffice, dutyAmount (number), currency.
+- "status" MUST be one of: pending, cleared, under-review, rejected. Default "pending".
+- "dutyAmount" as a plain number (no ₹ or commas). "submissionDate" as YYYY-MM-DD. "currency" defaults to "INR" if not stated.`,
+  },
+  air_freight: {
+    route: "/manufacturing/air-freight",
+    label: "air freight",
+    spec: `Fields (JSON keys): flightNumber, airline, origin, destination, departureTime, arrivalTime, status, cargo (number — cargo weight/quantity), aircraftType, notes.
+- "status" MUST be one of: scheduled, in-transit, delivered, delayed, cancelled. Default "scheduled".
+- "origin"/"destination" are airport cities/codes. "cargo" as a plain number.
+- Dates/times as ISO (YYYY-MM-DDTHH:mm) when a time is given, else YYYY-MM-DD.
+- "notes" is a short, relevant operational note for this air-freight booking (do NOT invent shipment values).`,
+  },
+  manufacturing_item: {
+    route: "/manufacturing/items",
+    label: "manufacturing item",
+    spec: `Fields (JSON keys): name (the item/product name — REQUIRED), type, category, brand, manufacturer, unit, sku, description, sellingPrice (number), costPrice (number).
+- "type" MUST be one of: goods, service. Default "goods".
+- "unit" is the unit of measure (e.g. pcs, kg, box, litre). Default "pcs" if a physical good and none is stated.
+- Amounts as plain numbers (no ₹ or commas).`,
   },
   bank_statement: {
     route: "/finance/accounting/bank-reconciliation",
@@ -422,6 +540,22 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
       }
     }
 
+    // A case needs an Account (required field on the create form) — resolve
+    // the named company to a real id so the Account select is pre-picked.
+    if (target === "case") {
+      const accQ = String(data.account_name || "").trim();
+      if (accQ) {
+        await connectDB();
+        const rx = new RegExp(`^${escapeRegex(accQ)}$`, "i");
+        const acc: any = await CrmAccount.findOne({ tenantId, company_name: rx }, "_id").lean();
+        if (acc) data.account_id = String(acc._id);
+        else {
+          missingDependency = { type: "account", name: accQ };
+          suggestions.unshift(`No account named "${accQ}" exists yet — create it (CRM → Accounts) or pick a different account, then select it here.`);
+        }
+      }
+    }
+
     // ── Inventory operations: resolve partner + product names to real ids so
     // the form's partner select and product line-items are actually populated
     // (not just review hints). Unresolved names are kept with an empty id + a
@@ -570,6 +704,106 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
           missingDependency = { type: "vendor", name: nameQ };
           suggestions.unshift(`No vendor named "${nameQ}" exists yet — pick or create the vendor in the form before posting.`);
         }
+      }
+    }
+
+    // Shared employee-name resolver for the HR targets below: tries an exact
+    // firstName+lastName split first, then falls back to a loose match on
+    // either field (handles single-word or reordered names).
+    const resolveEmployeeId = async (fullName: string): Promise<string | null> => {
+      const name = String(fullName || "").trim();
+      if (!name) return null;
+      await connectDB();
+      const parts = name.split(/\s+/);
+      if (parts.length >= 2) {
+        const rxF = new RegExp(`^${escapeRegex(parts[0])}$`, "i");
+        const rxL = new RegExp(`^${escapeRegex(parts.slice(1).join(" "))}$`, "i");
+        const emp: any = await Employee.findOne({ tenantId, firstName: rxF, lastName: rxL }, "_id").lean();
+        if (emp) return String(emp._id);
+      }
+      const rx = new RegExp(escapeRegex(name), "i");
+      const emp2: any = await Employee.findOne({ tenantId, $or: [{ firstName: rx }, { lastName: rx }] }, "_id").lean();
+      return emp2 ? String(emp2._id) : null;
+    };
+
+    if (target === "department") {
+      const headQ = String(data.head_name || "").trim();
+      if (headQ) {
+        const id = await resolveEmployeeId(headQ);
+        if (id) data.headOfDepartment = id;
+        else suggestions.unshift(`No employee named "${headQ}" was found — pick the department head in the form.`);
+      }
+    }
+
+    // A new employee's department (given by name) resolves to a real id so
+    // the Department select is pre-picked.
+    if (target === "employee") {
+      const deptQ = String(data.department_name || "").trim();
+      if (deptQ) {
+        await connectDB();
+        const rx = new RegExp(`^${escapeRegex(deptQ)}$`, "i");
+        const dept: any = await Department.findOne({ tenantId, name: rx }, "_id").lean();
+        if (dept) data.departmentId = String(dept._id);
+        else suggestions.unshift(`No department named "${deptQ}" was found — pick it in the form.`);
+      }
+    }
+
+    if (target === "leave_request" || target === "attendance" || target === "hr_exit" || target === "performance_review") {
+      const nameQ = String(data.employee_name || "").trim();
+      if (nameQ) {
+        const id = await resolveEmployeeId(nameQ);
+        if (id) data.employeeId = id;
+        else {
+          missingDependency = { type: "employee", name: nameQ };
+          suggestions.unshift(`No employee named "${nameQ}" was found — they must already exist in the system before you can proceed.`);
+        }
+      }
+    }
+
+    // Customs clearance links to a Shipment + HS Code — resolve both by their
+    // human-readable reference to real ids so the selects are pre-picked.
+    if (target === "customs_clearance") {
+      await connectDB();
+      const shipQ = String(data.shipment_reference || "").trim();
+      if (shipQ) {
+        const rx = new RegExp(escapeRegex(shipQ), "i");
+        const ship: any = await Shipment.findOne({ tenantId, shipmentNumber: rx }, "_id").lean();
+        if (ship) data.shipmentId = String(ship._id);
+        else suggestions.unshift(`No shipment matching "${shipQ}" was found — pick it in the form.`);
+      }
+      const hsQ = String(data.hs_code_value || "").trim();
+      if (hsQ) {
+        const hs: any = await HSCode.findOne({ tenantId, hsCode: hsQ }, "_id").lean();
+        if (hs) data.hsCodeId = String(hs._id);
+        else suggestions.unshift(`HS code "${hsQ}" isn't in the system yet — create it first (or pick another) in the form.`);
+      }
+    }
+
+    // A BOM needs the finished product + each component resolved to real product
+    // ids (BOM uses the sales Product catalogue, header.name), so the selects and
+    // component lines are populated. Unmatched names are flagged.
+    if (target === "bom") {
+      await connectDB();
+      const prodQ = String(data.product_name || "").trim();
+      if (prodQ) {
+        const rx = new RegExp(`^${escapeRegex(prodQ)}$`, "i");
+        const prod: any = await Product.findOne({ tenantId, "header.name": rx }, "_id").lean();
+        if (prod) data.productId = String(prod._id);
+        else suggestions.unshift(`Product "${prodQ}" not found — pick or create it as the finished product.`);
+      }
+      if (Array.isArray(data.components) && data.components.length) {
+        const missing: string[] = [];
+        const resolved: any[] = [];
+        for (const c of data.components) {
+          const name = String(c?.name || "").trim();
+          if (!name) continue;
+          const rx = new RegExp(`^${escapeRegex(name)}$`, "i");
+          const prod: any = await Product.findOne({ tenantId, "header.name": rx }, "_id").lean();
+          if (!prod) missing.push(name);
+          resolved.push({ productId: prod ? String(prod._id) : "", name, quantity: Number(c?.qty) > 0 ? Number(c.qty) : 1 });
+        }
+        data.components = resolved;
+        if (missing.length) suggestions.push(`Components not in the catalogue yet (pick/create): ${[...new Set(missing)].join(", ")}.`);
       }
     }
 

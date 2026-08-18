@@ -121,7 +121,7 @@ export const salesSidebarConfig: SidebarSection[] = [
       },
       {
         title: "Calendar",
-        href: "/calendar",
+        href: "/calendar?module=sales",
         icon: CalendarDays,
       },
     ],

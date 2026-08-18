@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
+import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
 import {
   DatabaseZap,
@@ -86,6 +90,7 @@ interface JobDetail extends JobSummary {
 }
 
 export default function MigrationPage() {
+  const { data: session, status } = useSession();
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<JobDetail | null>(null);
@@ -221,8 +226,21 @@ export default function MigrationPage() {
   const requiredUnmapped =
     selected?.targetFields.filter((f) => f.required && !selected.mapping[f.key]) ?? [];
 
+  if (status === "loading") return <AuthSplash />;
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <DashboardLayout
+      sidebarSections={adminSidebarConfig}
+      dashboardTitle="Admin"
+      pageName="Data Migration"
+      breadcrumbs={[{ label: "Admin", href: "/admin/dashboard" }, { label: "Data Migration" }]}
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={(session?.user as any)?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
+      onRefresh={loadJobs}
+    >
+    <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <DatabaseZap className="h-6 w-6 text-emerald-500" /> Data Migration
@@ -411,6 +429,7 @@ export default function MigrationPage() {
         </div>
       </div>
     </div>
+    </DashboardLayout>
   );
 }
 
