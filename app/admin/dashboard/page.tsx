@@ -17,7 +17,7 @@ import { DashboardStats } from "@/components/admin/DashboardStats";
 import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
-import { BusinessHealthCard } from "@/components/dashboard/BusinessHealthCard";
+import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
 
 interface DashboardSummary {
   finance: {
@@ -161,6 +161,9 @@ export default function AdminDashboard() {
           <div className="space-y-1">
             <Skeleton className="h-[48px] w-[300px] md:h-[56px] md:w-[450px]" />
           </div>
+
+          {/* AI Business Health Skeleton */}
+          <BusinessHealthCardSkeleton />
 
           {/* Stats Cards Skeleton (6 items) */}
           <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
