@@ -2,6 +2,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Theme toggle: freeze every element's own transition-duration while the
+   class flip is in flight so nothing repaints a beat after everything else,
+   and give the View Transitions cross-fade (see ThemeProvider.tsx) a single
+   short, uniform duration for the whole page. */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 150ms;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -3,7 +3,24 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/SaleOrder";
-import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import SalesQuotation from "@/models/SalesQuotation";
+import { SalesInvoice } from "@/models/SalesInvoice";
+import { DOCUMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+
+// A SaleOrder row is a real, confirmed order regardless of which UI created
+// it — see the matching comment in app/api/sales/summary/route.ts. Filtering
+// only on the legacy `status` field (as this route previously did) misses
+// every order created via the modern /sales/sales-orders flow, since that
+// flow never touches `status` and leaves it at its unset schema default.
+const REAL_ORDER_MATCH = {
+  $or: [
+    { salesOrderStatus: { $ne: null } },
+    { status: { $in: [DOCUMENT_STATUS.APPROVED, DOCUMENT_STATUS.POSTED, DOCUMENT_STATUS.CLOSED] } },
+    // See the matching comment in app/api/sales/summary/route.ts — a few
+    // older rows still carry pre-migration Odoo state values.
+    { status: { $in: ["sale", "done"] } },
+  ],
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,40 +40,21 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type") || "orders_trend";
     const dateRange = Number(searchParams.get("dateRange") || "30");
 
-    // Aggregation boundaries
     const days = Math.min(Math.max(dateRange, 7), 365);
 
-    // UTC based calculation
     const from = new Date();
     from.setUTCDate(from.getUTCDate() - days);
     from.setUTCHours(0, 0, 0, 0);
 
-    // Fetch Orders (status: sale, done)
-    const orders = await SaleOrder.find({
-      tenantId,
-      status: { $in: [DOCUMENT_STATUS.POSTED, DOCUMENT_STATUS.CLOSED] },
-      createdAt: { $gte: from },
-    }).lean();
-
-    // Fetch Quotations (status: draft, sent)
-    const quotations = await SaleOrder.find({
-      tenantId,
-      status: { $in: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.PENDING_APPROVAL] },
-      createdAt: { $gte: from },
-    }).lean();
-
-    // Debug info gathering
-    const distinctStatuses = await SaleOrder.distinct("status", { tenantId });
-    const totalDocs = await SaleOrder.countDocuments({ tenantId });
-    const debugInfo = {
-      from: from.toISOString(),
-      totalDocsInDB: totalDocs,
-      statusesFound: distinctStatuses,
-      fetchedOrders: orders.length,
-      fetchedQuotes: quotations.length,
-      sampleDoc: orders[0] || quotations[0],
-      serverTime: new Date().toISOString(),
-    };
+    // Real confirmed orders (both the legacy Odoo-style and modern
+    // Zoho-style creation flows), real quotations, and real invoiced
+    // revenue (excluding cancelled) — the three sources the AI Assistant
+    // and RAG layer already read correctly (see docs/_context/MEMORY.md).
+    const [orders, quotations, invoices] = await Promise.all([
+      SaleOrder.find({ tenantId, createdAt: { $gte: from }, ...REAL_ORDER_MATCH }).lean(),
+      SalesQuotation.find({ tenantId, createdAt: { $gte: from } }).select("status createdAt").lean(),
+      (SalesInvoice as any).find({ tenantId, createdAt: { $gte: from }, status: { $ne: SALES_INVOICE_STATUS.CANCELLED } }).select("totalAmount createdAt").lean(),
+    ]);
 
     if (type === "product_performance") {
       const productStats: Record<
@@ -80,23 +78,26 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10);
 
-      return NextResponse.json({ data, debug: debugInfo });
+      return NextResponse.json({ data });
     }
 
     if (type.includes("status_breakdown")) {
-      const all = [...orders, ...quotations];
-      const statusCounts = all.reduce((acc: Record<string, number>, o: any) => {
-        acc[o.status] = (acc[o.status] || 0) + 1;
-        return acc;
-      }, {});
+      const statusCounts: Record<string, number> = {};
+      orders.forEach((o: any) => {
+        const status = o.salesOrderStatus || o.status;
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+      quotations.forEach((q: any) => {
+        statusCounts[q.status] = (statusCounts[q.status] || 0) + 1;
+      });
       const pie = Object.entries(statusCounts).map(([name, value]) => ({
         name,
         value,
       }));
-      return NextResponse.json({ data: pie, debug: debugInfo });
+      return NextResponse.json({ data: pie });
     }
 
-    // Default Trend Analysis (orders_trend, revenue_trend, etc.)
+    // Default Trend Analysis (orders_trend, revenue_trend, quotation_to_order)
     const byDate: Record<
       string,
       { orders: number; revenue: number; quotations: number }
@@ -110,29 +111,27 @@ export async function GET(req: NextRequest) {
 
     orders.forEach((o: any) => {
       if (!o.createdAt) return;
-      try {
-        const key = new Date(o.createdAt).toISOString().slice(0, 10);
-        if (byDate[key]) {
-          byDate[key].orders += 1;
-          const revenue = o.totals?.amountTotal || 0;
-          byDate[key].revenue += revenue;
-        }
-      } catch (e) {}
+      const key = new Date(o.createdAt).toISOString().slice(0, 10);
+      if (byDate[key]) byDate[key].orders += 1;
+    });
+
+    invoices.forEach((inv: any) => {
+      if (!inv.createdAt) return;
+      const key = new Date(inv.createdAt).toISOString().slice(0, 10);
+      if (byDate[key]) byDate[key].revenue += inv.totalAmount || 0;
     });
 
     quotations.forEach((q: any) => {
       if (!q.createdAt) return;
-      try {
-        const key = new Date(q.createdAt).toISOString().slice(0, 10);
-        if (byDate[key]) byDate[key].quotations += 1;
-      } catch (e) {}
+      const key = new Date(q.createdAt).toISOString().slice(0, 10);
+      if (byDate[key]) byDate[key].quotations += 1;
     });
 
     const data = Object.entries(byDate)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
 
-    return NextResponse.json({ data, debug: debugInfo });
+    return NextResponse.json({ data });
   } catch (error) {
     console.error("Error in sales visualization API:", error);
     return NextResponse.json(

@@ -43,9 +43,18 @@ export async function getCalendarEvents(
   const events: UnifiedEvent[] = [];
   const tasks: Promise<void>[] = [];
 
+  // Every query below is sorted by its own date field before the limit is
+  // applied — a plain Mongoose .find() with no .sort() returns documents in
+  // arbitrary/insertion order, so hitting the cap used to silently drop a
+  // random-looking slice of the range (e.g. everything after a certain
+  // creation-order cutoff) instead of a predictable one. The limits
+  // themselves are generous enough that legitimate tenants shouldn't hit
+  // them for a single year's view; the sort just makes the (rare) worst
+  // case honest instead of confusing.
+
   // User-created calendar events — visible to everyone in the tenant.
   tasks.push(
-    CalendarEvent.find({ tenantId, start: { $gte: from, $lte: to } }).limit(500).lean().then((rows: any[]) => {
+    CalendarEvent.find({ tenantId, start: { $gte: from, $lte: to } }).sort({ start: 1 }).limit(5000).lean().then((rows: any[]) => {
       for (const e of rows) events.push({ id: String(e._id), source: "calendar", type: e.type, title: e.title, start: iso(e.start), end: e.end ? iso(e.end) : undefined, allDay: !!e.allDay, url: "/calendar", meta: {} });
     }),
   );
@@ -53,7 +62,7 @@ export async function getCalendarEvents(
   // CRM tasks (sales role or admin).
   if (can("sales")) {
     tasks.push(
-      CrmTask.find({ tenantId, due_date: { $gte: from, $lte: to } }).select("title status due_date priority").limit(500).lean().then((rows: any[]) => {
+      CrmTask.find({ tenantId, due_date: { $gte: from, $lte: to } }).select("title status due_date priority").sort({ due_date: 1 }).limit(20000).lean().then((rows: any[]) => {
         for (const t of rows) events.push({ id: String(t._id), source: "task", type: "task", title: t.title, start: iso(t.due_date), allDay: true, url: "/crm/tasks", meta: { status: t.status, priority: t.priority } });
       }),
     );
@@ -62,13 +71,13 @@ export async function getCalendarEvents(
   // HR: leave (as ranges) + attendance anomalies + payroll periods.
   if (can("hr")) {
     tasks.push(
-      LeaveRequest.find({ tenantId, status: { $in: ["approved", "pending"] }, startDate: { $lte: to }, endDate: { $gte: from } }).select("leaveType status startDate endDate employeeId").limit(500).lean().then((rows: any[]) => {
+      LeaveRequest.find({ tenantId, status: { $in: ["approved", "pending"] }, startDate: { $lte: to }, endDate: { $gte: from } }).select("leaveType status startDate endDate employeeId").sort({ startDate: 1 }).limit(5000).lean().then((rows: any[]) => {
         for (const l of rows) events.push({ id: String(l._id), source: "leave", type: `leave:${l.leaveType}`, title: `${l.status === "pending" ? "Leave (pending)" : "Leave"} — ${l.leaveType}`, start: iso(l.startDate), end: iso(l.endDate), allDay: true, url: "/hr/leaves", meta: { employeeId: String(l.employeeId), status: l.status } });
       }),
-      Attendance.find({ tenantId, status: { $in: ["absent", "on-leave"] }, date: { $gte: from, $lte: to } }).select("status date employeeId").limit(500).lean().then((rows: any[]) => {
+      Attendance.find({ tenantId, status: { $in: ["absent", "on-leave"] }, date: { $gte: from, $lte: to } }).select("status date employeeId").sort({ date: 1 }).limit(10000).lean().then((rows: any[]) => {
         for (const a of rows) events.push({ id: String(a._id), source: "attendance", type: `attendance:${a.status}`, title: a.status === "absent" ? "Absent" : "On leave", start: iso(a.date), allDay: true, url: "/hr/attendance", meta: { employeeId: String(a.employeeId) } });
       }),
-      Payroll.find({ tenantId, "payPeriod.endDate": { $gte: from }, "payPeriod.startDate": { $lte: to } }).select("payPeriod month").limit(200).lean().then((rows: any[]) => {
+      Payroll.find({ tenantId, "payPeriod.endDate": { $gte: from }, "payPeriod.startDate": { $lte: to } }).select("payPeriod month").sort({ "payPeriod.startDate": 1 }).limit(2000).lean().then((rows: any[]) => {
         for (const p of rows) if (p.payPeriod?.startDate) events.push({ id: String(p._id), source: "payroll", type: "payroll", title: "Payroll period", start: iso(p.payPeriod.startDate), end: p.payPeriod.endDate ? iso(p.payPeriod.endDate) : undefined, allDay: true, url: "/hr/payroll", meta: {} });
       }),
     );
@@ -77,7 +86,7 @@ export async function getCalendarEvents(
   // Finance: payments due/received.
   if (can("finance")) {
     tasks.push(
-      Payment.find({ tenantId, paymentDate: { $gte: from, $lte: to } }).select("amount paymentDate reference customerId").limit(500).lean().then((rows: any[]) => {
+      Payment.find({ tenantId, paymentDate: { $gte: from, $lte: to } }).select("amount paymentDate reference customerId").sort({ paymentDate: 1 }).limit(5000).lean().then((rows: any[]) => {
         for (const p of rows) events.push({ id: String(p._id), source: "payment", type: "payment", title: `Payment ${p.reference || ""} — ${p.amount ?? ""}`.trim(), start: iso(p.paymentDate), allDay: true, url: "/finance/payments", meta: { amount: p.amount } });
       }),
     );

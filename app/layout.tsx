@@ -40,7 +40,17 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Sets the theme class synchronously before first paint/hydration —
+            avoids the flash-of-wrong-theme and the ThemeProvider mount-effect
+            delay that made theme switches look laggy. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('theme-storage');var t=s?JSON.parse(s).state.theme:'dark';document.documentElement.classList.add(t==='light'?'light':'dark');}catch(e){document.documentElement.classList.add('dark');}})();`,
+          }}
+        />
+      </head>
       <body className={`${roboto.variable} ${robotoMono.variable} font-mono antialiased`}>
         <SessionProvider session={session}>
           <ThemeProvider>

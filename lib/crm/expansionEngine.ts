@@ -227,7 +227,7 @@ export async function getExpansionSummary(accountId: string, tenantId: string) {
   const expansionOpps = await CrmOpportunity.find({
     account_id: accountId,
     tenantId,
-    deal_name: { $regex: /^(Upsell|Cross-Sell|Service Upgrade|Tier Upgrade):/, $options: "i" },
+    tags: { $in: ["Upsell", "Cross-Sell", "Service Upgrade", "Tier Upgrade"] },
     stage: { $nin: ["Closed Won", "Closed Lost"] },
   })
     .select("deal_name amount stage probability")

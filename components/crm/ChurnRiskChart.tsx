@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 
 export function ChurnRiskChart() {
@@ -8,19 +9,35 @@ export function ChurnRiskChart() {
   const isDark = theme === "dark";
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [centerVal, setCenterVal] = useState("10.6K");
+  const [loading, setLoading] = useState(true);
+  const [cohorts, setCohorts] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [centerVal, setCenterVal] = useState("0");
+  const [defaultCenterVal, setDefaultCenterVal] = useState("0");
   const [hoveredIdx, setHoveredIdx] = useState(-1);
 
-  const cohorts = [
-    { name: "Highly Engaged", value: 4230, color: "#22c55e" },
-    { name: "Stable Accounts", value: 2310, color: "#6366f1" },
-    { name: "Low Churn Risk", value: 1540, color: "#facc15" },
-    { name: "Underboarded/New", value: 1200, color: "#3b82f6" },
-    { name: "Medium Churn Risk", value: 890, color: "#f59e0b" },
-    { name: "High Churn Risk", value: 450, color: "#e11d48" }
-  ];
+  useEffect(() => {
+    fetch("/api/crm/churn")
+      .then((res) => res.json())
+      .then((d) => {
+        if (d.success) {
+          const s = d.data;
+          const built = [
+            { name: "Low Risk", value: s.low || 0, color: "#22c55e" },
+            { name: "Medium Risk", value: s.medium || 0, color: "#facc15" },
+            { name: "High Risk", value: s.high || 0, color: "#f59e0b" },
+            { name: "Critical Risk", value: s.critical || 0, color: "#e11d48" },
+          ];
+          setCohorts(built);
+          const totalAccounts = built.reduce((sum, c) => sum + c.value, 0);
+          setCenterVal(String(totalAccounts));
+          setDefaultCenterVal(String(totalAccounts));
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
-  const total = cohorts.reduce((s, c) => s + c.value, 0);
+  const total = cohorts.reduce((s, c) => s + c.value, 0) || 1;
 
   // Maintain refs for drawing to bypass state closure issues in animation frames
   const drawRef = useRef<(hIdx: number, progress: number) => void>(() => {});
@@ -69,47 +86,25 @@ export function ChurnRiskChart() {
         const sliceAngle = (c.value / total) * Math.PI * 2 * ap;
         const endAngle = startAngle + sliceAngle;
         const isHovered = hIdx === i;
-        const r = isHovered ? outerR + 8 : outerR;
-        const ir = isHovered ? innerR - 4 : innerR;
-
-        // Shadow for hovered
-        if (isHovered) {
-          ctx.save();
-          ctx.shadowColor = c.color;
-          ctx.shadowBlur = 20;
-        }
+        const r = isHovered ? outerR + 4 : outerR;
 
         ctx.beginPath();
         ctx.arc(cx, cy, r, startAngle, endAngle);
-        ctx.arc(cx, cy, ir, endAngle, startAngle, true);
+        ctx.arc(cx, cy, innerR, endAngle, startAngle, true);
         ctx.closePath();
 
-        // Gradient fill
-        const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR + 10);
-        grad.addColorStop(0, hexToRgba(c.color, 0.8));
-        grad.addColorStop(1, c.color);
-        ctx.fillStyle = isHovered ? c.color : grad;
+        // Flat fill — no glow/radial gradient, matches the minimal palette
+        // used across the Reports page's line charts.
+        ctx.fillStyle = isHovered ? c.color : hexToRgba(c.color, 0.85);
         ctx.fill();
 
-        // Subtle border between slices
-        ctx.strokeStyle = isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)";
-        ctx.lineWidth = 1.5;
+        // Thin separator between slices
+        ctx.strokeStyle = isDark ? "#0a0a0a" : "#ffffff";
+        ctx.lineWidth = 2;
         ctx.stroke();
-
-        if (isHovered) ctx.restore();
 
         startAngle = endAngle;
       });
-
-      // Inner glow ring
-      const innerGrad = ctx.createRadialGradient(cx, cy, innerR - 10, cx, cy, innerR + 2);
-      innerGrad.addColorStop(0, "transparent");
-      innerGrad.addColorStop(0.7, isDark ? "rgba(167, 139, 250, 0.05)" : "rgba(167, 139, 250, 0.02)");
-      innerGrad.addColorStop(1, "transparent");
-      ctx.beginPath();
-      ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
-      ctx.fillStyle = innerGrad;
-      ctx.fill();
     }
 
     drawRef.current = drawDonut;
@@ -133,7 +128,7 @@ export function ChurnRiskChart() {
       if (dist < innerR || dist > outerR + 10) {
         if (hoveredIdxRef.current !== -1) {
           setHoveredIdx(-1);
-          setCenterVal("10.6K");
+          setCenterVal(defaultCenterVal);
           drawDonut(-1, 1);
         }
         return;
@@ -157,7 +152,7 @@ export function ChurnRiskChart() {
         if (found >= 0) {
           setCenterVal(cohorts[found].value.toString());
         } else {
-          setCenterVal("10.6K");
+          setCenterVal(defaultCenterVal);
         }
         drawDonut(found, 1);
       }
@@ -165,7 +160,7 @@ export function ChurnRiskChart() {
 
     const handleMouseLeave = () => {
       setHoveredIdx(-1);
-      setCenterVal("10.6K");
+      setCenterVal(defaultCenterVal);
       drawDonut(-1, 1);
     };
 
@@ -179,7 +174,7 @@ export function ChurnRiskChart() {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, [isDark]);
+  }, [isDark, cohorts, defaultCenterVal]);
 
   return (
     <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col border ${
@@ -193,6 +188,11 @@ export function ChurnRiskChart() {
         </div>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center flex-1 min-h-[340px] gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading churn data…</div>
+      ) : total <= 1 && cohorts.every((c) => c.value === 0) ? (
+        <div className="flex items-center justify-center flex-1 min-h-[340px] text-sm text-muted-foreground">No accounts scored for churn risk yet.</div>
+      ) : (
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 flex-1 min-h-[340px]">
         {/* Canvas container with absolute-centered value */}
         <div className="relative w-[340px] h-[340px] flex-shrink-0 mx-auto">
@@ -231,7 +231,7 @@ export function ChurnRiskChart() {
                 }}
                 onMouseLeave={() => {
                   setHoveredIdx(-1);
-                  setCenterVal("10.6K");
+                  setCenterVal(defaultCenterVal);
                   drawRef.current(-1, 1);
                 }}
               >
@@ -248,6 +248,7 @@ export function ChurnRiskChart() {
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }

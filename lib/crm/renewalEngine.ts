@@ -136,7 +136,15 @@ export async function runRenewalEngine(tenantId: string): Promise<RenewalEngineR
 
     // ── Expired ───────────────────────────────────────────────
     if (days <= 0 && contract.status !== "Expired" && contract.status !== "Renewed") {
-      await CrmContract.findByIdAndUpdate(contract._id, { status: "Expired" });
+      // A renewal that was actively "In Discussion" but never closed before
+      // the contract lapsed is a lost renewal — nothing else in the app
+      // ever resolved this, which left renewal_status stuck at
+      // "In Discussion" forever and made the renewal-success-rate metric
+      // permanently 0/0. Contracts still at "Not Started" are left alone —
+      // that's a distinct "nobody ever engaged" signal the Action Required
+      // widget (expiredActive) depends on, not a resolved win/loss.
+      const renewalOutcome = contract.renewal_status === "In Discussion" ? "Lost" : contract.renewal_status;
+      await CrmContract.findByIdAndUpdate(contract._id, { status: "Expired", renewal_status: renewalOutcome });
       await CrmAuditLog.create({
         tenantId,
         user_id: systemUserId || ownerId,

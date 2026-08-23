@@ -229,21 +229,18 @@ export default function SalesSummaryPage() {
               <SalesVisualization
                 title="Sales Performance Overview"
                 availableDataTypes={[
-                  {
-                    value: "orders_vs_quotations",
-                    label: "Orders vs Quotations",
-                  },
+                  { value: "orders_trend", label: "Orders Trend" },
                   { value: "revenue_trend", label: "Revenue Trend" },
                   {
-                    value: "product_performance",
-                    label: "Product Performance",
+                    value: "quotation_to_order",
+                    label: "Orders vs Quotations",
                   },
                   {
                     value: "status_breakdown",
                     label: "Order Status Breakdown",
                   },
                 ]}
-                defaultDataType="orders_vs_quotations"
+                defaultDataType="orders_trend"
               />
             </div>
           </Card>

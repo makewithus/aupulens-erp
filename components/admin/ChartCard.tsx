@@ -20,19 +20,20 @@ export function ChartCard({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-0 shadow-none",
+        "overflow-hidden rounded-lg border border-border/40 shadow-none font-mono",
         className
       )}
     >
-      {/* Header */}
-      <div className="border-b border-border/40 px-8 py-6">
-        <div className="space-y-1">
-          <h2 className="text-[22px] font-medium tracking-[-0.04em] text-foreground">
+      {/* Header — matches the CRM Reports chart cards: uppercase title,
+          small muted subtitle, monospace throughout. */}
+      <div className="px-6 pt-6">
+        <div className="space-y-0.5">
+          <h2 className="text-lg font-normal uppercase text-foreground">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground/60">
               {subtitle}
             </p>
           )}
@@ -40,7 +41,7 @@ export function ChartCard({
       </div>
 
       {/* Chart */}
-      <CardContent className="p-8">
+      <CardContent className="p-6 pt-2">
         {children}
       </CardContent>
     </Card>

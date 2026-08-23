@@ -234,6 +234,10 @@ export interface ChurnRiskSummary {
   high: number;
   critical: number;
   criticalAccounts: Array<{ _id: string; company_name: string; score: number; reasons: string[] }>;
+  /** Every scanned account's live risk level, keyed by account _id — lets
+   * other engines (e.g. expansion forecasting) reuse this same computation
+   * instead of relying on the stale, rarely-written Contract.churn_risk field. */
+  byAccount: Record<string, { level: string; score: number }>;
 }
 
 export async function scanTenantChurnRisk(
@@ -282,6 +286,7 @@ export async function scanTenantChurnRisk(
     high: 0,
     critical: 0,
     criticalAccounts: [],
+    byAccount: {},
   };
 
   const nowTime = Date.now();
@@ -318,9 +323,10 @@ export async function scanTenantChurnRisk(
       daysSinceLastActivity,
     });
 
-    const lvl = level.toLowerCase() as keyof Omit<ChurnRiskSummary, "criticalAccounts">;
+    const lvl = level.toLowerCase() as "low" | "medium" | "high" | "critical";
     summary[lvl]++;
-    
+    summary.byAccount[acctId] = { level, score };
+
     if (level === "Critical" || level === "High") {
       summary.criticalAccounts.push({
         _id: acctId,

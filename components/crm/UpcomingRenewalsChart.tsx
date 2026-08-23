@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
+
+interface RenewalSummary {
+  expiring7: number;
+  expiring30: number;
+  expiring60: number;
+  expiring90: number;
+  expiredActive: number;
+  renewalPipelineValue90Days: number;
+}
 
 export function UpcomingRenewalsChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme === "dark";
+
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<RenewalSummary | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -14,67 +27,38 @@ export function UpcomingRenewalsChart() {
   const tooltipValueRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    fetch("/api/crm/renewals")
+      .then((res) => res.json())
+      .then((d) => { if (d.success) setSummary(d.data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const bars = summary ? [
+    { label: "Within 7 days", value: summary.expiring7, color: "#e11d48" },
+    { label: "Within 30 days", value: summary.expiring30, color: "#f59e0b" },
+    { label: "Within 60 days", value: summary.expiring60, color: "#facc15" },
+    { label: "Within 90 days", value: summary.expiring90, color: "#a78bfa" },
+    { label: "Expired, not renewed", value: summary.expiredActive, color: "#757575" },
+  ] : [];
+
+  const hasData = bars.some((b) => b.value > 0);
+  const drawRef = useRef<(idx?: number) => void>(() => {});
+
+  useEffect(() => {
+    if (loading || !hasData) return;
     const canvas = canvasRef.current;
     const container = containerRef.current;
     const tooltip = tooltipRef.current;
     const tooltipDate = tooltipDateRef.current;
     const tooltipValue = tooltipValueRef.current;
-
     if (!canvas || !container || !tooltip || !tooltipDate || !tooltipValue) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // ── Seeded RNG ──
-    let seed = 1337;
-    function rng() {
-      seed = (seed * 16807 + 0) % 2147483647;
-      return (seed - 1) / 2147483646;
-    }
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    function fmtDate(d: Date) {
-      return months[d.getMonth()] + " '" + String(d.getFullYear()).slice(2);
-    }
-    function fmtFullDate(d: Date) {
-      return months[d.getMonth()] + " " + d.getFullYear();
-    }
-    function fmtLakhs(v: number) {
-      if (v >= 100000) return "₹" + (v / 100000).toFixed(1) + "L";
-      if (v >= 1000) return "₹" + (v / 1000).toFixed(0) + "K";
-      return "₹" + v.toString();
-    }
-
-    // ── Renewals cumulative data (growing from ~0 to ~₹30,000) ──
-    const oftStart = new Date(2022, 5, 1);
-    const oftMonths = 48;
-    const oftData: Array<{ date: Date; value: number }> = [];
-    let oftCum = 0;
-    for (let m = 0; m < oftMonths; m++) {
-      const date = new Date(oftStart);
-      date.setMonth(date.getMonth() + m);
-      const t = m / oftMonths;
-      // Slower S-curve with a visible inflection
-      let growth = 20 + Math.floor(120 * Math.pow(t, 2.2) * (0.6 + rng() * 0.8));
-      // Spike around month 6-8 (Dec 2022)
-      if (m >= 6 && m <= 8) {
-        growth += Math.floor(80 * (1 - Math.abs(m - 7) / 2) * rng());
-      }
-      oftCum += growth;
-      oftData.push({ date, value: oftCum });
-    }
-    // Scale to ₹30 Lakhs
-    const targetRenewals = 3000000;
-    const oftScale = targetRenewals / oftCum;
-    oftData.forEach((d) => (d.value = Math.round(d.value * oftScale)));
-
-    const maxVal = Math.max(...oftData.map((d) => d.value));
-    const yMax = Math.ceil(maxVal / 500000) * 500000;
-    const yTicks: number[] = [];
-    for (let v = 0; v <= yMax; v += 500000) yTicks.push(v);
-
-    const PAD = { top: 16, right: 60, bottom: 40, left: 10 };
-    const color = "#a78bfa"; // Soft purple
+    const n = bars.length;
+    const maxVal = Math.max(...bars.map((b) => b.value), 1);
+    const PAD = { top: 20, right: 20, bottom: 40, left: 10 };
 
     function resize() {
       if (!canvas || !container) return;
@@ -95,137 +79,59 @@ export function UpcomingRenewalsChart() {
       const H = canvas.height / dpr;
       ctx.clearRect(0, 0, W, H);
 
-      const cL = PAD.left,
-        cR = W - PAD.right,
-        cT = PAD.top,
-        cB = H - PAD.bottom;
-      const cW = cR - cL,
-        cH = cB - cT;
+      const cL = PAD.left, cR = W - PAD.right, cT = PAD.top, cB = H - PAD.bottom;
+      const cW = cR - cL, cH = cB - cT;
+      const slot = cW / n;
+      const barW = slot * 0.5;
 
-      // Grid lines + Y labels
       ctx.font = '10px "Roboto Mono", monospace';
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      yTicks.forEach((v) => {
-        const y = cB - (v / yMax) * cH;
-        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cL, y);
-        ctx.lineTo(cR, y);
-        ctx.stroke();
-        ctx.fillStyle = isDark ? "#757575" : "#666";
-        ctx.fillText(fmtLakhs(v), cR + 45, y);
-      });
-
-      // X labels
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      const xStep = Math.max(1, Math.floor(oftData.length / 8));
-      for (let i = 0; i < oftData.length; i += xStep) {
-        const x = cL + (i / (oftData.length - 1)) * cW;
+
+      bars.forEach((b, i) => {
+        const x = cL + slot * i + slot / 2;
+        const barH = (b.value / maxVal) * cH;
+        const y = cB - barH;
+        const isHighlight = highlightIdx === i;
+
+        ctx.fillStyle = isHighlight ? b.color : b.color + "cc";
+        ctx.fillRect(x - barW / 2, y, barW, barH);
+
+        ctx.fillStyle = isDark ? "#e5e5e5" : "#171717";
+        ctx.font = '11px "Roboto Mono", monospace';
+        ctx.fillText(String(b.value), x, y - 16);
+
         ctx.fillStyle = isDark ? "#757575" : "#666";
-        ctx.fillText(fmtDate(oftData[i].date), x, cB + 10);
-      }
-
-      // Area fill path
-      ctx.beginPath();
-      for (let i = 0; i < oftData.length; i++) {
-        const x = cL + (i / (oftData.length - 1)) * cW;
-        const y = cB - (oftData[i].value / yMax) * cH;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Fill under
-      ctx.lineTo(cR, cB);
-      ctx.lineTo(cL, cB);
-      ctx.closePath();
-      const grad = ctx.createLinearGradient(0, cT, 0, cB);
-
-      const hexToFill = (c: string, a: number) => {
-        const h = c.replace("#", "");
-        const full = h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h;
-        const rv = parseInt(full.substring(0, 2), 16);
-        const gv = parseInt(full.substring(2, 4), 16);
-        const bv = parseInt(full.substring(4, 6), 16);
-        return `rgba(${rv},${gv},${bv},${a})`;
-      };
-
-      grad.addColorStop(0, hexToFill(color, 0.08));
-      grad.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Highlight point
-      if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < oftData.length) {
-        const hx = cL + (highlightIdx / (oftData.length - 1)) * cW;
-        const hy = cB - (oftData[highlightIdx].value / yMax) * cH;
-
-        // Vertical dashed line
-        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(hx, cT);
-        ctx.lineTo(hx, cB);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Dot
-        ctx.beginPath();
-        ctx.arc(hx, hy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.6)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
+        ctx.font = '9px "Roboto Mono", monospace';
+        ctx.fillText(b.label, x, cB + 8);
+      });
     }
+
+    drawRef.current = draw;
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
-      const cL = PAD.left,
-        cR = W - PAD.right;
-      const cW = cR - cL;
+      const cL = PAD.left, cR = W - PAD.right, cW = cR - cL;
+      const slot = cW / n;
 
-      if (mx < cL || mx > cR) {
-        tooltip.style.display = "none";
-        draw();
-        return;
-      }
+      if (mx < cL || mx > cR) { tooltip.style.display = "none"; draw(); return; }
+      const idx = Math.floor((mx - cL) / slot);
+      if (idx < 0 || idx >= n) { tooltip.style.display = "none"; draw(); return; }
 
-      const ratio = (mx - cL) / cW;
-      const idx = Math.round(ratio * (oftData.length - 1));
-      if (idx < 0 || idx >= oftData.length) {
-        tooltip.style.display = "none";
-        draw();
-        return;
-      }
-
-      const d = oftData[idx];
-      tooltipDate.textContent = fmtFullDate(d.date);
-      tooltipValue.innerHTML = `<span class="w-2 h-2 rounded-[1px] inline-block mr-1.5" style="background:${color}"></span> Renewals Value <b>₹${d.value.toLocaleString(
-        "en-IN"
-      )}</b>`;
+      const b = bars[idx];
+      tooltipDate.textContent = b.label;
+      tooltipValue.textContent = `${b.value} contract(s)`;
 
       tooltip.style.display = "block";
       const tipX = mx + 16;
-      tooltip.style.left = (tipX + 200 > W ? mx - 210 : tipX) + "px";
-      tooltip.style.top = Math.max(0, e.clientY - rect.top - 50) + "px";
-
+      tooltip.style.left = (tipX + 180 > W ? mx - 190 : tipX) + "px";
+      tooltip.style.top = Math.max(0, e.clientY - rect.top - 40) + "px";
       draw(idx);
     };
 
-    const handleMouseLeave = () => {
-      tooltip.style.display = "none";
-      draw();
-    };
+    const handleMouseLeave = () => { tooltip.style.display = "none"; draw(); };
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
@@ -239,37 +145,41 @@ export function UpcomingRenewalsChart() {
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
-  }, [isDark]);
+  }, [isDark, summary, loading, hasData]);
+
+  function fmtHeader(v: number) {
+    if (v >= 10000000) return "₹" + (v / 10000000).toFixed(2) + " Cr";
+    if (v >= 100000) return "₹" + (v / 100000).toFixed(2) + " L";
+    return "₹" + v.toLocaleString("en-IN");
+  }
 
   return (
-    <div className={`rounded-lg p-6 font-mono w-full relative border ${
-      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
-    }`}>
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-900"}`}>
-            Upcoming Renewals Forecast
-          </h3>
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-900"}`}>Upcoming Renewals</h3>
+          <p className="text-[10px] text-neutral-500 mt-0.5">Contracts by expiry window</p>
         </div>
         <div className="text-right">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Renewal Pipeline</span>
-          <span className="text-sm font-semibold text-violet-400">₹30.0 Lakhs</span>
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Renewal Pipeline (90d)</span>
+          <span className="text-sm font-semibold text-violet-400">{summary ? fmtHeader(summary.renewalPipelineValue90Days || 0) : "—"}</span>
         </div>
       </div>
 
       <div ref={containerRef} className="relative w-full h-[360px]">
-        <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair"></canvas>
-
-        {/* Custom Tooltip */}
-        <div
-          ref={tooltipRef}
-          className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[200px] rounded-none hidden z-10 border ${
-            isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
-          }`}
-        >
-          <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
-          <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center h-full gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading renewals data…</div>
+        ) : !hasData ? (
+          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">No contracts due for renewal in the next 90 days.</div>
+        ) : (
+          <>
+            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair"></canvas>
+            <div ref={tooltipRef} className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[180px] rounded-none hidden z-10 border ${isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"}`}>
+              <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
+              <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

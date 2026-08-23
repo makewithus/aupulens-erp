@@ -5,6 +5,7 @@ import CrmOpportunity from "@/models/crm/Opportunity";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import CrmActivity from "@/models/crm/Activity";
 import CrmTask from "@/models/crm/Task";
+import CrmContract from "@/models/crm/Contract";
 import { requireRole } from "@/lib/crm/rbac";
 import { validateOpportunityStage } from "@/lib/crm/opportunityStageEngine";
 import { evaluateOpportunityHealth } from "@/lib/crm/opportunityHealth";
@@ -153,6 +154,21 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       const closeCheck = requireRole(session, ['opportunity.close']);
       if (closeCheck) return closeCheck;
       await CrmTask.create({ tenantId: session.user.tenantId, title: "Initiate Onboarding", category: 'Onboarding', due_date: new Date(Date.now() + 86400000 * 1), assigned_to_id: opp.owner_id, linked_opportunity_id: opp._id, status: 'Pending', createdBy: session.user.id });
+    }
+
+    // Resolve the outcome of a renewal that was tracked via this opportunity
+    // — nothing else in the app ever closes this loop, which previously
+    // left every Contract.renewal_status stuck at "In Discussion" forever
+    // and made the renewal-success-rate metric permanently 0/0. See
+    // app/api/crm/contracts/[id]/renew/route.ts, which is what links a
+    // contract to its renewal_opportunity_id in the first place.
+    if (body.stage === 'Closed Won' || body.stage === 'Closed Lost') {
+      const linkedContract = await CrmContract.findOne({ tenantId: session.user.tenantId, renewal_opportunity_id: opp._id });
+      if (linkedContract) {
+        linkedContract.renewal_status = body.stage === 'Closed Won' ? 'Renewed' : 'Lost';
+        if (body.stage === 'Closed Won') linkedContract.status = 'Renewed';
+        await linkedContract.save();
+      }
     }
 
     await CrmAuditLog.create({
