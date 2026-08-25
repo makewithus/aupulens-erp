@@ -106,7 +106,7 @@ export function FinanceVisualization({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Data Type Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="text-sm font-medium text-muted-foreground dark:text-foreground">
               Data to Visualize
             </label>
             <Select value={selectedDataType} onValueChange={setSelectedDataType}>
@@ -125,7 +125,7 @@ export function FinanceVisualization({
 
           {/* Chart Type Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="text-sm font-medium text-muted-foreground dark:text-foreground">
               Chart Type
             </label>
             <Select 
@@ -164,7 +164,7 @@ export function FinanceVisualization({
 
           {/* Date Range Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="text-sm font-medium text-muted-foreground dark:text-foreground">
               Date Range
             </label>
             <Select value={dateRange} onValueChange={setDateRange}>
@@ -184,7 +184,7 @@ export function FinanceVisualization({
           {/* Group By Selector */}
           {isTimeSeriesData && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-muted-foreground dark:text-foreground">
                 Group By
               </label>
               <Select value={groupBy} onValueChange={setGroupBy}>
@@ -207,7 +207,7 @@ export function FinanceVisualization({
             <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
           </div>
         ) : visualizationData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-96 text-gray-500 dark:text-gray-400">
+          <div className="flex flex-col items-center justify-center h-96 text-muted-foreground dark:text-muted-foreground">
             <BarChart3 className="h-16 w-16 mb-4 opacity-50" />
             <p className="text-lg font-medium">No data available</p>
             <p className="text-sm">Try adjusting the filters or add some data</p>

@@ -33,11 +33,11 @@ export default function OpportunityTimeline({ oppId }: { oppId: string }) {
   const sorted = [...timeline].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
-    <div className="border-l-2 border-neutral-800 pl-6 space-y-6">
+    <div className="border-l-2 border-border pl-6 space-y-6">
       {sorted.map((item, i) => (
         <div key={i} className="relative">
-          <div className={`absolute -left-[31px] w-4 h-4 rounded-full mt-1.5 border-2 ${item.type === 'stage_change' ? 'bg-blue-600 border-blue-900' : 'bg-neutral-900 border-primary'}`} />
-          <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-lg shadow-sm">
+          <div className={`absolute -left-[31px] w-4 h-4 rounded-full mt-1.5 border-2 ${item.type === 'stage_change' ? 'bg-blue-600 border-blue-900' : 'bg-card border-primary'}`} />
+          <div className="bg-background border border-border p-4 rounded-lg shadow-sm">
             <h4 className="font-bold flex items-center gap-2">
               {item.title}
               <Badge variant="secondary" className="text-[10px]">{item.type}</Badge>
@@ -45,7 +45,7 @@ export default function OpportunityTimeline({ oppId }: { oppId: string }) {
             <p className="text-xs text-muted-foreground mt-1">
               {format(new Date(item.date), 'MMM d, yyyy h:mm a')} by {item.user}
             </p>
-            {item.description && <p className="text-sm text-neutral-300 mt-2 whitespace-pre-wrap">{item.description}</p>}
+            {item.description && <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{item.description}</p>}
           </div>
         </div>
       ))}

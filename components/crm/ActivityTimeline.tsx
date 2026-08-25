@@ -61,6 +61,30 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
     return true;
   });
 
+  const exportCsv = () => {
+    const headers = ["Type", "Subject", "Description", "Date", "Performed By", "Outcome"];
+    const rows = filtered.map(a => [
+      a.type || "",
+      a.subject || "",
+      a.description || "",
+      format(new Date(a.activity_date), 'yyyy-MM-dd HH:mm'),
+      a.performed_by_id?.name || "System User",
+      a.outcome || "",
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `activities-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Card Header & Toolbar */}
@@ -75,9 +99,9 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
           </p>
         </div>
 
-        <div className="w-full max-w-4xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+        <div className="w-full max-w-4xl flex flex-wrap items-center justify-end gap-3">
           {/* Search Input */}
-          <div className="w-full max-w-xs">
+          <div className="min-w-40 flex-1 max-w-xs">
             <SearchInput
               value={search}
               onChange={setSearch}
@@ -116,6 +140,8 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
             {/* Export CSV Button */}
             <Button
               variant="outline"
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
               className="h-10 px-4 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300"
             >
               Export CSV

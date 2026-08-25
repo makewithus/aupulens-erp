@@ -202,7 +202,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
                       className={`text-xs px-2 py-0.5 rounded-none border ${
                         f.status === "active"
                           ? "bg-green-100 text-green-700 border-green-200"
-                          : "bg-gray-100 text-gray-600 border-gray-200"
+                          : "bg-accent text-muted-foreground border-border"
                       }`}
                       onClick={() => toggleStatus(f)}
                     >

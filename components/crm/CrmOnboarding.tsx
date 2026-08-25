@@ -28,19 +28,19 @@ export default function CrmOnboarding() {
       </div>
       
       <h1 className="text-4xl font-bold tracking-tight">Welcome to Aupulens CRM</h1>
-      <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
+      <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
         Your workspace is ready. To get started, you can either populate your account with sample data to see how everything works, or start fresh by creating your first records.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 text-left">
-        <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-xl relative overflow-hidden group">
+        <div className="bg-card border border-border p-8 rounded-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
             <Database className="w-24 h-24" />
           </div>
           <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
             <Database className="w-5 h-5 text-purple-400"/> Load Sample Data
           </h2>
-          <p className="text-neutral-400 mb-6 text-sm">
+          <p className="text-muted-foreground mb-6 text-sm">
             Populate your CRM with realistic Accounts, Contacts, Leads, and Opportunities so you can explore the features and dashboards immediately.
           </p>
           <Button 
@@ -52,11 +52,11 @@ export default function CrmOnboarding() {
           </Button>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-xl">
+        <div className="bg-card border border-border p-8 rounded-xl">
           <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
             <Plus className="w-5 h-5 text-blue-400"/> Start Fresh
           </h2>
-          <p className="text-neutral-400 mb-6 text-sm">
+          <p className="text-muted-foreground mb-6 text-sm">
             Ready to jump in? Use our guided wizards to create your first set of actual business records step-by-step.
           </p>
           <div className="space-y-3">

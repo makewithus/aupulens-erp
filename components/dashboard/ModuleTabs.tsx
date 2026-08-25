@@ -21,7 +21,7 @@ export function ModuleTabs({
   onNavigate,
 }: ModuleTabsProps) {
   return (
-    <nav className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink min-w-0 overflow-hidden">
+    <nav className="hidden lg:flex items-center gap-4 xl:gap-6 lg:ml-4 xl:ml-8 shrink min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {modules.map((module) => {
         const isActive = module.id === activeModule;
 

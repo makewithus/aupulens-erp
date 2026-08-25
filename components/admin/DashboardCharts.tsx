@@ -35,7 +35,7 @@ export function DashboardCharts({
           <div className="flex items-start justify-between gap-8">
             <div className="flex-1 space-y-6">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-neutral-500">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Revenue
                 </p>
                 <p className="mt-1 text-3xl font-black tracking-tighter text-white">
@@ -43,13 +43,13 @@ export function DashboardCharts({
                 </p>
               </div>
 
-              <div className="h-px bg-neutral-800/60" />
+              <div className="h-px bg-accent/60" />
 
               <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-neutral-500">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Expenses
                 </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-neutral-300">
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
                   {formatCurrency(expenses)}
                 </p>
               </div>
@@ -58,7 +58,7 @@ export function DashboardCharts({
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 Net Income
               </span>
               <span className={cn("text-lg font-semibold", net >= 0 ? "text-emerald-400" : "text-rose-400")}>
@@ -66,16 +66,16 @@ export function DashboardCharts({
               </span>
             </div>
 
-            <div className={cn("h-1.5 overflow-hidden rounded", isDark ? "bg-neutral-800" : "bg-neutral-200")}>
+            <div className={cn("h-1.5 overflow-hidden rounded", isDark ? "bg-accent" : "bg-accent")}>
               <div
                 className="h-full bg-emerald-500 transition-all duration-1000"
                 style={{ width: `${Math.max(0, Math.min(100, 100 - ratio))}%` }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-neutral-500">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Profit Margin</span>
-              <span className="font-semibold text-neutral-300">
+              <span className="font-semibold text-foreground">
                 {(100 - ratio).toFixed(1)}%
               </span>
             </div>
@@ -273,7 +273,7 @@ function RevenueCanvas({
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-neutral-500 font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-400 font-mono text-xs mt-0.5 block">${formatCurrency(
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-400 font-mono text-xs mt-0.5 block">${formatCurrency(
         d.revenue
       )}</span>`;
 
@@ -311,7 +311,7 @@ function RevenueCanvas({
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-2 border font-mono text-[10px] shadow-lg rounded hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-[#141414]/90 border-neutral-800 text-white" : "bg-white/90 border-neutral-200 text-neutral-800"
+          isDark ? "bg-[#141414]/90 border-border text-white" : "bg-white/90 border-border text-foreground"
         )}
       ></div>
     </div>
@@ -439,7 +439,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-neutral-500 font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-400 font-mono text-xs mt-0.5 block">${d.orders} orders</span>`;
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-400 font-mono text-xs mt-0.5 block">${d.orders} orders</span>`;
 
       tooltip.style.display = "block";
       const tipWidth = tooltip.offsetWidth || 110;
@@ -475,7 +475,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-2 border font-mono text-[10px] shadow-lg rounded hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-[#141414]/90 border-neutral-800 text-white" : "bg-white/90 border-neutral-200 text-neutral-800"
+          isDark ? "bg-[#141414]/90 border-border text-white" : "bg-white/90 border-border text-foreground"
         )}
       ></div>
     </div>

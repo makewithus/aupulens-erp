@@ -12,20 +12,20 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   Plus, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
-  RefreshCw, TrendingUp,
+  RefreshCw, TrendingUp, Loader2,
 } from "lucide-react";
 
 // âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const STATUS_COLOR: Record<string, string> = {
-  Draft: "bg-neutral-700 text-neutral-100",
+  Draft: "bg-accent text-foreground",
   "Pending Signature": "bg-blue-700 text-blue-100",
   Active: "bg-green-700 text-green-100",
   "Renewal Due": "bg-yellow-700 text-yellow-100",
   Expiring: "bg-orange-700 text-orange-100",
   Renewed: "bg-teal-700 text-teal-100",
   Expired: "bg-red-800 text-red-100",
-  Cancelled: "bg-neutral-800 text-neutral-400",
+  Cancelled: "bg-accent text-muted-foreground",
 };
 
 const CHURN_COLOR: Record<string, string> = {
@@ -53,13 +53,13 @@ function SummaryCard({
   icon?: React.ComponentType<any>;
 }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-1">
-        {Icon && <Icon className={`w-4 h-4 ${color || "text-neutral-400"}`} />}
-        <p className="text-xs text-neutral-400">{label}</p>
+        {Icon && <Icon className={`w-4 h-4 ${color || "text-muted-foreground"}`} />}
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
       <p className={`text-2xl font-bold ${color || ""}`}>{value}</p>
-      {sub && <p className="text-xs text-neutral-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -122,45 +122,45 @@ function NewContractModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Contract Number</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Contract Number</label>
             <Input value={form.contract_number} onChange={(e) => field("contract_number", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Account ID <span className="text-red-400">*</span></label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Account ID <span className="text-red-400">*</span></label>
             <Input value={form.account_id} onChange={(e) => field("account_id", e.target.value)}
               placeholder="MongoDB ObjectId of the account"
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Start Date *</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Start Date *</label>
             <Input type="date" value={form.start_date} onChange={(e) => field("start_date", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">End Date *</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">End Date *</label>
             <Input type="date" value={form.end_date} onChange={(e) => field("end_date", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Contract Value</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Contract Value</label>
             <Input type="number" min={0} value={form.contract_value} onChange={(e) => field("contract_value", e.target.value)}
-              placeholder="0.00" className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              placeholder="0.00" className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Billing Frequency</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Billing Frequency</label>
             <select value={form.billing_frequency} onChange={(e) => field("billing_frequency", e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded h-8 text-sm px-2">
+              className="w-full bg-background border border-border rounded h-8 text-sm px-2">
               {["Monthly", "Quarterly", "Semi-Annual", "Annual", "One-Time"].map((f) => (
                 <option key={f}>{f}</option>
               ))}
             </select>
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Terms</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Terms</label>
             <textarea value={form.terms} onChange={(e) => field("terms", e.target.value)}
               rows={3} placeholder="Payment and delivery terms..."
-              className="w-full bg-neutral-950 border border-neutral-700 rounded p-2 text-sm resize-none" />
+              className="w-full bg-background border border-border rounded p-2 text-sm resize-none" />
           </div>
           <div className="col-span-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -253,7 +253,7 @@ export default function ContractsPage() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold">Contracts & Renewals</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage all contracts, renewal schedules, and expiry tracking
           </p>
         </div>
@@ -286,7 +286,7 @@ export default function ContractsPage() {
 
       {/* Renewal Risk Breakdown */}
       {renewalSummary && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <h2 className="font-semibold mb-3 text-sm">Renewal Risk Pipeline</h2>
           <div className="grid grid-cols-4 gap-4 text-center">
             {[
@@ -295,9 +295,9 @@ export default function ContractsPage() {
               { label: "60 days", value: renewalSummary.expiring60, color: "text-yellow-400" },
               { label: "90 days", value: renewalSummary.expiring90, color: "text-blue-400" },
             ].map((b) => (
-              <div key={b.label} className="bg-neutral-950 rounded p-3">
+              <div key={b.label} className="bg-background rounded p-3">
                 <p className={`text-2xl font-bold ${b.color}`}>{b.value}</p>
-                <p className="text-xs text-neutral-400 mt-0.5">Expiring in {b.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Expiring in {b.label}</p>
               </div>
             ))}
           </div>
@@ -307,9 +307,9 @@ export default function ContractsPage() {
       {/* Filters */}
       <div className="flex gap-3 flex-wrap items-center">
         <div className="relative max-w-xs flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contract number..." className="pl-9 bg-neutral-900 border-neutral-700" />
+            placeholder="Search contract number..." className="pl-9 bg-card border-border" />
         </div>
 
         {/* Status filter pills */}
@@ -324,14 +324,14 @@ export default function ContractsPage() {
 
         {/* Churn risk filter */}
         <select value={churnFilter} onChange={(e) => setChurnFilter(e.target.value)}
-          className="bg-neutral-900 border border-neutral-700 rounded h-8 text-sm px-2">
+          className="bg-card border border-border rounded h-8 text-sm px-2">
           <option value="">All Churn Risk</option>
           {["Low", "Medium", "High", "Critical"].map((l) => <option key={l}>{l}</option>)}
         </select>
 
         {/* Expiry window */}
         <select value={expiryFilter} onChange={(e) => setExpiryFilter(e.target.value)}
-          className="bg-neutral-900 border border-neutral-700 rounded h-8 text-sm px-2">
+          className="bg-card border border-border rounded h-8 text-sm px-2">
           <option value="">Any Expiry</option>
           <option value="7">Expiring in 7 days</option>
           <option value="30">Expiring in 30 days</option>
@@ -341,30 +341,30 @@ export default function ContractsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">Contract #</TableHead>
-              <TableHead className="text-neutral-400">Account</TableHead>
-              <TableHead className="text-neutral-400 text-right">Value</TableHead>
-              <TableHead className="text-neutral-400">Frequency</TableHead>
-              <TableHead className="text-neutral-400">End Date</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-              <TableHead className="text-neutral-400">Churn Risk</TableHead>
-              <TableHead className="text-neutral-400">Renewal</TableHead>
-              <TableHead className="text-neutral-400"></TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground">Contract #</TableHead>
+              <TableHead className="text-muted-foreground">Account</TableHead>
+              <TableHead className="text-muted-foreground text-right">Value</TableHead>
+              <TableHead className="text-muted-foreground">Frequency</TableHead>
+              <TableHead className="text-muted-foreground">End Date</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground">Churn Risk</TableHead>
+              <TableHead className="text-muted-foreground">Renewal</TableHead>
+              <TableHead className="text-muted-foreground"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-neutral-500">Loading...</TableCell>
+                <TableCell colSpan={9} className="text-center py-10"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></TableCell>
               </TableRow>
             )}
             {!loading && contracts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-neutral-500">No contracts found.</TableCell>
+                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No contracts found.</TableCell>
               </TableRow>
             )}
             {!loading && contracts.map((c) => {
@@ -373,13 +373,13 @@ export default function ContractsPage() {
               const isUrgent = days > 0 && days <= 30;
 
               return (
-                <TableRow key={c._id} className="border-neutral-800 hover:bg-neutral-800/50">
+                <TableRow key={c._id} className="border-border hover:bg-accent/50">
                   <TableCell className="font-mono font-medium text-sm">{c.contract_number}</TableCell>
                   <TableCell className="text-sm">{c.account_id?.company_name || "â"}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">
                     ${(c.contract_value || 0).toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-sm text-neutral-400">{c.billing_frequency}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.billing_frequency}</TableCell>
                   <TableCell>
                     <span className={`text-sm ${isExpired ? "text-red-400 font-bold" : isUrgent ? "text-orange-400 font-semibold" : ""}`}>
                       {c.end_date ? new Date(c.end_date).toLocaleDateString() : "â"}
@@ -388,7 +388,7 @@ export default function ContractsPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[c.status] || "bg-neutral-700 text-neutral-100"}`}>
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[c.status] || "bg-accent text-foreground"}`}>
                       {c.status}
                     </span>
                   </TableCell>
@@ -397,7 +397,7 @@ export default function ContractsPage() {
                       {c.churn_risk}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-neutral-400">{c.renewal_status}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.renewal_status}</TableCell>
                   <TableCell>
                     <Link href={`/crm/contracts/${c._id}`}>
                       <Button variant="ghost" size="sm" className="h-7 text-xs">View</Button>

@@ -173,21 +173,21 @@ export default function ContactsPage() {
         </div>
 
         {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+          <div className="bg-card border border-border p-4 rounded-lg flex items-center gap-4">
             <div className="p-3 bg-blue-500/10 text-blue-500 rounded-md"><Users className="w-5 h-5" /></div>
-            <div><p className="text-sm text-neutral-400">Total Contacts</p><p className="text-2xl font-bold">{stats.total}</p></div>
+            <div><p className="text-sm text-muted-foreground">Total Contacts</p><p className="text-2xl font-bold">{stats.total}</p></div>
           </div>
-          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+          <div className="bg-card border border-border p-4 rounded-lg flex items-center gap-4">
             <div className="p-3 bg-purple-500/10 text-purple-500 rounded-md"><Star className="w-5 h-5" /></div>
-            <div><p className="text-sm text-neutral-400">Decision Makers</p><p className="text-2xl font-bold">{stats.decisionMakers}</p></div>
+            <div><p className="text-sm text-muted-foreground">Decision Makers</p><p className="text-2xl font-bold">{stats.decisionMakers}</p></div>
           </div>
-          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+          <div className="bg-card border border-border p-4 rounded-lg flex items-center gap-4">
             <div className="p-3 bg-green-500/10 text-green-500 rounded-md"><UserCheck className="w-5 h-5" /></div>
-            <div><p className="text-sm text-neutral-400">Primary Contacts</p><p className="text-2xl font-bold">{stats.primary}</p></div>
+            <div><p className="text-sm text-muted-foreground">Primary Contacts</p><p className="text-2xl font-bold">{stats.primary}</p></div>
           </div>
-          <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg flex items-center gap-4">
+          <div className="bg-card border border-border p-4 rounded-lg flex items-center gap-4">
             <div className="p-3 bg-orange-500/10 text-orange-500 rounded-md"><Calendar className="w-5 h-5" /></div>
-            <div><p className="text-sm text-neutral-400">Added This Month</p><p className="text-2xl font-bold">{stats.thisMonth}</p></div>
+            <div><p className="text-sm text-muted-foreground">Added This Month</p><p className="text-2xl font-bold">{stats.thisMonth}</p></div>
           </div>
         </div> */}
 
@@ -455,11 +455,11 @@ export default function ContactsPage() {
 
             <div className="flex gap-4 pt-2">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.is_primary} onChange={e => setField("is_primary", e.target.checked)} className="rounded bg-neutral-800 border-neutral-700" />
+                <input type="checkbox" checked={form.is_primary} onChange={e => setField("is_primary", e.target.checked)} className="rounded bg-accent border-border" />
                 <span className="text-sm font-medium">Primary Contact</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.is_decision_maker} onChange={e => setField("is_decision_maker", e.target.checked)} className="rounded bg-neutral-800 border-neutral-700" />
+                <input type="checkbox" checked={form.is_decision_maker} onChange={e => setField("is_decision_maker", e.target.checked)} className="rounded bg-accent border-border" />
                 <span className="text-sm font-medium">Decision Maker</span>
               </label>
             </div>

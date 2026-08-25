@@ -307,7 +307,7 @@ export default function MasterAdminPage() {
 
   if (session?.user?.role !== "master-admin") {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-white dark:bg-background flex items-center justify-center p-6">
         <div className="text-center space-y-4">
           <ShieldCheck className="h-12 w-12 text-rose-500 mx-auto" />
           <h1 className="text-2xl font-black uppercase">Access Denied</h1>
@@ -724,7 +724,7 @@ export default function MasterAdminPage() {
                 placeholder="Search by name or subdomain..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 h-11 border-2 none-xl font-bold bg-white dark:bg-gray-900"
+                className="pl-11 h-11 border-2 none-xl font-bold bg-white dark:bg-card"
               />
             </div>
           </div>

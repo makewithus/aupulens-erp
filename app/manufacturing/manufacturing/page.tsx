@@ -60,8 +60,8 @@ const STEP_ICONS: Record<string, any> = {
 /* ------------------------------------------------------------------ */
 function ProductionBadge({ status }: { status: ProductionStatus }) {
   const colors = PRODUCTION_STATUS_COLORS[status] || {
-    bg: "bg-gray-100",
-    text: "text-gray-600",
+    bg: "bg-accent",
+    text: "text-muted-foreground",
   };
   return (
     <span

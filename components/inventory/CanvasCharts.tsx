@@ -268,7 +268,7 @@ export function CanvasAreaChart({
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
         )}
       ></div>
     </div>
@@ -531,7 +531,7 @@ export function CanvasBarChart({
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
         )}
       ></div>
     </div>
@@ -739,7 +739,7 @@ export function CanvasPieChart({
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
         )}
       ></div>
     </div>
@@ -984,7 +984,7 @@ export function CanvasComposedChart({
         ref={tooltipRef}
         className={cn(
           "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"
+          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
         )}
       ></div>
     </div>

@@ -178,11 +178,11 @@ export function ChurnRiskChart() {
 
   return (
     <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col border ${
-      isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"
+      isDark ? "bg-card border-border text-white" : "bg-white border-border text-foreground"
     }`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-950"}`}>
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-foreground"}`}>
             Churn Risk Segments
           </h3>
         </div>
@@ -198,17 +198,17 @@ export function ChurnRiskChart() {
         <div className="relative w-[340px] h-[340px] flex-shrink-0 mx-auto">
           <canvas ref={canvasRef} className="block"></canvas>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none font-mono">
-            <div className={`text-2xl md:text-3xl font-medium tracking-tighter ${isDark ? "text-white" : "text-neutral-900"}`}>
+            <div className={`text-2xl md:text-3xl font-medium tracking-tighter ${isDark ? "text-white" : "text-foreground"}`}>
               {centerVal}
             </div>
-            <div className="text-[9px] text-neutral-500 uppercase tracking-widest mt-1">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-widest mt-1">
               Active Accounts
             </div>
           </div>
         </div>
 
         {/* Dynamic Legend */}
-        <div className="flex flex-col gap-1.5 text-[10px] text-neutral-400 max-w-xs w-full mx-auto">
+        <div className="flex flex-col gap-1.5 text-[10px] text-muted-foreground max-w-xs w-full mx-auto">
           {cohorts.map((c, i) => {
             const pct = ((c.value / total) * 100).toFixed(1);
             const isHovered = hoveredIdx === i;
@@ -218,11 +218,11 @@ export function ChurnRiskChart() {
                 className={`flex items-center justify-between py-0.5 px-2 transition-colors cursor-pointer rounded-[2px] ${
                   isHovered
                     ? isDark
-                      ? "bg-neutral-800 text-white"
-                      : "bg-neutral-100 text-neutral-900 font-semibold"
+                      ? "bg-accent text-white"
+                      : "bg-accent text-foreground font-semibold"
                     : isDark
-                    ? "hover:bg-neutral-800/40 hover:text-neutral-200"
-                    : "hover:bg-neutral-100/50 hover:text-neutral-700"
+                    ? "hover:bg-accent/40 hover:text-foreground"
+                    : "hover:bg-accent/50 hover:text-muted-foreground"
                 }`}
                 onMouseEnter={() => {
                   setHoveredIdx(i);
@@ -240,9 +240,9 @@ export function ChurnRiskChart() {
                     className="w-2.5 h-2.5 rounded-[1px] inline-block flex-shrink-0"
                     style={{ backgroundColor: c.color }}
                   ></span>
-                  <span className={isDark ? "text-neutral-400" : "text-neutral-600"}>{c.name}</span>
+                  <span className={isDark ? "text-muted-foreground" : "text-muted-foreground"}>{c.name}</span>
                 </div>
-                <span className={`font-semibold ${isDark ? "text-white" : "text-neutral-900"}`}>{pct}%</span>
+                <span className={`font-semibold ${isDark ? "text-white" : "text-foreground"}`}>{pct}%</span>
               </div>
             );
           })}

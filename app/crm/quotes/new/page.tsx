@@ -7,7 +7,7 @@ import QuoteBuilder from "@/components/crm/QuoteBuilder";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ChevronLeft, Search } from "lucide-react";
+import { ChevronLeft, Search, Loader2 } from "lucide-react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface SelectOption {
@@ -73,37 +73,37 @@ function SearchSelect({
         {label} {required && <span className="text-red-400">*</span>}
       </label>
       <div
-        className="flex items-center border border-neutral-700 rounded bg-neutral-950 cursor-pointer px-3 h-9"
+        className="flex items-center border border-border rounded bg-background cursor-pointer px-3 h-9"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className={`flex-1 text-sm ${selected ? "" : "text-neutral-500"}`}>
+        <span className={`flex-1 text-sm ${selected ? "" : "text-muted-foreground"}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <Search className="w-3.5 h-3.5 text-neutral-500" />
+        <Search className="w-3.5 h-3.5 text-muted-foreground" />
       </div>
 
       {open && (
-        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-neutral-900 border border-neutral-700 rounded shadow-xl">
-          <div className="p-2 border-b border-neutral-800">
+        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-card border border-border rounded shadow-xl">
+          <div className="p-2 border-b border-border">
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${label.toLowerCase()}...`}
-              className="h-7 text-sm bg-neutral-950 border-neutral-700"
+              className="h-7 text-sm bg-background border-border"
               autoFocus
             />
           </div>
           <div className="max-h-48 overflow-y-auto">
             {loading && (
-              <div className="text-xs text-neutral-500 p-2">Loading...</div>
+              <div className="flex justify-center p-2"><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /></div>
             )}
             {!loading && options.length === 0 && (
-              <div className="text-xs text-neutral-500 p-2">No results.</div>
+              <div className="text-xs text-muted-foreground p-2">No results.</div>
             )}
             {options.map((opt) => (
               <div
                 key={opt._id}
-                className={`px-3 py-2 text-sm cursor-pointer hover:bg-neutral-800 ${
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-accent ${
                   value === opt._id ? "bg-primary/20 text-primary" : ""
                 }`}
                 onClick={() => {
@@ -201,13 +201,13 @@ export default function NewQuotePage() {
 
       <div>
         <h1 className="text-2xl font-bold">Create New Quote</h1>
-        <p className="text-sm text-neutral-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Build a quote with line items, discounts, and submit for approval.
         </p>
       </div>
 
       {/* Meta fields */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-4">
+      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
         <h2 className="font-semibold">Quote Details</h2>
         <div className="grid grid-cols-3 gap-4">
           <div>
@@ -215,7 +215,7 @@ export default function NewQuotePage() {
             <Input
               value={quoteNum}
               onChange={(e) => setQuoteNum(e.target.value)}
-              className="bg-neutral-950 border-neutral-700"
+              className="bg-background border-border"
             />
           </div>
           <SearchSelect

@@ -40,7 +40,7 @@ function statusColor(status: string) {
     case "invoiced":
       return "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:border-purple-800";
     default:
-      return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
   }
 }
 
@@ -57,7 +57,7 @@ function LifecycleDiagram() {
       <h3 className="text-sm font-semibold text-muted-foreground mb-6 text-center">Life cycle of a Quote</h3>
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-3">
-          <Node icon={FileText} label="QUOTE" color="border-gray-300" />
+          <Node icon={FileText} label="QUOTE" color="border-border" />
           <span className="text-muted-foreground">→</span>
           <Node icon={Mail} label="SENT TO CUSTOMER" color="border-blue-300 text-blue-700" />
         </div>

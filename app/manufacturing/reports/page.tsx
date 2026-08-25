@@ -188,8 +188,8 @@ export default function ReportsPage() {
     >
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reports & Analytics</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white">Reports & Analytics</h1>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
             Generate and analyze manufacturing reports
           </p>
         </div>
@@ -232,7 +232,7 @@ export default function ReportsPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                <label className="text-sm font-medium text-muted-foreground dark:text-foreground mb-2 block">
                   Report Type
                 </label>
                 <Select value={selectedReport} onValueChange={setSelectedReport}>

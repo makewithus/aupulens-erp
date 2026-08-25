@@ -82,7 +82,7 @@ export default function ProfitLossPage() {
             <div class="flex justify-between items-end">
               <div>
                 <p class="text-sm font-medium">Organization: Aupulens</p>
-                <p class="text-sm text-gray-600">Generated: ${new Date().toLocaleString()}</p>
+                <p class="text-sm text-muted-foreground">Generated: ${new Date().toLocaleString()}</p>
               </div>
               <p class="text-lg font-bold">Period: ${dateStr}</p>
             </div>
@@ -90,16 +90,16 @@ export default function ProfitLossPage() {
 
           <!-- SUMMARY CARDS (Simulated) -->
           <div class="grid grid-cols-3 gap-4 mb-8">
-            <div class="p-4 bg-gray-50 border border-gray-200">
-              <p class="text-sm font-medium text-gray-500 uppercase">Total Income</p>
+            <div class="p-4 bg-muted border border-border">
+              <p class="text-sm font-medium text-muted-foreground uppercase">Total Income</p>
               <p class="text-xl font-bold text-green-700">₹${totalIncome.toLocaleString()}</p>
             </div>
-            <div class="p-4 bg-gray-50 border border-gray-200">
-              <p class="text-sm font-medium text-gray-500 uppercase">Total Expenses</p>
+            <div class="p-4 bg-muted border border-border">
+              <p class="text-sm font-medium text-muted-foreground uppercase">Total Expenses</p>
               <p class="text-xl font-bold text-red-700">₹${totalExpenses.toLocaleString()}</p>
             </div>
-            <div class="p-4 bg-gray-50 border border-gray-200">
-              <p class="text-sm font-medium text-gray-500 uppercase">Net Profit</p>
+            <div class="p-4 bg-muted border border-border">
+              <p class="text-sm font-medium text-muted-foreground uppercase">Net Profit</p>
               <p class="text-xl font-bold ${netProfit >= 0 ? "text-green-700" : "text-red-700"}">₹${netProfit.toLocaleString()}</p>
             </div>
           </div>
@@ -109,17 +109,17 @@ export default function ProfitLossPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Income</h3>
             <table class="w-full text-left mb-4">
               <thead>
-                <tr class="bg-gray-100 border-b border-black">
+                <tr class="bg-accent border-b border-black">
                   <th class="py-2 px-4 font-bold">Description</th>
                   <th class="py-2 px-4 font-bold text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-border">
                   <td class="py-2 px-4">Revenue from Sales</td>
                   <td class="py-2 px-4 text-right">₹${totalIncome.toLocaleString()}</td>
                 </tr>
-                <tr class="bg-gray-50 font-bold">
+                <tr class="bg-muted font-bold">
                   <td class="py-2 px-4">Total Income</td>
                   <td class="py-2 px-4 text-right">₹${totalIncome.toLocaleString()}</td>
                 </tr>
@@ -132,17 +132,17 @@ export default function ProfitLossPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Expenses</h3>
             <table class="w-full text-left mb-4">
               <thead>
-                <tr class="bg-gray-100 border-b border-black">
+                <tr class="bg-accent border-b border-black">
                   <th class="py-2 px-4 font-bold">Description</th>
                   <th class="py-2 px-4 font-bold text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-border">
                   <td class="py-2 px-4">Cost of Goods Sold / Operating Expenses</td>
                   <td class="py-2 px-4 text-right">₹${totalExpenses.toLocaleString()}</td>
                 </tr>
-                <tr class="bg-gray-50 font-bold">
+                <tr class="bg-muted font-bold">
                   <td class="py-2 px-4">Total Expenses</td>
                   <td class="py-2 px-4 text-right">₹${totalExpenses.toLocaleString()}</td>
                 </tr>
@@ -155,7 +155,7 @@ export default function ProfitLossPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Net Summary</h3>
             <table class="w-full text-left mb-4">
               <tbody>
-                <tr class="bg-gray-100 font-bold border-t-2 border-black">
+                <tr class="bg-accent font-bold border-t-2 border-black">
                   <td class="py-3 px-4 text-lg">Net Profit / (Loss)</td>
                   <td class="py-3 px-4 text-right text-lg">₹${netProfit.toLocaleString()}</td>
                 </tr>
@@ -163,7 +163,7 @@ export default function ProfitLossPage() {
             </table>
           </div>
 
-          <div class="mt-12 text-center text-sm text-gray-500">
+          <div class="mt-12 text-center text-sm text-muted-foreground">
             <p>End of Report</p>
           </div>
         </div>

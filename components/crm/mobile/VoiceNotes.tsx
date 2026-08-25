@@ -121,35 +121,35 @@ export default function VoiceNotes({ onComplete, recordId, recordType = "Lead" }
         <div className="flex flex-col items-center gap-4">
           <button
             className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
-              recording ? 'bg-red-500/20 border-4 border-red-500 animate-pulse' : 'bg-neutral-800 border-4 border-neutral-700'
+              recording ? 'bg-red-500/20 border-4 border-red-500 animate-pulse' : 'bg-accent border-4 border-border'
             }`}
             onClick={recording ? stopRecording : startRecording}
           >
-            {recording ? <Square className="w-12 h-12 text-red-500 fill-current" /> : <Mic className="w-12 h-12 text-neutral-400" />}
+            {recording ? <Square className="w-12 h-12 text-red-500 fill-current" /> : <Mic className="w-12 h-12 text-muted-foreground" />}
           </button>
-          <p className="text-sm text-neutral-400">{recording ? "Tap to stop..." : "Tap to start recording"}</p>
+          <p className="text-sm text-muted-foreground">{recording ? "Tap to stop..." : "Tap to start recording"}</p>
           {recording && transcript && (
-            <p className="text-sm text-neutral-300 max-w-xs text-center italic">&ldquo;{transcript}&rdquo;</p>
+            <p className="text-sm text-foreground max-w-xs text-center italic">&ldquo;{transcript}&rdquo;</p>
           )}
         </div>
       ) : (
         <div className="w-full flex flex-col items-center space-y-6">
           <audio src={audioUrl} controls className="w-full max-w-[250px]" />
           <div className="w-full max-w-[300px]">
-            <label className="text-xs text-neutral-400">Transcript (editable)</label>
+            <label className="text-xs text-muted-foreground">Transcript (editable)</label>
             <textarea
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
               rows={3}
               placeholder="Transcript will appear here…"
-              className="w-full mt-1 bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-neutral-200"
+              className="w-full mt-1 bg-card border border-border rounded p-2 text-sm text-foreground"
             />
           </div>
           <div className="flex gap-4 w-full px-4">
             <Button variant="outline" className="flex-1 border-red-900/50 text-red-400" onClick={() => { setAudioUrl(null); setTranscript(""); }}>
               <Trash2 className="w-4 h-4 mr-2" /> Discard
             </Button>
-            <Button className="flex-1 bg-primary text-white" onClick={handleSave}>
+            <Button className="flex-1 bg-primary text-primary-foreground" onClick={handleSave}>
               <Save className="w-4 h-4 mr-2" /> Save
             </Button>
           </div>

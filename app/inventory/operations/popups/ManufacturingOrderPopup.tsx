@@ -430,7 +430,7 @@ export function ManufacturingOrderPopup({
                 <span className="text-sm text-muted-foreground">Production:</span>
                 {(() => {
                   const ps = (formData.productionStatus || "demand_forecast") as ProductionStatus;
-                  const colors = PRODUCTION_STATUS_COLORS[ps] || { bg: "bg-gray-100", text: "text-gray-600" };
+                  const colors = PRODUCTION_STATUS_COLORS[ps] || { bg: "bg-accent", text: "text-muted-foreground" };
                   return (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
                       {PRODUCTION_STATUS_LABELS[ps] || ps}

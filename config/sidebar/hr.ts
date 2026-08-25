@@ -20,7 +20,6 @@ export const hrSidebarConfig: SidebarSection[] = [
     title: "Overview",
     items: [
       { title: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
-      { title: "AI Assistant", href: "/hr/ai-assistant", icon: Sparkles },
     ],
   },
   {

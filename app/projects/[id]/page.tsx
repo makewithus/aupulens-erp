@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { projectsSidebarConfig } from "@/config/sidebar/projects";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,13 @@ const STATUS_OPTIONS = [
 export default function ProjectDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const sessionProps = {
+    userName: session?.user?.name || "",
+    userEmail: session?.user?.email || "",
+    userRole: session?.user?.role,
+    onSignOut: () => signOut({ callbackUrl: "/auth/admin" }),
+  };
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,8 +80,8 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
     else toast.error(data.message || "Failed to delete");
   };
 
-  if (loading) return <DashboardLayout sidebarSections={projectsSidebarConfig}><div className="p-6">Loading…</div></DashboardLayout>;
-  if (!project) return <DashboardLayout sidebarSections={projectsSidebarConfig}><div className="p-6">Project not found</div></DashboardLayout>;
+  if (loading) return <DashboardLayout sidebarSections={projectsSidebarConfig} {...sessionProps}><div className="p-6">Loading…</div></DashboardLayout>;
+  if (!project) return <DashboardLayout sidebarSections={projectsSidebarConfig} {...sessionProps}><div className="p-6">Project not found</div></DashboardLayout>;
 
   return (
     <DashboardLayout
@@ -81,6 +89,7 @@ export default function ProjectDetailPage(props: { params: Promise<{ id: string 
       companyName="Aupulens"
       dashboardTitle="Projects"
       pageName={project.name}
+      {...sessionProps}
     >
       <div className="p-6 max-w-2xl space-y-6">
         <div className="flex justify-between items-start">

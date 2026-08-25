@@ -47,9 +47,9 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-start bg-neutral-900 p-6 rounded-lg border border-neutral-800">
+      <div className="flex justify-between items-start bg-card p-6 rounded-lg border border-border">
         <div className="flex gap-6 items-start">
-          <div className="h-20 w-20 rounded-full bg-neutral-800 flex items-center justify-center text-3xl font-bold text-neutral-400">
+          <div className="h-20 w-20 rounded-full bg-accent flex items-center justify-center text-3xl font-bold text-muted-foreground">
             {contact.first_name[0]}{contact.last_name[0]}
           </div>
           <div>
@@ -57,7 +57,7 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
               {contact.first_name} {contact.last_name}
               {contact.is_decision_maker && <Badge className="bg-purple-600">Decision Maker</Badge>}
               {contact.is_primary && <Badge className="bg-blue-600">Primary Contact</Badge>}
-              <Badge className={relationship?.color || 'bg-neutral-600'}>
+              <Badge className={relationship?.color || 'bg-muted'}>
                 Relationship: {relationship?.label || 'Unknown'} ({relationship?.score || 0})
               </Badge>
             </h1>
@@ -65,9 +65,9 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
               {contact.designation || 'No Designation'} at {contact.account_id?.company_name ? <Link href={`/crm/accounts/${contact.account_id._id}`} className="text-blue-400 hover:underline">{contact.account_id.company_name}</Link> : 'Unknown Account'}
             </p>
             <div className="flex gap-4 mt-3 text-sm">
-              <span className="flex items-center gap-1"><Mail className="w-4 h-4 text-neutral-500" /> {contact.email || 'N/A'}</span>
-              <span className="flex items-center gap-1"><Phone className="w-4 h-4 text-neutral-500" /> {contact.mobile || 'N/A'}</span>
-              <span className="flex items-center gap-1"><MessageSquare className="w-4 h-4 text-neutral-500" /> Prefers: {contact.preferred_communication || 'Any'}</span>
+              <span className="flex items-center gap-1"><Mail className="w-4 h-4 text-muted-foreground" /> {contact.email || 'N/A'}</span>
+              <span className="flex items-center gap-1"><Phone className="w-4 h-4 text-muted-foreground" /> {contact.mobile || 'N/A'}</span>
+              <span className="flex items-center gap-1"><MessageSquare className="w-4 h-4 text-muted-foreground" /> Prefers: {contact.preferred_communication || 'Any'}</span>
             </div>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
       </Dialog>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-neutral-900 border border-neutral-800 p-1 w-full justify-start overflow-x-auto">
+        <TabsList className="bg-card border border-border p-1 w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activities">Activities ({stats?.activitiesCount || 0})</TabsTrigger>
           <TabsTrigger value="communications">Communications</TabsTrigger>
@@ -105,7 +105,7 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
           <TabsTrigger value="cases">Cases</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4">
+        <TabsContent value="overview" className="bg-card border border-border p-6 rounded-lg mt-4">
           <h2 className="text-xl font-bold mb-4">Contact Profile</h2>
           <div className="grid grid-cols-2 gap-y-6 gap-x-4 text-sm">
             <div><span className="text-muted-foreground block mb-1">Department</span> <span className="font-medium">{contact.department || '-'}</span></div>
@@ -115,20 +115,20 @@ export default function ContactDetailsPage(props: { params: Promise<{ id: string
           </div>
         </TabsContent>
         
-        <TabsContent value="activities" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4">
+        <TabsContent value="activities" className="bg-card border border-border p-6 rounded-lg mt-4">
           <ActivityTimeline linkedRecordId={contact._id} />
         </TabsContent>
         
-        <TabsContent value="communications" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4 text-center py-12">
-          <MessageSquare className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
+        <TabsContent value="communications" className="bg-card border border-border p-6 rounded-lg mt-4 text-center py-12">
+          <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Communication history will appear here.</p>
         </TabsContent>
         
-        <TabsContent value="opportunities" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4 text-center py-12">
+        <TabsContent value="opportunities" className="bg-card border border-border p-6 rounded-lg mt-4 text-center py-12">
           <p className="text-muted-foreground">Opportunities linked to this contact will appear here.</p>
         </TabsContent>
         
-        <TabsContent value="cases" className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg mt-4 text-center py-12">
+        <TabsContent value="cases" className="bg-card border border-border p-6 rounded-lg mt-4 text-center py-12">
           <p className="text-muted-foreground">Support cases linked to this contact will appear here.</p>
         </TabsContent>
       </Tabs>

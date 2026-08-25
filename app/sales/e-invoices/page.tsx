@@ -42,7 +42,7 @@ function statusColor(status: string) {
     case EINVOICE_STATUS.FAILED:
       return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
     case EINVOICE_STATUS.CANCELLED:
-      return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
     default:
       return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:border-yellow-800";
   }

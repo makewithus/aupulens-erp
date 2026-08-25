@@ -184,10 +184,10 @@ export function CRMLeadChannelsChart() {
   }, [viewType, isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-none p-5 font-mono w-full relative">
+    <div className="bg-card border border-border rounded-none p-5 font-mono w-full relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Top Modules Breakdown
           </span>
           <h3 className="text-sm font-normal text-white uppercase mt-0.5">
@@ -200,16 +200,16 @@ export function CRMLeadChannelsChart() {
           <button
             onClick={() => setViewType("source")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              viewType === "source" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-neutral-500 hover:text-neutral-300"
+              viewType === "source" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Source
           </button>
-          <span className="text-neutral-700 select-none">|</span>
+          <span className="text-muted-foreground select-none">|</span>
           <button
             onClick={() => setViewType("target")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              viewType === "target" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-neutral-500 hover:text-neutral-300"
+              viewType === "target" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Target
@@ -223,7 +223,7 @@ export function CRMLeadChannelsChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-neutral-800 p-2 font-mono text-[11px] text-white shadow-xl min-w-[130px] rounded-none hidden z-10"
+          className="absolute pointer-events-none bg-[#141414]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[130px] rounded-none hidden z-10"
         ></div>
       </div>
     </div>

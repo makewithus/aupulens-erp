@@ -18,17 +18,35 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const account_id = url.searchParams.get("account_id");
   const opportunity_id = url.searchParams.get("opportunity_id");
+  const owner_id = url.searchParams.get("owner_id");
   const status = url.searchParams.get("status");
   const search = url.searchParams.get("search");
+  const validFrom = url.searchParams.get("validFrom");
+  const validTo = url.searchParams.get("validTo");
+  const minAmount = url.searchParams.get("minAmount");
+  const maxAmount = url.searchParams.get("maxAmount");
 
   await dbConnect();
 
   const query: Record<string, unknown> = { tenantId: session.user.tenantId };
   if (account_id) query.account_id = account_id;
   if (opportunity_id) query.opportunity_id = opportunity_id;
+  if (owner_id) query.owner_id = owner_id;
   if (status) query.status = status;
   if (search) {
     query.quote_number = { $regex: search, $options: "i" };
+  }
+  if (validFrom || validTo) {
+    const validity_date: Record<string, Date> = {};
+    if (validFrom) validity_date.$gte = new Date(validFrom);
+    if (validTo) validity_date.$lte = new Date(validTo);
+    query.validity_date = validity_date;
+  }
+  if (minAmount || maxAmount) {
+    const grand_total: Record<string, number> = {};
+    if (minAmount) grand_total.$gte = Number(minAmount);
+    if (maxAmount) grand_total.$lte = Number(maxAmount);
+    query.grand_total = grand_total;
   }
 
   const quotes = await CrmQuote.find(query)

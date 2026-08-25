@@ -104,11 +104,6 @@ export const salesSidebarConfig: SidebarSection[] = [
         href: "/sales/visualization",
         icon: BarChart3,
       },
-      {
-        title: "AI Assistant",
-        href: "/sales/ai-assistant",
-        icon: Sparkles,
-      },
     ],
   },
   {

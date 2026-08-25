@@ -65,7 +65,7 @@ function statusColor(status: string) {
     case "expired":
       return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
     default:
-      return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
   }
 }
 
@@ -73,7 +73,7 @@ function SubscriptionOverview() {
   const Node = ({
     icon: Icon,
     label,
-    color = "border-gray-300",
+    color = "border-border",
   }: {
     icon: any;
     label: string;

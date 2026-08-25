@@ -131,13 +131,13 @@ export default function ImportPaymentsPage() {
             <div key={label} className="flex items-center gap-2">
               <span
                 className={`h-6 w-6 rounded-full flex items-center justify-center text-xs ${
-                  step === i + 1 ? "bg-blue-600 text-white" : step > i + 1 ? "bg-green-600 text-white" : "bg-gray-200 text-gray-500"
+                  step === i + 1 ? "bg-blue-600 text-white" : step > i + 1 ? "bg-green-600 text-white" : "bg-accent text-muted-foreground"
                 }`}
               >
                 {i + 1}
               </span>
               <span className={step === i + 1 ? "font-medium" : "text-muted-foreground"}>{label}</span>
-              {i < 2 && <div className="w-8 h-px bg-gray-300" />}
+              {i < 2 && <div className="w-8 h-px bg-border" />}
             </div>
           ))}
         </div>

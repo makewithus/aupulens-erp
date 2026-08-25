@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { ArrowRightLeft, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowRightLeft, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,41 +41,41 @@ export default function HandoffCenterPage() {
             <ArrowRightLeft className="w-6 h-6 text-orange-400" />
             Multi-Team Handoff Center
           </h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage seamless transitions between Sales, Operations, Support, and Finance.
           </p>
         </div>
         <Button className="bg-primary text-xs h-8">New Handoff</Button>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">Date</TableHead>
-              <TableHead className="text-neutral-400">Type</TableHead>
-              <TableHead className="text-neutral-400">From &rarr; To</TableHead>
-              <TableHead className="text-neutral-400">Record</TableHead>
-              <TableHead className="text-neutral-400">Priority</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-              <TableHead className="text-neutral-400 text-right">Actions</TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground">Date</TableHead>
+              <TableHead className="text-muted-foreground">Type</TableHead>
+              <TableHead className="text-muted-foreground">From &rarr; To</TableHead>
+              <TableHead className="text-muted-foreground">Record</TableHead>
+              <TableHead className="text-muted-foreground">Priority</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-6 text-neutral-500">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-6"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
             ) : handoffs.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-10 text-neutral-500 border border-dashed border-neutral-800">No active handoffs in queue.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground border border-dashed border-border">No active handoffs in queue.</TableCell></TableRow>
             ) : handoffs.map(handoff => (
-              <TableRow key={handoff._id} className="border-neutral-800 hover:bg-neutral-800/50 text-sm">
-                <TableCell className="font-mono text-xs text-neutral-400">{new Date(handoff.createdAt).toLocaleDateString()}</TableCell>
+              <TableRow key={handoff._id} className="border-border hover:bg-accent/50 text-sm">
+                <TableCell className="font-mono text-xs text-muted-foreground">{new Date(handoff.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell className="font-medium">{handoff.handoffType}</TableCell>
                 <TableCell>
-                  <div className="text-xs text-neutral-400">{handoff.fromOwner?.name || 'Unknown'}</div>
+                  <div className="text-xs text-muted-foreground">{handoff.fromOwner?.name || 'Unknown'}</div>
                   <div className="text-sm font-semibold">{handoff.toOwner?.name || 'Unknown'}</div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="bg-neutral-950">{handoff.recordType}</Badge>
+                  <Badge variant="outline" className="bg-background">{handoff.recordType}</Badge>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={`text-[10px] ${

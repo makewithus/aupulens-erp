@@ -35,14 +35,14 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
                   ? "bg-blue-600 text-white"
                   : step === s.n
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                    : "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground"
               }`}
             >
               {step > s.n ? <Check className="w-4 h-4" /> : s.n}
             </div>
             <span className="text-xs text-muted-foreground whitespace-nowrap">{s.label}</span>
           </div>
-          {i < steps.length - 1 && <div className="w-10 h-px bg-gray-300 dark:bg-gray-700 mb-5" />}
+          {i < steps.length - 1 && <div className="w-10 h-px bg-border mb-5" />}
         </div>
       ))}
     </div>

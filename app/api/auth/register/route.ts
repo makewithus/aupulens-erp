@@ -6,6 +6,7 @@ import User from "@/models/User";
 import Organization from "@/models/Organization";
 import { ENTITY_STATUS, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
 import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
+import { getCountryInfo } from "@/lib/constants/countries";
 
 const DEFAULT_TENANT_ID = "default-tenant";
 
@@ -111,14 +112,15 @@ export async function POST(req: NextRequest) {
 
       if (!organization) {
         const temporaryOwnerUserId = new Types.ObjectId();
+        const countryInfo = getCountryInfo(country || "India");
         organization = await Organization.create({
           name: companyName || `${name}'s Organization`,
           subdomain: tenantId,
           ownerUserId: temporaryOwnerUserId,
           settings: {
             themeColor: "#3b82f6",
-            timezone: "Asia/Kolkata",
-            currency: "INR",
+            timezone: countryInfo.timezone,
+            currency: countryInfo.currencyCode,
             country: country || "India",
             state: state || "",
             industry: industry || "",

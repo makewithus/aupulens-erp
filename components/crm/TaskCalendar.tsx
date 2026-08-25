@@ -24,7 +24,7 @@ const SOURCE_STYLES: Record<string, string> = {
   attendance: "bg-red-900/20 border-red-800 text-red-300",
   payment: "bg-emerald-900/20 border-emerald-800 text-emerald-300",
   payroll: "bg-amber-900/20 border-amber-800 text-amber-300",
-  calendar: "bg-neutral-800/40 border-neutral-700 text-neutral-200",
+  calendar: "bg-accent/40 border-border text-foreground",
 };
 const SOURCE_LABELS: Record<string, string> = {
   task: "Tasks", leave: "Leave", attendance: "Attendance",
@@ -79,14 +79,24 @@ export default function TaskCalendar() {
   }, [viewMode, anchorDate]);
 
   useEffect(() => {
+    // Guards against switching views (Week/Month/Year) or navigating dates
+    // faster than a fetch resolves — without this, an earlier, slower request
+    // (e.g. a full-year fetch) could resolve after a newer one and overwrite
+    // the correct data with stale results for a different range.
+    let cancelled = false;
     setLoading(true);
     setConflicts(null);
     const from = rangeStart.toISOString();
     const to = addDays(rangeEnd, 1).toISOString();
     fetch(`/api/calendar?from=${from}&to=${to}`)
       .then((res) => res.json())
-      .then((d) => { if (d.success) setEvents(d.data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((d) => {
+        if (cancelled) return;
+        if (d.success) setEvents(d.data);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [rangeStart, rangeEnd]);
 
   const checkConflicts = useCallback(async () => {
@@ -143,16 +153,16 @@ export default function TaskCalendar() {
         <button
           key={key}
           onClick={() => toggleSource(key)}
-          className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${sourceFilter.has(key) ? SOURCE_STYLES[key] : "bg-transparent border-neutral-800 text-muted-foreground opacity-50"}`}
+          className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${sourceFilter.has(key) ? SOURCE_STYLES[key] : "bg-transparent border-border text-muted-foreground opacity-50"}`}
         >
           {SOURCE_LABELS[key]}
         </button>
       ))}
-      <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-[11px] bg-neutral-900 border border-neutral-800 rounded-md px-2 py-1">
+      <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-[11px] bg-card border border-border rounded-md px-2 py-1">
         <option value="all">All statuses</option>
         {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
-      <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="text-[11px] bg-neutral-900 border border-neutral-800 rounded-md px-2 py-1">
+      <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="text-[11px] bg-card border border-border rounded-md px-2 py-1">
         <option value="all">All priorities</option>
         {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
       </select>
@@ -169,13 +179,13 @@ export default function TaskCalendar() {
         </TabsList>
       </Tabs>
       <div className="flex items-center gap-1">
-        <button onClick={goPrev} aria-label="Previous" className="p-1.5 rounded-md border border-neutral-800 hover:bg-neutral-800"><ChevronLeft className="h-3.5 w-3.5" /></button>
-        <button onClick={goToday} className="text-xs border border-neutral-800 rounded-md px-2 py-1 hover:bg-neutral-800">Today</button>
-        <button onClick={goNext} aria-label="Next" className="p-1.5 rounded-md border border-neutral-800 hover:bg-neutral-800"><ChevronRight className="h-3.5 w-3.5" /></button>
+        <button onClick={goPrev} aria-label="Previous" className="p-1.5 rounded-md border border-border hover:bg-accent"><ChevronLeft className="h-3.5 w-3.5" /></button>
+        <button onClick={goToday} className="text-xs border border-border rounded-md px-2 py-1 hover:bg-accent">Today</button>
+        <button onClick={goNext} aria-label="Next" className="p-1.5 rounded-md border border-border hover:bg-accent"><ChevronRight className="h-3.5 w-3.5" /></button>
       </div>
       <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
         <PopoverTrigger asChild>
-          <button className="text-xs border border-neutral-800 rounded-md px-2 py-1 hover:bg-neutral-800 flex items-center gap-1">
+          <button className="text-xs border border-border rounded-md px-2 py-1 hover:bg-accent flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" /> {rangeLabel}
           </button>
         </PopoverTrigger>
@@ -190,7 +200,7 @@ export default function TaskCalendar() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">Unified view — tasks, leave, attendance, payments, payroll.</p>
-        <button onClick={checkConflicts} disabled={checkingConflicts} className="text-xs border border-neutral-700 rounded-md px-3 py-1.5 hover:bg-neutral-800 flex items-center gap-1 disabled:opacity-50">
+        <button onClick={checkConflicts} disabled={checkingConflicts} className="text-xs border border-border rounded-md px-3 py-1.5 hover:bg-accent flex items-center gap-1 disabled:opacity-50">
           {checkingConflicts ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-indigo-400" />} Detect conflicts (AI)
         </button>
       </div>
@@ -205,7 +215,7 @@ export default function TaskCalendar() {
           {conflicts.length ? (
             <>
               <p className="font-semibold text-amber-300 flex items-center gap-1 mb-1"><AlertTriangle className="h-3 w-3" /> {conflicts.length} conflict(s)</p>
-              <p className="whitespace-pre-wrap text-neutral-300">{conflictSummary}</p>
+              <p className="whitespace-pre-wrap text-foreground">{conflictSummary}</p>
             </>
           ) : <p className="text-emerald-300">No scheduling conflicts in this range.</p>}
         </div>
@@ -227,11 +237,11 @@ export default function TaskCalendar() {
 function WeekGrid({ rangeStart, eventsByDay, conflictDays }: { rangeStart: Date; eventsByDay: Map<string, any[]>; conflictDays: Set<string> }) {
   const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(rangeStart, i));
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-x-auto">
+    <div className="bg-card border border-border rounded-lg overflow-x-auto">
       <div className="min-w-[640px]">
-        <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
+        <div className="grid grid-cols-7 border-b border-border bg-background">
           {weekDays.map((day) => (
-            <div key={day.toISOString()} className={`p-3 text-center border-r border-neutral-800 last:border-r-0 ${conflictDays.has(format(day, "yyyy-MM-dd")) ? "bg-amber-950/30" : ""}`}>
+            <div key={day.toISOString()} className={`p-3 text-center border-r border-border last:border-r-0 ${conflictDays.has(format(day, "yyyy-MM-dd")) ? "bg-amber-950/30" : ""}`}>
               <p className="text-sm font-bold">{format(day, "EEEE")}</p>
               <p className="text-xs text-muted-foreground">{format(day, "MMM d")}</p>
             </div>
@@ -241,7 +251,7 @@ function WeekGrid({ rangeStart, eventsByDay, conflictDays }: { rangeStart: Date;
           {weekDays.map((day) => {
             const dayEvents = eventsByDay.get(format(day, "yyyy-MM-dd")) || [];
             return (
-              <div key={day.toISOString()} className="p-2 border-r border-neutral-800 last:border-r-0 overflow-y-auto">
+              <div key={day.toISOString()} className="p-2 border-r border-border last:border-r-0 overflow-y-auto">
                 {dayEvents.map((e) => (
                   <div key={`${e.source}-${e.id}`} title={`${e.source}: ${e.title}`} className={`p-1 mb-1 text-[10px] rounded truncate px-2 border ${SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar}`}>
                     {e.title}
@@ -261,13 +271,13 @@ const WEEKDAY_INITIALS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function MonthGrid({ anchorDate, eventsByDay, conflictDays, onDayClick }: { anchorDate: Date; eventsByDay: Map<string, any[]>; conflictDays: Set<string>; onDayClick: (d: Date) => void }) {
   const cells = buildMonthCells(anchorDate.getFullYear(), anchorDate.getMonth());
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-border bg-background">
         {WEEKDAY_INITIALS.map((w) => <div key={w} className="p-2 text-center text-xs font-semibold text-muted-foreground">{w}</div>)}
       </div>
       <div className="grid grid-cols-7">
         {cells.map((day, i) => {
-          if (!day) return <div key={`e${i}`} className="border-r border-b border-neutral-800 last:border-r-0 min-h-[90px] bg-neutral-950/40" />;
+          if (!day) return <div key={`e${i}`} className="border-r border-b border-border last:border-r-0 min-h-[90px] bg-background/40" />;
           const key = format(day, "yyyy-MM-dd");
           const dayEvents = eventsByDay.get(key) || [];
           const shown = dayEvents.slice(0, 3);
@@ -275,7 +285,7 @@ function MonthGrid({ anchorDate, eventsByDay, conflictDays, onDayClick }: { anch
             <button
               key={key}
               onClick={() => onDayClick(day)}
-              className={`text-left border-r border-b border-neutral-800 last:border-r-0 min-h-[90px] p-1.5 align-top hover:bg-neutral-800/40 transition-colors ${conflictDays.has(key) ? "bg-amber-950/20" : ""}`}
+              className={`text-left border-r border-b border-border last:border-r-0 min-h-[90px] p-1.5 align-top hover:bg-accent/40 transition-colors ${conflictDays.has(key) ? "bg-amber-950/20" : ""}`}
             >
               <p className={`text-xs mb-1 ${isToday(day) ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white font-semibold" : "text-muted-foreground"}`}>{format(day, "d")}</p>
               <div className="space-y-0.5">
@@ -315,7 +325,7 @@ function YearGrid({ anchorDate, eventsByDay, onDayClick }: { anchorDate: Date; e
         const cells = buildMonthCells(year, month);
         const monthDate = new Date(year, month, 1);
         return (
-          <div key={month} className="bg-neutral-900 border border-neutral-800 rounded-lg p-2">
+          <div key={month} className="bg-card border border-border rounded-lg p-2">
             <p className={`text-xs font-semibold mb-1.5 ${isSameMonth(monthDate, anchorDate) ? "text-indigo-300" : ""}`}>{format(monthDate, "MMMM")}</p>
             <div className="grid grid-cols-7 gap-[2px]">
               {cells.map((day, i) => {

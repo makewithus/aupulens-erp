@@ -42,14 +42,14 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
     }
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (!opp) return <div className="p-6">Opportunity not found</div>;
 
   const weightedValue = opp.amount * (opp.probability / 100);
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center bg-neutral-900 p-6 rounded-lg border border-neutral-800">
+      <div className="flex justify-between items-center bg-card p-6 rounded-lg border border-border">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             {opp.deal_name}
@@ -78,7 +78,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="col-span-1 lg:col-span-2 space-y-6">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="bg-neutral-900 border border-neutral-800 flex flex-wrap h-auto p-1 justify-start">
+            <TabsList className="bg-card border border-border flex flex-wrap h-auto p-1 justify-start">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="activities">Activities</TabsTrigger>
               <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
@@ -92,7 +92,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </TabsList>
             
             <TabsContent value="overview" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg space-y-6">
+              <div className="bg-card border border-border p-6 rounded-lg space-y-6">
                 <div>
                   <h3 className="font-bold mb-4">Deal Details</h3>
                   <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
@@ -106,11 +106,11 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                 </div>
 
                 {opp.competitors && opp.competitors.length > 0 && (
-                  <div className="pt-4 border-t border-neutral-800">
+                  <div className="pt-4 border-t border-border">
                     <h3 className="font-bold mb-3">Competitors</h3>
                     <div className="flex flex-wrap gap-2">
                       {opp.competitors.map((c: string, idx: number) => (
-                        <Badge key={idx} variant="outline" className="border-neutral-700 bg-neutral-950">{c}</Badge>
+                        <Badge key={idx} variant="outline" className="border-border bg-background">{c}</Badge>
                       ))}
                     </div>
                   </div>
@@ -119,13 +119,13 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </TabsContent>
 
             <TabsContent value="activities" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <div className="bg-card border border-border p-6 rounded-lg">
                 <OpportunityTimeline oppId={params.id} />
               </div>
             </TabsContent>
 
             <TabsContent value="stakeholders" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <div className="bg-card border border-border p-6 rounded-lg">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold">Influence Map & Stakeholders</h3>
                   <Button variant="outline" size="sm"><Plus className="w-4 h-4 mr-1"/> Link Contact</Button>
@@ -135,7 +135,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                 ) : (
                   <div className="grid gap-4">
                     {opp.stakeholders.map((s: any, i: number) => (
-                      <div key={i} className="flex justify-between items-center bg-neutral-950 p-4 rounded border border-neutral-800">
+                      <div key={i} className="flex justify-between items-center bg-background p-4 rounded border border-border">
                         <div>
                           <p className="font-bold">{s.contactId?.first_name} {s.contactId?.last_name}</p>
                           <p className="text-xs text-muted-foreground">{s.contactId?.email || s.contactId?.mobile}</p>
@@ -149,19 +149,19 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </TabsContent>
 
             <TabsContent value="quotes" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <div className="bg-card border border-border p-6 rounded-lg">
                 <OpportunityQuotes oppId={params.id} accountId={opp.account_id?._id} />
               </div>
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg text-center py-12 text-muted-foreground">
+              <div className="bg-card border border-border p-6 rounded-lg text-center py-12 text-muted-foreground">
                 Tasks management will be displayed here.
               </div>
             </TabsContent>
 
             <TabsContent value="documents" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <div className="bg-card border border-border p-6 rounded-lg">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold">Attachments & Documents</h3>
                   <Button variant="outline" size="sm">Upload Document</Button>
@@ -171,7 +171,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                 ) : (
                   <div className="space-y-2">
                     {opp.attachments.map((doc: any, i: number) => (
-                      <div key={i} className="flex justify-between items-center bg-neutral-950 p-3 rounded border border-neutral-800 text-sm">
+                      <div key={i} className="flex justify-between items-center bg-background p-3 rounded border border-border text-sm">
                         <span className="text-blue-400 hover:underline cursor-pointer">{doc.name}</span>
                         <span className="text-xs text-muted-foreground">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                       </div>
@@ -182,12 +182,12 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </TabsContent>
 
             <TabsContent value="timeline" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+              <div className="bg-card border border-border p-6 rounded-lg">
                 <h3 className="font-bold mb-4">Stage History</h3>
-                <div className="relative border-l border-neutral-800 ml-3 space-y-6">
+                <div className="relative border-l border-border ml-3 space-y-6">
                   {opp.stage_history?.map((sh: any, i: number) => (
                     <div key={i} className="pl-6 relative">
-                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1 border-2 border-neutral-900" />
+                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1 border-2 border-border" />
                       <p className="font-bold text-sm">{sh.stage}</p>
                       <p className="text-xs text-muted-foreground">Entered: {new Date(sh.enteredAt || sh.entered_at).toLocaleString()}</p>
                     </div>
@@ -197,19 +197,19 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </TabsContent>
 
             <TabsContent value="forecast" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg text-center py-12 text-muted-foreground">
+              <div className="bg-card border border-border p-6 rounded-lg text-center py-12 text-muted-foreground">
                 Forecasting analytics for this specific deal will render here. Current Category: {opp.forecast_category}
               </div>
             </TabsContent>
 
             <TabsContent value="approvals" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg text-center py-12 text-muted-foreground">
+              <div className="bg-card border border-border p-6 rounded-lg text-center py-12 text-muted-foreground">
                 No pending approvals required for this deal currently.
               </div>
             </TabsContent>
 
             <TabsContent value="notes" className="mt-4">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg text-center py-12 text-muted-foreground">
+              <div className="bg-card border border-border p-6 rounded-lg text-center py-12 text-muted-foreground">
                 Internal collaborative notes stream.
               </div>
             </TabsContent>
@@ -218,7 +218,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
         </div>
 
         <div className="col-span-1 space-y-6">
-          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+          <div className="bg-card border border-border p-6 rounded-lg">
             <h3 className="font-bold mb-4">Deal Health</h3>
             {opp.dynamicRisk === 'Critical' ? (
               <div className="p-4 bg-red-950/30 border border-red-900 rounded-lg">
@@ -250,15 +250,15 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
           </div>
 
           {opp.aiAssessment && (
-            <div className="bg-neutral-900 border border-indigo-900/50 p-6 rounded-lg">
+            <div className="bg-card border border-indigo-900/50 p-6 rounded-lg">
               <h3 className="font-bold mb-2 flex items-center gap-2">
                 AI Assessment
                 <Badge variant="outline" className="text-[10px] font-mono">
                   {opp.aiAssessment.confidence}% confidence
                 </Badge>
               </h3>
-              <p className="text-sm text-neutral-300 mb-2">{opp.aiAssessment.summary}</p>
-              <p className="text-xs text-neutral-500 mb-3">{opp.aiAssessment.reasoning}</p>
+              <p className="text-sm text-foreground mb-2">{opp.aiAssessment.summary}</p>
+              <p className="text-xs text-muted-foreground mb-3">{opp.aiAssessment.reasoning}</p>
               {opp.aiAssessment.suggestedAction && (
                 <div className="text-xs bg-indigo-950/30 border border-indigo-900/50 rounded px-3 py-2 text-indigo-300">
                   Suggested: {opp.aiAssessment.suggestedAction}
@@ -268,11 +268,11 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
           )}
 
           {conversationSummaries.length > 0 && (
-            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+            <div className="bg-card border border-border p-6 rounded-lg">
               <h3 className="font-bold mb-3">Call &amp; Meeting Summaries</h3>
               <div className="space-y-3">
                 {conversationSummaries.map((s: any) => (
-                  <div key={s._id} className="text-sm border-b border-neutral-800 pb-3 last:border-0 last:pb-0">
+                  <div key={s._id} className="text-sm border-b border-border pb-3 last:border-0 last:pb-0">
                     <div className="flex items-center justify-between mb-1">
                       <Badge
                         variant="outline"
@@ -283,13 +283,13 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
                       >
                         {s.sentiment}
                       </Badge>
-                      <span className="text-[10px] text-neutral-500">
+                      <span className="text-[10px] text-muted-foreground">
                         {new Date(s.generatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <p className="text-neutral-300">{s.summary}</p>
+                    <p className="text-foreground">{s.summary}</p>
                     {s.actionItems?.length > 0 && (
-                      <ul className="list-disc pl-4 text-xs text-neutral-500 mt-1">
+                      <ul className="list-disc pl-4 text-xs text-muted-foreground mt-1">
                         {s.actionItems.map((a: string, i: number) => <li key={i}>{a}</li>)}
                       </ul>
                     )}
@@ -299,7 +299,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
             </div>
           )}
 
-          <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+          <div className="bg-card border border-border p-6 rounded-lg">
              <h3 className="font-bold mb-4">Tags</h3>
              <div className="flex flex-wrap gap-2">
                {(!opp.tags || opp.tags.length === 0) ? (
@@ -317,7 +317,7 @@ export default function OpportunityDetailPage(props: { params: Promise<{ id: str
   );
 }
 
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import QuoteBuilder from "@/components/crm/QuoteBuilder";
 
 function OpportunityQuotes({ oppId, accountId }: { oppId: string, accountId: string }) {
@@ -352,7 +352,7 @@ function OpportunityQuotes({ oppId, accountId }: { oppId: string, accountId: str
       ) : (
         <div className="space-y-2">
           {quotes.map(q => (
-            <div key={q._id} className="flex justify-between items-center bg-neutral-950 p-4 rounded border border-neutral-800">
+            <div key={q._id} className="flex justify-between items-center bg-background p-4 rounded border border-border">
               <div>
                 <p className="font-bold">{q.quote_number}</p>
                 <p className="text-xs text-muted-foreground">Grand Total: ${q.grand_total.toLocaleString()}</p>

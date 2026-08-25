@@ -439,10 +439,10 @@ export function DataFlowTopologyChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-none p-6 font-mono w-full relative flex flex-col items-center">
+    <div className="bg-card border border-border rounded-none p-6 font-mono w-full relative flex flex-col items-center">
       <div className="w-full flex justify-between items-center mb-4">
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Enterprise Data Flow Topology
           </span>
           <h3 className="text-sm font-normal text-white uppercase mt-0.5">
@@ -457,7 +457,7 @@ export function DataFlowTopologyChart() {
         {/* 3D Sphere Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#0c0c12]/95 border border-neutral-800 p-2 font-mono text-[11px] text-white shadow-xl min-w-[120px] rounded-none hidden z-10 backdrop-blur-md"
+          className="absolute pointer-events-none bg-[#0c0c12]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[120px] rounded-none hidden z-10 backdrop-blur-md"
         ></div>
 
         {/* Speed Controls */}
@@ -467,7 +467,7 @@ export function DataFlowTopologyChart() {
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 0
                 ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >
             Pause
@@ -477,7 +477,7 @@ export function DataFlowTopologyChart() {
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 1
                 ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >
             Rotate
@@ -487,7 +487,7 @@ export function DataFlowTopologyChart() {
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 3
                 ? "bg-white/10 text-white border-white"
-                : "bg-neutral-800/40 text-neutral-500 border-neutral-800 hover:text-neutral-300"
+                : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >
             Fast

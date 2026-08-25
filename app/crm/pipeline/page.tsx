@@ -3,13 +3,28 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/manufacturing/StatCard";
+import { Layers, DollarSign, Scale, BarChart3, Trophy, TrendingDown, ChevronDown, ChevronUp } from "lucide-react";
 
 const STAGES = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval', 'Closed Won', 'Closed Lost'];
+const PAGE_SIZE = 5;
 
 export default function PipelinePage() {
   const [columns, setColumns] = useState<any>({});
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Per-column reveal count — every stage starts collapsed to the top 5 deals;
+  // "Show more" reveals another page at a time for just that one column.
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+
+  const showMore = (stage: string) => {
+    setVisibleCounts(prev => ({ ...prev, [stage]: (prev[stage] || PAGE_SIZE) + PAGE_SIZE }));
+  };
+  const showLess = (stage: string) => {
+    setVisibleCounts(prev => ({ ...prev, [stage]: PAGE_SIZE }));
+  };
 
   const fetchPipeline = async () => {
     setLoading(true);
@@ -73,38 +88,48 @@ export default function PipelinePage() {
     }
   };
 
-  if (loading) return <div className="p-6">Loading Pipeline...</div>;
+  if (loading) {
+    return (
+      <div className="p-6 h-full flex flex-col">
+        <div className="mb-6 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+          {STAGES.map(stage => (
+            <div key={stage} className="bg-card border border-border rounded-lg w-80 min-w-80 flex flex-col h-full">
+              <div className="p-4 border-b border-border flex justify-between items-center">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-6" />
+              </div>
+              <div className="flex-1 p-2 space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="mb-6 space-y-4">
         <h1 className="text-2xl font-bold">Kanban Pipeline</h1>
         {analytics && (
-          <div className="grid grid-cols-6 gap-4">
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Total Deals</p>
-              <p className="text-xl font-bold">{analytics.totalOpportunities}</p>
-            </div>
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Pipeline Value</p>
-              <p className="text-xl font-bold text-green-500">₹{analytics.totalPipelineValue.toLocaleString()}</p>
-            </div>
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Weighted Value</p>
-              <p className="text-xl font-bold text-blue-400">₹{analytics.weightedPipeline.toLocaleString()}</p>
-            </div>
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Avg Deal Size</p>
-              <p className="text-xl font-bold">₹{analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-            </div>
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Win Rate</p>
-              <p className="text-xl font-bold">{analytics.winRate.toFixed(1)}%</p>
-            </div>
-            <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
-              <p className="text-xs text-muted-foreground">Loss Rate</p>
-              <p className="text-xl font-bold text-red-500">{analytics.lossRate.toFixed(1)}%</p>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            <StatCard title="Total Deals" value={analytics.totalOpportunities} icon={Layers} colorClass="text-blue-800 dark:text-blue-400" />
+            <StatCard title="Pipeline Value" value={`₹${analytics.totalPipelineValue.toLocaleString()}`} icon={DollarSign} colorClass="text-emerald-800 dark:text-emerald-400" />
+            <StatCard title="Weighted Value" value={`₹${analytics.weightedPipeline.toLocaleString()}`} icon={Scale} colorClass="text-indigo-800 dark:text-indigo-400" />
+            <StatCard title="Avg Deal Size" value={`₹${analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={BarChart3} colorClass="text-blue-800 dark:text-blue-400" />
+            <StatCard title="Win Rate" value={`${analytics.winRate.toFixed(1)}%`} icon={Trophy} colorClass="text-emerald-800 dark:text-emerald-400" />
+            <StatCard title="Loss Rate" value={`${analytics.lossRate.toFixed(1)}%`} icon={TrendingDown} colorClass="text-rose-800 dark:text-rose-400" />
           </div>
         )}
       </div>
@@ -112,32 +137,48 @@ export default function PipelinePage() {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
           {STAGES.map(stage => (
-            <div key={stage} className="bg-neutral-900 border border-neutral-800 rounded-lg w-80 min-w-80 flex flex-col h-full">
-              <div className="p-4 border-b border-neutral-800 font-bold flex justify-between items-center">
+            <div key={stage} className="bg-card border border-border rounded-lg w-80 min-w-80 flex flex-col h-full">
+              <div className="p-4 border-b border-border font-bold flex justify-between items-center">
                 <span>{stage}</span>
                 <Badge variant="outline">{columns[stage]?.count || 0}</Badge>
               </div>
               <Droppable droppableId={stage}>
-                {(provided, snapshot) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 p-2 space-y-2 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-neutral-800/50' : ''}`}>
-                    {columns[stage]?.items.map((item: any, index: number) => (
-                      <Draggable key={item._id} draggableId={item._id} index={index}>
-                        {(provided, snapshot) => (
-                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} 
-                            className={`p-4 bg-neutral-800 border border-neutral-700 rounded shadow-sm ${snapshot.isDragging ? 'opacity-70' : ''}`}>
-                            <div className="font-bold">{item.deal_name}</div>
-                            <div className="text-sm text-green-400 font-mono mt-1">₹{item.amount?.toLocaleString()}</div>
-                            <div className="text-xs text-muted-foreground mt-2 flex justify-between">
-                              <span>{new Date(item.expected_close_date || Date.now()).toLocaleDateString()}</span>
-                              <span>{item.probability}%</span>
+                {(provided, snapshot) => {
+                  const allItems = columns[stage]?.items || [];
+                  const visibleCount = visibleCounts[stage] || PAGE_SIZE;
+                  const visibleItems = allItems.slice(0, visibleCount);
+                  const remaining = allItems.length - visibleItems.length;
+                  return (
+                    <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 p-2 space-y-2 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-accent/50' : ''}`}>
+                      {visibleItems.map((item: any, index: number) => (
+                        <Draggable key={item._id} draggableId={item._id} index={index}>
+                          {(provided, snapshot) => (
+                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                              className={`p-4 bg-accent border border-border rounded shadow-sm ${snapshot.isDragging ? 'opacity-70' : ''}`}>
+                              <div className="font-bold">{item.deal_name}</div>
+                              <div className="text-sm text-green-600 dark:text-green-400 font-mono mt-1">₹{item.amount?.toLocaleString()}</div>
+                              <div className="text-xs text-muted-foreground mt-2 flex justify-between">
+                                <span>{new Date(item.expected_close_date || Date.now()).toLocaleDateString()}</span>
+                                <span>{item.probability}%</span>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {remaining > 0 && (
+                        <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => showMore(stage)}>
+                          <ChevronDown className="h-3.5 w-3.5" /> Show {Math.min(remaining, PAGE_SIZE)} more ({remaining} left)
+                        </Button>
+                      )}
+                      {remaining <= 0 && visibleCount > PAGE_SIZE && allItems.length > PAGE_SIZE && (
+                        <Button variant="ghost" size="sm" className="w-full gap-1.5" onClick={() => showLess(stage)}>
+                          <ChevronUp className="h-3.5 w-3.5" /> Show less
+                        </Button>
+                      )}
+                    </div>
+                  );
+                }}
               </Droppable>
             </div>
           ))}

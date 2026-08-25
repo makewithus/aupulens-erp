@@ -99,7 +99,7 @@ export default function QuoteLineItems({
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_56px_80px_64px_64px_80px_28px_28px] gap-1 text-xs text-neutral-500 px-2">
+      <div className="grid grid-cols-[1fr_56px_80px_64px_64px_80px_28px_28px] gap-1 text-xs text-muted-foreground px-2">
         <span>Item</span>
         <span>Qty</span>
         <span>Unit $</span>
@@ -119,16 +119,16 @@ export default function QuoteLineItems({
             key={i}
             className={`rounded border ${
               item.is_optional
-                ? "border-dashed border-neutral-600 bg-neutral-950/50"
+                ? "border-dashed border-border bg-background/50"
                 : item.is_bundled
                 ? "border-blue-800/60 bg-blue-950/10"
-                : "border-neutral-800 bg-neutral-950"
+                : "border-border bg-background"
             }`}
           >
             {(item.is_optional || item.is_bundled) && (
               <div className="flex gap-1 px-2 pt-1">
                 {item.is_optional && (
-                  <Badge variant="outline" className="text-[10px] h-4 border-neutral-600 text-neutral-400">
+                  <Badge variant="outline" className="text-[10px] h-4 border-border text-muted-foreground">
                     Optional
                   </Badge>
                 )}
@@ -145,7 +145,7 @@ export default function QuoteLineItems({
                 value={item.item_name}
                 onChange={(e) => update(i, "item_name", e.target.value)}
                 placeholder="Item name"
-                className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                className="h-7 text-xs bg-card border-border"
                 disabled={readOnly}
               />
               <Input
@@ -155,7 +155,7 @@ export default function QuoteLineItems({
                 onChange={(e) =>
                   update(i, "quantity", parseFloat(e.target.value) || 0)
                 }
-                className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                className="h-7 text-xs bg-card border-border"
                 disabled={readOnly}
               />
               <Input
@@ -166,7 +166,7 @@ export default function QuoteLineItems({
                 onChange={(e) =>
                   update(i, "unit_price", parseFloat(e.target.value) || 0)
                 }
-                className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                className="h-7 text-xs bg-card border-border"
                 disabled={readOnly}
               />
               <Input
@@ -178,7 +178,7 @@ export default function QuoteLineItems({
                 onChange={(e) =>
                   update(i, "discount_percent", parseFloat(e.target.value) || 0)
                 }
-                className={`h-7 text-xs bg-neutral-900 border-neutral-700 ${
+                className={`h-7 text-xs bg-card border-border ${
                   (item.discount_percent || 0) > 20
                     ? "text-red-400"
                     : (item.discount_percent || 0) > 5
@@ -195,7 +195,7 @@ export default function QuoteLineItems({
                 onChange={(e) =>
                   update(i, "tax_percent", parseFloat(e.target.value) || 0)
                 }
-                className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                className="h-7 text-xs bg-card border-border"
                 disabled={readOnly}
               />
               <div className="text-right text-xs font-mono font-bold text-green-400 pr-1">
@@ -204,7 +204,7 @@ export default function QuoteLineItems({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-neutral-500"
+                className="h-6 w-6 text-muted-foreground"
                 onClick={() => toggleExpanded(i)}
               >
                 {isExpanded ? (
@@ -217,7 +217,7 @@ export default function QuoteLineItems({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-neutral-500 hover:text-red-400"
+                  className="h-6 w-6 text-muted-foreground hover:text-red-400"
                   onClick={() => remove(i)}
                 >
                   <Trash2 className="w-3 h-3" />
@@ -228,12 +228,12 @@ export default function QuoteLineItems({
             </div>
 
             {isExpanded && (
-              <div className="px-2 pb-3 pt-2 border-t border-neutral-800 space-y-2">
+              <div className="px-2 pb-3 pt-2 border-t border-border space-y-2">
                 <Input
                   value={item.description}
                   onChange={(e) => update(i, "description", e.target.value)}
                   placeholder="Description (optional)"
-                  className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                  className="h-7 text-xs bg-card border-border"
                   disabled={readOnly}
                 />
                 {item.is_bundled && (
@@ -241,12 +241,12 @@ export default function QuoteLineItems({
                     value={item.bundle_name}
                     onChange={(e) => update(i, "bundle_name", e.target.value)}
                     placeholder="Bundle name"
-                    className="h-7 text-xs bg-neutral-900 border-neutral-700"
+                    className="h-7 text-xs bg-card border-border"
                     disabled={readOnly}
                   />
                 )}
                 {!readOnly && (
-                  <div className="flex gap-4 text-xs text-neutral-400">
+                  <div className="flex gap-4 text-xs text-muted-foreground">
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="checkbox"
@@ -276,9 +276,9 @@ export default function QuoteLineItems({
       })}
 
       {/* Summary totals */}
-      <div className="flex justify-end pt-2 border-t border-neutral-800">
+      <div className="flex justify-end pt-2 border-t border-border">
         <div className="w-56 text-xs space-y-1">
-          <div className="flex justify-between text-neutral-400">
+          <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>₹{totals.subtotal.toFixed(2)}</span>
           </div>
@@ -290,7 +290,7 @@ export default function QuoteLineItems({
             <span>Tax</span>
             <span>+${totals.taxTotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold text-sm text-white border-t border-neutral-700 pt-1">
+          <div className="flex justify-between font-bold text-sm text-white border-t border-border pt-1">
             <span>Grand Total</span>
             <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>

@@ -19,13 +19,13 @@ export default function VisualWorkflowDesigner() {
             <Network className="w-6 h-6 text-purple-400" />
             Visual Workflow Builder
           </h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Drag, connect, and publish event-driven automation — the same rules the form builder creates.
           </p>
         </div>
         <Link
           href="/crm/automations"
-          className="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
         >
           <ListChecks className="w-3.5 h-3.5" /> Rule list / form builder
         </Link>

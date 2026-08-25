@@ -77,7 +77,7 @@ export default function BalanceSheetPage() {
             <div class="flex justify-between items-end">
               <div>
                 <p class="text-sm font-medium">Organization: Aupulens</p>
-                <p class="text-sm text-gray-600">Generated: ${new Date().toLocaleString()}</p>
+                <p class="text-sm text-muted-foreground">Generated: ${new Date().toLocaleString()}</p>
               </div>
               <p class="text-lg font-bold">As of: ${new Date(date).toLocaleDateString()}</p>
             </div>
@@ -88,21 +88,21 @@ export default function BalanceSheetPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Assets</h3>
             <table class="w-full text-left mb-4">
               <thead>
-                <tr class="bg-gray-100 border-b border-black">
+                <tr class="bg-accent border-b border-black">
                   <th class="py-2 px-4 font-bold">Description</th>
                   <th class="py-2 px-4 font-bold text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-border">
                   <td class="py-2 px-4">Accounts Receivable</td>
                   <td class="py-2 px-4 text-right">₹${receivables.toLocaleString()}</td>
                 </tr>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-border">
                   <td class="py-2 px-4">Inventory</td>
                   <td class="py-2 px-4 text-right">₹${inventoryValue.toLocaleString()}</td>
                 </tr>
-                <tr class="bg-gray-50 font-bold">
+                <tr class="bg-muted font-bold">
                   <td class="py-2 px-4">Total Current Assets</td>
                   <td class="py-2 px-4 text-right">₹${totalCurrentAssets.toLocaleString()}</td>
                 </tr>
@@ -115,17 +115,17 @@ export default function BalanceSheetPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Liabilities</h3>
             <table class="w-full text-left mb-4">
               <thead>
-                <tr class="bg-gray-100 border-b border-black">
+                <tr class="bg-accent border-b border-black">
                   <th class="py-2 px-4 font-bold">Description</th>
                   <th class="py-2 px-4 font-bold text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b border-gray-200">
+                <tr class="border-b border-border">
                   <td class="py-2 px-4">Accounts Payable</td>
                   <td class="py-2 px-4 text-right">₹${payables.toLocaleString()}</td>
                 </tr>
-                <tr class="bg-gray-50 font-bold">
+                <tr class="bg-muted font-bold">
                   <td class="py-2 px-4">Total Current Liabilities</td>
                   <td class="py-2 px-4 text-right">₹${totalCurrentLiabilities.toLocaleString()}</td>
                 </tr>
@@ -138,13 +138,13 @@ export default function BalanceSheetPage() {
             <h3 class="text-xl font-bold mb-4 uppercase border-b border-black pb-1">Equity</h3>
             <table class="w-full text-left mb-4">
               <thead>
-                <tr class="bg-gray-100 border-b border-black">
+                <tr class="bg-accent border-b border-black">
                   <th class="py-2 px-4 font-bold">Description</th>
                   <th class="py-2 px-4 font-bold text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="bg-gray-50 font-bold">
+                <tr class="bg-muted font-bold">
                   <td class="py-2 px-4">Total Equity (Assets - Liabilities)</td>
                   <td class="py-2 px-4 text-right">₹${equity.toLocaleString()}</td>
                 </tr>
@@ -152,7 +152,7 @@ export default function BalanceSheetPage() {
             </table>
           </div>
 
-          <div class="mt-12 text-center text-sm text-gray-500">
+          <div class="mt-12 text-center text-sm text-muted-foreground">
             <p>End of Report</p>
           </div>
         </div>

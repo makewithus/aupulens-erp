@@ -252,22 +252,22 @@ export function PipelineTrendChart() {
   useEffect(() => { drawRef.current(); }, [isAdvanced]);
 
   return (
-    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}>
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-card border-border text-white" : "bg-white border-border text-foreground"}`}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className={`text-lg font-normal uppercase mt-1 ${isDark ? "text-white" : "text-neutral-900"}`}>Sales Pipeline Trend</h2>
-          <p className="text-[10px] text-neutral-500 mt-0.5">New pipeline value created per month, last 12 months</p>
+          <h2 className={`text-lg font-normal uppercase mt-1 ${isDark ? "text-white" : "text-foreground"}`}>Sales Pipeline Trend</h2>
+          <p className="text-[10px] text-muted-foreground mt-0.5">New pipeline value created per month, last 12 months</p>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <button
             onClick={() => setIsAdvanced(false)}
-            className={`cursor-pointer pb-0.5 relative transition-colors ${!isAdvanced ? (isDark ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium" : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold") : (isDark ? "text-neutral-500 hover:text-neutral-300" : "text-neutral-450 hover:text-neutral-600")}`}
+            className={`cursor-pointer pb-0.5 relative transition-colors ${!isAdvanced ? (isDark ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium" : "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-card font-semibold") : (isDark ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-muted-foreground")}`}
           >
             Overview
           </button>
           <button
             onClick={() => setIsAdvanced(true)}
-            className={`cursor-pointer pb-0.5 relative transition-colors ${isAdvanced ? (isDark ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium" : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold") : (isDark ? "text-neutral-500 hover:text-neutral-300" : "text-neutral-450 hover:text-neutral-600")}`}
+            className={`cursor-pointer pb-0.5 relative transition-colors ${isAdvanced ? (isDark ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-white font-medium" : "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-4px] after:w-full after:h-[1px] after:bg-card font-semibold") : (isDark ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-muted-foreground")}`}
           >
             By Stage
           </button>
@@ -275,9 +275,9 @@ export function PipelineTrendChart() {
       </div>
 
       {isAdvanced && stages.length > 0 && (
-        <div className={`flex flex-wrap gap-x-4 gap-y-2 mb-4 text-[10px] border-b pb-3 ${isDark ? "border-neutral-800/60" : "border-neutral-200/60"}`}>
+        <div className={`flex flex-wrap gap-x-4 gap-y-2 mb-4 text-[10px] border-b pb-3 ${isDark ? "border-border/60" : "border-border/60"}`}>
           {stages.map((s, i) => (
-            <div key={s} className="flex items-center gap-1.5 text-neutral-400">
+            <div key={s} className="flex items-center gap-1.5 text-muted-foreground">
               <span className="w-2 h-2 rounded-[1px] inline-block" style={{ backgroundColor: stageColor(s, i) }}></span>
               {s}
             </div>
@@ -293,8 +293,8 @@ export function PipelineTrendChart() {
         ) : (
           <>
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair"></canvas>
-            <div ref={tooltipRef} className={`absolute pointer-events-none p-2.5 font-mono text-[11px] shadow-xl min-w-[150px] rounded-none hidden z-10 border ${isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"}`}>
-              <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
+            <div ref={tooltipRef} className={`absolute pointer-events-none p-2.5 font-mono text-[11px] shadow-xl min-w-[150px] rounded-none hidden z-10 border ${isDark ? "bg-[#141414]/95 border-border text-white" : "bg-white/95 border-border text-foreground"}`}>
+              <div ref={tooltipDateRef} className="text-muted-foreground mb-0.5"></div>
               <div ref={tooltipValueRef} className="font-semibold text-xs text-indigo-400"></div>
             </div>
           </>

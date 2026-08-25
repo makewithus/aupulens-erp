@@ -462,7 +462,7 @@ export default function AIAssistant() {
         sidebarSections={adminSidebarConfig}
         companyName="Aupulens"
         dashboardTitle="Admin Dashboard"
-        pageName="AI Assistant"
+        pageName="Aupulens AI"
         profilePath="/admin/profile"
         userName="Admin"
         userEmail=""
@@ -495,10 +495,10 @@ export default function AIAssistant() {
       sidebarSections={adminSidebarConfig}
       companyName="Aupulens"
       dashboardTitle="Admin Dashboard"
-      pageName="AI Assistant"
+      pageName="Aupulens AI"
       breadcrumbs={[
         { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "AI Assistant" },
+        { label: "Aupulens AI" },
       ]}
       userName={session?.user?.name || ""}
       userEmail={session?.user?.email || ""}
@@ -511,13 +511,13 @@ export default function AIAssistant() {
         <div
           className={`${
             showHistory ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 fixed md:relative z-20 w-64 h-full bg-black/95 md:bg-black/50 backdrop-blur-sm border-r border-gray-800/50 flex flex-col transition-transform duration-300 ease-in-out`}
+          } md:translate-x-0 fixed md:relative z-20 w-64 h-full bg-black/95 md:bg-black/50 backdrop-blur-sm border-r border-border/50 flex flex-col transition-transform duration-300 ease-in-out`}
         >
           {/* New Chat Button */}
-          <div className="p-4 border-b border-gray-800/50 flex items-center justify-between">
+          <div className="p-4 border-b border-border/50 flex items-center justify-between">
             <Button
               onClick={startNewChat}
-              className="flex-1 bg-gray-800 hover:bg-gray-700 text-white gap-2"
+              className="flex-1 bg-accent hover:bg-accent text-white gap-2"
               size="sm"
             >
               <Plus className="h-4 w-4" />
@@ -525,7 +525,7 @@ export default function AIAssistant() {
             </Button>
             <button
               onClick={() => setShowHistory(false)}
-              className="md:hidden p-2 text-gray-400 hover:text-white"
+              className="md:hidden p-2 text-muted-foreground hover:text-white"
             >
               <MoreVertical className="h-4 w-4 rotate-90" />
             </button>
@@ -535,13 +535,13 @@ export default function AIAssistant() {
           <div className="flex-1 overflow-y-auto p-4">
             {loadingHistory ? (
               <div className="flex justify-center py-4">
-                <div className="h-5 w-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <div className="h-5 w-5 border-2 border-border border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <>
                 {chatHistory.length > 0 && (
                   <div className="mb-4">
-                    <h3 className="text-xs font-medium text-gray-500 mb-2 px-2">
+                    <h3 className="text-xs font-medium text-muted-foreground mb-2 px-2">
                       Recent Chats
                     </h3>
                     <div className="space-y-1">
@@ -550,8 +550,8 @@ export default function AIAssistant() {
                           key={chat._id}
                           className={`group flex items-center gap-2 px-3 py-2 text-xs rounded-none transition-colors ${
                             currentChatId === chat._id
-                              ? "bg-gray-800 text-white"
-                              : "text-gray-400 hover:bg-gray-900/50"
+                              ? "bg-accent text-white"
+                              : "text-muted-foreground hover:bg-card/50"
                           }`}
                         >
                           <button
@@ -567,7 +567,7 @@ export default function AIAssistant() {
                                 e.stopPropagation();
                                 toggleArchive(chat._id, chat.isArchived);
                               }}
-                              className="p-1 hover:bg-gray-700 rounded transition-colors"
+                              className="p-1 hover:bg-accent rounded transition-colors"
                               title="Move to Archive"
                             >
                               <Archive className="h-3 w-3" />
@@ -582,7 +582,7 @@ export default function AIAssistant() {
                                 }
                               }}
                               disabled={deletingChatId === chat._id}
-                              className="p-1 hover:bg-gray-700 rounded text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                              className="p-1 hover:bg-accent rounded text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                               title="Delete Chat"
                             >
                               {deletingChatId === chat._id ? (
@@ -600,7 +600,7 @@ export default function AIAssistant() {
 
                 {archivedChats.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 mb-2 px-2 flex items-center gap-2">
+                    <h3 className="text-xs font-medium text-muted-foreground mb-2 px-2 flex items-center gap-2">
                       <Archive className="h-3 w-3" />
                       Archived Chats
                     </h3>
@@ -610,8 +610,8 @@ export default function AIAssistant() {
                           key={chat._id}
                           className={`group flex items-center gap-2 px-3 py-2 text-xs rounded-none transition-colors ${
                             currentChatId === chat._id
-                              ? "bg-gray-800 text-gray-300"
-                              : "text-gray-500 hover:bg-gray-900/50"
+                              ? "bg-accent text-foreground"
+                              : "text-muted-foreground hover:bg-card/50"
                           }`}
                         >
                           <button
@@ -627,7 +627,7 @@ export default function AIAssistant() {
                                 e.stopPropagation();
                                 toggleArchive(chat._id, chat.isArchived);
                               }}
-                              className="p-1 hover:bg-gray-700 rounded transition-colors"
+                              className="p-1 hover:bg-accent rounded transition-colors"
                               title="Restore from Archive"
                             >
                               <MessageSquare className="h-3 w-3" />
@@ -642,7 +642,7 @@ export default function AIAssistant() {
                                 }
                               }}
                               disabled={deletingChatId === chat._id}
-                              className="p-1 hover:bg-gray-700 rounded text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                              className="p-1 hover:bg-accent rounded text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                               title="Delete Chat"
                             >
                               {deletingChatId === chat._id ? (
@@ -659,7 +659,7 @@ export default function AIAssistant() {
                 )}
 
                 {chatHistory.length === 0 && archivedChats.length === 0 && (
-                  <div className="text-center text-gray-600 text-xs py-4">
+                  <div className="text-center text-muted-foreground text-xs py-4">
                     No chat history yet
                   </div>
                 )}
@@ -671,10 +671,10 @@ export default function AIAssistant() {
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col w-full min-w-0">
           {/* Mobile Header for Sidebar Toggle */}
-          <div className="md:hidden p-4 border-b border-gray-800/50 flex items-center">
+          <div className="md:hidden p-4 border-b border-border/50 flex items-center">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="p-2 -ml-2 text-gray-400 hover:text-white"
+              className="p-2 -ml-2 text-muted-foreground hover:text-white"
             >
               <MoreVertical className="h-5 w-5" />
             </button>
@@ -686,13 +686,13 @@ export default function AIAssistant() {
             <div className="max-w-3xl mx-auto space-y-6">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div className="w-16 h-16 rounded-full bg-gray-800/50 flex items-center justify-center mb-4">
-                    <MessageSquare className="h-8 w-8 text-gray-400" />
+                  <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
+                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-medium text-white mb-2">
                     Start a conversation
                   </h3>
-                  <p className="text-sm text-gray-400 max-w-md">
+                  <p className="text-sm text-muted-foreground max-w-md">
                     Ask me anything about your business data including finance,
                     sales, inventory, manufacturing, and user information.
                   </p>
@@ -703,7 +703,7 @@ export default function AIAssistant() {
                     <div className={cn(
                       'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-md', 
                       message.role === 'user' 
-                        ? 'bg-neutral-800 border border-neutral-700 text-neutral-300' 
+                        ? 'bg-accent border border-border text-foreground' 
                         : 'bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-purple-500/30 text-purple-400'
                     )}>
                       {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -720,17 +720,17 @@ export default function AIAssistant() {
                       <div className={cn(
                         'px-4 py-3 text-[15px] leading-7 shadow-sm w-full',
                         message.role === 'user'
-                          ? 'bg-neutral-800 text-neutral-100 rounded-2xl rounded-tr-sm border border-neutral-700/50'
-                          : 'bg-neutral-900/80 text-neutral-100 rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
+                          ? 'bg-accent text-foreground rounded-2xl rounded-tr-sm border border-border/50'
+                          : 'bg-card/80 text-foreground rounded-2xl rounded-tl-sm border border-white/5 backdrop-blur-sm'
                       )}>
                         {message.attachments && message.attachments.length > 0 && (
                           <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
                             {message.attachments.map((att, ai) => (
                               att.type.startsWith("image/") ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img key={ai} src={att.dataUrl} alt={att.name} title={att.name} className="h-16 w-16 rounded border border-neutral-700 object-cover shrink-0" />
+                                <img key={ai} src={att.dataUrl} alt={att.name} title={att.name} className="h-16 w-16 rounded border border-border object-cover shrink-0" />
                               ) : (
-                                <span key={ai} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-neutral-700 bg-neutral-800 text-[12px] text-neutral-300 shrink-0 max-w-[180px]">
+                                <span key={ai} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-border bg-accent text-[12px] text-foreground shrink-0 max-w-[180px]">
                                   <FileText className="w-3.5 h-3.5 shrink-0 text-purple-400" />
                                   <span className="truncate">{att.name}</span>
                                 </span>
@@ -747,7 +747,7 @@ export default function AIAssistant() {
                           <>
                             <div className="whitespace-pre-wrap">{message.content}</div>
                             {message.role === 'assistant' && (
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-3 border-t border-white/5 pt-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 border-t border-white/5 pt-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                                 <span>Updated & Synced with ERP Analytics</span>
                               </div>
@@ -764,14 +764,14 @@ export default function AIAssistant() {
           </div>
 
           {/* Input Area at Bottom */}
-          <div className="border-t border-gray-800/50 p-4 bg-black/30 backdrop-blur-sm z-10 shrink-0">
+          <div className="border-t border-border/50 p-4 bg-black/30 backdrop-blur-sm z-10 shrink-0">
             <div className="max-w-3xl mx-auto">
               <form onSubmit={handleSubmit} className="relative">
                 {/* Attached files — horizontal, scrollable, no wrapping */}
                 {attachments.length > 0 && (
                   <div className="mb-2 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
                     {attachments.map((att, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-neutral-900 text-[13px] text-neutral-300 shrink-0 max-w-[220px]">
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-card text-[13px] text-foreground shrink-0 max-w-[220px]">
                         <button
                           type="button"
                           onClick={() => setPreviewIndex(i)}
@@ -786,7 +786,7 @@ export default function AIAssistant() {
                           )}
                           <span className="truncate max-w-[150px]">{att.name}</span>
                         </button>
-                        <button type="button" onClick={() => removeAttachment(i)} className="text-neutral-500 hover:text-neutral-200 shrink-0" title="Remove file">
+                        <button type="button" onClick={() => removeAttachment(i)} className="text-muted-foreground hover:text-foreground shrink-0" title="Remove file">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -807,7 +807,7 @@ export default function AIAssistant() {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
                     title="Attach a document (PDF, DOCX, image)"
-                    className="absolute left-2 h-8 w-8 flex items-center justify-center rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 disabled:opacity-50 transition-all"
+                    className="absolute left-2 h-8 w-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-all"
                   >
                     <Paperclip className="w-4 h-4" />
                   </button>
@@ -818,7 +818,7 @@ export default function AIAssistant() {
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
                     placeholder="Ask Anything"
-                    className="w-full pl-12 pr-20 py-4 bg-neutral-900 border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-neutral-100 placeholder:text-neutral-500 transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
+                    className="w-full pl-12 pr-20 py-4 bg-card border-white/10 hover:border-white/20 focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-2xl text-[15px] text-foreground placeholder:text-muted-foreground transition-all shadow-inner min-h-[52px] max-h-[120px] resize-none"
                     rows={1}
                   />
                   {micSupported && (
@@ -827,7 +827,7 @@ export default function AIAssistant() {
                       onClick={toggleMic}
                       disabled={isLoading || transcribing}
                       title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
-                      className={`absolute right-11 h-8 w-8 flex items-center justify-center rounded-xl transition-all ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-purple-400" : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"}`}
+                      className={`absolute right-11 h-8 w-8 flex items-center justify-center rounded-xl transition-all ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-purple-400" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
                     >
                       <Mic className="w-4 h-4" />
                     </button>
@@ -836,7 +836,7 @@ export default function AIAssistant() {
                     type="submit"
                     size="icon"
                     disabled={(!input.trim() && attachments.length === 0) || isLoading}
-                    className="absolute right-2 h-8 w-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 transition-all"
+                    className="absolute right-2 h-8 w-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50 disabled:bg-accent disabled:text-muted-foreground transition-all"
                   >
                     {isLoading ? (
                       <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -854,7 +854,7 @@ export default function AIAssistant() {
                         key={index}
                         type="button"
                         onClick={(e) => handleSubmit(e, item.query)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-full text-xs text-gray-300 whitespace-nowrap transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-accent/50 hover:bg-accent border border-border/50 rounded-full text-xs text-foreground whitespace-nowrap transition-colors"
                       >
                         <item.icon className="h-3 w-3 text-blue-400" />
                         {item.label}
@@ -863,7 +863,7 @@ export default function AIAssistant() {
                   </div>
                 )}
 
-                <div className="text-xs text-gray-600 text-center mt-2">
+                <div className="text-xs text-muted-foreground text-center mt-2">
                   Aupulens Assistant can make mistakes. Consider checking important
                   information.
                 </div>

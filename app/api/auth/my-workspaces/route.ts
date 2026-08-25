@@ -3,7 +3,18 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
-import { buildTenantUrl } from "@/lib/config";
+import { buildTenantUrl, APP_BASE_URL } from "@/lib/config";
+
+// The sentinel tenantId used app-wide for accounts that registered without
+// picking a real organization/subdomain (see app/api/auth/register/route.ts).
+// Even when a real Organization document exists for it (its name is looked
+// up normally below, same as any other tenant), it was never provisioned as
+// an actual routable subdomain, so building a tenant URL for it the normal
+// way (buildTenantUrl) points at a dead host — every other place that
+// handles this sentinel (TenantInitializer, tenant status route)
+// special-cases the URL back to the root app; this route didn't, which is
+// what made clicking it in the workspace switcher break the page.
+const DEFAULT_TENANT_ID = "default-tenant";
 
 /**
  * Real workspace-switching support (Phase 3): a person can hold a separate
@@ -33,8 +44,9 @@ export async function GET() {
   const workspaces = memberships.map((m) => ({
     tenantId: m.tenantId,
     role: m.role,
-    name: orgBySubdomain.get(m.tenantId)?.name || m.tenantId,
-    url: buildTenantUrl(m.tenantId),
+    name: orgBySubdomain.get(m.tenantId)?.name
+      || (m.tenantId === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : m.tenantId),
+    url: m.tenantId === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(m.tenantId),
     current: m.tenantId === session.user.tenantId,
   }));
 

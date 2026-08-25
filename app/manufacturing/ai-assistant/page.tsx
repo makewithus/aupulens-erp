@@ -472,7 +472,7 @@ export default function ManufacturingAIAssistant() {
         profileHref="/manufacturing/profile"
       >
         <div className="flex h-[calc(100vh-8rem)] gap-4 bg-gradient-to-br from-gray-950 via-black to-gray-900 p-4">
-          <div className="w-64 border-r border-gray-800 pr-4 space-y-2">
+          <div className="w-64 border-r border-border pr-4 space-y-2">
             <ShimmerSkeleton className="h-10 w-full" />
             <ShimmerSkeleton className="h-16 w-full" />
             <ShimmerSkeleton className="h-16 w-full" />
@@ -506,8 +506,8 @@ export default function ManufacturingAIAssistant() {
       <Toaster />
       <div className="flex h-[calc(100vh-8rem)] ">
         {/* Chat History Sidebar */}
-        <div className="w-64 border-r border-gray-800 bg-gray-950/30 backdrop-blur-sm flex flex-col">
-          <div className="p-4 border-b border-gray-800 flex-shrink-0">
+        <div className="w-64 border-r border-border bg-background/30 backdrop-blur-sm flex flex-col">
+          <div className="p-4 border-b border-border flex-shrink-0">
             <Button 
               onClick={startNewChat}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -520,32 +520,32 @@ export default function ManufacturingAIAssistant() {
           <div className="flex-1 overflow-y-auto">
             {/* Recent Chats */}
             <div className="p-3">
-              <h3 className="text-xs font-semibold text-gray-400 mb-2 flex items-center">
+              <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center">
                 <MessageSquare className="w-3 h-3 mr-1" />
                 Recent Chats
               </h3>
               {loadingHistory ? (
                 <div className="flex justify-center py-4">
-                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : chatHistory.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">No chat history yet</p>
+                <p className="text-xs text-muted-foreground text-center py-4">No chat history yet</p>
               ) : (
                 <div className="space-y-1">
                   {chatHistory.map((chat) => (
                     <div
                       key={chat._id}
                       onClick={() => loadChat(chat)}
-                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-gray-800/50 ${
-                        currentChatId === chat._id ? 'bg-gray-800/70 ring-1 ring-blue-500/50' : ''
+                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-accent/50 ${
+                        currentChatId === chat._id ? 'bg-accent/70 ring-1 ring-blue-500/50' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-300 truncate" title={chat.title}>
+                          <p className="text-xs font-medium text-foreground truncate" title={chat.title}>
                             {chat.title}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(chat.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -553,7 +553,7 @@ export default function ManufacturingAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400"
                             onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)}
                             title="Archive"
                           >
@@ -562,7 +562,7 @@ export default function ManufacturingAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400"
                             onClick={(e) => deleteChat(chat._id, e)}
                             disabled={deletingChatId === chat._id}
                             title="Delete"
@@ -583,8 +583,8 @@ export default function ManufacturingAIAssistant() {
 
             {/* Archived Chats */}
             {archivedChats.length > 0 && (
-              <div className="p-3 border-t border-gray-800">
-                <h3 className="text-xs font-semibold text-gray-400 mb-2 flex items-center">
+              <div className="p-3 border-t border-border">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center">
                   <Archive className="w-3 h-3 mr-1" />
                   Archived Chats
                 </h3>
@@ -593,16 +593,16 @@ export default function ManufacturingAIAssistant() {
                     <div
                       key={chat._id}
                       onClick={() => loadChat(chat)}
-                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-gray-800/50 ${
-                        currentChatId === chat._id ? 'bg-gray-800/70 ring-1 ring-blue-500/50' : ''
+                      className={`p-2 rounded-none cursor-pointer transition-all group hover:bg-accent/50 ${
+                        currentChatId === chat._id ? 'bg-accent/70 ring-1 ring-blue-500/50' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-400 truncate" title={chat.title}>
+                          <p className="text-xs font-medium text-muted-foreground truncate" title={chat.title}>
                             {chat.title}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(chat.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -610,7 +610,7 @@ export default function ManufacturingAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400"
                             onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)}
                             title="Restore"
                           >
@@ -619,7 +619,7 @@ export default function ManufacturingAIAssistant() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400"
                             onClick={(e) => deleteChat(chat._id, e)}
                             disabled={deletingChatId === chat._id}
                             title="Delete"
@@ -643,8 +643,8 @@ export default function ManufacturingAIAssistant() {
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Chat Title Header */}
-          <div className="p-4 border-b border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">
-            <h2 className="text-xl font-bold text-gray-200">
+          <div className="p-4 border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+            <h2 className="text-xl font-bold text-foreground">
               {currentChatId ? chatHistory.find(c => c._id === currentChatId)?.title || 'Manufacturing AI Assistant' : 'Manufacturing AI Assistant'}
             </h2>
           </div>
@@ -656,8 +656,8 @@ export default function ManufacturingAIAssistant() {
                 <div className="w-16 h-16 rounded-full  flex items-center justify-center mb-4">
                   <MessageSquare className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-200 mb-2">Manufacturing AI Assistant</h2>
-                <p className="text-gray-400 max-w-md">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Manufacturing AI Assistant</h2>
+                <p className="text-muted-foreground max-w-md">
                   Ask me anything about shipments, freight, customs clearance, tracking, or logistics reports.
                 </p>
               </div>
@@ -681,7 +681,7 @@ export default function ManufacturingAIAssistant() {
                   >
                     {message.isLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin" />
                         <span className="text-sm">Thinking...</span>
                       </div>
                     ) : message.role === 'assistant' ? (
@@ -691,8 +691,8 @@ export default function ManufacturingAIAssistant() {
                     )}
                   </div>
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium text-gray-200">
+                    <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-medium text-foreground">
                         {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                       </span>
                     </div>
@@ -725,7 +725,7 @@ export default function ManufacturingAIAssistant() {
                     variant="outline"
                     onClick={handleCancelAction}
                     disabled={isLoading}
-                    className="h-9 px-4 border-gray-600 text-gray-200 hover:bg-gray-800"
+                    className="h-9 px-4 border-border text-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
@@ -735,7 +735,7 @@ export default function ManufacturingAIAssistant() {
           )}
 
           {/* Input at Bottom */}
-          <div className="p-4 border-t border-gray-800 bg-gray-950/50 backdrop-blur-sm flex-shrink-0">
+          <div className="p-4 border-t border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
             <ChatAttachmentBar attachments={attachments} removeAttachment={removeAttachment} fileInputRef={fileInputRef} addFiles={addFiles} />
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <div className="flex-1 relative">
@@ -746,10 +746,10 @@ export default function ManufacturingAIAssistant() {
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   placeholder="Ask me about shipments, freight, customs clearance, tracking, logistics..."
-                  className="min-h-[60px] max-h-[200px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 pl-10 pr-10"
+                  className="min-h-[60px] max-h-[200px] resize-none bg-card/50 border-border text-foreground placeholder:text-muted-foreground pl-10 pr-10"
                   disabled={isLoading}
                 />
-                <Button type="button" size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="Attach a document or image" className="absolute left-2 bottom-2 h-8 w-8 p-0 text-gray-400 hover:text-gray-300">
+                <Button type="button" size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="Attach a document or image" className="absolute left-2 bottom-2 h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
                   <Paperclip className="w-4 h-4" />
                 </Button>
                 {micSupported && (
@@ -760,7 +760,7 @@ export default function ManufacturingAIAssistant() {
                     onClick={toggleMic}
                     disabled={isLoading || transcribing}
                     title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
-                    className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-blue-400" : "text-gray-400 hover:text-gray-300"}`}
+                    className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-blue-400" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     <Mic className="w-4 h-4" />
                   </Button>
@@ -778,7 +778,7 @@ export default function ManufacturingAIAssistant() {
                 )}
               </Button>
             </form>
-            <div className="text-xs text-gray-600 text-center mt-2">
+            <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for Manufacturing • Powered by Aupulens
             </div>
           </div>

@@ -189,8 +189,8 @@ export default function FreightProvidersPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Freight Providers</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">Freight Providers</h1>
+            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
               Manage freight and shipping partners
             </p>
           </div>
@@ -322,32 +322,32 @@ export default function FreightProvidersPage() {
             <div className="overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Name</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Code</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Type</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Contact</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  <TableRow className="border-b dark:border-border">
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Name</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Code</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Type</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Contact</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {providers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                      <TableCell colSpan={6} className="text-center p-8 text-muted-foreground dark:text-muted-foreground">
                         No freight providers found. Add your first provider to get started.
                       </TableCell>
                     </TableRow>
                   ) : (
                     providers.map((provider) => (
-                      <TableRow key={provider._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{provider.providerName}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{provider.providerCode}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 capitalize">{provider.providerType}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                      <TableRow key={provider._id} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
+                        <TableCell className="p-3 text-foreground dark:text-white font-medium">{provider.providerName}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{provider.providerCode}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground capitalize">{provider.providerType}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           <div>{provider.contactPerson}</div>
-                          <div className="text-sm text-gray-500">{provider.contactEmail}</div>
-                          <div className="text-sm text-gray-500">{provider.contactPhone}</div>
+                          <div className="text-sm text-muted-foreground">{provider.contactEmail}</div>
+                          <div className="text-sm text-muted-foreground">{provider.contactPhone}</div>
                         </TableCell>
                         <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(provider.status)}`}>

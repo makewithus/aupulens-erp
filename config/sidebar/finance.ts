@@ -35,11 +35,6 @@ export const financeSidebarConfig: SidebarSection[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "AI Assistant",
-        href: "/finance/ai-assistant",
-        icon: Sparkles,
-      },
-      {
         title: "AI Copilot",
         href: "/finance/ai-copilot",
         icon: ShieldAlert,

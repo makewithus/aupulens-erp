@@ -63,21 +63,64 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [accountFilter, setAccountFilter] = useState<string>("");
+  const [ownerFilter, setOwnerFilter] = useState<string>("");
+  const [validFrom, setValidFrom] = useState<string>("");
+  const [validTo, setValidTo] = useState<string>("");
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
+
+  // Filter dropdown options — captured once from the unfiltered quote list so
+  // the Account/Owner pickers stay complete even after filters narrow `quotes`.
+  const [accountOptions, setAccountOptions] = useState<{ id: string; name: string }[]>([]);
+  const [ownerOptions, setOwnerOptions] = useState<{ id: string; name: string }[]>([]);
 
   const fetchQuotes = async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
+    if (accountFilter) params.set("account_id", accountFilter);
+    if (ownerFilter) params.set("owner_id", ownerFilter);
+    if (validFrom) params.set("validFrom", validFrom);
+    if (validTo) params.set("validTo", validTo);
+    if (minAmount) params.set("minAmount", minAmount);
+    if (maxAmount) params.set("maxAmount", maxAmount);
     const res = await fetch(`/api/crm/quotes?${params}`, { cache: "no-store" });
     const data = await res.json();
-    if (data.success) setQuotes(data.data.quotes || []);
+    const rows = data.data?.quotes || [];
+    if (data.success) setQuotes(rows);
     setLoading(false);
+    return rows;
   };
 
   useEffect(() => {
+    // One-time unfiltered fetch to populate Account/Owner dropdown options.
+    fetch("/api/crm/quotes", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const rows = data.data?.quotes || [];
+        const accts = new Map<string, string>();
+        const owners = new Map<string, string>();
+        for (const q of rows) {
+          if (q.account_id?._id) accts.set(q.account_id._id, q.account_id.company_name || q.account_id._id);
+          if (q.owner_id?._id) owners.set(q.owner_id._id, q.owner_id.name || q.owner_id.email || q.owner_id._id);
+        }
+        setAccountOptions(Array.from(accts, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+        setOwnerOptions(Array.from(owners, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     fetchQuotes();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, accountFilter, ownerFilter, validFrom, validTo, minAmount, maxAmount]);
+
+  const hasActiveFilters = !!(search || statusFilter || accountFilter || ownerFilter || validFrom || validTo || minAmount || maxAmount);
+  const resetFilters = () => {
+    setSearch(""); setStatusFilter(""); setAccountFilter(""); setOwnerFilter("");
+    setValidFrom(""); setValidTo(""); setMinAmount(""); setMaxAmount("");
+  };
 
   // ââ Metrics ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const totalGrandTotal = quotes.reduce((a, q) => a + (q.grand_total || 0), 0);
@@ -162,20 +205,20 @@ export default function QuotesPage() {
               </p>
             </div>
 
-            <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-              {/* Search Input */}
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  value={search}
-                  onChange={setSearch}
-                  placeholder="Search quote number..."
-                />
-              </div>
+            <div className="w-full flex flex-col gap-3">
+              <div className="w-full flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                {/* Search Input */}
+                <div className="w-full max-w-sm">
+                  <SearchInput
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search quote number..."
+                  />
+                </div>
 
-              {/* Status Filter */}
-              <div className="flex items-center gap-2">
+                {/* Status Filter */}
                 <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
-                  <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                  <SelectTrigger className="w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-border/40">
@@ -187,6 +230,85 @@ export default function QuotesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {/* Account Filter */}
+                <Select value={accountFilter || "all"} onValueChange={(v) => setAccountFilter(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="All Accounts" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
+                    <SelectItem value="all">All Accounts</SelectItem>
+                    {accountOptions.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Owner Filter */}
+                <Select value={ownerFilter || "all"} onValueChange={(v) => setOwnerFilter(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectValue placeholder="All Owners" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-border/40">
+                    <SelectItem value="all">All Owners</SelectItem>
+                    {ownerOptions.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full flex flex-wrap items-center gap-3 lg:justify-end">
+                {/* Validity date range */}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                  <span className="font-mono uppercase tracking-wider text-[10px]">Valid</span>
+                  <input
+                    type="date"
+                    value={validFrom}
+                    onChange={(e) => setValidFrom(e.target.value)}
+                    className="h-9 rounded-none border border-border/40 bg-white/[0.02] px-2 text-xs text-foreground focus:outline-none focus:ring-0"
+                  />
+                  <span>–</span>
+                  <input
+                    type="date"
+                    value={validTo}
+                    onChange={(e) => setValidTo(e.target.value)}
+                    className="h-9 rounded-none border border-border/40 bg-white/[0.02] px-2 text-xs text-foreground focus:outline-none focus:ring-0"
+                  />
+                </div>
+
+                {/* Amount range */}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                  <span className="font-mono uppercase tracking-wider text-[10px]">Amount</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Min"
+                    value={minAmount}
+                    onChange={(e) => setMinAmount(e.target.value)}
+                    className="h-9 w-24 rounded-none border border-border/40 bg-white/[0.02] px-2 text-xs text-foreground focus:outline-none focus:ring-0"
+                  />
+                  <span>–</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Max"
+                    value={maxAmount}
+                    onChange={(e) => setMaxAmount(e.target.value)}
+                    className="h-9 w-24 rounded-none border border-border/40 bg-white/[0.02] px-2 text-xs text-foreground focus:outline-none focus:ring-0"
+                  />
+                </div>
+
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetFilters}
+                    className="h-9 px-3 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground"
+                  >
+                    Clear filters
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -268,11 +390,11 @@ export default function QuotesPage() {
                     <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
 
                     <h3 className="text-lg font-medium">
-                      {search || statusFilter ? "No quotes match your filters" : "No quotes found"}
+                      {hasActiveFilters ? "No quotes match your filters" : "No quotes found"}
                     </h3>
 
                     <p className="mt-2 text-sm text-muted-foreground mb-6">
-                      {search || statusFilter ? "Try adjusting your search query or filters." : "Get started by creating your first quote profile."}
+                      {hasActiveFilters ? "Try adjusting your search query or filters." : "Get started by creating your first quote profile."}
                     </p>
 
                     <Link href="/crm/quotes/new">

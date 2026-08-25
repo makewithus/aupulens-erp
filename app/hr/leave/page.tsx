@@ -60,7 +60,7 @@ const leaveStatusColors: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
   approved: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   rejected: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  cancelled: "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground",
 };
 
 const leaveTypeLabels: Record<string, string> = {

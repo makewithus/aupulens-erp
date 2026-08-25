@@ -77,7 +77,7 @@ export function AccountingSubNav() {
 
   const tabClass = (active: boolean) =>
     `pb-2 cursor-pointer transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 ${
-      active ? "border-b-2 border-blue-600 font-semibold text-blue-600" : "text-gray-500 hover:text-gray-700"
+      active ? "border-b-2 border-blue-600 font-semibold text-blue-600" : "text-muted-foreground hover:text-muted-foreground"
     }`;
 
   return (

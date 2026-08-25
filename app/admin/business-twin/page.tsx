@@ -101,7 +101,7 @@ export default function BusinessTwinPage() {
 
       <div className="border-2 rounded-xl overflow-hidden" style={{ height: 420 }}>
         <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
-          <Background /><Controls /><MiniMap className="!bg-neutral-900" />
+          <Background /><Controls /><MiniMap className="!bg-card" />
         </ReactFlow>
       </div>
 

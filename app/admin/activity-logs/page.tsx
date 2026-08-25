@@ -102,7 +102,7 @@ export default function ActivityLogsPage() {
       project: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-100',
       manufacturing: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100',
     };
-    return colors[role] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+    return colors[role] || 'bg-accent text-foreground dark:bg-accent dark:text-foreground';
   };
 
   if (status === 'loading') {
@@ -175,8 +175,8 @@ export default function ActivityLogsPage() {
       >
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Activity Logs</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">Activity Logs</h1>
+            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
               Monitor all user activities across the system
             </p>
           </div>
@@ -210,8 +210,8 @@ export default function ActivityLogsPage() {
     >
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Activity Logs</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white">Activity Logs</h1>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
             Monitor all user activities across the system
           </p>
         </div>
@@ -268,7 +268,7 @@ export default function ActivityLogsPage() {
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or activity..."
                   value={searchTerm}

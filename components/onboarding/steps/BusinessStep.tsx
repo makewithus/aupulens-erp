@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { COUNTRIES, getCountryInfo } from "@/lib/constants/countries";
 
 const STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", 
@@ -76,11 +77,9 @@ export function BusinessStep({
               onChange={(e) => update("country", e.target.value)}
               className="w-full h-10 px-0 bg-transparent rounded-none border-0 border-b border-border text-sm text-foreground focus:outline-none focus:border-foreground transition-colors shadow-none cursor-pointer"
             >
-              <option value="India" className="bg-background text-foreground">India</option>
-              <option value="United States" className="bg-background text-foreground">United States</option>
-              <option value="United Kingdom" className="bg-background text-foreground">United Kingdom</option>
-              <option value="Singapore" className="bg-background text-foreground">Singapore</option>
-              <option value="United Arab Emirates" className="bg-background text-foreground">United Arab Emirates</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.name} value={c.name} className="bg-background text-foreground">{c.name}</option>
+              ))}
             </select>
             {errors.country && (
               <p className="text-[11px] font-mono text-destructive mt-1">{errors.country}</p>
@@ -133,17 +132,17 @@ export function BusinessStep({
           )}
         </div>
 
-        {/* Regional Settings Section */}
+        {/* Regional Settings — derived live from the selected country above. */}
         <div className="pt-4 border-t border-border/20 space-y-3">
           <h3 className="font-mono text-[11px] text-muted-foreground/60 uppercase tracking-wider">
             Regional Settings
           </h3>
           <div className="grid grid-cols-2 gap-y-2 text-xs font-mono">
             <span className="text-muted-foreground/60">Currency:</span>
-            <span className="text-foreground text-right">INR - Indian Rupee</span>
+            <span className="text-foreground text-right">{getCountryInfo(form.country).currencyLabel}</span>
 
             <span className="text-muted-foreground/60">Timezone:</span>
-            <span className="text-foreground text-right">IST (GMT+5:30)</span>
+            <span className="text-foreground text-right">{getCountryInfo(form.country).timezoneLabel}</span>
 
             <span className="text-muted-foreground/60">Language:</span>
             <span className="text-foreground text-right">English</span>

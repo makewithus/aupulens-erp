@@ -26,33 +26,33 @@ export default function ConversationSummaryCard({ summary }: ConversationSummary
         <Badge variant="outline" className={`text-xs ${
           summary.sentiment === "Positive" ? "text-green-400 border-green-900/50" : 
           summary.sentiment === "Negative" ? "text-red-400 border-red-900/50" : 
-          "text-neutral-400 border-neutral-700"
+          "text-muted-foreground border-border"
         }`}>{summary.sentiment}</Badge>
       </div>
 
-      <p className="text-sm text-neutral-300 mb-4">{summary.summary}</p>
+      <p className="text-sm text-foreground mb-4">{summary.summary}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         {summary.actionItems.length > 0 && (
           <div>
-            <h4 className="font-semibold text-neutral-400 mb-2 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Action Items</h4>
-            <ul className="list-disc pl-4 text-neutral-300 space-y-1">
+            <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Action Items</h4>
+            <ul className="list-disc pl-4 text-foreground space-y-1">
               {summary.actionItems.map((item, i) => <li key={i}>{item}</li>)}
             </ul>
           </div>
         )}
         {summary.risks.length > 0 && (
           <div>
-            <h4 className="font-semibold text-neutral-400 mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-red-400"/> Identified Risks</h4>
-            <ul className="list-disc pl-4 text-neutral-300 space-y-1">
+            <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-red-400"/> Identified Risks</h4>
+            <ul className="list-disc pl-4 text-foreground space-y-1">
               {summary.risks.map((item, i) => <li key={i}>{item}</li>)}
             </ul>
           </div>
         )}
         {summary.keyDecisions.length > 0 && (
           <div>
-            <h4 className="font-semibold text-neutral-400 mb-2 flex items-center gap-1"><MessageSquare className="w-3 h-3"/> Key Decisions</h4>
-            <ul className="list-disc pl-4 text-neutral-300 space-y-1">
+            <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-1"><MessageSquare className="w-3 h-3"/> Key Decisions</h4>
+            <ul className="list-disc pl-4 text-foreground space-y-1">
               {summary.keyDecisions.map((item, i) => <li key={i}>{item}</li>)}
             </ul>
           </div>

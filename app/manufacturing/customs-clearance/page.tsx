@@ -220,7 +220,7 @@ export default function CustomsClearancePage() {
       case 'rejected':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        return 'bg-accent text-foreground dark:bg-card dark:text-foreground';
     }
   };
 
@@ -248,8 +248,8 @@ export default function CustomsClearancePage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Customs Clearance</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">Customs Clearance</h1>
+            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
               Manage customs declarations and clearances
             </p>
           </div>
@@ -394,38 +394,38 @@ export default function CustomsClearancePage() {
             <div className="overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Declaration #</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Shipment ID</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Office</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Duty</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Submitted</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  <TableRow className="border-b dark:border-border">
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Declaration #</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Shipment ID</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Office</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Duty</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Submitted</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {clearances.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                      <TableCell colSpan={7} className="text-center p-8 text-muted-foreground dark:text-muted-foreground">
                         No customs clearances found. Create your first clearance to get started.
                       </TableCell>
                     </TableRow>
                   ) : (
                     clearances.map((clearance) => (
-                      <TableRow key={clearance._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{clearance.declarationNumber}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{clearance.shipmentId}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{clearance.customsOffice}</TableCell>
+                      <TableRow key={clearance._id} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
+                        <TableCell className="p-3 text-foreground dark:text-white font-medium">{clearance.declarationNumber}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{clearance.shipmentId}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{clearance.customsOffice}</TableCell>
                         <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(clearance.status)}`}>
                             {clearance.status}
                           </span>
                         </TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           {clearance.currency} {clearance.dutyAmount.toFixed(2)}
                         </TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           {new Date(clearance.submissionDate).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="p-3">

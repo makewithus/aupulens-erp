@@ -18,7 +18,6 @@ const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-import { CommandCenterInput } from "./CommandCenterInput";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
@@ -306,7 +305,7 @@ export function DashboardHeader({
       )}
     >
       <div className="px-3 sm:px-4 lg:px-6 xl:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="flex items-center justify-between h-16 sm:h-20">
           {/* LEFT SECTION: logo + module + top links */}
           <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
             {/* Company Logo + Name */}
@@ -468,9 +467,6 @@ export function DashboardHeader({
 
           {/* RIGHT SECTION */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Global AI Command Center */}
-            <CommandCenterInput />
-
             <GlobalSearch sidebarConfig={sidebarConfig} />
 
             <WorkspaceSwitcher />

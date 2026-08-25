@@ -64,7 +64,7 @@ interface InventoryTransfer {
 }
 
 const statusColors: Record<string, string> = {
-  draft: "text-gray-500",
+  draft: "text-muted-foreground",
   pending_approval: "text-blue-500",
   approved: "text-cyan-500",
   posted: "text-emerald-500",

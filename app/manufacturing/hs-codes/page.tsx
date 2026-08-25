@@ -182,8 +182,8 @@ export default function HSCodesPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">HS Code Management</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">HS Code Management</h1>
+            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
               Harmonized System codes for product classification
             </p>
           </div>
@@ -264,7 +264,7 @@ export default function HSCodesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by code, description, or category..."
                 value={searchQuery}
@@ -283,28 +283,28 @@ export default function HSCodesPage() {
             <div className="overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">HS Code</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Category</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Description</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Restrictions</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  <TableRow className="border-b dark:border-border">
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">HS Code</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Category</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Description</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Restrictions</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCodes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                      <TableCell colSpan={5} className="text-center p-8 text-muted-foreground dark:text-muted-foreground">
                         {searchQuery ? 'No HS codes match your search.' : 'No HS codes found. Add your first HS code to get started.'}
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredCodes.map((hsCode) => (
-                      <TableRow key={hsCode._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{hsCode.hsCode}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{hsCode.category}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 max-w-md truncate">{hsCode.description}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                      <TableRow key={hsCode._id} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
+                        <TableCell className="p-3 text-foreground dark:text-white font-medium">{hsCode.hsCode}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{hsCode.category}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground max-w-md truncate">{hsCode.description}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground max-w-xs truncate">
                           {hsCode.restrictions || 'None'}
                         </TableCell>
                         <TableCell className="p-3">

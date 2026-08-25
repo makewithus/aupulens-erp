@@ -289,7 +289,7 @@ export default function ShipmentsPage() {
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, string> = {
-      'pending': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+      'pending': 'bg-accent text-foreground dark:bg-card dark:text-foreground',
       'in-transit': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       'customs': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
       'delivered': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',

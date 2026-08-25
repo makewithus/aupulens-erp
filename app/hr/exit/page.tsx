@@ -168,7 +168,7 @@ export default function ExitPage() {
     on_notice: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
     exit_initiated: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
     clearance: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-    exited: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500",
+    exited: "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground",
   };
 
   return (

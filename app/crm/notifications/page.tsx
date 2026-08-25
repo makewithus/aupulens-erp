@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Bell, CheckCircle } from "lucide-react";
+import { Bell, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotificationCenter() {
@@ -36,23 +36,23 @@ export default function NotificationCenter() {
             <Bell className="w-8 h-8 text-yellow-500" /> Notification Center
           </h1>
         </div>
-        <Button onClick={markAllAsRead} variant="outline" className="border-neutral-800 bg-neutral-900">
-          <CheckCircle className="w-4 h-4 mr-2 text-neutral-400" /> Mark All Read
+        <Button onClick={markAllAsRead} variant="outline" className="border-border bg-card">
+          <CheckCircle className="w-4 h-4 mr-2 text-muted-foreground" /> Mark All Read
         </Button>
       </div>
 
       <div className="space-y-3">
-        {loading ? <div className="text-center text-neutral-500 py-10">Loading...</div> :
-         notifications.length === 0 ? <div className="text-center text-neutral-500 py-10 border border-neutral-800 border-dashed rounded-lg">You&apos;re all caught up!</div> :
+        {loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> :
+         notifications.length === 0 ? <div className="text-center text-muted-foreground py-10 border border-border border-dashed rounded-lg">You&apos;re all caught up!</div> :
          notifications.map(n => (
-           <div key={n._id} className={`p-4 rounded-lg border ${n.isRead ? 'bg-neutral-950 border-neutral-800/50' : 'bg-neutral-900 border-neutral-700'}`}>
+           <div key={n._id} className={`p-4 rounded-lg border ${n.isRead ? 'bg-background border-border/50' : 'bg-card border-border'}`}>
              <div className="flex justify-between items-start">
                <div>
-                 <h4 className={`font-bold text-sm ${n.isRead ? 'text-neutral-400' : 'text-neutral-200'}`}>{n.title}</h4>
-                 <p className="text-sm text-neutral-500 mt-1">{n.message}</p>
+                 <h4 className={`font-bold text-sm ${n.isRead ? 'text-muted-foreground' : 'text-foreground'}`}>{n.title}</h4>
+                 <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
                  <div className="flex gap-2 mt-2">
-                   <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded uppercase">{n.type}</span>
-                   <span className="text-[10px] text-neutral-600">{new Date(n.createdAt).toLocaleString()}</span>
+                   <span className="text-[10px] bg-accent text-muted-foreground px-2 py-0.5 rounded uppercase">{n.type}</span>
+                   <span className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</span>
                  </div>
                </div>
                {!n.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 mt-1"></div>}

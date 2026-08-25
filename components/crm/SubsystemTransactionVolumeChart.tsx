@@ -186,10 +186,10 @@ export function SubsystemTransactionVolumeChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-none p-6 font-mono w-full relative flex flex-col">
+    <div className="bg-card border border-border rounded-none p-6 font-mono w-full relative flex flex-col">
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Subsystem Transaction Volume
           </span>
           <h3 className="text-sm font-normal text-white uppercase mt-0.5">
@@ -206,14 +206,14 @@ export function SubsystemTransactionVolumeChart() {
             <div className="text-2xl md:text-3xl font-medium text-white tracking-tighter">
               {centerVal}
             </div>
-            <div className="text-[9px] text-neutral-500 uppercase tracking-widest mt-1">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-widest mt-1">
               Total Workflows
             </div>
           </div>
         </div>
 
         {/* Dynamic Legend */}
-        <div className="flex flex-col gap-1.5 text-[10px] text-neutral-400 max-w-xs w-full">
+        <div className="flex flex-col gap-1.5 text-[10px] text-muted-foreground max-w-xs w-full">
           {chains.map((c, i) => {
             const pct = ((c.value / total) * 100).toFixed(1);
             const isHovered = hoveredIdx === i;
@@ -221,7 +221,7 @@ export function SubsystemTransactionVolumeChart() {
               <div
                 key={c.name}
                 className={`flex items-center justify-between py-0.5 px-2 transition-colors cursor-pointer rounded-[2px] ${
-                  isHovered ? "bg-neutral-800 text-white" : "hover:bg-neutral-800/40 hover:text-neutral-200"
+                  isHovered ? "bg-accent text-white" : "hover:bg-accent/40 hover:text-foreground"
                 }`}
                 onMouseEnter={() => {
                   setHoveredIdx(i);

@@ -51,13 +51,13 @@ export default function CallLogger({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 block mb-2">Outcome</label>
+        <label className="text-xs text-muted-foreground block mb-2">Outcome</label>
         <div className="grid grid-cols-2 gap-2">
           {["Connected", "Left Voicemail", "No Answer", "Busy"].map(o => (
             <Button 
               key={o} size="sm" 
               variant={outcome === o ? "secondary" : "outline"}
-              className={`border-neutral-800 ${outcome === o ? 'bg-neutral-800' : 'bg-transparent'}`}
+              className={`border-border ${outcome === o ? 'bg-accent' : 'bg-transparent'}`}
               onClick={() => setOutcome(o)}
             >
               {o}
@@ -67,16 +67,16 @@ export default function CallLogger({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400">Notes</label>
+        <label className="text-xs text-muted-foreground">Notes</label>
         <textarea 
           value={notes} onChange={e => setNotes(e.target.value)} 
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-3 text-sm h-32"
+          className="w-full bg-card border border-border rounded-md p-3 text-sm h-32"
           placeholder="Call summary..."
         />
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="button" variant="outline" className="flex-1 border-neutral-800" onClick={onComplete}>Cancel</Button>
+        <Button type="button" variant="outline" className="flex-1 border-border" onClick={onComplete}>Cancel</Button>
         <Button type="button" onClick={handleSubmit} className="flex-1 bg-green-600 hover:bg-green-700 text-white">Save Log</Button>
       </div>
     </div>

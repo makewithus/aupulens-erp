@@ -274,10 +274,10 @@ export default function AdminAnalytics() {
   // Loading State
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-card">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-800 mx-auto mb-4" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             Loading analytics dashboard...
           </p>
         </div>
@@ -288,9 +288,9 @@ export default function AdminAnalytics() {
   // No Data State
   if (!analyticsData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-card">
         <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground dark:text-muted-foreground">
             No analytics data available
           </p>
         </div>
@@ -304,7 +304,7 @@ export default function AdminAnalytics() {
       <div className="space-y-8 pb-8">
         {/* Finance Analytics Section */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-bold text-foreground dark:text-foreground mb-4">
             Finance Analytics
           </h2>
           <ResizablePanelGroup direction="horizontal" className="min-h-[400px] gap-4">
@@ -379,7 +379,7 @@ export default function AdminAnalytics() {
 
         {/* Sales Analytics Section */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-bold text-foreground dark:text-foreground mb-4">
             Sales Analytics
           </h2>
           <ResizablePanelGroup direction="horizontal" className="min-h-[400px] gap-4">
@@ -438,7 +438,7 @@ export default function AdminAnalytics() {
 
         {/* Inventory Analytics Section */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-bold text-foreground dark:text-foreground mb-4">
             Inventory Analytics
           </h2>
           <ResizablePanelGroup direction="horizontal" className="min-h-[400px] gap-4">
@@ -494,7 +494,7 @@ export default function AdminAnalytics() {
 
         {/* Manufacturing Analytics Section */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-bold text-foreground dark:text-foreground mb-4">
             Manufacturing Analytics
           </h2>
           <ResizablePanelGroup direction="horizontal" className="min-h-[400px] gap-4">
@@ -566,7 +566,7 @@ export default function AdminAnalytics() {
 
         {/* User Analytics Section */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-bold text-foreground dark:text-foreground mb-4">
             User Analytics
           </h2>
           <ResizablePanelGroup direction="horizontal" className="min-h-[400px] gap-4">
@@ -819,7 +819,7 @@ export default function AdminAnalytics() {
             )}
 
             {!expandedGraph && (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-muted-foreground">
                 Select a chart to expand
               </div>
             )}

@@ -238,9 +238,9 @@ export function ModuleRegistrationsChart() {
   }, [isDark]);
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-none p-5 font-mono w-full relative">
+    <div className="bg-card border border-border rounded-none p-5 font-mono w-full relative">
       <div className="flex justify-between items-center gap-4 mb-4">
-        <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Enterprise Module Registrations
         </span>
         <span className="text-sm font-semibold text-white">71,235</span>
@@ -252,9 +252,9 @@ export function ModuleRegistrationsChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-neutral-800 p-2 font-mono text-[11px] text-white shadow-xl min-w-[165px] rounded-none hidden z-10"
+          className="absolute pointer-events-none bg-[#141414]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[165px] rounded-none hidden z-10"
         >
-          <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
+          <div ref={tooltipDateRef} className="text-muted-foreground mb-0.5"></div>
           <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>
         </div>
       </div>

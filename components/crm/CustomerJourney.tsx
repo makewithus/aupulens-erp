@@ -31,13 +31,13 @@ const STAGE_CONFIG = {
 
 export default function CustomerJourney({ stages }: CustomerJourneyProps) {
   if (!stages || stages.length === 0) {
-    return <div className="p-6 text-center text-neutral-500 border border-dashed border-neutral-800 rounded-lg">No journey data available.</div>;
+    return <div className="p-6 text-center text-muted-foreground border border-dashed border-border rounded-lg">No journey data available.</div>;
   }
 
   return (
     <div className="relative py-4">
       {/* Background connecting line */}
-      <div className="absolute left-6 top-8 bottom-8 w-px bg-neutral-800" />
+      <div className="absolute left-6 top-8 bottom-8 w-px bg-accent" />
 
       <div className="space-y-6">
         {stages.map((stage, idx) => {
@@ -55,7 +55,7 @@ export default function CustomerJourney({ stages }: CustomerJourneyProps) {
               {/* Content card */}
               <div className="flex-1 min-w-0">
                 <Link href={`${config.route}/${stage.id}`} className="block group">
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 transition-colors group-hover:border-neutral-700">
+                  <div className="bg-card border border-border rounded-lg p-4 transition-colors group-hover:border-border">
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -63,16 +63,16 @@ export default function CustomerJourney({ stages }: CustomerJourneyProps) {
                             {stage.type}
                           </span>
                           {stage.status && (
-                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-neutral-700 text-neutral-400">
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-border text-muted-foreground">
                               {stage.status}
                             </Badge>
                           )}
                         </div>
-                        <h4 className="text-sm font-semibold text-neutral-200 group-hover:text-primary transition-colors line-clamp-1">
+                        <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                           {stage.title}
                         </h4>
                         {stage.subtitle && (
-                          <p className="text-xs text-neutral-500 mt-0.5 line-clamp-1">{stage.subtitle}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{stage.subtitle}</p>
                         )}
                       </div>
                       
@@ -83,7 +83,7 @@ export default function CustomerJourney({ stages }: CustomerJourneyProps) {
                           </div>
                         )}
                         {stage.date && (
-                          <div className="text-xs text-neutral-500 mt-1">
+                          <div className="text-xs text-muted-foreground mt-1">
                             {new Date(stage.date).toLocaleDateString()}
                           </div>
                         )}
@@ -92,7 +92,7 @@ export default function CustomerJourney({ stages }: CustomerJourneyProps) {
                   </div>
                 </Link>
                 {!isLast && (
-                  <div className="mt-4 ml-6 flex items-center text-neutral-600">
+                  <div className="mt-4 ml-6 flex items-center text-muted-foreground">
                     <ArrowRight className="w-4 h-4 mr-2" />
                     <span className="text-xs font-medium uppercase tracking-wider">Converted To</span>
                   </div>

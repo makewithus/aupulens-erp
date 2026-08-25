@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Copy,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 // ─── Status colour ────────────────────────────────────────────────────────────
@@ -31,8 +32,8 @@ const STATUS_COLOR: Record<string, string> = {
   Rejected: "bg-red-700 text-red-100",
   Expired: "bg-red-900 text-red-200",
   "Pending Approval": "bg-yellow-700 text-yellow-100",
-  Draft: "bg-neutral-700 text-neutral-100",
-  Revised: "bg-neutral-600 text-neutral-100",
+  Draft: "bg-accent text-foreground",
+  Revised: "bg-muted text-foreground",
 };
 
 // ─── Reject modal ─────────────────────────────────────────────────────────────
@@ -79,11 +80,11 @@ function RejectModal({
           <DialogTitle>Reject Quote</DialogTitle>
         </DialogHeader>
         <div>
-          <label className="text-sm text-neutral-400 block mb-1">
+          <label className="text-sm text-muted-foreground block mb-1">
             Rejection Notes <span className="text-red-400">*</span>
           </label>
           <textarea
-            className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 h-28 text-sm resize-none"
+            className="w-full bg-background border border-border rounded p-3 h-28 text-sm resize-none"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Explain why this quote is being rejected..."
@@ -192,13 +193,13 @@ export default function QuoteDetailPage(props: {
     toast.success("PDF download started.");
   };
 
-  if (loading) return <div className="p-6 text-neutral-400">Loading quote...</div>;
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (!data) return <div className="p-6 text-red-400">Quote not found.</div>;
 
   const isLocked = ["Approved", "Sent", "Accepted"].includes(data.status);
   const canApprove = data.status === "Pending Approval";
   const canSend = data.status === "Approved";
-  const statusClass = STATUS_COLOR[data.status] || "bg-neutral-700 text-neutral-100";
+  const statusClass = STATUS_COLOR[data.status] || "bg-accent text-foreground";
   const isExpired =
     data.validity_date && new Date(data.validity_date) < new Date();
 
@@ -224,7 +225,7 @@ export default function QuoteDetailPage(props: {
       </Link>
 
       {/* Header card */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex justify-between items-start gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -241,17 +242,17 @@ export default function QuoteDetailPage(props: {
                 </span>
               )}
             </div>
-            <div className="mt-2 text-sm text-neutral-400 space-y-0.5">
+            <div className="mt-2 text-sm text-muted-foreground space-y-0.5">
               <p>
-                <span className="text-neutral-500">Account:</span>{" "}
+                <span className="text-muted-foreground">Account:</span>{" "}
                 {data.account_id?.company_name || "—"}
               </p>
               <p>
-                <span className="text-neutral-500">Opportunity:</span>{" "}
+                <span className="text-muted-foreground">Opportunity:</span>{" "}
                 {data.opportunity_id?.deal_name || "—"}
               </p>
               <p>
-                <span className="text-neutral-500">Valid Until:</span>{" "}
+                <span className="text-muted-foreground">Valid Until:</span>{" "}
                 <span className={isExpired ? "text-red-400" : ""}>
                   {data.validity_date
                     ? new Date(data.validity_date).toLocaleDateString("en-US", {
@@ -264,13 +265,13 @@ export default function QuoteDetailPage(props: {
               </p>
               {data.sent_at && (
                 <p>
-                  <span className="text-neutral-500">Sent:</span>{" "}
+                  <span className="text-muted-foreground">Sent:</span>{" "}
                   {new Date(data.sent_at).toLocaleDateString()}
                 </p>
               )}
               {data.approved_by_id && (
                 <p>
-                  <span className="text-neutral-500">Approved by:</span>{" "}
+                  <span className="text-muted-foreground">Approved by:</span>{" "}
                   {data.approved_by_id?.name || data.approved_by_id?.email}
                 </p>
               )}
@@ -325,21 +326,21 @@ export default function QuoteDetailPage(props: {
         </div>
 
         {/* Value summary strip */}
-        <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-neutral-800">
+        <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t border-border">
           <div>
-            <p className="text-xs text-neutral-500">Discount</p>
+            <p className="text-xs text-muted-foreground">Discount</p>
             <p className="font-semibold text-red-400">
               -${(data.discount_total || 0).toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Tax</p>
+            <p className="text-xs text-muted-foreground">Tax</p>
             <p className="font-semibold text-yellow-400">
               +${(data.tax_total || 0).toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Grand Total</p>
+            <p className="text-xs text-muted-foreground">Grand Total</p>
             <p className="font-bold text-xl text-green-400">
               ${(data.grand_total || 0).toLocaleString()}
             </p>
@@ -358,7 +359,7 @@ export default function QuoteDetailPage(props: {
 
       {/* Tabs */}
       <Tabs defaultValue="builder">
-        <TabsList className="bg-neutral-900 border border-neutral-800">
+        <TabsList className="bg-card border border-border">
           <TabsTrigger value="builder">Quote Builder</TabsTrigger>
           <TabsTrigger value="approvals">
             Approvals ({data.approvalHistory?.length || 0})
@@ -382,7 +383,7 @@ export default function QuoteDetailPage(props: {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="font-bold mb-4">Linked Documents</h3>
             <DocumentManager
               linkedRecordId={id}

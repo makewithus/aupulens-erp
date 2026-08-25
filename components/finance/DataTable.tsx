@@ -78,7 +78,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <TableHead
                   key={column.key}
                   className={cn(
-                    "text-gray-400 font-medium h-12",
+                    "text-muted-foreground font-medium h-12",
                     column.className
                   )}
                 >
@@ -92,7 +92,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center text-gray-500"
+                  className="h-24 text-center text-muted-foreground"
                 >
                   {emptyMessage}
                 </TableCell>
@@ -106,7 +106,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
-                      className={cn("text-gray-300", column.className)}
+                      className={cn("text-foreground", column.className)}
                     >
                       {column.render
                         ? column.render(item)
@@ -131,7 +131,7 @@ export function DataTable<T extends Record<string, unknown>>({
           >
             Previous
           </Button>
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-muted-foreground">
             Page {pagination.currentPage} of {pagination.totalPages}
           </div>
           <Button

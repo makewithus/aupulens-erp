@@ -20,27 +20,27 @@ export default function ReportingCenterPage() {
             <FileSpreadsheet className="w-8 h-8 text-green-500" />
             Enterprise Reporting Center
           </h1>
-          <p className="text-neutral-400 mt-1">Generate, schedule, and export advanced analytical reports.</p>
+          <p className="text-muted-foreground mt-1">Generate, schedule, and export advanced analytical reports.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="bg-neutral-900 border-neutral-800"><Filter className="w-4 h-4 mr-2"/> Custom Filter</Button>
+          <Button variant="outline" className="bg-card border-border"><Filter className="w-4 h-4 mr-2"/> Custom Filter</Button>
           <Button className="bg-primary text-white">Create Report</Button>
         </div>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
+      <div className="bg-card border border-border rounded-lg">
         {reports.map((report, i) => (
-          <div key={report.id} className={`p-4 flex justify-between items-center ${i !== reports.length - 1 ? 'border-b border-neutral-800' : ''}`}>
+          <div key={report.id} className={`p-4 flex justify-between items-center ${i !== reports.length - 1 ? 'border-b border-border' : ''}`}>
             <div>
-              <h3 className="font-semibold text-neutral-200">{report.name}</h3>
+              <h3 className="font-semibold text-foreground">{report.name}</h3>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">{report.category}</span>
-                <span className="text-xs text-neutral-500">Last run: {report.lastRun}</span>
+                <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded">{report.category}</span>
+                <span className="text-xs text-muted-foreground">Last run: {report.lastRun}</span>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="h-8 text-xs text-neutral-400 hover:text-white">View</Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs border-neutral-700 bg-neutral-950">
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-white">View</Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs border-border bg-background">
                 <Download className="w-3 h-3 mr-1" /> CSV
               </Button>
             </div>

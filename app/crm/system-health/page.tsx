@@ -19,13 +19,13 @@ export default function SystemHealthCenter() {
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Activity className="w-8 h-8 text-green-500" /> System Health Center
           </h1>
-          <p className="text-neutral-400 mt-1">Real-time status of backend operations and integrations.</p>
+          <p className="text-muted-foreground mt-1">Real-time status of backend operations and integrations.</p>
         </div>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden mt-6">
+      <div className="bg-card border border-border rounded-lg overflow-hidden mt-6">
         <table className="w-full text-sm text-left">
-          <thead className="bg-neutral-950 text-neutral-400">
+          <thead className="bg-background text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Subsystem</th>
               <th className="px-4 py-3">Status</th>
@@ -35,17 +35,17 @@ export default function SystemHealthCenter() {
           </thead>
           <tbody>
             {subsystems.map(sys => (
-              <tr key={sys.name} className="border-b border-neutral-800 last:border-0 hover:bg-neutral-800/50">
-                <td className="px-4 py-3 font-medium text-neutral-200">{sys.name}</td>
+              <tr key={sys.name} className="border-b border-border last:border-0 hover:bg-accent/50">
+                <td className="px-4 py-3 font-medium text-foreground">{sys.name}</td>
                 <td className="px-4 py-3">
                   <Badge variant="outline" className={`text-xs ${
                     sys.status === 'Healthy' ? 'border-green-900/50 text-green-400' : 'border-yellow-900/50 text-yellow-400'
                   }`}>{sys.status}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  {sys.failures > 0 ? <span className="text-red-400 font-bold">{sys.failures}</span> : <span className="text-neutral-500">0</span>}
+                  {sys.failures > 0 ? <span className="text-red-400 font-bold">{sys.failures}</span> : <span className="text-muted-foreground">0</span>}
                 </td>
-                <td className="px-4 py-3 text-right text-xs text-neutral-500">{sys.lastChecked}</td>
+                <td className="px-4 py-3 text-right text-xs text-muted-foreground">{sys.lastChecked}</td>
               </tr>
             ))}
           </tbody>

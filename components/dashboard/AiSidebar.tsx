@@ -619,7 +619,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         isDark ? "border-neutral-900 bg-neutral-950/80 text-neutral-400" : "border-neutral-200 bg-white/80 text-neutral-600"
       )}>
         <div className="flex items-center gap-2">
-          <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>AI Assistant</h2>
+          <h2 className={cn("font-semibold text-xs tracking-wider uppercase", isDark ? "text-neutral-400" : "text-neutral-600")}>Aupulens AI</h2>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -665,7 +665,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
               "p-1.5 rounded transition-colors cursor-pointer",
               isDark ? "text-neutral-500 hover:text-white hover:bg-neutral-900" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
             )}
-            title="Open Full Screen AI Assistant"
+            title="Open Full Screen Aupulens AI"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>

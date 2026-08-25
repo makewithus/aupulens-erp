@@ -19,7 +19,7 @@ export default function InventoryProfilePage() {
   }, [status, router, session]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-card">
       <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );

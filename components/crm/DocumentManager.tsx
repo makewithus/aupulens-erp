@@ -19,6 +19,7 @@ import {
   X,
   Clock,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ function FileIcon({ type }: { type?: string }) {
   if (t.includes("image")) return <FileImage className="w-4 h-4 text-blue-400" />;
   if (t.includes("video")) return <FileVideo className="w-4 h-4 text-purple-400" />;
   if (t.includes("pdf")) return <FileText className="w-4 h-4 text-red-400" />;
-  return <File className="w-4 h-4 text-neutral-400" />;
+  return <File className="w-4 h-4 text-muted-foreground" />;
 }
 
 // ─── Upload modal (inline) ────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ function UploadForm({
   };
 
   return (
-    <div className="border border-neutral-700 rounded-lg p-4 bg-neutral-950 space-y-3">
+    <div className="border border-border rounded-lg p-4 bg-background space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="font-semibold text-sm">
           {parentDocumentId ? "Upload New Version" : "Upload Document"}
@@ -129,30 +130,30 @@ function UploadForm({
 
       <div className="space-y-2">
         <div>
-          <label className="text-xs text-neutral-400 block mb-0.5">Document Name *</label>
+          <label className="text-xs text-muted-foreground block mb-0.5">Document Name *</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Project Proposal v2"
-            className="h-8 text-sm bg-neutral-900 border-neutral-700"
+            className="h-8 text-sm bg-card border-border"
           />
         </div>
         <div>
-          <label className="text-xs text-neutral-400 block mb-0.5">File URL *</label>
+          <label className="text-xs text-muted-foreground block mb-0.5">File URL *</label>
           <Input
             value={fileUrl}
             onChange={(e) => setFileUrl(e.target.value)}
             placeholder="https://... or /uploads/..."
-            className="h-8 text-sm bg-neutral-900 border-neutral-700"
+            className="h-8 text-sm bg-card border-border"
           />
         </div>
         <div>
-          <label className="text-xs text-neutral-400 block mb-0.5">File Type</label>
+          <label className="text-xs text-muted-foreground block mb-0.5">File Type</label>
           <Input
             value={fileType}
             onChange={(e) => setFileType(e.target.value)}
             placeholder="application/pdf, image/png..."
-            className="h-8 text-sm bg-neutral-900 border-neutral-700"
+            className="h-8 text-sm bg-card border-border"
           />
         </div>
       </div>
@@ -204,8 +205,8 @@ function DocRow({
     <div
       className={`flex items-center gap-3 p-3 rounded-md border transition-colors ${
         doc.is_archived
-          ? "border-neutral-800 bg-neutral-950/30 opacity-60"
-          : "border-neutral-800 bg-neutral-950 hover:border-neutral-700"
+          ? "border-border bg-background/30 opacity-60"
+          : "border-border bg-background hover:border-border"
       }`}
     >
       <FileIcon type={doc.file_type} />
@@ -222,7 +223,7 @@ function DocRow({
             </Badge>
           )}
         </div>
-        <div className="flex gap-3 text-xs text-neutral-500 mt-0.5">
+        <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
           {doc.uploaded_by_id && (
             <span>by {doc.uploaded_by_id.name || doc.uploaded_by_id.email}</span>
           )}
@@ -240,7 +241,7 @@ function DocRow({
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-neutral-400 hover:text-blue-400"
+          className="h-7 w-7 text-muted-foreground hover:text-blue-400"
           title="Preview"
           onClick={handlePreview}
         >
@@ -249,7 +250,7 @@ function DocRow({
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-neutral-400 hover:text-green-400"
+          className="h-7 w-7 text-muted-foreground hover:text-green-400"
           title="Download"
           onClick={handleDownload}
         >
@@ -258,7 +259,7 @@ function DocRow({
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-neutral-400 hover:text-blue-400"
+          className="h-7 w-7 text-muted-foreground hover:text-blue-400"
           title="New version"
           onClick={() => onNewVersion(doc)}
         >
@@ -270,8 +271,8 @@ function DocRow({
             size="icon"
             className={`h-7 w-7 ${
               doc.is_archived
-                ? "text-neutral-400 hover:text-green-400"
-                : "text-neutral-400 hover:text-yellow-400"
+                ? "text-muted-foreground hover:text-green-400"
+                : "text-muted-foreground hover:text-yellow-400"
             }`}
             title={doc.is_archived ? "Restore" : "Archive"}
             onClick={() => onArchive(doc)}
@@ -342,12 +343,12 @@ export default function DocumentManager({
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents..."
-            className="pl-8 h-8 text-sm bg-neutral-950 border-neutral-700"
+            className="pl-8 h-8 text-sm bg-background border-border"
           />
         </div>
         <Button
@@ -393,9 +394,9 @@ export default function DocumentManager({
 
       {/* Document list */}
       {loading ? (
-        <div className="text-sm text-neutral-500 py-4 text-center">Loading...</div>
+        <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
       ) : activeDocs.length === 0 && !showArchived ? (
-        <div className="text-sm text-neutral-500 py-6 text-center border border-dashed border-neutral-800 rounded-lg">
+        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
           No documents uploaded for this {linkedRecordType.toLowerCase()}.
         </div>
       ) : (
@@ -415,7 +416,7 @@ export default function DocumentManager({
 
           {showArchived && archivedDocs.length > 0 && (
             <>
-              <div className="text-xs text-neutral-500 pt-2 pb-1 border-t border-neutral-800">
+              <div className="text-xs text-muted-foreground pt-2 pb-1 border-t border-border">
                 Archived ({archivedDocs.length})
               </div>
               {archivedDocs.map((d) => (
@@ -437,7 +438,7 @@ export default function DocumentManager({
 
       {/* Stats */}
       {docs.length > 0 && (
-        <div className="text-xs text-neutral-500 flex gap-4 pt-1">
+        <div className="text-xs text-muted-foreground flex gap-4 pt-1">
           <span>{activeDocs.length} active</span>
           <span>{archivedDocs.length} archived</span>
           <span>

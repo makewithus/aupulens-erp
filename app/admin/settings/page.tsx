@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Save, Building2, Palette, Receipt, Sparkles } from "lucide-react";
+import { COUNTRIES, getCountryInfo } from "@/lib/constants/countries";
 
 export default function OrgSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -176,12 +177,28 @@ export default function OrgSettingsPage() {
               </h2>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Currency</Label>
-                  <Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} maxLength={3} />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</Label>
+                  <select
+                    value={form.country}
+                    onChange={(e) => {
+                      const info = getCountryInfo(e.target.value);
+                      setForm({ ...form, country: e.target.value, currency: info.currencyCode });
+                    }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {!COUNTRIES.some((c) => c.name === form.country) && form.country && (
+                      <option value={form.country}>{form.country}</option>
+                    )}
+                    {COUNTRIES.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</Label>
-                  <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Currency <span className="normal-case font-normal text-muted-foreground/60">(auto from country, editable)</span>
+                  </Label>
+                  <Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} maxLength={3} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">State</Label>

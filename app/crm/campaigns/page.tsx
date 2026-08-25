@@ -12,16 +12,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Plus, Search, Megaphone, DollarSign, Target, TrendingUp
+  Plus, Search, Megaphone, DollarSign, Target, TrendingUp, Loader2
 } from "lucide-react";
 
 const STATUS_COLOR: Record<string, string> = {
-  Draft: "bg-neutral-700 text-neutral-100",
+  Draft: "bg-accent text-foreground",
   Planned: "bg-blue-700 text-blue-100",
   Active: "bg-green-700 text-green-100",
   Paused: "bg-yellow-700 text-yellow-100",
   Completed: "bg-purple-700 text-purple-100",
-  Archived: "bg-neutral-800 text-neutral-400",
+  Archived: "bg-accent text-muted-foreground",
 };
 
 function NewCampaignModal({
@@ -101,45 +101,45 @@ function NewCampaignModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Campaign Name *</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Campaign Name *</label>
             <Input value={form.campaign_name} onChange={(e) => field("campaign_name", e.target.value)}
-              placeholder="Q4 Holiday Sale" className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              placeholder="Q4 Holiday Sale" className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Campaign Code</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Campaign Code</label>
             <Input value={form.campaign_code} onChange={(e) => field("campaign_code", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm font-mono" />
+              className="bg-background border-border h-8 text-sm font-mono" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Status</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Status</label>
             <select value={form.status} onChange={(e) => field("status", e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded h-8 text-sm px-2">
+              className="w-full bg-background border border-border rounded h-8 text-sm px-2">
               {["Draft", "Planned", "Active"].map((f) => <option key={f}>{f}</option>)}
             </select>
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Channel *</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Channel *</label>
             <select value={form.channel} onChange={(e) => field("channel", e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-700 rounded h-8 text-sm px-2">
+              className="w-full bg-background border border-border rounded h-8 text-sm px-2">
               {['Organic Search', 'Paid Search', 'Facebook', 'Instagram', 'LinkedIn', 'Referral', 'Event', 'Trade Show', 'Direct Website', 'WhatsApp', 'Outbound Calling', 'Partner Channel'].map((f) => (
                 <option key={f}>{f}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">Start Date *</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Start Date *</label>
             <Input type="date" value={form.start_date} onChange={(e) => field("start_date", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-neutral-400 block mb-0.5">End Date</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">End Date</label>
             <Input type="date" value={form.end_date} onChange={(e) => field("end_date", e.target.value)}
-              className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              className="bg-background border-border h-8 text-sm" />
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-neutral-400 block mb-0.5">Budget</label>
+            <label className="text-xs text-muted-foreground block mb-0.5">Budget</label>
             <Input type="number" min={0} value={form.budget} onChange={(e) => field("budget", e.target.value)}
-              placeholder="0.00" className="bg-neutral-950 border-neutral-700 h-8 text-sm" />
+              placeholder="0.00" className="bg-background border-border h-8 text-sm" />
           </div>
         </div>
 
@@ -206,7 +206,7 @@ export default function CampaignsPage() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold">Campaigns</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage marketing campaigns, budgets, and track ROI.
           </p>
         </div>
@@ -227,9 +227,9 @@ export default function CampaignsPage() {
       {/* Filters */}
       <div className="flex gap-3 flex-wrap items-center">
         <div className="relative max-w-xs flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search campaigns..." className="pl-9 bg-neutral-900 border-neutral-700" />
+            placeholder="Search campaigns..." className="pl-9 bg-card border-border" />
         </div>
 
         <div className="flex gap-1 flex-wrap">
@@ -243,43 +243,43 @@ export default function CampaignsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-transparent">
-              <TableHead className="text-neutral-400">Campaign Name</TableHead>
-              <TableHead className="text-neutral-400">Channel</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-              <TableHead className="text-neutral-400 text-right">Budget</TableHead>
-              <TableHead className="text-neutral-400 text-right">Revenue</TableHead>
-              <TableHead className="text-neutral-400 text-right">ROI</TableHead>
-              <TableHead className="text-neutral-400"></TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground">Campaign Name</TableHead>
+              <TableHead className="text-muted-foreground">Channel</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground text-right">Budget</TableHead>
+              <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+              <TableHead className="text-muted-foreground text-right">ROI</TableHead>
+              <TableHead className="text-muted-foreground"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-neutral-500">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center py-10"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></TableCell>
               </TableRow>
             )}
             {!loading && campaigns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-neutral-500">No campaigns found.</TableCell>
+                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No campaigns found.</TableCell>
               </TableRow>
             )}
             {!loading && campaigns.map((c) => (
-              <TableRow key={c._id} className="border-neutral-800 hover:bg-neutral-800/50">
+              <TableRow key={c._id} className="border-border hover:bg-accent/50">
                 <TableCell>
                   <div className="font-medium">{c.campaign_name}</div>
-                  <div className="text-xs text-neutral-500 font-mono">{c.campaign_code}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{c.campaign_code}</div>
                 </TableCell>
-                <TableCell className="text-sm text-neutral-300">{c.channel}</TableCell>
+                <TableCell className="text-sm text-foreground">{c.channel}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[c.status] || "bg-neutral-700 text-neutral-100"}`}>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[c.status] || "bg-accent text-foreground"}`}>
                     {c.status}
                   </span>
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm text-neutral-300">
+                <TableCell className="text-right font-mono text-sm text-foreground">
                   ₹{(c.budget || 0).toLocaleString()}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm text-green-400">

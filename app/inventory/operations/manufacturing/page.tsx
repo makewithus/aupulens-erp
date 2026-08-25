@@ -64,7 +64,7 @@ interface ManufacturingOrder {
 }
 
 const statusColors: Record<string, string> = {
-  [PRODUCTION_STATUS.DEMAND_FORECAST]: "text-gray-500",
+  [PRODUCTION_STATUS.DEMAND_FORECAST]: "text-muted-foreground",
   [PRODUCTION_STATUS.PRODUCTION_ORDER]: "text-blue-500",
   [PRODUCTION_STATUS.MATERIAL_RESERVED]: "text-indigo-500",
   [PRODUCTION_STATUS.MATERIAL_ISSUED]: "text-cyan-500",

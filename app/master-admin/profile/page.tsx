@@ -38,7 +38,7 @@ export default function MasterAdminProfilePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );

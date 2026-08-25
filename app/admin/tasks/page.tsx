@@ -654,7 +654,7 @@ export default function TasksPage() {
             {filteredTasks.map((task) => (
               <Card
                 key={task._id}
-                className={`hover:border-gray-700 transition-colors group relative ${
+                className={`hover:border-border transition-colors group relative ${
                   isOverdue(task.dueDate) && task.status !== "done"
                     ? "border-red-500/50 hover:border-red-500"
                     : ""
@@ -700,7 +700,7 @@ export default function TasksPage() {
                         Dept: {task.assignedDepartment}
                       </span>
                     ) : (
-                      <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                      <span className="text-xs bg-accent text-foreground px-2 py-1 rounded flex items-center gap-1 w-fit">
                         <UserIcon className="h-3 w-3" />
                         {task.assignee?.name || "Unassigned"}
                       </span>
@@ -747,7 +747,7 @@ export default function TasksPage() {
             ))}
 
             {filteredTasks.length === 0 && !isLoading && (
-              <div className="col-span-full text-center py-12 text-gray-500">
+              <div className="col-span-full text-center py-12 text-muted-foreground">
                 <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
                 <p>No tasks found matching your criteria.</p>
               </div>
@@ -786,7 +786,7 @@ export default function TasksPage() {
                                   {...provided.dragHandleProps}
                                 >
                                   <Card
-                                    className={`hover:border-gray-700 transition-colors group relative bg-background ${
+                                    className={`hover:border-border transition-colors group relative bg-background ${
                                       isOverdue(task.dueDate) &&
                                       task.status !== "done"
                                         ? "border-red-500/50"

@@ -68,7 +68,7 @@ interface PayrollRun {
 }
 
 const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
-  [PAYROLL_STATUS.DRAFT]: { color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: BookOpen, label: "Draft" },
+  [PAYROLL_STATUS.DRAFT]: { color: "bg-accent text-muted-foreground dark:bg-accent dark:text-foreground", icon: BookOpen, label: "Draft" },
   [PAYROLL_STATUS.ATTENDANCE_LOCKED]: { color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Lock, label: "Attendance Locked" },
   [PAYROLL_STATUS.COMPUTED]: { color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Calculator, label: "Computed" },
   [PAYROLL_STATUS.REVIEWED]: { color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: ClipboardCheck, label: "Reviewed" },

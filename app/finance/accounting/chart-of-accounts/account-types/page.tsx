@@ -101,7 +101,7 @@ export default function AccountTypesPage() {
         <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Account Types</h1>
-          <p className="text-sm text-gray-500">Manage reference data for chart of accounts</p>
+          <p className="text-sm text-muted-foreground">Manage reference data for chart of accounts</p>
         </div>
         <Button onClick={() => setIsNewModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -109,17 +109,17 @@ export default function AccountTypesPage() {
         </Button>
       </div>
 
-      <div className="flex items-center bg-white dark:bg-gray-800 p-2 rounded-lg border">
-        <Search className="h-5 w-5 text-gray-400 mx-2" />
+      <div className="flex items-center bg-white dark:bg-accent p-2 rounded-lg border">
+        <Search className="h-5 w-5 text-muted-foreground mx-2" />
         <Input 
-          className="border-0 focus-visible:ring-0 shadow-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400" 
+          className="border-0 focus-visible:ring-0 shadow-none bg-transparent text-foreground dark:text-foreground placeholder:text-muted-foreground" 
           placeholder="Search account types..." 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-accent rounded-lg border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -147,7 +147,7 @@ export default function AccountTypesPage() {
                         ACTIVE
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent text-foreground">
                         INACTIVE
                       </span>
                     )}

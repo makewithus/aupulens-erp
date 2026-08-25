@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Q2C_STATUS,
@@ -13,8 +16,12 @@ import {
   Clock,
   CheckCircle2,
   Truck,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { PipelineCard } from "./PipelineCard";
+
+const VISIBLE_CAP = 5;
 
 const Q2C_STAGE_ICONS: Record<string, any> = {
   [Q2C_STATUS.LEAD]: Target,
@@ -49,6 +56,9 @@ export function PipelineColumn({
   const colors = Q2C_STATUS_COLORS[stage] || { text: "text-foreground", bg: "bg-muted" };
   const StageIcon = Q2C_STAGE_ICONS[stage] || FileText;
   const stageTotal = orders.reduce((sum, o) => sum + (o.totals?.amountTotal || 0), 0);
+  const [expanded, setExpanded] = useState(false);
+  const hasOverflow = orders.length > VISIBLE_CAP;
+  const visibleOrders = expanded ? orders : orders.slice(0, VISIBLE_CAP);
 
   return (
     <div className="w-72 shrink-0 flex flex-col">
@@ -72,14 +82,19 @@ export function PipelineColumn({
         </p>
       </div>
 
-      {/* Cards list */}
-      <div className="flex-1 bg-white/[0.01] border border-border/20 rounded-none p-3 space-y-3 min-h-[450px]">
+      {/* Cards list — capped at VISIBLE_CAP so a busy stage doesn't grow one
+          column taller than the rest of the board; expand to scroll the rest. */}
+      <div
+        className={`flex-1 bg-white/[0.01] border border-border/20 rounded-none p-3 space-y-3 min-h-[450px] ${
+          expanded ? "max-h-[70vh] overflow-y-auto" : ""
+        }`}
+      >
         {orders.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground/45 font-mono text-xs">
             No deals
           </div>
         ) : (
-          orders.map((order) => (
+          visibleOrders.map((order) => (
             <PipelineCard
               key={order._id}
               order={order}
@@ -90,6 +105,18 @@ export function PipelineColumn({
               formatCurrency={formatCurrency}
             />
           ))
+        )}
+        {hasOverflow && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 hover:text-foreground border border-dashed border-border/30 hover:border-border/60 transition-colors"
+          >
+            {expanded ? (
+              <>Show less <ChevronUp className="w-3 h-3" /></>
+            ) : (
+              <>+{orders.length - VISIBLE_CAP} more <ChevronDown className="w-3 h-3" /></>
+            )}
+          </button>
         )}
       </div>
     </div>

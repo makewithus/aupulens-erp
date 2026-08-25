@@ -216,7 +216,7 @@ export default function QuoteBuilder({
   const optionalItems = items.filter((i) => i.is_optional && !i.is_bundled);
 
   return (
-    <div className="space-y-6 bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+    <div className="space-y-6 bg-card border border-border p-6 rounded-lg">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Quote Builder</h2>
         {!readOnly && (
@@ -244,7 +244,7 @@ export default function QuoteBuilder({
             type="date"
             value={validityDate}
             onChange={(e) => setValidityDate(e.target.value)}
-            className="bg-neutral-950 border-neutral-700"
+            className="bg-background border-border"
             disabled={readOnly}
           />
         </div>
@@ -256,7 +256,7 @@ export default function QuoteBuilder({
       {/* Line items table */}
       <div className="space-y-2">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_60px_90px_70px_70px_90px_36px_28px] gap-1 text-xs text-neutral-400 font-medium px-2 py-1 border-b border-neutral-800">
+        <div className="grid grid-cols-[1fr_60px_90px_70px_70px_90px_36px_28px] gap-1 text-xs text-muted-foreground font-medium px-2 py-1 border-b border-border">
           <span>Item / Description <span className="text-red-400">*</span></span>
           <span>Qty</span>
           <span>Unit Price</span>
@@ -276,17 +276,17 @@ export default function QuoteBuilder({
               key={i}
               className={`border rounded-md ${
                 item.is_optional
-                  ? "border-dashed border-neutral-600 bg-neutral-950/50"
+                  ? "border-dashed border-border bg-background/50"
                   : item.is_bundled
                   ? "border-blue-800 bg-blue-950/20"
-                  : "border-neutral-800 bg-neutral-950"
+                  : "border-border bg-background"
               }`}
             >
               {/* Badges */}
               {(item.is_optional || item.is_bundled) && (
                 <div className="px-2 pt-1.5 flex gap-2">
                   {item.is_optional && (
-                    <Badge variant="outline" className="text-xs border-neutral-600 text-neutral-400">
+                    <Badge variant="outline" className="text-xs border-border text-muted-foreground">
                       Optional
                     </Badge>
                   )}
@@ -304,7 +304,7 @@ export default function QuoteBuilder({
                   value={item.item_name}
                   onChange={(e) => updateItem(i, "item_name", e.target.value)}
                   placeholder="Item name"
-                  className="bg-neutral-900 border-neutral-700 h-8 text-sm"
+                  className="bg-card border-border h-8 text-sm"
                   disabled={readOnly}
                 />
                 <Input
@@ -315,7 +315,7 @@ export default function QuoteBuilder({
                   onChange={(e) =>
                     updateItem(i, "quantity", parseFloat(e.target.value) || 0)
                   }
-                  className="bg-neutral-900 border-neutral-700 h-8 text-sm"
+                  className="bg-card border-border h-8 text-sm"
                   disabled={readOnly}
                 />
                 <Input
@@ -326,7 +326,7 @@ export default function QuoteBuilder({
                   onChange={(e) =>
                     updateItem(i, "unit_price", parseFloat(e.target.value) || 0)
                   }
-                  className="bg-neutral-900 border-neutral-700 h-8 text-sm"
+                  className="bg-card border-border h-8 text-sm"
                   disabled={readOnly}
                 />
                 <Input
@@ -342,7 +342,7 @@ export default function QuoteBuilder({
                       parseFloat(e.target.value) || 0
                     )
                   }
-                  className={`bg-neutral-900 border-neutral-700 h-8 text-sm ${
+                  className={`bg-card border-border h-8 text-sm ${
                     item.discount_percent > 20
                       ? "text-red-400"
                       : item.discount_percent > 5
@@ -359,7 +359,7 @@ export default function QuoteBuilder({
                   onChange={(e) =>
                     updateItem(i, "tax_percent", parseFloat(e.target.value) || 0)
                   }
-                  className="bg-neutral-900 border-neutral-700 h-8 text-sm"
+                  className="bg-card border-border h-8 text-sm"
                   disabled={readOnly}
                 />
                 <div className="text-right font-mono text-sm font-bold text-green-400">
@@ -368,7 +368,7 @@ export default function QuoteBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-neutral-500 hover:text-white"
+                  className="h-7 w-7 text-muted-foreground hover:text-white"
                   onClick={() => toggleExpanded(i)}
                 >
                   {isExpanded ? (
@@ -381,7 +381,7 @@ export default function QuoteBuilder({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-neutral-500 hover:text-red-400"
+                    className="h-7 w-7 text-muted-foreground hover:text-red-400"
                     onClick={() => removeItem(i)}
                   >
                     <Trash2 className="w-3 h-3" />
@@ -391,9 +391,9 @@ export default function QuoteBuilder({
 
               {/* Expanded: description + bundle name */}
               {isExpanded && (
-                <div className="px-2 pb-3 space-y-2 border-t border-neutral-800 mt-1 pt-2">
+                <div className="px-2 pb-3 space-y-2 border-t border-border mt-1 pt-2">
                   <div>
-                    <label className="text-xs text-neutral-400 block mb-0.5">
+                    <label className="text-xs text-muted-foreground block mb-0.5">
                       Description
                     </label>
                     <Input
@@ -402,13 +402,13 @@ export default function QuoteBuilder({
                         updateItem(i, "description", e.target.value)
                       }
                       placeholder="Optional description..."
-                      className="bg-neutral-900 border-neutral-700 h-7 text-xs"
+                      className="bg-card border-border h-7 text-xs"
                       disabled={readOnly}
                     />
                   </div>
                   {item.is_bundled && (
                     <div>
-                      <label className="text-xs text-neutral-400 block mb-0.5">
+                      <label className="text-xs text-muted-foreground block mb-0.5">
                         Bundle Name
                       </label>
                       <Input
@@ -417,12 +417,12 @@ export default function QuoteBuilder({
                           updateItem(i, "bundle_name", e.target.value)
                         }
                         placeholder="Bundle group name..."
-                        className="bg-neutral-900 border-neutral-700 h-7 text-xs"
+                        className="bg-card border-border h-7 text-xs"
                         disabled={readOnly}
                       />
                     </div>
                   )}
-                  <div className="flex gap-4 text-xs text-neutral-400">
+                  <div className="flex gap-4 text-xs text-muted-foreground">
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
                         type="checkbox"
@@ -454,9 +454,9 @@ export default function QuoteBuilder({
       </div>
 
       {/* Totals */}
-      <div className="flex justify-end border-t border-neutral-800 pt-4">
+      <div className="flex justify-end border-t border-border pt-4">
         <div className="w-72 space-y-2 text-sm">
-          <div className="flex justify-between text-neutral-400">
+          <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>₹{totals.subtotal.toFixed(2)}</span>
           </div>
@@ -468,11 +468,11 @@ export default function QuoteBuilder({
             <span>Tax</span>
             <span>+₹{totals.taxTotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold text-lg pt-2 border-t border-neutral-700 text-white">
+          <div className="flex justify-between font-bold text-lg pt-2 border-t border-border text-white">
             <span>Grand Total</span>
             <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>
-          <div className="text-xs text-neutral-500 text-right">
+          <div className="text-xs text-muted-foreground text-right">
             Avg discount: {totals.avgDiscountPercent.toFixed(1)}%
           </div>
         </div>
@@ -483,7 +483,7 @@ export default function QuoteBuilder({
         <div>
           <label className="text-sm font-medium block mb-1">Notes</label>
           <textarea
-            className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 h-24 text-sm resize-none"
+            className="w-full bg-background border border-border rounded p-3 h-24 text-sm resize-none"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Internal notes for this quote..."
@@ -495,7 +495,7 @@ export default function QuoteBuilder({
             Terms & Conditions
           </label>
           <textarea
-            className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 h-24 text-sm resize-none"
+            className="w-full bg-background border border-border rounded p-3 h-24 text-sm resize-none"
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
             placeholder="Payment terms, delivery terms..."
@@ -506,7 +506,7 @@ export default function QuoteBuilder({
 
       {/* Action buttons */}
       {!readOnly && (
-        <div className="flex gap-3 justify-end border-t border-neutral-800 pt-4">
+        <div className="flex gap-3 justify-end border-t border-border pt-4">
           <Button
             variant="outline"
             onClick={() => saveQuote(false)}

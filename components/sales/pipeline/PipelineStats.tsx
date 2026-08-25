@@ -1,4 +1,4 @@
-import { StatCard } from "@/components/admin/StatCard";
+import { StatCard } from "@/components/manufacturing/StatCard";
 import { TrendingUp, Target, CheckCircle2, XCircle } from "lucide-react";
 
 interface PipelineStatsProps {
@@ -22,26 +22,34 @@ export function PipelineStats({
     }).format(val);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <StatCard
         title="Pipeline Value"
         value={formatCurrency(totalValue)}
-        className="border border-border/40 bg-background shadow-none rounded-none"
+        icon={TrendingUp}
+        description="Total open pipeline"
+        colorClass="text-blue-800 dark:text-blue-400"
       />
       <StatCard
         title="Active Deals"
-        value={activeDeals} 
-        className="border border-border/40 bg-background shadow-none rounded-none"
+        value={activeDeals}
+        icon={Target}
+        description="Currently in progress"
+        colorClass="text-indigo-800 dark:text-indigo-400"
       />
       <StatCard
         title="Won"
         value={wonDeals}
-        className="border border-border/40 bg-background shadow-none rounded-none"
+        icon={CheckCircle2}
+        description="Closed successfully"
+        colorClass="text-emerald-800 dark:text-emerald-400"
       />
       <StatCard
         title="Lost"
         value={lostDeals}
-        className="border border-border/40 bg-background shadow-none rounded-none"
+        icon={XCircle}
+        description="Closed lost"
+        colorClass="text-rose-800 dark:text-rose-400"
       />
     </div>
   );

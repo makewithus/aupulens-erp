@@ -124,7 +124,7 @@ export default function TrackingPage() {
       case 'cancelled':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        return 'bg-accent text-foreground dark:bg-card dark:text-foreground';
     }
   };
 
@@ -150,8 +150,8 @@ export default function TrackingPage() {
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Shipment Tracking</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white">Shipment Tracking</h1>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
             Track your shipments in real-time with detailed information
           </p>
         </div>

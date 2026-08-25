@@ -154,14 +154,14 @@ export function UpcomingRenewalsChart() {
   }
 
   return (
-    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-neutral-900 border-neutral-800 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}>
+    <div className={`rounded-lg p-6 font-mono w-full relative border ${isDark ? "bg-card border-border text-white" : "bg-white border-border text-foreground"}`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-neutral-900"}`}>Upcoming Renewals</h3>
-          <p className="text-[10px] text-neutral-500 mt-0.5">Contracts by expiry window</p>
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-foreground"}`}>Upcoming Renewals</h3>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Contracts by expiry window</p>
         </div>
         <div className="text-right">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Renewal Pipeline (90d)</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Renewal Pipeline (90d)</span>
           <span className="text-sm font-semibold text-violet-400">{summary ? fmtHeader(summary.renewalPipelineValue90Days || 0) : "—"}</span>
         </div>
       </div>
@@ -174,8 +174,8 @@ export function UpcomingRenewalsChart() {
         ) : (
           <>
             <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair"></canvas>
-            <div ref={tooltipRef} className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[180px] rounded-none hidden z-10 border ${isDark ? "bg-[#141414]/95 border-neutral-800 text-white" : "bg-white/95 border-neutral-200 text-neutral-800"}`}>
-              <div ref={tooltipDateRef} className="text-neutral-500 mb-0.5"></div>
+            <div ref={tooltipRef} className={`absolute pointer-events-none p-2 font-mono text-[11px] shadow-xl min-w-[180px] rounded-none hidden z-10 border ${isDark ? "bg-[#141414]/95 border-border text-white" : "bg-white/95 border-border text-foreground"}`}>
+              <div ref={tooltipDateRef} className="text-muted-foreground mb-0.5"></div>
               <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>
             </div>
           </>

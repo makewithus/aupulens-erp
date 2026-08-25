@@ -63,7 +63,7 @@ function ApprovalEntry({ entry, isLast }: { entry: ApprovalEntry; isLast: boolea
         >
           <Icon className={`w-4 h-4 ${cfg.color}`} />
         </div>
-        {!isLast && <div className="w-px flex-1 bg-neutral-800 mt-1" />}
+        {!isLast && <div className="w-px flex-1 bg-accent mt-1" />}
       </div>
 
       {/* Content */}
@@ -77,7 +77,7 @@ function ApprovalEntry({ entry, isLast }: { entry: ApprovalEntry; isLast: boolea
             {entry.status}
           </Badge>
           {entry.createdAt && (
-            <span className="text-xs text-neutral-500">
+            <span className="text-xs text-muted-foreground">
               {new Date(entry.createdAt).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -88,15 +88,15 @@ function ApprovalEntry({ entry, isLast }: { entry: ApprovalEntry; isLast: boolea
         </div>
 
         {entry.request_notes && (
-          <p className="text-xs text-neutral-400 mt-1">{entry.request_notes}</p>
+          <p className="text-xs text-muted-foreground mt-1">{entry.request_notes}</p>
         )}
 
-        <div className="mt-2 flex gap-4 text-xs text-neutral-500">
+        <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
           {entry.requested_by_id && (
             <span className="flex items-center gap-1">
               <User className="w-3 h-3" />
               Requested by:{" "}
-              <span className="text-neutral-300">
+              <span className="text-foreground">
                 {entry.requested_by_id.name || entry.requested_by_id.email}
               </span>
             </span>
@@ -105,7 +105,7 @@ function ApprovalEntry({ entry, isLast }: { entry: ApprovalEntry; isLast: boolea
             <span className="flex items-center gap-1">
               <ChevronRight className="w-3 h-3" />
               Approver:{" "}
-              <span className="text-neutral-300">
+              <span className="text-foreground">
                 {entry.approver_id.name || entry.approver_id.email}
               </span>
             </span>
@@ -134,9 +134,9 @@ export default function ApprovalTimeline({
 }: ApprovalTimelineProps) {
   if (!approvalHistory || approvalHistory.length === 0) {
     return (
-      <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+      <div className="bg-card border border-border p-6 rounded-lg">
         <h3 className="font-bold mb-2">Approval History</h3>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           {currentStatus === "Draft"
             ? "This quote has not been submitted for approval yet."
             : "No approval records found."}
@@ -146,7 +146,7 @@ export default function ApprovalTimeline({
   }
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
+    <div className="bg-card border border-border p-6 rounded-lg">
       <h3 className="font-bold mb-6">Approval Timeline</h3>
       <div>
         {approvalHistory.map((entry, i) => (

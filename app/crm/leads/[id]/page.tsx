@@ -108,7 +108,7 @@ export default function LeadDetailPage(props: { params: Promise<{ id: string }> 
     }
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (!lead) return <div className="p-6">Lead not found</div>;
 
   return (
@@ -157,13 +157,13 @@ export default function LeadDetailPage(props: { params: Promise<{ id: string }> 
       </Dialog>
       
       <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+        <div className="col-span-2 bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-bold mb-4">Activity Timeline</h2>
           <ActivityTimeline linkedRecordId={params.id} />
         </div>
         
         <div className="col-span-1 space-y-6">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6">
             <h2 className="text-lg font-bold mb-4">Lead Info</h2>
             <div className="space-y-4 text-sm">
               <div className="flex flex-col gap-1.5">

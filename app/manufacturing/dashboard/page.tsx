@@ -382,8 +382,8 @@ export default function ManufacturingDashboard() {
                           const ps = (order.productionStatus ||
                             "demand_forecast") as ProductionStatus;
                           const colors = PRODUCTION_STATUS_COLORS[ps] || {
-                            bg: "bg-gray-100",
-                            text: "text-gray-600",
+                            bg: "bg-accent",
+                            text: "text-muted-foreground",
                           };
                           return (
                             <span

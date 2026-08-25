@@ -451,10 +451,10 @@ export default function AdminAnalytics() {
       <div className="bg-black min-h-screen -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-sm text-gray-500 mb-4">Charts & Analytics</h1>
+          <h1 className="text-sm text-muted-foreground mb-4">Charts & Analytics</h1>
           
           {/* Tabs */}
-          <div className="flex gap-8 border-b border-gray-800">
+          <div className="flex gap-8 border-b border-border">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -462,7 +462,7 @@ export default function AdminAnalytics() {
                 className={`pb-3 text-sm transition-colors relative ${
                   activeTab === tab.id
                     ? 'text-white'
-                    : 'text-gray-400 hover:text-gray-300'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {tab.name}
@@ -475,16 +475,16 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-[#0a0a0a] border border-gray-800 rounded-none p-6 mb-6">
+        <div className="bg-[#0a0a0a] border border-border rounded-none p-6 mb-6">
           <div className="flex flex-wrap items-center gap-6 mb-6">
             {/* Date Range */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-400">Date Range</label>
+              <label className="text-xs text-muted-foreground">Date Range</label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-40 bg-black border-gray-800 text-white text-sm">
+                <SelectTrigger className="w-40 bg-black border-border text-white text-sm">
                   <SelectValue placeholder="Pick a date" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-gray-800">
+                <SelectContent className="bg-black border-border">
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="yesterday">Yesterday</SelectItem>
                   <SelectItem value="last-7-days">Last 7 days</SelectItem>
@@ -496,12 +496,12 @@ export default function AdminAnalytics() {
 
             {/* Source */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-400">Source</label>
+              <label className="text-xs text-muted-foreground">Source</label>
               <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="w-[180px] bg-black border-gray-800 text-white text-sm">
+                <SelectTrigger className="w-[180px] bg-black border-border text-white text-sm">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-gray-800">
+                <SelectContent className="bg-black border-border">
                   <SelectItem value="all-categories">All Categories</SelectItem>
                   <SelectItem value="finance">Finance</SelectItem>
                   <SelectItem value="sales">Sales</SelectItem>
@@ -513,12 +513,12 @@ export default function AdminAnalytics() {
 
             {/* Destination */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-400">Destination</label>
+              <label className="text-xs text-muted-foreground">Destination</label>
               <Select value={destination} onValueChange={setDestination}>
-                <SelectTrigger className="w-[180px] bg-black border-gray-800 text-white text-sm">
+                <SelectTrigger className="w-[180px] bg-black border-border text-white text-sm">
                   <SelectValue placeholder="All Resources" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-gray-800">
+                <SelectContent className="bg-black border-border">
                   <SelectItem value="all-resources">All Resources</SelectItem>
                   <SelectItem value="transactions">Transactions</SelectItem>
                   <SelectItem value="orders">Orders</SelectItem>
@@ -529,12 +529,12 @@ export default function AdminAnalytics() {
 
             {/* Show by */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-400">Show by</label>
+              <label className="text-xs text-muted-foreground">Show by</label>
               <Select value={showBy} onValueChange={setShowBy}>
-                <SelectTrigger className="w-40 bg-black border-gray-800 text-white text-sm">
+                <SelectTrigger className="w-40 bg-black border-border text-white text-sm">
                   <SelectValue placeholder="Department" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-gray-800">
+                <SelectContent className="bg-black border-border">
                   <SelectItem value="department">Department</SelectItem>
                   <SelectItem value="category">Category</SelectItem>
                   <SelectItem value="type">Type</SelectItem>
@@ -544,12 +544,12 @@ export default function AdminAnalytics() {
 
             {/* Interval */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-400">Interval</label>
+              <label className="text-xs text-muted-foreground">Interval</label>
               <Select value={interval} onValueChange={setInterval}>
-                <SelectTrigger className="w-[120px] bg-black border-gray-800 text-white text-sm">
+                <SelectTrigger className="w-[120px] bg-black border-border text-white text-sm">
                   <SelectValue placeholder="Day" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-gray-800">
+                <SelectContent className="bg-black border-border">
                   <SelectItem value="hour">Hour</SelectItem>
                   <SelectItem value="day">Day</SelectItem>
                   <SelectItem value="week">Week</SelectItem>
@@ -560,7 +560,7 @@ export default function AdminAnalytics() {
 
             <Button
               variant="outline"
-              className="ml-auto bg-transparent border-gray-800 text-white hover:bg-gray-900 text-sm"
+              className="ml-auto bg-transparent border-border text-white hover:bg-card text-sm"
               onClick={fetchAnalyticsData}
             >
               Reset
@@ -570,23 +570,23 @@ export default function AdminAnalytics() {
           {/* Metrics Info */}
           <div className="flex items-center gap-6 text-xs flex-wrap">
             <div className="flex items-center gap-4">
-              <span className="text-gray-400">Department:</span>
+              <span className="text-muted-foreground">Department:</span>
               <span className="text-white font-medium capitalize">{activeTab}</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-gray-400">{metrics.labels[0]}:</span>
+              <span className="text-muted-foreground">{metrics.labels[0]}:</span>
               <span className="text-white font-medium">
                 {formatValue(metrics.primary, activeTab === 'finance' || activeTab === 'overview')}
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-gray-400">{metrics.labels[1]}:</span>
+              <span className="text-muted-foreground">{metrics.labels[1]}:</span>
               <span className="text-white font-medium">
                 {formatValue(metrics.secondary, activeTab === 'finance' && metrics.labels[1] === 'Total Revenue')}
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-gray-400">{metrics.labels[2]}:</span>
+              <span className="text-muted-foreground">{metrics.labels[2]}:</span>
               <span className="text-white font-medium">
                 {formatValue(metrics.tertiary, activeTab === 'finance' || (activeTab === 'sales' && metrics.labels[2] === 'Avg Order Value'))}
               </span>
@@ -594,7 +594,7 @@ export default function AdminAnalytics() {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-3 text-xs text-gray-400">
+          <div className="mt-3 text-xs text-muted-foreground">
             Data source: {activeTab === 'finance' ? 'Transactions, Ledger, Invoices' : 
                          activeTab === 'sales' ? 'Orders, Quotations, Delivery Challans' :
                          activeTab === 'inventory' ? 'Stock Items, Warehouses, Batches' :

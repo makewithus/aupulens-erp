@@ -71,7 +71,7 @@ const statusColors: Record<string, string> = {
   "half-day": "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
   "on-leave": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   holiday: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-  "week-off": "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  "week-off": "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground",
 };
 
 export default function AttendancePage() {

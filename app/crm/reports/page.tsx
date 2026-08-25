@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as xlsx from "xlsx";
 import { PipelineTrendChart } from "@/components/crm/PipelineTrendChart";
 import { RevenueTrendChart } from "@/components/crm/RevenueTrendChart";
-import { CampaignROIChart } from "@/components/crm/CampaignROIChart";
 import { ChurnRiskChart } from "@/components/crm/ChurnRiskChart";
 import { UpcomingRenewalsChart } from "@/components/crm/UpcomingRenewalsChart";
 import { SupportPerformanceChart } from "@/components/crm/SupportPerformanceChart";
@@ -17,6 +17,17 @@ import { useThemeStore } from "@/store/themeStore";
 // "support" (case performance) have no aggregation endpoint built yet —
 // left out of this set rather than faking one, per QA_GAP_REPORT.md #25.
 const SUPPORTED_REPORTS = new Set(["pipeline", "revenue", "churn", "renewals"]);
+
+// three.js is heavy and WebGL-only — loaded client-side on demand rather than
+// bundled into the initial page JS.
+const CampaignROIGlobe = dynamic(
+  () => import("@/components/crm/CampaignROIGlobe").then((m) => m.CampaignROIGlobe),
+  { ssr: false, loading: () => (
+    <div className="flex items-center justify-center h-[420px] text-muted-foreground text-sm gap-2 border border-border rounded-lg bg-card">
+      <Loader2 className="h-4 w-4 animate-spin" /> Loading 3D view…
+    </div>
+  ) },
+);
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -151,7 +162,7 @@ export default function ReportsBuilderPage() {
 
       {/* Horizontal tabs selector */}
       <div className={`flex flex-wrap items-center gap-6 border-b pb-4 mb-2 ${
-        isDark ? "border-neutral-800" : "border-neutral-200"
+        isDark ? "border-border" : "border-border"
       }`}>
         {reports.map((r) => (
           <span key={r.id} className="flex items-center gap-2">
@@ -161,16 +172,16 @@ export default function ReportsBuilderPage() {
                 reportType === r.id
                   ? isDark
                     ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-6px] after:w-full after:h-[1px] after:bg-white font-medium"
-                    : "text-neutral-900 after:content-[''] after:absolute after:left-0 after:bottom-[-6px] after:w-full after:h-[1px] after:bg-neutral-900 font-semibold"
+                    : "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-6px] after:w-full after:h-[1px] after:bg-card font-semibold"
                   : isDark
-                  ? "text-neutral-500 hover:text-neutral-300"
-                  : "text-neutral-500 hover:text-neutral-800"
+                  ? "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {r.name}
             </button>
             {!SUPPORTED_REPORTS.has(r.id) && (
-              <span className="text-[10px] uppercase text-neutral-600">Soon</span>
+              <span className="text-[10px] uppercase text-muted-foreground">Soon</span>
             )}
           </span>
         ))}
@@ -180,7 +191,7 @@ export default function ReportsBuilderPage() {
       <div className="w-full transition-all duration-300">
         {reportType === "pipeline" && <PipelineTrendChart />}
         {reportType === "revenue" && <RevenueTrendChart />}
-        {reportType === "campaign" && <CampaignROIChart />}
+        {reportType === "campaign" && <CampaignROIGlobe />}
         {reportType === "churn" && <ChurnRiskChart />}
         {reportType === "renewals" && <UpcomingRenewalsChart />}
         {reportType === "support" && <SupportPerformanceChart />}

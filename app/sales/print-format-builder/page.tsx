@@ -194,10 +194,10 @@ export default function PrintFormatBuilder() {
         {/* Live preview — scaled to fit the panel width so the whole page is
             clear, and re-rendered live as options change. */}
         <div className="border-2 rounded-xl p-4 bg-white overflow-auto relative" style={{ minHeight: 500 }}>
-          {previewing && <div className="absolute top-3 right-3 text-xs text-neutral-500 flex items-center gap-1 z-10"><Loader2 className="h-3 w-3 animate-spin" /> updating…</div>}
+          {previewing && <div className="absolute top-3 right-3 text-xs text-muted-foreground flex items-center gap-1 z-10"><Loader2 className="h-3 w-3 animate-spin" /> updating…</div>}
           {previewHtml
             ? <ScaledHtmlPreview html={previewHtml} className="w-full" />
-            : <div className="text-sm text-neutral-400 flex items-center justify-center h-full">Preview will appear here.</div>}
+            : <div className="text-sm text-muted-foreground flex items-center justify-center h-full">Preview will appear here.</div>}
         </div>
       </div>
     </div>

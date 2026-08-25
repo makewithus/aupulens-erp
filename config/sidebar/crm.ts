@@ -39,11 +39,6 @@ export const crmSidebarConfig: SidebarSection[] = [
         icon: LayoutDashboard,
       },
       {
-        title: "AI Assistant",
-        href: "/crm/ai-assistant",
-        icon: Sparkles,
-      },
-      {
         title: "Leads",
         href: "/crm/leads",
         icon: Users,

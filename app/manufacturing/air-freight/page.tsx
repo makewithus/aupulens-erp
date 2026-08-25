@@ -304,7 +304,7 @@ export default function AirFreightPage() {
       case 'delayed':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        return 'bg-accent text-foreground dark:bg-card dark:text-foreground';
     }
   };
 
@@ -334,8 +334,8 @@ export default function AirFreightPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Air Freight</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">Air Freight</h1>
+            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
               Manage air cargo and flight schedules
             </p>
           </div>
@@ -414,39 +414,39 @@ export default function AirFreightPage() {
             <div className="overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Flight #</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Airline</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Route</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Departure</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Arrival</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Cargo</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Status</TableHead>
-                    <TableHead className="text-left p-3 font-medium text-gray-900 dark:text-white">Actions</TableHead>
+                  <TableRow className="border-b dark:border-border">
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Flight #</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Airline</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Route</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Departure</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Arrival</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Cargo</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Status</TableHead>
+                    <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {airFreights.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center p-8 text-gray-500 dark:text-gray-400">
+                      <TableCell colSpan={8} className="text-center p-8 text-muted-foreground dark:text-muted-foreground">
                         No flights scheduled.
                       </TableCell>
                     </TableRow>
                   ) : (
                     airFreights.map((freight) => (
-                      <TableRow key={freight._id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <TableCell className="p-3 text-gray-900 dark:text-white font-medium">{freight.flightNumber}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{freight.airline}</TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                      <TableRow key={freight._id} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
+                        <TableCell className="p-3 text-foreground dark:text-white font-medium">{freight.flightNumber}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{freight.airline}</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           {freight.origin} → {freight.destination}
                         </TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           {new Date(freight.departureTime).toLocaleString()}
                         </TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">
                           {new Date(freight.arrivalTime).toLocaleString()}
                         </TableCell>
-                        <TableCell className="p-3 text-gray-600 dark:text-gray-400">{freight.cargo} kg</TableCell>
+                        <TableCell className="p-3 text-muted-foreground dark:text-muted-foreground">{freight.cargo} kg</TableCell>
                         <TableCell className="p-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(freight.status)}`}>
                             {freight.status}
@@ -498,7 +498,7 @@ export default function AirFreightPage() {
                 <Plane className="h-5 w-5 text-blue-800" />
                 {editingFreight ? 'Edit Air Freight' : 'Schedule New Flight'}
               </DialogTitle>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                 Enter flight details and cargo information
               </p>
             </DialogHeader>
@@ -507,13 +507,13 @@ export default function AirFreightPage() {
               <div className="space-y-6 py-4">
                 {/* Flight Information */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white border-b pb-2">
+                  <h3 className="text-base font-medium text-foreground dark:text-white border-b pb-2">
                     Flight Information
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="flightNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="flightNumber" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Flight Number <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -527,7 +527,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="airline" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="airline" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Airline <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -541,7 +541,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="aircraftType" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="aircraftType" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Aircraft Type
                       </Label>
                       <Input
@@ -554,7 +554,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="status" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="status" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Status <span className="text-red-500">*</span>
                       </Label>
                       <Select
@@ -578,13 +578,13 @@ export default function AirFreightPage() {
 
                 {/* Route Information */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white border-b pb-2">
+                  <h3 className="text-base font-medium text-foreground dark:text-white border-b pb-2">
                     Route & Schedule
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="origin" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="origin" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Origin <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -598,7 +598,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="destination" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="destination" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Destination <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -612,7 +612,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="departureTime" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="departureTime" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Departure Time <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -626,7 +626,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="arrivalTime" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="arrivalTime" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Arrival Time <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -643,13 +643,13 @@ export default function AirFreightPage() {
 
                 {/* Cargo & Relations */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white border-b pb-2">
+                  <h3 className="text-base font-medium text-foreground dark:text-white border-b pb-2">
                     Cargo & Relations
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cargo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="cargo" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Cargo Weight (kg) <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -666,7 +666,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="freightProviderId" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="freightProviderId" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Freight Provider
                       </Label>
                       <Select
@@ -687,7 +687,7 @@ export default function AirFreightPage() {
                     </div>
                     
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="shipmentId" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="shipmentId" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Related Shipment
                       </Label>
                       <Select
@@ -711,13 +711,13 @@ export default function AirFreightPage() {
 
                 {/* Additional Notes */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white border-b pb-2">
+                  <h3 className="text-base font-medium text-foreground dark:text-white border-b pb-2">
                     Additional Information
                   </h3>
                   
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="notes" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Label htmlFor="notes" className="text-sm font-medium text-muted-foreground dark:text-foreground">
                         Notes
                       </Label>
                       <Button

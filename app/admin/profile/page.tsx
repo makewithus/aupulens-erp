@@ -163,7 +163,7 @@ export default function ProfilePage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-card">
         <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
       </div>
     );
@@ -188,8 +188,8 @@ export default function ProfilePage() {
     >
       <div className="space-y-6 max-w-4xl">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Profile</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <h1 className="text-3xl font-bold text-foreground dark:text-white">My Profile</h1>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
             Manage your account information and settings
           </p>
         </div>
@@ -216,10 +216,10 @@ export default function ProfilePage() {
                 </AvatarFallback>
               </Avatar>
               <div className="text-center sm:text-left flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-2xl font-bold text-foreground dark:text-white">
                   {profile?.name}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-muted-foreground dark:text-muted-foreground mt-1">
                   {profile?.designation || (profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : '')}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
@@ -323,7 +323,7 @@ export default function ProfilePage() {
                     id="email"
                     value={profile?.email || ''}
                     disabled
-                    className="bg-gray-100 dark:bg-gray-800"
+                    className="bg-accent dark:bg-accent"
                   />
                 </div>
                 <div className="space-y-2">
@@ -360,49 +360,49 @@ export default function ProfilePage() {
             ) : (
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Full Name</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{profile?.name}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Full Name</p>
+                    <p className="font-medium text-foreground dark:text-white">{profile?.name}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{profile?.email}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Email</p>
+                    <p className="font-medium text-foreground dark:text-white">{profile?.email}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{profile?.phone}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Phone</p>
+                    <p className="font-medium text-foreground dark:text-white">{profile?.phone}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Department</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Department</p>
+                    <p className="font-medium text-foreground dark:text-white">
                       {profile?.department || 'Not specified'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Designation</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Designation</p>
+                    <p className="font-medium text-foreground dark:text-white">
                       {profile?.designation || 'Not specified'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Date of Joining</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Date of Joining</p>
+                    <p className="font-medium text-foreground dark:text-white">
                       {profile?.dateOfJoining
                         ? new Date(profile.dateOfJoining).toLocaleDateString()
                         : 'Not specified'}
@@ -504,15 +504,15 @@ export default function ProfilePage() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Employee ID</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="text-sm text-muted-foreground dark:text-muted-foreground">Employee ID</span>
+                <span className="font-medium text-foreground dark:text-white">
                   {profile?.employeeId || 'Not assigned'}
                 </span>
               </div>
               <Separator />
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Account Created</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="text-sm text-muted-foreground dark:text-muted-foreground">Account Created</span>
+                <span className="font-medium text-foreground dark:text-white">
                   {profile?.createdAt
                     ? new Date(profile.createdAt).toLocaleDateString()
                     : 'N/A'}

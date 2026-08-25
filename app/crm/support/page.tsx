@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function SupportDashboard() {
@@ -55,36 +56,36 @@ export default function SupportDashboard() {
       });
   }, []);
 
-  if (loading) return <div className="p-6">Loading Support Dashboard...</div>;
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Support Operations Dashboard</h1>
 
       <div className="grid grid-cols-5 gap-4">
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
+        <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">Open Cases</p>
           <p className="text-3xl font-bold">{data.openCount}</p>
         </div>
-        <div className="bg-neutral-900 border border-red-800 p-4 rounded-lg">
+        <div className="bg-card border border-red-800 p-4 rounded-lg">
           <p className="text-red-500 text-sm">Breached SLA</p>
           <p className="text-3xl font-bold text-red-500">{data.breachedCount}</p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
+        <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">Avg Resolution</p>
           <p className="text-3xl font-bold">{data.avgResTime}</p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-lg">
+        <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">CSAT Score</p>
           <p className="text-3xl font-bold text-green-500">{data.avgSat}</p>
         </div>
-        <div className="bg-neutral-900 border border-orange-800 p-4 rounded-lg">
+        <div className="bg-card border border-orange-800 p-4 rounded-lg">
           <p className="text-orange-500 text-sm">Escalations Today</p>
           <p className="text-3xl font-bold text-orange-500">{data.escalationsToday}</p>
         </div>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-md">
+      <div className="bg-card border border-border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>

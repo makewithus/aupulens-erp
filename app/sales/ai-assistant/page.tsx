@@ -412,7 +412,7 @@ export default function SalesAIAssistant() {
               </h3>
               {loadingHistory ? (
                 <div className="flex justify-center py-4">
-                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : chatHistory.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">No chat history yet</p>

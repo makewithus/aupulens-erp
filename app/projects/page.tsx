@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -25,11 +26,12 @@ const STATUS_COLORS: Record<string, string> = {
   planning: "border-blue-900/50 text-blue-400",
   active: "border-emerald-900/50 text-emerald-400",
   on_hold: "border-yellow-900/50 text-yellow-400",
-  completed: "border-neutral-700 text-neutral-400",
+  completed: "border-border text-muted-foreground",
   cancelled: "border-red-900/50 text-red-400",
 };
 
 export default function ProjectsPage() {
+  const { data: session } = useSession();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -79,6 +81,10 @@ export default function ProjectsPage() {
       companyName="Aupulens"
       dashboardTitle="Projects"
       pageName="All Projects"
+      userName={session?.user?.name || ""}
+      userEmail={session?.user?.email || ""}
+      userRole={session?.user?.role}
+      onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
     >
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">

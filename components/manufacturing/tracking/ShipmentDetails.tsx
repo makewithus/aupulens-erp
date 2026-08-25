@@ -55,7 +55,7 @@ export function ShipmentDetails({ shipmentData, getStatusColor }: ShipmentDetail
 
           {shipmentData.customsStatus && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                 <FileText className="h-4 w-4" />
                 Customs Status
               </div>
@@ -68,28 +68,28 @@ export function ShipmentDetails({ shipmentData, getStatusColor }: ShipmentDetail
 
         {shipmentData.items && shipmentData.items.length > 0 && (
           <div className="mb-6">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
+            <h4 className="font-semibold text-foreground dark:text-white mb-3">
               Items ({shipmentData.items.length})
             </h4>
             <div className="overflow-x-auto border rounded-none">
               <Table className="w-full">
-                <TableHeader className="bg-gray-50 dark:bg-gray-800">
-                  <TableRow className="border-b dark:border-gray-700">
-                    <TableHead className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">Description</TableHead>
-                    <TableHead className="text-left p-3 text-sm font-medium text-gray-900 dark:text-white">HS Code</TableHead>
-                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Quantity</TableHead>
-                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Weight (kg)</TableHead>
-                    <TableHead className="text-right p-3 text-sm font-medium text-gray-900 dark:text-white">Value</TableHead>
+                <TableHeader className="bg-muted dark:bg-accent">
+                  <TableRow className="border-b dark:border-border">
+                    <TableHead className="text-left p-3 text-sm font-medium text-foreground dark:text-white">Description</TableHead>
+                    <TableHead className="text-left p-3 text-sm font-medium text-foreground dark:text-white">HS Code</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-foreground dark:text-white">Quantity</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-foreground dark:text-white">Weight (kg)</TableHead>
+                    <TableHead className="text-right p-3 text-sm font-medium text-foreground dark:text-white">Value</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {shipmentData.items.map((item, index) => (
-                    <TableRow key={index} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white">{item.description}</TableCell>
-                      <TableCell className="p-3 text-sm text-gray-600 dark:text-gray-400">{item.hsCode || 'N/A'}</TableCell>
-                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.quantity}</TableCell>
-                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">{item.weight}</TableCell>
-                      <TableCell className="p-3 text-sm text-gray-900 dark:text-white text-right">
+                    <TableRow key={index} className="border-b dark:border-border hover:bg-muted dark:hover:bg-accent">
+                      <TableCell className="p-3 text-sm text-foreground dark:text-white">{item.description}</TableCell>
+                      <TableCell className="p-3 text-sm text-muted-foreground dark:text-muted-foreground">{item.hsCode || 'N/A'}</TableCell>
+                      <TableCell className="p-3 text-sm text-foreground dark:text-white text-right">{item.quantity}</TableCell>
+                      <TableCell className="p-3 text-sm text-foreground dark:text-white text-right">{item.weight}</TableCell>
+                      <TableCell className="p-3 text-sm text-foreground dark:text-white text-right">
                         {shipmentData.currency} {item.value?.toLocaleString() || 0}
                       </TableCell>
                     </TableRow>
@@ -101,9 +101,9 @@ export function ShipmentDetails({ shipmentData, getStatusColor }: ShipmentDetail
         )}
 
         {shipmentData.notes && (
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-none border">
-            <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">Notes</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">{shipmentData.notes}</div>
+          <div className="p-4 bg-muted dark:bg-accent rounded-none border">
+            <div className="text-sm font-medium text-foreground dark:text-white mb-2">Notes</div>
+            <div className="text-sm text-muted-foreground dark:text-muted-foreground">{shipmentData.notes}</div>
           </div>
         )}
       </CardContent>

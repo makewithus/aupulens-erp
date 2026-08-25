@@ -178,7 +178,7 @@ export default function FinanceSummaryPage() {
     posted: "text-emerald-500",
     approved: "text-emerald-500",
     done: "text-emerald-500",
-    draft: "text-gray-500",
+    draft: "text-muted-foreground",
     pending: "text-amber-500",
     rejected: "text-rose-500",
   };

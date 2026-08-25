@@ -190,7 +190,7 @@ export default function VendorsPage() {
       // Handle bold text (**text**)
       const parts = line.split(/(\*\*.*?\*\*)/g);
       return (
-        <p key={i} className="mb-2 text-sm text-gray-300 leading-relaxed">
+        <p key={i} className="mb-2 text-sm text-foreground leading-relaxed">
           {parts.map((part, j) => {
             if (part.startsWith("**") && part.endsWith("**")) {
               return (
@@ -293,7 +293,7 @@ export default function VendorsPage() {
                   <Plus className="mr-2 h-4 w-4" /> Add Vendor
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-gray-900 border-gray-800 text-white">
+              <DialogContent className="bg-card border-border text-white">
                 <DialogHeader>
                   <DialogTitle>
                     {editingVendor ? "Edit Vendor" : "Add New Vendor"}
@@ -307,7 +307,7 @@ export default function VendorsPage() {
                       onChange={(e) =>
                         setNewVendor({ ...newVendor, name: e.target.value })
                       }
-                      className="bg-gray-800 border-gray-700"
+                      className="bg-accent border-border"
                     />
                   </div>
                   <div className="space-y-2">
@@ -317,7 +317,7 @@ export default function VendorsPage() {
                       onChange={(e) =>
                         setNewVendor({ ...newVendor, category: e.target.value })
                       }
-                      className="bg-gray-800 border-gray-700"
+                      className="bg-accent border-border"
                     />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -335,7 +335,7 @@ export default function VendorsPage() {
                             },
                           })
                         }
-                        className="bg-gray-800 border-gray-700"
+                        className="bg-accent border-border"
                       />
                     </div>
                     <div className="space-y-2">
@@ -352,7 +352,7 @@ export default function VendorsPage() {
                             },
                           })
                         }
-                        className="bg-gray-800 border-gray-700"
+                        className="bg-accent border-border"
                       />
                     </div>
                     <div className="space-y-2">
@@ -369,7 +369,7 @@ export default function VendorsPage() {
                             },
                           })
                         }
-                        className="bg-gray-800 border-gray-700"
+                        className="bg-accent border-border"
                       />
                     </div>
                   </div>
@@ -396,7 +396,7 @@ export default function VendorsPage() {
               open={!!analysisVendor}
               onOpenChange={() => setAnalysisVendor(null)}
             >
-              <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogContent className="bg-card border-border text-white max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-xl">
                     <Activity className="h-5 w-5 text-blue-400" />
@@ -404,8 +404,8 @@ export default function VendorsPage() {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
-                  <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-400">Overall Rating</div>
+                  <div className="flex items-center justify-between bg-accent/50 p-3 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Overall Rating</div>
                     <div
                       className={`text-lg font-bold px-3 py-1 rounded ${
                         analysisVendor?.aiAnalysis?.rating >= 8
@@ -419,11 +419,11 @@ export default function VendorsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-800/30 p-4 rounded-lg border border-gray-800">
+                  <div className="bg-accent/30 p-4 rounded-lg border border-border">
                     {formatAnalysisText(analysisVendor?.aiAnalysis?.summary)}
                   </div>
 
-                  <div className="text-xs text-gray-500 text-right">
+                  <div className="text-xs text-muted-foreground text-right">
                     Last updated:{" "}
                     {analysisVendor?.aiAnalysis?.lastUpdated &&
                       new Date(
@@ -434,7 +434,7 @@ export default function VendorsPage() {
                 <DialogFooter>
                   <Button
                     onClick={() => setAnalysisVendor(null)}
-                    className="bg-gray-800 hover:bg-gray-700"
+                    className="bg-accent hover:bg-accent"
                   >
                     Close
                   </Button>
@@ -448,7 +448,7 @@ export default function VendorsPage() {
           {filteredVendors.map((vendor) => (
             <Card
               key={vendor._id}
-              className="bg-gray-900/50 border-gray-800 hover:border-gray-700 transition-colors group relative"
+              className="bg-card/50 border-border hover:border-border transition-colors group relative"
             >
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                 <Button
@@ -467,11 +467,11 @@ export default function VendorsPage() {
                     <CardTitle className="text-lg font-medium text-white">
                       {vendor.name}
                     </CardTitle>
-                    <CardDescription className="text-gray-400">
+                    <CardDescription className="text-muted-foreground">
                       {vendor.category}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-1 bg-gray-800 px-2 py-1 rounded">
+                  <div className="flex items-center gap-1 bg-accent px-2 py-1 rounded">
                     <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
                     <span className="text-xs text-white">
                       {vendor.performanceMetrics.qualityScore}/10
@@ -482,20 +482,20 @@ export default function VendorsPage() {
 
               <CardContent>
                 <div className="grid grid-cols-3 gap-2 mb-4 text-center">
-                  <div className="bg-gray-800/50 p-2 rounded">
-                    <div className="text-xs text-gray-500">Delivery</div>
+                  <div className="bg-accent/50 p-2 rounded">
+                    <div className="text-xs text-muted-foreground">Delivery</div>
                     <div className="text-sm font-medium text-white">
                       {vendor.performanceMetrics.deliveryTime}d
                     </div>
                   </div>
-                  <div className="bg-gray-800/50 p-2 rounded">
-                    <div className="text-xs text-gray-500">Quality</div>
+                  <div className="bg-accent/50 p-2 rounded">
+                    <div className="text-xs text-muted-foreground">Quality</div>
                     <div className="text-sm font-medium text-white">
                       {vendor.performanceMetrics.qualityScore}
                     </div>
                   </div>
-                  <div className="bg-gray-800/50 p-2 rounded">
-                    <div className="text-xs text-gray-500">Cost</div>
+                  <div className="bg-accent/50 p-2 rounded">
+                    <div className="text-xs text-muted-foreground">Cost</div>
                     <div className="text-sm font-medium text-white">
                       {vendor.performanceMetrics.costRating}
                     </div>
@@ -510,7 +510,7 @@ export default function VendorsPage() {
                         AI Analysis
                       </span>
                     </div>
-                    <p className="text-xs text-gray-300 line-clamp-2 mb-2">
+                    <p className="text-xs text-foreground line-clamp-2 mb-2">
                       {vendor.aiAnalysis.summary.replace(/\*\*/g, "")}
                     </p>
                     <div className="flex items-center justify-between">
@@ -535,7 +535,7 @@ export default function VendorsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-800/30 p-3 rounded mb-4 text-center text-xs text-gray-500">
+                  <div className="bg-accent/30 p-3 rounded mb-4 text-center text-xs text-muted-foreground">
                     No AI analysis yet
                   </div>
                 )}
@@ -543,7 +543,7 @@ export default function VendorsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full border-gray-700 hover:bg-gray-800 text-gray-300"
+                  className="w-full border-border hover:bg-accent text-foreground"
                   onClick={() => handleEvaluate(vendor._id)}
                   disabled={evaluatingId === vendor._id}
                 >
@@ -559,7 +559,7 @@ export default function VendorsPage() {
           ))}
 
           {filteredVendors.length === 0 && !isLoading && (
-            <div className="col-span-full text-center py-12 text-gray-500">
+            <div className="col-span-full text-center py-12 text-muted-foreground">
               <Truck className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p>No vendors found matching your criteria.</p>
             </div>
