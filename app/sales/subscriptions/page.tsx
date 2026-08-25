@@ -253,24 +253,31 @@ export default function SubscriptionsPage() {
                   className="h-8"
                 />
               </div>
-              <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-                {filteredViews.map((v) => (
-                  <DropdownMenuItem
-                    key={v._id}
-                    className="flex items-center justify-between"
-                    onClick={() => setActiveViewId(v._id)}
-                  >
-                    <span className="truncate pr-2">{v.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(v);
-                      }}
+              <DropdownMenuSeparator />
+              <div className="max-h-72 overflow-y-auto py-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+                {filteredViews.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-xs text-muted-foreground">No views found.</div>
+                ) : (
+                  filteredViews.map((v) => (
+                    <DropdownMenuItem
+                      key={v._id}
+                      className="flex items-center justify-between gap-2"
+                      onClick={() => setActiveViewId(v._id)}
                     >
-                      <Star className={`w-3.5 h-3.5 ${v.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
-                    </button>
-                  </DropdownMenuItem>
-                ))}
+                      <span className={`truncate ${v._id === activeViewId ? "font-semibold text-foreground" : ""}`}>{v.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(v);
+                        }}
+                        className="shrink-0 p-1 hover:bg-muted"
+                        aria-label={v.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${v.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                      </button>
+                    </DropdownMenuItem>
+                  ))
+                )}
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push("/sales/subscriptions/views/new")}>

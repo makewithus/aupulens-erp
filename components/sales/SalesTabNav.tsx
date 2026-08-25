@@ -56,42 +56,53 @@ export function SalesTabNav() {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-center gap-1 border-b overflow-x-auto">
+    <div className="flex items-stretch gap-1 border-b overflow-x-auto">
       {SALES_TABS.map((tab) => {
         const isActive = pathname === tab.href || pathname?.startsWith(tab.href + "/");
-        return (
-          <div key={tab.key} className="flex items-center">
+        const activeClasses = isActive
+          ? "border-blue-600 text-blue-600"
+          : "border-transparent text-muted-foreground hover:text-foreground";
+
+        if (!tab.dropdown) {
+          return (
             <Link
+              key={tab.key}
               href={tab.href}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
-                isActive
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex h-11 items-center px-4 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${activeClasses}`}
             >
               {tab.label}
             </Link>
-            {tab.dropdown && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={`px-1 py-3 -ml-2 border-b-2 -mb-px ${
-                      isActive ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground"
-                    }`}
-                    aria-label={`${tab.label} options`}
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {tab.dropdown.map((item) => (
-                    <DropdownMenuItem key={item.href + item.label} asChild>
-                      <Link href={item.href}>{item.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+          );
+        }
+
+        return (
+          <div
+            key={tab.key}
+            className={`flex h-11 items-center border-b-2 -mb-px whitespace-nowrap transition-colors ${activeClasses}`}
+          >
+            <Link
+              href={tab.href}
+              className="flex h-full items-center pl-4 pr-1 text-sm font-medium"
+            >
+              {tab.label}
+            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex h-full items-center justify-center pl-1 pr-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  aria-label={`${tab.label} options`}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {tab.dropdown.map((item) => (
+                  <DropdownMenuItem key={item.href + item.label} asChild>
+                    <Link href={item.href}>{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       })}
