@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -132,12 +133,18 @@ const INITIAL_PRODUCT_STATE: ProductFormData = {
   status: "draft",
 };
 
+const LIMIT = 10;
+
 export default function ProductsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [data, setData] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
@@ -164,19 +171,23 @@ export default function ProductsPage() {
     parent_id: null,
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = page, search = debouncedQuery) => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/sales/products");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("query", search);
+      const res = await cachedFetch(`/api/sales/products?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
+      setTotal(json.pagination?.total ?? 0);
+      setTotalPages(json.pagination?.pages ?? 1);
     } catch (error) {
       console.error("Error loading products:", error);
       toast.error("Failed to load products");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, debouncedQuery]);
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -215,20 +226,24 @@ export default function ProductsPage() {
   }, [status, router, session]);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
+  useEffect(() => {
     if (status === "authenticated") {
-      load();
+      load(page, debouncedQuery);
       loadAccounts();
       loadPricelists();
     }
-  }, [status, load, loadAccounts, loadPricelists]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, loadAccounts, loadPricelists, page, debouncedQuery]);
 
-  const filtered = data.filter(
-    (p) =>
-      p.header.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.tab_general_information.default_code
-        ?.toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const filtered = data;
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -492,24 +507,26 @@ export default function ProductsPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
     >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Products</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your product catalog
-            </p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+              Products
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
               <Input
                 placeholder="Search products..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-8 w-64"
+                className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-64 text-foreground"
               />
             </div>
-            <Button onClick={handleOpenCreate}>
+            <Button
+              onClick={handleOpenCreate}
+              className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+            >
               <Plus className="h-4 w-4 mr-2" />
               New Product
             </Button>
@@ -616,123 +633,106 @@ export default function ProductsPage() {
           </div>
         </ModularModal>
 
-        <Card>
-          <CardHeader className="pb-3 border-b">
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          <div className="border-b border-border/20 px-8 py-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Product Catalog</CardTitle>
-              <Button variant="outline" size="sm" onClick={load}>
+              <div>
+                <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Product Catalog</h2>
+                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {total} {total === 1 ? "Product" : "Products"}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => load(page, debouncedQuery)}>
                 Refresh
               </Button>
             </div>
-          </CardHeader>
+          </div>
           <CardContent className="p-0">
-            {loading ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                <Package className="h-12 w-12 mb-4 opacity-20" />
-                <p>No products found.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Product</th>
-                      <th className="px-6 py-3 text-left">Type</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Price</th>
-                      <th className="px-6 py-3 text-left">Cost</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {filtered.map((p) => (
-                      <tr
-                        key={p._id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
-                              <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium">
-                                {p.header.name}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {p.tab_general_information.default_code ||
-                                  "No Ref"}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground capitalize">
-                          {p.tab_general_information.type}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {p.status === "published" ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] border-0"
-                            >
-                              PUBLISHED
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-[10px] border-0"
-                            >
-                              DRAFT
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {formatCurrency(p.tab_general_information.list_price)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                          {formatCurrency(
-                            p.tab_general_information.standard_price,
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleOpenView(p)}
-                            >
-                              <Eye className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleOpenEdit(p)}
-                            >
-                              <Edit3 className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                handleDeleteClick(p._id, p.header.name)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <Table>
+              <TableHeader className="border-border/40">
+                <TableRow>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Product</TableHead>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Type</TableHead>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Price</TableHead>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Cost</TableHead>
+                  <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/30">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="px-8 py-7 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-24 text-center">
+                      <Package className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                      <h3 className="text-lg font-medium text-foreground">No products found</h3>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((p) => (
+                    <TableRow key={p._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                        <div className="font-mono text-sm font-semibold text-primary">{p.header.name}</div>
+                        <div className="text-[11px] text-muted-foreground/60 mt-0.5">
+                          {p.tab_general_information.default_code || "No Ref"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 capitalize">
+                        {p.tab_general_information.type}
+                      </TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                        <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${p.status === "published" ? "text-emerald-500" : "text-amber-500"}`}>
+                          {p.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                        {formatCurrency(p.tab_general_information.list_price)}
+                      </TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm text-foreground/80">
+                        {formatCurrency(p.tab_general_information.standard_price)}
+                      </TableCell>
+                      <TableCell className="px-8 py-7 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenView(p)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenEdit(p)}>
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-red-500" onClick={() => handleDeleteClick(p._id, p.header.name)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

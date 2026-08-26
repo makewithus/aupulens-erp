@@ -62,10 +62,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     delete body.tenantId;
     delete body.number; // Immutable once assigned
 
-    const existing = await (SalesInvoice as any).findOne({ _id: id, tenantId }).lean();
-    if (!existing) {
+    // Fetched once as a live document (not .lean()) since it's also used
+    // below to apply the update and .save() — previously this was fetched
+    // twice (once .lean() just for the merge, once live for the write).
+    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId });
+    if (!invoice) {
       return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
     }
+    const existing = invoice.toObject();
 
     const merged = { ...existing, ...body };
     const isDraft = merged.status === SALES_INVOICE_STATUS.DRAFT;
@@ -128,10 +132,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       status,
     };
 
-    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId });
-    if (!invoice) {
-      return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
-    }
     Object.assign(invoice, update);
 
     // Reconcile the GL to this invoice's new state — a no-op if nothing

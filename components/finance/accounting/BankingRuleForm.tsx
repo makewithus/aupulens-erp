@@ -354,7 +354,7 @@ export function BankingRuleForm({ ruleId }: { ruleId?: string }) {
                           disabled
                             ? "opacity-40 cursor-not-allowed"
                             : active
-                              ? "border-blue-600 bg-blue-600/10 text-blue-600 font-medium"
+                              ? "border-foreground bg-foreground/10 text-foreground font-medium"
                               : "border-border hover:bg-muted/50"
                         }`}
                       >

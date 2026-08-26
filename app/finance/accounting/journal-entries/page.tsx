@@ -16,6 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -44,12 +51,16 @@ import {
   VOUCHER_STATUS,
   VOUCHER_STATUS_LABELS,
   VOUCHER_STATUS_COLORS,
+  VOUCHER_STATUS_VALUES,
   VOUCHER_FLOW_STEPS,
   VOUCHER_TYPE_LABELS,
   VOUCHER_TYPE_COLORS,
+  VOUCHER_TYPE_VALUES,
   type VoucherStatus,
   type VoucherType,
 } from "@/lib/constants/statuses";
+
+const LIMIT = 10;
 
 export default function JournalEntriesPage() {
   const { data: session, status } = useSession();
@@ -57,20 +68,34 @@ export default function JournalEntriesPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [voucherTypeFilter, setVoucherTypeFilter] = useState("");
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const LIMIT = 25;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<any>(null);
 
-  const load = useCallback(async (currentPage = 1) => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, voucherTypeFilter, voucherStatusFilter]);
+
+  const load = useCallback(async (currentPage = 1, search = "", voucherType = "", voucherStatus = "") => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("search", search);
+      if (voucherType) params.set("voucherType", voucherType);
+      if (voucherStatus) params.set("voucherStatus", voucherStatus);
       const res = await cachedFetch(`/api/finance/journal-entries?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
@@ -84,9 +109,15 @@ export default function JournalEntriesPage() {
   }, []);
 
   useEffect(() => {
-    
-    if (status === "authenticated") load(page);
-  }, [status, router, load, page]);
+    if (status === "authenticated") load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter);
+  }, [status, router, load, page, debouncedQuery, voucherTypeFilter, voucherStatusFilter]);
+
+  const hasActiveFilters = !!(query || voucherTypeFilter || voucherStatusFilter);
+  const resetFilters = () => {
+    setQuery("");
+    setVoucherTypeFilter("");
+    setVoucherStatusFilter("");
+  };
 
   const handleOpenCreate = () => {
     setFormData({
@@ -234,7 +265,7 @@ export default function JournalEntriesPage() {
           : "Journal entry saved as draft",
       );
       setIsModalOpen(false);
-      load();
+      load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -251,7 +282,7 @@ export default function JournalEntriesPage() {
       });
       if (res.ok) {
         toast.success("Entry deleted");
-        load();
+        load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter);
       } else {
         const error = await res.json();
         toast.error(error.error || "Failed to delete entry");
@@ -261,13 +292,7 @@ export default function JournalEntriesPage() {
     }
   };
 
-  const filtered = items.filter((item) =>
-    [
-      item.header?.name,
-      item.header?.ref || "",
-      item.header?.journalType || "",
-    ].some((v) => v.toLowerCase().includes(query.toLowerCase())),
-  );
+  const filtered = items;
 
   return (
     <DashboardLayout
@@ -284,10 +309,10 @@ export default function JournalEntriesPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      onRefresh={load}
+      onRefresh={() => load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter)}
     >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Journal Entries
@@ -296,7 +321,7 @@ export default function JournalEntriesPage() {
               Manage and review accounting entries
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -306,6 +331,43 @@ export default function JournalEntriesPage() {
                 className="pl-9 w-64 bg-background"
               />
             </div>
+            <Select
+              value={voucherTypeFilter || "all"}
+              onValueChange={(v) => setVoucherTypeFilter(v === "all" ? "" : v)}
+            >
+              <SelectTrigger className="w-[150px] bg-background">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {VOUCHER_TYPE_VALUES.map((v) => (
+                  <SelectItem key={v} value={v} className="capitalize">
+                    {VOUCHER_TYPE_LABELS[v as VoucherType] || v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={voucherStatusFilter || "all"}
+              onValueChange={(v) => setVoucherStatusFilter(v === "all" ? "" : v)}
+            >
+              <SelectTrigger className="w-[150px] bg-background">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {VOUCHER_STATUS_VALUES.map((v) => (
+                  <SelectItem key={v} value={v} className="capitalize">
+                    {VOUCHER_STATUS_LABELS[v as VoucherStatus] || v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Clear
+              </Button>
+            )}
             <Button onClick={handleOpenCreate}>
               <Plus className="h-4 w-4 mr-2" /> New Entry
             </Button>

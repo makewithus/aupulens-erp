@@ -187,6 +187,11 @@ SalesInvoiceSchema.index({ tenantId: 1, number: 1 }, { unique: true });
 // Perf: list queries filter by tenant and sort newest-first (invoiceDate, createdAt).
 SalesInvoiceSchema.index({ tenantId: 1, invoiceDate: -1, createdAt: -1 });
 SalesInvoiceSchema.index({ tenantId: 1, status: 1 });
+// The "unpaid invoices" picker (used by Payments' "pick invoices to pay"
+// flow) filters {tenantId,status:{$in:[...]}} then sorts by
+// {invoiceDate,createdAt} — the plain {tenantId,status} index above doesn't
+// cover that sort.
+SalesInvoiceSchema.index({ tenantId: 1, status: 1, invoiceDate: -1, createdAt: -1 });
 
 export const SalesInvoice =
   mongoose.models.SalesInvoice || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);

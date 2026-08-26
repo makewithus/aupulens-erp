@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, CheckCircle, BarChart3, DollarSign, Clock, AlertCircle } from 'lucide-react';
+import { Plus, CheckCircle, BarChart3, DollarSign, Clock, AlertCircle, Search } from 'lucide-react';
 import { StatsRowSkeleton, TableSkeleton } from '@/components/ui/loading-skeletons';
 import { FinancePageHeader } from '@/components/finance/FinancePageHeader';
 import { DraggableVisualization } from '@/components/finance/DraggableVisualization';
@@ -36,10 +36,20 @@ export default function PayablesPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [bills, setBills] = useState<Bill[]>([]);
+  // Separate, unpaginated fetch used only for the KPI cards + Visualize
+  // dialog — those need totals across every matching bill, not just the
+  // current page of 10 shown in the table below.
+  const [allBills, setAllBills] = useState<Bill[]>([]);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 10;
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  
+
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
   const [vizData, setVizData] = useState<Record<string, string | number>[]>([]);
@@ -60,34 +70,63 @@ export default function PayablesPage() {
     dueDate: '',
   });
 
-  const fetchBills = useCallback(async () => {
+  const fetchBills = useCallback(async (currentPage: number, search: string, statusF: string) => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-      
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (statusF && statusF !== 'all') params.append('status', statusF);
+      if (search) params.append('search', search);
+
       const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bills');
-      
+
       const data = await res.json();
       setBills(data.bills);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       console.error('Error fetching bills:', err);
       setError('Failed to load bills');
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
+
+  const fetchAllBillsForStats = useCallback(async (statusF: string) => {
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '1000' });
+      if (statusF && statusF !== 'all') params.append('status', statusF);
+      const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAllBills(data.bills || []);
+    } catch (err) {
+      console.error('Error fetching bill stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, statusFilter]);
 
   useEffect(() => {
     if (status === "authenticated") {
       if (session?.user?.role !== 'finance' && session?.user?.role !== 'admin') {
         router.push('/auth/finance');
       } else {
-        fetchBills();
+        fetchBills(page, debouncedQuery, statusFilter);
       }
     }
-  }, [status, router, session, fetchBills]);
+  }, [status, router, session, fetchBills, page, debouncedQuery, statusFilter]);
+
+  useEffect(() => {
+    if (status === "authenticated") fetchAllBillsForStats(statusFilter);
+  }, [status, fetchAllBillsForStats, statusFilter]);
 
   const handleAddItem = () => {
     setNewBill({
@@ -152,7 +191,8 @@ export default function PayablesPage() {
         issueDate: new Date().toISOString().split('T')[0],
         dueDate: '',
       });
-      fetchBills();
+      fetchBills(page, debouncedQuery, statusFilter);
+      fetchAllBillsForStats(statusFilter);
     } catch (err) {
       console.error('Error creating bill:', err);
       setError('Failed to create bill');
@@ -171,8 +211,9 @@ export default function PayablesPage() {
       });
 
       if (!res.ok) throw new Error('Failed to update bill');
-      
-      fetchBills();
+
+      fetchBills(page, debouncedQuery, statusFilter);
+      fetchAllBillsForStats(statusFilter);
     } catch (err) {
       console.error('Error updating bill:', err);
       setError('Failed to mark bill as paid');
@@ -227,9 +268,7 @@ export default function PayablesPage() {
     );
   }
 
-  const filteredBills = statusFilter === 'all' 
-    ? bills 
-    : bills.filter(bill => bill.status === statusFilter);
+  const filteredBills = bills;
 
   return (
     <DashboardLayout
@@ -246,7 +285,7 @@ export default function PayablesPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
-      onRefresh={fetchBills}
+      onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter); fetchAllBillsForStats(statusFilter); }}
     >
       <div className="space-y-6">
         <FinancePageHeader
@@ -257,14 +296,14 @@ export default function PayablesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  const paidTotal = bills.filter(b => b.status === 'paid').reduce((sum, b) => sum + b.total, 0);
-                  const unpaidTotal = bills.filter(b => b.status === 'pending' || b.status === 'draft').reduce((sum, b) => sum + b.total, 0);
-                  const overdueTotal = bills.filter(b => b.status === 'overdue').reduce((sum, b) => sum + b.total, 0);
-                  
+                  const paidTotal = allBills.filter(b => b.status === 'paid').reduce((sum, b) => sum + b.total, 0);
+                  const unpaidTotal = allBills.filter(b => b.status === 'pending' || b.status === 'draft').reduce((sum, b) => sum + b.total, 0);
+                  const overdueTotal = allBills.filter(b => b.status === 'overdue').reduce((sum, b) => sum + b.total, 0);
+
                   setVizData([
-                    { category: 'Paid', amount: paidTotal, count: bills.filter(b => b.status === 'paid').length },
-                    { category: 'Unpaid', amount: unpaidTotal, count: bills.filter(b => b.status === 'pending' || b.status === 'draft').length },
-                    { category: 'Overdue', amount: overdueTotal, count: bills.filter(b => b.status === 'overdue').length },
+                    { category: 'Paid', amount: paidTotal, count: allBills.filter(b => b.status === 'paid').length },
+                    { category: 'Unpaid', amount: unpaidTotal, count: allBills.filter(b => b.status === 'pending' || b.status === 'draft').length },
+                    { category: 'Overdue', amount: overdueTotal, count: allBills.filter(b => b.status === 'overdue').length },
                   ]);
                   setIsVizOpen(true);
                 }}
@@ -401,7 +440,7 @@ export default function PayablesPage() {
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                  <Button type="submit" className="bg-foreground hover:bg-foreground/90 text-background">
                     Create Bill
                   </Button>
                 </div>
@@ -416,10 +455,10 @@ export default function PayablesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Payable</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-800" />
+              <DollarSign className="h-4 w-4 text-foreground/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{bills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString('en-IN')}</div>
+              <div className="text-2xl font-bold">₹{allBills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString('en-IN')}</div>
             </CardContent>
           </Card>
           <Card>
@@ -428,7 +467,7 @@ export default function PayablesPage() {
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{bills.filter(b => b.status === 'pending').length}</div>
+              <div className="text-2xl font-bold text-yellow-600">{allBills.filter(b => b.status === 'pending').length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -437,7 +476,7 @@ export default function PayablesPage() {
               <CheckCircle className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{bills.filter(b => b.status === 'paid').length}</div>
+              <div className="text-2xl font-bold text-blue-600">{allBills.filter(b => b.status === 'paid').length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -446,7 +485,7 @@ export default function PayablesPage() {
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{bills.filter(b => b.status === 'overdue').length}</div>
+              <div className="text-2xl font-bold text-red-600">{allBills.filter(b => b.status === 'overdue').length}</div>
             </CardContent>
           </Card>
         </div>
@@ -463,20 +502,31 @@ export default function PayablesPage() {
               <CardTitle className="text-base font-semibold">
                 Bills
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({filteredBills.length} total)
+                  ({total} total)
                 </span>
               </CardTitle>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search bill #..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-9 w-56 bg-background"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -531,6 +581,22 @@ export default function PayablesPage() {
                 )}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

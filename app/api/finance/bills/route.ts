@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const partnerId = searchParams.get("partnerId");
     const state = searchParams.get("state") || searchParams.get("status");
+    const search = (searchParams.get("search") || "").trim();
 
     const query: any = {
       tenantId,
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest) {
     };
 
     if (partnerId) query.partnerId = partnerId;
+    if (search) {
+      query.name = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
     if (state === "pending") {
       query.state = DOCUMENT_STATUS.PENDING_APPROVAL;
     } else if (state === "paid" || state === "overdue") {

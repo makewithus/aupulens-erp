@@ -3,7 +3,7 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import {
@@ -41,20 +41,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PurchaseOrderPopupContent from "@/components/finance/purchase-orders/PurchaseOrderPopupContent";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
+const LIMIT = 10;
+
 export default function PurchaseOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const load = async () => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
+  const load = async (currentPage = page, search = debouncedQuery) => {
     setLoading(true);
     try {
-      const res = await cachedFetch("/api/finance/purchase-orders");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("search", search);
+      const res = await cachedFetch(`/api/finance/purchase-orders?${params.toString()}`);
       const data = await res.json();
       setOrders(data.items || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (error) {
       toast.error("Failed to load purchase orders");
     } finally {
@@ -63,18 +82,11 @@ export default function PurchaseOrdersPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    load(page, debouncedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedQuery]);
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter(
-      (o) =>
-        o.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.partnerId?.header?.name
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()),
-    );
-  }, [orders, searchQuery]);
+  const filteredOrders = orders;
 
   const handleOpenCreate = () => {
     setFormData({
@@ -394,6 +406,22 @@ export default function PurchaseOrdersPage() {
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

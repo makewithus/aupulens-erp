@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Star } from "lucide-react";
+import { Check, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -119,7 +119,7 @@ export function TemplateGallery({
   };
 
   if (loading) {
-    return <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>;
+    return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
 
   if (templates.length === 0) {
@@ -136,15 +136,15 @@ export function TemplateGallery({
         <div
           key={t.key}
           className={cn(
-            "border-2 rounded-lg overflow-hidden transition-all cursor-pointer group",
-            selectedKey === t.key ? "border-blue-500 shadow-md" : "border-border hover:border-blue-300",
+            "border-2 rounded-none overflow-hidden transition-all cursor-pointer group",
+            selectedKey === t.key ? "border-primary shadow-none" : "border-border/40 hover:border-primary/50",
           )}
           onClick={() => onSelect(t.key)}
         >
           <div className="relative aspect-3/4 bg-muted/30 overflow-hidden">
             <TemplatePreviewThumbnail templateKey={t.key} />
             {selectedKey === t.key && (
-              <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1">
+              <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
                 <Check className="w-3 h-3" />
               </div>
             )}
@@ -154,14 +154,14 @@ export function TemplateGallery({
               </div>
             )}
           </div>
-          <div className="p-2 border-t bg-card">
+          <div className="p-2 border-t border-border/40 bg-card">
             <p className="text-sm font-medium truncate">{t.name}</p>
             <p className="text-xs text-muted-foreground truncate">{t.previewData?.description}</p>
             {allowSetDefault && (
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 px-1 text-xs mt-1 text-blue-600"
+                className="h-6 px-1 text-xs mt-1 text-primary"
                 disabled={settingDefault === t.key}
                 onClick={(e) => { e.stopPropagation(); setDefault(t); }}
               >

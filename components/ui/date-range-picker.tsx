@@ -41,7 +41,7 @@ export function DateRangePicker({ onUpdate, className }: DateRangePickerProps) {
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "h-10 w-[320px] justify-start rounded-md border-border/60 bg-background text-left font-normal shadow-sm transition-colors hover:bg-muted",
               !from && "text-muted-foreground",
             )}
           >
@@ -60,35 +60,38 @@ export function DateRangePicker({ onUpdate, className }: DateRangePickerProps) {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-4" align="start">
+        <PopoverContent className="w-auto rounded-md border-border/60 p-4 shadow-2xl" align="start">
           {/* Both a typed input AND a click-to-pick calendar for each end, so the
               user can type a date or pick it visually — whichever they prefer. */}
           <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="w-[220px] space-y-2">
-              <label className="text-xs font-medium">From</label>
+            <div className="w-[20rem] space-y-2">
+              <label className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">From</label>
               <Input
                 type="date"
                 value={from}
                 max={to || undefined}
                 onChange={(e) => setFrom(e.target.value)}
+                className="h-10 rounded-md border-border/60 bg-background"
               />
-              <MiniCalendar value={from} onChange={setFrom} />
+              <MiniCalendar value={from} onChange={setFrom} className="shadow-none" />
             </div>
-            <div className="w-[220px] space-y-2">
-              <label className="text-xs font-medium">To</label>
+            <div className="w-[20rem] space-y-2">
+              <label className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">To</label>
               <Input
                 type="date"
                 value={to}
                 min={from || undefined}
                 onChange={(e) => setTo(e.target.value)}
+                className="h-10 rounded-md border-border/60 bg-background"
               />
-              <MiniCalendar value={to} onChange={setTo} />
+              <MiniCalendar value={to} onChange={setTo} className="shadow-none" />
             </div>
           </div>
-          <div className="flex items-center justify-end pt-3">
+          <div className="flex items-center justify-end border-t border-border/40 pt-3">
             <Button
               variant="ghost"
               size="sm"
+              className="rounded-md"
               onClick={() => {
                 setFrom("");
                 setTo("");

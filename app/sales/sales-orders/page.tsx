@@ -9,7 +9,11 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
+import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -52,58 +56,50 @@ const SORT_FIELDS = [
   { key: "expectedShipmentDate", label: "Expected Shipment Date" },
 ];
 
-function statusColor(status: string) {
-  switch (status) {
-    case "confirmed":
-    case "approved":
-      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
-    case "pending_approval":
-      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
-    case "on_hold":
-      return "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800";
-    case "void":
-    case "closed":
-      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
-    default:
-      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
-  }
-}
+const statusColors: Record<string, string> = {
+  confirmed: "text-emerald-500",
+  approved: "text-emerald-500",
+  pending_approval: "text-amber-500",
+  on_hold: "text-orange-500",
+  void: "text-red-500",
+  closed: "text-red-500",
+};
 
 function LifecycleDiagram() {
-  const Node = ({ icon: Icon, label, color = "border-border" }: { icon: any; label: string; color?: string }) => (
-    <div className={`flex items-center gap-2 border rounded-none px-4 py-2.5 bg-background ${color}`}>
+  const Node = ({ icon: Icon, label, color = "text-foreground" }: { icon: any; label: string; color?: string }) => (
+    <div className={`flex items-center gap-2 border border-border/40 rounded-none px-4 py-2.5 bg-background ${color}`}>
       <Icon className="w-4 h-4 shrink-0" />
-      <span className="text-xs font-semibold whitespace-nowrap">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap">{label}</span>
     </div>
   );
 
   return (
-    <div className="bg-muted/30 border rounded-none p-8">
-      <h3 className="text-sm font-semibold text-center mb-8">Life cycle of a Sales Order</h3>
+    <Card className="border border-border/40 shadow-none bg-background rounded-none p-8">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 text-center mb-8">Life cycle of a Sales Order</h3>
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-6 flex-wrap justify-center">
           <div className="flex flex-col gap-2">
-            <Node icon={User} label="CUSTOMER REQUEST" />
-            <Node icon={FileCheck2} label="ACCEPTED ESTIMATE" />
+            <Node icon={User} label="Customer Request" />
+            <Node icon={FileCheck2} label="Accepted Estimate" />
           </div>
-          <span className="text-muted-foreground text-xs">- - - →</span>
-          <Node icon={ShoppingCart} label="CREATE SALES ORDER" color="border-blue-300 text-blue-700" />
-          <span className="text-muted-foreground text-xs">- CONVERT TO OPEN - →</span>
-          <Node icon={ClipboardList} label="CONFIRM SALES ORDER" color="border-purple-300 text-purple-700" />
-          <span className="text-muted-foreground text-xs">- LOW STOCK - →</span>
-          <Node icon={Boxes} label="CONVERT TO PURCHASE ORDER" />
+          <span className="text-muted-foreground/50 text-xs font-mono">- - - →</span>
+          <Node icon={ShoppingCart} label="Create Sales Order" color="text-blue-500" />
+          <span className="text-muted-foreground/50 text-xs font-mono">- Convert to Open - →</span>
+          <Node icon={ClipboardList} label="Confirm Sales Order" color="text-purple-500" />
+          <span className="text-muted-foreground/50 text-xs font-mono">- Low Stock - →</span>
+          <Node icon={Boxes} label="Convert to Purchase Order" />
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-muted-foreground text-xs">↓</span>
+          <span className="text-muted-foreground/50 text-xs">↓</span>
         </div>
         <div className="flex items-center gap-6">
-          <Node icon={Receipt} label="CONVERT SALES ORDER TO INVOICE" color="border-indigo-300 text-indigo-700" />
-          <span className="text-muted-foreground text-xs">← - RECEIVE GOODS - -</span>
+          <Node icon={Receipt} label="Convert Sales Order to Invoice" color="text-indigo-500" />
+          <span className="text-muted-foreground/50 text-xs font-mono">← - Receive Goods - -</span>
         </div>
-        <span className="text-muted-foreground text-xs">↓</span>
-        <Node icon={Banknote} label="GET PAID" color="border-green-400 text-green-700" />
+        <span className="text-muted-foreground/50 text-xs">↓</span>
+        <Node icon={Banknote} label="Get Paid" color="text-emerald-500" />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -197,15 +193,15 @@ export default function SalesOrdersPage() {
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <SalesTabNav />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1 text-lg font-bold">
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
                 {activeView?.name === "All" ? "All Sales Orders" : activeView?.name || "All Sales Orders"}{" "}
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
+            <DropdownMenuContent align="start" className="w-72 rounded-none">
               <div className="p-2">
                 <Input placeholder="Search views" value={viewSearch} onChange={(e) => setViewSearch(e.target.value)} className="h-8" />
               </div>
@@ -244,17 +240,17 @@ export default function SalesOrdersPage() {
 
           <div className="flex items-center gap-2">
             <Link href="/sales/sales-orders/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="h-11 w-11 rounded-none border-border/40">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuContent align="end" className="w-64 rounded-none">
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Sort by</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -286,24 +282,22 @@ export default function SalesOrdersPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : orders.length === 0 ? (
-          <div className="space-y-10">
+        {!loading && orders.length === 0 ? (
+          <div className="space-y-6">
             <div className="flex flex-col items-center py-16 px-4 text-center">
-              <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-                <ShoppingCart className="w-8 h-8 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-bold mb-2">Start Managing Your Sales Activities!</h2>
+              <ShoppingCart className="w-12 h-12 mb-6 text-muted-foreground/30" />
+              <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground mb-2">Start Managing Your Sales Activities!</h2>
               <p className="text-sm text-muted-foreground max-w-md mb-6">
                 Create, customize and send professional Sales Orders.
               </p>
               <Link href="/sales/sales-orders/new">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">CREATE SALES ORDER</Button>
+                <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+                  Create Sales Order
+                </Button>
               </Link>
-              <div className="border-t w-full max-w-sm mt-8 pt-4 text-xs text-muted-foreground">
-                Convert vendor purchase orders into sales orders via <strong>Bharat Connect</strong>.{" "}
-                <Link href="/sales/document-settings" className="text-blue-600 underline">
+              <div className="border-t border-border/40 w-full max-w-sm mt-8 pt-4 text-xs font-mono text-muted-foreground/60">
+                Convert vendor purchase orders into sales orders via <strong className="text-foreground">Bharat Connect</strong>.{" "}
+                <Link href="/sales/document-settings" className="text-primary underline">
                   Setup Now
                 </Link>
               </div>
@@ -311,44 +305,70 @@ export default function SalesOrdersPage() {
             <LifecycleDiagram />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Sales Order#</TableHead>
-                <TableHead>Customer Name</TableHead>
-                <TableHead>Order Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                {extraColumns.map((key) => (
-                  <TableHead key={key}>{columnLabel(key)}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((o: any) => (
-                <TableRow
-                  key={o._id}
-                  className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => router.push(`/sales/sales-orders/${o._id}`)}
-                >
-                  <TableCell>{o.header?.dateOrder ? new Date(o.header.dateOrder).toLocaleDateString("en-IN") : "—"}</TableCell>
-                  <TableCell className="font-medium">{o.header?.name}</TableCell>
-                  <TableCell>{o.header?.partnerId?.header?.displayName || o.header?.partnerId?.header?.name || "—"}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(o.salesOrderStatus)}`}>
-                      {o.salesOrderStatus?.replace("_", " ")}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    ₹{Number(o.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  {extraColumns.map((key) => (
-                    <TableCell key={key}>{String(getPath(o, key) ?? "—")}</TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Sales Order#</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer Name</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Order Status</TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                    {extraColumns.map((key) => (
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                        {columnLabel(key)}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-8 py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    orders.map((o: any) => (
+                      <TableRow
+                        key={o._id}
+                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
+                        onClick={() => router.push(`/sales/sales-orders/${o._id}`)}
+                      >
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          {o.header?.dateOrder ? new Date(o.header.dateOrder).toLocaleDateString("en-IN") : "—"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                          {o.header?.name}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          {o.header?.partnerId?.header?.displayName || o.header?.partnerId?.header?.name || "—"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[o.salesOrderStatus] || "text-muted-foreground"}`}>
+                            {o.salesOrderStatus?.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right font-mono text-sm text-foreground">
+                          ₹{Number(o.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        {extraColumns.map((key) => (
+                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                            {String(getPath(o, key) ?? "—")}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </div>
 

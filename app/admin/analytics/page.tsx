@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { adminSidebarConfig } from '@/config/sidebar/admin';
 import { ChevronDown } from 'lucide-react';
+import { useThemeStore } from '@/store/themeStore';
 import { AnalyticsPageSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,6 +71,8 @@ interface AnalyticsData {
 export default function AdminAnalytics() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+  const isDark = theme !== 'light';
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
@@ -361,11 +364,11 @@ export default function AdminAnalytics() {
 
   const formatValue = (value: number, isRevenue: boolean = false) => {
     if (isRevenue) {
-      if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-      if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-      return `$${value}`;
+      if (value >= 1000000) return `₹${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `₹${(value / 1000).toFixed(0)}K`;
+      return `₹${value}`;
     }
-    return value.toLocaleString();
+    return value.toLocaleString('en-IN');
   };
 
   if (status === 'loading') {
@@ -448,26 +451,26 @@ export default function AdminAnalytics() {
       onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
       profilePath="/admin/profile"
     >
-      <div className="bg-black min-h-screen -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">
+      <div className="bg-background min-h-screen -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-sm text-muted-foreground mb-4">Charts & Analytics</h1>
-          
+          <h1 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 mb-4">Charts & Analytics</h1>
+
           {/* Tabs */}
-          <div className="flex gap-8 border-b border-border">
+          <div className="flex gap-8 border-b border-border/40">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 text-sm transition-colors relative ${
+                className={`pb-3 font-mono text-[11px] uppercase tracking-wider transition-colors relative ${
                   activeTab === tab.id
-                    ? 'text-white'
+                    ? 'text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {tab.name}
                 {activeTab === tab.id && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                 )}
               </button>
             ))}
@@ -475,16 +478,16 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-[#0a0a0a] border border-border rounded-none p-6 mb-6">
+        <div className="bg-card border border-border/40 rounded-none p-6 mb-6">
           <div className="flex flex-wrap items-center gap-6 mb-6">
             {/* Date Range */}
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground">Date Range</label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-40 bg-black border-border text-white text-sm">
+                <SelectTrigger className="w-40 rounded-none border-border/40 bg-transparent text-foreground text-sm">
                   <SelectValue placeholder="Pick a date" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-border">
+                <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="yesterday">Yesterday</SelectItem>
                   <SelectItem value="last-7-days">Last 7 days</SelectItem>
@@ -498,10 +501,10 @@ export default function AdminAnalytics() {
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground">Source</label>
               <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="w-[180px] bg-black border-border text-white text-sm">
+                <SelectTrigger className="w-[180px] rounded-none border-border/40 bg-transparent text-foreground text-sm">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-border">
+                <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="all-categories">All Categories</SelectItem>
                   <SelectItem value="finance">Finance</SelectItem>
                   <SelectItem value="sales">Sales</SelectItem>
@@ -515,10 +518,10 @@ export default function AdminAnalytics() {
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground">Destination</label>
               <Select value={destination} onValueChange={setDestination}>
-                <SelectTrigger className="w-[180px] bg-black border-border text-white text-sm">
+                <SelectTrigger className="w-[180px] rounded-none border-border/40 bg-transparent text-foreground text-sm">
                   <SelectValue placeholder="All Resources" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-border">
+                <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="all-resources">All Resources</SelectItem>
                   <SelectItem value="transactions">Transactions</SelectItem>
                   <SelectItem value="orders">Orders</SelectItem>
@@ -531,10 +534,10 @@ export default function AdminAnalytics() {
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground">Show by</label>
               <Select value={showBy} onValueChange={setShowBy}>
-                <SelectTrigger className="w-40 bg-black border-border text-white text-sm">
+                <SelectTrigger className="w-40 rounded-none border-border/40 bg-transparent text-foreground text-sm">
                   <SelectValue placeholder="Department" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-border">
+                <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="department">Department</SelectItem>
                   <SelectItem value="category">Category</SelectItem>
                   <SelectItem value="type">Type</SelectItem>
@@ -546,10 +549,10 @@ export default function AdminAnalytics() {
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground">Interval</label>
               <Select value={interval} onValueChange={setInterval}>
-                <SelectTrigger className="w-[120px] bg-black border-border text-white text-sm">
+                <SelectTrigger className="w-[120px] rounded-none border-border/40 bg-transparent text-foreground text-sm">
                   <SelectValue placeholder="Day" />
                 </SelectTrigger>
-                <SelectContent className="bg-black border-border">
+                <SelectContent className="rounded-none border-border/40">
                   <SelectItem value="hour">Hour</SelectItem>
                   <SelectItem value="day">Day</SelectItem>
                   <SelectItem value="week">Week</SelectItem>
@@ -560,7 +563,7 @@ export default function AdminAnalytics() {
 
             <Button
               variant="outline"
-              className="ml-auto bg-transparent border-border text-white hover:bg-card text-sm"
+              className="ml-auto rounded-none border-border/40 text-foreground hover:bg-white/5 text-sm"
               onClick={fetchAnalyticsData}
             >
               Reset
@@ -571,23 +574,23 @@ export default function AdminAnalytics() {
           <div className="flex items-center gap-6 text-xs flex-wrap">
             <div className="flex items-center gap-4">
               <span className="text-muted-foreground">Department:</span>
-              <span className="text-white font-medium capitalize">{activeTab}</span>
+              <span className="text-foreground font-medium capitalize">{activeTab}</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-muted-foreground">{metrics.labels[0]}:</span>
-              <span className="text-white font-medium">
+              <span className="text-foreground font-medium">
                 {formatValue(metrics.primary, activeTab === 'finance' || activeTab === 'overview')}
               </span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-muted-foreground">{metrics.labels[1]}:</span>
-              <span className="text-white font-medium">
+              <span className="text-foreground font-medium">
                 {formatValue(metrics.secondary, activeTab === 'finance' && metrics.labels[1] === 'Total Revenue')}
               </span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-muted-foreground">{metrics.labels[2]}:</span>
-              <span className="text-white font-medium">
+              <span className="text-foreground font-medium">
                 {formatValue(metrics.tertiary, activeTab === 'finance' || (activeTab === 'sales' && metrics.labels[2] === 'Avg Order Value'))}
               </span>
             </div>
@@ -603,7 +606,7 @@ export default function AdminAnalytics() {
           </div>
 
           {/* Chart */}
-          <div className="mt-6 bg-black rounded-none" style={{ height: '400px' }}>
+          <div className="mt-6 bg-background rounded-none" style={{ height: '400px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
@@ -620,17 +623,17 @@ export default function AdminAnalytics() {
                     <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1f1f1f' : '#e5e5e5'} vertical={false} />
                 <XAxis
                   dataKey="time"
-                  stroke="#4a4a4a"
+                  stroke={isDark ? '#4a4a4a' : '#a3a3a3'}
                   tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={{ stroke: '#1f1f1f' }}
+                  axisLine={{ stroke: isDark ? '#1f1f1f' : '#e5e5e5' }}
                 />
                 <YAxis
-                  stroke="#4a4a4a"
+                  stroke={isDark ? '#4a4a4a' : '#a3a3a3'}
                   tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={{ stroke: '#1f1f1f' }}
+                  axisLine={{ stroke: isDark ? '#1f1f1f' : '#e5e5e5' }}
                   tickFormatter={(value) => {
                     if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
                     if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
@@ -639,10 +642,11 @@ export default function AdminAnalytics() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#000',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
+                    backgroundColor: isDark ? '#161616' : '#ffffff',
+                    border: `1px solid ${isDark ? '#333' : '#e5e5e5'}`,
+                    borderRadius: '0px',
                     fontSize: '12px',
+                    color: isDark ? '#f2f2f2' : '#171717',
                   }}
                   labelStyle={{ color: '#9ca3af' }}
                 />

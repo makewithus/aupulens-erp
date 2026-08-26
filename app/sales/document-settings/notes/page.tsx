@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, FileText, Trash2 } from "lucide-react";
+import { Plus, FileText, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const DOCUMENT_TYPES = [
@@ -86,28 +86,28 @@ export default function DocumentNotesPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Document Notes</h1>
-          <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" /> New {docLabel} {kind === "notes" ? "Notes" : "Terms"}</Button>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Document Notes</h1>
+          <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" /> New {docLabel} {kind === "notes" ? "Notes" : "Terms"}</Button>
         </div>
 
         <Tabs value={kind} onValueChange={(v) => setKind(v as any)}>
-          <TabsList>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="terms">Terms</TabsTrigger>
+          <TabsList className="rounded-none">
+            <TabsTrigger value="notes" className="rounded-none">Notes</TabsTrigger>
+            <TabsTrigger value="terms" className="rounded-none">Terms</TabsTrigger>
           </TabsList>
         </Tabs>
 
         <Select value={docType} onValueChange={setDocType}>
-          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="w-56 rounded-none border-border/40"><SelectValue /></SelectTrigger>
+          <SelectContent className="rounded-none">
             {DOCUMENT_TYPES.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
           </SelectContent>
         </Select>
 
-        <div className="bg-card border rounded-lg divide-y">
+        <div className="bg-card border border-border/40 rounded-none divide-y divide-border/30">
           {loading ? (
-            <div className="p-10 text-center text-muted-foreground text-sm">Loading...</div>
+            <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : rows.length === 0 ? (
             <div className="p-16 text-center">
               <FileText className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
@@ -135,8 +135,8 @@ export default function DocumentNotesPage() {
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Content" className="h-32" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={create} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">{saving ? "Saving..." : "Save"}</Button>
+            <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={create} disabled={saving} className="font-mono text-[11px] uppercase tracking-wider">{saving ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

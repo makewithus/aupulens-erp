@@ -119,7 +119,7 @@ export default function NewSaleOrderViewPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="max-w-4xl mx-auto p-6 space-y-8">
-        <h1 className="text-xl font-bold">New View</h1>
+        <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">New View</h1>
 
         <div className="flex items-end gap-4 max-w-lg">
           <div className="flex-1 space-y-1.5">
@@ -134,7 +134,7 @@ export default function NewSaleOrderViewPage() {
         </div>
 
         <div>
-          <h2 className="font-semibold mb-3">Define the criteria (if any)</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Define the criteria (if any)</h2>
           <div className="space-y-2">
             {criteria.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -178,11 +178,11 @@ export default function NewSaleOrderViewPage() {
         </div>
 
         <div>
-          <h2 className="font-semibold mb-3">Columns Preference</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Columns Preference</h2>
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="grid grid-cols-2 gap-4">
-              <div className="border rounded-none">
-                <div className="p-2 border-b bg-muted/30 space-y-2">
+              <div className="border border-border/40 rounded-none">
+                <div className="p-2 border-b border-border/40 bg-muted/30 space-y-2">
                   <p className="text-xs font-semibold tracking-wide">AVAILABLE COLUMNS</p>
                   <Input placeholder="Search columns" value={availableSearch} onChange={(e) => setAvailableSearch(e.target.value)} className="h-8" />
                 </div>
@@ -196,7 +196,7 @@ export default function NewSaleOrderViewPage() {
                               ref={dragProvided.innerRef}
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
-                              className="flex items-center gap-2 text-sm px-2 py-1.5 bg-background border rounded-none"
+                              className="flex items-center gap-2 text-sm px-2 py-1.5 bg-background border border-border/40 rounded-none"
                             >
                               <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
                               {col.label}
@@ -210,15 +210,15 @@ export default function NewSaleOrderViewPage() {
                 </Droppable>
               </div>
 
-              <div className="border rounded-none">
-                <div className="p-2 border-b bg-muted/30">
+              <div className="border border-border/40 rounded-none">
+                <div className="p-2 border-b border-border/40 bg-muted/30">
                   <p className="text-xs font-semibold tracking-wide">SELECTED COLUMNS</p>
                 </div>
                 <div className="p-2 space-y-1">
                   {MANDATORY_SALE_ORDER_COLUMNS.map((col) => (
                     <div
                       key={col.key}
-                      className="flex items-center gap-2 text-sm px-2 py-1.5 bg-muted/50 border rounded-none font-medium"
+                      className="flex items-center gap-2 text-sm px-2 py-1.5 bg-muted/50 border border-border/40 rounded-none font-medium"
                     >
                       {col.label} <span className="text-red-500">*</span>
                       <span className="text-xs text-muted-foreground ml-auto">mandatory</span>
@@ -236,7 +236,7 @@ export default function NewSaleOrderViewPage() {
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
                                   {...dragProvided.dragHandleProps}
-                                  className="flex items-center gap-2 text-sm px-2 py-1.5 bg-background border rounded-none"
+                                  className="flex items-center gap-2 text-sm px-2 py-1.5 bg-background border border-border/40 rounded-none"
                                 >
                                   <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
                                   {col?.label || key}
@@ -256,7 +256,7 @@ export default function NewSaleOrderViewPage() {
         </div>
 
         <div>
-          <h2 className="font-semibold mb-3">Visibility Preference</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Visibility Preference</h2>
           <RadioGroup value={visibility} onValueChange={setVisibility} className="flex gap-6 text-sm">
             <label className="flex items-center gap-2">
               <RadioGroupItem value={SALES_VIEW_VISIBILITY.ONLY_ME} /> Only Me
@@ -270,11 +270,11 @@ export default function NewSaleOrderViewPage() {
           </RadioGroup>
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
+        <div className="flex items-center gap-3 pt-4 border-t border-border/40">
+          <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </Button>
-          <Button variant="outline" onClick={() => router.push("/sales/sales-orders")}>
+          <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/sales-orders")}>
             Cancel
           </Button>
         </div>

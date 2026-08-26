@@ -54,6 +54,11 @@ const DeliveryChallanSchema = new Schema<IDeliveryChallan>(
 );
 
 DeliveryChallanSchema.index({ tenantId: 1, dcNumber: 1 }, { unique: true });
+// Sales summary's draft-count and the default delivery-challans list both
+// filter/sort on these fields with no prior compound-index coverage at all
+// (only the unique dcNumber index existed).
+DeliveryChallanSchema.index({ tenantId: 1, status: 1 });
+DeliveryChallanSchema.index({ tenantId: 1, createdAt: -1 });
 
 const DeliveryChallan: Model<IDeliveryChallan> =
   (models.DeliveryChallan as Model<IDeliveryChallan>) ||

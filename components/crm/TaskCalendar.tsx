@@ -9,6 +9,7 @@ import { AlertTriangle, Sparkles, Loader2, ChevronLeft, ChevronRight, CalendarIc
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MiniCalendar } from "@/components/ui/mini-calendar";
+import { cn } from "@/lib/utils";
 
 /**
  * Smart Enterprise Calendar (6.5) — unified calendar showing events aggregated
@@ -19,12 +20,20 @@ import { MiniCalendar } from "@/components/ui/mini-calendar";
  * client-side filtering by event type + task status/priority.
  */
 const SOURCE_STYLES: Record<string, string> = {
-  task: "bg-blue-900/20 border-blue-800 text-blue-300",
-  leave: "bg-purple-900/20 border-purple-800 text-purple-300",
-  attendance: "bg-red-900/20 border-red-800 text-red-300",
-  payment: "bg-emerald-900/20 border-emerald-800 text-emerald-300",
-  payroll: "bg-amber-900/20 border-amber-800 text-amber-300",
-  calendar: "bg-accent/40 border-border text-foreground",
+  task: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+  leave: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+  attendance: "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300",
+  payment: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+  payroll: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  calendar: "border-border/70 bg-muted/40 text-foreground",
+};
+const SOURCE_DOTS: Record<string, string> = {
+  task: "bg-blue-500",
+  leave: "bg-violet-500",
+  attendance: "bg-rose-500",
+  payment: "bg-emerald-500",
+  payroll: "bg-amber-500",
+  calendar: "bg-muted-foreground",
 };
 const SOURCE_LABELS: Record<string, string> = {
   task: "Tasks", leave: "Leave", attendance: "Attendance",
@@ -153,16 +162,30 @@ export default function TaskCalendar() {
         <button
           key={key}
           onClick={() => toggleSource(key)}
-          className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${sourceFilter.has(key) ? SOURCE_STYLES[key] : "bg-transparent border-border text-muted-foreground opacity-50"}`}
+          className={cn(
+            "inline-flex h-8 items-center gap-2 rounded-md border px-3 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+            sourceFilter.has(key)
+              ? SOURCE_STYLES[key]
+              : "border-border/50 bg-transparent text-muted-foreground opacity-60 hover:opacity-100",
+          )}
         >
+          <span className={cn("h-2 w-2 rounded-full", sourceFilter.has(key) ? SOURCE_DOTS[key] : "bg-muted-foreground/40")} />
           {SOURCE_LABELS[key]}
         </button>
       ))}
-      <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-[11px] bg-card border border-border rounded-md px-2 py-1">
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="h-8 rounded-md border border-border/60 bg-background px-3 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground shadow-none outline-none transition-colors hover:border-border focus:border-primary/60"
+      >
         <option value="all">All statuses</option>
         {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
-      <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="text-[11px] bg-card border border-border rounded-md px-2 py-1">
+      <select
+        value={priorityFilter}
+        onChange={(e) => setPriorityFilter(e.target.value)}
+        className="h-8 rounded-md border border-border/60 bg-background px-3 font-mono text-[11px] uppercase tracking-[0.08em] text-foreground shadow-none outline-none transition-colors hover:border-border focus:border-primary/60"
+      >
         <option value="all">All priorities</option>
         {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
       </select>
@@ -172,24 +195,24 @@ export default function TaskCalendar() {
   const navBar = (
     <div className="flex flex-wrap items-center gap-2">
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-        <TabsList>
+        <TabsList className="h-10 rounded-md border border-border/60 bg-muted/30 p-1">
           <TabsTrigger value="week">Week</TabsTrigger>
           <TabsTrigger value="month">Month</TabsTrigger>
           <TabsTrigger value="year">Year</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="flex items-center gap-1">
-        <button onClick={goPrev} aria-label="Previous" className="p-1.5 rounded-md border border-border hover:bg-accent"><ChevronLeft className="h-3.5 w-3.5" /></button>
-        <button onClick={goToday} className="text-xs border border-border rounded-md px-2 py-1 hover:bg-accent">Today</button>
-        <button onClick={goNext} aria-label="Next" className="p-1.5 rounded-md border border-border hover:bg-accent"><ChevronRight className="h-3.5 w-3.5" /></button>
+      <div className="flex h-10 items-center rounded-md border border-border/60 bg-background">
+        <button onClick={goPrev} aria-label="Previous" className="flex h-10 w-10 items-center justify-center border-r border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><ChevronLeft className="h-4 w-4" /></button>
+        <button onClick={goToday} className="h-10 px-4 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">Today</button>
+        <button onClick={goNext} aria-label="Next" className="flex h-10 w-10 items-center justify-center border-l border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><ChevronRight className="h-4 w-4" /></button>
       </div>
       <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
         <PopoverTrigger asChild>
-          <button className="text-xs border border-border rounded-md px-2 py-1 hover:bg-accent flex items-center gap-1">
-            <CalendarIcon className="h-3 w-3" /> {rangeLabel}
+          <button className="flex h-10 items-center gap-2 rounded-md border border-border/60 bg-background px-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" /> {rangeLabel}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" sideOffset={6} className="w-auto p-0">
+        <PopoverContent align="start" sideOffset={8} className="w-auto border-0 bg-transparent p-0 shadow-none">
           <MiniCalendar value={toISODate(anchorDate)} onChange={jumpToISO} />
         </PopoverContent>
       </Popover>
@@ -197,32 +220,36 @@ export default function TaskCalendar() {
   );
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">Unified view — tasks, leave, attendance, payments, payroll.</p>
-        <button onClick={checkConflicts} disabled={checkingConflicts} className="text-xs border border-border rounded-md px-3 py-1.5 hover:bg-accent flex items-center gap-1 disabled:opacity-50">
-          {checkingConflicts ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-indigo-400" />} Detect conflicts (AI)
-        </button>
-      </div>
+    <div className="space-y-4">
+      <div className="rounded-md border border-border/60 bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {navBar}
+          <button onClick={checkConflicts} disabled={checkingConflicts} className="flex h-10 items-center gap-2 rounded-md border border-border/60 bg-background px-4 font-mono text-[11px] uppercase tracking-[0.08em] transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+            {checkingConflicts ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-indigo-400" />} Detect conflicts (AI)
+          </button>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {navBar}
-        {filterBar}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
+          <p className="text-sm text-muted-foreground">Unified view for tasks, leave, attendance, payments, payroll, and events.</p>
+          {filterBar}
+        </div>
       </div>
 
       {conflicts && (
-        <div className={`border rounded-lg p-3 text-xs ${conflicts.length ? "border-amber-700/50 bg-amber-950/20" : "border-emerald-700/40 bg-emerald-950/10"}`}>
+        <div className={`rounded-md border p-4 text-sm shadow-sm ${conflicts.length ? "border-amber-500/40 bg-amber-500/10" : "border-emerald-500/40 bg-emerald-500/10"}`}>
           {conflicts.length ? (
             <>
-              <p className="font-semibold text-amber-300 flex items-center gap-1 mb-1"><AlertTriangle className="h-3 w-3" /> {conflicts.length} conflict(s)</p>
-              <p className="whitespace-pre-wrap text-foreground">{conflictSummary}</p>
+              <p className="mb-2 flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-300"><AlertTriangle className="h-4 w-4" /> {conflicts.length} conflict(s)</p>
+              <p className="whitespace-pre-wrap text-foreground/90">{conflictSummary}</p>
             </>
-          ) : <p className="text-emerald-300">No scheduling conflicts in this range.</p>}
+          ) : <p className="text-emerald-600 dark:text-emerald-300">No scheduling conflicts in this range.</p>}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading calendar…</div>
+        <div className="flex min-h-[320px] items-center justify-center rounded-md border border-border/60 bg-card text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading calendar...
+        </div>
       ) : viewMode === "week" ? (
         <WeekGrid rangeStart={rangeStart} eventsByDay={eventsByDay} conflictDays={conflictDays} />
       ) : viewMode === "month" ? (
@@ -237,26 +264,42 @@ export default function TaskCalendar() {
 function WeekGrid({ rangeStart, eventsByDay, conflictDays }: { rangeStart: Date; eventsByDay: Map<string, any[]>; conflictDays: Set<string> }) {
   const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(rangeStart, i));
   return (
-    <div className="bg-card border border-border rounded-lg overflow-x-auto">
+    <div className="overflow-x-auto rounded-md border border-border/60 bg-card shadow-sm">
       <div className="min-w-[640px]">
-        <div className="grid grid-cols-7 border-b border-border bg-background">
+        <div className="grid grid-cols-7 border-b border-border/60 bg-muted/30">
           {weekDays.map((day) => (
-            <div key={day.toISOString()} className={`p-3 text-center border-r border-border last:border-r-0 ${conflictDays.has(format(day, "yyyy-MM-dd")) ? "bg-amber-950/30" : ""}`}>
-              <p className="text-sm font-bold">{format(day, "EEEE")}</p>
-              <p className="text-xs text-muted-foreground">{format(day, "MMM d")}</p>
+            <div
+              key={day.toISOString()}
+              className={cn(
+                "border-r border-border/60 p-3 text-center last:border-r-0",
+                conflictDays.has(format(day, "yyyy-MM-dd")) && "bg-amber-500/10",
+              )}
+            >
+              <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{format(day, "EEE")}</p>
+              <p className={cn("mt-1 text-lg font-semibold", isToday(day) && "text-primary")}>{format(day, "d")}</p>
+              <p className="text-xs text-muted-foreground">{format(day, "MMM yyyy")}</p>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 h-[60vh]">
+        <div className="grid min-h-[520px] grid-cols-7">
           {weekDays.map((day) => {
             const dayEvents = eventsByDay.get(format(day, "yyyy-MM-dd")) || [];
             return (
-              <div key={day.toISOString()} className="p-2 border-r border-border last:border-r-0 overflow-y-auto">
-                {dayEvents.map((e) => (
-                  <div key={`${e.source}-${e.id}`} title={`${e.source}: ${e.title}`} className={`p-1 mb-1 text-[10px] rounded truncate px-2 border ${SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar}`}>
-                    {e.title}
-                  </div>
-                ))}
+              <div key={day.toISOString()} className="space-y-2 overflow-y-auto border-r border-border/60 p-2 last:border-r-0">
+                {dayEvents.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-xs text-muted-foreground/60">No events</p>
+                ) : (
+                  dayEvents.map((e) => (
+                    <div
+                      key={`${e.source}-${e.id}`}
+                      title={`${e.source}: ${e.title}`}
+                      className={cn("rounded-md border px-2 py-1.5 text-xs leading-snug shadow-sm", SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar)}
+                    >
+                      <p className="truncate font-medium">{e.title}</p>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] opacity-70">{SOURCE_LABELS[e.source] || "Event"}</p>
+                    </div>
+                  ))
+                )}
               </div>
             );
           })}
@@ -271,32 +314,46 @@ const WEEKDAY_INITIALS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function MonthGrid({ anchorDate, eventsByDay, conflictDays, onDayClick }: { anchorDate: Date; eventsByDay: Map<string, any[]>; conflictDays: Set<string>; onDayClick: (d: Date) => void }) {
   const cells = buildMonthCells(anchorDate.getFullYear(), anchorDate.getMonth());
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-border bg-background">
-        {WEEKDAY_INITIALS.map((w) => <div key={w} className="p-2 text-center text-xs font-semibold text-muted-foreground">{w}</div>)}
-      </div>
-      <div className="grid grid-cols-7">
-        {cells.map((day, i) => {
-          if (!day) return <div key={`e${i}`} className="border-r border-b border-border last:border-r-0 min-h-[90px] bg-background/40" />;
-          const key = format(day, "yyyy-MM-dd");
-          const dayEvents = eventsByDay.get(key) || [];
-          const shown = dayEvents.slice(0, 3);
-          return (
-            <button
-              key={key}
-              onClick={() => onDayClick(day)}
-              className={`text-left border-r border-b border-border last:border-r-0 min-h-[90px] p-1.5 align-top hover:bg-accent/40 transition-colors ${conflictDays.has(key) ? "bg-amber-950/20" : ""}`}
-            >
-              <p className={`text-xs mb-1 ${isToday(day) ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white font-semibold" : "text-muted-foreground"}`}>{format(day, "d")}</p>
-              <div className="space-y-0.5">
-                {shown.map((e) => (
-                  <div key={`${e.source}-${e.id}`} title={e.title} className={`text-[9px] rounded truncate px-1 py-0.5 border ${SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar}`}>{e.title}</div>
-                ))}
-                {dayEvents.length > shown.length && <p className="text-[9px] text-muted-foreground">+{dayEvents.length - shown.length} more</p>}
-              </div>
-            </button>
-          );
-        })}
+    <div className="overflow-x-auto rounded-md border border-border/60 bg-card shadow-sm">
+      <div className="min-w-[720px]">
+        <div className="grid grid-cols-7 border-b border-border/60 bg-muted/30">
+          {WEEKDAY_INITIALS.map((w) => <div key={w} className="p-3 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{w}</div>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e${i}`} className="min-h-[112px] border-r border-b border-border/40 bg-muted/20 last:border-r-0" />;
+            const key = format(day, "yyyy-MM-dd");
+            const dayEvents = eventsByDay.get(key) || [];
+            const shown = dayEvents.slice(0, 3);
+            return (
+              <button
+                key={key}
+                onClick={() => onDayClick(day)}
+                className={cn(
+                  "min-h-[112px] border-r border-b border-border/40 p-2 text-left align-top transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 last:border-r-0",
+                  conflictDays.has(key) && "bg-amber-500/10",
+                )}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className={cn("inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-sm font-medium", isToday(day) ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{format(day, "d")}</span>
+                  {conflictDays.has(key) && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                </div>
+                <div className="space-y-1">
+                  {shown.map((e) => (
+                    <div
+                      key={`${e.source}-${e.id}`}
+                      title={e.title}
+                      className={cn("rounded-md border px-1.5 py-1 text-[10px] leading-tight shadow-sm", SOURCE_STYLES[e.source] || SOURCE_STYLES.calendar)}
+                    >
+                      <p className="truncate">{e.title}</p>
+                    </div>
+                  ))}
+                  {dayEvents.length > shown.length && <p className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - shown.length} more</p>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -310,10 +367,10 @@ function densityClass(count: number, maxCount: number): string {
   if (count === 0) return "bg-transparent";
   if (maxCount <= 0) return "bg-transparent";
   const ratio = count / maxCount;
-  if (ratio <= 0.2) return "bg-indigo-900/40";
-  if (ratio <= 0.45) return "bg-indigo-700/60";
-  if (ratio <= 0.7) return "bg-indigo-500/70";
-  return "bg-indigo-400/90";
+  if (ratio <= 0.2) return "bg-blue-500/15 text-blue-600 dark:text-blue-300";
+  if (ratio <= 0.45) return "bg-blue-500/30 text-blue-700 dark:text-blue-200";
+  if (ratio <= 0.7) return "bg-emerald-500/30 text-emerald-700 dark:text-emerald-200";
+  return "bg-amber-500/40 text-amber-800 dark:text-amber-100";
 }
 
 function YearGrid({ anchorDate, eventsByDay, onDayClick }: { anchorDate: Date; eventsByDay: Map<string, any[]>; onDayClick: (d: Date) => void }) {
@@ -325,9 +382,14 @@ function YearGrid({ anchorDate, eventsByDay, onDayClick }: { anchorDate: Date; e
         const cells = buildMonthCells(year, month);
         const monthDate = new Date(year, month, 1);
         return (
-          <div key={month} className="bg-card border border-border rounded-lg p-2">
-            <p className={`text-xs font-semibold mb-1.5 ${isSameMonth(monthDate, anchorDate) ? "text-indigo-300" : ""}`}>{format(monthDate, "MMMM")}</p>
-            <div className="grid grid-cols-7 gap-[2px]">
+          <div key={month} className="rounded-md border border-border/60 bg-card p-3 shadow-sm">
+            <p className={cn("mb-2 text-sm font-semibold", isSameMonth(monthDate, anchorDate) ? "text-primary" : "text-foreground")}>{format(monthDate, "MMMM")}</p>
+            <div className="mb-1 grid grid-cols-7 gap-1">
+              {WEEKDAY_INITIALS.map((day) => (
+                <span key={day} className="text-center text-[9px] font-medium text-muted-foreground">{day.slice(0, 1)}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
               {cells.map((day, i) => {
                 if (!day) return <div key={`e${i}`} className="aspect-square" />;
                 const key = format(day, "yyyy-MM-dd");
@@ -337,7 +399,11 @@ function YearGrid({ anchorDate, eventsByDay, onDayClick }: { anchorDate: Date; e
                     key={key}
                     onClick={() => onDayClick(day)}
                     title={`${format(day, "MMM d")}: ${count} event(s)`}
-                    className={`aspect-square rounded-sm text-[8px] flex items-center justify-center hover:ring-1 hover:ring-indigo-400 transition-colors ${densityClass(count, maxCount)} ${isToday(day) ? "ring-1 ring-indigo-400" : ""}`}
+                    className={cn(
+                      "flex aspect-square items-center justify-center rounded text-[10px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                      densityClass(count, maxCount),
+                      isToday(day) && "ring-1 ring-primary",
+                    )}
                   >
                     {day.getDate()}
                   </button>

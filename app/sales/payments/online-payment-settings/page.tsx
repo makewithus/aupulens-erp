@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Loader2 } from "lucide-react";
 
 interface GatewayRow {
   _id: string;
@@ -131,8 +131,8 @@ export default function OnlinePaymentSettingsPage() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              <CreditCard className="w-5 h-5" /> Online Payments
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary flex items-center gap-3">
+              <CreditCard className="w-8 h-8 text-muted-foreground/60" /> Online Payments
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Connect a payment gateway so customers can pay invoices online.
@@ -140,60 +140,63 @@ export default function OnlinePaymentSettingsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : (
-          <Table>
-            <TableHeader>
+        <Table>
+            <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead>Gateway</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Gateway</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Status</TableHead>
+                <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {gateways.map((g) => (
-                <TableRow key={g._id}>
-                  <TableCell className="font-medium">{g.name}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        g.status === "connected"
-                          ? "border-green-600 text-green-600"
-                          : "border-muted-foreground/40 text-muted-foreground"
-                      }
-                    >
-                      {g.status === "connected" ? "Connected" : "Disconnected"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {g.status === "connected" ? (
-                      <Button variant="outline" size="sm" onClick={() => setDisconnectTarget(g)}>
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => openConnect(g)}
-                      >
-                        Connect
-                      </Button>
-                    )}
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-16">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
-              ))}
-              {gateways.length === 0 && (
+              ) : gateways.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-10">
                     No payment gateways found.
                   </TableCell>
                 </TableRow>
+              ) : (
+                gateways.map((g) => (
+                  <TableRow key={g._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                    <TableCell className="font-mono text-sm font-semibold text-primary">{g.name}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          g.status === "connected"
+                            ? "rounded-none border-emerald-500/40 text-emerald-500"
+                            : "rounded-none border-border/40 text-muted-foreground"
+                        }
+                      >
+                        {g.status === "connected" ? "Connected" : "Disconnected"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {g.status === "connected" ? (
+                        <Button variant="outline" size="sm" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setDisconnectTarget(g)}>
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="font-mono text-[11px] uppercase tracking-wider"
+                          onClick={() => openConnect(g)}
+                        >
+                          Connect
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
-        )}
       </div>
 
       {/* Connect dialog — placeholder credential fields since there is no real gateway
@@ -220,11 +223,11 @@ export default function OnlinePaymentSettingsPage() {
             </div>
           </div>
           <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setConnectTarget(null)}>
+            <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setConnectTarget(null)}>
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="font-mono text-[11px] uppercase tracking-wider"
               onClick={handleConnect}
               disabled={connecting}
             >
@@ -242,10 +245,10 @@ export default function OnlinePaymentSettingsPage() {
             Customers will no longer be able to pay via {disconnectTarget?.name} until you reconnect it.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDisconnectTarget(null)}>
+            <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setDisconnectTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
+            <Button variant="destructive" className="rounded-none font-mono text-[11px] uppercase tracking-wider" onClick={handleDisconnect} disabled={disconnecting}>
               {disconnecting ? "Disconnecting..." : "Disconnect"}
             </Button>
           </DialogFooter>

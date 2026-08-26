@@ -46,11 +46,11 @@ export function ModularModal({
         onInteractOutside={(e) => { if (preventOutsideClose) e.preventDefault(); }}
         onEscapeKeyDown={(e) => { if (preventOutsideClose) e.preventDefault(); }}
         className={cn(
-          "p-0 overflow-hidden flex flex-col gap-0 border-border bg-[#161616] max-w-[80vw] w-full",
+          "p-0 overflow-hidden flex flex-col gap-0 border-border bg-card max-w-[80vw] w-full",
           className,
         )}
       >
-        <div className="p-6 border-b shrink-0">
+        <div className="p-6 border-b border-border/40 shrink-0">
           <DialogHeader className="text-left">
             <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
             {description && (
@@ -71,7 +71,7 @@ export function ModularModal({
         </div>
 
         {footer && (
-          <DialogFooter className="p-4 border-t bg-muted/10 shrink-0 sm:justify-between items-center gap-2">
+          <DialogFooter className="p-4 border-t border-border/40 bg-card shrink-0 sm:justify-between items-center gap-2">
             {footer}
           </DialogFooter>
         )}

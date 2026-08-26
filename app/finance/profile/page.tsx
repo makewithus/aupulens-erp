@@ -213,7 +213,7 @@ export default function FinanceProfilePage() {
           </div>
         )}
         {success && (
-          <div className="p-4 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950/30 rounded-none border border-blue-200 dark:border-blue-900">
+          <div className="p-4 text-sm text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 rounded-none border border-emerald-200 dark:border-emerald-900">
             {success}
           </div>
         )}
@@ -223,7 +223,7 @@ export default function FinanceProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-blue-800 text-white text-2xl">
+                <AvatarFallback className="bg-foreground text-background text-2xl">
                   {profile ? getInitials(profile.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
@@ -235,7 +235,7 @@ export default function FinanceProfilePage() {
                   {profile?.designation || (profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : '')}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
-                  <Badge className="bg-blue-800">
+                  <Badge className="bg-foreground text-background">
                     <DollarSign className="mr-1 h-3 w-3" />
                     {profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''}
                   </Badge>
@@ -243,7 +243,7 @@ export default function FinanceProfilePage() {
                     variant={profile?.status === 'active' ? 'default' : 'secondary'}
                     className={
                       profile?.status === 'active'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100'
                         : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
                     }
                   >
@@ -300,7 +300,7 @@ export default function FinanceProfilePage() {
                   size="sm"
                   onClick={handleSaveProfile}
                   disabled={isSaving}
-                  className="bg-blue-800 hover:bg-blue-700"
+                  className="bg-foreground hover:bg-foreground/90 text-background"
                 >
                   {isSaving ? (
                     <>
@@ -490,7 +490,7 @@ export default function FinanceProfilePage() {
                   <Button
                     type="submit"
                     disabled={isSaving}
-                    className="bg-blue-800 hover:bg-blue-700"
+                    className="bg-foreground hover:bg-foreground/90 text-background"
                   >
                     {isSaving ? (
                       <>

@@ -27,9 +27,8 @@ export async function GET(request: NextRequest) {
     const tenantId = session.user.tenantId;
     const { searchParams } = new URL(request.url);
 
-    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageParam = searchParams.get("page");
     const limit = parseInt(searchParams.get("limit") || "100", 10);
-    const skip = (page - 1) * limit;
     const sortField = searchParams.get("sortField") || "createdAt";
     const sortDir = searchParams.get("sortDir") === "asc" ? 1 : -1;
     const viewId = searchParams.get("viewId");
@@ -53,15 +52,24 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    const baseQuery = (Subscription as any)
+      .find(query)
+      .populate("customerId", "header contact_details")
+      .sort({ [sortField]: sortDir });
+
+    // Pagination is opt-in via `page` — some consumers (e.g. the Sale Order
+    // form's "is this customer already a subscriber" check) need the
+    // complete matching set, not just the first page.
+    if (!pageParam) {
+      const subscriptions = await baseQuery.lean();
+      return NextResponse.json({ success: true, data: subscriptions, total: subscriptions.length, page: 1, totalPages: 1 });
+    }
+
+    const page = Math.max(1, parseInt(pageParam, 10));
+    const skip = (page - 1) * limit;
     const [total, subscriptions] = await Promise.all([
       Subscription.countDocuments(query),
-      (Subscription as any)
-        .find(query)
-        .populate("customerId", "header contact_details")
-        .sort({ [sortField]: sortDir })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      baseQuery.skip(skip).limit(limit).lean(),
     ]);
 
     return NextResponse.json({
@@ -69,7 +77,7 @@ export async function GET(request: NextRequest) {
       data: subscriptions,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (error: any) {
     console.error("Subscriptions GET error:", error);

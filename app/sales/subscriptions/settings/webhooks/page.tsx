@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_WEBHOOK_EVENT } from "@/lib/constants/statuses";
 
 const EVENT_OPTIONS = Object.values(SUBSCRIPTION_WEBHOOK_EVENT);
@@ -108,8 +108,8 @@ export default function WebhooksSettingsPage() {
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Webhooks</h1>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setNewOpen(true)}>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Webhooks</h1>
+          <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={() => setNewOpen(true)}>
             <Plus className="w-4 h-4 mr-1" /> New Webhook
           </Button>
         </div>
@@ -118,24 +118,26 @@ export default function WebhooksSettingsPage() {
         </p>
 
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         ) : webhooks.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">No webhooks configured yet.</p>
         ) : (
           <Table>
-            <TableHeader>
+            <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>URL</TableHead>
-                <TableHead>Events</TableHead>
-                <TableHead className="w-20">Active</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Name</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">URL</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Events</TableHead>
+                <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Active</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {webhooks.map((w) => (
-                <TableRow key={w._id}>
-                  <TableCell className="font-medium">{w.name}</TableCell>
+                <TableRow key={w._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                  <TableCell className="font-medium text-foreground/80">{w.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{w.url}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{w.events.join(", ")}</TableCell>
                   <TableCell>
@@ -143,7 +145,7 @@ export default function WebhooksSettingsPage() {
                   </TableCell>
                   <TableCell>
                     <button onClick={() => remove(w._id)}>
-                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <Trash2 className="w-4 h-4 text-destructive" />
                     </button>
                   </TableCell>
                 </TableRow>
@@ -178,10 +180,10 @@ export default function WebhooksSettingsPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setNewOpen(false)}>
+            <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setNewOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={create} disabled={saving}>
+            <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={create} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>

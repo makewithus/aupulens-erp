@@ -19,9 +19,8 @@ export async function GET(req: any) {
     await connectDB();
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query") || "";
-    const page = parseInt(searchParams.get("page") || "1");
+    const pageParam = searchParams.get("page");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const skip = (page - 1) * limit;
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -50,43 +49,55 @@ export async function GET(req: any) {
       ];
     }
 
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
+    // Pagination is opt-in via `page` — omitting it returns every matching
+    // product. Most callers (product pickers inside Sale Order / Invoice /
+    // Bill / Quote / Purchase Order / Subscription forms, and other modules'
+    // product dropdowns) rely on getting the complete catalog, not just the
+    // first page, so this default must stay unbounded for them.
+    const baseQuery = Product.find(filter).sort({ createdAt: -1 });
+    let total: number;
+    let page = 1;
+    let productsResult: any[];
+    if (pageParam) {
+      page = Math.max(1, parseInt(pageParam));
+      const skip = (page - 1) * limit;
+      const [products, count] = await Promise.all([
+        baseQuery.skip(skip).limit(limit).lean(),
+        Product.countDocuments(filter),
+      ]);
+      total = count;
+      productsResult = products;
+    } else {
+      productsResult = await baseQuery.lean();
+      total = productsResult.length;
+    }
 
-    // Attach inventory info
-    const enrichedProducts = await Promise.all(
-      products.map(async (product: any) => {
-        const code = product.tab_general_information?.default_code;
-        let inventoryQty = 0;
-        let inventoryStatus = "out_of_stock";
-        
-        if (code) {
-          const invItem = await InventoryItem.findOne({ tenantId, itemCode: code }).lean();
-          if (invItem) {
-            inventoryQty = invItem.quantity || 0;
-            inventoryStatus = invItem.status || "out_of_stock";
-          }
-        }
-        
-        return {
-          ...product,
-          inventoryQty,
-          inventoryStatus,
-        };
-      })
-    );
+    // Attach inventory info — one batched query for every product's item
+    // code instead of a per-product round trip (InventoryItem already has a
+    // {tenantId,itemCode} unique index, so this is fully index-covered).
+    const codes = productsResult
+      .map((p: any) => p.tab_general_information?.default_code)
+      .filter(Boolean);
+    const invItems = codes.length
+      ? await InventoryItem.find({ tenantId, itemCode: { $in: codes } }).lean()
+      : [];
+    const invByCode = new Map(invItems.map((i: any) => [i.itemCode, i]));
+
+    const enrichedProducts = productsResult.map((product: any) => {
+      const code = product.tab_general_information?.default_code;
+      const invItem = code ? invByCode.get(code) : undefined;
+      return {
+        ...product,
+        inventoryQty: invItem?.quantity || 0,
+        inventoryStatus: invItem?.status || "out_of_stock",
+      };
+    });
 
     return NextResponse.json({
       items: enrichedProducts,
       pagination: {
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.max(1, Math.ceil(total / limit)),
         page,
         limit,
       },

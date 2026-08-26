@@ -21,7 +21,16 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, Filter, ArrowUpDown, FileStack } from "lucide-react";
+
+const LIMIT = 10;
 
 export default function GeneralLedgerPage() {
   const { data: session, status } = useSession();
@@ -29,13 +38,34 @@ export default function GeneralLedgerPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [reconciledFilter, setReconciledFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totals, setTotals] = useState({ debit: 0, credit: 0 });
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, reconciledFilter]);
+
+  const load = useCallback(async (currentPage: number, search: string, reconciled: string) => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/finance/journal-items");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("search", search);
+      if (reconciled) params.set("reconciled", reconciled);
+      const res = await cachedFetch(`/api/finance/journal-items?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages ?? 1);
+      setTotals(json.totals || { debit: 0, credit: 0 });
     } catch (error) {
       toast.error("Failed to load ledger");
     } finally {
@@ -44,18 +74,16 @@ export default function GeneralLedgerPage() {
   }, []);
 
   useEffect(() => {
-    
-    if (status === "authenticated") load();
-  }, [status, router, load]);
+    if (status === "authenticated") load(page, debouncedQuery, reconciledFilter);
+  }, [status, router, load, page, debouncedQuery, reconciledFilter]);
 
-  const filtered = items.filter((line) =>
-    [
-      line.entryName,
-      line.label || "",
-      line.accountId?.name || "",
-      line.partnerId?.header?.name || line.partnerId?.name || "",
-    ].some((v) => v.toLowerCase().includes(query.toLowerCase())),
-  );
+  const hasActiveFilters = !!(query || reconciledFilter);
+  const resetFilters = () => {
+    setQuery("");
+    setReconciledFilter("");
+  };
+
+  const filtered = items;
 
   return (
     <DashboardLayout
@@ -72,7 +100,7 @@ export default function GeneralLedgerPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      onRefresh={load}
+      onRefresh={() => load(page, debouncedQuery, reconciledFilter)}
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -94,9 +122,25 @@ export default function GeneralLedgerPage() {
                 className="pl-9 w-64 bg-background"
               />
             </div>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" /> Filters
-            </Button>
+            <Select
+              value={reconciledFilter || "all"}
+              onValueChange={(v) => setReconciledFilter(v === "all" ? "" : v)}
+            >
+              <SelectTrigger className="w-[150px] bg-background">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="true">Reconciled</SelectItem>
+                <SelectItem value="false">Open</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Clear
+              </Button>
+            )}
             <Button
               onClick={() => router.push("/finance/accounting/journal-entries")}
             >
@@ -199,24 +243,35 @@ export default function GeneralLedgerPage() {
                         colSpan={5}
                         className="px-6 py-4 text-right uppercase tracking-wider text-xs"
                       >
-                        Totals
+                        Totals (all {total} lines)
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
-                        ₹
-                        {filtered
-                          .reduce((sum, l) => sum + (l.debit || 0), 0)
-                          .toLocaleString()}
+                        ₹{(totals.debit || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
-                        ₹
-                        {filtered
-                          .reduce((sum, l) => sum + (l.credit || 0), 0)
-                          .toLocaleString()}
+                        ₹{(totals.credit || 0).toLocaleString()}
                       </TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

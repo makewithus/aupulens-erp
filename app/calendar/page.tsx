@@ -57,13 +57,15 @@ export default function CalendarPage() {
       userRole={role}
       onSignOut={() => signOut({ callbackUrl: cfg.authPath })}
     >
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" /> Enterprise Calendar
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Everything with a date, in one place — with AI conflict detection.
-        </p>
+      <div className="mb-6 flex flex-col gap-3 border-b border-border/50 pb-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="flex items-center gap-3 text-4xl !font-semibold !tracking-normal text-primary md:text-[48px]">
+            <CalendarDays className="h-8 w-8 text-primary" /> Enterprise Calendar
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Everything with a date, in one place — with AI conflict detection.
+          </p>
+        </div>
       </div>
       <TaskCalendar />
     </DashboardLayout>

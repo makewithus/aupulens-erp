@@ -31,11 +31,9 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
           <div className="flex flex-col items-center gap-1">
             <div
               className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step > s.n
-                  ? "bg-blue-600 text-white"
-                  : step === s.n
-                    ? "bg-blue-600 text-white"
-                    : "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground"
+                step >= s.n
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-accent text-muted-foreground"
               }`}
             >
               {step > s.n ? <Check className="w-4 h-4" /> : s.n}
@@ -108,7 +106,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
                 <p className="text-sm text-muted-foreground max-w-xs">
                   Two simple steps to get you started with E-Invoicing quickly.
                 </p>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setStep(2)}>
+                <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={() => setStep(2)}>
                   Proceed to EInvoice GSP Login →
                 </Button>
               </div>
@@ -123,7 +121,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
                       href="https://einvoice1.gst.gov.in/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline"
+                      className="text-primary underline"
                     >
                       https://einvoice1.gst.gov.in/
                     </a>
@@ -158,7 +156,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
               <div className="flex justify-start pt-2">
                 <Button
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="rounded-none border-border/40 text-destructive font-mono text-[11px] uppercase tracking-wider"
                   onClick={handleClose}
                 >
                   Close
@@ -169,7 +167,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm px-4 py-2 rounded-none">
+              <div className="bg-primary/10 text-primary text-sm px-4 py-2 rounded-none">
                 Enter GSP Username and Password from the EInvoice Portal
               </div>
 
@@ -220,11 +218,11 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
               </div>
 
               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep(1)}>
+                <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setStep(1)}>
                   ← Go Back
                 </Button>
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="font-mono text-[11px] uppercase tracking-wider"
                   onClick={handleSubmitCredentials}
                   disabled={submitting}
                 >
@@ -236,14 +234,14 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
 
           {step === 3 && (
             <div className="flex flex-col items-center text-center py-8 space-y-4">
-              <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Check className="w-8 h-8 text-green-600" />
+              <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <Check className="w-8 h-8 text-emerald-500" />
               </div>
               <h3 className="text-lg font-semibold">You&apos;re connected to the E-Invoicing portal!</h3>
               <p className="text-sm text-muted-foreground max-w-sm">
                 You can now generate e-invoices directly from your Sales invoices.
               </p>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleClose}>
+              <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleClose}>
                 Done
               </Button>
             </div>

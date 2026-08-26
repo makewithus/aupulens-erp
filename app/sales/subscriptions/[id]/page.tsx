@@ -7,24 +7,19 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 
-function statusColor(status: string) {
-  switch (status) {
-    case "active":
-      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
-    case "trial":
-      return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800";
-    case "dunning":
-    case "unpaid":
-      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
-    case "cancelled":
-    case "expired":
-      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
-    default:
-      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
-  }
-}
+const statusColors: Record<string, string> = {
+  active: "text-emerald-500",
+  trial: "text-blue-500",
+  dunning: "text-amber-500",
+  unpaid: "text-amber-500",
+  cancelled: "text-red-500",
+  expired: "text-red-500",
+};
 
 export default function SubscriptionDetailPage() {
   const { data: session } = useSession();
@@ -88,71 +83,73 @@ export default function SubscriptionDetailPage() {
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : !sub ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Subscription not found</div>
+          <div className="py-16 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Subscription not found</div>
         ) : (
           <>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold">{sub.number}</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-3xl font-black tracking-tighter text-primary">{sub.number}</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   {sub.customerId?.header?.displayName || sub.customerId?.header?.name}
                 </p>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(sub.status)}`}>
+              <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[sub.status] || "text-muted-foreground"}`}>
                 {sub.status}
-              </span>
+              </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 border rounded-none p-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Plan Name</p>
-                <p className="font-medium">{sub.profileName}</p>
+            <Card className="border border-border/40 shadow-none bg-background rounded-none p-6">
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Plan Name</p>
+                  <p className="font-medium text-foreground mt-1">{sub.profileName}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount</p>
+                  <p className="font-mono text-foreground mt-1">₹{Number(sub.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Billing Frequency</p>
+                  <p className="font-medium text-foreground mt-1 capitalize">{sub.billingFrequency?.replace("_", "-")}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Next Billing On</p>
+                  <p className="font-medium text-foreground mt-1">{sub.nextBillingOn ? new Date(sub.nextBillingOn).toLocaleDateString("en-IN") : "—"}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Last Billed On</p>
+                  <p className="font-medium text-foreground mt-1">{sub.lastBilledOn ? new Date(sub.lastBilledOn).toLocaleDateString("en-IN") : "—"}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Auto Renew</p>
+                  <p className="font-medium text-foreground mt-1">{sub.autoRenew ? "Yes" : "No"}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Amount</p>
-                <p className="font-medium">₹{Number(sub.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Billing Frequency</p>
-                <p className="font-medium capitalize">{sub.billingFrequency?.replace("_", "-")}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Next Billing On</p>
-                <p className="font-medium">{sub.nextBillingOn ? new Date(sub.nextBillingOn).toLocaleDateString("en-IN") : "—"}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Last Billed On</p>
-                <p className="font-medium">{sub.lastBilledOn ? new Date(sub.lastBilledOn).toLocaleDateString("en-IN") : "—"}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Auto Renew</p>
-                <p className="font-medium">{sub.autoRenew ? "Yes" : "No"}</p>
-              </div>
-            </div>
+            </Card>
 
-            <div className="border rounded-none">
-              <div className="p-3 border-b bg-muted/30 font-semibold text-sm">Generated Invoices</div>
+            <Card className="border border-border/40 shadow-none bg-background rounded-none overflow-hidden">
+              <div className="px-6 py-4 border-b border-border/20 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Generated Invoices</div>
               {sub.generatedInvoiceIds?.length ? (
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead>Number</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Number</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="divide-y divide-border/30">
                     {sub.generatedInvoiceIds.map((inv: any) => (
                       <TableRow
                         key={inv._id}
-                        className="cursor-pointer hover:bg-muted/40"
+                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
                         onClick={() => router.push(`/sales/invoices/${inv._id}`)}
                       >
-                        <TableCell>{inv.number}</TableCell>
-                        <TableCell className="capitalize">{inv.status}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">{inv.number}</TableCell>
+                        <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 text-sm text-foreground/80 capitalize">{inv.status}</TableCell>
+                        <TableCell className="px-6 py-4 text-right font-mono text-sm text-foreground">
                           ₹{Number(inv.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
@@ -160,20 +157,20 @@ export default function SubscriptionDetailPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="p-4 text-sm text-muted-foreground">
+                <p className="p-6 text-sm text-muted-foreground">
                   No invoices generated yet — the first invoice is raised on the subscription&apos;s next billing date.
                 </p>
               )}
-            </div>
+            </Card>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {sub.status !== "cancelled" && (
-                <Button variant="outline" disabled={busy} onClick={() => patch({ status: "cancelled" })}>
+                <Button variant="outline" disabled={busy} className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => patch({ status: "cancelled" })}>
                   Cancel Subscription
                 </Button>
               )}
               {sub.status === "active" && (
-                <Button variant="outline" disabled={busy} onClick={() => patch({ autoRenew: !sub.autoRenew })}>
+                <Button variant="outline" disabled={busy} className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => patch({ autoRenew: !sub.autoRenew })}>
                   {sub.autoRenew ? "Mark as Non-Renewing" : "Resume Auto-Renew"}
                 </Button>
               )}

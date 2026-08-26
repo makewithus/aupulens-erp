@@ -8,6 +8,18 @@ const FONT_STACK: Record<string, string> = {
   mono: "'Roboto Mono', monospace",
 };
 
+// Maps the Print-Format Builder's "Font style" picker (settings.fontStyle) to
+// an actual font stack. This is user-chosen and applies on top of whatever
+// font the base template defaults to — previously settings.fontStyle was
+// captured and saved but never actually consumed here, so picking a
+// different font style had no visible effect on the preview or the PDF.
+const FONT_STYLE_STACK: Record<string, string> = {
+  Stylish: "'Georgia', 'Times New Roman', serif",
+  Classic: "'Merriweather', 'Georgia', serif",
+  Modern: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+  Compact: "'Roboto Mono', monospace",
+};
+
 // ============================================================
 // PART 1 — shared, reusable building blocks. Every template composes
 // these; none of them hard-code a full layout, so each template function
@@ -780,7 +792,7 @@ const ACTIVE_RENDERERS: Record<string, (ctx: TemplateRenderContext, accent: stri
  */
 export function renderInvoiceTemplateFragment(def: TemplateDefinition, ctx: TemplateRenderContext): string {
   const accent = ctx.settings.accentColor || def.accentColorDefault;
-  const font = FONT_STACK[def.fontFamily];
+  const font = FONT_STYLE_STACK[ctx.settings.fontStyle] || FONT_STACK[def.fontFamily];
   const fontSizePx = ctx.settings.pdfFontSize === "Small" ? 12 : ctx.settings.pdfFontSize === "Large" ? 16 : 14;
   const pageWidth = def.orientation === "landscape" ? "297mm" : "210mm";
   const pageMinHeight = def.orientation === "landscape" ? "210mm" : "297mm";

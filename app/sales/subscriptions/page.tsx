@@ -9,7 +9,11 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
+import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -52,22 +56,14 @@ const SORT_FIELDS = [
   { key: "updatedAt", label: "Last Modified Time" },
 ];
 
-function statusColor(status: string) {
-  switch (status) {
-    case "active":
-      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
-    case "trial":
-      return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800";
-    case "dunning":
-    case "unpaid":
-      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
-    case "cancelled":
-    case "expired":
-      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
-    default:
-      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
-  }
-}
+const statusColors: Record<string, string> = {
+  active: "text-emerald-500",
+  trial: "text-blue-500",
+  dunning: "text-amber-500",
+  unpaid: "text-amber-500",
+  cancelled: "text-red-500",
+  expired: "text-red-500",
+};
 
 function SubscriptionOverview() {
   const Node = ({
@@ -79,62 +75,64 @@ function SubscriptionOverview() {
     label: string;
     color?: string;
   }) => (
-    <div className={`flex flex-col items-center gap-1.5 border rounded-none px-4 py-3 bg-background ${color}`}>
+    <div className={`flex flex-col items-center gap-1.5 border border-border/40 rounded-none px-4 py-3 bg-background ${color}`}>
       <Icon className="w-5 h-5" />
-      <span className="text-xs font-semibold text-center whitespace-nowrap">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-center whitespace-nowrap">{label}</span>
     </div>
   );
 
   return (
-    <div className="bg-muted/30 border rounded-none p-8">
-      <h3 className="text-sm font-semibold text-center mb-8">Subscription Overview</h3>
+    <Card className="border border-border/40 shadow-none bg-background rounded-none p-8">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 text-center mb-8">Subscription Overview</h3>
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-3 flex-wrap justify-center">
-          <Node icon={User} label="CUSTOMER" />
-          <div className="flex flex-col items-center text-[10px] text-muted-foreground">
+          <Node icon={User} label="Customer" color="text-foreground" />
+          <div className="flex flex-col items-center text-[10px] font-mono text-muted-foreground/60">
             <span>Approaches you for a subscription</span>
             <span>→</span>
           </div>
-          <div className="border rounded-none p-3 bg-background">
-            <p className="text-[10px] font-semibold text-center mb-2">PLANS OFFERED</p>
+          <div className="border border-border/40 rounded-none p-3 bg-background">
+            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 text-center mb-2">Plans Offered</p>
             <div className="flex gap-2">
-              <div className="border rounded-none px-2 py-1 text-[10px]">Plan 1</div>
-              <div className="border rounded-none px-2 py-1 text-[10px] flex items-center gap-1 border-green-400">
-                Plan 2 <CheckCircle2 className="w-3 h-3 text-green-600" />
+              <div className="border border-border/40 rounded-none px-2 py-1 text-[10px] font-mono">Plan 1</div>
+              <div className="border border-emerald-500/40 rounded-none px-2 py-1 text-[10px] font-mono flex items-center gap-1 text-emerald-500">
+                Plan 2 <CheckCircle2 className="w-3 h-3" />
               </div>
-              <div className="border rounded-none px-2 py-1 text-[10px]">Plan n</div>
+              <div className="border border-border/40 rounded-none px-2 py-1 text-[10px] font-mono">Plan n</div>
             </div>
           </div>
-          <div className="flex flex-col items-center text-[10px] text-muted-foreground">
+          <div className="flex flex-col items-center text-[10px] font-mono text-muted-foreground/60">
             <span>Selects a plan</span>
             <span>→</span>
           </div>
-          <Node icon={RotateCw} label="SUBSCRIPTION CREATED" />
-          <span className="text-muted-foreground">→</span>
-          <Node icon={FileText} label="INVOICE RAISED" color="border-purple-300 text-purple-700" />
+          <Node icon={RotateCw} label="Subscription Created" color="text-foreground" />
+          <span className="text-muted-foreground/50">→</span>
+          <Node icon={FileText} label="Invoice Raised" color="text-purple-500" />
         </div>
 
-        <span className="text-muted-foreground">↓</span>
-        <Node icon={CreditCard} label="PAYMENT MADE" color="border-green-300 text-green-700" />
+        <span className="text-muted-foreground/50">↓</span>
+        <Node icon={CreditCard} label="Payment Made" color="text-emerald-500" />
 
         <div className="flex items-center gap-8 mt-2">
-          <Node icon={CalendarX2} label="SUBSCRIPTION CANCELLED OR EXPIRED" color="border-red-300 text-red-700" />
-          <div className="flex flex-col items-center text-[10px] text-muted-foreground">
+          <Node icon={CalendarX2} label="Subscription Cancelled or Expired" color="text-red-500" />
+          <div className="flex flex-col items-center text-[10px] text-muted-foreground/60">
             <span>←</span>
           </div>
-          <Node icon={CalendarClock} label="END OF BILLING CYCLE" />
-          <div className="flex flex-col items-center text-[10px] text-muted-foreground">
+          <Node icon={CalendarClock} label="End of Billing Cycle" color="text-foreground" />
+          <div className="flex flex-col items-center text-[10px] font-mono text-muted-foreground/60">
             <span>←</span>
             <span>Subscription stays active</span>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground border-t border-dashed pt-2 mt-2 w-full text-center">
+        <p className="text-[10px] font-mono text-muted-foreground/50 border-t border-dashed border-border/40 pt-2 mt-2 w-full text-center">
           - - - Subscription renews (End of Billing Cycle loops back up to Invoice Raised) - - -
         </p>
       </div>
-    </div>
+    </Card>
   );
 }
+
+const LIMIT = 10;
 
 export default function SubscriptionsPage() {
   const { data: session } = useSession();
@@ -148,6 +146,11 @@ export default function SubscriptionsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exportOpen, setExportOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const activeView = views.find((v) => v._id === activeViewId);
   const activeColumns: string[] =
@@ -170,24 +173,38 @@ export default function SubscriptionsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
+      if (debouncedQuery) params.set("search", debouncedQuery);
       const res = await cachedFetch(`/api/sales/subscriptions?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setSubscriptions(json.data || []);
+      if (json.success) {
+        setSubscriptions(json.data || []);
+        setTotal(json.total ?? 0);
+        setTotalPages(json.totalPages ?? 1);
+      }
     } catch (error) {
       console.error("Error loading subscriptions:", error);
       toast.error("Failed to load subscriptions");
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, sortDir]);
+  }, [activeViewId, sortField, sortDir, page, debouncedQuery]);
 
   useEffect(() => {
     fetchViews();
   }, [fetchViews]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, activeViewId, sortField, sortDir]);
 
   useEffect(() => {
     load();
@@ -236,15 +253,15 @@ export default function SubscriptionsPage() {
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <SalesTabNav />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1 text-lg font-bold">
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
                 {activeView?.name === "All" ? "All Subscriptions" : activeView?.name || "All Subscriptions"}{" "}
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
+            <DropdownMenuContent align="start" className="w-72 rounded-none">
               <div className="p-2">
                 <Input
                   placeholder="Search views"
@@ -287,18 +304,24 @@ export default function SubscriptionsPage() {
           </DropdownMenu>
 
           <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search subscriptions..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-11 w-56 rounded-none bg-background"
+            />
             <Link href="/sales/subscriptions/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="h-11 w-11 rounded-none border-border/40">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuContent align="end" className="w-64 rounded-none">
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Sort by</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -344,60 +367,102 @@ export default function SubscriptionsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : subscriptions.length === 0 ? (
-          <div className="space-y-10">
+        {!loading && subscriptions.length === 0 && !debouncedQuery ? (
+          <div className="space-y-6">
             <div className="flex flex-col items-center py-16 px-4 text-center">
-              <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-                <Repeat className="w-8 h-8 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-bold mb-2">Create Your First Subscription</h2>
+              <Repeat className="w-12 h-12 mb-6 text-muted-foreground/30" />
+              <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground mb-2">Create Your First Subscription</h2>
               <p className="text-sm text-muted-foreground max-w-md mb-6">
                 Ready to streamline your billing? Get started by creating highly customizable subscriptions that
                 cater to any billing model, and manage recurring payments from your customers effortlessly.
               </p>
               <Link href="/sales/subscriptions/new">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">CREATE A SUBSCRIPTION</Button>
+                <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+                  Create a Subscription
+                </Button>
               </Link>
             </div>
             <SubscriptionOverview />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Customer Name</TableHead>
-                {activeColumns.map((key) => (
-                  <TableHead key={key}>{columnLabel(key)}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {subscriptions.map((s: any) => (
-                <TableRow
-                  key={s._id}
-                  className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => router.push(`/sales/subscriptions/${s._id}`)}
-                >
-                  <TableCell className="font-medium">{s.number || "—"}</TableCell>
-                  <TableCell>{s.customerId?.header?.displayName || s.customerId?.header?.name || "—"}</TableCell>
-                  {activeColumns.map((key) => (
-                    <TableCell key={key}>
-                      {key === "status" ? (
-                        <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(s.status)}`}>
-                          {s.status}
-                        </span>
-                      ) : (
-                        formatValue(key, getPath(s, key))
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Number</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer Name</TableHead>
+                    {activeColumns.map((key) => (
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                        {columnLabel(key)}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        {activeColumns.map((key) => (
+                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : subscriptions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2 + activeColumns.length} className="py-16 text-center text-sm text-muted-foreground">
+                        No subscriptions match your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    subscriptions.map((s: any) => (
+                      <TableRow
+                        key={s._id}
+                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
+                        onClick={() => router.push(`/sales/subscriptions/${s._id}`)}
+                      >
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                          {s.number || "—"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          {s.customerId?.header?.displayName || s.customerId?.header?.name || "—"}
+                        </TableCell>
+                        {activeColumns.map((key) => (
+                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                            {key === "status" ? (
+                              <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[s.status] || "text-muted-foreground"}`}>
+                                {s.status}
+                              </Badge>
+                            ) : (
+                              formatValue(key, getPath(s, key))
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 

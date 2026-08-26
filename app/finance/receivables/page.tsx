@@ -9,10 +9,11 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { financeSidebarConfig } from '@/config/sidebar/finance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, CreditCard, BarChart3, DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, CreditCard, BarChart3, DollarSign, Clock, CheckCircle, AlertCircle, Search } from 'lucide-react';
 import { StatsRowSkeleton, TableSkeleton } from '@/components/ui/loading-skeletons';
 import { FinancePageHeader } from '@/components/finance/FinancePageHeader';
 import { DraggableVisualization } from '@/components/finance/DraggableVisualization';
@@ -35,8 +36,18 @@ export default function ReceivablesPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  // Separate, unpaginated fetch used only for the KPI cards + Visualize
+  // dialog — those need totals across every matching invoice, not just the
+  // current page of 10 shown in the table below.
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 10;
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -50,16 +61,26 @@ export default function ReceivablesPage() {
     }
   }, [status, router, session]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, statusFilter]);
+
   // Reads from the canonical customer-invoice store (SalesInvoice, via
   // /api/sales/invoices) — the same one /sales/invoices itself uses. This
   // page used to read from the deprecated models/Invoice.ts collection
   // via /api/finance/invoices, which no longer receives new invoices now
   // that /finance/invoices redirects to /sales/invoices.
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (currentPage: number, search: string, statusF: string) => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams({ limit: '200' });
-      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (statusF && statusF !== 'all') params.append('status', statusF);
+      if (search) params.append('search', search);
 
       const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch invoices');
@@ -78,19 +99,52 @@ export default function ReceivablesPage() {
         dueDate: inv.dueDate,
       }));
       setInvoices(mapped);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       console.error('Error fetching invoices:', err);
       setError('Failed to load invoices');
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchInvoices();
+      fetchInvoices(page, debouncedQuery, statusFilter);
     }
-  }, [status, fetchInvoices]);
+  }, [status, fetchInvoices, page, debouncedQuery, statusFilter]);
+
+  const fetchAllInvoicesForStats = useCallback(async (statusF: string) => {
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '1000' });
+      if (statusF && statusF !== 'all') params.append('status', statusF);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const mapped: Invoice[] = (data.data || []).map((inv: any) => ({
+        _id: inv._id,
+        invoiceNumber: inv.number,
+        customerId: inv.customerId?._id || inv.customerId,
+        customerName: inv.customerId?.header?.displayName || inv.customerId?.header?.name || 'Unknown',
+        customerEmail: inv.customerId?.contact_details?.email || '',
+        total: inv.totalAmount || 0,
+        currency: 'INR',
+        status: inv.status,
+        issueDate: inv.invoiceDate,
+        dueDate: inv.dueDate,
+      }));
+      setAllInvoices(mapped);
+    } catch (err) {
+      console.error('Error fetching invoice stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchAllInvoicesForStats(statusFilter);
+    }
+  }, [status, fetchAllInvoicesForStats, statusFilter]);
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN')}`;
@@ -156,9 +210,7 @@ export default function ReceivablesPage() {
     );
   }
 
-  const filteredInvoices = statusFilter === 'all' 
-    ? invoices 
-    : invoices.filter(inv => inv.status === statusFilter);
+  const filteredInvoices = invoices;
 
   return (
     <DashboardLayout
@@ -175,7 +227,7 @@ export default function ReceivablesPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
-      onRefresh={fetchInvoices}
+      onRefresh={() => { fetchInvoices(page, debouncedQuery, statusFilter); fetchAllInvoicesForStats(statusFilter); }}
     >
       <div className="space-y-6">
         <FinancePageHeader
@@ -186,14 +238,14 @@ export default function ReceivablesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  const paidTotal = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
-                  const unpaidTotal = invoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid' || inv.status === 'draft').reduce((sum, inv) => sum + inv.total, 0);
-                  const overdueTotal = invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0);
-                  
+                  const paidTotal = allInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
+                  const unpaidTotal = allInvoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid' || inv.status === 'draft').reduce((sum, inv) => sum + inv.total, 0);
+                  const overdueTotal = allInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0);
+
                   setVizData([
-                    { category: 'Paid', amount: paidTotal, count: invoices.filter(inv => inv.status === 'paid').length },
-                    { category: 'Unpaid', amount: unpaidTotal, count: invoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid' || inv.status === 'draft').length },
-                    { category: 'Overdue', amount: overdueTotal, count: invoices.filter(inv => inv.status === 'overdue').length },
+                    { category: 'Paid', amount: paidTotal, count: allInvoices.filter(inv => inv.status === 'paid').length },
+                    { category: 'Unpaid', amount: unpaidTotal, count: allInvoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid' || inv.status === 'draft').length },
+                    { category: 'Overdue', amount: overdueTotal, count: allInvoices.filter(inv => inv.status === 'overdue').length },
                   ]);
                   setIsVizOpen(true);
                 }}
@@ -216,10 +268,10 @@ export default function ReceivablesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Receivable</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
+              <DollarSign className="h-4 w-4 text-foreground/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{invoices.reduce((sum, inv) => sum + inv.total, 0).toLocaleString('en-IN')}</div>
+              <div className="text-2xl font-bold">₹{allInvoices.reduce((sum, inv) => sum + inv.total, 0).toLocaleString('en-IN')}</div>
             </CardContent>
           </Card>
           <Card>
@@ -228,7 +280,7 @@ export default function ReceivablesPage() {
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{invoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid').length}</div>
+              <div className="text-2xl font-bold text-yellow-600">{allInvoices.filter(inv => inv.status === 'saved' || inv.status === 'partially_paid').length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -237,7 +289,7 @@ export default function ReceivablesPage() {
               <CheckCircle className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{invoices.filter(inv => inv.status === 'paid').length}</div>
+              <div className="text-2xl font-bold text-blue-600">{allInvoices.filter(inv => inv.status === 'paid').length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -246,7 +298,7 @@ export default function ReceivablesPage() {
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{invoices.filter(inv => inv.status === 'overdue').length}</div>
+              <div className="text-2xl font-bold text-red-600">{allInvoices.filter(inv => inv.status === 'overdue').length}</div>
             </CardContent>
           </Card>
         </div>
@@ -264,23 +316,34 @@ export default function ReceivablesPage() {
               <CardTitle className="text-base font-semibold">
                 Invoices
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({filteredInvoices.length} total)
+                  ({total} total)
                 </span>
               </CardTitle>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="saved">Saved</SelectItem>
-                  <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search invoice #..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-9 w-56 bg-background"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="saved">Saved</SelectItem>
+                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -343,6 +406,22 @@ export default function ReceivablesPage() {
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

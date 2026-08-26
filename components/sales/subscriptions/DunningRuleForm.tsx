@@ -83,7 +83,7 @@ function ChannelEditor({
   const templateLink = (label: string, key: string) => (
     <button
       type="button"
-      className="text-xs text-blue-600 underline"
+      className="font-mono text-[11px] uppercase tracking-wider text-primary underline"
       disabled={!ruleId}
       onClick={() => setTemplateOpen(key)}
       title={ruleId ? undefined : "Save the rule first to edit its templates"}
@@ -95,12 +95,12 @@ function ChannelEditor({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
-        <div className="border rounded-none p-4 space-y-2">
+        <div className="border border-border/40 rounded-none p-4 space-y-2">
           <p className="text-xs font-semibold uppercase text-muted-foreground">On Payment Success</p>
           <p className="text-sm">Send Thank-you Email along with the Invoice</p>
           {templateLink("Default", `${channelKey}:on-success`)}
         </div>
-        <div className="border rounded-none p-4 space-y-2">
+        <div className="border border-border/40 rounded-none p-4 space-y-2">
           <p className="text-xs font-semibold uppercase text-muted-foreground">On Payment Failure</p>
           <p className="text-sm">Send Payment Failure Email Notification &amp; Retry Payment</p>
           {templateLink("Default", `${channelKey}:on-failure`)}
@@ -109,7 +109,7 @@ function ChannelEditor({
 
       <div>
         <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-3">Retry Preferences</h3>
-        <div className="space-y-3 border-l-2 border-dashed pl-4">
+        <div className="space-y-3 border-l-2 border-dashed border-border/40 pl-4">
           {channel.retries.map((r, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               <span className="text-xs text-muted-foreground w-20">
@@ -264,15 +264,15 @@ export function DunningRuleForm({
         </Button>
       </div>
 
-      <div className="flex items-center gap-4 border-b">
+      <div className="flex items-center gap-4 border-b border-border/40">
         <button
-          className={`pb-2 px-1 text-sm font-medium ${tab === "autocharge" ? "border-b-2 border-blue-600 text-blue-600" : "text-muted-foreground"}`}
+          className={`pb-2 px-1 font-mono text-[11px] uppercase tracking-wider ${tab === "autocharge" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
           onClick={() => setTab("autocharge")}
         >
           Subscriptions with autocharge
         </button>
         <button
-          className={`pb-2 px-1 text-sm font-medium ${tab === "manual" ? "border-b-2 border-blue-600 text-blue-600" : "text-muted-foreground"}`}
+          className={`pb-2 px-1 font-mono text-[11px] uppercase tracking-wider ${tab === "manual" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
           onClick={() => setTab("manual")}
         >
           Subscriptions without autocharge
@@ -282,11 +282,11 @@ export function DunningRuleForm({
       {tab === "autocharge" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <div className="inline-flex border rounded-none overflow-hidden text-sm">
+            <div className="inline-flex border border-border/40 rounded-none overflow-hidden text-sm">
               {(["cards", "upi_mandates"] as const).map((m) => (
                 <button
                   key={m}
-                  className={`px-3 py-1.5 ${value.paymentMethod === m ? "bg-blue-600 text-white" : "bg-background"}`}
+                  className={`px-3 py-1.5 ${value.paymentMethod === m ? "bg-primary text-primary-foreground" : "bg-background"}`}
                   onClick={() => setValue((v) => ({ ...v, paymentMethod: m }))}
                 >
                   {m === "cards" ? "Cards" : "UPI Mandates"}
@@ -320,8 +320,8 @@ export function DunningRuleForm({
         </div>
       )}
 
-      <div className="flex items-center gap-3 pt-4 border-t">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
+      <div className="flex items-center gap-3 pt-4 border-t border-border/40">
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save"}
         </Button>
         <Button variant="outline" onClick={() => router.push("/sales/subscriptions/settings/dunning")}>

@@ -406,7 +406,7 @@ export default function FinanceAIAssistantPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">{new Date(chat.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400" onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)} title="Archive">
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)} title="Archive">
                             <Archive className="w-3 h-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400" onClick={(e) => deleteChat(chat._id, e)} disabled={deletingChatId === chat._id} title="Delete">
@@ -446,7 +446,7 @@ export default function FinanceAIAssistantPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">{new Date(chat.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400" onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)} title="Restore">
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" onClick={(e) => toggleArchive(chat._id, chat.isArchived, e)} title="Restore">
                             <MessageSquare className="w-3 h-3" />
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400" onClick={(e) => deleteChat(chat._id, e)} disabled={deletingChatId === chat._id} title="Delete">

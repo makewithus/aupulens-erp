@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
+import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Search,
   Plus,
@@ -47,11 +49,12 @@ import { InvoicePopupContent } from "@/components/accounting/InvoicePopupContent
 import {
   Q2C_STATUS,
   Q2C_STATUS_LABELS,
-  Q2C_STATUS_COLORS,
   Q2C_FLOW_STEPS,
   getNextQ2CStatuses,
   type Q2CStatus,
 } from "@/lib/constants/statuses";
+
+const LIMIT = 10;
 
 export default function SalesOrdersPage() {
   const { data: session, status } = useSession();
@@ -59,7 +62,11 @@ export default function SalesOrdersPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Resources
   const [partners, setPartners] = useState([]);
@@ -211,27 +218,44 @@ export default function SalesOrdersPage() {
     }
   };
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, statusFilter]);
+
+  const load = useCallback(async (currentPage = page, search = debouncedQuery, statusF = statusFilter) => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/sales/sale-orders?status=sale,done,cancel");
+      const params = new URLSearchParams({
+        status: statusF === "all" ? "sale,done,cancel" : statusF,
+        page: String(currentPage),
+        limit: String(LIMIT),
+      });
+      if (search) params.set("search", search);
+      const res = await cachedFetch(`/api/sales/sale-orders?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages ?? 1);
     } catch (error) {
       console.error("Error loading orders:", error);
       toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, debouncedQuery, statusFilter]);
 
   useEffect(() => {
-    
     if (status === "authenticated") {
-      load();
+      load(page, debouncedQuery, statusFilter);
       loadResources();
     }
-  }, [status, router, load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, router, page, debouncedQuery, statusFilter]);
 
   const handleOpenCreate = () => {
     setCurrentOrder(null);
@@ -551,35 +575,16 @@ export default function SalesOrdersPage() {
     }
   };
 
-  const filtered = data.filter((o) => {
-    const matchesQuery = [
-      o.header.name,
-      o.header.partnerId?.header?.name || "",
-    ].some((v) => v.toLowerCase().includes(query.toLowerCase()));
-    const matchesStatus = statusFilter === "all" || o.status === statusFilter;
-    return matchesQuery && matchesStatus;
-  });
+  const filtered = data;
 
   const getStatusBadge = (status: string) => {
-    const config: any = {
-      sale: {
-        variant: "default",
-        color:
-          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      },
-      done: {
-        variant: "secondary",
-        color:
-          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-      },
-      cancel: {
-        variant: "destructive",
-        color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      },
+    const colorMap: Record<string, string> = {
+      sale: "text-primary",
+      done: "text-emerald-500",
+      cancel: "text-destructive",
     };
-    const c = config[status] || { variant: "secondary", color: "" };
     return (
-      <Badge variant={c.variant} className={`${c.color} capitalize border-0`}>
+      <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${colorMap[status] || "text-muted-foreground"}`}>
         {status}
       </Badge>
     );
@@ -599,14 +604,14 @@ export default function SalesOrdersPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "sales"}
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
-      onRefresh={load}
+      onRefresh={() => load(page, debouncedQuery, statusFilter)}
     >
       <div className="space-y-6">
         <SalesTabNav />
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Sales Orders</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className={SALES_PAGE_TITLE_CLASS}>Sales Orders</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Confirmed orders and historical records
             </p>
           </div>
@@ -620,13 +625,24 @@ export default function SalesOrdersPage() {
                 className="pl-9 w-64 bg-background"
               />
             </div>
-            <Button onClick={handleOpenCreate}>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36 bg-background">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="sale">Sale</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
+                <SelectItem value="cancel">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleOpenCreate} className="font-mono text-[11px] uppercase tracking-wider">
               <Plus className="h-4 w-4 mr-2" /> New Order
             </Button>
           </div>
         </div>
 
-        <Card className="border-none shadow-sm bg-background/50 backdrop-blur-sm">
+        <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
           <CardContent className="p-0">
             {loading ? (
               <div className="p-6 space-y-4">
@@ -637,49 +653,48 @@ export default function SalesOrdersPage() {
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground font-medium">
+                <p className="text-lg font-medium text-foreground">
                   No sales orders found
                 </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50">
-                    <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-6 py-3 text-left">Reference</th>
-                      <th className="px-6 py-3 text-left">Customer</th>
-                      <th className="px-6 py-3 text-left">Total</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Q2C Stage</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
+                <Table>
+                  <TableHeader className="border-border/40">
+                    <TableRow>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Reference</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Customer</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Total</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Status</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Q2C Stage</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Date</TableHead>
+                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filtered.map((o) => (
-                      <tr
+                      <TableRow
                         key={o._id}
-                        className="hover:bg-muted/30 transition-colors group"
+                        className="group transition-colors duration-300 hover:bg-white/[0.015]"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap font-medium flex items-center gap-3">
-                          <div className="h-8 w-8 bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center rounded text-indigo-600">
+                        <TableCell className="font-medium text-foreground/80 whitespace-nowrap flex items-center gap-3">
+                          <div className="h-8 w-8 bg-accent flex items-center justify-center text-muted-foreground">
                             <ShoppingCart className="h-4 w-4" />
                           </div>
                           {o.header.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-foreground/80">
                           {o.header.partnerId?.header?.name || "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold">
-                          ₹{o.totals.amountTotal.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap font-bold text-foreground">
+                          ₹{o.totals.amountTotal.toLocaleString("en-IN")}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
                           {getStatusBadge(o.status)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
                           {(() => {
                             const q2c = o.q2cStatus || Q2C_STATUS.LEAD;
-                            const colors = Q2C_STATUS_COLORS[q2c as Q2CStatus];
                             const nextStatuses = getNextQ2CStatuses(q2c);
                             const forwardNext = nextStatuses.find(
                               (s) =>
@@ -689,7 +704,7 @@ export default function SalesOrdersPage() {
                             return (
                               <div className="flex items-center gap-1.5">
                                 <Badge
-                                  className={`${colors?.bg || ""} ${colors?.text || ""} border-0 text-[10px]`}
+                                  className="rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-[0.1em] hover:bg-transparent shadow-none text-muted-foreground"
                                 >
                                   {Q2C_STATUS_LABELS[q2c as Q2CStatus] || q2c}
                                 </Badge>
@@ -703,23 +718,23 @@ export default function SalesOrdersPage() {
                                     }
                                     title={`Advance to ${Q2C_STATUS_LABELS[forwardNext]}`}
                                   >
-                                    <ArrowRight className="h-3 w-3 text-blue-600" />
+                                    <ArrowRight className="h-3 w-3 text-primary" />
                                   </Button>
                                 )}
                               </div>
                             );
                           })()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground text-xs">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                           {new Date(o.header.dateOrder).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenView(o)}
                             title="View Detail"
-                            className="h-8 w-8 text-blue-600"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -729,7 +744,7 @@ export default function SalesOrdersPage() {
                               size="icon"
                               onClick={() => handleOpenEdit(o)}
                               title="Edit Order"
-                              className="h-8 w-8 text-indigo-600"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
@@ -740,7 +755,7 @@ export default function SalesOrdersPage() {
                               size="icon"
                               onClick={() => handleAction(o._id, "done")}
                               title="Lock Order"
-                              className="h-8 w-8 text-green-600"
+                              className="h-8 w-8 text-muted-foreground hover:text-emerald-500"
                             >
                               <Lock className="h-4 w-4" />
                             </Button>
@@ -754,7 +769,7 @@ export default function SalesOrdersPage() {
                                   handleViewInvoice(o.invoiceIds[0])
                                 }
                                 title="View Invoice"
-                                className="h-8 w-8 text-purple-600"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
                               >
                                 <FileText className="h-4 w-4" />
                               </Button>
@@ -764,7 +779,7 @@ export default function SalesOrdersPage() {
                                 size="icon"
                                 onClick={() => handleCreateInvoice(o._id)}
                                 title="Create Invoice"
-                                className="h-8 w-8 text-orange-600"
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
                               >
                                 <FileText className="h-4 w-4" />
                               </Button>
@@ -775,16 +790,32 @@ export default function SalesOrdersPage() {
                               size="icon"
                               onClick={() => handleAction(o._id, "cancel")}
                               title="Cancel"
-                              className="h-8 w-8 text-red-600"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -825,11 +856,11 @@ export default function SalesOrdersPage() {
                           className="flex items-center gap-1 flex-1"
                         >
                           <div
-                            className={`h-2 flex-1 rounded-full transition-colors ${
+                            className={`h-1.5 flex-1 rounded-none transition-colors ${
                               isCompleted
-                                ? "bg-green-500"
+                                ? "bg-emerald-500"
                                 : isCurrent
-                                  ? "bg-blue-500"
+                                  ? "bg-primary"
                                   : "bg-muted"
                             }`}
                             title={Q2C_STATUS_LABELS[step]}
@@ -840,7 +871,7 @@ export default function SalesOrdersPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <Badge
-                      className={`${Q2C_STATUS_COLORS[(currentOrder.q2cStatus || Q2C_STATUS.LEAD) as Q2CStatus]?.bg} ${Q2C_STATUS_COLORS[(currentOrder.q2cStatus || Q2C_STATUS.LEAD) as Q2CStatus]?.text} border-0 text-[10px]`}
+                      className="rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-[0.1em] hover:bg-transparent shadow-none text-muted-foreground"
                     >
                       {
                         Q2C_STATUS_LABELS[
@@ -863,7 +894,7 @@ export default function SalesOrdersPage() {
                           <Button
                             key={nextSt}
                             size="sm"
-                            className="h-7 text-xs"
+                            className="h-7 font-mono text-[10px] uppercase tracking-wider"
                             onClick={() => {
                               handleQ2CTransition(currentOrder._id, nextSt);
                               setIsModalOpen(false);
@@ -896,7 +927,7 @@ export default function SalesOrdersPage() {
                     </Button>
                   ) : (
                     <Button
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                      className="font-mono text-[11px] uppercase tracking-wider"
                       onClick={() => {
                         setIsModalOpen(false);
                         handleCreateInvoice(currentOrder?._id);

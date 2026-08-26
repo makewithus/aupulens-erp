@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { DunningRuleForm, type DunningRuleFormValue } from "@/components/sales/subscriptions/DunningRuleForm";
+import { Loader2 } from "lucide-react";
 
 export default function EditDunningRulePage() {
   const { data: session } = useSession();
@@ -49,7 +50,7 @@ export default function EditDunningRulePage() {
         {value ? (
           <DunningRuleForm initialValue={value} ruleId={id} />
         ) : (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         )}
       </div>
     </DashboardLayout>

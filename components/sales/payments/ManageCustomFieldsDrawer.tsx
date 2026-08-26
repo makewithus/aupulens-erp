@@ -119,7 +119,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
               All Preferences
             </a>
           </div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreating((c) => !c)}>
+          <Button size="sm" className="font-mono text-[11px] uppercase tracking-wider" onClick={() => setCreating((c) => !c)}>
             <Plus className="w-4 h-4 mr-1" /> New
           </Button>
         </div>
@@ -163,7 +163,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
               <Button variant="outline" size="sm" onClick={resetForm}>
                 Cancel
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={saving}>
+              <Button size="sm" className="font-mono text-[11px] uppercase tracking-wider" onClick={handleCreate} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>
             </div>
@@ -199,10 +199,10 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
                   <TableCell>{f.showInAllPdfs ? "Yes" : "No"}</TableCell>
                   <TableCell>
                     <button
-                      className={`text-xs px-2 py-0.5 rounded-none border ${
+                      className={`font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 rounded-none border ${
                         f.status === "active"
-                          ? "bg-green-100 text-green-700 border-green-200"
-                          : "bg-accent text-muted-foreground border-border"
+                          ? "text-emerald-500 border-emerald-500/30"
+                          : "text-muted-foreground border-border/40"
                       }`}
                       onClick={() => toggleStatus(f)}
                     >

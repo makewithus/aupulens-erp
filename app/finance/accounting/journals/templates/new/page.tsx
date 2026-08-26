@@ -267,7 +267,7 @@ export default function NewJournalTemplatePage() {
             >
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6" onClick={handleSave} disabled={saving}>
+            <Button className="bg-foreground hover:bg-foreground/90 text-background font-medium px-6" onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>

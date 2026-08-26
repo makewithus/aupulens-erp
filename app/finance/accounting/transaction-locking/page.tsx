@@ -144,7 +144,7 @@ export default function TransactionLockingPage() {
           <div className="text-center py-16 text-muted-foreground">Loading...</div>
         ) : isAllLocked ? (
           <div className="rounded-lg border p-8 bg-card flex flex-col items-center text-center space-y-3">
-            <Lock className="h-8 w-8 text-blue-600" />
+            <Lock className="h-8 w-8 text-foreground" />
             <h3 className="text-lg font-semibold">All Transactions Locked</h3>
             <p className="text-sm text-muted-foreground">
               Locked up to {allLock?.lockedUpToDate ? new Date(allLock.lockedUpToDate).toLocaleDateString() : "-"}
@@ -168,7 +168,7 @@ export default function TransactionLockingPage() {
               return (
                 <div key={m.key} className="rounded-lg border bg-card p-5 flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    {locked ? <Lock className="h-5 w-5 text-blue-600 mt-0.5" /> : <Icon className="h-5 w-5 text-muted-foreground mt-0.5" />}
+                    {locked ? <Lock className="h-5 w-5 text-foreground mt-0.5" /> : <Icon className="h-5 w-5 text-muted-foreground mt-0.5" />}
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="font-semibold">{m.title}</h3>

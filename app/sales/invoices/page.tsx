@@ -7,12 +7,16 @@ import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
+import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Check, Settings, LayoutGrid, Plus, MoreHorizontal, Search, FileText } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export default function SalesInvoicesLandingPage() {
@@ -45,57 +49,46 @@ export default function SalesInvoicesLandingPage() {
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-      <div className="w-24 h-24 mb-6 relative">
-        <div className="absolute inset-0 bg-blue-100 rounded-full dark:bg-blue-900/30"></div>
-        <FileText className="w-12 h-12 absolute inset-0 m-auto text-blue-600" />
-      </div>
-      <h2 className="text-2xl font-bold mb-8">Creating invoices lightning fast.</h2>
-      
+      <FileText className="w-12 h-12 mb-6 text-muted-foreground/30" />
+      <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground mb-8">Creating invoices lightning fast.</h2>
+
       <div className="space-y-4 mb-10 text-left max-w-sm mx-auto">
-        <div className="flex items-start">
-          <div className="bg-green-100 text-green-600 rounded-full p-1 mr-3 mt-0.5">
-            <Check className="w-4 h-4" />
-          </div>
-          <p className="text-muted-foreground text-sm">Create invoices in 10 seconds & share them with customers</p>
+        <div className="flex items-start gap-3">
+          <Check className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+          <p className="text-muted-foreground text-sm">Create invoices in 10 seconds &amp; share them with customers</p>
         </div>
-        <div className="flex items-start">
-          <div className="bg-green-100 text-green-600 rounded-full p-1 mr-3 mt-0.5">
-            <Check className="w-4 h-4" />
-          </div>
+        <div className="flex items-start gap-3">
+          <Check className="w-4 h-4 mt-0.5 text-primary shrink-0" />
           <p className="text-muted-foreground text-sm">Discover templates that are perfect for your business</p>
         </div>
-        <div className="flex items-start">
-          <div className="bg-green-100 text-green-600 rounded-full p-1 mr-3 mt-0.5">
-            <Check className="w-4 h-4" />
-          </div>
+        <div className="flex items-start gap-3">
+          <Check className="w-4 h-4 mt-0.5 text-primary shrink-0" />
           <p className="text-muted-foreground text-sm">Keep track of your day-to-day transactions</p>
         </div>
       </div>
-      
+
       <Link href="/sales/invoices/new">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 rounded-md text-base shadow-lg transition-transform hover:-translate-y-1">
-          <Plus className="w-5 h-5 mr-2" /> Create your first invoice
+        <Button className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
+          <Plus className="h-4 w-4 mr-2" /> Create your first invoice
         </Button>
       </Link>
-      
-      <div className="flex items-center gap-6 mt-12 text-sm">
+
+      <div className="flex items-center gap-6 mt-12 text-sm font-mono text-[11px] uppercase tracking-widest">
         <Button variant="link" className="text-muted-foreground">Talk to a specialist</Button>
-        <span className="text-muted-foreground">•</span>
+        <span className="text-muted-foreground/40">•</span>
         <Button variant="link" className="text-muted-foreground">+91-9876543210 (WhatsApp)</Button>
-        <span className="text-muted-foreground">•</span>
-        <Button variant="link" className="text-blue-600">Watch how it works</Button>
+        <span className="text-muted-foreground/40">•</span>
+        <Button variant="link" className="text-primary">Watch how it works</Button>
       </div>
     </div>
   );
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'paid': return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800';
-      case 'partially_paid': return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:border-yellow-800';
-      case 'draft': return 'bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border dark:text-foreground';
-      case 'overdue': return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800';
-      default: return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800';
-    }
+  const statusColors: Record<string, string> = {
+    paid: "text-emerald-500",
+    partially_paid: "text-amber-500",
+    draft: "text-muted-foreground",
+    saved: "text-blue-500",
+    overdue: "text-red-500",
   };
 
   return (
@@ -113,108 +106,145 @@ export default function SalesInvoicesLandingPage() {
     >
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <SalesTabNav />
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            Invoices
-            <span className="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-md ml-2">{invoices.length > 0 ? invoices.length : 0}</span>
-          </h1>
-          
-          <div className="flex items-center gap-3">
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className={SALES_PAGE_TITLE_CLASS}>
+              Invoices
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
             <Link href="/sales/document-settings">
-              <Button variant="outline" className="border-border text-foreground">
+              <Button
+                variant="outline"
+                className="h-11 rounded-none border-border/40 text-foreground font-mono text-[12px] uppercase tracking-wider"
+              >
                 <Settings className="w-4 h-4 mr-2" /> Document Settings
               </Button>
             </Link>
-            <Button variant="outline" className="border-border text-foreground">
+            <Button
+              variant="outline"
+              className="h-11 rounded-none border-border/40 text-foreground font-mono text-[12px] uppercase tracking-wider"
+            >
               <LayoutGrid className="w-4 h-4 mr-2" /> POS Billing
             </Button>
             <Link href="/sales/invoices/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
+              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-2" /> Create Invoice
               </Button>
             </Link>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : invoices.length === 0 && !search && statusFilter === "all" ? (
+        {!loading && invoices.length === 0 && !search && statusFilter === "all" ? (
           renderEmptyState()
         ) : (
-          <div className="bg-card border rounded-lg shadow-sm overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center gap-4 bg-muted/20">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  placeholder="Search invoices..." 
-                  className="pl-9"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="w-48">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="saved">Saved</SelectItem>
-                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                  </SelectContent>
-                </Select>
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            <div className="border-b border-border/20 px-8 py-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="shrink-0">
+                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                    All Invoices
+                  </h2>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {invoices.length} {invoices.length === 1 ? "Invoice" : "Invoices"}
+                  </p>
+                </div>
+
+                <div className="w-full max-w-2xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
+                    <Input
+                      placeholder="Search invoices..."
+                      className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-full text-foreground"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 w-full md:w-[190px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-border/30">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="saved">Saved</SelectItem>
+                      <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            
-            <div className="overflow-x-auto">
+
+            <CardContent className="p-0">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30">
-                    <TableHead className="font-semibold text-foreground">INVOICE NUMBER</TableHead>
-                    <TableHead className="font-semibold text-foreground">DATE</TableHead>
-                    <TableHead className="font-semibold text-foreground">DUE DATE</TableHead>
-                    <TableHead className="font-semibold text-foreground">CUSTOMER</TableHead>
-                    <TableHead className="font-semibold text-foreground">STATUS</TableHead>
-                    <TableHead className="font-semibold text-foreground text-right">AMOUNT</TableHead>
-                    <TableHead className="font-semibold text-foreground w-[80px]"></TableHead>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Invoice Number</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Due Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                    <TableHead className="px-4 py-5 w-[64px]"></TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {invoices.length === 0 ? (
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell className="px-4 py-7"><Skeleton className="h-8 w-8" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : invoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                        No invoices found matching your criteria.
+                      <TableCell colSpan={7} className="py-24 text-center">
+                        <FileText className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                        <h3 className="text-lg font-medium text-foreground">No invoices found</h3>
+                        <p className="mt-2 text-sm text-muted-foreground">Try adjusting your search or filters.</p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     invoices.map((inv) => (
-                      <TableRow key={inv._id} className="hover:bg-muted/50 cursor-pointer">
-                        <TableCell className="font-medium text-blue-600">
+                      <TableRow key={inv._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
                           <Link href={`/sales/invoices/${inv._id}`}>{inv.number}</Link>
                         </TableCell>
-                        <TableCell>{new Date(inv.invoiceDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(inv.dueDate).toLocaleDateString()}</TableCell>
-                        <TableCell className="font-medium">{inv.customerId?.header?.name || "Unknown"}</TableCell>
-                        <TableCell>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(inv.status)}`}>
-                            {inv.status.replace('_', ' ').toUpperCase()}
-                          </span>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          {new Date(inv.invoiceDate).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right font-medium">₹ {inv.totalAmount?.toFixed(2)}</TableCell>
-                        <TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          {new Date(inv.dueDate).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          {inv.customerId?.header?.name || "Unknown"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                          <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[inv.status] || "text-muted-foreground"}`}>
+                            {inv.status.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                          ₹{inv.totalAmount?.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="px-4 py-7">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground cursor-pointer">
                                 <span className="sr-only">Open menu</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="rounded-none">
                               <DropdownMenuItem asChild>
                                 <Link href={`/sales/invoices/${inv._id}`}>View Details</Link>
                               </DropdownMenuItem>
@@ -239,8 +269,8 @@ export default function SalesInvoicesLandingPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </DashboardLayout>

@@ -303,13 +303,13 @@ export function SalesOrderForm() {
   return (
     <div className="min-h-screen bg-background text-foreground pb-24">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+      <header className="sticky top-0 z-10 bg-card border-b border-border/40 px-4 py-3 flex items-center justify-between shadow-none flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => router.push("/sales/sales-orders")}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-muted-foreground hover:text-foreground hover:bg-white/5" onClick={() => router.push("/sales/sales-orders")}>
             <X className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-muted-foreground">New Sales Order</h1>
+            <h1 className="text-lg font-black tracking-tight text-primary">New Sales Order</h1>
           </div>
         </div>
       </header>
@@ -330,7 +330,7 @@ export function SalesOrderForm() {
                 <span className="flex items-center gap-2">
                   {c.header?.displayName || c.header?.name}
                   {subscriberCustomerIds.has(c._id) && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-none border border-blue-300 text-blue-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-none border border-blue-500/40 text-blue-500">
                       Subscriber
                     </span>
                   )}
@@ -415,18 +415,18 @@ export function SalesOrderForm() {
 
       {customerId && (
         <>
-        <div className="border rounded-none">
-        <div className="flex items-center justify-between p-3 border-b bg-muted/30">
-          <span className="font-semibold text-sm">Item Table</span>
-          <button className="text-xs text-blue-600 underline">Bulk Actions</button>
+        <div className="border border-border/40 rounded-none">
+        <div className="flex items-center justify-between p-3 border-b border-border/20">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Item Table</span>
+          <button className="font-mono text-[11px] uppercase tracking-wider text-primary underline">Bulk Actions</button>
         </div>
         <Table>
-          <TableHeader>
+          <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead>ITEM DETAILS</TableHead>
-              <TableHead className="w-24">QUANTITY</TableHead>
-              <TableHead className="w-28">RATE</TableHead>
-              <TableHead className="w-28 text-right">AMOUNT</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Item Details</TableHead>
+              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Quantity</TableHead>
+              <TableHead className="w-28 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Rate</TableHead>
+              <TableHead className="w-28 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Amount</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -620,20 +620,20 @@ export function SalesOrderForm() {
       </>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
-        <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
+        <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => handleSave("draft")} disabled={saving}>
           Save as Draft
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleSave("confirmed")} disabled={saving}>
+        <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={() => handleSave("confirmed")} disabled={saving}>
           {saving ? "Saving..." : "Save and Send"}
         </Button>
-        <Button variant="outline" onClick={() => router.push("/sales/sales-orders")}>
+        <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/sales-orders")}>
           Cancel
         </Button>
       </div>
 
       <Dialog open={numberModalOpen} onOpenChange={setNumberModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-none">
           <h2 className="text-lg font-semibold mb-1">Configure Sales Order# Preferences</h2>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -668,7 +668,7 @@ export function SalesOrderForm() {
             <Button variant="outline" onClick={() => setNumberModalOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSaveNumberSettings} disabled={savingNumberSettings}>
+            <Button onClick={handleSaveNumberSettings} disabled={savingNumberSettings}>
               {savingNumberSettings ? "Saving..." : "Save"}
             </Button>
           </div>

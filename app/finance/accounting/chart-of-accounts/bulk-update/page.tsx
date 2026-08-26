@@ -58,7 +58,7 @@ export default function BulkUpdatePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="bg-foreground hover:bg-foreground/90 text-background">
                 Replace
               </Button>
             </div>
@@ -93,7 +93,7 @@ export default function BulkUpdatePage() {
             <div className="mb-6 w-32 h-32 flex items-center justify-center">
               {/* Simple placeholder for the graphic */}
               <div className="relative">
-                <FileStack className="w-24 h-24 text-blue-500 opacity-80" />
+                <FileStack className="w-24 h-24 text-foreground/60 opacity-80" />
                 <div className="absolute top-0 right-0 bg-yellow-400 w-6 h-6 rounded-sm shadow transform rotate-12"></div>
                 <div className="absolute bottom-0 left-0 bg-purple-500 w-8 h-8 rounded-sm shadow transform -rotate-6"></div>
               </div>
@@ -112,7 +112,7 @@ export default function BulkUpdatePage() {
               </p>
             </div>
 
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-5 rounded-md text-sm font-medium" onClick={() => setModalOpen(true)}>
+            <Button className="bg-foreground hover:bg-foreground/90 text-background px-6 py-5 rounded-md text-sm font-medium" onClick={() => setModalOpen(true)}>
               Filter and Bulk Update
             </Button>
           </div>
@@ -172,7 +172,7 @@ export default function BulkUpdatePage() {
           </div>
           
           <div className="px-6 py-4 bg-muted/30 border-t flex space-x-2 rounded-b-lg">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white px-6" onClick={() => { setShowResults(true); setModalOpen(false); }}>Search</Button>
+            <Button className="bg-foreground hover:bg-foreground/90 text-background px-6" onClick={() => { setShowResults(true); setModalOpen(false); }}>Search</Button>
             <Button variant="outline" className="bg-background" onClick={() => setModalOpen(false)}>Cancel</Button>
           </div>
         </DialogContent>

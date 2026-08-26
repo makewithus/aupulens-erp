@@ -94,7 +94,7 @@ export function CreateCustomerDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={handleCreate} disabled={saving} className="font-mono text-[11px] uppercase tracking-wider">
             {saving ? "Creating..." : "Create Customer"}
           </Button>
         </DialogFooter>

@@ -14,7 +14,7 @@ import { auth } from "@/auth";
 
 const roboto = Roboto({
   variable: "--font-roboto",
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "700", "900"],
   subsets: ["latin"],
 });
 

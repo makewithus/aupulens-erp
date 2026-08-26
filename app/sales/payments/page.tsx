@@ -9,7 +9,11 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
+import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -51,55 +55,50 @@ const SORT_FIELDS = [
   { key: "mode", label: "Mode" },
 ];
 
-function statusColor(status: string) {
-  switch (status) {
-    case "paid":
-      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
-    case "draft":
-      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
-    case "void":
-      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
-    default:
-      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
-  }
-}
+const statusColors: Record<string, string> = {
+  paid: "text-emerald-500",
+  draft: "text-amber-500",
+  void: "text-red-500",
+};
 
 function LifecycleDiagram() {
   return (
-    <div className="bg-muted/30 border rounded-none p-8">
-      <h3 className="text-sm font-semibold text-center mb-8">Life cycle of a Customer Payment</h3>
+    <Card className="border border-border/40 shadow-none bg-background rounded-none p-8">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 text-center mb-8">Life cycle of a Customer Payment</h3>
       <div className="flex flex-col items-center gap-6">
-        <div className="flex border rounded-none bg-background">
-          {["INITIAL REQUEST", "REMINDER 1", "REMINDER 2", "REMINDER N"].map((label, i) => (
+        <div className="flex border border-border/40 rounded-none bg-background">
+          {["Initial Request", "Reminder 1", "Reminder 2", "Reminder N"].map((label, i) => (
             <div
               key={label}
-              className={`px-5 py-2.5 text-xs font-semibold whitespace-nowrap ${i > 0 ? "border-l" : ""}`}
+              className={`px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap ${i > 0 ? "border-l border-border/40" : ""}`}
             >
               {label}
             </div>
           ))}
         </div>
-        <span className="text-muted-foreground text-xs">┊</span>
+        <span className="text-muted-foreground/50 text-xs">┊</span>
         <div className="flex items-center gap-6 flex-wrap justify-center">
           {[
-            { icon: Wallet, label: "PAYPAL" },
-            { icon: CreditCard, label: "CREDIT CARD" },
-            { icon: Landmark, label: "BANK" },
-            { icon: HandCoins, label: "MANUAL / OFFLINE" },
+            { icon: Wallet, label: "PayPal" },
+            { icon: CreditCard, label: "Credit Card" },
+            { icon: Landmark, label: "Bank" },
+            { icon: HandCoins, label: "Manual / Offline" },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-2 border rounded-none px-4 py-2.5 bg-background">
+            <div key={label} className="flex items-center gap-2 border border-border/40 rounded-none px-4 py-2.5 bg-background">
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="text-xs font-semibold whitespace-nowrap">{label}</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap">{label}</span>
             </div>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
-          PAID THROUGH <span className="text-red-600 font-semibold">CLIENT PORTAL</span> (PayPal, Credit Card, Bank)
+        <p className="font-mono text-[11px] text-muted-foreground/60">
+          Paid through <span className="text-red-500 font-semibold">Client Portal</span> (PayPal, Credit Card, Bank)
         </p>
       </div>
-    </div>
+    </Card>
   );
 }
+
+const LIMIT = 10;
 
 export default function PaymentsPage() {
   const { data: session } = useSession();
@@ -114,6 +113,11 @@ export default function PaymentsPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const activeView = views.find((v) => v._id === activeViewId);
   const extraColumns: string[] = activeView?.columns?.length ? activeView.columns : [];
@@ -135,13 +139,18 @@ export default function PaymentsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
+      if (debouncedQuery) params.set("search", debouncedQuery);
       const res = await cachedFetch(`/api/sales/payments?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setPayments(json.data || []);
+      if (json.success) {
+        setPayments(json.data || []);
+        setTotal(json.total ?? 0);
+        setTotalPages(json.totalPages ?? 1);
+      }
       else toast.error(json.message || "Failed to load payments");
     } catch (error) {
       console.error("Error loading payments:", error);
@@ -149,11 +158,20 @@ export default function PaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, sortDir]);
+  }, [activeViewId, sortField, sortDir, page, debouncedQuery]);
 
   useEffect(() => {
     fetchViews();
   }, [fetchViews]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, activeViewId, sortField, sortDir]);
 
   useEffect(() => {
     load();
@@ -200,14 +218,14 @@ export default function PaymentsPage() {
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <SalesTabNav />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1 text-lg font-bold">
-                {activeView?.name || "All Received Payments"} <ChevronDown className="w-4 h-4" />
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
+                {activeView?.name || "All Received Payments"} <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
+            <DropdownMenuContent align="start" className="w-72 rounded-none">
               <div className="p-2">
                 <Input placeholder="Search views" value={viewSearch} onChange={(e) => setViewSearch(e.target.value)} className="h-8" />
               </div>
@@ -245,18 +263,24 @@ export default function PaymentsPage() {
           </DropdownMenu>
 
           <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search payments..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-11 w-56 rounded-none bg-background"
+            />
             <Link href="/sales/payments/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="h-11 w-11 rounded-none border-border/40">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuContent align="end" className="w-64 rounded-none">
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Sort by</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -303,71 +327,113 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : payments.length === 0 ? (
-          <div className="space-y-10">
+        {!loading && payments.length === 0 && !debouncedQuery ? (
+          <div className="space-y-6">
             <div className="flex flex-col items-center py-16 px-4 text-center">
-              <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-                <Wallet className="w-8 h-8 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-bold mb-2">No payments received, yet</h2>
+              <Wallet className="w-12 h-12 mb-6 text-muted-foreground/30" />
+              <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground mb-2">No payments received, yet</h2>
               <p className="text-sm text-muted-foreground max-w-md mb-6">
                 Payments will be added once your customers pay for their invoices.
               </p>
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
                 onClick={() => router.push("/sales/invoices?status=saved")}
               >
-                GO TO UNPAID INVOICES
+                Go to Unpaid Invoices
               </Button>
-              <button className="text-sm text-blue-600 underline mt-4" onClick={() => router.push("/sales/payments/import")}>
+              <button className="font-mono text-[11px] uppercase tracking-wider text-primary underline mt-4" onClick={() => router.push("/sales/payments/import")}>
                 Import Payments
               </button>
             </div>
             <LifecycleDiagram />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer Name</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                {extraColumns.map((key) => (
-                  <TableHead key={key}>{columnLabel(key)}</TableHead>
-                ))}
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.map((p: any) => (
-                <TableRow
-                  key={p._id}
-                  className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => router.push(`/sales/payments/${p._id}`)}
-                >
-                  <TableCell>{p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "—"}</TableCell>
-                  <TableCell className="font-medium">
-                    {p.customerId?.header?.displayName || p.customerId?.header?.name || "—"}
-                  </TableCell>
-                  <TableCell>{p.mode}</TableCell>
-                  <TableCell className="text-right">
-                    ₹{Number(p.amountReceived || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  {extraColumns.map((key) => (
-                    <TableCell key={key}>{extraValue(p, key)}</TableCell>
-                  ))}
-                  <TableCell>
-                    <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(p.status)}`}>
-                      {p.status}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="border-border/40">
+                  <TableRow>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer Name</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Mode</TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                    {extraColumns.map((key) => (
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                        {columnLabel(key)}
+                      </TableHead>
+                    ))}
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-8 py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell className="px-8 py-7"><Skeleton className="h-4 w-16" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : payments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5 + extraColumns.length} className="py-16 text-center text-sm text-muted-foreground">
+                        No payments match your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    payments.map((p: any) => (
+                      <TableRow
+                        key={p._id}
+                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
+                        onClick={() => router.push(`/sales/payments/${p._id}`)}
+                      >
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                          {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "—"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                          {p.customerId?.header?.displayName || p.customerId?.header?.name || "—"}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          {p.mode}
+                        </TableCell>
+                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                          ₹{Number(p.amountReceived || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        {extraColumns.map((key) => (
+                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                            {extraValue(p, key)}
+                          </TableCell>
+                        ))}
+                        <TableCell className="px-8 py-7">
+                          <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[p.status] || "text-muted-foreground"}`}>
+                            {p.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 

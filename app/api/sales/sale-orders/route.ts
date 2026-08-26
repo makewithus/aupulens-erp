@@ -4,7 +4,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import SaleOrder from "@/models/SaleOrder";
-import "@/models/Customer";
+import Customer from "@/models/Customer";
 import "@/models/Product";
 
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
@@ -47,6 +47,8 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
     const q2cStatus = searchParams.get("q2cStatus");
     const partnerId = searchParams.get("partnerId");
+    const search = (searchParams.get("search") || "").trim();
+    const pageParam = searchParams.get("page");
 
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
@@ -69,14 +71,41 @@ export async function GET(request: Request) {
       query["header.partnerId"] = partnerId;
     }
 
-    const orders = await SaleOrder.find(query)
+    if (search) {
+      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
+      query.$or = [
+        { "header.name": re },
+        { "header.partnerId": { $in: matchingPartners.map((p) => p._id) } },
+      ];
+    }
+
+    const baseQuery = SaleOrder.find(query)
       .populate("header.partnerId", "header.name")
       .populate("orderLines.productId", "header.name")
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    if (!pageParam) {
+      // Backward-compat: no ?page= → return everything, unpaginated. The Q2C
+      // Pipeline board (app/sales/pipeline/page.tsx) needs every order across
+      // every stage at once to render its kanban columns, so this path must
+      // keep returning the full result set exactly as before.
+      const orders = await baseQuery.lean();
+      const clientOrders = orders.map(mapOrderToClient);
+      return NextResponse.json({ items: clientOrders });
+    }
+
+    const page = Math.max(1, parseInt(pageParam));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
+    const skip = (page - 1) * limit;
+
+    const [total, orders] = await Promise.all([
+      SaleOrder.countDocuments(query),
+      baseQuery.skip(skip).limit(limit).lean(),
+    ]);
 
     const clientOrders = orders.map(mapOrderToClient);
-    return NextResponse.json({ items: clientOrders });
+    return NextResponse.json({ items: clientOrders, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error) {
     console.error("Error fetching sale orders:", error);
     return NextResponse.json(

@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const voucherType = searchParams.get("voucherType");
     const voucherStatus = searchParams.get("voucherStatus");
+    const onlyVouchers = searchParams.get("onlyVouchers") === "true";
+    const search = (searchParams.get("search") || "").trim();
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
@@ -34,6 +36,15 @@ export async function GET(req: NextRequest) {
     const filter: any = { tenantId };
     if (voucherType) filter.voucherType = voucherType;
     if (voucherStatus) filter.voucherStatus = voucherStatus;
+    if (onlyVouchers) filter.voucherType = filter.voucherType || { $exists: true, $ne: null };
+    if (search) {
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { "header.name": re },
+        { "header.ref": re },
+        { "header.journalType": re },
+      ];
+    }
 
     const [total, items] = await Promise.all([
       JournalEntry.countDocuments(filter),

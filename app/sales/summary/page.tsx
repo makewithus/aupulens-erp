@@ -8,20 +8,21 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
-  Package,
-  ClipboardList,
-  DollarSign,
   Truck,
   Users,
   PlusCircle,
   Activity,
+  ArrowRight,
 } from "lucide-react";
 import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { SalesVisualization } from "@/components/sales/SalesVisualization";
 import { useToast } from "@/components/ui/toast";
-import { StatCard } from "@/components/dashboard/summary/StatCard";
-import { QuickActionCard } from "@/components/dashboard/summary/QuickActionCard";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 
 interface SalesSummary {
   totalOrders: number;
@@ -125,11 +126,11 @@ export default function SalesSummaryPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={fetchSummary}
     >
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="space-y-6">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Good{" "}
               {new Date().getHours() < 12
                 ? "Morning"
@@ -138,7 +139,7 @@ export default function SalesSummaryPage() {
                   : "Evening"}
               , {session?.user?.name?.split(" ")[0] || "Team"}
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground text-sm">
               Here is your sales performance overview for{" "}
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
@@ -148,83 +149,75 @@ export default function SalesSummaryPage() {
               .
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              className="shadow-lg shadow-blue-500/20"
-              onClick={fetchSummary}
-            >
-              <Activity className="w-4 h-4 mr-2" />
-              Refresh Data
-            </Button>
-          </div>
+          <Button
+            onClick={fetchSummary}
+            className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Refresh Data
+          </Button>
         </div>
 
         {error && (
-          <div className="p-4 text-sm text-destructive bg-destructive/10 rounded-lg border border-destructive/20 animate-pulse">
+          <div className="p-4 font-mono text-[11px] uppercase tracking-wider text-destructive bg-destructive/10 border border-destructive/20">
             {error}
           </div>
         )}
 
         {/* Stats Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
           <StatCard
             title="Total Revenue (30d)"
-            value={`₹${summary?.totalRevenue?.toLocaleString() ?? 0}`}
-            icon={DollarSign}
-            color="text-emerald-500 bg-emerald-500"
-            trend={formatTrend(summary?.trends?.revenue)}
+            value={`₹${summary?.totalRevenue?.toLocaleString("en-IN") ?? 0}`}
+            visual={<UsersGraph />}
+            subtitle={formatTrend(summary?.trends?.revenue)}
           />
           <StatCard
             title="Orders (30d)"
             value={summary?.totalOrders ?? 0}
-            icon={Package}
-            color="text-blue-500 bg-blue-500"
-            trend={formatTrend(summary?.trends?.orders)}
+            visual={<ActivePulse />}
+            subtitle={formatTrend(summary?.trends?.orders)}
           />
           <StatCard
             title="Quotations (30d)"
             value={summary?.totalQuotations ?? 0}
-            icon={ClipboardList}
-            color="text-amber-500 bg-amber-500"
-            trend={formatTrend(summary?.trends?.quotations)}
+            visual={<UsersGraph />}
+            subtitle={formatTrend(summary?.trends?.quotations)}
           />
           <StatCard
             title="Deliveries Pending"
             value={summary?.deliveriesPending ?? 0}
-            icon={Truck}
-            color="text-purple-500 bg-purple-500"
-            trend={undefined} // No trend for snapshot data
+            visual={<InactiveOrbit />}
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-1">
           {/* Quick Actions Row */}
-          <div className="grid md:grid-cols-3 gap-6">
-            <QuickActionCard
-              title="Create Quotation"
-              description="Draft a new proposal"
-              icon={PlusCircle}
-              href="/sales/quotations"
-              color="bg-blue-500 text-blue-500"
-            />
-            <QuickActionCard
-              title="New Customer"
-              description="Register a new client"
-              icon={Users}
-              href="/sales/customers"
-              color="bg-emerald-500 text-emerald-500"
-            />
-            <QuickActionCard
-              title="Process Delivery"
-              description="Manage logistics"
-              icon={Truck}
-              href="/sales/delivery-challans" // Assuming this page exists
-              color="bg-purple-500 text-purple-500"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+            {[
+              { title: "Create Quotation", description: "Draft a new proposal", icon: PlusCircle, href: "/sales/quotations" },
+              { title: "New Customer", description: "Register a new client", icon: Users, href: "/sales/customers" },
+              { title: "Process Delivery", description: "Manage logistics", icon: Truck, href: "/sales/delivery-challans" },
+            ].map((action) => (
+              <Link key={action.title} href={action.href}>
+                <Card className="group overflow-hidden border border-border/40 shadow-none rounded-none bg-background p-6 h-full transition-all duration-300 hover:border-primary/40">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <action.icon className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{action.title}</p>
+                        <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/50 mt-0.5">{action.description}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-1" />
+                  </div>
+                </Card>
+              </Link>
+            ))}
           </div>
 
           {/* Main Chart Section */}
-          <Card className="border-none shadow-md overflow-hidden">
+          <Card className="border border-border/40 shadow-none rounded-none overflow-hidden">
             <div className="p-1">
               <SalesVisualization
                 title="Sales Performance Overview"

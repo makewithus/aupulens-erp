@@ -99,6 +99,9 @@ PaymentSchema.index({ tenantId: 1, paymentNumber: 1 }, { unique: true });
 PaymentSchema.index({ tenantId: 1, customerId: 1 });
 PaymentSchema.index({ tenantId: 1, status: 1 });
 PaymentSchema.index({ tenantId: 1, createdAt: -1 });
+// The Payments list's default view sorts by paymentDate (not createdAt) —
+// without this, that sort ran unindexed against the whole tenant's payments.
+PaymentSchema.index({ tenantId: 1, paymentDate: -1 });
 
 const Payment: Model<IPayment> =
   (mongoose.models.Payment as Model<IPayment>) || mongoose.model<IPayment>("Payment", PaymentSchema);

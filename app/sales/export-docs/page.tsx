@@ -256,9 +256,12 @@ export default function ExportDocsPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       profileHref="/sales/profile"
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            Export Documentation
+          </h1>
+        </div>
 
         {/* Info Grid */}
         <div className="grid gap-6 md:grid-cols-3 mb-6">
@@ -393,8 +396,8 @@ export default function ExportDocsPage() {
 
                       <div className="text-sm text-muted-foreground font-mono mt-1">
                         {order.items.length}{" "}
-                        {order.items.length === 1 ? "item" : "items"} • Total: $
-                        {order.total.toLocaleString()}
+                        {order.items.length === 1 ? "item" : "items"} • Total: ₹
+                        {order.total.toLocaleString("en-IN")}
                       </div>
 
                       <div className="flex flex-wrap gap-2 pt-4 border-t border-border/10 mt-2">

@@ -422,7 +422,7 @@ export default function BankingLandingPage() {
                             <Landmark className="h-4 w-4 text-muted-foreground" />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium text-blue-600 dark:text-blue-400">
+                        <TableCell className="font-medium text-foreground">
                           {a.accountName} {a.isPrimary && <span className="text-xs text-muted-foreground">(Primary)</span>}
                         </TableCell>
                         <TableCell className="capitalize">{a.accountType.replace("_", " ")}</TableCell>

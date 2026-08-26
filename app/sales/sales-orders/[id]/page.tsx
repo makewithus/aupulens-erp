@@ -7,24 +7,19 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 
-function statusColor(status: string) {
-  switch (status) {
-    case "confirmed":
-    case "approved":
-      return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800";
-    case "pending_approval":
-      return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800";
-    case "on_hold":
-      return "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800";
-    case "void":
-    case "closed":
-      return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800";
-    default:
-      return "bg-accent text-muted-foreground border-border dark:bg-accent dark:border-border";
-  }
-}
+const statusColors: Record<string, string> = {
+  confirmed: "text-emerald-500",
+  approved: "text-emerald-500",
+  pending_approval: "text-amber-500",
+  on_hold: "text-orange-500",
+  void: "text-red-500",
+  closed: "text-red-500",
+};
 
 export default function SalesOrderDetailPage() {
   const { data: session } = useSession();
@@ -103,103 +98,105 @@ export default function SalesOrderDetailPage() {
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : !order ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Sales order not found</div>
+          <div className="py-16 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Sales order not found</div>
         ) : (
           <>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold">{order.header?.name}</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-3xl font-black tracking-tighter text-primary">{order.header?.name}</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   {order.header?.partnerId?.header?.displayName || order.header?.partnerId?.header?.name}
                 </p>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-none border capitalize ${statusColor(order.salesOrderStatus)}`}>
+              <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[order.salesOrderStatus] || "text-muted-foreground"}`}>
                 {order.salesOrderStatus?.replace("_", " ")}
-              </span>
+              </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 border rounded-none p-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Amount</p>
-                <p className="font-medium">₹{Number(order.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+            <Card className="border border-border/40 shadow-none bg-background rounded-none p-6">
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount</p>
+                  <p className="font-mono text-foreground mt-1">₹{Number(order.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Shipment Status</p>
+                  <p className="font-medium text-foreground mt-1 capitalize">{order.shipmentStatus?.replace(/_/g, " ")}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Invoicing Status</p>
+                  <p className="font-medium text-foreground mt-1 capitalize">{order.invoicingStatus?.replace(/_/g, " ")}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Expected Shipment Date</p>
+                  <p className="font-medium text-foreground mt-1">
+                    {order.expectedShipmentDate ? new Date(order.expectedShipmentDate).toLocaleDateString("en-IN") : "—"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Shipment Status</p>
-                <p className="font-medium capitalize">{order.shipmentStatus?.replace(/_/g, " ")}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Invoicing Status</p>
-                <p className="font-medium capitalize">{order.invoicingStatus?.replace(/_/g, " ")}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Expected Shipment Date</p>
-                <p className="font-medium">
-                  {order.expectedShipmentDate ? new Date(order.expectedShipmentDate).toLocaleDateString("en-IN") : "—"}
-                </p>
-              </div>
-            </div>
+            </Card>
 
-            <div className="border rounded-none">
-              <div className="p-3 border-b bg-muted/30 font-semibold text-sm">Items</div>
+            <Card className="border border-border/40 shadow-none bg-background rounded-none overflow-hidden">
+              <div className="px-6 py-4 border-b border-border/20 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Items</div>
               <Table>
-                <TableHeader>
+                <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Item</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Qty</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Rate</TableHead>
+                    <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="divide-y divide-border/30">
                   {order.orderLines?.map((line: any, i: number) => (
                     <TableRow key={i}>
-                      <TableCell>{line.name}</TableCell>
-                      <TableCell>{line.productQty}</TableCell>
-                      <TableCell>{Number(line.priceUnit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 text-sm text-foreground/85">{line.name}</TableCell>
+                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm text-foreground">{line.productQty}</TableCell>
+                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm text-foreground/80">{Number(line.priceUnit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="px-6 py-4 text-right font-mono text-sm text-foreground">
                         {Number(line.priceSubtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </Card>
 
             {order.salesInvoiceIds?.length > 0 && (
-              <div className="border rounded-none">
-                <div className="p-3 border-b bg-muted/30 font-semibold text-sm">Invoices</div>
+              <Card className="border border-border/40 shadow-none bg-background rounded-none overflow-hidden">
+                <div className="px-6 py-4 border-b border-border/20 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Invoices</div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead>Number</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Number</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="divide-y divide-border/30">
                     {order.salesInvoiceIds.map((inv: any) => (
                       <TableRow
                         key={inv._id}
-                        className="cursor-pointer hover:bg-muted/40"
+                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
                         onClick={() => router.push(`/sales/invoices/${inv._id}`)}
                       >
-                        <TableCell>{inv.number}</TableCell>
-                        <TableCell className="capitalize">{inv.status}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">{inv.number}</TableCell>
+                        <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 text-sm text-foreground/80 capitalize">{inv.status}</TableCell>
+                        <TableCell className="px-6 py-4 text-right font-mono text-sm text-foreground">
                           ₹{Number(inv.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </Card>
             )}
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               {order.salesOrderStatus === "draft" && (
-                <Button disabled={busy} onClick={() => patch({ salesOrderStatus: "confirmed" })}>
+                <Button disabled={busy} className="none-xl h-10 px-5 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[11px] uppercase tracking-wider rounded-none cursor-pointer" onClick={() => patch({ salesOrderStatus: "confirmed" })}>
                   Confirm Sales Order
                 </Button>
               )}
@@ -207,6 +204,7 @@ export default function SalesOrderDetailPage() {
                 <Button
                   variant="outline"
                   disabled={busy}
+                  className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider"
                   onClick={() =>
                     patch({
                       shipmentStatus:
@@ -222,17 +220,17 @@ export default function SalesOrderDetailPage() {
                 </Button>
               )}
               {order.invoicingStatus !== "invoiced" && (
-                <Button variant="outline" disabled={busy} onClick={convertToInvoice}>
+                <Button variant="outline" disabled={busy} className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={convertToInvoice}>
                   Convert to Invoice
                 </Button>
               )}
               {order.salesOrderStatus !== "on_hold" && order.salesOrderStatus !== "void" && order.salesOrderStatus !== "closed" && (
-                <Button variant="outline" disabled={busy} onClick={() => patch({ salesOrderStatus: "on_hold" })}>
+                <Button variant="outline" disabled={busy} className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => patch({ salesOrderStatus: "on_hold" })}>
                   Put On Hold
                 </Button>
               )}
               {order.salesOrderStatus !== "void" && order.salesOrderStatus !== "closed" && (
-                <Button variant="outline" disabled={busy} onClick={() => patch({ salesOrderStatus: "void" })}>
+                <Button variant="outline" disabled={busy} className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => patch({ salesOrderStatus: "void" })}>
                   Void
                 </Button>
               )}

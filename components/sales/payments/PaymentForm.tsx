@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, X, AlertTriangle } from "lucide-react";
+import { Settings, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
 interface InvoiceRow {
@@ -273,10 +273,10 @@ export function PaymentForm() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between border-b pb-4">
-        <h1 className="text-xl font-bold">Record Payment</h1>
-        <button onClick={() => router.push("/sales/payments")} aria-label="Close">
-          <X className="w-5 h-5 text-muted-foreground" />
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Record Payment</h1>
+        <button onClick={() => router.push("/sales/payments")} aria-label="Close" className="text-muted-foreground hover:text-foreground">
+          <X className="w-5 h-5" />
         </button>
       </div>
 
@@ -443,9 +443,9 @@ export function PaymentForm() {
 
       <div className={!enabled ? "opacity-50 pointer-events-none" : ""}>
         <div className="flex items-center justify-between mt-4">
-          <h2 className="text-sm font-semibold">Unpaid Invoices</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Unpaid Invoices</h2>
           <button
-            className="text-xs text-blue-600 underline"
+            className="font-mono text-[11px] uppercase tracking-wider text-primary underline"
             onClick={() => {
               setApplied({});
               setTouchedManually(true);
@@ -456,20 +456,20 @@ export function PaymentForm() {
         </div>
 
         <Table className="mt-2">
-          <TableHeader>
+          <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Invoice Number</TableHead>
-              <TableHead className="text-right">Invoice Amount</TableHead>
-              <TableHead className="text-right">Amount Due</TableHead>
-              <TableHead className="text-right">Payment</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Date</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Invoice Number</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Invoice Amount</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Amount Due</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Payment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loadingInvoices ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
-                  Loading...
+                <TableCell colSpan={5} className="text-center py-6">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : invoices.length === 0 ? (
@@ -512,7 +512,7 @@ export function PaymentForm() {
       </div>
 
       <div className="flex justify-end">
-        <div className="w-72 space-y-1 text-sm border rounded-none p-4 bg-muted/30">
+        <div className="w-72 space-y-1 text-sm border border-border/40 rounded-none p-4 bg-card">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Amount Received:</span>
             <span>₹{receivedNum.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
@@ -543,15 +543,15 @@ export function PaymentForm() {
         <Textarea disabled={!enabled} value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
       </div>
 
-      <div className="flex justify-end gap-2 border-t pt-4">
-        <Button variant="outline" onClick={() => router.push("/sales/payments")}>
+      <div className="flex justify-end gap-2 border-t border-border/40 pt-4">
+        <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/payments")}>
           Cancel
         </Button>
-        <Button variant="outline" disabled={!enabled || saving !== null} onClick={() => handleSave("draft")}>
+        <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" disabled={!enabled || saving !== null} onClick={() => handleSave("draft")}>
           {saving === "draft" ? "Saving..." : "Save as Draft"}
         </Button>
         <Button
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="font-mono text-[11px] uppercase tracking-wider"
           disabled={!enabled || saving !== null}
           onClick={() => handleSave("paid")}
         >
@@ -560,7 +560,7 @@ export function PaymentForm() {
       </div>
 
       <Dialog open={numberModalOpen} onOpenChange={setNumberModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-none">
           <h2 className="text-lg font-semibold">Configure Payment# Preferences</h2>
           <p className="text-xs text-muted-foreground">
             Changing this setting will affect all future transactions&apos; numbering.
@@ -598,7 +598,6 @@ export function PaymentForm() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleSaveNumberSettings}
               disabled={savingNumberSettings}
             >

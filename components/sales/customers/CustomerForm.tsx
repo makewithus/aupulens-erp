@@ -331,17 +331,17 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{customerId ? "Edit Customer" : "New Customer"}</h1>
+      <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">{customerId ? "Edit Customer" : "New Customer"}</h1>
 
-      <div className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm px-4 py-3 rounded-none flex items-center gap-3">
-        <span>Prefill Customer details from the GST portal using the Customer&apos;s GSTIN.</span>
+      <div className="border border-border/40 bg-card text-sm px-4 py-3 rounded-none flex items-center gap-3">
+        <span className="text-foreground/80">Prefill Customer details from the GST portal using the Customer&apos;s GSTIN.</span>
         <Input
           value={gstinInput}
           onChange={(e) => setGstinInput(e.target.value.toUpperCase())}
           placeholder="15-digit GSTIN"
-          className="h-8 w-48 bg-background"
+          className="h-8 w-48 rounded-none border-border/40 bg-background"
         />
-        <button onClick={handlePrefill} disabled={prefilling} className="font-medium underline flex items-center">
+        <button onClick={handlePrefill} disabled={prefilling} className="font-mono text-[11px] uppercase tracking-wider text-primary underline flex items-center">
           {prefilling ? "Prefilling..." : "Prefill"} <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -480,7 +480,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
             <TabsTrigger
               key={value}
               value={value}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-1 pb-2"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-1 pb-2 font-mono text-[11px] uppercase tracking-wider"
             >
               {label}
             </TabsTrigger>
@@ -566,7 +566,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
                 />
-                <span className="text-sm font-medium text-blue-600 cursor-pointer">Upload File</span>
+                <span className="text-sm font-medium text-primary cursor-pointer">Upload File</span>
               </label>
             </div>
             {form.documents.length > 0 && (
@@ -597,7 +597,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
                 <h3 className="font-semibold">Shipping Address</h3>
                 <span className="text-xs">
                   (
-                  <button onClick={handleCopyBillingToShipping} className="text-blue-600 underline inline-flex items-center gap-1">
+                  <button onClick={handleCopyBillingToShipping} className="text-primary underline inline-flex items-center gap-1">
                     <Download className="w-3 h-3" /> Copy billing address
                   </button>
                   )
@@ -701,7 +701,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
           {customFieldDefs.length === 0 ? (
             <p className="text-sm text-muted-foreground max-w-lg">
               Start adding custom fields for your Customers and Vendors by going to{" "}
-              <span className="text-blue-600 italic">Settings ➠ Preferences ➠ Customers and Vendors</span>. You can
+              <span className="text-primary italic">Settings ➠ Preferences ➠ Customers and Vendors</span>. You can
               also refine the address format of your Customers and Vendors from there.
             </p>
           ) : (
@@ -735,7 +735,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
               You&apos;ve not created any Reporting Tags.
               <br />
               Start creating reporting tags by going to{" "}
-              <span className="text-blue-600 italic">More Settings ➠ Reporting Tags</span>
+              <span className="text-primary italic">More Settings ➠ Reporting Tags</span>
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -747,7 +747,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
                     onClick={() => toggleReportingTag(def.name)}
                     className={`px-2.5 py-1 text-xs rounded-none border ${
                       active
-                        ? "bg-blue-600 text-white border-blue-600"
+                        ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background text-muted-foreground border-input"
                     }`}
                   >
@@ -781,11 +781,11 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
-        <Button variant="outline" onClick={() => router.push("/sales/customers")}>
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
+        <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/customers")}>
           Cancel
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving}>
+        <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save"}
         </Button>
       </div>

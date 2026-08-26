@@ -558,9 +558,9 @@ export function CustomerPopupContent({
               {activeTab === "sales" && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card className="border-blue-100 bg-black">
+                    <Card className="border-border/40 bg-card">
                       <CardHeader className="py-3">
-                        <CardTitle className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                        <CardTitle className="text-xs font-bold text-foreground uppercase tracking-widest">
                           Sales Details
                         </CardTitle>
                       </CardHeader>
@@ -630,9 +630,9 @@ export function CustomerPopupContent({
                       </CardContent>
                     </Card>
 
-                    <Card className="border-slate-100 bg-black">
+                    <Card className="border-border/40 bg-card">
                       <CardHeader className="py-3">
-                        <CardTitle className="text-xs font-bold text-slate-700 uppercase tracking-widest">
+                        <CardTitle className="text-xs font-bold text-foreground uppercase tracking-widest">
                           Purchase Details
                         </CardTitle>
                       </CardHeader>

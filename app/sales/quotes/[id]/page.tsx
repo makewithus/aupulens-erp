@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { QuoteForm, EMPTY_QUOTE, type QuoteFormValue } from "@/components/sales/quotes/QuoteForm";
+import { Loader2 } from "lucide-react";
 
 export default function EditQuotePage() {
   const { data: session } = useSession();
@@ -59,11 +60,11 @@ export default function EditQuotePage() {
     >
       <div className="p-6">
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : value ? (
           <QuoteForm initialValue={value} quoteId={id} quoteNumber={quoteNumber} />
         ) : (
-          <div className="py-16 text-center text-sm text-muted-foreground">Quote not found</div>
+          <div className="py-16 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Quote not found</div>
         )}
       </div>
     </DashboardLayout>

@@ -334,22 +334,22 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-24">
-      <div className="flex items-center justify-between border-b pb-3">
+      <div className="flex items-center justify-between border-b border-border/40 pb-3">
         <div className="flex items-center gap-4">
           <button
-            className={`font-semibold pb-1 ${activeTab === "quote" ? "border-b-2 border-blue-600" : "text-muted-foreground"}`}
+            className={`font-mono text-[11px] uppercase tracking-wider pb-1 ${activeTab === "quote" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}
             onClick={() => setActiveTab("quote")}
           >
             Quote
           </button>
           <button
-            className={`pb-1 ${activeTab === "subscription" ? "font-semibold border-b-2 border-blue-600" : "text-muted-foreground"}`}
+            className={`font-mono text-[11px] uppercase tracking-wider pb-1 ${activeTab === "subscription" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}
             onClick={() => setActiveTab("subscription")}
           >
             Subscription Quote
           </button>
         </div>
-        <button onClick={() => router.push("/sales/quotes")}>
+        <button onClick={() => router.push("/sales/quotes")} className="text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -434,18 +434,18 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         />
       </div>
 
-      <div className="border rounded-none">
-        <div className="flex items-center justify-between p-3 border-b bg-muted/30">
-          <span className="font-semibold text-sm">Item Table</span>
-          <button className="text-xs text-blue-600 underline">Bulk Actions</button>
+      <div className="border border-border/40 rounded-none">
+        <div className="flex items-center justify-between p-3 border-b border-border/20">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Item Table</span>
+          <button className="font-mono text-[11px] uppercase tracking-wider text-primary underline">Bulk Actions</button>
         </div>
         <Table>
-          <TableHeader>
+          <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead>ITEM DETAILS</TableHead>
-              <TableHead className="w-24">QUANTITY</TableHead>
-              <TableHead className="w-28">RATE</TableHead>
-              <TableHead className="w-28 text-right">AMOUNT</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Item Details</TableHead>
+              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Quantity</TableHead>
+              <TableHead className="w-28 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Rate</TableHead>
+              <TableHead className="w-28 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Amount</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -711,14 +711,14 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         Additional Fields: Start adding custom fields for your quotes by going to Settings → Sales → Quotes.
       </p>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {activeTab === "quote" ? (
             <>
               <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
                 Save as Draft
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleSave("sent")} disabled={saving}>
+              <Button onClick={() => handleSave("sent")} disabled={saving}>
                 {saving ? "Saving..." : "Save and Send"}
               </Button>
               {quoteId && (
@@ -728,7 +728,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
               )}
             </>
           ) : (
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSaveSubscription} disabled={saving}>
+            <Button onClick={handleSaveSubscription} disabled={saving}>
               {saving ? "Saving..." : "Continue"}
             </Button>
           )}
@@ -736,13 +736,10 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
             Cancel
           </Button>
         </div>
-        <div className="text-xs text-muted-foreground">
-          PDF Template: &apos;Spreadsheet Template&apos; <span className="text-blue-600 underline cursor-pointer">Change</span>
-        </div>
       </div>
 
       <Dialog open={numberModalOpen} onOpenChange={setNumberModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-none">
           <h2 className="text-lg font-semibold mb-4">Configure Quote Number Preferences</h2>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -779,7 +776,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+             
               onClick={handleSaveNumberSettings}
               disabled={savingNumberSettings}
             >

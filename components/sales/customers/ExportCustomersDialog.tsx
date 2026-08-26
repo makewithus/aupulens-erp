@@ -184,7 +184,7 @@ export function ExportCustomersDialog({ open, onOpenChange }: ExportCustomersDia
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleExport} disabled={exporting}>
+          <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleExport} disabled={exporting}>
             {exporting ? "Exporting..." : "Export"}
           </Button>
         </div>

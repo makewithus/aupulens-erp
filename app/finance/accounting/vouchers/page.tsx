@@ -91,7 +91,7 @@ function VoucherFlowStepper({ current }: { current: VoucherStatus }) {
             <div
               className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs whitespace-nowrap ${
                 isActive
-                  ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold"
+                  ? "bg-foreground text-background font-semibold"
                   : isDone
                     ? "text-green-600 dark:text-green-400"
                     : "text-muted-foreground"
@@ -236,43 +236,64 @@ function VoucherActions({
 /*  Main Page                                                          */
 /* ------------------------------------------------------------------ */
 
+const LIMIT = 10;
+
 export default function VouchersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<any>(null);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, typeFilter, statusFilter]);
+
+  const load = useCallback(async (currentPage = page) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(LIMIT),
+        onlyVouchers: "true",
+      });
       if (typeFilter !== "all") params.set("voucherType", typeFilter);
       if (statusFilter !== "all") params.set("voucherStatus", statusFilter);
+      if (debouncedQuery) params.set("search", debouncedQuery);
       const res = await cachedFetch(
         `/api/finance/journal-entries?${params.toString()}`,
       );
       const json = await res.json();
-      // Only show items that have a voucherType
-      setItems((json.items || []).filter((i: any) => i.voucherType));
+      setItems(json.items || []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages ?? 1);
     } catch (error) {
       toast.error("Failed to load vouchers");
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, debouncedQuery, page]);
 
   useEffect(() => {
-    
-    if (status === "authenticated") load();
-  }, [status, router, load]);
+    if (status === "authenticated") load(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, router, page, typeFilter, statusFilter, debouncedQuery]);
 
   const handleOpenAction = (actionName: string) => {
     setFormData({
@@ -478,13 +499,7 @@ export default function VouchersPage() {
     }
   };
 
-  const filtered = items.filter((item) =>
-    [
-      item.header?.name,
-      item.header?.ref || "",
-      item.voucherType || "",
-    ].some((v) => v.toLowerCase().includes(query.toLowerCase())),
-  );
+  const filtered = items;
 
   return (
     <DashboardLayout
@@ -501,7 +516,7 @@ export default function VouchersPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      onRefresh={load}
+      onRefresh={() => load(page)}
     >
       <div className="space-y-6">
         {/* Header */}
@@ -528,6 +543,20 @@ export default function VouchersPage() {
               />
             </div>
 
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {VOUCHER_TYPE_VALUES.map((t) => (
+                  <SelectItem key={t} value={t} className="capitalize">
+                    {VOUCHER_TYPE_LABELS[t as VoucherType] || t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="All Statuses" />
@@ -541,6 +570,19 @@ export default function VouchersPage() {
                 ))}
               </SelectContent>
             </Select>
+            {(query || typeFilter !== "all" || statusFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setQuery("");
+                  setTypeFilter("all");
+                  setStatusFilter("all");
+                }}
+              >
+                Clear
+              </Button>
+            )}
           </div>
         </div>
 
@@ -657,6 +699,23 @@ export default function VouchersPage() {
                     })}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

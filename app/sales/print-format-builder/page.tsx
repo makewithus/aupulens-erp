@@ -127,26 +127,26 @@ export default function PrintFormatBuilder() {
 
   if (loading) return (
     <DashboardLayout {...layoutProps}>
-      <div className="p-6 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+      <div className="p-6 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
     </DashboardLayout>
   );
 
   return (
     <DashboardLayout {...layoutProps}>
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Palette className="h-6 w-6 text-indigo-500" /> Print-Format Builder</h1>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary flex items-center gap-3"><Palette className="h-8 w-8 text-muted-foreground/60" /> Print-Format Builder</h1>
           <p className="text-sm text-muted-foreground mt-1">Customize your invoice print format with a live preview, then save.</p>
         </div>
-        <Link href="/sales/invoices/templates" className="text-xs text-muted-foreground hover:text-foreground">Template gallery</Link>
+        <Link href="/sales/invoices/templates" className="font-mono text-[11px] uppercase tracking-wider text-primary hover:underline">Template gallery</Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* Controls */}
         <div className="space-y-4">
-          <div className="border-2 rounded-xl p-4 space-y-3">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Base template</label>
+          <div className="border border-border/40 rounded-none p-4 space-y-3">
+            <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Base template</label>
             <select
               value={templateKey}
               onChange={(e) => {
@@ -154,46 +154,48 @@ export default function PrintFormatBuilder() {
                 const t = templates.find((x) => x.key === e.target.value);
                 if (t) setTemplateId(String(t._id));
               }}
-              className="w-full text-sm border rounded-md px-2 py-1.5 bg-transparent"
+              className="w-full text-sm border border-input rounded-none px-2 py-1.5 bg-background text-foreground [&>option]:bg-background [&>option]:text-foreground"
             >
               {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
             </select>
           </div>
 
-          <div className="border-2 rounded-xl p-4 space-y-4">
+          <div className="border border-border/40 rounded-none p-4 space-y-4">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Accent colour</label>
+              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Accent colour</label>
               <div className="flex items-center gap-2 mt-1">
-                <input type="color" value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="h-8 w-12 rounded border" />
-                <input value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="flex-1 text-sm border rounded px-2 py-1 bg-transparent font-mono" />
+                <input type="color" value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="h-8 w-12 rounded-none border border-input" />
+                <input value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="flex-1 text-sm border border-input rounded-none px-2 py-1 bg-background font-mono" />
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Font style</label>
-              <select value={opts.fontStyle} onChange={(e) => setOpts({ ...opts, fontStyle: e.target.value })} className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground mt-1 [&>option]:bg-background [&>option]:text-foreground">
+              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Font style</label>
+              <select value={opts.fontStyle} onChange={(e) => setOpts({ ...opts, fontStyle: e.target.value })} className="w-full text-sm border border-input rounded-none px-2 py-1.5 bg-background text-foreground mt-1 [&>option]:bg-background [&>option]:text-foreground">
                 {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-foreground/80">
               <input type="checkbox" checked={opts.showStripedRows} onChange={(e) => setOpts({ ...opts, showStripedRows: e.target.checked })} /> Striped table rows
             </label>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-foreground/80">
               <input type="checkbox" checked={opts.hideHsn} onChange={(e) => setOpts({ ...opts, hideHsn: e.target.checked })} /> Hide HSN/SAC column
             </label>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Footer note</label>
-              <textarea value={opts.pdfFooterText} onChange={(e) => setOpts({ ...opts, pdfFooterText: e.target.value })} rows={2} placeholder="e.g. Thank you for your business" className="w-full text-sm border rounded px-2 py-1 bg-transparent mt-1" />
+              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Footer note</label>
+              <textarea value={opts.pdfFooterText} onChange={(e) => setOpts({ ...opts, pdfFooterText: e.target.value })} rows={2} placeholder="e.g. Thank you for your business" className="w-full text-sm border border-input rounded-none px-2 py-1 bg-background mt-1" />
             </div>
           </div>
 
-          <button onClick={save} disabled={saving} className="w-full bg-primary text-primary-foreground rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+          <button onClick={save} disabled={saving} className="w-full bg-primary text-primary-foreground rounded-none py-2 font-mono text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50">
             <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save print format"}
           </button>
         </div>
 
         {/* Live preview — scaled to fit the panel width so the whole page is
-            clear, and re-rendered live as options change. */}
-        <div className="border-2 rounded-xl p-4 bg-white overflow-auto relative" style={{ minHeight: 500 }}>
+            clear, and re-rendered live as options change. bg-white here is
+            intentional: this is a live preview of the printed PDF page, not
+            app chrome. */}
+        <div className="border border-border/40 rounded-none p-4 bg-white overflow-auto relative" style={{ minHeight: 500 }}>
           {previewing && <div className="absolute top-3 right-3 text-xs text-muted-foreground flex items-center gap-1 z-10"><Loader2 className="h-3 w-3 animate-spin" /> updating…</div>}
           {previewHtml
             ? <ScaledHtmlPreview html={previewHtml} className="w-full" />

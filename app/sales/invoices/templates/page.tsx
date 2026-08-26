@@ -23,8 +23,8 @@ export default function AwesomeTemplatesPage() {
     >
       <div className="p-6 max-w-6xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Awesome Templates</h1>
-          <p className="text-sm text-muted-foreground">14 original, print-ready designs. Pick one, preview it live with sample data, and set it as your default.</p>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Awesome Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1">14 original, print-ready designs. Pick one, preview it live with sample data, and set it as your default.</p>
         </div>
 
         <Tabs value={category} onValueChange={(v) => setCategory(v as any)}>

@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { EmailTemplateEditorDialog } from "@/components/sales/subscriptions/EmailTemplateEditorDialog";
 import { REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
 
@@ -127,15 +127,15 @@ export default function RemindersSettingsPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <h1 className="text-xl font-bold">Reminders</h1>
+        <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Reminders</h1>
 
-        <div className="flex items-center gap-4 border-b">
+        <div className="flex items-center gap-4 border-b border-border/40">
           {(["invoice", "bill"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`pb-2 px-1 text-sm font-medium capitalize ${
-                tab === t ? "border-b-2 border-blue-600 text-blue-600" : "text-muted-foreground"
+              className={`pb-2 px-1 font-mono text-[11px] uppercase tracking-wider ${
+                tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
               }`}
             >
               {t === "invoice" ? "Invoices" : "Bills"}
@@ -144,28 +144,30 @@ export default function RemindersSettingsPage() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         ) : (
           <>
             {manual.length > 0 && (
               <div>
-                <h2 className="font-semibold mb-3">Manual Reminders</h2>
+                <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Manual Reminders</h2>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="w-16">Actions</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Name</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Description</TableHead>
+                      <TableHead className="w-16 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {manual.map((r) => (
-                      <TableRow key={r._id}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableRow key={r._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                        <TableCell className="font-medium text-foreground/80">{r.name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.description}</TableCell>
                         <TableCell>
                           <button onClick={() => setEditingTemplate(r)}>
-                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                            <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
                           </button>
                         </TableCell>
                       </TableRow>
@@ -176,27 +178,27 @@ export default function RemindersSettingsPage() {
             )}
 
             <div>
-              <h2 className="font-semibold mb-3">Automated Reminders</h2>
+              <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Automated Reminders</h2>
               <Table>
-                <TableHeader>
+                <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead className="w-24">Status</TableHead>
-                    <TableHead className="w-20">Actions</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Name</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Schedule</TableHead>
+                    <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Status</TableHead>
+                    <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Array.from(grouped.entries()).map(([group, rows]) => (
                     <React.Fragment key={group}>
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={4} className="font-semibold text-xs uppercase tracking-wide">
+                      <TableRow className="bg-accent/40 hover:bg-accent/40">
+                        <TableCell colSpan={4} className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">
                           {group}
                         </TableCell>
                       </TableRow>
                       {rows.map((r) => (
-                        <TableRow key={r._id}>
-                          <TableCell>{r.name}</TableCell>
+                        <TableRow key={r._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                          <TableCell className="text-foreground/80">{r.name}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             Remind me {r.offsetDays} day(s) {r.direction === "before" ? "Before" : "After"}{" "}
                             {r.basis === "expected_payment_date" ? "expected payment date" : "due date"}
@@ -206,11 +208,11 @@ export default function RemindersSettingsPage() {
                           </TableCell>
                           <TableCell className="flex items-center gap-2">
                             <button onClick={() => setEditingTemplate(r)}>
-                              <Pencil className="w-4 h-4 text-muted-foreground" />
+                              <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
                             </button>
                             {!r.isSystem && (
                               <button onClick={() => deleteReminder(r._id)}>
-                                <Trash2 className="w-4 h-4 text-red-600" />
+                                <Trash2 className="w-4 h-4 text-destructive" />
                               </button>
                             )}
                           </TableCell>
@@ -220,7 +222,12 @@ export default function RemindersSettingsPage() {
                   ))}
                 </TableBody>
               </Table>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => setNewOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider"
+                onClick={() => setNewOpen(true)}
+              >
                 <Plus className="w-4 h-4 mr-1" /> New Reminder
               </Button>
             </div>
@@ -278,10 +285,10 @@ export default function RemindersSettingsPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setNewOpen(false)}>
+            <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setNewOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={createReminder} disabled={saving}>
+            <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={createReminder} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>

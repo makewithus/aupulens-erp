@@ -8,7 +8,16 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
+
+const statusColors: Record<string, string> = {
+  paid: "text-emerald-500",
+  draft: "text-amber-500",
+  void: "text-red-500",
+};
 
 export default function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -66,77 +75,81 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <SalesTabNav />
         {loading || !payment ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : (
           <>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold">{payment.paymentNumber}</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-3xl font-black tracking-tighter text-primary">{payment.paymentNumber}</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   {payment.customerId?.header?.displayName || payment.customerId?.header?.name}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded-none border capitalize">{payment.status}</span>
+                <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[11px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[payment.status] || "text-muted-foreground"}`}>
+                  {payment.status}
+                </Badge>
                 {payment.status === "paid" && (
-                  <Button variant="outline" onClick={handleVoid} disabled={voiding}>
+                  <Button variant="outline" className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={handleVoid} disabled={voiding}>
                     {voiding ? "Voiding..." : "Void Payment"}
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => router.push("/sales/payments")}>
+                <Button variant="outline" className="h-10 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/payments")}>
                   Back
                 </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm border rounded-none p-4">
-              <div>
-                <span className="text-muted-foreground">Payment Date: </span>
-                {new Date(payment.paymentDate).toLocaleDateString("en-IN")}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Mode: </span>
-                {payment.mode}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Amount Received: </span>₹
-                {Number(payment.amountReceived).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Bank Charges: </span>₹
-                {Number(payment.bankCharges || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Unused Amount: </span>₹
-                {Number(payment.unusedAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Reference#: </span>
-                {payment.reference || "—"}
-              </div>
-              {payment.notes && (
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Notes: </span>
-                  {payment.notes}
+            <Card className="border border-border/40 shadow-none bg-background rounded-none p-6">
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Payment Date</p>
+                  <p className="font-medium text-foreground mt-1">{new Date(payment.paymentDate).toLocaleDateString("en-IN")}</p>
                 </div>
-              )}
-            </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Mode</p>
+                  <p className="font-medium text-foreground mt-1">{payment.mode}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount Received</p>
+                  <p className="font-mono text-foreground mt-1">₹{Number(payment.amountReceived).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Bank Charges</p>
+                  <p className="font-mono text-foreground mt-1">₹{Number(payment.bankCharges || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Unused Amount</p>
+                  <p className="font-mono text-foreground mt-1">₹{Number(payment.unusedAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Reference#</p>
+                  <p className="font-medium text-foreground mt-1">{payment.reference || "—"}</p>
+                </div>
+                {payment.notes && (
+                  <div className="col-span-2">
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Notes</p>
+                    <p className="font-medium text-foreground mt-1">{payment.notes}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
 
-            <div>
-              <h2 className="text-sm font-semibold mb-2">Applied To Invoices</h2>
+            <Card className="border border-border/40 shadow-none bg-background rounded-none overflow-hidden">
+              <div className="px-6 py-4 border-b border-border/20 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Applied To Invoices</div>
               {payment.allocations?.length ? (
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Amount Applied</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Invoice #</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount Applied</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="divide-y divide-border/30">
                     {payment.allocations.map((a: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell>{a.invoiceId?.number || "—"}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">{a.invoiceId?.number || "—"}</TableCell>
+                        <TableCell className="px-6 py-4 text-right font-mono text-sm text-foreground">
                           ₹{Number(a.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
@@ -144,9 +157,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-sm text-muted-foreground">This payment isn&apos;t applied to any invoice.</p>
+                <p className="p-6 text-sm text-muted-foreground">This payment isn&apos;t applied to any invoice.</p>
               )}
-            </div>
+            </Card>
           </>
         )}
       </div>

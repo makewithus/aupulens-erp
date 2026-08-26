@@ -512,38 +512,38 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   return (
     <div className="bg-background text-foreground pb-24">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 -mt-3 sm:-mt-4 md:-mt-6 lg:-mt-8 mb-6 bg-card border-b px-4 py-3 flex items-center justify-between shadow-sm flex-wrap gap-2">
+      <header className="sticky top-0 z-10 -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 -mt-3 sm:-mt-4 md:-mt-6 lg:-mt-8 mb-6 bg-card border-b border-border/40 px-4 py-3 flex items-center justify-between shadow-none flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
           <Link href="/sales/invoices">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-muted-foreground hover:text-foreground hover:bg-white/5">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-muted-foreground">{mode === "create" ? "Create Invoice" : "Edit Invoice"} /</h1>
-            <span className="text-lg font-bold">{orgName}</span>
+            <h1 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">{mode === "create" ? "Create Invoice" : "Edit Invoice"} /</h1>
+            <span className="text-lg font-black tracking-tight text-primary">{orgName}</span>
           </div>
 
-          <div className="h-6 w-px bg-border mx-2" />
+          <div className="h-6 w-px bg-border/40 mx-2" />
 
-          <div className="flex items-center border rounded-md overflow-hidden bg-background">
+          <div className="flex items-center border border-border/40 rounded-none overflow-hidden bg-background">
             <PrefixPicker prefixes={prefixes} value={prefix} onChange={setPrefix} onCreated={(row) => setPrefixes((p) => [...p, row])} />
-            <div className="h-4 w-px bg-border" />
+            <div className="h-4 w-px bg-border/40" />
             <input
               type="text"
               value={numberSuffix}
               onChange={(e) => setNumberSuffix(e.target.value)}
-              className="h-8 w-24 px-2 bg-transparent border-0 focus:outline-none text-sm font-medium"
+              className="h-8 w-24 px-2 bg-transparent border-0 focus:outline-none text-sm font-mono font-medium text-foreground"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <Select value={invoiceType} onValueChange={setInvoiceType}>
-            <SelectTrigger className="h-8 w-32 bg-transparent border-input">
+            <SelectTrigger className="h-8 w-32 rounded-none bg-transparent border-border/40">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-none">
               <SelectItem value="Regular">Regular</SelectItem>
               <SelectItem value="Bill of Supply">Bill of Supply</SelectItem>
               <SelectItem value="Export">Export</SelectItem>
@@ -551,7 +551,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           </Select>
 
           <Link href="/sales/document-settings">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="Document Settings">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-muted-foreground hover:bg-white/5" title="Document Settings">
               <SettingsIcon className="h-4 w-4" />
             </Button>
           </Link>
@@ -561,35 +561,35 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
         {/* TOP SECTION */}
-        <div className="grid grid-cols-4 gap-6 bg-card p-6 rounded-lg border shadow-sm">
+        <div className="grid grid-cols-4 gap-6 bg-card p-6 rounded-none border border-border/40 shadow-none">
           <div className="col-span-4 lg:col-span-2 space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Select Customer *</label>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Select Customer *</label>
             <CustomerPicker customers={customers} value={selectedCustomerId} onChange={setSelectedCustomerId} onCreateNew={() => setCreateCustomerOpen(true)} />
-            <Button variant="link" onClick={() => setCreateCustomerOpen(true)} className="text-blue-500 h-auto p-0 text-xs mt-1">+ Create Customer</Button>
+            <Button variant="link" onClick={() => setCreateCustomerOpen(true)} className="text-primary h-auto p-0 text-xs mt-1">+ Create Customer</Button>
           </div>
 
           {selectedCustomerId && (
           <>
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Invoice Date</label>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Invoice Date</label>
             <DateField value={invoiceDate} onChange={setInvoiceDate} />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Due Date</label>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Due Date</label>
             <DateField value={dueDate} onChange={setDueDate} />
           </div>
 
           <div className="col-span-2 space-y-2 mt-2">
-            <label className="text-xs font-semibold text-muted-foreground">Reference</label>
-            <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PO Number / Sales Person / Shipment Notes" className="h-10" />
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Reference</label>
+            <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PO Number / Sales Person / Shipment Notes" className="h-10 rounded-none border-border/40" />
           </div>
 
           <div className="col-span-2 space-y-2 mt-2">
-            <label className="text-xs font-semibold text-muted-foreground">Place of Supply</label>
+            <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Place of Supply</label>
             <Select value={placeOfSupply} onValueChange={setPlaceOfSupply}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Select state" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-10 rounded-none border-border/40"><SelectValue placeholder="Select state" /></SelectTrigger>
+              <SelectContent className="rounded-none">
                 {INDIAN_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -599,41 +599,41 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
         </div>
 
         {selectedCustomerId && (
-        <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center bg-muted/20 flex-wrap gap-2">
+        <div className="bg-card rounded-none border border-border/40 shadow-none overflow-hidden">
+          <div className="p-4 border-b border-border/20 flex justify-between items-center flex-wrap gap-2">
             <div className="flex items-center gap-4">
-              <h2 className="text-sm font-semibold">Products & Services</h2>
-              <Button variant="link" onClick={() => { setCreateProductForLineId(null); setCreateProductOpen(true); }} className="text-blue-500 h-auto p-0 text-xs">Add new Product?</Button>
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Products &amp; Services</h2>
+              <Button variant="link" onClick={() => { setCreateProductForLineId(null); setCreateProductOpen(true); }} className="text-primary h-auto p-0 text-xs">Add new Product?</Button>
               <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Checkbox checked={showDescription} onCheckedChange={(c) => setShowDescription(!!c)} /> Show description
               </label>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setAiOpen(true)} className="h-8 text-xs bg-purple-500/10 text-purple-600 border-purple-500/20 hover:bg-purple-500/20">
+            <Button variant="outline" size="sm" onClick={() => setAiOpen(true)} className="h-8 rounded-none text-xs bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500/20">
               <Wand2 className="w-3 h-3 mr-2" /> Create Invoices with AI (BETA)
             </Button>
           </div>
 
           <div className="p-0 overflow-x-auto">
             <Table className="w-full text-sm">
-              <TableHeader className="bg-muted/50 text-muted-foreground text-xs uppercase text-left">
+              <TableHeader className="border-border/40">
                 <TableRow>
-                  <TableHead className="px-4 py-3 font-medium w-12">#</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-[32%]">Product Name</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-20">HSN</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-20">Quantity</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-28">Unit Price</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-16">Tax %</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-32">Discount</TableHead>
-                  <TableHead className="px-4 py-3 font-medium w-28 text-right">Total</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-12">#</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-[32%]">Product Name</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-20">HSN</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-20">Quantity</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-28">Unit Price</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-16">Tax %</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-32">Discount</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50 w-28 text-right">Total</TableHead>
                   <TableHead className="px-4 py-3 font-medium w-12" />
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y">
+              <TableBody className="divide-y divide-border/30">
                 {lineItems.map((item, index) => {
                   const computed = totals.computedLines[index];
                   return (
                     <React.Fragment key={item.id}>
-                      <TableRow className="group hover:bg-muted/20">
+                      <TableRow className="group hover:bg-white/[0.015]">
                         <TableCell className="px-4 py-3 text-muted-foreground">{index + 1}</TableCell>
                         <TableCell className="px-2 py-1">
                           <ProductPicker
@@ -705,9 +705,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             </Table>
           </div>
 
-          <div className="p-4 border-t bg-muted/10 space-y-3">
+          <div className="p-4 border-t border-border/20 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={addLineItem} className="h-8 text-xs font-medium">
+              <Button variant="outline" size="sm" onClick={addLineItem} className="h-8 rounded-none text-xs font-medium border-border/40">
                 <Plus className="w-3 h-3 mr-1" /> Add to Bill
               </Button>
               <div className="text-sm font-medium text-muted-foreground">Items: {lineItems.length}, Qty: {totalQty}</div>
@@ -719,21 +719,21 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                 value={itemLevelDiscountPercent}
                 onChange={(e) => setItemLevelDiscountPercent(e.target.value === "" ? "" : Number(e.target.value))}
                 onBlur={applyGlobalDiscount}
-                className="h-7 w-20 text-xs"
+                className="h-7 w-20 rounded-none border-border/40 text-xs"
               />
             </div>
             <div>
-              <Button variant="outline" size="sm" onClick={addCharge} className="h-8 text-xs">
+              <Button variant="outline" size="sm" onClick={addCharge} className="h-8 rounded-none text-xs border-border/40">
                 <Plus className="w-3 h-3 mr-1" /> Additional Charges
               </Button>
               {additionalCharges.map((c) => (
                 <div key={c.id} className="flex items-center gap-2 mt-2">
-                  <Input value={c.name} onChange={(e) => updateCharge(c.id, { name: e.target.value })} placeholder="Charge name" className="h-8 w-48 text-xs" />
-                  <Input type="number" value={c.amount} onChange={(e) => updateCharge(c.id, { amount: Number(e.target.value) })} className="h-8 w-28 text-xs" />
+                  <Input value={c.name} onChange={(e) => updateCharge(c.id, { name: e.target.value })} placeholder="Charge name" className="h-8 w-48 rounded-none border-border/40 text-xs" />
+                  <Input type="number" value={c.amount} onChange={(e) => updateCharge(c.id, { amount: Number(e.target.value) })} className="h-8 w-28 rounded-none border-border/40 text-xs" />
                   <label className="flex items-center gap-1 text-xs">
                     <Checkbox checked={c.isTaxable} onCheckedChange={(v) => updateCharge(c.id, { isTaxable: !!v })} /> Taxable
                   </label>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeCharge(c.id)}><X className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => removeCharge(c.id)}><X className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
             </div>
@@ -746,34 +746,34 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
         <div className="grid grid-cols-2 gap-8">
           {/* Left column */}
           <div className="space-y-6">
-            <div className="border rounded-lg bg-card">
-              <button type="button" onClick={() => setNotesOpen((o) => !o)} className="w-full flex justify-between items-center p-3 text-sm font-semibold">
+            <div className="border border-border/40 rounded-none bg-card">
+              <button type="button" onClick={() => setNotesOpen((o) => !o)} className="w-full flex justify-between items-center p-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
                 Notes {notesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
               {notesOpen && (
                 <div className="p-3 pt-0 space-y-2">
                   <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" disabled={notesLoading} onClick={() => draftNoteWithAi("notes")} className="h-6 text-xs text-blue-500 px-2 py-0">
+                    <Button variant="ghost" size="sm" disabled={notesLoading} onClick={() => draftNoteWithAi("notes")} className="h-6 rounded-none text-xs text-primary px-2 py-0">
                       <Sparkles className="w-3 h-3 mr-1" /> Draft with AI
                     </Button>
                   </div>
-                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thanks for your business." className="resize-none h-20" />
+                  <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thanks for your business." className="resize-none h-20 rounded-none border-border/40" />
                 </div>
               )}
             </div>
 
-            <div className="border rounded-lg bg-card">
-              <button type="button" onClick={() => setTermsOpen((o) => !o)} className="w-full flex justify-between items-center p-3 text-sm font-semibold">
-                Terms & Conditions {termsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <div className="border border-border/40 rounded-none bg-card">
+              <button type="button" onClick={() => setTermsOpen((o) => !o)} className="w-full flex justify-between items-center p-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                Terms &amp; Conditions {termsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
               {termsOpen && (
                 <div className="p-3 pt-0 space-y-2">
                   <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" disabled={termsLoading} onClick={() => draftNoteWithAi("terms")} className="h-6 text-xs text-blue-500 px-2 py-0">
+                    <Button variant="ghost" size="sm" disabled={termsLoading} onClick={() => draftNoteWithAi("terms")} className="h-6 rounded-none text-xs text-primary px-2 py-0">
                       <Sparkles className="w-3 h-3 mr-1" /> Draft with AI
                     </Button>
                   </div>
-                  <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Please pay within 30 days." className="resize-none h-20" />
+                  <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Please pay within 30 days." className="resize-none h-20 rounded-none border-border/40" />
                 </div>
               )}
             </div>
@@ -788,7 +788,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             </div>
 
             <div>
-              <label className="text-sm font-semibold mb-2 block">Use Coupons</label>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-2 block">Use Coupons</label>
               <div className="flex flex-wrap gap-2">
                 {coupons.length === 0 && <span className="text-xs text-muted-foreground">No coupons available</span>}
                 {coupons.map((c) => (
@@ -796,7 +796,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                     key={c._id}
                     type="button"
                     onClick={() => toggleCoupon(c.couponCode)}
-                    className={`text-xs px-3 py-1.5 rounded-full border ${appliedCoupons.includes(c.couponCode) ? "bg-blue-600 text-white border-blue-600" : "bg-background border-border"}`}
+                    className={`font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-none border ${appliedCoupons.includes(c.couponCode) ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border/40"}`}
                   >
                     {c.couponCode}
                   </button>
@@ -804,9 +804,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
               </div>
             </div>
 
-            <div className="pt-2 border-t">
+            <div className="pt-2 border-t border-border/40">
               <label className="cursor-pointer">
-                <div className="w-full border border-dashed rounded-md h-12 flex items-center justify-center text-muted-foreground text-sm gap-2 hover:bg-muted/30">
+                <div className="w-full border border-dashed border-border/40 rounded-none h-12 flex items-center justify-center text-muted-foreground text-sm gap-2 hover:bg-white/5">
                   <Upload className="w-4 h-4" /> Attach Files (Max: 5)
                 </div>
                 <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
@@ -814,7 +814,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
               {attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {attachments.map((a, i) => (
-                    <span key={i} className="text-xs bg-muted px-2 py-1 rounded flex items-center gap-1">
+                    <span key={i} className="text-xs bg-muted px-2 py-1 rounded-none flex items-center gap-1">
                       {a.name}
                       <button onClick={() => setAttachments((arr) => arr.filter((_, idx) => idx !== i))}><X className="w-3 h-3" /></button>
                     </span>
@@ -825,19 +825,19 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           </div>
 
           {/* Right column: Totals & Payments */}
-          <div className="bg-card rounded-lg border shadow-sm p-6 space-y-4">
+          <div className="bg-card rounded-none border border-border/40 shadow-none p-6 space-y-4">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium">₹ {totals.subtotal.toFixed(decimals)}</span>
+              <span className="font-mono font-medium">₹ {totals.subtotal.toFixed(decimals)}</span>
             </div>
 
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Extra Discount</span>
               <div className="flex items-center gap-1 w-40">
-                <Input type="number" value={extraDiscount} onChange={(e) => setExtraDiscount(Number(e.target.value))} className="h-8 text-right font-medium" />
+                <Input type="number" value={extraDiscount} onChange={(e) => setExtraDiscount(Number(e.target.value))} className="h-8 rounded-none border-border/40 text-right font-medium" />
                 <Select value={extraDiscountMode} onValueChange={(v: any) => setExtraDiscountMode(v)}>
-                  <SelectTrigger className="h-8 w-14 px-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="h-8 w-14 rounded-none border-border/40 px-1"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
                     <SelectItem value="amount">₹</SelectItem>
                     <SelectItem value="percent">%</SelectItem>
                   </SelectContent>
@@ -845,14 +845,14 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
               </div>
             </div>
 
-            <div className="flex justify-between items-center text-sm py-2 border-y border-dashed">
+            <div className="flex justify-between items-center text-sm py-2 border-y border-dashed border-border/40">
               <span className="font-medium">Taxable Amount</span>
-              <span className="font-semibold">₹ {totals.taxableAmount.toFixed(decimals)}</span>
+              <span className="font-mono font-semibold">₹ {totals.taxableAmount.toFixed(decimals)}</span>
             </div>
 
             {totals.gstBreakup.map((g) => (
               <div key={g.label} className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>{g.label}</span><span>₹ {g.amount.toFixed(decimals)}</span>
+                <span>{g.label}</span><span className="font-mono">₹ {g.amount.toFixed(decimals)}</span>
               </div>
             ))}
 
@@ -861,29 +861,29 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                 <span className="text-muted-foreground">Round Off</span>
                 <Checkbox checked={roundOff} onCheckedChange={(c) => setRoundOff(!!c)} />
               </div>
-              <span className="font-medium">{roundOff ? totals.roundOffAmount.toFixed(decimals) : "0.00"}</span>
+              <span className="font-mono font-medium">{roundOff ? totals.roundOffAmount.toFixed(decimals) : "0.00"}</span>
             </div>
 
             <div className="flex gap-4 text-xs">
               <label className="flex items-center gap-1"><Checkbox checked={tdsEnabled} onCheckedChange={(c) => setTdsEnabled(!!c)} /> TDS</label>
-              {tdsEnabled && <Input type="number" value={tdsRate} onChange={(e) => setTdsRate(Number(e.target.value))} className="h-6 w-14 text-xs" />}
+              {tdsEnabled && <Input type="number" value={tdsRate} onChange={(e) => setTdsRate(Number(e.target.value))} className="h-6 w-14 rounded-none border-border/40 text-xs" />}
               <label className="flex items-center gap-1"><Checkbox checked={tcsEnabled} onCheckedChange={(c) => setTcsEnabled(!!c)} /> TCS</label>
-              {tcsEnabled && <Input type="number" value={tcsRate} onChange={(e) => setTcsRate(Number(e.target.value))} className="h-6 w-14 text-xs" />}
+              {tcsEnabled && <Input type="number" value={tcsRate} onChange={(e) => setTcsRate(Number(e.target.value))} className="h-6 w-14 rounded-none border-border/40 text-xs" />}
             </div>
 
             <div className="flex justify-between items-center pt-2">
               <span className="text-lg font-bold">Total Amount</span>
-              <span className="text-2xl font-black text-blue-600">₹ {totals.totalAmount.toFixed(decimals)}</span>
+              <span className="text-2xl font-mono font-bold text-primary">₹ {totals.totalAmount.toFixed(decimals)}</span>
             </div>
             <p className="text-xs text-muted-foreground -mt-2">Total Discount: ₹ {totals.totalDiscount.toFixed(decimals)}</p>
             <p className="text-xs text-muted-foreground italic">{numberToWords(totals.totalAmount)}</p>
 
-            <div className="pt-6 mt-6 border-t border-border space-y-4">
-              <h3 className="text-sm font-semibold">Payments</h3>
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded border">
+            <div className="pt-6 mt-6 border-t border-border/40 space-y-4">
+              <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Payments</h3>
+              <div className="flex items-center justify-between p-3 rounded-none border border-border/40">
                 <Select value={bankAccountId} onValueChange={setBankAccountId} disabled={referenceDataLoading}>
                   <SelectTrigger className="h-8 border-0 bg-transparent"><SelectValue placeholder={referenceDataLoading ? "Loading..." : "Select Bank"} /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-none">
                     {bankAccounts.map((b) => <SelectItem key={b._id} value={b._id}>{b.accountName}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -891,24 +891,24 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-semibold">Add payment</label>
-                  <Button variant="link" size="sm" onClick={addPayment} className="h-auto p-0 text-xs text-blue-600">+ Split Payment</Button>
+                  <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Add payment</label>
+                  <Button variant="link" size="sm" onClick={addPayment} className="h-auto p-0 text-xs text-primary">+ Split Payment</Button>
                 </div>
                 {payments.map((p) => (
                   <div key={p.id} className="grid grid-cols-4 gap-2 items-center">
-                    <Input placeholder="Notes" value={p.notes} onChange={(e) => updatePayment(p.id, { notes: e.target.value })} className="h-9 text-sm col-span-1" />
-                    <Input placeholder="Amount" type="number" value={p.amount} onChange={(e) => updatePayment(p.id, { amount: Number(e.target.value) })} className="h-9 text-sm" />
+                    <Input placeholder="Notes" value={p.notes} onChange={(e) => updatePayment(p.id, { notes: e.target.value })} className="h-9 rounded-none border-border/40 text-sm col-span-1" />
+                    <Input placeholder="Amount" type="number" value={p.amount} onChange={(e) => updatePayment(p.id, { amount: Number(e.target.value) })} className="h-9 rounded-none border-border/40 text-sm" />
                     <DateField value={p.date} onChange={(v) => updatePayment(p.id, { date: v })} />
                     <div className="flex items-center gap-1">
                       <Select value={p.mode} onValueChange={(v) => updatePayment(p.id, { mode: v })}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="h-9 rounded-none border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
                           <SelectItem value="Cash">Cash</SelectItem>
                           <SelectItem value="Bank">Bank Transfer</SelectItem>
                           <SelectItem value="UPI">UPI</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePayment(p.id)}><X className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => removePayment(p.id)}><X className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -918,10 +918,10 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-semibold">Select Signature</label>
+                <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Select Signature</label>
                 <Select value={signatureId} onValueChange={setSignatureId} disabled={referenceDataLoading}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder={referenceDataLoading ? "Loading..." : "None"} /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="h-9 rounded-none border-border/40"><SelectValue placeholder={referenceDataLoading ? "Loading..." : "None"} /></SelectTrigger>
+                  <SelectContent className="rounded-none">
                     {signatures.map((s) => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -932,22 +932,22 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       </main>
 
       {/* FOOTER ACTIONS */}
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
         <div className="max-w-6xl w-full mx-auto flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving} className="bg-background">
+          <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving} className="rounded-none border-border/40 bg-background font-mono text-[11px] uppercase tracking-wider">
             Save as Draft
           </Button>
           <div className="flex">
-            <Button variant="outline" onClick={() => handleSave("saved", true)} disabled={saving} className="rounded-r-none border-r-0 bg-background hover:bg-muted">
+            <Button variant="outline" onClick={() => handleSave("saved", true)} disabled={saving} className="rounded-none border-border/40 border-r-0 bg-background hover:bg-white/5 font-mono text-[11px] uppercase tracking-wider">
               Save and Print
             </Button>
             <Dialog open={templateGalleryOpen} onOpenChange={setTemplateGalleryOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="rounded-l-none px-2 bg-background hover:bg-muted" title="Choose Template">
+                <Button variant="outline" className="rounded-none border-border/40 px-2 bg-background hover:bg-white/5" title="Choose Template">
                   <Palette className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-none">
                 <DialogHeader>
                   <DialogTitle>Choose an Invoice Template</DialogTitle>
                 </DialogHeader>
@@ -960,14 +960,14 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                   />
                 </div>
                 <DialogFooter className="sm:justify-start">
-                  <Link href="/sales/invoices/templates" className="text-sm text-blue-600 hover:underline">
+                  <Link href="/sales/invoices/templates" className="text-sm text-primary hover:underline">
                     Manage templates →
                   </Link>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
-          <Button onClick={() => handleSave("saved")} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+          <Button onClick={() => handleSave("saved")} disabled={saving} className="min-w-[120px] font-mono text-[11px] uppercase tracking-wider">
             {saving ? "Saving..." : "Save →"}
           </Button>
         </div>
@@ -988,16 +988,16 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       />
 
       <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-none">
           <DialogHeader><DialogTitle>Create Invoice with AI (BETA)</DialogTitle></DialogHeader>
           <Textarea
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             placeholder="e.g. Invoice Acme Corp for 3 hours of consulting at ₹5000/hr and 2 Premium Widgets"
-            className="h-28"
+            className="h-28 rounded-none border-border/40"
           />
           <p className="text-xs text-muted-foreground">This only fills the form for your review — nothing is saved until you click Save.</p>
-          <Button onClick={runAiDraft} disabled={aiLoading} className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button onClick={runAiDraft} disabled={aiLoading} className="rounded-none bg-purple-600 hover:bg-purple-700 text-white font-mono text-[11px] uppercase tracking-wider">
             {aiLoading ? "Thinking..." : "Generate Draft"}
           </Button>
         </DialogContent>

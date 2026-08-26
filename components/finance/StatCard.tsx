@@ -24,11 +24,11 @@ const colorClasses = {
     text: "text-primary",
   },
   success: {
-    border: "border-l-blue-500",
-    bg: "bg-blue-500/5",
-    iconBg: "bg-blue-500/10",
-    iconText: "text-blue-600 dark:text-blue-400",
-    text: "text-blue-600 dark:text-blue-400",
+    border: "border-l-emerald-500",
+    bg: "bg-emerald-500/5",
+    iconBg: "bg-emerald-500/10",
+    iconText: "text-emerald-600 dark:text-emerald-400",
+    text: "text-emerald-600 dark:text-emerald-400",
   },
   warning: {
     border: "border-l-amber-500",

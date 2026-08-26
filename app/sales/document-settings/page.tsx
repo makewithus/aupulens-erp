@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Palette, FileText, Settings, Hash, MessageSquare, Save, Plus, Trash2, Upload } from "lucide-react";
+import { Palette, FileText, Settings, Hash, MessageSquare, Save, Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -132,7 +132,7 @@ export default function DocumentSettingsPage() {
     return (
       <DashboardLayout sidebarSections={salesSidebarConfig} companyName="Aupulens" dashboardTitle="Sales" pageName="Document Settings">
         <div className="flex justify-center items-center h-[60vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -150,8 +150,8 @@ export default function DocumentSettingsPage() {
     >
       <div className="p-6 max-w-5xl mx-auto space-y-6 pb-24">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Document Settings</h1>
-          <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Document Settings</h1>
+          <Button onClick={handleSave} disabled={saving} className="font-mono text-[11px] uppercase tracking-wider">
             <Save className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save changes"}
           </Button>
         </div>
@@ -159,34 +159,34 @@ export default function DocumentSettingsPage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-4 gap-4">
           <Link href="/sales/invoices/templates">
-            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed">
+            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed border-border/40">
               <Palette className="w-6 h-6 text-blue-500" /> <span className="font-medium">Invoice Templates</span>
             </Button>
           </Link>
-          <Button variant="outline" onClick={openCustomFields} className="h-24 flex flex-col items-center justify-center gap-2 border-dashed">
+          <Button variant="outline" onClick={openCustomFields} className="h-24 flex flex-col items-center justify-center gap-2 border-dashed border-border/40">
             <FileText className="w-6 h-6 text-green-500" /> <span className="font-medium">Custom Fields</span>
           </Button>
           <Link href="/sales/document-settings/prefixes">
-            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed">
+            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed border-border/40">
               <Hash className="w-6 h-6 text-purple-500" /> <span className="font-medium">Prefixes / Suffixes</span>
             </Button>
           </Link>
           <Link href="/sales/document-settings/notes">
-            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed">
+            <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 border-dashed border-border/40">
               <MessageSquare className="w-6 h-6 text-orange-500" /> <span className="font-medium">Notes and Terms</span>
             </Button>
           </Link>
         </div>
 
         {/* Anchor tab bar */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b flex gap-1 py-2">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/40 flex gap-1 py-2">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
               onClick={() => scrollTo(s.id)}
               className={cn(
-                "px-3 py-1.5 text-sm rounded-md font-medium",
-                activeSection === s.id ? "bg-blue-600 text-white" : "text-muted-foreground hover:bg-muted",
+                "px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider rounded-none",
+                activeSection === s.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5",
               )}
             >
               {s.label}
@@ -195,8 +195,8 @@ export default function DocumentSettingsPage() {
         </div>
 
         {/* DISPLAY */}
-        <section ref={refs.display} id="display" className="bg-card rounded-lg border p-6 space-y-8 scroll-mt-16">
-          <h2 className="text-lg font-bold">Display</h2>
+        <section ref={refs.display} id="display" className="bg-card rounded-none border border-border/40 p-6 space-y-8 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Display</h2>
 
           <div>
             <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">General</h3>
@@ -211,7 +211,7 @@ export default function DocumentSettingsPage() {
             </div>
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t border-border/40 pt-6">
             <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Quantities</h3>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2">
               <Row label="Hide Quantity"><Switch checked={settings?.display?.hideQuantity} onCheckedChange={(v) => updateSetting("display", "hideQuantity", v)} /></Row>
@@ -220,7 +220,7 @@ export default function DocumentSettingsPage() {
             </div>
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t border-border/40 pt-6">
             <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Pricing & Discounts</h3>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2">
               <Row label="Hide Discount"><Switch checked={settings?.display?.hideDiscount} onCheckedChange={(v) => updateSetting("display", "hideDiscount", v)} /></Row>
@@ -236,7 +236,7 @@ export default function DocumentSettingsPage() {
             </div>
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t border-border/40 pt-6">
             <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Company & HSN/SAC</h3>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-4">
               <Row label="Hide HSN/SAC"><Switch checked={settings?.display?.hideHsn} onCheckedChange={(v) => updateSetting("display", "hideHsn", v)} /></Row>
@@ -251,8 +251,8 @@ export default function DocumentSettingsPage() {
                     key={t}
                     onClick={() => toggleHsnDoc(t)}
                     className={cn(
-                      "text-xs px-3 py-1.5 rounded-full border capitalize",
-                      settings?.display?.showHsnSummaryOn?.includes(t) ? "bg-blue-600 text-white border-blue-600" : "bg-background border-border text-muted-foreground",
+                      "font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-none border",
+                      settings?.display?.showHsnSummaryOn?.includes(t) ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border/40 text-muted-foreground",
                     )}
                   >
                     {t.replace(/([A-Z])/g, " $1").trim()}
@@ -264,12 +264,12 @@ export default function DocumentSettingsPage() {
         </section>
 
         {/* LAYOUT & FONTS */}
-        <section ref={refs.layout} id="layout" className="bg-card rounded-lg border p-6 space-y-6 scroll-mt-16">
-          <h2 className="text-lg font-bold">Layout & Fonts</h2>
+        <section ref={refs.layout} id="layout" className="bg-card rounded-none border border-border/40 p-6 space-y-6 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Layout & Fonts</h2>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="border rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold">Language & Font</h3>
+            <div className="border border-border/40 rounded-none p-4 space-y-3">
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Language & Font</h3>
               <div className="space-y-1">
                 <Label className="text-xs">Select Language</Label>
                 <Select value={settings?.layout?.language} onValueChange={(v) => updateSetting("layout", "language", v)}>
@@ -297,8 +297,8 @@ export default function DocumentSettingsPage() {
               </div>
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold">Page Setup</h3>
+            <div className="border border-border/40 rounded-none p-4 space-y-3">
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Page Setup</h3>
               <div className="space-y-1">
                 <Label className="text-xs">PDF Orientation</Label>
                 <Select value={settings?.layout?.pdfOrientation} onValueChange={(v) => updateSetting("layout", "pdfOrientation", v)}>
@@ -309,15 +309,15 @@ export default function DocumentSettingsPage() {
               <Row label="Repeat Header"><Switch checked={settings?.layout?.repeatHeader} onCheckedChange={(v) => updateSetting("layout", "repeatHeader", v)} /></Row>
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold">Table & Content</h3>
+            <div className="border border-border/40 rounded-none p-4 space-y-3">
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Table & Content</h3>
               <Row label="Enable Item Headers"><Switch checked={settings?.layout?.enableItemHeaders} onCheckedChange={(v) => updateSetting("layout", "enableItemHeaders", v)} /></Row>
               <Row label="Show full page"><Switch checked={settings?.layout?.showFullPage} onCheckedChange={(v) => updateSetting("layout", "showFullPage", v)} /></Row>
               <Row label="Show Striped Rows"><Switch checked={settings?.layout?.showStripedRows} onCheckedChange={(v) => updateSetting("layout", "showStripedRows", v)} /></Row>
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold">Margins (px)</h3>
+            <div className="border border-border/40 rounded-none p-4 space-y-3">
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Margins (px)</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-xs text-muted-foreground">Top (max 250)</span><Input type="number" max={250} value={settings?.layout?.marginTop} onChange={(e) => updateSetting("layout", "marginTop", Number(e.target.value))} /></div>
                 <div><span className="text-xs text-muted-foreground">Bottom (max 250)</span><Input type="number" max={250} value={settings?.layout?.marginBottom} onChange={(e) => updateSetting("layout", "marginBottom", Number(e.target.value))} /></div>
@@ -329,8 +329,8 @@ export default function DocumentSettingsPage() {
         </section>
 
         {/* EXPORT */}
-        <section ref={refs.export} id="export" className="bg-card rounded-lg border p-6 space-y-4 scroll-mt-16">
-          <h2 className="text-lg font-bold">Export</h2>
+        <section ref={refs.export} id="export" className="bg-card rounded-none border border-border/40 p-6 space-y-4 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Export</h2>
           <div className="max-w-md space-y-2">
             <Row label="Show Conversion Factor"><Switch checked={settings?.export?.showConversionFactor} onCheckedChange={(v) => updateSetting("export", "showConversionFactor", v)} /></Row>
             <Row label="Show in INR"><Switch checked={settings?.export?.showInInr} onCheckedChange={(v) => updateSetting("export", "showInInr", v)} /></Row>
@@ -338,13 +338,13 @@ export default function DocumentSettingsPage() {
         </section>
 
         {/* BRANDING */}
-        <section ref={refs.branding} id="branding" className="bg-card rounded-lg border p-6 space-y-6 scroll-mt-16">
-          <h2 className="text-lg font-bold">Branding</h2>
+        <section ref={refs.branding} id="branding" className="bg-card rounded-none border border-border/40 p-6 space-y-6 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Branding</h2>
 
           <div className="max-w-md">
             <Label className="mb-2 block">PDF Accent Color</Label>
             <div className="flex items-center gap-3">
-              <input type="color" value={settings?.branding?.accentColor || "#276EF1"} onChange={(e) => updateSetting("branding", "accentColor", e.target.value)} className="w-10 h-10 rounded cursor-pointer border-0 p-0" />
+              <input type="color" value={settings?.branding?.accentColor || "#276EF1"} onChange={(e) => updateSetting("branding", "accentColor", e.target.value)} className="w-10 h-10 rounded-none cursor-pointer border-0 p-0" />
               <Input value={settings?.branding?.accentColor} onChange={(e) => updateSetting("branding", "accentColor", e.target.value)} className="w-32 uppercase" />
             </div>
           </div>
@@ -357,11 +357,11 @@ export default function DocumentSettingsPage() {
               { field: "bannerTopUrl", label: "Banner Top (1000x125)" },
               { field: "bannerBottomUrl", label: "Banner Bottom (1000x125)" },
             ].map(({ field, label }) => (
-              <div key={field} className="border rounded-lg p-3 space-y-2">
+              <div key={field} className="border border-border/40 rounded-none p-3 space-y-2">
                 <Label className="text-xs">{label}</Label>
                 {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary uploaded logo URL, not an LCP element */}
                 {settings?.branding?.[field] && <img src={settings.branding[field]} alt={label} className="h-12 object-contain" />}
-                <label className="flex items-center justify-center gap-2 h-9 border border-dashed rounded cursor-pointer text-xs text-muted-foreground hover:bg-muted/30">
+                <label className="flex items-center justify-center gap-2 h-9 border border-dashed border-border/40 rounded-none cursor-pointer text-xs text-muted-foreground hover:bg-white/5">
                   <Upload className="w-3.5 h-3.5" /> Upload
                   <input type="file" className="hidden" onChange={handleImageUpload("branding", field)} />
                 </label>
@@ -380,9 +380,9 @@ export default function DocumentSettingsPage() {
             </div>
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t border-border/40 pt-6">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold">Signatures</h3>
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Signatures</h3>
               <Button
                 size="sm"
                 variant="outline"
@@ -408,7 +408,7 @@ export default function DocumentSettingsPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               {(settings?.signatures || []).map((s: any, i: number) => (
-                <div key={i} className="border rounded-lg p-2 flex items-center gap-2">
+                <div key={i} className="border border-border/40 rounded-none p-2 flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URI from FileReader, next/image doesn't support data: sources */}
                   <img src={s.imageUrl} alt={s.name} className="h-8" />
                   <span className="text-xs">{s.name}</span>
@@ -428,8 +428,8 @@ export default function DocumentSettingsPage() {
         </section>
 
         {/* CUSTOMIZE LABELS */}
-        <section ref={refs.labels} id="labels" className="bg-card rounded-lg border p-6 space-y-4 scroll-mt-16">
-          <h2 className="text-lg font-bold">Customize Labels</h2>
+        <section ref={refs.labels} id="labels" className="bg-card rounded-none border border-border/40 p-6 space-y-4 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Customize Labels</h2>
           <p className="text-sm text-muted-foreground">Override the default field labels shown on invoices and the create-invoice form.</p>
           <div className="grid grid-cols-2 gap-4 max-w-2xl">
             {["Invoice", "Bill To", "Ship To", "Total Amount", "Terms & Conditions", "HSN/SAC"].map((defaultLabel) => (
@@ -446,10 +446,10 @@ export default function DocumentSettingsPage() {
         </section>
 
         {/* EMAIL / WHATSAPP */}
-        <section ref={refs["templates-comm"]} id="templates-comm" className="bg-card rounded-lg border p-6 space-y-6 scroll-mt-16">
-          <h2 className="text-lg font-bold">Email / WhatsApp Templates</h2>
+        <section ref={refs["templates-comm"]} id="templates-comm" className="bg-card rounded-none border border-border/40 p-6 space-y-6 scroll-mt-16">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Email / WhatsApp Templates</h2>
           <div className="space-y-3 max-w-2xl">
-            <h3 className="text-sm font-semibold">Email</h3>
+            <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Email</h3>
             <Input
               value={settings?.emailTemplate?.subject || ""}
               onChange={(e) => updateSetting("emailTemplate", "subject", e.target.value)}
@@ -462,8 +462,8 @@ export default function DocumentSettingsPage() {
               className="h-24"
             />
           </div>
-          <div className="space-y-3 max-w-2xl border-t pt-6">
-            <h3 className="text-sm font-semibold">WhatsApp</h3>
+          <div className="space-y-3 max-w-2xl border-t border-border/40 pt-6">
+            <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">WhatsApp</h3>
             <Textarea
               value={settings?.whatsappTemplate?.message || ""}
               onChange={(e) => updateSetting("whatsappTemplate", "message", e.target.value)}
@@ -482,7 +482,7 @@ export default function DocumentSettingsPage() {
               <p className="text-sm text-muted-foreground">No custom fields yet.</p>
             ) : (
               customFields.map((f) => (
-                <div key={f._id} className="flex justify-between items-center text-sm border rounded px-3 py-2">
+                <div key={f._id} className="flex justify-between items-center text-sm border border-border/40 rounded-none px-3 py-2">
                   <span>{f.label}</span>
                   <span className="text-xs text-muted-foreground">{f.fieldType}</span>
                 </div>

@@ -305,9 +305,12 @@ export default function DeliveryChallansPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            Delivery Challans
+          </h1>
+        </div>
 
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
@@ -348,7 +351,7 @@ export default function DeliveryChallansPage() {
 
                 <Button
                   onClick={handleOpenCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                  className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
                 >
                   <Plus className="h-4 w-4 mr-2" /> New Challan
                 </Button>

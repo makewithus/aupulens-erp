@@ -122,6 +122,12 @@ JournalEntrySchema.index({ "header.name": 1, tenantId: 1 }, { unique: true });
 JournalEntrySchema.index({ voucherType: 1, tenantId: 1 });
 JournalEntrySchema.index({ voucherStatus: 1, tenantId: 1 });
 JournalEntrySchema.index({ tenantId: 1, createdAt: -1 });
+// Every Finance report builder (lib/accounting/reports.ts) filters posted
+// entries by tenantId+status and (mostly) a header.date range/sort — without
+// this compound index those queries were full collection scans, the single
+// biggest contributor to slow Finance page loads (hit by Summary, Analytics,
+// Visualization, and every Reports sub-page).
+JournalEntrySchema.index({ tenantId: 1, status: 1, "header.date": 1 });
 
 const JournalEntry: Model<IJournalEntry> =
   (mongoose.models.JournalEntry as Model<IJournalEntry>) ||

@@ -120,35 +120,35 @@ export default function ImportSalesOrdersPage() {
     >
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Sales Orders - Select File</h1>
-          <button onClick={() => router.push("/sales/sales-orders")}>
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Sales Orders - Select File</h1>
+          <button onClick={() => router.push("/sales/sales-orders")} className="text-muted-foreground hover:text-foreground">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider">
           {["Configure", "Map Fields", "Preview"].map((label, i) => (
             <div key={label} className="flex items-center gap-2">
               <span
-                className={`h-6 w-6 rounded-full flex items-center justify-center text-xs ${
-                  step === i + 1 ? "bg-blue-600 text-white" : step > i + 1 ? "bg-green-600 text-white" : "bg-accent text-muted-foreground"
+                className={`h-6 w-6 rounded-none flex items-center justify-center text-xs ${
+                  step === i + 1 ? "bg-primary text-primary-foreground" : step > i + 1 ? "bg-emerald-600 text-white" : "bg-accent text-muted-foreground"
                 }`}
               >
                 {i + 1}
               </span>
-              <span className={step === i + 1 ? "font-medium" : "text-muted-foreground"}>{label}</span>
-              {i < 2 && <div className="w-8 h-px bg-border" />}
+              <span className={step === i + 1 ? "font-medium text-foreground" : "text-muted-foreground"}>{label}</span>
+              {i < 2 && <div className="w-8 h-px bg-border/40" />}
             </div>
           ))}
         </div>
 
         {step === 1 && (
           <div className="space-y-5">
-            <div className="border-2 border-dashed rounded-none p-10 flex flex-col items-center text-center">
+            <div className="border-2 border-dashed border-border/40 rounded-none p-10 flex flex-col items-center text-center">
               {file ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-12 h-16 bg-blue-500 rounded-sm mb-3 relative flex items-center justify-center">
-                    <div className="absolute top-0 right-0 border-l-[12px] border-l-blue-600 border-t-[12px] border-t-white" />
+                  <div className="w-12 h-16 bg-accent rounded-none mb-3 relative flex items-center justify-center">
+                    <div className="absolute top-0 right-0 border-l-[12px] border-l-primary border-t-[12px] border-t-background" />
                   </div>
                   <p className="font-bold text-sm mb-2">{file.name}</p>
                   <button 
@@ -158,9 +158,9 @@ export default function ImportSalesOrdersPage() {
                     <Trash2 className="w-3 h-3" /> Remove
                   </button>
 
-                  <label className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded flex items-center gap-2 cursor-pointer transition-colors">
+                  <label className="none-xl bg-tertiary border-secondary border-1 hover:bg-muted text-primary font-mono text-[11px] uppercase tracking-wider px-4 py-2 rounded-none flex items-center gap-2 cursor-pointer transition-all">
                     Replace File
-                    <div className="border-l border-blue-400 pl-2 ml-2">
+                    <div className="border-l border-border/40 pl-2 ml-2">
                       <ChevronDown className="w-4 h-4" />
                     </div>
                     <input
@@ -180,7 +180,7 @@ export default function ImportSalesOrdersPage() {
                   <UploadCloud className="w-8 h-8 text-muted-foreground mb-3" />
                   <p className="font-medium mb-1">Drag and drop file to import</p>
                   <p className="text-xs text-muted-foreground mb-3">Maximum File Size: 25 MB • File Format: CSV or TSV or XLS</p>
-                  <span className="text-sm font-medium text-blue-600">Choose File</span>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-primary">Choose File</span>
                   <input
                     type="file"
                     accept=".csv,.tsv,.xls,.xlsx"
@@ -196,7 +196,7 @@ export default function ImportSalesOrdersPage() {
 
             <p className="text-xs text-muted-foreground">
               Download a{" "}
-              <Link href="/api/sales/sales-orders/import/sample?format=csv" className="text-blue-600 underline">
+              <Link href="/api/sales/sales-orders/import/sample?format=csv" className="text-primary underline">
                 sample file
               </Link>{" "}
               and compare it to your import file to ensure you have the file perfect for the import.
@@ -228,10 +228,10 @@ export default function ImportSalesOrdersPage() {
             </label>
 
             <div className="flex justify-between pt-2">
-              <Button variant="outline" onClick={() => router.push("/sales/sales-orders")}>
+              <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/sales-orders")}>
                 Cancel
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!file || parsing} onClick={handleNextFromConfigure}>
+              <Button className="font-mono text-[11px] uppercase tracking-wider" disabled={!file || parsing} onClick={handleNextFromConfigure}>
                 {parsing ? "Parsing..." : "Next ›"}
               </Button>
             </div>
@@ -272,10 +272,10 @@ export default function ImportSalesOrdersPage() {
               </p>
             )}
             <div className="flex justify-between pt-2">
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setStep(1)}>
                 ← Go Back
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled={missingRequired.length > 0} onClick={() => setStep(3)}>
+              <Button className="font-mono text-[11px] uppercase tracking-wider" disabled={missingRequired.length > 0} onClick={() => setStep(3)}>
                 Next ›
               </Button>
             </div>
@@ -287,7 +287,7 @@ export default function ImportSalesOrdersPage() {
             <p className="text-sm text-muted-foreground">
               Previewing the first 5 of {totalRows} row(s). Review the mapped columns below, then import.
             </p>
-            <div className="overflow-x-auto border rounded-none">
+            <div className="overflow-x-auto border border-border/40 rounded-none">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -309,12 +309,12 @@ export default function ImportSalesOrdersPage() {
             </div>
 
             {result ? (
-              <div className="border rounded-none p-4 bg-green-50 dark:bg-green-950/20 text-sm space-y-1">
+              <div className="border border-emerald-500/30 rounded-none p-4 bg-card text-sm space-y-1">
                 <p>✅ Imported: {result.imported}</p>
                 <p>⏭️ Skipped: {result.skipped}</p>
                 {result.errors?.length > 0 && (
                   <details>
-                    <summary className="cursor-pointer text-red-600">{result.errors.length} row error(s)</summary>
+                    <summary className="cursor-pointer text-red-500">{result.errors.length} row error(s)</summary>
                     <ul className="list-disc list-inside">
                       {result.errors.map((e: string, i: number) => (
                         <li key={i}>{e}</li>
@@ -322,16 +322,16 @@ export default function ImportSalesOrdersPage() {
                     </ul>
                   </details>
                 )}
-                <Button className="mt-2" onClick={() => router.push("/sales/sales-orders")}>
+                <Button className="mt-2 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/sales-orders")}>
                   Done
                 </Button>
               </div>
             ) : (
               <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setStep(2)}>
+                <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => setStep(2)}>
                   ← Go Back
                 </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleImport} disabled={importing}>
+                <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleImport} disabled={importing}>
                   {importing ? "Importing..." : "Import"}
                 </Button>
               </div>

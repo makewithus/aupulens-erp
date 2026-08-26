@@ -240,6 +240,11 @@ SaleOrderSchema.index({ "header.partnerId": 1 });
 SaleOrderSchema.index({ tenantId: 1, status: 1 });
 SaleOrderSchema.index({ tenantId: 1, q2cStatus: 1 });
 SaleOrderSchema.index({ tenantId: 1, createdAt: -1 });
+// The main Sales Orders list and the Q2C Pipeline board both filter by
+// {tenantId, status:{$in:[...]}} and sort by createdAt — the existing
+// {tenantId,status} index doesn't cover that sort, so it ran as a blocking
+// in-memory sort over every matching order.
+SaleOrderSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 
 const SaleOrder: Model<ISaleOrder> =
   (models.SaleOrder as Model<ISaleOrder>) ||

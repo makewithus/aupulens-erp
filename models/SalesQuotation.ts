@@ -113,6 +113,10 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
 SalesQuotationSchema.index({ tenantId: 1, quoteNumber: 1 }, { unique: true });
 SalesQuotationSchema.index({ tenantId: 1, status: 1 });
 SalesQuotationSchema.index({ tenantId: 1, customerId: 1 });
+// The default quotes list (no status filter) sorts by createdAt with only a
+// bare tenantId query — previously a full collection scan with no index at
+// all covering that shape.
+SalesQuotationSchema.index({ tenantId: 1, createdAt: -1 });
 
 const SalesQuotation: Model<ISalesQuotation> =
   (mongoose.models.SalesQuotation as Model<ISalesQuotation>) ||

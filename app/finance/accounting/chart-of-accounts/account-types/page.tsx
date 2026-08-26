@@ -138,7 +138,7 @@ export default function AccountTypesPage() {
             ) : (
               filteredTypes.map(t => (
                 <TableRow key={t._id}>
-                  <TableCell className="font-medium text-blue-600 dark:text-blue-400 cursor-pointer">{t.name}</TableCell>
+                  <TableCell className="font-medium text-foreground hover:underline cursor-pointer">{t.name}</TableCell>
                   <TableCell>{t.segment}</TableCell>
                   <TableCell className="max-w-md truncate">{t.description}</TableCell>
                   <TableCell>

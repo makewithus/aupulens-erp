@@ -123,6 +123,9 @@ const ProductSchema: Schema<IProduct> = new Schema(
 );
 
 ProductSchema.index({ "header.name": 1 });
+// The product list/pickers sort by createdAt against a bare tenantId
+// filter — there was no compound index covering that pattern at all.
+ProductSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Product: Model<IProduct> =
   (mongoose.models.Product as Model<IProduct>) ||

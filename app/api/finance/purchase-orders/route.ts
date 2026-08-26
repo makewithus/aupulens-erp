@@ -3,8 +3,8 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import PurchaseOrder from "@/models/PurchaseOrder";
+import Customer from "@/models/Customer";
 import "@/models/Product";
-import "@/models/Customer";
 
 export async function GET(request: Request) {
   try {
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const partnerId = searchParams.get("partnerId");
+    const search = (searchParams.get("search") || "").trim();
 
     await connectDB();
     const tenantIdGuard = requireTenantId(session);
@@ -31,6 +32,15 @@ export async function GET(request: Request) {
 
     if (partnerId) {
       query.partnerId = partnerId;
+    }
+
+    if (search) {
+      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
+      query.$or = [
+        { name: re },
+        { partnerId: { $in: matchingPartners.map((p) => p._id) } },
+      ];
     }
 
     const pageParam = searchParams.get("page");

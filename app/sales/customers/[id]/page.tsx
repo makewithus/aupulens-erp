@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { CustomerForm, EMPTY_CUSTOMER, type CustomerFormValue } from "@/components/sales/customers/CustomerForm";
+import { Loader2 } from "lucide-react";
 
 export default function EditCustomerPage() {
   const { data: session } = useSession();
@@ -57,11 +58,11 @@ export default function EditCustomerPage() {
     >
       <div className="p-6">
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : value ? (
           <CustomerForm initialValue={value} customerId={id} />
         ) : (
-          <div className="py-16 text-center text-sm text-muted-foreground">Customer not found</div>
+          <div className="py-16 text-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Customer not found</div>
         )}
       </div>
     </DashboardLayout>

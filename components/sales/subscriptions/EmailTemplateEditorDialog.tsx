@@ -97,7 +97,7 @@ export function EmailTemplateEditorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSave} disabled={saving || loading}>
+          <Button className="font-mono text-[11px] uppercase tracking-wider" onClick={handleSave} disabled={saving || loading}>
             {saving ? "Saving..." : "Save"}
           </Button>
         </div>

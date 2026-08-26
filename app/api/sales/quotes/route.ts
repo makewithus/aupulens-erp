@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
 import SalesQuotation from "@/models/SalesQuotation";
+import SalesView from "@/models/SalesView";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateQuoteNumber } from "@/lib/sales/quoteNumbering";
+import { buildMongoFilterFromCriteria } from "@/lib/sales/quoteViews";
 import { QUOTE_STATUS, QUOTE_STATUS_VALUES } from "@/lib/constants/statuses";
 import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
 
@@ -21,7 +23,16 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "25", 10);
     const skip = (page - 1) * limit;
 
-    const query: any = { tenantId };
+    let query: any = { tenantId };
+
+    const viewId = searchParams.get("viewId");
+    if (viewId) {
+      const view = await SalesView.findOne({ _id: viewId, tenantId, entityType: "quotes" }).lean();
+      if (view) {
+        query = { ...query, ...buildMongoFilterFromCriteria((view as any).criteria) };
+      }
+    }
+
     const status = searchParams.get("status");
     if (status && status !== "all") query.status = status;
 

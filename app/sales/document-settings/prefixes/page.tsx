@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Check, X } from "lucide-react";
+import { Plus, Pencil, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const DOCUMENT_TYPES = [
@@ -93,7 +93,7 @@ export default function PrefixesSuffixesPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">Document Prefixes / Suffixes</h1>
+        <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Document Prefixes / Suffixes</h1>
 
         <Tabs value={kind} onValueChange={(v) => setKind(v as any)}>
           <TabsList>
@@ -107,33 +107,33 @@ export default function PrefixesSuffixesPage() {
             <button
               key={d.value}
               onClick={() => setDocType(d.value)}
-              className={`text-xs px-3 py-1.5 rounded-full border ${docType === d.value ? "bg-blue-600 text-white border-blue-600" : "bg-background border-border text-muted-foreground"}`}
+              className={`font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-none border ${docType === d.value ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border/40 text-muted-foreground"}`}
             >
               {d.label}
             </button>
           ))}
         </div>
 
-        <div className="bg-card border rounded-lg overflow-hidden">
-          <div className="divide-y">
+        <div className="bg-card border border-border/40 rounded-none overflow-hidden">
+          <div className="divide-y divide-border/30">
             {loading ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">Loading...</div>
+              <div className="p-6 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : rows.length === 0 ? (
               <div className="p-6 text-center text-muted-foreground text-sm">No {kind}es yet for {DOCUMENT_TYPES.find((d) => d.value === docType)?.label}.</div>
             ) : (
               rows.map((row) => (
-                <div key={row._id} className="flex items-center justify-between p-4">
+                <div key={row._id} className="flex items-center justify-between p-4 group transition-colors duration-300 hover:bg-white/[0.015]">
                   {editingId === row._id ? (
                     <div className="flex items-center gap-2 flex-1">
                       <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="h-8 w-40" />
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEdit(row._id)}><Check className="h-4 w-4 text-green-600" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveEdit(row._id)}><Check className="h-4 w-4 text-emerald-500" /></Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                     </div>
                   ) : (
-                    <span className="font-medium">{row.value}</span>
+                    <span className="font-medium text-foreground/80">{row.value}</span>
                   )}
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                       Default <Switch checked={row.isDefault} onCheckedChange={() => setDefault(row._id)} />
                     </label>
                     {editingId !== row._id && (
@@ -146,9 +146,9 @@ export default function PrefixesSuffixesPage() {
               ))
             )}
           </div>
-          <div className="p-4 border-t flex items-center gap-2 bg-muted/20">
+          <div className="p-4 border-t border-border/40 flex items-center gap-2 bg-muted/20">
             <Input value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder={kind === "prefix" ? "e.g. INV-" : "e.g. -A"} className="h-9 w-48" onKeyDown={(e) => e.key === "Enter" && addRow()} />
-            <Button onClick={addRow} size="sm"><Plus className="w-4 h-4 mr-1" /> Add {kind === "prefix" ? "Prefix" : "Suffix"}</Button>
+            <Button onClick={addRow} size="sm" className="font-mono text-[11px] uppercase tracking-wider"><Plus className="w-4 h-4 mr-1" /> Add {kind === "prefix" ? "Prefix" : "Suffix"}</Button>
           </div>
         </div>
       </div>

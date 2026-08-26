@@ -147,6 +147,9 @@ SubscriptionSchema.index({ tenantId: 1, status: 1 });
 SubscriptionSchema.index({ tenantId: 1, customerId: 1 });
 SubscriptionSchema.index({ tenantId: 1, number: 1 }, { unique: true, sparse: true });
 SubscriptionSchema.index({ tenantId: 1, nextBillingOn: 1 });
+// Default list view sorts by createdAt against a bare tenantId filter, with
+// no compound index covering that shape.
+SubscriptionSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Subscription: Model<ISubscription> =
   (mongoose.models.Subscription as Model<ISubscription>) ||

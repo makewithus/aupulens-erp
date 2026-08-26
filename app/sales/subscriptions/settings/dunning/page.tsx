@@ -9,7 +9,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Mail, Plus } from "lucide-react";
+import { Mail, Plus, Loader2 } from "lucide-react";
 
 export default function DunningRulesPage() {
   const { data: session } = useSession();
@@ -49,17 +49,17 @@ export default function DunningRulesPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Dunning Rules</h1>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Dunning Rules</h1>
           <div className="flex items-center gap-4">
             <Link
               href="/sales/subscriptions/settings/email-notifications"
-              className="text-sm text-blue-600 underline flex items-center gap-1"
+              className="font-mono text-[11px] uppercase tracking-wider text-primary underline flex items-center gap-1"
             >
               <Mail className="w-4 h-4" /> Configure email templates
             </Link>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="font-mono text-[11px] uppercase tracking-wider"
               onClick={() => router.push("/sales/subscriptions/settings/dunning/new")}
             >
               <Plus className="w-4 h-4 mr-1" /> New Rule
@@ -67,38 +67,42 @@ export default function DunningRulesPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : (
-          <Table>
-            <TableHeader>
+        <Table>
+            <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead className="w-16">S.NO</TableHead>
-                <TableHead>Rule Name</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="w-16 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">S.No</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Rule Name</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rules.map((r, i) => (
-                <TableRow key={r._id}>
-                  <TableCell>{i + 1}</TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/sales/subscriptions/settings/dunning/${r._id}`}
-                      className="text-blue-600 underline font-medium"
-                    >
-                      {r.name}
-                    </Link>
-                    {r.isDefault && (
-                      <span className="ml-2 text-xs px-1.5 py-0.5 border rounded-none bg-muted/50">Default</span>
-                    )}
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-16">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
-                  <TableCell className="capitalize">{r.status}</TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                rules.map((r, i) => (
+                  <TableRow key={r._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                    <TableCell className="text-sm text-foreground/80">{i + 1}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/sales/subscriptions/settings/dunning/${r._id}`}
+                        className="text-primary underline font-medium"
+                      >
+                        {r.name}
+                      </Link>
+                      {r.isDefault && (
+                        <span className="ml-2 font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 border border-border/40 rounded-none bg-accent">Default</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground/80 capitalize">{r.status}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
-        )}
       </div>
     </DashboardLayout>
   );

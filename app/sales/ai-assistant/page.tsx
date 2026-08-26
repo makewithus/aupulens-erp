@@ -352,7 +352,7 @@ export default function SalesAIAssistant() {
     return (
       <DashboardLayout
         sidebarConfig={salesSidebarConfig}
-        dashboardTitle="sales Dashboard"
+        dashboardTitle="Sales"
         userName="Sales User"
         userRole="sales"
         onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
@@ -384,7 +384,7 @@ export default function SalesAIAssistant() {
   return (
     <DashboardLayout
       sidebarConfig={salesSidebarConfig}
-      dashboardTitle="sales Dashboard"
+      dashboardTitle="Sales"
       userName={session?.user?.name || 'User'}
       userRole={session?.user?.role || 'sales'}
       onSignOut={() => signOut({ callbackUrl: '/auth/sales' })}
@@ -539,8 +539,8 @@ export default function SalesAIAssistant() {
           <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="w-16 h-16 rounded-full  flex items-center justify-center mb-4">
-                  <MessageSquare className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+                  <MessageSquare className="w-8 h-8" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Sales AI Assistant</h2>
                 <p className="text-muted-foreground max-w-md">

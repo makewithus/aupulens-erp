@@ -22,8 +22,10 @@ export async function GET(request: Request) {
 
     // Check if seeded based on Account Types or missing accounts
     const AccountType = (await import("@/models/AccountType")).default;
-    const typeCount = await AccountType.countDocuments({ tenantId });
-    const accountCount = await Account.countDocuments({ tenantId });
+    const [typeCount, accountCount] = await Promise.all([
+      AccountType.countDocuments({ tenantId }),
+      Account.countDocuments({ tenantId }),
+    ]);
     if (typeCount === 0 || accountCount < 78) {
       const { seedNewChartOfAccounts } = await import("@/lib/accounting/coa-feature-seeder");
       await seedNewChartOfAccounts(tenantId, session.user.id);
@@ -32,7 +34,8 @@ export async function GET(request: Request) {
     const accounts = await Account.find(query)
       .populate("accountType", "name segment")
       .populate("parentAccountId", "accountName")
-      .sort({ accountName: 1 });
+      .sort({ accountName: 1 })
+      .lean();
       
     return NextResponse.json({ accounts });
   } catch (error) {

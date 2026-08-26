@@ -94,24 +94,42 @@ export async function GET() {
     };
 
     // Recent operational documents are still shown for activity context, while
-    // financial KPIs above are computed from posted ledger entries.
-    const recentBills = await Invoice.find({
-      moveType: "in_invoice",
-      tenantId,
-    })
-      .populate("partnerId", "header.name")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    // financial KPIs above are computed from posted ledger entries. These four
+    // queries are independent of each other and of the Promise.all above, so
+    // they run concurrently instead of as a 4-request waterfall.
+    const [Expense, StockTransfer] = await Promise.all([
+      import("@/models/Expense").then((m) => m.default),
+      import("@/models/StockTransfer").then((m) => m.default),
+    ]);
 
-    const recentInvoices = await Invoice.find({
-      moveType: "out_invoice",
-      tenantId,
-    })
-      .populate("partnerId", "header.name")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    const [recentBills, recentInvoices, recentExpenses, recentReturns] = await Promise.all([
+      Invoice.find({ moveType: "in_invoice", tenantId })
+        .populate("partnerId", "header.name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      Invoice.find({ moveType: "out_invoice", tenantId })
+        .populate("partnerId", "header.name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      Expense.find({ tenantId })
+        .populate("employeeId", "name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      StockTransfer.find({
+        tenantId,
+        $or: [
+          { "header.name": { $regex: /RET/i } },
+          { "header.sourceDocument": { $exists: true, $ne: "" } },
+        ],
+      })
+        .populate("header.partnerId", "header.name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+    ]);
 
     // Helper for percentage change
     const calcChange = (curr: number, prev: number) => {
@@ -121,26 +139,6 @@ export async function GET() {
 
     const currentNetIncome = currentRevenue - currentExpenses;
     const prevNetIncome = prevRevenue - prevExpenses;
-
-    const Expense = (await import("@/models/Expense")).default;
-    const recentExpenses = await Expense.find({ tenantId })
-      .populate("employeeId", "name")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
-
-    const StockTransfer = (await import("@/models/StockTransfer")).default;
-    const recentReturns = await StockTransfer.find({
-      tenantId,
-      $or: [
-        { "header.name": { $regex: /RET/i } },
-        { "header.sourceDocument": { $exists: true, $ne: "" } },
-      ],
-    })
-      .populate("header.partnerId", "header.name")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
 
     // 5. Additional Financial Matrices
     const workingCapital = receivables.total - payables.total;

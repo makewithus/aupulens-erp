@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil } from "lucide-react";
+import { Pencil, Loader2 } from "lucide-react";
 import { EmailTemplateEditorDialog } from "@/components/sales/subscriptions/EmailTemplateEditorDialog";
 
 export default function EmailNotificationsSettingsPage() {
@@ -58,39 +58,43 @@ export default function EmailNotificationsSettingsPage() {
       userEmail={session?.user?.email ?? ""}
     >
       <div className="p-6 max-w-3xl mx-auto space-y-6">
-        <h1 className="text-xl font-bold">Email Notifications</h1>
+        <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Email Notifications</h1>
         <p className="text-sm text-muted-foreground">
           Choose which subscription lifecycle events send an email to the customer, and customize each template.
         </p>
 
-        {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading...</div>
-        ) : (
-          <Table>
-            <TableHeader>
+        <Table>
+          <TableHeader className="border-border/40">
+            <TableRow>
+              <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Notification Type</TableHead>
+              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Enabled</TableHead>
+              <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Template</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
               <TableRow>
-                <TableHead>Notification Type</TableHead>
-                <TableHead className="w-24">Enabled</TableHead>
-                <TableHead className="w-20">Template</TableHead>
+                <TableCell colSpan={3} className="text-center py-16">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {settings.map((s) => (
-                <TableRow key={s.eventKey}>
-                  <TableCell className="font-medium">{s.label}</TableCell>
+            ) : (
+              settings.map((s) => (
+                <TableRow key={s.eventKey} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                  <TableCell className="font-medium text-foreground/80">{s.label}</TableCell>
                   <TableCell>
                     <Switch checked={s.enabled} onCheckedChange={() => toggle(s)} />
                   </TableCell>
                   <TableCell>
                     <button onClick={() => setEditing(s)}>
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                      <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
                     </button>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {editing && (

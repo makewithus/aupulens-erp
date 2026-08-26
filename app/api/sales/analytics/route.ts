@@ -24,68 +24,72 @@ await connectDB();
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // Aggregate orders count by month
-    const ordersData = await SaleOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sixMonthsAgo }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            month: { $month: '$createdAt' },
-            year: { $year: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
+    // These three aggregations are independent of each other, so run them
+    // concurrently instead of as a sequential waterfall.
+    const [ordersData, revenueData, topProducts] = await Promise.all([
+      // Aggregate orders count by month
+      SaleOrder.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sixMonthsAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              year: { $year: '$createdAt' }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]),
 
-    // Aggregate revenue by month
-    const revenueData = await SaleOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sixMonthsAgo },
-          status: { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.DRAFT] }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            month: { $month: '$createdAt' },
-            year: { $year: '$createdAt' }
-          },
-          amount: { $sum: '$totals.amountTotal' }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
+      // Aggregate revenue by month
+      SaleOrder.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sixMonthsAgo },
+            status: { $nin: [DOCUMENT_STATUS.CANCELLED, DOCUMENT_STATUS.DRAFT] }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              year: { $year: '$createdAt' }
+            },
+            amount: { $sum: '$totals.amountTotal' }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]),
 
-    // Get top products
-    const topProducts = await SaleOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sixMonthsAgo }
+      // Get top products
+      SaleOrder.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sixMonthsAgo }
+          }
+        },
+        { $unwind: '$orderLines' },
+        {
+          $group: {
+            _id: '$orderLines.name',
+            value: { $sum: '$orderLines.productQty' }
+          }
+        },
+        { $sort: { value: -1 } },
+        { $limit: 5 },
+        {
+          $project: {
+            _id: 0,
+            name: '$_id',
+            value: 1
+          }
         }
-      },
-      { $unwind: '$orderLines' },
-      {
-        $group: {
-          _id: '$orderLines.name',
-          value: { $sum: '$orderLines.productQty' }
-        }
-      },
-      { $sort: { value: -1 } },
-      { $limit: 5 },
-      {
-        $project: {
-          _id: 0,
-          name: '$_id',
-          value: 1
-        }
-      }
+      ]),
     ]);
 
     // Format data

@@ -97,7 +97,7 @@ export function FinanceVisualization({
       <CardHeader className="space-y-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-blue-600" />
+            <BarChart3 className="h-5 w-5 text-foreground/70" />
             {title}
           </CardTitle>
         </div>
@@ -204,7 +204,7 @@ export function FinanceVisualization({
       <CardContent>
         {isLoadingViz ? (
           <div className="flex justify-center items-center h-96">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-800" />
+            <Loader2 className="h-8 w-8 animate-spin text-foreground/70" />
           </div>
         ) : visualizationData.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-96 text-muted-foreground dark:text-muted-foreground">
