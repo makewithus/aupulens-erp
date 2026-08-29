@@ -6,10 +6,10 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_quotes"
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import SalesQuotation from "@/models/SalesQuotation";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Customer from "@/models/Customer";
-import Counter from "@/models/Counter";
+import SalesQuotation from "@/models/sales/SalesQuotation";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Customer from "@/models/sales/Customer";
+import Counter from "@/models/shared/Counter";
 import { QUOTE_STATUS } from "@/lib/constants/statuses";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 

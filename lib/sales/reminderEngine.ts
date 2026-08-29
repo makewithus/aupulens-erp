@@ -1,11 +1,11 @@
 import { addDays, startOfDay, endOfDay, subDays } from "date-fns";
-import Reminder from "@/models/Reminder";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Invoice from "@/models/Invoice";
-import EmailTemplate from "@/models/EmailTemplate";
+import Reminder from "@/models/sales/Reminder";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Invoice from "@/models/finance/Invoice";
+import EmailTemplate from "@/models/sales/EmailTemplate";
 import { getEmailService, renderTemplate } from "@/lib/email/sendEmail";
 import { REMINDER_SCOPE, REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 /** The calendar date a reminder with this offset/direction should fire on, given a base date (due date or expected payment date). */
 function targetDate(base: Date, offsetDays: number, direction: string): Date {

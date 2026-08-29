@@ -368,7 +368,7 @@ export default function QuoteBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-white"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   onClick={() => toggleExpanded(i)}
                 >
                   {isExpanded ? (
@@ -468,7 +468,7 @@ export default function QuoteBuilder({
             <span>Tax</span>
             <span>+₹{totals.taxTotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold text-lg pt-2 border-t border-border text-white">
+          <div className="flex justify-between font-bold text-lg pt-2 border-t border-border text-foreground">
             <span>Grand Total</span>
             <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Organization from "@/models/Organization";
-import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
-import "@/models/BankAccount"; // side-effect import: registers "BankAccount" for .populate("bankAccountId") below
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Organization from "@/models/admin/Organization";
+import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
+import "@/models/finance/BankAccount"; // side-effect import: registers "BankAccount" for .populate("bankAccountId") below
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { postSalesInvoiceJournal, type SalesInvoiceSnapshot } from "@/lib/accounting/salesInvoicePosting";
 import { settleInvoiceShortfallWithSystemPayment } from "@/lib/sales/paymentAllocation";
 import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
-import Payment from "@/models/Payment";
-import JournalEntry from "@/models/JournalEntry";
+import Payment from "@/models/sales/Payment";
+import JournalEntry from "@/models/finance/JournalEntry";
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
 const REVENUE_RECOGNIZED_STATUSES = new Set([

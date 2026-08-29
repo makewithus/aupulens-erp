@@ -1,9 +1,9 @@
 import connectDB from "@/lib/db";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import { DocumentSettings } from "@/models/DocumentSettings";
-import Organization from "@/models/Organization";
-import "@/models/BankAccount";
-import "@/models/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import { DocumentSettings } from "@/models/sales/DocumentSettings";
+import Organization from "@/models/admin/Organization";
+import "@/models/finance/BankAccount";
+import "@/models/sales/Customer";
 import {
   getTemplateDefinition,
   renderInvoiceTemplate,

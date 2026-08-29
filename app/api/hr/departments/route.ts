@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Department from "@/models/Department";
-import Employee from "@/models/Employee";
+import Department from "@/models/hr/Department";
+import Employee from "@/models/hr/Employee";
 
 // Default departments matching existing CRM modules
 const DEFAULT_DEPARTMENTS = [

@@ -1,4 +1,4 @@
-import JournalEntry from "@/models/JournalEntry";
+import JournalEntry from "@/models/finance/JournalEntry";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 export type ReportGroup =

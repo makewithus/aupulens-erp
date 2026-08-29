@@ -1,5 +1,5 @@
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
 
 /** One of the five buckets this validator reasons about. */
 type Category = "expense" | "income" | "asset" | "liability" | "cashOrBank" | "equity" | null;

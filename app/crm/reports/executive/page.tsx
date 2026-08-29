@@ -39,7 +39,7 @@ export default function ReportingCenterPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-white">View</Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">View</Button>
               <Button variant="outline" size="sm" className="h-8 text-xs border-border bg-background">
                 <Download className="w-3 h-3 mr-1" /> CSV
               </Button>

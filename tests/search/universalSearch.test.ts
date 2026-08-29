@@ -30,12 +30,12 @@ vi.mock("@/models/crm/Lead", () => modelMock("Lead"));
 vi.mock("@/models/crm/Account", () => modelMock("Account"));
 vi.mock("@/models/crm/Contact", () => modelMock("Contact"));
 vi.mock("@/models/crm/Opportunity", () => modelMock("Opportunity"));
-vi.mock("@/models/SalesInvoice", () => namedModelMock("SalesInvoice", "SalesInvoice"));
-vi.mock("@/models/Customer", () => modelMock("Customer"));
-vi.mock("@/models/SaleOrder", () => modelMock("SaleOrder"));
-vi.mock("@/models/InventoryItem", () => modelMock("InventoryItem"));
-vi.mock("@/models/Employee", () => modelMock("Employee"));
-vi.mock("@/models/Project", () => modelMock("Project"));
+vi.mock("@/models/sales/SalesInvoice", () => namedModelMock("SalesInvoice", "SalesInvoice"));
+vi.mock("@/models/sales/Customer", () => modelMock("Customer"));
+vi.mock("@/models/sales/SaleOrder", () => modelMock("SaleOrder"));
+vi.mock("@/models/inventory/InventoryItem", () => modelMock("InventoryItem"));
+vi.mock("@/models/hr/Employee", () => modelMock("Employee"));
+vi.mock("@/models/shared/Project", () => modelMock("Project"));
 
 import { GET } from "@/app/api/search/route";
 

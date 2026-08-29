@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import { randomUUID } from 'crypto';
-import SaleOrder from '@/models/SaleOrder';
-import SalesQuotation from '@/models/SalesQuotation';
-import DeliveryChallan from '@/models/DeliveryChallan';
+import SaleOrder from '@/models/sales/SaleOrder';
+import SalesQuotation from '@/models/sales/SalesQuotation';
+import DeliveryChallan from '@/models/sales/DeliveryChallan';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
-import ChatHistory from '@/models/ChatHistory';
+import ChatHistory from '@/models/ai/ChatHistory';
 
 export async function POST(request: NextRequest) {
   try {

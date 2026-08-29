@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 
 // Read-only seller-block info for the Sales invoice UI (org name, GSTIN,
 // state — used client-side for the live CGST/SGST-vs-IGST preview).

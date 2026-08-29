@@ -27,7 +27,7 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
-vi.mock("@/models/Organization", () => {
+vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   // findOne returns chainable { lean } — mirrors Mongoose's query object
   Organization.findOne = (...args: any[]) => {
@@ -38,7 +38,7 @@ vi.mock("@/models/Organization", () => {
   return { default: Organization };
 });
 
-vi.mock("@/models/User", () => {
+vi.mock("@/models/auth/User", () => {
   function User() {}
   // findById returns chainable { lean }
   User.findById = (...args: any[]) => {

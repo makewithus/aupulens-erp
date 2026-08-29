@@ -15,10 +15,10 @@ async function main() {
   if (!tenantId) { console.error("Usage: npx tsx scripts/migrate-seed-orgunits.ts <tenantId>"); process.exit(1); }
 
   await mongoose.connect(process.env.MONGODB_URI as string);
-  const OrgUnit = (await import("../models/OrgUnit")).default;
-  const Department = (await import("../models/Department")).default;
-  const Organization = (await import("../models/Organization")).default;
-  const User = (await import("../models/User")).default;
+  const OrgUnit = (await import("../models/admin/OrgUnit")).default;
+  const Department = (await import("../models/hr/Department")).default;
+  const Organization = (await import("../models/admin/Organization")).default;
+  const User = (await import("../models/auth/User")).default;
 
   const existing = await OrgUnit.countDocuments({ tenantId });
   if (existing > 0) { console.log(`Tenant ${tenantId} already has ${existing} OrgUnit(s) — skipping (idempotent).`); await mongoose.disconnect(); return; }

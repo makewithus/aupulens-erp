@@ -1,5 +1,5 @@
-import Subscription from "@/models/Subscription";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import Subscription from "@/models/sales/Subscription";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { addBillingPeriods } from "@/lib/sales/subscriptionBilling";
 import { onPaymentFailure } from "@/lib/sales/dunningEngine";
@@ -10,7 +10,7 @@ import {
   SALES_SUBSCRIPTION_STATUS,
   SALES_INVOICE_STATUS,
 } from "@/lib/constants/statuses";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 export interface BillingRunResult {
   billed: number;

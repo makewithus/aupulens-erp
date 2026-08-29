@@ -376,7 +376,7 @@ export function DashboardHeader({
 
                       {isDropdownActive && (
                         <div
-                          className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar"
+                          className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-popover text-popover-foreground p-3 z-50 transform-gpu transition-all duration-300 ease-out origin-top-left shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar"
                         >
                           {m.config.map((section, si) => (
                             <div key={si} className="mb-3 last:mb-0">
@@ -421,7 +421,7 @@ export function DashboardHeader({
                     </button>
 
                     {isModuleOpen && (
-                      <div className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-black p-3 z-50 transform-gpu shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar">
+                      <div className="absolute left-0 top-full mt-2 w-[320px] rounded-none border-2 border-primary/20 bg-popover text-popover-foreground p-3 z-50 transform-gpu shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto youtube-scrollbar">
                         {sidebarConfig.map((section, si) => (
                           <div key={si} className="mb-3 last:mb-0">
                             {section.title && (

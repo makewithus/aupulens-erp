@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import Lead from "@/models/Lead";
-import Opportunity from "@/models/Opportunity";
+import Customer from "@/models/sales/Customer";
+import Lead from "@/models/legacy/Lead";
+import Opportunity from "@/models/legacy/Opportunity";
 import { OPPORTUNITY_STAGE } from "@/lib/crm/workflow";
 import {
   hasCrmAccess,

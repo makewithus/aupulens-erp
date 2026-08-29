@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import connectDB from "@/lib/db";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
-import Organization from "@/models/Organization";
+import Invoice from "@/models/finance/Invoice";
+import Customer from "@/models/sales/Customer";
+import Organization from "@/models/admin/Organization";
 import { InvoiceTemplate } from "@/components/accounting/InvoiceTemplate";
 import { PrintToolbar } from "@/components/accounting/PrintToolbar";
 

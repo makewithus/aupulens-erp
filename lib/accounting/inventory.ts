@@ -1,6 +1,6 @@
 import type mongoose from "mongoose";
-import Account from "@/models/Account";
-import JournalEntry from "@/models/JournalEntry";
+import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
 import { VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";

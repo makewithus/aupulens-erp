@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import User from '@/models/User';
-import ActivityLog from '@/models/ActivityLog';
+import User from '@/models/auth/User';
+import ActivityLog from '@/models/admin/ActivityLog';
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 
 export async function GET() {

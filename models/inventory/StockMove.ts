@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, model, Model } from "mongoose";
-import { MessageSchema } from "./sub/Common";
+import { MessageSchema } from "../shared/Common";
 import {
   STOCK_MOVE_STATUS,
   STOCK_MOVE_STATUS_VALUES,

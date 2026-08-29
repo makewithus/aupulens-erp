@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Department from "@/models/Department";
-import Employee from "@/models/Employee";
-import User from "@/models/User";
+import Department from "@/models/hr/Department";
+import Employee from "@/models/hr/Employee";
+import User from "@/models/auth/User";
 
 export async function GET(
   req: NextRequest,

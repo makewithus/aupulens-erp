@@ -26,19 +26,19 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
-vi.mock("@/models/InventoryItem", () => ({
+vi.mock("@/models/inventory/InventoryItem", () => ({
   default: {
     find: (...args: any[]) => { mockInventoryItemFind(...args); return { lean: () => Promise.resolve([]) }; },
   },
 }));
-vi.mock("@/models/Batch", () => ({ default: {} }));
+vi.mock("@/models/inventory/Batch", () => ({ default: {} }));
 
 vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,

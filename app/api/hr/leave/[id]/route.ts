@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import LeaveRequest from "@/models/LeaveRequest";
-import Employee from "@/models/Employee";
+import LeaveRequest from "@/models/hr/LeaveRequest";
+import Employee from "@/models/hr/Employee";
 
 export async function PATCH(
   req: NextRequest,

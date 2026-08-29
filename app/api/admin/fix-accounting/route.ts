@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import connectDB from "@/lib/db";
-import Invoice from "@/models/Invoice";
-import Expense from "@/models/Expense";
-import JournalEntry from "@/models/JournalEntry";
-import Account from "@/models/Account";
+import Invoice from "@/models/finance/Invoice";
+import Expense from "@/models/finance/Expense";
+import JournalEntry from "@/models/finance/JournalEntry";
+import Account from "@/models/finance/Account";
 import { DOCUMENT_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { requireMaintenanceAccess } from "@/lib/api/maintenance-guard";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";

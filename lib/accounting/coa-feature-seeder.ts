@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import AccountType from "@/models/AccountType";
-import Account from "@/models/Account";
-import Accountant from "@/models/Accountant";
+import AccountType from "@/models/finance/AccountType";
+import Account from "@/models/finance/Account";
+import Accountant from "@/models/finance/Accountant";
 
 const ACCOUNT_TYPES_DATA = [
   { name: "Accounts Payable", segment: "Other Current Liability", description: "Accounts Payable are amounts due to vendors for goods or services received." },

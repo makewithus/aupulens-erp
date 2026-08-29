@@ -16,8 +16,8 @@ const { mockConnectDB, mockAggregate, mockFind, mockEmbed } = vi.hoisted(() => (
 }));
 
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/AiEmbedding", () => ({ default: { aggregate: mockAggregate, find: mockFind } }));
-vi.mock("@/models/SalesInvoice", () => ({ SalesInvoice: { find: vi.fn() } }));
+vi.mock("@/models/ai/AiEmbedding", () => ({ default: { aggregate: mockAggregate, find: mockFind } }));
+vi.mock("@/models/sales/SalesInvoice", () => ({ SalesInvoice: { find: vi.fn() } }));
 vi.mock("@/models/crm/Activity", () => ({ default: { find: vi.fn() } }));
 vi.mock("@/lib/ai/claude", () => ({ embedText: mockEmbed, EMBEDDING_DEFAULT_MODEL: "text-embedding-ada-002" }));
 vi.mock("@/lib/ai/tenantAi", () => ({ resolveTenantAiSettings: vi.fn(), callClaudeForTenant: vi.fn() }));

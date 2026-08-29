@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import PaymentMode from "@/models/PaymentMode";
+import PaymentMode from "@/models/sales/PaymentMode";
 
 const SEED_MODES = ["Cash", "Bank Transfer", "Cheque", "Credit Card", "UPI"];
 

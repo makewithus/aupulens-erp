@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import BankFeedProvider from "@/models/BankFeedProvider";
+import BankFeedProvider from "@/models/finance/BankFeedProvider";
 
 /**
  * Initiates a live bank-feed connection for the given provider.

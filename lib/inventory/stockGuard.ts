@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import Stock from "@/models/Stock";
-import Product from "@/models/Product";
+import Stock from "@/models/inventory/Stock";
+import Product from "@/models/inventory/Product";
 
 /**
  * Returns the current aggregated on-hand quantity for a product within a

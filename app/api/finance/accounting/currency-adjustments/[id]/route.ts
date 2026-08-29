@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import CurrencyAdjustment from "@/models/CurrencyAdjustment";
+import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import BusinessHealthSummary from "@/models/BusinessHealthSummary";
+import BusinessHealthSummary from "@/models/admin/BusinessHealthSummary";
 
 /**
  * Latest AI business-health summary for the current tenant (Phase 4).

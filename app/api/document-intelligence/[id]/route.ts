@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import ExtractedDocument from "@/models/ExtractedDocument";
-import "@/models/Invoice";
-import "@/models/Customer";
+import ExtractedDocument from "@/models/ai/ExtractedDocument";
+import "@/models/finance/Invoice";
+import "@/models/sales/Customer";
 import { coerceVendorBill } from "@/lib/docIntel/extractionSchemas";
 import { findDuplicates } from "@/lib/docIntel/duplicateCheck";
 import { loadExistingBills } from "@/lib/docIntel/billCreate";

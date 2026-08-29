@@ -392,7 +392,7 @@ export default function BankReconciliationPage() {
               </Button>
               <Button
                 onClick={handleReconcile}
-                className="px-10 bg-black text-white hover:bg-black/90 rounded-none font-black uppercase tracking-widest text-xs h-11"
+                className="px-10 rounded-none font-black uppercase tracking-widest text-xs h-11"
               >
                 Validate Match
               </Button>

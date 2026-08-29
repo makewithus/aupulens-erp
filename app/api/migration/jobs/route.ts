@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import MigrationJob from "@/models/MigrationJob";
+import MigrationJob from "@/models/admin/MigrationJob";
 import {
   MIGRATION_ENTITY_VALUES,
   MIGRATION_SOURCE_SYSTEM_VALUES,

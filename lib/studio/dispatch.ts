@@ -8,7 +8,7 @@
  * failures are recorded on the WorkflowRun, not thrown back to the caller.
  */
 
-import Workflow from "@/models/Workflow";
+import Workflow from "@/models/studio/Workflow";
 import { WORKFLOW_TRIGGER_TYPE } from "@/lib/studio/catalog";
 import { runWorkflow } from "@/lib/studio/actions";
 

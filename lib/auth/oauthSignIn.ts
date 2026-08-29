@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import connectDB from "@/lib/db";
-import User, { type IUser } from "@/models/User";
-import Organization from "@/models/Organization";
-import OrgInvite from "@/models/OrgInvite";
+import User, { type IUser } from "@/models/auth/User";
+import Organization from "@/models/admin/Organization";
+import OrgInvite from "@/models/auth/OrgInvite";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
 import { getTierLimits } from "@/lib/constants/tiers";
 import { getTenantFromHost } from "@/lib/tenant/resolution";

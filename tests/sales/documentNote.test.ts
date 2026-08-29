@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import DocumentNote from "@/models/DocumentNote";
+import DocumentNote from "@/models/sales/DocumentNote";
 
 describe("DocumentNote model", () => {
   beforeAll(async () => {

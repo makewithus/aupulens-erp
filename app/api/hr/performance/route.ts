@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import PerformanceReview from "@/models/PerformanceReview";
+import PerformanceReview from "@/models/hr/PerformanceReview";
 
 export async function GET() {
   try {

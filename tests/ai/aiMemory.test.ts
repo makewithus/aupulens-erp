@@ -19,7 +19,7 @@ const { mockFindOne, mockFind, mockFindOneAndUpdate, mockAuth, mockConnectDB } =
     mockConnectDB: vi.fn().mockResolvedValue(undefined),
   }));
 
-vi.mock("@/models/AiMemory", () => ({
+vi.mock("@/models/ai/AiMemory", () => ({
   default: {
     findOne: mockFindOne,
     find: mockFind,
@@ -31,7 +31,7 @@ vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
 import { GET, POST } from "@/app/api/ai/memory/route";
-import AiMemory from "@/models/AiMemory";
+import AiMemory from "@/models/ai/AiMemory";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

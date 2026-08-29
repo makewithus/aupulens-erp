@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Stock from "@/models/Stock";
-import Product from "@/models/Product"; // Ensure Product model is registered
+import Stock from "@/models/inventory/Stock";
+import Product from "@/models/inventory/Product"; // Ensure Product model is registered
 import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: Request) {

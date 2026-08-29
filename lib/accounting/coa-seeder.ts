@@ -1,4 +1,4 @@
-import Account from "@/models/Account";
+import Account from "@/models/finance/Account";
 import mongoose from "mongoose";
 
 const DEFAULT_ACCOUNTS = [

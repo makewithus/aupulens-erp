@@ -40,7 +40,7 @@ describe("requireTenantId helper", () => {
 const { mockAuth, mockFind } = vi.hoisted(() => ({ mockAuth: vi.fn(), mockFind: vi.fn() }));
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/models/ChatHistory", () => ({ default: { find: mockFind } }));
+vi.mock("@/models/ai/ChatHistory", () => ({ default: { find: mockFind } }));
 
 import { GET } from "@/app/api/manufacturing/chat-history/route";
 

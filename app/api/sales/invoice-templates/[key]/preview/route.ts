@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import { DocumentSettings } from "@/models/DocumentSettings";
-import Organization from "@/models/Organization";
+import { DocumentSettings } from "@/models/sales/DocumentSettings";
+import Organization from "@/models/admin/Organization";
 import { getTemplateDefinition, renderInvoiceTemplateFragment, buildTemplateContext } from "@/lib/invoiceTemplates";
 
 // Sample data only — no real customer/tenant business data. Used to render a

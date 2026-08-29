@@ -43,7 +43,7 @@ export default function Account360Page(props: { params: Promise<{ id: string }> 
             <span className={`text-sm px-3 py-1 font-normal text-white flex items-center ${account.account_health_score >= 70 ? 'bg-emerald-600' : account.account_health_score < 40 ? 'bg-rose-600' : 'bg-amber-500'}`}>
               Health: {account.account_health_score}
             </span>
-            <span className={`text-sm px-3 py-1 font-normal text-white flex items-center ${account.status === 'Active' ? 'bg-blue-600' : account.status === 'At Risk' ? 'bg-orange-600' : 'bg-muted'}`}>
+            <span className={`text-sm px-3 py-1 font-normal flex items-center ${account.status === 'Active' ? 'bg-blue-600 text-white' : account.status === 'At Risk' ? 'bg-orange-600 text-white' : 'bg-muted text-foreground'}`}>
               {account.status || 'Active'}
             </span>
           </h1>

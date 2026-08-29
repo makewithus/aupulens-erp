@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { getDefaultPrefix } from "@/lib/sales/invoiceNumbering";
 import { SALES_DOCUMENT_TYPE } from "@/lib/constants/statuses";
-import Counter from "@/models/Counter";
+import Counter from "@/models/shared/Counter";
 
 // Preview-only: shows what the next subscription number would be, without
 // reserving it (reservation happens atomically on save via generateSubscriptionNumber).

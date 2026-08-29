@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { getDefaultPrefix } from "@/lib/sales/invoiceNumbering";
 import { SALES_DOCUMENT_TYPE } from "@/lib/constants/statuses";
-import Counter from "@/models/Counter";
+import Counter from "@/models/shared/Counter";
 
 export async function GET() {
   try {

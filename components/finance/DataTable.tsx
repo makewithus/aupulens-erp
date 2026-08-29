@@ -55,13 +55,13 @@ export function DataTable<T extends Record<string, unknown>>({
 
   return (
     <div
-      className={cn("w-full space-y-4 bg-[#0c0c0c] p-6 rounded-lg", className)}
+      className={cn("w-full space-y-4 bg-card p-6 rounded-none", className)}
     >
       {/* Header Section */}
       {(title || actions) && (
         <div className="flex items-center justify-between mb-6">
           {title && (
-            <h2 className="text-2xl font-semibold text-white tracking-tight">
+            <h2 className="text-2xl font-semibold text-foreground tracking-tight">
               {title}
             </h2>
           )}
@@ -73,7 +73,7 @@ export function DataTable<T extends Record<string, unknown>>({
       <div className="rounded-md">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent border-white/10">
+            <TableRow className="hover:bg-transparent border-border/40">
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
@@ -101,7 +101,7 @@ export function DataTable<T extends Record<string, unknown>>({
               data.map((item, index) => (
                 <TableRow
                   key={index}
-                  className="border-white/10 hover:bg-white/5 transition-colors"
+                  className="border-border/40 hover:bg-accent/50 transition-colors"
                 >
                   {columns.map((column) => (
                     <TableCell
@@ -127,7 +127,7 @@ export function DataTable<T extends Record<string, unknown>>({
             variant="outline"
             onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
             disabled={pagination.currentPage <= 1}
-            className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white min-w-[100px]"
+            className="rounded-none border-border/40 text-foreground hover:bg-accent min-w-[100px]"
           >
             Previous
           </Button>
@@ -138,7 +138,7 @@ export function DataTable<T extends Record<string, unknown>>({
             variant="outline"
             onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
             disabled={pagination.currentPage >= pagination.totalPages}
-            className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white min-w-[100px]"
+            className="rounded-none border-border/40 text-foreground hover:bg-accent min-w-[100px]"
           >
             Next
           </Button>

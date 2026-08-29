@@ -1,4 +1,4 @@
-import { InvoiceTemplate } from "@/models/InvoiceTemplate";
+import { InvoiceTemplate } from "@/models/sales/InvoiceTemplate";
 import { TEMPLATE_DEFINITIONS, ACTIVE_TEMPLATE_KEYS } from "./definitions";
 
 /**

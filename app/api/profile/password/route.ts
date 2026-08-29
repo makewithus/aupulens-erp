@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/db';
-import User from '@/models/User';
+import User from '@/models/auth/User';
 
 export async function POST(req: Request) {
   try {

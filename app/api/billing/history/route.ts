@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SubscriptionEvent from "@/models/SubscriptionEvent";
+import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import { requireOrgAdmin } from "@/lib/org/rbac";
 
 export async function GET(_req: NextRequest) {

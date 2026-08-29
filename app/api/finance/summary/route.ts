@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Invoice from "@/models/Invoice";
+import Invoice from "@/models/finance/Invoice";
 import {
   buildAgedPartnerReport,
   buildPostedCashFlowTotals,
@@ -98,8 +98,8 @@ export async function GET() {
     // queries are independent of each other and of the Promise.all above, so
     // they run concurrently instead of as a 4-request waterfall.
     const [Expense, StockTransfer] = await Promise.all([
-      import("@/models/Expense").then((m) => m.default),
-      import("@/models/StockTransfer").then((m) => m.default),
+      import("@/models/finance/Expense").then((m) => m.default),
+      import("@/models/inventory/StockTransfer").then((m) => m.default),
     ]);
 
     const [recentBills, recentInvoices, recentExpenses, recentReturns] = await Promise.all([

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import EmailTemplate from "@/models/EmailTemplate";
+import EmailTemplate from "@/models/sales/EmailTemplate";
 
 // Generic per-tenant template store keyed by an arbitrary string (see
 // models/EmailTemplate.ts). GET creates a blank default on first read so the

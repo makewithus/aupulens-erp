@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import DeliveryMethod from "@/models/DeliveryMethod";
+import DeliveryMethod from "@/models/sales/DeliveryMethod";
 
 export async function GET() {
   try {

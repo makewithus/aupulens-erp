@@ -434,7 +434,7 @@ export default function FixedAssetsPage() {
                 {computeResult.lineIds?.map((line: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex justify-between items-center text-xs p-2 bg-white rounded border"
+                    className="flex justify-between items-center text-xs p-2 bg-accent rounded border border-border/40"
                   >
                     <span className="truncate max-w-[150px]">{line.label}</span>
                     <span

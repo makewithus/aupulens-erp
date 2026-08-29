@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import dbConnect from '@/lib/db';
-import ChatHistory from '@/models/ChatHistory';
+import ChatHistory from '@/models/ai/ChatHistory';
 
 export async function PATCH(request: NextRequest) {
   try {

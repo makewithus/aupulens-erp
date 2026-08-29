@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import { randomUUID } from 'crypto';
-import JournalEntry from '@/models/JournalEntry';
-import Invoice from '@/models/Invoice';
+import JournalEntry from '@/models/finance/JournalEntry';
+import Invoice from '@/models/finance/Invoice';
 import {
   buildPostedIncomeExpenseSeries,
   buildPostedJournalReport,
@@ -14,10 +14,10 @@ import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi'
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
-import ChatHistory from '@/models/ChatHistory';
+import ChatHistory from '@/models/ai/ChatHistory';
 import { detectAccountingActionIntent } from '@/lib/accounting/aiIntent';
 import { buildActionPreview, AiActionError } from '@/lib/accounting/aiActions';
-import AiActionProposal from '@/models/AiActionProposal';
+import AiActionProposal from '@/models/ai/AiActionProposal';
 
 export async function POST(request: NextRequest) {
   try {

@@ -9,7 +9,7 @@ const { mockAuth, mockConnectDB, mockFind, mockCreate } = vi.hoisted(() => ({
 
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/Project", () => ({
+vi.mock("@/models/shared/Project", () => ({
   default: {
     find: (...args: any[]) => { mockFind(...args); return { sort: () => ({ lean: () => Promise.resolve([]) }) }; },
     create: mockCreate,

@@ -6,7 +6,7 @@ import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 import { runCombinedSearch } from "@/lib/search/universalSearch";
 import { COMMAND_ACTIONS, COMMAND_ACTION_TYPES, CommandActionError, isCommandAction } from "@/lib/ai/commandActions";
 import { resolveNavDestination, topNavSuggestions } from "@/lib/ai/navRoutes";
-import AiCommandProposal from "@/models/AiCommandProposal";
+import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmLead from "@/models/crm/Lead";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import { calculateForecast } from "@/lib/crm/forecast";

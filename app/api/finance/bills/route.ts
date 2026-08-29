@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
+import Invoice from "@/models/finance/Invoice";
+import Customer from "@/models/sales/Customer";
 import {
   DOCUMENT_STATUS,
   DOCUMENT_STATUS_VALUES,

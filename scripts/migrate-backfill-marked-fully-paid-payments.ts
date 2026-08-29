@@ -13,8 +13,8 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import { SalesInvoice } from "../models/SalesInvoice";
-import User from "../models/User";
+import { SalesInvoice } from "../models/sales/SalesInvoice";
+import User from "../models/auth/User";
 import mongoose from "mongoose";
 import { settleInvoiceShortfallWithSystemPayment } from "../lib/sales/paymentAllocation";
 

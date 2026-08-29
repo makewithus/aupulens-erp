@@ -15,7 +15,7 @@ import {
   evaluateConditions,
   type WorkflowCondition,
 } from "@/lib/studio/conditions";
-import type { WorkflowRunStatus, IWorkflowStepResult } from "@/models/WorkflowRun";
+import type { WorkflowRunStatus, IWorkflowStepResult } from "@/models/studio/WorkflowRun";
 
 export interface WorkflowStep {
   type: string;

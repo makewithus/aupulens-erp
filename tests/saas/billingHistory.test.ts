@@ -22,7 +22,7 @@ vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 vi.mock("@/lib/org/rbac", () => ({ requireOrgAdmin: mockRequireOrgAdmin }));
 
-vi.mock("@/models/SubscriptionEvent", () => {
+vi.mock("@/models/admin/SubscriptionEvent", () => {
   function SubscriptionEvent() {}
   // Chain: .find({ tenantId }).sort({ occurredAt: -1 }).lean()
   SubscriptionEvent.find = (...args: any[]) => {

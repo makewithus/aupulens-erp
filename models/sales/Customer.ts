@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import "@/models/Account";
+import "@/models/finance/Account";
 import { CUSTOMER_TYPE_VALUES, CUSTOMER_TYPE, type CustomerType } from "@/lib/constants/statuses";
 
 export interface ICustomerAddress {

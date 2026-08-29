@@ -313,7 +313,7 @@ export default function TasksPage() {
     >
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h2 className="text-2xl font-bold text-white">Task Management</h2>
+          <h2 className="text-2xl font-bold text-foreground">Task Management</h2>
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <div className="relative w-full md:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

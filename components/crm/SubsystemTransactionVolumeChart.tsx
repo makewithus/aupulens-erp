@@ -192,7 +192,7 @@ export function SubsystemTransactionVolumeChart() {
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Subsystem Transaction Volume
           </span>
-          <h3 className="text-sm font-normal text-white uppercase mt-0.5">
+          <h3 className="text-sm font-normal text-foreground uppercase mt-0.5">
             Workflows by Module
           </h3>
         </div>
@@ -203,7 +203,7 @@ export function SubsystemTransactionVolumeChart() {
         <div className="relative w-[340px] h-[340px] flex-shrink-0">
           <canvas ref={canvasRef} className="block"></canvas>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none font-mono">
-            <div className="text-2xl md:text-3xl font-medium text-white tracking-tighter">
+            <div className="text-2xl md:text-3xl font-medium text-foreground tracking-tighter">
               {centerVal}
             </div>
             <div className="text-[9px] text-muted-foreground uppercase tracking-widest mt-1">
@@ -221,7 +221,7 @@ export function SubsystemTransactionVolumeChart() {
               <div
                 key={c.name}
                 className={`flex items-center justify-between py-0.5 px-2 transition-colors cursor-pointer rounded-[2px] ${
-                  isHovered ? "bg-accent text-white" : "hover:bg-accent/40 hover:text-foreground"
+                  isHovered ? "bg-accent text-foreground" : "hover:bg-accent/40 hover:text-foreground"
                 }`}
                 onMouseEnter={() => {
                   setHoveredIdx(i);
@@ -241,7 +241,7 @@ export function SubsystemTransactionVolumeChart() {
                   ></span>
                   <span>{c.name}</span>
                 </div>
-                <span className="font-semibold text-white">{pct}%</span>
+                <span className="font-semibold text-foreground">{pct}%</span>
               </div>
             );
           })}

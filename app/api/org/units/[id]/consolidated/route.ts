@@ -4,8 +4,8 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import OrgUnit from "@/models/OrgUnit";
-import Employee from "@/models/Employee";
+import OrgUnit from "@/models/admin/OrgUnit";
+import Employee from "@/models/hr/Employee";
 import { resolveLocalization } from "@/lib/org/hierarchy";
 
 /**

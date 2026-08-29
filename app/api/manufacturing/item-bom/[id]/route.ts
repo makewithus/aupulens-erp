@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import ItemBOM from "@/models/ItemBOM";
-import Item from "@/models/Item";
+import ItemBOM from "@/models/manufacturing/ItemBOM";
+import Item from "@/models/manufacturing/Item";
 import mongoose from "mongoose";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

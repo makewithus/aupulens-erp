@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import PeriodClosing from "@/models/PeriodClosing";
+import PeriodClosing from "@/models/finance/PeriodClosing";
 import { PERIOD_CLOSING_STATUS } from "@/lib/constants/statuses";
 
 export async function GET(req: NextRequest) {

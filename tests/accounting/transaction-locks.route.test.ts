@@ -6,7 +6,7 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_transac
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import TransactionLock from "@/models/TransactionLock";
+import TransactionLock from "@/models/finance/TransactionLock";
 import { makeRequest, mockSession } from "./_helpers/routeTestUtils";
 
 const URL = "http://localhost/api/finance/accounting/transaction-locks";

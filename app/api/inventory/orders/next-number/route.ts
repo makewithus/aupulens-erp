@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Counter from "@/models/Counter";
+import Counter from "@/models/shared/Counter";
 
 const PREFIX = "ORD-";
 

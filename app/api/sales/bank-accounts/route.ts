@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import BankAccount from "@/models/BankAccount";
+import BankAccount from "@/models/finance/BankAccount";
 
 // Thin, read-only proxy onto the shared BankAccount model (owned by
 // Finance > Accounting > Banking) so the Sales module can populate

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import WorkflowRun from "@/models/WorkflowRun";
+import WorkflowRun from "@/models/studio/WorkflowRun";
 
 // GET /api/studio/workflows/[id]/runs — run history (debugging) for a workflow.
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {

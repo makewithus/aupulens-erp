@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
-import MarketplacePackage from "@/models/MarketplacePackage";
+import MarketplacePackage from "@/models/admin/MarketplacePackage";
 
 /**
  * Marketplace catalog (6.12). GET browses PUBLISHED packages (a shared,

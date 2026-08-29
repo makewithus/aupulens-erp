@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import Invoice from '@/models/Invoice';
-import Asset from '@/models/Asset';
-import BankReconciliation from '@/models/BankReconciliation';
+import Invoice from '@/models/finance/Invoice';
+import Asset from '@/models/finance/Asset';
+import BankReconciliation from '@/models/finance/BankReconciliation';
 import { DOCUMENT_STATUS, PAYMENT_STATE } from '@/lib/constants/statuses';
 import {
   buildPostedCashFlowSeries,

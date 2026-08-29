@@ -1,6 +1,6 @@
 import type mongoose from "mongoose";
-import Account from "@/models/Account";
-import type { ISalesInvoice } from "@/models/SalesInvoice";
+import Account from "@/models/finance/Account";
+import type { ISalesInvoice } from "@/models/sales/SalesInvoice";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { validateJournalLinesForPosting } from "@/lib/accounting/journal-validation";

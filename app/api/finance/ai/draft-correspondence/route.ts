@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Customer from "@/models/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Customer from "@/models/sales/Customer";
 import { draftPaymentReminder, type CorrespondenceTone } from "@/lib/finance/draftCorrespondence";
 
 /**

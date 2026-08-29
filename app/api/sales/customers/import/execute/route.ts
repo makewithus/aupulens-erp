@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
+import Customer from "@/models/sales/Customer";
 import { IMPORT_DUPLICATE_HANDLING } from "@/lib/constants/statuses";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";

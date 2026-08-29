@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SubscriptionWebhook from "@/models/SubscriptionWebhook";
+import SubscriptionWebhook from "@/models/sales/SubscriptionWebhook";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

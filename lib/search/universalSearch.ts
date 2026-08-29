@@ -12,12 +12,12 @@ import CrmLead from "@/models/crm/Lead";
 import CrmAccount from "@/models/crm/Account";
 import CrmContact from "@/models/crm/Contact";
 import CrmOpportunity from "@/models/crm/Opportunity";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Customer from "@/models/Customer";
-import SaleOrder from "@/models/SaleOrder";
-import InventoryItem from "@/models/InventoryItem";
-import Employee from "@/models/Employee";
-import Project from "@/models/Project";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Customer from "@/models/sales/Customer";
+import SaleOrder from "@/models/sales/SaleOrder";
+import InventoryItem from "@/models/inventory/InventoryItem";
+import Employee from "@/models/hr/Employee";
+import Project from "@/models/shared/Project";
 
 export type SearchResult = { type: string; id: string; title: string; subtitle?: string; badge?: string; url: string };
 

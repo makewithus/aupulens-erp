@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import "@/models/Account";
-import "@/models/Customer";
-import "@/models/Product";
+import "@/models/finance/Account";
+import "@/models/sales/Customer";
+import "@/models/inventory/Product";
 import {
   DOCUMENT_STATUS_VALUES,
   DOCUMENT_STATUS,

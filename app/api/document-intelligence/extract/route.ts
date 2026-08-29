@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import ExtractedDocument from "@/models/ExtractedDocument";
-import "@/models/Invoice";
-import "@/models/Customer";
+import ExtractedDocument from "@/models/ai/ExtractedDocument";
+import "@/models/finance/Invoice";
+import "@/models/sales/Customer";
 import { validateDocument, extractContent } from "@/lib/docIntel/textExtract";
 import { extractDocument } from "@/lib/docIntel/extractor";
 import { DOC_INTEL_TYPE, DOC_INTEL_TYPE_VALUES, DOC_INTEL_STATUS } from "@/lib/docIntel/extractionSchemas";

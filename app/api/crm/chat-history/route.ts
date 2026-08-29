@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import ChatHistory from "@/models/ChatHistory";
+import ChatHistory from "@/models/ai/ChatHistory";
 
 export async function GET(request: NextRequest) {
   try {

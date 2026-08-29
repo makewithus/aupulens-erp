@@ -1,9 +1,9 @@
 import connectDB from "@/lib/db";
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
-import Budget from "@/models/Budget";
-import BankingRule from "@/models/BankingRule";
-import TransactionLock from "@/models/TransactionLock";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
+import Budget from "@/models/finance/Budget";
+import BankingRule from "@/models/finance/BankingRule";
+import TransactionLock from "@/models/finance/TransactionLock";
 import { AI_ACTION_TYPE, TRANSACTION_LOCK_MODULE_VALUES, type AiActionType } from "@/lib/constants/statuses";
 import { escapeRegex } from "@/lib/utils/regex";
 

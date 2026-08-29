@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
       Account,
       Warehouse,
     ] = await Promise.all([
-      import("@/models/Invoice").then((m) => m.default),
-      import("@/models/SaleOrder").then((m) => m.default),
-      import("@/models/Product").then((m) => m.default),
-      import("@/models/Customer").then((m) => m.default),
-      import("@/models/StockTransfer").then((m) => m.default),
-      import("@/models/ManufacturingOrder").then((m) => m.default),
-      import("@/models/Account").then((m) => m.default),
-      import("@/models/Warehouse").then((m) => m.default),
+      import("@/models/finance/Invoice").then((m) => m.default),
+      import("@/models/sales/SaleOrder").then((m) => m.default),
+      import("@/models/inventory/Product").then((m) => m.default),
+      import("@/models/sales/Customer").then((m) => m.default),
+      import("@/models/inventory/StockTransfer").then((m) => m.default),
+      import("@/models/manufacturing/ManufacturingOrder").then((m) => m.default),
+      import("@/models/finance/Account").then((m) => m.default),
+      import("@/models/inventory/Warehouse").then((m) => m.default),
     ]);
 
     // Calculate date range

@@ -1,4 +1,4 @@
-import TransactionLock from "@/models/TransactionLock";
+import TransactionLock from "@/models/finance/TransactionLock";
 import { TRANSACTION_LOCK_MODULE, type TransactionLockModule } from "@/lib/constants/statuses";
 
 export class TransactionLockError extends Error {

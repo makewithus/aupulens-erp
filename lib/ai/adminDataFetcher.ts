@@ -1,9 +1,9 @@
-import SaleOrder from "@/models/SaleOrder";
-import InventoryItem from "@/models/InventoryItem";
-import Transaction from "@/models/Transaction";
-import Invoice from "@/models/Invoice";
-import User from "@/models/User";
-import Shipment from "@/models/Shipment";
+import SaleOrder from "@/models/sales/SaleOrder";
+import InventoryItem from "@/models/inventory/InventoryItem";
+import Transaction from "@/models/finance/Transaction";
+import Invoice from "@/models/finance/Invoice";
+import User from "@/models/auth/User";
+import Shipment from "@/models/manufacturing/Shipment";
 
 export async function fetchAdminFinanceData(tenantId: string) {
   const [transactions, invoices] = await Promise.all([

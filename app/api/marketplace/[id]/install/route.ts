@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import MarketplacePackage from "@/models/MarketplacePackage";
+import MarketplacePackage from "@/models/admin/MarketplacePackage";
 import { installPackage } from "@/lib/marketplace/packages";
 
 /**

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Integration from "@/models/Integration";
+import Integration from "@/models/shared/Integration";
 
 // POST /api/integrations/connections/[id]/toggle — enable/disable the connection.
 // A disabled connection rejects inbound webhooks and is skipped by outbound sync.

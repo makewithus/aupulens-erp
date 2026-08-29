@@ -194,7 +194,7 @@ export default function VendorsPage() {
           {parts.map((part, j) => {
             if (part.startsWith("**") && part.endsWith("**")) {
               return (
-                <strong key={j} className="text-white font-semibold">
+                <strong key={j} className="text-foreground font-semibold">
                   {part.slice(2, -2)}
                 </strong>
               );
@@ -229,7 +229,7 @@ export default function VendorsPage() {
     >
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h2 className="text-2xl font-bold text-white">Vendor Evaluation</h2>
+          <h2 className="text-2xl font-bold text-foreground">Vendor Evaluation</h2>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <div className="relative w-full md:w-64">
@@ -293,7 +293,7 @@ export default function VendorsPage() {
                   <Plus className="mr-2 h-4 w-4" /> Add Vendor
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-card border-border text-white">
+              <DialogContent className="bg-card border-border">
                 <DialogHeader>
                   <DialogTitle>
                     {editingVendor ? "Edit Vendor" : "Add New Vendor"}
@@ -396,7 +396,7 @@ export default function VendorsPage() {
               open={!!analysisVendor}
               onOpenChange={() => setAnalysisVendor(null)}
             >
-              <DialogContent className="bg-card border-border text-white max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogContent className="bg-card border-border max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-xl">
                     <Activity className="h-5 w-5 text-blue-400" />
@@ -464,7 +464,7 @@ export default function VendorsPage() {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start pr-6">
                   <div>
-                    <CardTitle className="text-lg font-medium text-white">
+                    <CardTitle className="text-lg font-medium text-foreground">
                       {vendor.name}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground">
@@ -473,7 +473,7 @@ export default function VendorsPage() {
                   </div>
                   <div className="flex items-center gap-1 bg-accent px-2 py-1 rounded">
                     <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs text-white">
+                    <span className="text-xs text-foreground">
                       {vendor.performanceMetrics.qualityScore}/10
                     </span>
                   </div>
@@ -484,19 +484,19 @@ export default function VendorsPage() {
                 <div className="grid grid-cols-3 gap-2 mb-4 text-center">
                   <div className="bg-accent/50 p-2 rounded">
                     <div className="text-xs text-muted-foreground">Delivery</div>
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-foreground">
                       {vendor.performanceMetrics.deliveryTime}d
                     </div>
                   </div>
                   <div className="bg-accent/50 p-2 rounded">
                     <div className="text-xs text-muted-foreground">Quality</div>
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-foreground">
                       {vendor.performanceMetrics.qualityScore}
                     </div>
                   </div>
                   <div className="bg-accent/50 p-2 rounded">
                     <div className="text-xs text-muted-foreground">Cost</div>
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-foreground">
                       {vendor.performanceMetrics.costRating}
                     </div>
                   </div>

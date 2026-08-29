@@ -6,7 +6,7 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_currenc
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import CurrencyAdjustment from "@/models/CurrencyAdjustment";
+import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
 import { makeRequest, mockSession } from "./_helpers/routeTestUtils";
 
 const URL = "http://localhost/api/finance/accounting/currency-adjustments";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import DocumentPrefix from "@/models/DocumentPrefix";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
 import { clearOtherDefaults, promoteFallbackDefault } from "@/lib/sales/documentPrefixes";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

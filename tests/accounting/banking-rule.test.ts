@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import BankingRule from "@/models/BankingRule";
+import BankingRule from "@/models/finance/BankingRule";
 
 describe("BankingRule model", () => {
   beforeAll(async () => {

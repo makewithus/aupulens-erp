@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 import { evaluateInvoiceReminders, evaluateBillReminders } from "@/lib/sales/reminderEngine";
 
 // Same CRON_SECRET bearer-check shape as app/api/cron/crm/automations —

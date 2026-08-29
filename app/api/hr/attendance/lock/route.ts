@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Attendance from "@/models/Attendance";
+import Attendance from "@/models/hr/Attendance";
 
 // Lock attendance for a date range (for payroll processing)
 export async function POST(req: NextRequest) {

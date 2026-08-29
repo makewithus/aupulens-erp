@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
+import SaleOrder from "@/models/sales/SaleOrder";
 import { SALES_ORDER_STATUS_VALUES, SALES_ORDER_SHIPMENT_STATUS_VALUES } from "@/lib/constants/statuses";
-import "@/models/Customer";
-import "@/models/User";
-import "@/models/SalesInvoice";
+import "@/models/sales/Customer";
+import "@/models/auth/User";
+import "@/models/sales/SalesInvoice";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -15,7 +15,7 @@ import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 import { fetchAdminFinanceData, fetchAdminSalesData } from "@/lib/ai/adminDataFetcher";
 import { calculateForecast } from "@/lib/crm/forecast";
 import dbConnect from "@/lib/db";
-import BusinessHealthSummary from "@/models/BusinessHealthSummary";
+import BusinessHealthSummary from "@/models/admin/BusinessHealthSummary";
 import CrmOpportunity from "@/models/crm/Opportunity";
 
 function todayPeriod(): string {

@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import JournalTemplate from "@/models/JournalTemplate";
-import CurrencyAdjustment from "@/models/CurrencyAdjustment";
+import JournalTemplate from "@/models/finance/JournalTemplate";
+import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
 
 describe("JournalTemplate and CurrencyAdjustment models", () => {
   beforeAll(async () => {

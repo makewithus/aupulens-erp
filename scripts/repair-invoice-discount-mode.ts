@@ -33,9 +33,9 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import SalesQuotation from "../models/SalesQuotation";
-import { SalesInvoice } from "../models/SalesInvoice";
-import Organization from "../models/Organization";
+import SalesQuotation from "../models/sales/SalesQuotation";
+import { SalesInvoice } from "../models/sales/SalesInvoice";
+import Organization from "../models/admin/Organization";
 import { computeInvoiceTotals } from "../lib/sales/invoiceMath";
 
 async function main() {

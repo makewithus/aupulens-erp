@@ -3,8 +3,8 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import Organization from "@/models/Organization";
-import MarketplacePackage, { type MarketplaceCategory } from "@/models/MarketplacePackage";
+import Organization from "@/models/admin/Organization";
+import MarketplacePackage, { type MarketplaceCategory } from "@/models/admin/MarketplacePackage";
 import { sanitizeForCategory } from "@/lib/marketplace/packages";
 
 const CATEGORIES: MarketplaceCategory[] = ["workflow", "approval-policy", "print-format"];

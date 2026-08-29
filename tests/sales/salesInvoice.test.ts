@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import { SalesInvoice as SalesInvoiceModel } from "@/models/SalesInvoice";
+import { SalesInvoice as SalesInvoiceModel } from "@/models/sales/SalesInvoice";
 
 const SalesInvoice: any = SalesInvoiceModel;
 

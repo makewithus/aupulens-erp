@@ -31,8 +31,8 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import Payment from "../models/Payment";
-import { SalesInvoice } from "../models/SalesInvoice";
+import Payment from "../models/sales/Payment";
+import { SalesInvoice } from "../models/sales/SalesInvoice";
 import { postCustomerPaymentJournal } from "../lib/accounting/payments";
 import { PAYMENT_STATUS } from "../lib/constants/statuses";
 

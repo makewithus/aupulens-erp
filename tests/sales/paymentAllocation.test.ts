@@ -7,7 +7,7 @@ import {
   applyAllocationsToInvoices,
   reverseAllocationsOnInvoices,
 } from "@/lib/sales/paymentAllocation";
-import { SalesInvoice as SalesInvoiceModel } from "@/models/SalesInvoice";
+import { SalesInvoice as SalesInvoiceModel } from "@/models/sales/SalesInvoice";
 
 const SalesInvoice: any = SalesInvoiceModel;
 

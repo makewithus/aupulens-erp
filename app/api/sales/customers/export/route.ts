@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import SalesView from "@/models/SalesView";
+import Customer from "@/models/sales/Customer";
+import SalesView from "@/models/sales/SalesView";
 import { buildMongoFilterFromCriteria, AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
 import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
 import * as XLSX from "xlsx";

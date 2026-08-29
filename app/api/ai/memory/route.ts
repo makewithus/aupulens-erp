@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AiMemory from "@/models/AiMemory";
-import type { AiMemoryScope } from "@/models/AiMemory";
+import AiMemory from "@/models/ai/AiMemory";
+import type { AiMemoryScope } from "@/models/ai/AiMemory";
 
 const VALID_SCOPES: AiMemoryScope[] = [
   "global", "admin", "finance", "hr", "sales", "inventory", "manufacturing",

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import BillOfMaterial from "@/models/BillOfMaterial";
-import Product from "@/models/Product"; // Ensure registration
+import BillOfMaterial from "@/models/manufacturing/BillOfMaterial";
+import Product from "@/models/inventory/Product"; // Ensure registration
 
 export async function GET(
   req: NextRequest,

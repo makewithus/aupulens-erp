@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import DocumentPrefix from "@/models/DocumentPrefix";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
 import { createPrefix, setAsDefault, promoteFallbackDefault, ensureDefaultPrefixes } from "@/lib/sales/documentPrefixes";
 import { SALES_DOCUMENT_TYPE_VALUES } from "@/lib/constants/statuses";
 

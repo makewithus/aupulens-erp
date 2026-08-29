@@ -23,8 +23,8 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../lib/db";
-import Invoice from "../models/Invoice";
-import Customer from "../models/Customer";
+import Invoice from "../models/finance/Invoice";
+import Customer from "../models/sales/Customer";
 
 async function main() {
   await connectDB();

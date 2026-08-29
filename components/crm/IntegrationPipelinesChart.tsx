@@ -242,7 +242,7 @@ export function IntegrationPipelinesChart() {
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Scheduled Integration Pipelines
         </span>
-        <span className="text-sm font-semibold text-white">2,961</span>
+        <span className="text-sm font-semibold text-foreground">2,961</span>
       </div>
 
       <div ref={containerRef} className="relative w-full h-[280px]">
@@ -251,7 +251,7 @@ export function IntegrationPipelinesChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[165px] rounded-none hidden z-10"
+          className={`absolute pointer-events-none border border-border p-2 font-mono text-[11px] shadow-xl min-w-[165px] rounded-none hidden z-10 ${isDark ? "bg-[#141414]/95 text-white" : "bg-white/95 text-foreground"}`}
         >
           <div ref={tooltipDateRef} className="text-muted-foreground mb-0.5"></div>
           <div ref={tooltipValueRef} className="flex items-center text-xs mt-1"></div>

@@ -11,6 +11,18 @@ export type CreateFlowOutcome =
   | { handled: false }
   | { handled: true; message: string; route?: string };
 
+// When prefill reports a missing dependency of one of these types, redirect
+// the user to THAT entity's own create form (prefilled with the name already
+// extracted) instead of proceeding to the originally requested form — e.g.
+// "create an invoice for Acme Corp" when Acme Corp doesn't exist yet opens
+// the New Customer form (named "Acme Corp") rather than a dead-end invoice
+// form with no customer selected. Scoped to dependency types that have a
+// real, known create form today; anything else keeps the prior behavior
+// (stash + navigate to the original target, with a warning appended).
+const DEPENDENCY_CREATE_MAP: Record<string, { target: string; route: string; label: string }> = {
+  customer: { target: "customer", route: "/sales/customers/new", label: "customer" },
+};
+
 /**
  * The single entry point every AI Assistant surface (the global panel AND
  * every per-module ai-assistant page) calls FIRST, before falling back to
@@ -63,6 +75,22 @@ export async function tryAiCreateFlow(input: {
       };
     }
     if (res.ok && data.success) {
+      if (data.missingDependency) {
+        const dep = data.missingDependency as { type: string; name: string };
+        const depDef = DEPENDENCY_CREATE_MAP[dep.type];
+        if (depDef) {
+          // Stop short of the original form — the dependency has to exist
+          // first. Open ITS create form, prefilled with the name we already
+          // extracted, and tell the user exactly what happened and what to
+          // do next (re-ask for the original entity once this is saved).
+          stashPrefill({ target: depDef.target, route: depDef.route, data: { name: dep.name }, suggestions: [] });
+          return {
+            handled: true,
+            message: `**${dep.name}** doesn't exist as a ${depDef.label} in the system yet — you need to create the ${depDef.label} before I can create the ${targetDef.label} for them.\n\nI've opened the New ${depDef.label[0].toUpperCase()}${depDef.label.slice(1)} form with the name **${dep.name}** already filled in. Review the rest of the details, click **Create**, then ask me to create the ${targetDef.label} again and I'll pick ${dep.name} up automatically.`,
+            route: depDef.route,
+          };
+        }
+      }
       const sugg = data.suggestions?.length
         ? `\n\n**A couple of things to double-check:**\n${data.suggestions.map((s: string) => `- ${s}`).join("\n")}`
         : "";

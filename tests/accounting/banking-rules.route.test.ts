@@ -6,8 +6,8 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_banking
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import BankingRule from "@/models/BankingRule";
-import "@/models/Account";
+import BankingRule from "@/models/finance/BankingRule";
+import "@/models/finance/Account";
 import { makeRequest, mockSession } from "./_helpers/routeTestUtils";
 
 const URL = "http://localhost/api/finance/accounting/banking-rules";

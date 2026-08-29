@@ -190,7 +190,7 @@ export function CRMLeadChannelsChart() {
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Top Modules Breakdown
           </span>
-          <h3 className="text-sm font-normal text-white uppercase mt-0.5">
+          <h3 className="text-sm font-normal text-foreground uppercase mt-0.5">
             Module Activity Share
           </h3>
         </div>
@@ -200,7 +200,7 @@ export function CRMLeadChannelsChart() {
           <button
             onClick={() => setViewType("source")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              viewType === "source" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-muted-foreground hover:text-foreground"
+              viewType === "source" ? "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Source
@@ -209,7 +209,7 @@ export function CRMLeadChannelsChart() {
           <button
             onClick={() => setViewType("target")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
-              viewType === "target" ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white" : "text-muted-foreground hover:text-foreground"
+              viewType === "target" ? "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Target
@@ -223,7 +223,7 @@ export function CRMLeadChannelsChart() {
         {/* Custom Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#141414]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[130px] rounded-none hidden z-10"
+          className={`absolute pointer-events-none border border-border p-2 font-mono text-[11px] shadow-xl min-w-[130px] rounded-none hidden z-10 ${isDark ? "bg-[#141414]/95 text-white" : "bg-white/95 text-foreground"}`}
         ></div>
       </div>
     </div>

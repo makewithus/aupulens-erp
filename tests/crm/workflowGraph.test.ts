@@ -12,7 +12,7 @@ import { describe, it, expect, vi } from "vitest";
 // nlToRule, which transitively imports @/lib/ai/tenantAi → @/lib/db (whose
 // top-level guard throws without MONGODB_URI). Mock the DB so it imports.
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/models/Organization", () => ({ default: function Organization() {} }));
+vi.mock("@/models/admin/Organization", () => ({ default: function Organization() {} }));
 
 import { compileGraphToRule, type WorkflowNode } from "@/lib/crm/workflowGraph";
 

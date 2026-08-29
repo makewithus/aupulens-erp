@@ -3,16 +3,16 @@ import { auth } from "@/auth";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { extractAttachment } from "@/lib/ai/extractFile";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
+import Customer from "@/models/sales/Customer";
 import CrmAccount from "@/models/crm/Account";
 import CrmOpportunity from "@/models/crm/Opportunity";
-import Product from "@/models/Product";
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
-import Shipment from "@/models/Shipment";
-import HSCode from "@/models/HSCode";
-import Employee from "@/models/Employee";
-import Department from "@/models/Department";
+import Product from "@/models/inventory/Product";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
+import Shipment from "@/models/manufacturing/Shipment";
+import HSCode from "@/models/manufacturing/HSCode";
+import Employee from "@/models/hr/Employee";
+import Department from "@/models/hr/Department";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

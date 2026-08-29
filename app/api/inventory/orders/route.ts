@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import InventoryOrder from '@/models/InventoryOrder';
+import InventoryOrder from '@/models/inventory/InventoryOrder';
 import { generateInventoryOrderNumber } from '@/lib/inventory/orderNumbering';
 
 export async function GET(req: NextRequest) {

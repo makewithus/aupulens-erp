@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { randomUUID } from "crypto";
-import Employee from "@/models/Employee";
-import Payroll from "@/models/Payroll";
-import Attendance from "@/models/Attendance";
-import LeaveRequest from "@/models/LeaveRequest";
-import Department from "@/models/Department";
+import Employee from "@/models/hr/Employee";
+import Payroll from "@/models/hr/Payroll";
+import Attendance from "@/models/hr/Attendance";
+import LeaveRequest from "@/models/hr/LeaveRequest";
+import Department from "@/models/hr/Department";
 import { type ChatTurn } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
-import ChatHistory from "@/models/ChatHistory";
+import ChatHistory from "@/models/ai/ChatHistory";
 
 export async function POST(request: NextRequest) {
   try {

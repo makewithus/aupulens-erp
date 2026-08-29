@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Item from "@/models/Item";
+import Item from "@/models/manufacturing/Item";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

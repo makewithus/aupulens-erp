@@ -1,6 +1,6 @@
 import { Schema } from "mongoose";
-import "@/models/Account";
-import "@/models/Customer";
+import "@/models/finance/Account";
+import "@/models/sales/Customer";
 
 // Standardizes every debit/credit move across the ERP
 export const JournalLineSchema = new Schema({

@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import AccountingSettings from "@/models/AccountingSettings";
-import TaxRate from "@/models/TaxRate";
-import CustomField from "@/models/CustomField";
+import AccountingSettings from "@/models/finance/AccountingSettings";
+import TaxRate from "@/models/finance/TaxRate";
+import CustomField from "@/models/shared/CustomField";
 
 describe("Accounting Setup models", () => {
   beforeAll(async () => {

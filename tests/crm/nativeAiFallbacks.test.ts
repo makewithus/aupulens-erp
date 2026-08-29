@@ -11,7 +11,7 @@ import { describe, it, expect, vi } from "vitest";
 // top-level guard throws without MONGODB_URI. Mock the DB layer so the pure
 // functions can be imported and tested in isolation.
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/models/Organization", () => ({ default: function Organization() {} }));
+vi.mock("@/models/admin/Organization", () => ({ default: function Organization() {} }));
 
 import { calculateWinProbability } from "@/lib/crm/winProbability";
 import { missingFieldsForLead } from "@/lib/crm/dataCompletion";

@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import OrgUnit, { ORG_LEVELS } from "@/models/OrgUnit";
+import OrgUnit, { ORG_LEVELS } from "@/models/admin/OrgUnit";
 import { buildTree, isValidChildLevel } from "@/lib/org/hierarchy";
 
 /**

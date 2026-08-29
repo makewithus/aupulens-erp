@@ -1,8 +1,8 @@
 import type mongoose from "mongoose";
-import Account from "@/models/Account";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
-import type { IPayment, IPaymentPostedSnapshot } from "@/models/Payment";
+import Account from "@/models/finance/Account";
+import Invoice from "@/models/finance/Invoice";
+import Customer from "@/models/sales/Customer";
+import type { IPayment, IPaymentPostedSnapshot } from "@/models/sales/Payment";
 import {
   DOCUMENT_STATUS,
   PAYMENT_STATE,

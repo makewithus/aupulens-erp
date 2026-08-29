@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import Counter from "@/models/Counter";
+import Counter from "@/models/shared/Counter";
 import { getDefaultPrefix } from "@/lib/sales/invoiceNumbering";
 
 // Non-committing preview of the next invoice number for a given prefix —

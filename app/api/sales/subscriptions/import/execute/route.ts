@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import Subscription from "@/models/Subscription";
+import Customer from "@/models/sales/Customer";
+import Subscription from "@/models/sales/Subscription";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateSubscriptionNumber } from "@/lib/sales/subscriptionNumbering";
 import { computeInitialSchedule } from "@/lib/sales/subscriptionBilling";

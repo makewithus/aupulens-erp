@@ -1,5 +1,5 @@
 import type mongoose from "mongoose";
-import JournalEntry from "@/models/JournalEntry";
+import JournalEntry from "@/models/finance/JournalEntry";
 import {
   DOCUMENT_STATUS,
   VOUCHER_STATUS,

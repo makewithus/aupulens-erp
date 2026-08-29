@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SalesView from "@/models/SalesView";
+import SalesView from "@/models/sales/SalesView";
 import { SYSTEM_VIEW_DEFINITIONS } from "@/lib/sales/subscriptionViews";
 
 const ENTITY_TYPE = "subscriptions";

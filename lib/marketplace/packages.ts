@@ -10,9 +10,9 @@
 import connectDB from "@/lib/db";
 import CrmAutomationRule from "@/models/crm/AutomationRule";
 import CrmApprovalPolicy from "@/models/crm/ApprovalPolicy";
-import { DocumentSettings } from "@/models/DocumentSettings";
+import { DocumentSettings } from "@/models/sales/DocumentSettings";
 import { RULE_TRIGGERS, RULE_ENTITIES, RULE_OPERATORS, RULE_ACTIONS } from "@/lib/crm/automationVocabulary";
-import type { MarketplaceCategory } from "@/models/MarketplacePackage";
+import type { MarketplaceCategory } from "@/models/admin/MarketplacePackage";
 
 // ── Sanitizers (pure) ─────────────────────────────────────────────────────────
 

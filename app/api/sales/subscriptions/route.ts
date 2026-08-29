@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Subscription from "@/models/Subscription";
-import SalesView from "@/models/SalesView";
+import Subscription from "@/models/sales/Subscription";
+import SalesView from "@/models/sales/SalesView";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateSubscriptionNumber } from "@/lib/sales/subscriptionNumbering";
 import { computeInitialSchedule } from "@/lib/sales/subscriptionBilling";
@@ -14,7 +14,7 @@ import {
   SUBSCRIPTION_BILLING_FREQUENCY,
   SUBSCRIPTION_BILLING_FREQUENCY_VALUES,
 } from "@/lib/constants/statuses";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 export async function GET(request: NextRequest) {
   try {

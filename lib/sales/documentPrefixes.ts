@@ -1,4 +1,4 @@
-import DocumentPrefix from "@/models/DocumentPrefix";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
 import { DOCUMENT_PREFIX_KIND, SALES_DOCUMENT_TYPE } from "@/lib/constants/statuses";
 
 /** Default PREFIX value seeded per document type when a tenant has none yet. */

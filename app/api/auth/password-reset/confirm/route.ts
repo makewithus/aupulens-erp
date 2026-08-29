@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
-import User from "@/models/User";
+import User from "@/models/auth/User";
 
 const DEFAULT_TENANT_ID = "default-tenant";
 

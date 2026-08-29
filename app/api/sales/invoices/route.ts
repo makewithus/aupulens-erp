@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
 import { settleInvoiceShortfallWithSystemPayment } from "@/lib/sales/paymentAllocation";
 import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
-import Payment from "@/models/Payment";
-import JournalEntry from "@/models/JournalEntry";
-import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
+import Payment from "@/models/sales/Payment";
+import JournalEntry from "@/models/finance/JournalEntry";
+import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
 
 const REVENUE_RECOGNIZED_STATUSES = new Set([
   SALES_INVOICE_STATUS.SAVED,
@@ -57,6 +57,22 @@ export async function GET(request: NextRequest) {
     const customerId = searchParams.get("customerId");
     if (customerId) {
       query.customerId = customerId;
+    }
+
+    // AI-native "redirect with filters" support (lib/ai/memoryFlow.ts) — a
+    // date range on invoiceDate. Additive: omitting these params leaves every
+    // existing caller's behavior unchanged.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.invoiceDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.invoiceDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.invoiceDate.$lte = end;
+      }
+      if (Object.keys(query.invoiceDate).length === 0) delete query.invoiceDate;
     }
 
     const [total, invoices] = await Promise.all([

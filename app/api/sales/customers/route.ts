@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import SalesView from "@/models/SalesView";
+import Customer from "@/models/sales/Customer";
+import SalesView from "@/models/sales/SalesView";
 import { SYSTEM_VIEW_DEFINITIONS, buildMongoFilterFromCriteria } from "@/lib/sales/customerViews";
 import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
 
@@ -68,6 +68,22 @@ export async function GET(request: Request) {
         { "header.companyName": { $regex: search, $options: "i" } },
         { "contact_details.email": { $regex: search, $options: "i" } },
       ];
+    }
+
+    // AI-native "redirect with filters" support (lib/ai/memoryFlow.ts) — a
+    // date range on createdAt. Additive: omitting these params leaves every
+    // existing caller's behavior unchanged.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: Record<string, Date> = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.createdAt = range;
     }
 
     let cursor = Customer.find(query).sort(

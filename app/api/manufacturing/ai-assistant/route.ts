@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import Shipment from '@/models/Shipment';
-import AirFreight from '@/models/AirFreight';
-import HSCode from '@/models/HSCode';
+import Shipment from '@/models/manufacturing/Shipment';
+import AirFreight from '@/models/manufacturing/AirFreight';
+import HSCode from '@/models/manufacturing/HSCode';
 import { resolveTenantAiSettings, callClaudeForTenant } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';

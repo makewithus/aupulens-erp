@@ -17,7 +17,7 @@ function MetricCard({ title, value, sub, icon: Icon, colorClass, loading }: any)
       {loading ? (
         <div className="h-8 w-24 bg-accent animate-pulse rounded mt-1"></div>
       ) : (
-        <div className={`text-3xl font-bold font-mono tracking-tight ${colorClass || "text-white"}`}>
+        <div className={`text-3xl font-bold font-mono tracking-tight ${colorClass || "text-foreground"}`}>
           {value}
         </div>
       )}

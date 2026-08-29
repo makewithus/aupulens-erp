@@ -3,8 +3,8 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
-import User from "@/models/User";
-import Employee from "@/models/Employee";
+import User from "@/models/auth/User";
+import Employee from "@/models/hr/Employee";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 
 export async function GET(req: NextRequest) {

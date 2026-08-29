@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import CustomsClearance from '@/models/CustomsClearance';
-import Shipment from '@/models/Shipment';
+import CustomsClearance from '@/models/manufacturing/CustomsClearance';
+import Shipment from '@/models/manufacturing/Shipment';
 
 const ALLOWED_ROLES = ['admin', 'manufacturing', 'master-admin'];
 

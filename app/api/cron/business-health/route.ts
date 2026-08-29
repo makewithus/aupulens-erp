@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 import { generateBusinessHealthSummary } from "@/lib/ai/businessHealth";
 
 // Same CRON_SECRET bearer-check shape as the other cron routes. Scheduled via

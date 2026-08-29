@@ -1,4 +1,4 @@
-import BankFeedProvider from "@/models/BankFeedProvider";
+import BankFeedProvider from "@/models/finance/BankFeedProvider";
 
 const PARTNER_BANKS = [
   "Standard Chartered",

@@ -18,7 +18,7 @@ import CrmContract from "@/models/crm/Contract";
 import CrmTask from "@/models/crm/Task";
 import CrmActivity from "@/models/crm/Activity";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import User from "@/models/User";
+import User from "@/models/auth/User";
 
 export interface RenewalEngineResult {
   processed: number;

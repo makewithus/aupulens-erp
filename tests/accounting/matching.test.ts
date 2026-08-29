@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { runPOMatching } from "@/lib/accounting/matching";
-import Invoice from "@/models/Invoice";
-import PurchaseOrder from "@/models/PurchaseOrder";
+import Invoice from "@/models/finance/Invoice";
+import PurchaseOrder from "@/models/finance/PurchaseOrder";
 
-vi.mock("@/models/Invoice", () => {
+vi.mock("@/models/finance/Invoice", () => {
   return {
     default: {
       findOne: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock("@/models/Invoice", () => {
   };
 });
 
-vi.mock("@/models/PurchaseOrder", () => {
+vi.mock("@/models/finance/PurchaseOrder", () => {
   return {
     default: {
       findOne: vi.fn(),

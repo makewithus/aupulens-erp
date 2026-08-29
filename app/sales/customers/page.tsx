@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -51,8 +51,17 @@ const SORT_FIELDS = [
 const LIMIT = 10;
 
 export default function CustomersPage() {
+  return (
+    <Suspense fallback={null}>
+      <CustomersPageInner />
+    </Suspense>
+  );
+}
+
+function CustomersPageInner() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
@@ -62,9 +71,24 @@ export default function CustomersPage() {
   const [exportViewOpen, setExportViewOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // AI-native "redirect with filters" — seed filter state from the URL on
+  // first load (?search=/&dateFrom=/&dateTo=) so a link the AI assistant
+  // sends the user to arrives already filtered. A normal, param-less visit
+  // is unaffected — every value below just stays at its default.
+  useEffect(() => {
+    const qSearch = searchParams.get("search");
+    const qDateFrom = searchParams.get("dateFrom");
+    const qDateTo = searchParams.get("dateTo");
+    if (qSearch) setQuery(qSearch);
+    if (qDateFrom) setDateFrom(qDateFrom);
+    if (qDateTo) setDateTo(qDateTo);
+  }, []);
 
   const activeView = views.find((v) => v._id === activeViewId);
   const activeColumns: string[] =
@@ -91,6 +115,8 @@ export default function CustomersPage() {
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(`/api/sales/customers?${params.toString()}`);
       const json = await res.json();
       setCustomers(json.items || []);
@@ -102,7 +128,7 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, page, debouncedQuery]);
+  }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchViews();

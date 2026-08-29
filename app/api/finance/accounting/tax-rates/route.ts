@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import TaxRate from "@/models/TaxRate";
+import TaxRate from "@/models/finance/TaxRate";
 import { ensureDefaultTdsTcsRates } from "@/lib/accounting/taxRate-seeder";
 
 export async function GET(req: NextRequest) {

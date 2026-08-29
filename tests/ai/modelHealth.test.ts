@@ -11,7 +11,7 @@ import { describe, it, expect, vi } from "vitest";
 // (used by checkTenantModelOverrides) whose top-level guard throws without
 // MONGODB_URI. Mock the DB + model so the pure function can be imported.
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/models/Organization", () => ({ default: function Organization() {} }));
+vi.mock("@/models/admin/Organization", () => ({ default: function Organization() {} }));
 
 import { classifyModelOverride } from "@/lib/ai/modelHealth";
 

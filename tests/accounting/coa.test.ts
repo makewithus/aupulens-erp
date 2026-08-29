@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import AccountType from "@/models/AccountType";
-import Account from "@/models/Account";
+import AccountType from "@/models/finance/AccountType";
+import Account from "@/models/finance/Account";
 
 describe("Chart of Accounts Models", () => {
   beforeAll(async () => {

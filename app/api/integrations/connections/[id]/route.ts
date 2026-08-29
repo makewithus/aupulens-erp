@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Integration from "@/models/Integration";
-import IntegrationEvent from "@/models/IntegrationEvent";
+import Integration from "@/models/shared/Integration";
+import IntegrationEvent from "@/models/shared/IntegrationEvent";
 import { getConnector } from "@/lib/integrations/registry";
 import { encryptCredentials, toClientView } from "@/lib/integrations/connectionService";
 

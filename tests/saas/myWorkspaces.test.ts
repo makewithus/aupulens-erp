@@ -9,10 +9,10 @@ const { mockAuth, mockConnectDB, mockUserFind, mockOrgFind } = vi.hoisted(() => 
 
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/User", () => ({
+vi.mock("@/models/auth/User", () => ({
   default: { find: (...args: any[]) => { mockUserFind(...args); return { select: () => ({ lean: () => Promise.resolve([]) }) }; } },
 }));
-vi.mock("@/models/Organization", () => ({
+vi.mock("@/models/admin/Organization", () => ({
   default: { find: (...args: any[]) => { mockOrgFind(...args); return { select: () => ({ lean: () => Promise.resolve([]) }) }; } },
 }));
 vi.mock("@/lib/config", () => ({ buildTenantUrl: (t: string) => `https://${t}.aupulens.online` }));

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import SalesQuotation from "@/models/SalesQuotation";
-import SalesView from "@/models/SalesView";
+import SalesQuotation from "@/models/sales/SalesQuotation";
+import SalesView from "@/models/sales/SalesView";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateQuoteNumber } from "@/lib/sales/quoteNumbering";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/quoteViews";
 import { QUOTE_STATUS, QUOTE_STATUS_VALUES } from "@/lib/constants/statuses";
-import "@/models/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
+import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
 
 export async function GET(request: NextRequest) {
   try {

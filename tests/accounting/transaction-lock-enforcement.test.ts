@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
-import TransactionLock from "@/models/TransactionLock";
+import TransactionLock from "@/models/finance/TransactionLock";
 
-vi.mock("@/models/TransactionLock", () => {
+vi.mock("@/models/finance/TransactionLock", () => {
   return {
     default: {
       find: vi.fn(),

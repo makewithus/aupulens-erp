@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import TaxRate from "@/models/TaxRate";
+import TaxRate from "@/models/finance/TaxRate";
 import { TAX_RATE_TYPE } from "@/lib/constants/statuses";
 
 describe("TaxRate model", () => {

@@ -29,12 +29,12 @@ vi.mock("@/lib/ai/claude", () => ({
   callClaude: mockCallClaude,
   callClaudeWithHistory: vi.fn(),
 }));
-vi.mock("@/models/Organization", () => {
+vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   (Organization as any).findOne = (...a: any[]) => ({ lean: () => mockOrgFindOne(...a) });
   return { default: Organization };
 });
-vi.mock("@/models/AiUsage", () => {
+vi.mock("@/models/admin/AiUsage", () => {
   function AiUsage() {}
   // Route the platform-wide ceiling read (tenantId "__platform__") separately
   // from the per-tenant read, so per-tenant test values aren't consumed by the

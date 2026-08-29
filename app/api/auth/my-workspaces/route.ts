@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import User from "@/models/User";
-import Organization from "@/models/Organization";
+import User from "@/models/auth/User";
+import Organization from "@/models/admin/Organization";
 import { buildTenantUrl, APP_BASE_URL } from "@/lib/config";
 
 // The sentinel tenantId used app-wide for accounts that registered without

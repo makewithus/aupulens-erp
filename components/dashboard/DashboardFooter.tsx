@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export function DashboardFooter() {
   return (
-    <footer className="flex-shrink-0 bg-[#0b0b0b] border-t border-white/5 text-xs sm:text-sm text-muted-foreground uppercase font-mono tracking-widest">
+    <footer className="flex-shrink-0 bg-background border-t border-border/40 text-xs sm:text-sm text-muted-foreground uppercase font-mono tracking-widest">
       <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-5 flex flex-col lg:flex-row items-center lg:items-center justify-center lg:justify-between gap-3 lg:gap-0">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap text-xs sm:text-sm justify-center lg:justify-start">
           <Link href="/submit" className="hover:text-foreground whitespace-nowrap">SUBMIT</Link>

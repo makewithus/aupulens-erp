@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Subscription from "@/models/Subscription";
-import SalesView from "@/models/SalesView";
+import Subscription from "@/models/sales/Subscription";
+import SalesView from "@/models/sales/SalesView";
 import { buildMongoFilterFromCriteria, AVAILABLE_SUBSCRIPTION_COLUMNS } from "@/lib/sales/subscriptionViews";
 import { resolveSpecialFilter } from "@/lib/sales/subscriptionViews.server";
 import * as XLSX from "xlsx";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 

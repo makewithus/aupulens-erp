@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import ExtractedDocument from "@/models/ExtractedDocument";
+import ExtractedDocument from "@/models/ai/ExtractedDocument";
 
 // GET /api/document-intelligence — list processed documents for this tenant.
 export async function GET() {

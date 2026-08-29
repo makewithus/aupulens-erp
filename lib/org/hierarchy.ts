@@ -3,7 +3,7 @@
  * unit-tested in isolation. Cover: parent/child level validation, localization
  * inheritance, tree assembly, and subtree consolidation.
  */
-import { ORG_LEVELS, type OrgLevel, type OrgLocalization } from "@/models/OrgUnit";
+import { ORG_LEVELS, type OrgLevel, type OrgLocalization } from "@/models/admin/OrgUnit";
 
 export const LEVEL_INDEX: Record<OrgLevel, number> = ORG_LEVELS.reduce(
   (acc, l, i) => { acc[l] = i; return acc; },

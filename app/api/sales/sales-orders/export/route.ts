@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
-import SalesView from "@/models/SalesView";
+import SaleOrder from "@/models/sales/SaleOrder";
+import SalesView from "@/models/sales/SalesView";
 import { buildMongoFilterFromCriteria, MANDATORY_SALE_ORDER_COLUMNS, AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
 import { resolveSpecialFilter } from "@/lib/sales/saleOrderViews.server";
 import * as XLSX from "xlsx";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 import { PASSWORD_POLICY } from "@/lib/sales/passwordPolicy";
 
 const SALES_ORDERS_ROW_LIMIT = 25000;

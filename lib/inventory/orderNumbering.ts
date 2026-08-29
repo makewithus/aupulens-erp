@@ -1,5 +1,5 @@
-import Counter from "@/models/Counter";
-import InventoryOrder from "@/models/InventoryOrder";
+import Counter from "@/models/shared/Counter";
+import InventoryOrder from "@/models/inventory/InventoryOrder";
 
 const PREFIX = "ORD-";
 const MAX_ATTEMPTS = 50;

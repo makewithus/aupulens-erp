@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import CustomField from "@/models/CustomField";
+import CustomField from "@/models/shared/CustomField";
 import { CUSTOM_FIELD_APPLIES_TO } from "@/lib/constants/statuses";
 
 describe("CustomField model", () => {

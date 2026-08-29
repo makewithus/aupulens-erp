@@ -18,8 +18,8 @@ import { extractAttachment } from "@/lib/ai/extractFile";
 import { extractContent, validateDocument } from "@/lib/docIntel/textExtract";
 import { extractDocument } from "@/lib/docIntel/extractor";
 import { DOC_INTEL_TYPE, DOC_INTEL_STATUS } from "@/lib/docIntel/extractionSchemas";
-import ExtractedDocument from "@/models/ExtractedDocument";
-import ChatHistory from "@/models/ChatHistory";
+import ExtractedDocument from "@/models/ai/ExtractedDocument";
+import ChatHistory from "@/models/ai/ChatHistory";
 
 interface QueryIntent {
   category: string;

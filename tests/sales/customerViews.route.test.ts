@@ -6,8 +6,8 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_custome
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import SalesView from "@/models/SalesView";
-import Customer from "@/models/Customer";
+import SalesView from "@/models/sales/SalesView";
+import Customer from "@/models/sales/Customer";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 
 const VIEWS_URL = "http://localhost/api/sales/customer-views";

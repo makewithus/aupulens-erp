@@ -17,7 +17,7 @@ import {
   SUBSCRIPTION_EVENT_TYPE,
   SUBSCRIPTION_EVENT_TYPE_VALUES,
 } from "@/lib/constants/statuses";
-import SubscriptionEvent from "@/models/SubscriptionEvent";
+import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 
 // ─── getTierLimits ────────────────────────────────────────────────────────────
 

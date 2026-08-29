@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import SubscriptionWebhook from "@/models/SubscriptionWebhook";
+import SubscriptionWebhook from "@/models/sales/SubscriptionWebhook";
 
 /**
  * Fires an HTTP POST to every active, subscribed webhook for a tenant event.

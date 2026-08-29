@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AccountType from "@/models/AccountType";
+import AccountType from "@/models/finance/AccountType";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

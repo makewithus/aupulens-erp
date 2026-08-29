@@ -9,6 +9,7 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
+import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { toast } from "sonner";
@@ -362,6 +363,37 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       }
       await executePrefill(targetDef, q, sentAttachments, attForMsg, messages);
       return;
+    }
+
+    // ── AI "memory": real database lookups for factual Sales questions
+    // ("does this customer exist", "invoices after 15 Aug 2026", "how many
+    // customers this month") — answers from real, tenant-scoped data and, for
+    // browse-style phrasing ("show me", "give me"), also navigates to the
+    // real list page with the same filters already applied. Checked before
+    // the command classifier / generic Q&A fallback below so a factual
+    // question never gets answered with "here's how to find it yourself."
+    // Cheap regex-gated (lib/ai/memoryFlow.ts) — a no-op for anything that
+    // isn't plausibly about a customer or invoice record.
+    if (attachments.length === 0) {
+      const priorTurnsForMemory = messages.filter((m) => !m.isLoading && m.text).map((m) => ({ role: m.role, content: m.text }));
+      const memOutcome = await tryAiMemoryFlow({ text: q, history: priorTurnsForMemory });
+      if (memOutcome.handled) {
+        const base = messages;
+        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: memOutcome.message || "" }]);
+        fetch("/api/admin/chat-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: q.slice(0, 50),
+            messages: [
+              { role: "user", content: q, timestamp: new Date() },
+              { role: "assistant", content: memOutcome.message || "", timestamp: new Date() },
+            ],
+          }),
+        }).catch(() => {});
+        if (memOutcome.route) router.push(memOutcome.route);
+        return;
+      }
     }
 
     const isCommand = ACTION_RX.test(q) || NAV_RX.test(q);

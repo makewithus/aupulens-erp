@@ -46,7 +46,7 @@ vi.mock("@/lib/constants/statuses", async (importOriginal) => {
   };
 });
 
-vi.mock("@/models/User", () => {
+vi.mock("@/models/auth/User", () => {
   function User() {}
   User.findOne = (...args: any[]) => ({ lean: () => mockUserFindOneLean(...args) });
   User.updateOne = (...args: any[])      => mockUserUpdateOne(...args);
@@ -55,13 +55,13 @@ vi.mock("@/models/User", () => {
   return { default: User };
 });
 
-vi.mock("@/models/Organization", () => {
+vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   Organization.findOne = (...args: any[]) => ({ lean: () => mockOrgFindOneLean(...args) });
   return { default: Organization };
 });
 
-vi.mock("@/models/OrgInvite", () => {
+vi.mock("@/models/auth/OrgInvite", () => {
   function OrgInvite() {}
   OrgInvite.findOne  = (...args: any[]) => ({ lean: () => mockInviteFindOneLean(...args) });
   OrgInvite.updateOne = (...args: any[]) => mockInviteUpdateOne(...args);

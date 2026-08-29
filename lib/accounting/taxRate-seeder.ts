@@ -1,4 +1,4 @@
-import TaxRate from "@/models/TaxRate";
+import TaxRate from "@/models/finance/TaxRate";
 
 // Common Indian withholding-tax defaults — editable/removable by the user
 // afterward via the Tax Rates / TDS Rates / TCS Rates settings pages. These

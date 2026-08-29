@@ -8,8 +8,8 @@
 
 import crypto from "node:crypto";
 import mongoose from "mongoose";
-import Workflow, { type IWorkflow } from "@/models/Workflow";
-import WorkflowRun from "@/models/WorkflowRun";
+import Workflow, { type IWorkflow } from "@/models/studio/Workflow";
+import WorkflowRun from "@/models/studio/WorkflowRun";
 import CrmNotification from "@/models/crm/Notification";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { interpolate } from "@/lib/studio/conditions";

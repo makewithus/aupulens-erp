@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import Batch from '@/models/Batch';
+import Batch from '@/models/inventory/Batch';
 
 export async function GET(req: NextRequest) {
   try {

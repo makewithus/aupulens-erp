@@ -44,13 +44,13 @@ vi.mock("@/lib/ai/claude", () => ({
   callClaudeWithHistory:     mockCallClaudeWithHistory,
 }));
 
-vi.mock("@/models/Organization", () => {
+vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   Organization.findOne = (...args: any[]) => ({ lean: () => mockOrgFindOne(...args) });
   return { default: Organization };
 });
 
-vi.mock("@/models/AiUsage", () => {
+vi.mock("@/models/admin/AiUsage", () => {
   function AiUsage() {}
   AiUsage.findOne          = (...args: any[]) => ({ lean: () => mockAiUsageFindOne(...args) });
   AiUsage.findOneAndUpdate = (...args: any[]) => mockAiUsageFindOneAndUpdate(...args);

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
-import SalesView from "@/models/SalesView";
+import SaleOrder from "@/models/sales/SaleOrder";
+import SalesView from "@/models/sales/SalesView";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
 import { generateSaleOrderNumber } from "@/lib/sales/saleOrderNumbering";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/saleOrderViews";
@@ -12,8 +12,8 @@ import {
   SALES_ORDER_SHIPMENT_STATUS,
   SALES_ORDER_INVOICING_STATUS,
 } from "@/lib/constants/statuses";
-import "@/models/Customer";
-import "@/models/User";
+import "@/models/sales/Customer";
+import "@/models/auth/User";
 
 export async function GET(request: NextRequest) {
   try {

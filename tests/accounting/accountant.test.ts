@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Accountant from "@/models/Accountant";
+import Accountant from "@/models/finance/Accountant";
 
 describe("Accountant model (global, non-tenant-scoped directory)", () => {
   beforeAll(async () => {

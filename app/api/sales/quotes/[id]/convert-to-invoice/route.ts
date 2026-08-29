@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SalesQuotation from "@/models/SalesQuotation";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import SalesQuotation from "@/models/sales/SalesQuotation";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 import { QUOTE_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";

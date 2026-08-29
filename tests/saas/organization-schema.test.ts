@@ -19,7 +19,7 @@ import {
   ORGANIZATION_TIER_LABELS,
   type OrganizationTier,
 } from "@/lib/constants/statuses";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 
 // ─── Tier constants ───────────────────────────────────────────────────────────
 

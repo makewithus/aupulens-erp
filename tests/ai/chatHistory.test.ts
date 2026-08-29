@@ -14,14 +14,14 @@ const { mockFindOne, mockFindOneAndUpdate } = vi.hoisted(() => ({
   mockFindOneAndUpdate: vi.fn(),
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockFindOne,
     findOneAndUpdate: mockFindOneAndUpdate,
   },
 }));
 
-import ChatHistory from "@/models/ChatHistory";
+import ChatHistory from "@/models/ai/ChatHistory";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

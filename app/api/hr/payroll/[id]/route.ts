@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Payroll from "@/models/Payroll";
-import Employee from "@/models/Employee";
-import Attendance from "@/models/Attendance";
-import JournalEntry from "@/models/JournalEntry";
-import Account from "@/models/Account";
+import Payroll from "@/models/hr/Payroll";
+import Employee from "@/models/hr/Employee";
+import Attendance from "@/models/hr/Attendance";
+import JournalEntry from "@/models/finance/JournalEntry";
+import Account from "@/models/finance/Account";
 import { VOUCHER_TYPE, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 

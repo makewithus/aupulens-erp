@@ -14,7 +14,7 @@
  * event with no real payment behind it would be worse than not having one.
  */
 import dbConnect from "@/lib/db";
-import SubscriptionEvent from "@/models/SubscriptionEvent";
+import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import { type SubscriptionEventType, type OrganizationTier } from "@/lib/constants/statuses";
 
 export async function appendSubscriptionEvent(params: {

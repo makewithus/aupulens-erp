@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Payment from "@/models/Payment";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Payment from "@/models/sales/Payment";
 import { resolveInvoiceStatus } from "@/lib/sales/invoiceStatus";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";

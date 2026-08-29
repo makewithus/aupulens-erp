@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Reminder from "@/models/Reminder";
+import Reminder from "@/models/sales/Reminder";
 import { REMINDER_SCOPE, REMINDER_TYPE, REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
 
-const SEED_DEFINITIONS: Record<string, Array<Partial<import("@/models/Reminder").IReminder>>> = {
+const SEED_DEFINITIONS: Record<string, Array<Partial<import("@/models/sales/Reminder").IReminder>>> = {
   [REMINDER_SCOPE.INVOICE]: [
     {
       type: REMINDER_TYPE.MANUAL,

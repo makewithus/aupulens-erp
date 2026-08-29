@@ -23,12 +23,12 @@ vi.mock("@/models/crm/Lead", () => ({ default: empty }));
 vi.mock("@/models/crm/Account", () => ({ default: empty }));
 vi.mock("@/models/crm/Contact", () => ({ default: empty }));
 vi.mock("@/models/crm/Opportunity", () => ({ default: empty }));
-vi.mock("@/models/SalesInvoice", () => ({ SalesInvoice: empty }));
-vi.mock("@/models/Customer", () => ({ default: empty }));
-vi.mock("@/models/SaleOrder", () => ({ default: empty }));
-vi.mock("@/models/InventoryItem", () => ({ default: empty }));
-vi.mock("@/models/Employee", () => ({ default: empty }));
-vi.mock("@/models/Project", () => ({ default: empty }));
+vi.mock("@/models/sales/SalesInvoice", () => ({ SalesInvoice: empty }));
+vi.mock("@/models/sales/Customer", () => ({ default: empty }));
+vi.mock("@/models/sales/SaleOrder", () => ({ default: empty }));
+vi.mock("@/models/inventory/InventoryItem", () => ({ default: empty }));
+vi.mock("@/models/hr/Employee", () => ({ default: empty }));
+vi.mock("@/models/shared/Project", () => ({ default: empty }));
 
 // Embedding client + RAG retrieval — the semantic layer's dependencies.
 vi.mock("@/lib/ai/claude", () => ({ get EMBEDDING_DEFAULT_MODEL() { return state.embeddingModel; }, embedText: mockEmbed }));

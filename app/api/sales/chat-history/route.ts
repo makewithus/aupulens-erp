@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import ChatHistory from "@/models/ChatHistory";
+import ChatHistory from "@/models/ai/ChatHistory";
 
 /**
  * Manufacturing AI-assistant chat persistence (Scope C).

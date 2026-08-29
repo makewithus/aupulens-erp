@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 
 // Called by middleware (via fetch) to resolve a tenant's tier + enabledModules
 // without holding a Mongoose connection inside the Edge-runtime middleware layer.

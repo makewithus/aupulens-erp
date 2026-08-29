@@ -17,7 +17,7 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import Account from "../models/Account";
+import Account from "../models/finance/Account";
 
 const SEEDED_CODES = [
   "1000", "1100", "1110", "1120", "1200", "1210", "1300", "1400",

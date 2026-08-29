@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Project from "@/models/Project";
+import Project from "@/models/shared/Project";
 
 async function getTenant() {
   const session = await auth();

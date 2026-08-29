@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import PaymentGateway from "@/models/PaymentGateway";
+import PaymentGateway from "@/models/sales/PaymentGateway";
 import { PAYMENT_GATEWAY_STATUS } from "@/lib/constants/statuses";
 
 // Default gateway catalog for spec §7.3 item 5. Lazily seeded on first read,

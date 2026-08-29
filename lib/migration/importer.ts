@@ -10,9 +10,9 @@
  */
 
 import mongoose from "mongoose";
-import Customer from "@/models/Customer";
-import Vendor from "@/models/Vendor";
-import Product from "@/models/Product";
+import Customer from "@/models/sales/Customer";
+import Vendor from "@/models/admin/Vendor";
+import Product from "@/models/inventory/Product";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import {

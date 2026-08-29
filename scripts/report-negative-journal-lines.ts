@@ -18,7 +18,7 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../lib/db";
-import JournalEntry from "../models/JournalEntry";
+import JournalEntry from "../models/finance/JournalEntry";
 import { DOCUMENT_STATUS } from "../lib/constants/statuses";
 
 async function main() {

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Payment from "@/models/Payment";
-import SalesView from "@/models/SalesView";
+import Payment from "@/models/sales/Payment";
+import SalesView from "@/models/sales/SalesView";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, validateAllocationAmounts, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
 import { PAYMENT_STATUS, PAYMENT_TYPE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
-import "@/models/Customer";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import JournalEntry from "@/models/JournalEntry";
-import "@/models/Account";
+import "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import JournalEntry from "@/models/finance/JournalEntry";
+import "@/models/finance/Account";
 
 export async function GET(request: NextRequest) {
   try {

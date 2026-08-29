@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AiActionProposal from "@/models/AiActionProposal";
+import AiActionProposal from "@/models/ai/AiActionProposal";
 import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

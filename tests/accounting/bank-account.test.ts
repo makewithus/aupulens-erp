@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import BankAccount from "@/models/BankAccount";
-import BankFeedProvider from "@/models/BankFeedProvider";
+import BankAccount from "@/models/finance/BankAccount";
+import BankFeedProvider from "@/models/finance/BankFeedProvider";
 
 describe("BankAccount and BankFeedProvider models", () => {
   beforeAll(async () => {

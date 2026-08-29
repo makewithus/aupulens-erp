@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Invoice from "@/models/Invoice";
-import JournalEntry from "@/models/JournalEntry";
-import Account from "@/models/Account";
+import Invoice from "@/models/finance/Invoice";
+import JournalEntry from "@/models/finance/JournalEntry";
+import Account from "@/models/finance/Account";
 import {
   DOCUMENT_STATUS,
   PAYMENT_STATE,

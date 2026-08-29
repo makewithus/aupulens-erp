@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { getCalendarEvents } from "@/lib/calendar/aggregateEvents";
-import CalendarEvent from "@/models/CalendarEvent";
+import CalendarEvent from "@/models/shared/CalendarEvent";
 
 /**
  * Smart Enterprise Calendar (6.5). GET returns the unified, role-scoped event

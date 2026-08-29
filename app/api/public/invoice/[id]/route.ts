@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import connectDB from "@/lib/db";
 import { renderInvoiceHtmlById } from "@/lib/invoiceTemplates/renderInvoiceHtml";
 import { verifyPublicToken } from "@/lib/publicLinks";

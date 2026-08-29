@@ -38,7 +38,7 @@ export function DashboardCharts({
                 <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Revenue
                 </p>
-                <p className="mt-1 text-3xl font-black tracking-tighter text-white">
+                <p className="mt-1 text-3xl font-black tracking-tighter text-foreground">
                   {formatCurrency(revenue)}
                 </p>
               </div>

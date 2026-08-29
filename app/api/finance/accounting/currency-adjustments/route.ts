@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import CurrencyAdjustment from "@/models/CurrencyAdjustment";
-import BankAccount from "@/models/BankAccount";
-import JournalEntry from "@/models/JournalEntry";
-import AccountingSettings from "@/models/AccountingSettings";
+import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
+import BankAccount from "@/models/finance/BankAccount";
+import JournalEntry from "@/models/finance/JournalEntry";
+import AccountingSettings from "@/models/finance/AccountingSettings";
 import { DOCUMENT_STATUS, CURRENCY_ADJUSTMENT_FILTER } from "@/lib/constants/statuses";
 
 function dateRangeForFilter(filter: string | null): { $gte?: Date; $lte?: Date } | undefined {

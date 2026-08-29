@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import EInvoice from "@/models/EInvoice";
-import EinvoiceGspCredential from "@/models/EinvoiceGspCredential";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import EInvoice from "@/models/sales/EInvoice";
+import EinvoiceGspCredential from "@/models/sales/EinvoiceGspCredential";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { decrypt } from "@/lib/crypto";
 import { getGspService } from "@/lib/einvoice/gspService";
 import { GSP_CONNECTION_STATUS, EINVOICE_STATUS } from "@/lib/constants/statuses";

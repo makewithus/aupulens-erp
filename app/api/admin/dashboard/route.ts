@@ -34,16 +34,16 @@ export async function GET() {
       Expense,
       Transaction,
     ] = await Promise.all([
-      import("@/models/SalesInvoice").then((m) => m.SalesInvoice),
-      import("@/models/Invoice").then((m) => m.default),
-      import("@/models/SaleOrder").then((m) => m.default),
-      import("@/models/Product").then((m) => m.default),
-      import("@/models/Customer").then((m) => m.default),
-      import("@/models/StockTransfer").then((m) => m.default),
-      import("@/models/ManufacturingOrder").then((m) => m.default),
-      import("@/models/User").then((m) => m.default),
-      import("@/models/Expense").then((m) => m.default),
-      import("@/models/Transaction").then((m) => m.default),
+      import("@/models/sales/SalesInvoice").then((m) => m.SalesInvoice),
+      import("@/models/finance/Invoice").then((m) => m.default),
+      import("@/models/sales/SaleOrder").then((m) => m.default),
+      import("@/models/inventory/Product").then((m) => m.default),
+      import("@/models/sales/Customer").then((m) => m.default),
+      import("@/models/inventory/StockTransfer").then((m) => m.default),
+      import("@/models/manufacturing/ManufacturingOrder").then((m) => m.default),
+      import("@/models/auth/User").then((m) => m.default),
+      import("@/models/finance/Expense").then((m) => m.default),
+      import("@/models/finance/Transaction").then((m) => m.default),
     ]);
 
     const now = new Date();

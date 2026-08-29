@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import Shipment from '@/models/Shipment';
-import AirFreight from '@/models/AirFreight';
+import Shipment from '@/models/manufacturing/Shipment';
+import AirFreight from '@/models/manufacturing/AirFreight';
 
 export async function GET() {
   try {

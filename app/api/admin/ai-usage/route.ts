@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AiUsage from "@/models/AiUsage";
-import Organization from "@/models/Organization";
+import AiUsage from "@/models/admin/AiUsage";
+import Organization from "@/models/admin/Organization";
 import { getAiPeriod, getGlobalMonthlyCap, getGlobalAiUsageCount } from "@/lib/ai/usage";
 import { getTierLimits } from "@/lib/constants/tiers";
 import { checkTenantModelOverrides } from "@/lib/ai/modelHealth";

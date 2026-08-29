@@ -41,12 +41,12 @@ vi.mock("@/lib/db", () => ({ default: h.connectDB }));
 vi.mock("@/models/crm/Lead", () => ({ default: { create: h.leadCreate, findOne: h.leadFindOne } }));
 vi.mock("@/models/crm/Task", () => ({ default: { create: h.taskCreate } }));
 vi.mock("@/models/crm/CrmAuditLog", () => ({ default: { create: h.auditCreate } }));
-vi.mock("@/models/Customer", () => ({ default: { find: h.customerFind, findOne: h.customerFindOne, create: h.customerCreate } }));
-vi.mock("@/models/Employee", () => ({ default: { create: h.employeeCreate, countDocuments: h.employeeCount } }));
-vi.mock("@/models/Account", () => ({ default: { find: h.accountFind, findOne: h.accountFindOne, create: h.accountCreate, countDocuments: h.accountCount, deleteOne: h.accountDelete } }));
-vi.mock("@/models/JournalEntry", () => ({ default: { create: h.jeCreate, exists: h.jeExists } }));
+vi.mock("@/models/sales/Customer", () => ({ default: { find: h.customerFind, findOne: h.customerFindOne, create: h.customerCreate } }));
+vi.mock("@/models/hr/Employee", () => ({ default: { create: h.employeeCreate, countDocuments: h.employeeCount } }));
+vi.mock("@/models/finance/Account", () => ({ default: { find: h.accountFind, findOne: h.accountFindOne, create: h.accountCreate, countDocuments: h.accountCount, deleteOne: h.accountDelete } }));
+vi.mock("@/models/finance/JournalEntry", () => ({ default: { create: h.jeCreate, exists: h.jeExists } }));
 vi.mock("@/lib/sales/invoiceNumbering", () => ({ generateInvoiceNumber: h.genInvoiceNumber }));
-vi.mock("@/models/SalesInvoice", () => ({
+vi.mock("@/models/sales/SalesInvoice", () => ({
   SalesInvoice: class {
     _id = "inv-1";
     constructor(data: any) { Object.assign(this, data); }

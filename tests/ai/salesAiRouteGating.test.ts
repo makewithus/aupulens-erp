@@ -42,21 +42,21 @@ function buildChain(result: any = []) {
   return chain;
 }
 
-vi.mock("@/models/SaleOrder", () => ({
+vi.mock("@/models/sales/SaleOrder", () => ({
   default: {
     find: (...args: any[]) => { mockSaleOrderFind(...args); return buildChain([]); },
     aggregate: (...args: any[]) => { mockSaleOrderAggregate(...args); return { exec: () => Promise.resolve([]) }; },
   },
 }));
-vi.mock("@/models/SalesQuotation", () => ({ default: {} }));
-vi.mock("@/models/DeliveryChallan", () => ({ default: {} }));
+vi.mock("@/models/sales/SalesQuotation", () => ({ default: {} }));
+vi.mock("@/models/sales/DeliveryChallan", () => ({ default: {} }));
 
 vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,

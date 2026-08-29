@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Budget from "@/models/Budget";
+import Budget from "@/models/finance/Budget";
 
 describe("Budget model", () => {
   beforeAll(async () => {

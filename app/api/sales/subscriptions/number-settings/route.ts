@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import DocumentPrefix from "@/models/DocumentPrefix";
-import Counter from "@/models/Counter";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
+import Counter from "@/models/shared/Counter";
 import { createPrefix, clearOtherDefaults } from "@/lib/sales/documentPrefixes";
 import { SALES_DOCUMENT_TYPE, DOCUMENT_PREFIX_KIND } from "@/lib/constants/statuses";
 

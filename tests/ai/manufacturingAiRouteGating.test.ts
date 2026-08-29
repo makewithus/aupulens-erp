@@ -29,9 +29,9 @@ const {
 
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/Shipment", () => ({ default: { find: () => ({ sort: () => ({ limit: () => ({ lean: () => Promise.resolve([]) }) }) }) } }));
-vi.mock("@/models/AirFreight", () => ({ default: {} }));
-vi.mock("@/models/HSCode", () => ({ default: {} }));
+vi.mock("@/models/manufacturing/Shipment", () => ({ default: { find: () => ({ sort: () => ({ limit: () => ({ lean: () => Promise.resolve([]) }) }) }) } }));
+vi.mock("@/models/manufacturing/AirFreight", () => ({ default: {} }));
+vi.mock("@/models/manufacturing/HSCode", () => ({ default: {} }));
 
 vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,

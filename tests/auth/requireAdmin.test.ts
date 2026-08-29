@@ -26,7 +26,7 @@ describe("requireAdmin helper", () => {
 const { mockAuth, mockFind } = vi.hoisted(() => ({ mockAuth: vi.fn(), mockFind: vi.fn() }));
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: vi.fn() }));
-vi.mock("@/models/OrgUnit", () => ({ default: { find: mockFind }, ORG_LEVELS: ["Company", "Region", "Branch", "Office", "Warehouse", "Department", "Team", "Employee"] }));
+vi.mock("@/models/admin/OrgUnit", () => ({ default: { find: mockFind }, ORG_LEVELS: ["Company", "Region", "Branch", "Office", "Warehouse", "Department", "Team", "Employee"] }));
 
 import { GET as OrgGET } from "@/app/api/org/units/route";
 

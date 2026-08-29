@@ -24,9 +24,9 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import BankAccount from "../models/BankAccount";
-import Account from "../models/Account";
-import AccountType from "../models/AccountType";
+import BankAccount from "../models/finance/BankAccount";
+import Account from "../models/finance/Account";
+import AccountType from "../models/finance/AccountType";
 
 async function main() {
   await connectDB();

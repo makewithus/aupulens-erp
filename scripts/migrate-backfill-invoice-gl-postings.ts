@@ -28,9 +28,9 @@
 import "dotenv/config";
 import { SALES_INVOICE_STATUS } from "../lib/constants/statuses";
 import connectDB from "../lib/db";
-import { SalesInvoice } from "../models/SalesInvoice";
+import { SalesInvoice } from "../models/sales/SalesInvoice";
 import { postSalesInvoiceJournal } from "../lib/accounting/salesInvoicePosting";
-import User from "../models/User";
+import User from "../models/auth/User";
 import mongoose from "mongoose";
 
 const REVENUE_RECOGNIZED_STATUSES: string[] = [

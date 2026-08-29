@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Employee from "@/models/Employee";
-import Department from "@/models/Department";
-import Payroll from "@/models/Payroll";
-import LeaveRequest from "@/models/LeaveRequest";
-import Attendance from "@/models/Attendance";
+import Employee from "@/models/hr/Employee";
+import Department from "@/models/hr/Department";
+import Payroll from "@/models/hr/Payroll";
+import LeaveRequest from "@/models/hr/LeaveRequest";
+import Attendance from "@/models/hr/Attendance";
 
 export async function GET(req: NextRequest) {
   try {

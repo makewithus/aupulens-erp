@@ -506,18 +506,18 @@ export default function AIAssistant() {
       onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
       profilePath="/admin/profile"
     >
-      <div className="flex h-[calc(100vh-8rem)] gap-0 -mx-6 -my-4 bg-linear-to-br from-gray-950 via-black to-gray-900 overflow-hidden">
+      <div className="flex h-[calc(100vh-8rem)] gap-0 -mx-6 -my-4 bg-background overflow-hidden">
         {/* History Sidebar - Hidden on mobile unless toggled */}
         <div
           className={`${
             showHistory ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 fixed md:relative z-20 w-64 h-full bg-black/95 md:bg-black/50 backdrop-blur-sm border-r border-border/50 flex flex-col transition-transform duration-300 ease-in-out`}
+          } md:translate-x-0 fixed md:relative z-20 w-64 h-full bg-card/95 md:bg-card/50 backdrop-blur-sm border-r border-border/50 flex flex-col transition-transform duration-300 ease-in-out`}
         >
           {/* New Chat Button */}
           <div className="p-4 border-b border-border/50 flex items-center justify-between">
             <Button
               onClick={startNewChat}
-              className="flex-1 bg-accent hover:bg-accent text-white gap-2"
+              className="flex-1 bg-accent hover:bg-accent text-foreground gap-2"
               size="sm"
             >
               <Plus className="h-4 w-4" />
@@ -525,7 +525,7 @@ export default function AIAssistant() {
             </Button>
             <button
               onClick={() => setShowHistory(false)}
-              className="md:hidden p-2 text-muted-foreground hover:text-white"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
             >
               <MoreVertical className="h-4 w-4 rotate-90" />
             </button>
@@ -550,7 +550,7 @@ export default function AIAssistant() {
                           key={chat._id}
                           className={`group flex items-center gap-2 px-3 py-2 text-xs rounded-none transition-colors ${
                             currentChatId === chat._id
-                              ? "bg-accent text-white"
+                              ? "bg-accent text-foreground"
                               : "text-muted-foreground hover:bg-card/50"
                           }`}
                         >
@@ -674,11 +674,11 @@ export default function AIAssistant() {
           <div className="md:hidden p-4 border-b border-border/50 flex items-center">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="p-2 -ml-2 text-muted-foreground hover:text-white"
+              className="p-2 -ml-2 text-muted-foreground hover:text-foreground"
             >
               <MoreVertical className="h-5 w-5" />
             </button>
-            <span className="ml-2 font-medium text-white">Chat</span>
+            <span className="ml-2 font-medium text-foreground">Chat</span>
           </div>
 
           {/* Messages Container */}
@@ -689,7 +689,7 @@ export default function AIAssistant() {
                   <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
                     <MessageSquare className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-medium text-white mb-2">
+                  <h3 className="text-lg font-medium text-foreground mb-2">
                     Start a conversation
                   </h3>
                   <p className="text-sm text-muted-foreground max-w-md">
@@ -711,10 +711,10 @@ export default function AIAssistant() {
 
                     <div className="flex flex-col gap-1 max-w-[80%]">
                       {message.role === 'assistant' && (
-                        <span className="text-sm font-medium text-white ml-1">Aupulens Assistant</span>
+                        <span className="text-sm font-medium text-foreground ml-1">Aupulens Assistant</span>
                       )}
                       {message.role === 'user' && (
-                        <span className="text-sm font-medium text-white mr-1 text-right">You</span>
+                        <span className="text-sm font-medium text-foreground mr-1 text-right">You</span>
                       )}
                       
                       <div className={cn(
@@ -764,7 +764,7 @@ export default function AIAssistant() {
           </div>
 
           {/* Input Area at Bottom */}
-          <div className="border-t border-border/50 p-4 bg-black/30 backdrop-blur-sm z-10 shrink-0">
+          <div className="border-t border-border/50 p-4 bg-card/30 backdrop-blur-sm z-10 shrink-0">
             <div className="max-w-3xl mx-auto">
               <form onSubmit={handleSubmit} className="relative">
                 {/* Attached files — horizontal, scrollable, no wrapping */}

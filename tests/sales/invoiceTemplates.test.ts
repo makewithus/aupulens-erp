@@ -7,7 +7,7 @@ import {
   getTemplateDefinition,
 } from "@/lib/invoiceTemplates/definitions";
 import { renderInvoiceTemplate, renderInvoiceTemplateFragment } from "@/lib/invoiceTemplates/render";
-import { InvoiceTemplate } from "@/models/InvoiceTemplate";
+import { InvoiceTemplate } from "@/models/sales/InvoiceTemplate";
 import { ensureInvoiceTemplatesSeeded } from "@/lib/invoiceTemplates/seed";
 import { buildTemplateContext } from "@/lib/invoiceTemplates/context";
 import { cleanText, money } from "@/lib/invoiceTemplates/helpers";

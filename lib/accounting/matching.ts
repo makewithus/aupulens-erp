@@ -1,7 +1,7 @@
-import PurchaseOrder from "@/models/PurchaseOrder";
-import Invoice from "@/models/Invoice";
-import StockMove from "@/models/StockMove";
-import StockTransfer from "@/models/StockTransfer";
+import PurchaseOrder from "@/models/finance/PurchaseOrder";
+import Invoice from "@/models/finance/Invoice";
+import StockMove from "@/models/inventory/StockMove";
+import StockTransfer from "@/models/inventory/StockTransfer";
 import mongoose from "mongoose";
 
 export async function runPOMatching(invoiceId: string, tenantId: string) {

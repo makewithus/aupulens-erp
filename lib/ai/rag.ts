@@ -15,8 +15,8 @@
  * so one workspace's knowledge base can never surface in another's answer.
  */
 import dbConnect from "@/lib/db";
-import AiEmbedding from "@/models/AiEmbedding";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import AiEmbedding from "@/models/ai/AiEmbedding";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import CrmActivity from "@/models/crm/Activity";
 import { embedText, EMBEDDING_DEFAULT_MODEL } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";

@@ -12,7 +12,7 @@ import mongoose from "mongoose";
 
 async function main() {
   await mongoose.connect(process.env.MONGODB_URI as string);
-  const Organization = (await import("../models/Organization")).default;
+  const Organization = (await import("../models/admin/Organization")).default;
 
   const res = await Organization.updateMany(
     { "settings.ai.model": { $regex: /^claude/i } },

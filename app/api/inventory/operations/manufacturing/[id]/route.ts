@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import ManufacturingOrder from "@/models/ManufacturingOrder";
-import Stock from "@/models/Stock";
+import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
+import Stock from "@/models/inventory/Stock";
 import {
   DOCUMENT_STATUS,
   PRODUCTION_STATUS,

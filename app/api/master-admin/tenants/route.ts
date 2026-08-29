@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
-import User from "@/models/User";
+import Organization from "@/models/admin/Organization";
+import User from "@/models/auth/User";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { buildTenantUrl } from "@/lib/config";

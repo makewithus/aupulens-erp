@@ -27,7 +27,7 @@
  */
 import "dotenv/config";
 import connectDB from "../lib/db";
-import { SalesInvoice } from "../models/SalesInvoice";
+import { SalesInvoice } from "../models/sales/SalesInvoice";
 
 function computeLineTotal(li: any, itemLevelDiscountPercent = 0): number {
   const qty = Number(li.qty) || 0;

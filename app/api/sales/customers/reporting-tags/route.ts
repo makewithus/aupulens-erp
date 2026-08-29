@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import ReportingTag from "@/models/ReportingTag";
+import ReportingTag from "@/models/sales/ReportingTag";
 
 export async function GET() {
   try {

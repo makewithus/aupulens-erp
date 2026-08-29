@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
-import "@/models/Customer";
-import "@/models/Product";
+import SaleOrder from "@/models/sales/SaleOrder";
+import "@/models/sales/Customer";
+import "@/models/inventory/Product";
 import {
   DOCUMENT_STATUS,
   Q2C_STATUS,

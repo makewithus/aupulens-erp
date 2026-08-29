@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import EinvoiceGspCredential, { DEFAULT_GSP_PROVIDER } from "@/models/EinvoiceGspCredential";
+import EinvoiceGspCredential, { DEFAULT_GSP_PROVIDER } from "@/models/sales/EinvoiceGspCredential";
 import { encrypt } from "@/lib/crypto";
 import { getGspService } from "@/lib/einvoice/gspService";
 import { GSP_CONNECTION_STATUS } from "@/lib/constants/statuses";

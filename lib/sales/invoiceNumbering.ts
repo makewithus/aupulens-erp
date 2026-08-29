@@ -1,5 +1,5 @@
-import Counter from "@/models/Counter";
-import DocumentPrefix from "@/models/DocumentPrefix";
+import Counter from "@/models/shared/Counter";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
 import { SALES_DOCUMENT_TYPE, DOCUMENT_PREFIX_KIND } from "@/lib/constants/statuses";
 import { DEFAULT_PREFIX_BY_DOCUMENT_TYPE } from "@/lib/sales/documentPrefixes";
 

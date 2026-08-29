@@ -2,14 +2,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ default: vi.fn().mockResolvedValue(undefined) }));
 
-vi.mock("@/models/Account", () => ({
+vi.mock("@/models/finance/Account", () => ({
   default: {
     findOne: vi.fn(),
   },
 }));
 
 import { buildActionPreview, AiActionError } from "@/lib/accounting/aiActions";
-import Account from "@/models/Account";
+import Account from "@/models/finance/Account";
 
 describe("buildActionPreview", () => {
   beforeEach(() => {

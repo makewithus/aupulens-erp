@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Budget from "@/models/Budget";
+import Budget from "@/models/finance/Budget";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

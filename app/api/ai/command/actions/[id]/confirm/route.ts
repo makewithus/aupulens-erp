@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AiCommandProposal from "@/models/AiCommandProposal";
+import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
 import { COMMAND_ACTIONS, CommandActionError, isCommandAction, executeCommandBatch } from "@/lib/ai/commandActions";
 

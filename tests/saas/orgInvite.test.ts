@@ -45,7 +45,7 @@ vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 vi.mock("@/lib/org/rbac", () => ({ requireOrgAdmin: mockRequireOrgAdmin }));
 
-vi.mock("@/models/Organization", () => {
+vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   Organization.findOne = (...args: any[]) => {
     mockOrgFindOne(...args);
@@ -54,7 +54,7 @@ vi.mock("@/models/Organization", () => {
   return { default: Organization };
 });
 
-vi.mock("@/models/OrgInvite", () => {
+vi.mock("@/models/auth/OrgInvite", () => {
   function OrgInvite() {}
   OrgInvite.findOne = (...args: any[]) => {
     mockInviteFindOne(...args);
@@ -66,7 +66,7 @@ vi.mock("@/models/OrgInvite", () => {
   return { default: OrgInvite };
 });
 
-vi.mock("@/models/User", () => {
+vi.mock("@/models/auth/User", () => {
   function User() {}
   User.findOne = (...args: any[]) => {
     mockUserFindOne(...args);

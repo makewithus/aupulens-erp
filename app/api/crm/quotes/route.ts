@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 
 import CrmAccount from "@/models/crm/Account";
 import CrmOpportunity from "@/models/crm/Opportunity";
-import User from "@/models/User";
+import User from "@/models/auth/User";
 
 // ─── POST /api/crm/quotes ────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {

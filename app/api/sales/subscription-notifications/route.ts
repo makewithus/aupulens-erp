@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SubscriptionNotificationSetting from "@/models/SubscriptionNotificationSetting";
+import SubscriptionNotificationSetting from "@/models/sales/SubscriptionNotificationSetting";
 import { NOTIFICATION_EVENT_LABELS } from "@/lib/sales/subscriptionNotifications";
 
 async function ensureSeeded(tenantId: string) {

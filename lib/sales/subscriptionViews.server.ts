@@ -1,5 +1,5 @@
 import { startOfWeek, endOfWeek, subWeeks, addWeeks, addDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/subscriptionViews";
 

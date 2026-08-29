@@ -21,8 +21,8 @@ const {
 
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/JournalEntry", () => ({ default: { find: mockJeFind } }));
-vi.mock("@/models/Invoice", () => ({ default: { find: mockInvoiceFind } }));
+vi.mock("@/models/finance/JournalEntry", () => ({ default: { find: mockJeFind } }));
+vi.mock("@/models/finance/Invoice", () => ({ default: { find: mockInvoiceFind } }));
 vi.mock("@/lib/accounting/reports", () => ({
   buildPostedJournalReport: mockBuildReport,
   buildPostedIncomeExpenseSeries: mockBuildSeries,
@@ -31,7 +31,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: { findOne: mockChatHistoryFindOne, findOneAndUpdate: mockChatHistoryUpsert },
 }));
 

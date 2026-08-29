@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { SalesTabNav } from "@/components/sales/SalesTabNav";
@@ -20,16 +21,50 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export default function SalesInvoicesLandingPage() {
+  return (
+    <Suspense fallback={null}>
+      <SalesInvoicesLandingPageInner />
+    </Suspense>
+  );
+}
+
+function SalesInvoicesLandingPageInner() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [customerId, setCustomerId] = useState("");
+
+  // AI-native "redirect with filters" — when the AI assistant sends the user
+  // here with ?search=/&status=/&dateFrom=/&dateTo=/&customerId=, seed the
+  // existing filter state from the URL on first load so the list arrives
+  // already filtered. A normal, param-less visit to this page behaves
+  // exactly as before (every value below just stays at its default).
+  useEffect(() => {
+    const qSearch = searchParams.get("search");
+    const qStatus = searchParams.get("status");
+    const qDateFrom = searchParams.get("dateFrom");
+    const qDateTo = searchParams.get("dateTo");
+    const qCustomerId = searchParams.get("customerId");
+    if (qSearch) setSearch(qSearch);
+    if (qStatus) setStatusFilter(qStatus);
+    if (qDateFrom) setDateFrom(qDateFrom);
+    if (qDateTo) setDateTo(qDateTo);
+    if (qCustomerId) setCustomerId(qCustomerId);
+  }, []);
 
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      const res = await cachedFetch(`/api/sales/invoices?search=${search}&status=${statusFilter}`);
+      const params = new URLSearchParams({ search, status: statusFilter });
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (customerId) params.set("customerId", customerId);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setInvoices(data.data);
@@ -45,7 +80,7 @@ export default function SalesInvoicesLandingPage() {
 
   useEffect(() => {
     fetchInvoices();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFrom, dateTo, customerId]);
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">

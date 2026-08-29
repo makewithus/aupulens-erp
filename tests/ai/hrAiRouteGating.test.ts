@@ -24,20 +24,20 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
-vi.mock("@/models/Employee", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
-vi.mock("@/models/Payroll", () => ({
+vi.mock("@/models/hr/Employee", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
+vi.mock("@/models/hr/Payroll", () => ({
   default: { find: () => ({ sort: () => ({ limit: () => ({ lean: () => Promise.resolve([]) }) }) }) },
 }));
-vi.mock("@/models/Attendance", () => ({ default: {} }));
-vi.mock("@/models/LeaveRequest", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
-vi.mock("@/models/Department", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
+vi.mock("@/models/hr/Attendance", () => ({ default: {} }));
+vi.mock("@/models/hr/LeaveRequest", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
+vi.mock("@/models/hr/Department", () => ({ default: { find: () => ({ lean: () => Promise.resolve([]) }) } }));
 
 vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import EInvoice from "@/models/EInvoice";
+import EInvoice from "@/models/sales/EInvoice";
 import { CURRENCY_ADJUSTMENT_FILTER } from "@/lib/constants/statuses";
-import "@/models/SalesInvoice"; // side-effect import: registers "SalesInvoice" for .populate("invoiceId") below
-import "@/models/Customer"; // side-effect import: registers "Customer" for the nested populate below
+import "@/models/sales/SalesInvoice"; // side-effect import: registers "SalesInvoice" for .populate("invoiceId") below
+import "@/models/sales/Customer"; // side-effect import: registers "Customer" for the nested populate below
 
 function dateRangeForFilter(range: string | null): { $gte?: Date; $lte?: Date } | undefined {
   if (!range || range === CURRENCY_ADJUSTMENT_FILTER.ALL) return undefined;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import AiActionProposal from "@/models/AiActionProposal";
+import AiActionProposal from "@/models/ai/AiActionProposal";
 import { AI_ACTION_TYPE_VALUES } from "@/lib/constants/statuses";
 import { buildActionPreview, AiActionError } from "@/lib/accounting/aiActions";
 

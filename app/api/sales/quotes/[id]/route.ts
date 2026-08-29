@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import SalesQuotation from "@/models/SalesQuotation";
+import SalesQuotation from "@/models/sales/SalesQuotation";
 import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

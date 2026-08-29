@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import StockMove from "@/models/StockMove";
-import "@/models/Warehouse";
-import "@/models/Product";
+import StockMove from "@/models/inventory/StockMove";
+import "@/models/inventory/Warehouse";
+import "@/models/inventory/Product";
 import { checkNegativeStockGuardBatch } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: NextRequest) {

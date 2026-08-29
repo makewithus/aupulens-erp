@@ -7,10 +7,10 @@ process.env.ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="; // 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
-import EInvoice from "@/models/EInvoice";
-import EinvoiceGspCredential from "@/models/EinvoiceGspCredential";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import "@/models/Customer";
+import EInvoice from "@/models/sales/EInvoice";
+import EinvoiceGspCredential from "@/models/sales/EinvoiceGspCredential";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import "@/models/sales/Customer";
 import { EINVOICE_STATUS, GSP_CONNECTION_STATUS } from "@/lib/constants/statuses";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 

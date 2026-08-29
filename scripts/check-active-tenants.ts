@@ -13,7 +13,7 @@ async function main() {
   await mongoose.connect(process.env.MONGODB_URI as string);
   const db = mongoose.connection.db!;
 
-  const Organization = (await import("../models/Organization")).default;
+  const Organization = (await import("../models/admin/Organization")).default;
   const orgs = await Organization.find({}, { subdomain: 1, tier: 1, name: 1 }).lean<
     { subdomain: string; tier?: string; name?: string }[]
   >();

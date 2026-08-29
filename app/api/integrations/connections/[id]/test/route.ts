@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Integration from "@/models/Integration";
+import Integration from "@/models/shared/Integration";
 import { testConnection } from "@/lib/integrations/connectionService";
 
 // POST /api/integrations/connections/[id]/test — run the reachability probe.

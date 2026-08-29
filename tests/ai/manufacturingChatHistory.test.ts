@@ -20,7 +20,7 @@ const { mockAuth, mockConnectDB, mockFind, mockCreate, mockFindOneAndUpdate, moc
 
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: { find: mockFind, create: mockCreate, findOneAndUpdate: mockFindOneAndUpdate, findOneAndDelete: mockFindOneAndDelete },
 }));
 

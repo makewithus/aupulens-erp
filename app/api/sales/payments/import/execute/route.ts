@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Payment from "@/models/Payment";
-import Account from "@/models/Account";
+import Customer from "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Payment from "@/models/sales/Payment";
+import Account from "@/models/finance/Account";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { validateAllocations, applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";

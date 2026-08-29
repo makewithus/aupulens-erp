@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Asset from "@/models/Asset";
+import Asset from "@/models/finance/Asset";
 import { logActivity } from "@/lib/logger";
 
 export async function PATCH(

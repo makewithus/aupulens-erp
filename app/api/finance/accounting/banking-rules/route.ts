@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import BankingRule from "@/models/BankingRule";
+import BankingRule from "@/models/finance/BankingRule";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

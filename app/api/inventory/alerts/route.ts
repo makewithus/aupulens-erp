@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import InventoryItem from '@/models/InventoryItem';
+import InventoryItem from '@/models/inventory/InventoryItem';
 
 function buildExprConditions(statusFilter: string | null) {
   // Base: every item at or below its reorder level — matches the original

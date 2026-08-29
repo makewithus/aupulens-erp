@@ -8,9 +8,9 @@
  * cash-flow simulation.
  */
 import dbConnect from "@/lib/db";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Customer from "@/models/Customer";
-import Invoice from "@/models/Invoice"; // accounting invoices (in_invoice = payables)
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Customer from "@/models/sales/Customer";
+import Invoice from "@/models/finance/Invoice"; // accounting invoices (in_invoice = payables)
 import type { Receivable } from "@/lib/twin/cashflow";
 
 export interface GraphNode { id: string; kind: "customer" | "vendor" | "invoice" | "bill"; label: string; value?: number; meta?: Record<string, unknown> }

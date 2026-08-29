@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import TransactionLock from "@/models/TransactionLock";
+import TransactionLock from "@/models/finance/TransactionLock";
 import { TRANSACTION_LOCK_MODULE_VALUES, TRANSACTION_LOCK_MODULE } from "@/lib/constants/statuses";
 
 export async function GET(req: NextRequest) {

@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Account from "@/models/Account";
-import Customer from "@/models/Customer";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import JournalEntry from "@/models/JournalEntry";
+import Account from "@/models/finance/Account";
+import Customer from "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import JournalEntry from "@/models/finance/JournalEntry";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
 

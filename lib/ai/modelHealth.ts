@@ -19,7 +19,7 @@
  */
 
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 
 /**
  * The set of Azure deployment names this app is configured to use. These are

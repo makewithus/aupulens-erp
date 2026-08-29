@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Counter from "@/models/Counter";
-import DocumentPrefix from "@/models/DocumentPrefix";
+import Counter from "@/models/shared/Counter";
+import DocumentPrefix from "@/models/sales/DocumentPrefix";
 import { getDefaultPrefix, getNextSequence, generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
 
 describe("invoice numbering", () => {

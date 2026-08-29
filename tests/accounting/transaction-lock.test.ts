@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import TransactionLock from "@/models/TransactionLock";
+import TransactionLock from "@/models/finance/TransactionLock";
 
 describe("TransactionLock model", () => {
   beforeAll(async () => {

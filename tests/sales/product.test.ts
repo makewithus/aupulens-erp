@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Product from "@/models/Product";
+import Product from "@/models/inventory/Product";
 
 // Regression coverage for the test-team "Publish Product returns Internal
 // Server Error" bug: the model previously reused the shared DOCUMENT_STATUS

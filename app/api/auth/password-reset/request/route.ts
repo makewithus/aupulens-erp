@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import connectDB from "@/lib/db";
-import User from "@/models/User";
+import User from "@/models/auth/User";
 import { getEmailService } from "@/lib/email/sendEmail";
 import { buildTenantUrl } from "@/lib/config";
 

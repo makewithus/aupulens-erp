@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import "@/models/Account";
+import "@/models/finance/Account";
 import {
   PRODUCT_STATUS_VALUES,
   PRODUCT_STATUS,

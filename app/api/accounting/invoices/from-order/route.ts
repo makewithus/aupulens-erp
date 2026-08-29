@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Invoice from "@/models/Invoice";
-import SaleOrder from "@/models/SaleOrder";
-import Product from "@/models/Product";
-import Customer from "@/models/Customer";
+import Invoice from "@/models/finance/Invoice";
+import SaleOrder from "@/models/sales/SaleOrder";
+import Product from "@/models/inventory/Product";
+import Customer from "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 export async function POST(req: NextRequest) {

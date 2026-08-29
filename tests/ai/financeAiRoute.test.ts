@@ -42,11 +42,11 @@ const {
 vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
-vi.mock("@/models/JournalEntry", () => ({
+vi.mock("@/models/finance/JournalEntry", () => ({
   default: { find: mockJeFind },
 }));
 
-vi.mock("@/models/Invoice", () => ({
+vi.mock("@/models/finance/Invoice", () => ({
   default: { find: mockInvoiceFind },
 }));
 
@@ -63,7 +63,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 import { runSubscriptionBilling } from "@/lib/sales/subscriptionBillingRunner";
 import { processDunningRetries } from "@/lib/sales/dunningEngine";
 

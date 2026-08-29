@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import PaymentGateway from "@/models/PaymentGateway";
+import PaymentGateway from "@/models/sales/PaymentGateway";
 import { getPaymentGatewayService } from "@/lib/sales/paymentGatewayService";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

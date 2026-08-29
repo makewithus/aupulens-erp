@@ -104,8 +104,8 @@ export default function BulkUpdatePage() {
               Filter transactions (Invoices, Credit Notes, Purchase Orders, Expenses, Bills, Vendor Credits) and bulk-update its accounts with a new account
             </p>
 
-            <div className="bg-[#fff8e1] border border-yellow-200 text-yellow-800 p-4 rounded-md flex items-start text-left mb-8 w-full">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 shrink-0 mt-0.5" />
+            <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 p-4 rounded-md flex items-start text-left mb-8 w-full">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-3 shrink-0 mt-0.5" />
               <p className="text-sm">
                 <span className="font-medium block mb-1">Bulk-updating accounts in transactions will cause significant changes to the financial data</span>
                 of your business. We recommend that you do this with the assistance of an accountant.

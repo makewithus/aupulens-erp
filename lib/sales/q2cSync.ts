@@ -1,4 +1,4 @@
-import SaleOrder from "@/models/SaleOrder";
+import SaleOrder from "@/models/sales/SaleOrder";
 import { DOCUMENT_STATUS, Q2C_STATUS } from "@/lib/constants/statuses";
 
 // The Q2C Pipeline board (app/sales/pipeline/page.tsx) reads exclusively

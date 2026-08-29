@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import dbConnect from '@/lib/db';
-import ChatHistory from '@/models/ChatHistory';
+import ChatHistory from '@/models/ai/ChatHistory';
 
 // PATCH - Toggle archive status
 export async function PATCH(req: NextRequest) {

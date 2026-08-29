@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import EinvoiceGspCredential from "@/models/EinvoiceGspCredential";
+import EinvoiceGspCredential from "@/models/sales/EinvoiceGspCredential";
 import { GSP_CONNECTION_STATUS } from "@/lib/constants/statuses";
 
 export async function GET() {

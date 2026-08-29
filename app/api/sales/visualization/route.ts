@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import SaleOrder from "@/models/SaleOrder";
-import SalesQuotation from "@/models/SalesQuotation";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import SaleOrder from "@/models/sales/SaleOrder";
+import SalesQuotation from "@/models/sales/SalesQuotation";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { DOCUMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 
 // A SaleOrder row is a real, confirmed order regardless of which UI created

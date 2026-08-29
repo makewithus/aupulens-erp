@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Coupon from "@/models/Coupon";
+import Coupon from "@/models/manufacturing/Coupon";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { detectInvoiceAnomalies, explainAnomalies } from "@/lib/finance/anomalyDetection";
 
 /**

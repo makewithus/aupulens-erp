@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Payment from "@/models/Payment";
+import Payment from "@/models/sales/Payment";
 import {
   validateAllocations,
   validateAllocationAmounts,
@@ -10,10 +10,10 @@ import {
 } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal, type CustomerPaymentSnapshot } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
-import "@/models/Customer";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import JournalEntry from "@/models/JournalEntry";
-import "@/models/Account";
+import "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import JournalEntry from "@/models/finance/JournalEntry";
+import "@/models/finance/Account";
 
 const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
   allocatedTotal: 0,

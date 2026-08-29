@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
-import OrgInvite from "@/models/OrgInvite";
-import User from "@/models/User";
+import Organization from "@/models/admin/Organization";
+import OrgInvite from "@/models/auth/OrgInvite";
+import User from "@/models/auth/User";
 import { ENTITY_STATUS, INVITE_STATUS } from "@/lib/constants/statuses";
 import { getTierLimits } from "@/lib/constants/tiers";
 import { buildTenantUrl } from "@/lib/config";

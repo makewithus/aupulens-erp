@@ -2,7 +2,7 @@ import CrmQuote from "@/models/crm/Quote";
 import CrmApprovalRequest from "@/models/crm/ApprovalRequest";
 import CrmApprovalPolicy, { type IApprovalStep } from "@/models/crm/ApprovalPolicy";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
-import User from "@/models/User";
+import User from "@/models/auth/User";
 
 /**
  * Compute the AVERAGE line-item discount percent across all line items.

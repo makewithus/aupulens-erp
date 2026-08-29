@@ -22,7 +22,7 @@
  */
 
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
+import Organization from "@/models/admin/Organization";
 import { getTierLimits } from "@/lib/constants/tiers";
 import {
   callClaude,

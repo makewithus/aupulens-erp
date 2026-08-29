@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import { DocumentSettings } from "@/models/DocumentSettings";
+import { DocumentSettings } from "@/models/sales/DocumentSettings";
 
 export async function GET(request: NextRequest) {
   try {

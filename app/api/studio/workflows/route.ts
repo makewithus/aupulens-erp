@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Workflow from "@/models/Workflow";
+import Workflow from "@/models/studio/Workflow";
 import { WORKFLOW_TRIGGER_TYPE } from "@/lib/studio/catalog";
 import { validateStep } from "@/lib/studio/catalog";
 

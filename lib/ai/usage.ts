@@ -12,7 +12,7 @@
  */
 
 import connectDB from "@/lib/db";
-import AiUsage from "@/models/AiUsage";
+import AiUsage from "@/models/admin/AiUsage";
 
 /**
  * Reserved tenantId used to track PLATFORM-WIDE (all-tenants-combined) usage

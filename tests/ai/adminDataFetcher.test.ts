@@ -33,15 +33,15 @@ function buildAggregateChain(returnValue: any[] = []) {
 
 // ─── Mock all Mongoose models ─────────────────────────────────────────────────
 
-vi.mock("@/models/Transaction", () => ({
+vi.mock("@/models/finance/Transaction", () => ({
   default: { find: mockFind },
 }));
 
-vi.mock("@/models/Invoice", () => ({
+vi.mock("@/models/finance/Invoice", () => ({
   default: { find: mockFind },
 }));
 
-vi.mock("@/models/SaleOrder", () => ({
+vi.mock("@/models/sales/SaleOrder", () => ({
   default: {
     find: mockFind,
     aggregate: mockAggregate,
@@ -49,18 +49,18 @@ vi.mock("@/models/SaleOrder", () => ({
   },
 }));
 
-vi.mock("@/models/InventoryItem", () => ({
+vi.mock("@/models/inventory/InventoryItem", () => ({
   default: {
     find: mockFind,
     countDocuments: mockCountDocuments,
   },
 }));
 
-vi.mock("@/models/Shipment", () => ({
+vi.mock("@/models/manufacturing/Shipment", () => ({
   default: { find: mockFind },
 }));
 
-vi.mock("@/models/User", () => ({
+vi.mock("@/models/auth/User", () => ({
   default: {
     find: mockFind,
     countDocuments: mockCountDocuments,

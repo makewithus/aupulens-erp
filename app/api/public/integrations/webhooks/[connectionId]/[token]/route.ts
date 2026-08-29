@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
-import Integration from "@/models/Integration";
+import Integration from "@/models/shared/Integration";
 import { getConnector } from "@/lib/integrations/registry";
 import {
   resolveWebhookSecret,
   logEvent,
 } from "@/lib/integrations/connectionService";
-import { INTEGRATION_EVENT_DIRECTION, INTEGRATION_EVENT_STATUS } from "@/models/IntegrationEvent";
+import { INTEGRATION_EVENT_DIRECTION, INTEGRATION_EVENT_STATUS } from "@/models/shared/IntegrationEvent";
 import { verifyWebhookSignature, digestPayload } from "@/lib/integrations/webhookVerify";
 
 /**

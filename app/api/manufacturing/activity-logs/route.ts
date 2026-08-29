@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Shipment from "@/models/Shipment";
-import CustomsClearance from "@/models/CustomsClearance";
-import FreightProvider from "@/models/FreightProvider";
-import HSCode from "@/models/HSCode";
-import DocumentModel from "@/models/Document";
+import Shipment from "@/models/manufacturing/Shipment";
+import CustomsClearance from "@/models/manufacturing/CustomsClearance";
+import FreightProvider from "@/models/manufacturing/FreightProvider";
+import HSCode from "@/models/manufacturing/HSCode";
+import DocumentModel from "@/models/manufacturing/Document";
 
 const ALLOWED_ROLES = ["manufacturing", "admin", "master-admin"];
 

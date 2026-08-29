@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import BankAccount from "@/models/BankAccount";
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
+import BankAccount from "@/models/finance/BankAccount";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
 import { BANK_ACCOUNT_TYPE } from "@/lib/constants/statuses";
 
 export async function GET(req: NextRequest) {

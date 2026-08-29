@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import Payment from "@/models/Payment";
+import Customer from "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Payment from "@/models/sales/Payment";
 import { applyAllocationsToInvoices } from "@/lib/sales/paymentAllocation";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";

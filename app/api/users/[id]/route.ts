@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
-import User from '@/models/User';
-import Employee from '@/models/Employee';
+import User from '@/models/auth/User';
+import Employee from '@/models/hr/Employee';
 
 export async function PATCH(
   req: NextRequest,

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import StockMove from "@/models/StockMove";
-import Stock from "@/models/Stock";
-import "@/models/Warehouse";
-import "@/models/Product";
+import StockMove from "@/models/inventory/StockMove";
+import Stock from "@/models/inventory/Stock";
+import "@/models/inventory/Warehouse";
+import "@/models/inventory/Product";
 import { postStockMoveAccounting } from "@/lib/accounting/inventory";
 import {
   STOCK_MOVE_STATUS,

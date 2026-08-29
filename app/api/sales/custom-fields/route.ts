@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import CustomField from "@/models/CustomField";
+import CustomField from "@/models/shared/CustomField";
 import { CUSTOM_FIELD_APPLIES_TO } from "@/lib/constants/statuses";
 
 // Thin proxy onto the shared CustomField model (owned by Finance > Accounting)

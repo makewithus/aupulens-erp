@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import ActivityLog from '@/models/ActivityLog';
+import ActivityLog from '@/models/admin/ActivityLog';
 import connectDB from '@/lib/db';
 
 interface LogActivityParams {

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import { JournalLineSchema, MonetarySummarySchema } from "./sub/FinanceBase";
+import { JournalLineSchema, MonetarySummarySchema } from "../shared/FinanceBase";
 import {
   PAYROLL_STATUS,
   PAYROLL_STATUS_VALUES,

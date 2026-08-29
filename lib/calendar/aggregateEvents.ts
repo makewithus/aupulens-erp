@@ -8,12 +8,12 @@
  * unified calendar UI and the AI conflict detector consume.
  */
 import dbConnect from "@/lib/db";
-import CalendarEvent from "@/models/CalendarEvent";
+import CalendarEvent from "@/models/shared/CalendarEvent";
 import CrmTask from "@/models/crm/Task";
-import LeaveRequest from "@/models/LeaveRequest";
-import Attendance from "@/models/Attendance";
-import Payment from "@/models/Payment";
-import Payroll from "@/models/Payroll";
+import LeaveRequest from "@/models/hr/LeaveRequest";
+import Attendance from "@/models/hr/Attendance";
+import Payment from "@/models/sales/Payment";
+import Payroll from "@/models/hr/Payroll";
 
 export interface UnifiedEvent {
   id: string;

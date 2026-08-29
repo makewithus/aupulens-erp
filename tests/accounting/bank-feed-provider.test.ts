@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import BankFeedProvider from "@/models/BankFeedProvider";
+import BankFeedProvider from "@/models/finance/BankFeedProvider";
 import { seedBankFeedProviders } from "@/lib/accounting/bankFeedProviderSeeder";
 
 describe("BankFeedProvider model (global, non-tenant-scoped catalog)", () => {

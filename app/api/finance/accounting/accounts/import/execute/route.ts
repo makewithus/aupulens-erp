@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
 import * as xlsx from "xlsx";
 import { validateSpreadsheetFile } from "@/lib/utils/fileValidation";
 

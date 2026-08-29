@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_smart_rules";
 
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
 import { applySemanticRulesAndClassify } from "@/lib/accounting/smart-rules";
 
 const TENANT = "smart-rules-t1";

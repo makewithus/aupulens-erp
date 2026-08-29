@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import DocumentModel from "@/models/Document";
+import DocumentModel from "@/models/manufacturing/Document";
 
 const ALLOWED_ROLES = ["manufacturing", "admin", "master-admin"];
 

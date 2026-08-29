@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import { SalesInvoice } from "@/models/SalesInvoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { signPublicToken } from "@/lib/publicLinks";
 import { buildTenantUrl } from "@/lib/config";
 

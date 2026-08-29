@@ -51,7 +51,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 
-vi.mock("@/models/ChatHistory", () => ({
+vi.mock("@/models/ai/ChatHistory", () => ({
   default: {
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,

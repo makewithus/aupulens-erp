@@ -6,8 +6,8 @@ import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import connectDB from "@/lib/db";
-import User from "@/models/User";
-import Organization from "@/models/Organization";
+import User from "@/models/auth/User";
+import Organization from "@/models/admin/Organization";
 import { authConfig } from "./auth.config";
 import { resolveOAuthSignIn } from "@/lib/auth/oauthSignIn";
 

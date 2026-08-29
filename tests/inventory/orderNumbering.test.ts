@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import Counter from "@/models/Counter";
+import Counter from "@/models/shared/Counter";
 import { generateInventoryOrderNumber } from "@/lib/inventory/orderNumbering";
 
 const tenantId = "t-inventory-order-numbering";

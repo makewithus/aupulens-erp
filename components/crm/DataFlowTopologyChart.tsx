@@ -445,7 +445,7 @@ export function DataFlowTopologyChart() {
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Enterprise Data Flow Topology
           </span>
-          <h3 className="text-sm font-normal text-white uppercase mt-0.5">
+          <h3 className="text-sm font-normal text-foreground uppercase mt-0.5">
             3D Integration Mesh
           </h3>
         </div>
@@ -457,7 +457,7 @@ export function DataFlowTopologyChart() {
         {/* 3D Sphere Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-[#0c0c12]/95 border border-border p-2 font-mono text-[11px] text-white shadow-xl min-w-[120px] rounded-none hidden z-10 backdrop-blur-md"
+          className={`absolute pointer-events-none border border-border p-2 font-mono text-[11px] shadow-xl min-w-[120px] rounded-none hidden z-10 backdrop-blur-md ${isDark ? "bg-[#0c0c12]/95 text-white" : "bg-white/95 text-foreground"}`}
         ></div>
 
         {/* Speed Controls */}
@@ -466,7 +466,7 @@ export function DataFlowTopologyChart() {
             onClick={() => setSpeedMul(0)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 0
-                ? "bg-white/10 text-white border-white"
+                ? "bg-foreground/10 text-foreground border-foreground"
                 : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >
@@ -476,7 +476,7 @@ export function DataFlowTopologyChart() {
             onClick={() => setSpeedMul(1)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 1
-                ? "bg-white/10 text-white border-white"
+                ? "bg-foreground/10 text-foreground border-foreground"
                 : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >
@@ -486,7 +486,7 @@ export function DataFlowTopologyChart() {
             onClick={() => setSpeedMul(3)}
             className={`cursor-pointer px-2.5 py-1 border transition-colors ${
               speedMul === 3
-                ? "bg-white/10 text-white border-white"
+                ? "bg-foreground/10 text-foreground border-foreground"
                 : "bg-accent/40 text-muted-foreground border-border hover:text-foreground"
             }`}
           >

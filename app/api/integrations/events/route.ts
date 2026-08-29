@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import IntegrationEvent from "@/models/IntegrationEvent";
+import IntegrationEvent from "@/models/shared/IntegrationEvent";
 
 // GET /api/integrations/events?integrationId=&limit= — health/activity feed for
 // the dashboard, plus a rolled-up success/failure summary (last 24h).

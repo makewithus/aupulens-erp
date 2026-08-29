@@ -1,8 +1,8 @@
 import { addDays } from "date-fns";
-import Subscription from "@/models/Subscription";
-import DunningRule, { type IDunningChannelConfig } from "@/models/DunningRule";
-import { SalesInvoice } from "@/models/SalesInvoice";
-import EmailTemplate from "@/models/EmailTemplate";
+import Subscription from "@/models/sales/Subscription";
+import DunningRule, { type IDunningChannelConfig } from "@/models/sales/DunningRule";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import EmailTemplate from "@/models/sales/EmailTemplate";
 import { getEmailService, renderTemplate } from "@/lib/email/sendEmail";
 import { getPaymentGatewayService } from "@/lib/sales/paymentGateway";
 import { dispatchSubscriptionEvent } from "@/lib/sales/webhookDispatch";
@@ -12,7 +12,7 @@ import {
   DUNNING_FINAL_INVOICE_ACTION,
   SALES_INVOICE_STATUS,
 } from "@/lib/constants/statuses";
-import "@/models/Customer";
+import "@/models/sales/Customer";
 
 async function getDefaultRule(tenantId: string) {
   return DunningRule.findOne({ tenantId, isDefault: true }).lean();

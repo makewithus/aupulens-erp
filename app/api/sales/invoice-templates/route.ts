@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
-import { InvoiceTemplate } from "@/models/InvoiceTemplate";
-import { DocumentSettings } from "@/models/DocumentSettings";
+import { InvoiceTemplate } from "@/models/sales/InvoiceTemplate";
+import { DocumentSettings } from "@/models/sales/DocumentSettings";
 import { ensureInvoiceTemplatesSeeded } from "@/lib/invoiceTemplates";
 
 export async function GET(request: NextRequest) {

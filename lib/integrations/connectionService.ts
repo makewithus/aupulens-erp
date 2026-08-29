@@ -9,11 +9,11 @@
  */
 
 import crypto from "node:crypto";
-import Integration, { INTEGRATION_STATUS, type IIntegration } from "@/models/Integration";
+import Integration, { INTEGRATION_STATUS, type IIntegration } from "@/models/shared/Integration";
 import IntegrationEvent, {
   INTEGRATION_EVENT_DIRECTION,
   INTEGRATION_EVENT_STATUS,
-} from "@/models/IntegrationEvent";
+} from "@/models/shared/IntegrationEvent";
 import { getConnector, type Connector } from "@/lib/integrations/registry";
 import { encrypt, decrypt } from "@/lib/crypto";
 

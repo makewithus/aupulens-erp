@@ -10,7 +10,7 @@ import {
   type SalesSubscriptionStatus,
   type SubscriptionBillingFrequency,
 } from "@/lib/constants/statuses";
-import type { IQuoteLineItem } from "@/models/SalesQuotation";
+import type { IQuoteLineItem } from "@/models/sales/SalesQuotation";
 
 // Created from the Quotes > New Quote > "Subscription Quote" tab, and now also
 // from the dedicated Subscriptions tab's New Subscription form (Sales module

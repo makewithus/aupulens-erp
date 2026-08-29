@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Customer from "@/models/Customer";
-import Payment from "@/models/Payment";
+import Customer from "@/models/sales/Customer";
+import Payment from "@/models/sales/Payment";
 import { generatePaymentNumber } from "@/lib/sales/paymentNumbering";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
 import { PAYMENT_STATUS, PAYMENT_TYPE } from "@/lib/constants/statuses";

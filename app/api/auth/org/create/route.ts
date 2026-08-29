@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Organization from "@/models/Organization";
-import User from "@/models/User";
+import Organization from "@/models/admin/Organization";
+import User from "@/models/auth/User";
 import { ENTITY_STATUS, SUBSCRIPTION_EVENT_TYPE } from "@/lib/constants/statuses";
 import { buildTenantUrl } from "@/lib/config";
 import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";

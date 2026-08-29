@@ -290,7 +290,7 @@ export default function QuoteLineItems({
             <span>Tax</span>
             <span>+${totals.taxTotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold text-sm text-white border-t border-border pt-1">
+          <div className="flex justify-between font-bold text-sm text-foreground border-t border-border pt-1">
             <span>Grand Total</span>
             <span>₹{totals.grandTotal.toFixed(2)}</span>
           </div>

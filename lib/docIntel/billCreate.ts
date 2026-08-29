@@ -19,8 +19,8 @@
  */
 
 import mongoose from "mongoose";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
+import Invoice from "@/models/finance/Invoice";
+import Customer from "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import type { VendorBillExtraction } from "@/lib/docIntel/extractionSchemas";
 

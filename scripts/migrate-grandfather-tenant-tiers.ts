@@ -29,7 +29,7 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../lib/db";
-import Organization from "../models/Organization";
+import Organization from "../models/admin/Organization";
 import { ORGANIZATION_TIER } from "../lib/constants/statuses";
 
 async function main() {

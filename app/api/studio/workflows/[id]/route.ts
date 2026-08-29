@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import Workflow from "@/models/Workflow";
-import WorkflowRun from "@/models/WorkflowRun";
+import Workflow from "@/models/studio/Workflow";
+import WorkflowRun from "@/models/studio/WorkflowRun";
 import { WORKFLOW_TRIGGER_TYPE, validateStep } from "@/lib/studio/catalog";
 
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {

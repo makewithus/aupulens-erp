@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import CurrencyAdjustment from "@/models/CurrencyAdjustment";
+import CurrencyAdjustment from "@/models/finance/CurrencyAdjustment";
 
 describe("CurrencyAdjustment model", () => {
   beforeAll(async () => {

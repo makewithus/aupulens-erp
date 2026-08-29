@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Account from "@/models/Account";
-import AccountType from "@/models/AccountType";
+import Account from "@/models/finance/Account";
+import AccountType from "@/models/finance/AccountType";
 
 // Account-type names (new Chart-of-Accounts-feature catalog) that represent
 // a bank/cash ledger — used to filter "Deposit To" / bank-account pickers

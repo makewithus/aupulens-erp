@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 async function main() {
   await mongoose.connect(process.env.MONGODB_URI as string);
   const { getTierLimits } = await import("../lib/constants/tiers");
-  const Organization = (await import("../models/Organization")).default;
+  const Organization = (await import("../models/admin/Organization")).default;
 
   const orgs = await Organization.find({}, { name: 1, subdomain: 1, tier: 1, "settings.ai": 1 }).lean();
   console.log(`Found ${orgs.length} organizations:\n`);

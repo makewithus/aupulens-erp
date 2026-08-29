@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Product from "@/models/Product";
-import Stock from "@/models/Stock";
-import StockTransfer from "@/models/StockTransfer";
-import ManufacturingOrder from "@/models/ManufacturingOrder";
+import Product from "@/models/inventory/Product";
+import Stock from "@/models/inventory/Stock";
+import StockTransfer from "@/models/inventory/StockTransfer";
+import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 export async function GET() {

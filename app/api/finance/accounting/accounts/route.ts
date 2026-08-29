@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Account from "@/models/Account";
+import Account from "@/models/finance/Account";
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     else if (view === "inactive") query.isActive = false;
 
     // Check if seeded based on Account Types or missing accounts
-    const AccountType = (await import("@/models/AccountType")).default;
+    const AccountType = (await import("@/models/finance/AccountType")).default;
     const [typeCount, accountCount] = await Promise.all([
       AccountType.countDocuments({ tenantId }),
       Account.countDocuments({ tenantId }),

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import Payment from "@/models/Payment";
-import SalesView from "@/models/SalesView";
+import Payment from "@/models/sales/Payment";
+import SalesView from "@/models/sales/SalesView";
 import {
   buildMongoFilterFromCriteria,
   MANDATORY_PAYMENT_COLUMNS,
@@ -10,8 +10,8 @@ import {
 } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
 import * as XLSX from "xlsx";
-import "@/models/Customer";
-import "@/models/SalesInvoice";
+import "@/models/sales/Customer";
+import "@/models/sales/SalesInvoice";
 import { PASSWORD_POLICY } from "@/lib/sales/passwordPolicy";
 
 const INVOICE_PAYMENTS_ROW_LIMIT = 25000;
