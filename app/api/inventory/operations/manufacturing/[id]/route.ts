@@ -53,7 +53,7 @@ export async function PATCH(
 
     await connectDB();
 
-    const existing = await ManufacturingOrder.findOne({ _id: id, tenantId });
+    const existing = await ManufacturingOrder.findOne({ _id: id, tenantId }).lean();
     if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 

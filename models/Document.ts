@@ -30,4 +30,6 @@ const DocumentSchema = new Schema<IDocumentModel>({
   download_count: { type: Number, default: 0 },
 }, { timestamps: true });
 
+DocumentSchema.index({ tenantId: 1, linked_record_type: 1, is_archived: 1, createdAt: -1 });
+
 export default (mongoose.models.DocumentModel as Model<IDocumentModel>) || mongoose.model<IDocumentModel>("DocumentModel", DocumentSchema);

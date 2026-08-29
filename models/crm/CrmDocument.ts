@@ -29,5 +29,6 @@ const CrmDocumentSchema = new Schema<ICrmDocument>({
 }, { timestamps: true });
 
 CrmDocumentSchema.index({ tenantId: 1 });
+CrmDocumentSchema.index({ tenantId: 1, linked_record_id: 1, linked_record_type: 1 });
 
 export default (mongoose.models.CrmDocument as Model<ICrmDocument>) || mongoose.model<ICrmDocument>("CrmDocument", CrmDocumentSchema);

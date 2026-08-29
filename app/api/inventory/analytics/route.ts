@@ -24,54 +24,58 @@ await connectDB();
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // Get stock levels over time (monthly snapshots)
-    const stockData = await InventoryItem.aggregate([
-      {
-        $group: {
-          _id: null,
-          level: { $sum: '$quantity' }
+    // These 3 aggregations are independent of each other, so run them
+    // concurrently instead of as a sequential waterfall.
+    const [stockData, movementsData, alertsData] = await Promise.all([
+      // Get stock levels over time (monthly snapshots)
+      InventoryItem.aggregate([
+        {
+          $group: {
+            _id: null,
+            level: { $sum: '$quantity' }
+          }
         }
-      }
-    ]);
+      ]),
 
-    // Get order movements
-    const movementsData = await InventoryOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: sixMonthsAgo }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            month: { $month: '$createdAt' },
-            year: { $year: '$createdAt' },
-            type: '$type'
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
+      // Get order movements
+      InventoryOrder.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sixMonthsAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              year: { $year: '$createdAt' },
+              type: '$type'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]),
 
-    // Get low stock alerts
-    const alertsData = await InventoryItem.aggregate([
-      {
-        $facet: {
-          lowStock: [
-            { $match: { $expr: { $lte: ['$quantity', '$minStockLevel'] } } },
-            { $count: 'count' }
-          ],
-          reorder: [
-            { $match: { $expr: { $lte: ['$quantity', { $multiply: ['$minStockLevel', 1.5] }] } } },
-            { $count: 'count' }
-          ],
-          expired: [
-            { $match: { expiryDate: { $lte: new Date() } } },
-            { $count: 'count' }
-          ]
+      // Get low stock alerts
+      InventoryItem.aggregate([
+        {
+          $facet: {
+            lowStock: [
+              { $match: { $expr: { $lte: ['$quantity', '$minStockLevel'] } } },
+              { $count: 'count' }
+            ],
+            reorder: [
+              { $match: { $expr: { $lte: ['$quantity', { $multiply: ['$minStockLevel', 1.5] }] } } },
+              { $count: 'count' }
+            ],
+            expired: [
+              { $match: { expiryDate: { $lte: new Date() } } },
+              { $count: 'count' }
+            ]
+          }
         }
-      }
+      ]),
     ]);
 
     // Format data

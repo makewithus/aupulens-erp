@@ -188,29 +188,41 @@ const ALL_STATUSES = [
   "Expiring", "Renewed", "Expired", "Cancelled",
 ];
 
+const LIMIT = 25;
+
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [churnFilter, setChurnFilter] = useState("");
   const [expiryFilter, setExpiryFilter] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [renewalSummary, setRenewalSummary] = useState<any>(null);
   const [runningEngine, setRunningEngine] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({ totalValue: 0, activeCount: 0, expiringCount: 0 });
 
   const fetchContracts = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);
     if (churnFilter) params.set("churn_risk", churnFilter);
     if (expiryFilter) params.set("expiry_days", expiryFilter);
     const res = await fetch(`/api/crm/contracts?${params}`);
     const data = await res.json();
-    if (data.success) setContracts(data.data.contracts || []);
+    if (data.success) {
+      setContracts(data.data.contracts || []);
+      setTotal(data.data.total ?? 0);
+      setTotalPages(data.data.totalPages ?? 1);
+      if (data.data.stats) setStats(data.data.stats);
+    }
     setLoading(false);
-  }, [search, statusFilter, churnFilter, expiryFilter]);
+  }, [page, debouncedSearch, statusFilter, churnFilter, expiryFilter]);
 
   const fetchSummary = useCallback(async () => {
     const res = await fetch("/api/crm/renewals");
@@ -220,6 +232,15 @@ export default function ContractsPage() {
 
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, churnFilter, expiryFilter]);
 
   const runEngine = async () => {
     setRunningEngine(true);
@@ -236,10 +257,9 @@ export default function ContractsPage() {
     setRunningEngine(false);
   };
 
-  // Metrics
-  const totalValue = contracts.reduce((a, c) => a + (c.contract_value || 0), 0);
-  const activeCount = contracts.filter((c) => c.status === "Active").length;
-  const expiringCount = contracts.filter((c) => ["Renewal Due", "Expiring"].includes(c.status)).length;
+  // Metrics — server-computed, reflect every matching contract (not just the
+  // current page).
+  const { totalValue, activeCount, expiringCount } = stats;
 
   return (
     <div className="p-6 space-y-6">
@@ -272,7 +292,7 @@ export default function ContractsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard label="Total Contract Value" value={`₹${totalValue.toLocaleString()}`}
-          sub={`${contracts.length} contracts`} />
+          sub={`${total} contracts`} />
         <SummaryCard label="Active" value={activeCount} color="text-green-400"
           icon={CheckCircle2} />
         <SummaryCard label="Renewal Due / Expiring" value={expiringCount} color="text-yellow-400"
@@ -408,6 +428,22 @@ export default function ContractsPage() {
             })}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                Previous
+              </Button>
+              <span className="text-sm">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -49,14 +49,31 @@ export async function GET(req: NextRequest) {
     query.grand_total = grand_total;
   }
 
-  const quotes = await CrmQuote.find(query)
+  const baseQuery = CrmQuote.find(query)
     .populate("account_id", "company_name billing_address")
     .populate("opportunity_id", "deal_name amount stage")
     .populate("owner_id", "name email")
-    .sort({ createdAt: -1 })
-    .lean();
+    .sort({ createdAt: -1 });
 
-  return NextResponse.json({ success: true, data: { quotes } });
+  // Pagination is opt-in via `page` — the Account/Opportunity detail pages
+  // and the filter-dropdown lookup on this same page read this list
+  // unbounded (scoped by account_id/opportunity_id or for populating filter
+  // options), so omitting `page` must keep returning everything.
+  const pageParam = url.searchParams.get("page");
+  if (!pageParam) {
+    const quotes = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: { quotes, total: quotes.length, page: 1, totalPages: 1 } });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
+
+  const [total, quotes] = await Promise.all([
+    CrmQuote.countDocuments(query),
+    baseQuery.skip((page - 1) * limit).limit(limit).lean(),
+  ]);
+
+  return NextResponse.json({ success: true, data: { quotes, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) } });
 }
 
 import CrmAccount from "@/models/crm/Account";

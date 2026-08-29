@@ -60,6 +60,10 @@ const BatchSchema: Schema<IBatch> = new Schema(
 // Compound with tenantId per Golden Rule #7 — batch numbers only need to be
 // unique within a tenant, not globally across the whole platform.
 BatchSchema.index({ tenantId: 1, batchNumber: 1 }, { unique: true });
+// The batch list sorts by createdAt against a bare tenantId (and now
+// status) filter, with no prior compound index covering that sort.
+BatchSchema.index({ tenantId: 1, createdAt: -1 });
+BatchSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 
 const Batch =
   (mongoose.models?.Batch as mongoose.Model<IBatch>) ||

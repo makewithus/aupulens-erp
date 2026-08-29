@@ -74,6 +74,8 @@ const statusColors: Record<string, string> = {
   "week-off": "bg-accent text-muted-foreground dark:bg-accent dark:text-muted-foreground",
 };
 
+const LIMIT = 25;
+
 export default function AttendancePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -81,25 +83,27 @@ export default function AttendancePage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
   const [filterMonth, setFilterMonth] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [formData, setFormData] = useState<any>({});
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({ present: 0, absent: 0, onLeave: 0, locked: 0 });
 
-  const filtered = records.filter((r) => {
-    const empName = `${r.employeeId?.firstName || ""} ${r.employeeId?.lastName || ""}`.toLowerCase();
-    const empCode = (r.employeeId?.employeeCode || "").toLowerCase();
-    return empName.includes(searchQuery.toLowerCase()) || empCode.includes(searchQuery.toLowerCase());
-  });
+  const filtered = records;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = page, search = debouncedSearch) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (filterDate && !filterMonth) params.set("date", filterDate);
       if (filterMonth) params.set("month", filterMonth);
+      if (search) params.set("search", search);
       const [attRes, empRes] = await Promise.all([
         cachedFetch(`/api/hr/attendance?${params.toString()}`),
         cachedFetch("/api/hr/employees"),
@@ -107,18 +111,30 @@ export default function AttendancePage() {
       const attJson = await attRes.json();
       const empJson = await empRes.json();
       setRecords(attJson.items || []);
+      setTotal(attJson.total ?? 0);
+      setTotalPages(attJson.totalPages ?? 1);
+      if (attJson.stats) setStats(attJson.stats);
       setEmployees(empJson.items || []);
     } catch {
       toast.error("Failed to load attendance");
     } finally {
       setLoading(false);
     }
-  }, [filterDate, filterMonth]);
+  }, [filterDate, filterMonth, page, debouncedSearch]);
 
   useEffect(() => {
-    
     if (status === "authenticated") load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, load]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterDate, filterMonth]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -247,11 +263,9 @@ export default function AttendancePage() {
     }
   };
 
-  // Summary stats
-  const present = records.filter((r) => r.status === "present").length;
-  const absent = records.filter((r) => r.status === "absent").length;
-  const onLeave = records.filter((r) => r.status === "on-leave").length;
-  const locked = records.filter((r) => r.isLocked).length;
+  // Summary stats — from the server, scoped to the applied date/month filter
+  // but unaffected by pagination (see stats in the API response).
+  const { present, absent, onLeave, locked } = stats;
 
   return (
     <DashboardLayout
@@ -427,6 +441,22 @@ export default function AttendancePage() {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

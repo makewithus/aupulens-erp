@@ -61,17 +61,9 @@ export default function ExitPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const promises = ["on_notice", "exit_initiated", "clearance"].map((s) =>
-        cachedFetch(`/api/hr/employees?lifecycleStatus=${s}`).then((r) => r.json()),
-      );
-      const results = await Promise.all(promises);
-      const all = results.flatMap((r) => r.items || []);
-      const seen = new Set<string>();
-      setEmployees(all.filter((e) => {
-        if (seen.has(e._id)) return false;
-        seen.add(e._id);
-        return true;
-      }));
+      const res = await cachedFetch("/api/hr/employees?lifecycle=on_notice,exit_initiated,clearance");
+      const json = await res.json();
+      setEmployees(json.items || []);
     } catch {
       toast.error("Failed to load exit employees");
     } finally {

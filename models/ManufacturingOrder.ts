@@ -160,6 +160,12 @@ const ManufacturingOrderSchema: Schema<IManufacturingOrder> = new Schema(
   { timestamps: true },
 );
 
+// The manufacturing orders list (Inventory and Manufacturing modules both
+// read this) filters {tenantId} sorted by createdAt — only a bare tenantId
+// field index existed, with no sort coverage.
+ManufacturingOrderSchema.index({ tenantId: 1, createdAt: -1 });
+ManufacturingOrderSchema.index({ tenantId: 1, productionStatus: 1, createdAt: -1 });
+
 const ManufacturingOrder: Model<IManufacturingOrder> =
   (mongoose.models.ManufacturingOrder as Model<IManufacturingOrder>) ||
   mongoose.model<IManufacturingOrder>(

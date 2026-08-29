@@ -52,6 +52,8 @@ interface Shipment {
   createdAt: string;
 }
 
+const LIMIT = 10;
+
 export default function ShipmentsPage() {
   const { status } = useSession();
   const router = useRouter();
@@ -61,7 +63,11 @@ export default function ShipmentsPage() {
   const [hsCodes, setHsCodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -107,18 +113,23 @@ export default function ShipmentsPage() {
     notes: '',
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentPage = page, search = debouncedQuery, currentStatus = statusFilter) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/manufacturing/shipments');
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set('query', search);
+      if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
+      const res = await fetch(`/api/manufacturing/shipments?${params.toString()}`);
       const json = await res.json();
       setData(json.shipments || []);
+      setTotal(json.total || 0);
+      setTotalPages(json.totalPages || 1);
     } catch (error) {
       console.error('Error loading shipments:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, debouncedQuery, statusFilter]);
 
   const fetchFreightProviders = useCallback(async () => {
     try {
@@ -145,16 +156,30 @@ export default function ShipmentsPage() {
   }, []);
 
   useEffect(() => {
-    
+
   }, [status, router]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, statusFilter]);
 
   useEffect(() => {
     if (status === 'authenticated') {
       load();
+    }
+  }, [status, load]);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
       fetchFreightProviders();
       fetchHsCodes();
     }
-  }, [status, load, fetchFreightProviders, fetchHsCodes]);
+  }, [status, fetchFreightProviders, fetchHsCodes]);
 
   // AI-native: extract shipment details → open the create dialog pre-filled. The
   // user reviews (and picks the freight provider) and clicks Create.
@@ -189,13 +214,7 @@ export default function ShipmentsPage() {
     setIsAddDialogOpen(true);
   });
 
-  const filtered = data.filter((shipment) => {
-    const matchesQuery = [shipment.shipmentNumber, shipment.customerName, shipment.origin, shipment.destination].some(
-      (v) => v.toLowerCase().includes(query.toLowerCase())
-    );
-    const matchesStatus = statusFilter === 'all' || shipment.status === statusFilter;
-    return matchesQuery && matchesStatus;
-  });
+  const filtered = data;
 
   const handleAddItem = () => {
     setNewShipment({
@@ -333,7 +352,7 @@ export default function ShipmentsPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={load}>Refresh</Button>
+            <Button onClick={() => load()}>Refresh</Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -685,6 +704,22 @@ export default function ShipmentsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 border-t mt-3">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

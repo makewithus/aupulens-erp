@@ -44,9 +44,41 @@ export async function GET(request: Request) {
       return NextResponse.json(shipment);
     }
 
-    // Otherwise return all shipments
-    const shipments = await Shipment.find({ tenantId }).sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ shipments });
+    // Otherwise return shipments list, optionally filtered/searched
+    const query = searchParams.get('query');
+    const statusFilter = searchParams.get('status');
+    const filter: any = { tenantId };
+    if (statusFilter && statusFilter !== 'all') filter.status = statusFilter;
+    if (query) {
+      filter.$or = [
+        { shipmentNumber: { $regex: query, $options: 'i' } },
+        { customerName: { $regex: query, $options: 'i' } },
+        { origin: { $regex: query, $options: 'i' } },
+        { destination: { $regex: query, $options: 'i' } },
+      ];
+    }
+
+    const baseQuery = Shipment.find(filter).sort({ createdAt: -1 });
+
+    // Pagination is opt-in via `page` — several other Manufacturing pages
+    // (air-freight, customs-clearance, tracking, reports, the AI assistant)
+    // read this same list unbounded, so omitting `page` must keep returning everything.
+    const pageParam = searchParams.get('page');
+    if (!pageParam) {
+      const shipments = await baseQuery.lean();
+      return NextResponse.json({ shipments, total: shipments.length, page: 1, totalPages: 1 });
+    }
+
+    const page = Math.max(1, parseInt(pageParam));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
+    const skip = (page - 1) * limit;
+
+    const [total, shipments] = await Promise.all([
+      Shipment.countDocuments(filter),
+      baseQuery.skip(skip).limit(limit).lean(),
+    ]);
+
+    return NextResponse.json({ shipments, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error) {
     console.error('Error fetching shipments:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

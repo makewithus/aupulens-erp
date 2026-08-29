@@ -68,6 +68,7 @@ const ShipmentSchema = new Schema<IShipment>({
 // Compound with tenantId per Golden Rule #7 — shipment numbers only need to
 // be unique within a tenant, not globally across the whole platform.
 ShipmentSchema.index({ tenantId: 1, shipmentNumber: 1 }, { unique: true });
+ShipmentSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Shipment: Model<IShipment> =
   (models.Shipment as Model<IShipment>) ||

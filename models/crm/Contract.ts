@@ -32,7 +32,7 @@ export interface IContract extends Document {
 const ContractSchema = new Schema<IContract>(
   {
     tenantId: { type: String, required: true },
-    contract_number: { type: String, required: true, unique: true },
+    contract_number: { type: String, required: true },
     account_id: { type: Schema.Types.ObjectId, ref: "CrmAccount", required: true },
     opportunity_id: { type: Schema.Types.ObjectId, ref: "CrmOpportunity" },
     quote_id: { type: Schema.Types.ObjectId, ref: "CrmQuote" },
@@ -86,9 +86,12 @@ const ContractSchema = new Schema<IContract>(
 );
 
 ContractSchema.index({ tenantId: 1 });
+ContractSchema.index({ tenantId: 1, contract_number: 1 }, { unique: true });
 ContractSchema.index({ tenantId: 1, status: 1 });
 ContractSchema.index({ tenantId: 1, end_date: 1 });
 ContractSchema.index({ tenantId: 1, account_id: 1 });
+ContractSchema.index({ tenantId: 1, owner_id: 1 });
+ContractSchema.index({ tenantId: 1, churn_risk: 1 });
 
 export default (mongoose.models.CrmContract as Model<IContract>) ||
   mongoose.model<IContract>("CrmContract", ContractSchema);

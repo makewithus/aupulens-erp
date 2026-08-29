@@ -11,9 +11,6 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(req.url);
   const query_str = searchParams.get("query") || "";
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "25");
-  const skip = (page - 1) * limit;
 
   const filter: any = { tenantId: session.user.tenantId };
   if (query_str) {
@@ -24,23 +21,38 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const baseQuery = Item.find(filter)
+    .populate("salesInfo.accountId", "code name")
+    .populate("purchaseInfo.accountId", "code name")
+    .populate("purchaseInfo.preferredVendorId", "name")
+    .populate("inventoryTracking.inventoryAccountId", "code name")
+    .populate("inventoryTracking.grniAccountId", "code name")
+    .sort({ createdAt: -1 });
+
+  // Pagination is opt-in via `page` — this same list backs the BOM
+  // component picker on this page, which needs every item, not just the
+  // first page, so omitting `page` must keep returning everything.
+  const pageParam = searchParams.get("page");
+  if (!pageParam) {
+    const items = await baseQuery.lean();
+    return NextResponse.json({
+      success: true,
+      data: { items, total: items.length, page: 1, totalPages: 1 },
+    });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+  const skip = (page - 1) * limit;
+
   const [items, total] = await Promise.all([
-    Item.find(filter)
-      .populate("salesInfo.accountId", "code name")
-      .populate("purchaseInfo.accountId", "code name")
-      .populate("purchaseInfo.preferredVendorId", "name")
-      .populate("inventoryTracking.inventoryAccountId", "code name")
-      .populate("inventoryTracking.grniAccountId", "code name")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    baseQuery.skip(skip).limit(limit).lean(),
     Item.countDocuments(filter),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: { items, total, page, totalPages: Math.ceil(total / limit) },
+    data: { items, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) },
   });
 }
 

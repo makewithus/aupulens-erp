@@ -136,6 +136,11 @@ const StockTransferSchema: Schema<IStockTransfer> = new Schema(
 // Compound with tenantId per Golden Rule #7 — transfer reference names only
 // need to be unique within a tenant, not globally across the whole platform.
 StockTransferSchema.index({ tenantId: 1, "header.name": 1 }, { unique: true });
+// Deliveries/Receipts (filtered by header.operationType) and Returns (an
+// $or over header.name/header.sourceDocument) all sort by createdAt with no
+// prior index covering that sort at all.
+StockTransferSchema.index({ tenantId: 1, createdAt: -1 });
+StockTransferSchema.index({ tenantId: 1, "header.operationType": 1, createdAt: -1 });
 
 const StockTransfer: Model<IStockTransfer> =
   (mongoose.models.StockTransfer as Model<IStockTransfer>) ||

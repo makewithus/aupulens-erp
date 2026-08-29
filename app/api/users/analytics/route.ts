@@ -29,6 +29,7 @@ await connectDB();
     const activityData = await ActivityLog.aggregate([
       {
         $match: {
+          tenantId,
           action: 'login',
           createdAt: { $gte: sixMonthsAgo }
         }
@@ -49,6 +50,7 @@ await connectDB();
     const roleData = await User.aggregate([
       {
         $match: {
+          tenantId,
           status: ENTITY_STATUS.ACTIVE
         }
       },

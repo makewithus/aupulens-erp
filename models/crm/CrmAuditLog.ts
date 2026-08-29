@@ -60,6 +60,8 @@ const CrmAuditLogSchema = new Schema<ICrmAuditLog>({
 
 CrmAuditLogSchema.index({ tenantId: 1, record_id: 1 });
 CrmAuditLogSchema.index({ tenantId: 1, action: 1 });
+CrmAuditLogSchema.index({ tenantId: 1, user_id: 1 });
+CrmAuditLogSchema.index({ tenantId: 1, timestamp: -1 });
 
 // Immutability guards — audit logs must never be modified or deleted
 CrmAuditLogSchema.pre("updateOne", function (next) {

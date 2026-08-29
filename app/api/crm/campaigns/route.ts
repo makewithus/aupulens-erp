@@ -17,9 +17,6 @@ export async function GET(req: NextRequest) {
 
   await dbConnect();
   const url = new URL(req.url);
-  const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
-  const skip = (page - 1) * limit;
 
   const query: Record<string, unknown> = { tenantId: session.user.tenantId };
   if (url.searchParams.get("status")) query.status = url.searchParams.get("status");
@@ -32,14 +29,23 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const baseQuery = CrmCampaign.find(query).sort({ createdAt: -1 }).populate("owner_id", "name email");
+
+  // Pagination is opt-in via `page` — omitting it keeps returning everything,
+  // matching the convention used across the rest of this codebase.
+  const pageParam = url.searchParams.get("page");
+  if (!pageParam) {
+    const campaigns = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: { campaigns, total: campaigns.length, page: 1, totalPages: 1 } });
+  }
+
+  const page = Math.max(parseInt(pageParam), 1);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
+  const skip = (page - 1) * limit;
+
   const [total, campaigns] = await Promise.all([
     CrmCampaign.countDocuments(query),
-    CrmCampaign.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("owner_id", "name email")
-      .lean(),
+    baseQuery.skip(skip).limit(limit).lean(),
   ]);
 
   return NextResponse.json({
@@ -48,7 +54,7 @@ export async function GET(req: NextRequest) {
       campaigns,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     },
   });
 }

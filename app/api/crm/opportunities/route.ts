@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const query: any = { tenantId };
     if (searchParams.get('account_id')) query.account_id = searchParams.get('account_id');
     if (searchParams.get('stage')) query.stage = searchParams.get('stage');
-    if (searchParams.get('owner_id')) query.ownerId = searchParams.get('owner_id');
+    if (searchParams.get('owner_id')) query.owner_id = searchParams.get('owner_id');
     if (searchParams.get('source')) query.source = searchParams.get('source');
     if (searchParams.get('priority')) query.priority = searchParams.get('priority');
     if (searchParams.get('risk_level')) query.risk_level = searchParams.get('risk_level');
@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
     body.name = body.name || body.deal_name;
     body.deal_name = body.deal_name || body.name;
     body.owner_id = body.owner_id || session.user.id;
-    body.ownerId = body.ownerId || body.owner_id;
 
     body.stage = body.stage || 'Prospecting';
     body.stage_history = [{ stage: body.stage, entered_at: new Date() }];

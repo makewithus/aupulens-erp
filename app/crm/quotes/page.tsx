@@ -95,21 +95,26 @@ export default function QuotesPage() {
   };
 
   useEffect(() => {
-    // One-time unfiltered fetch to populate Account/Owner dropdown options.
-    fetch("/api/crm/quotes", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        const rows = data.data?.quotes || [];
-        const accts = new Map<string, string>();
-        const owners = new Map<string, string>();
-        for (const q of rows) {
-          if (q.account_id?._id) accts.set(q.account_id._id, q.account_id.company_name || q.account_id._id);
-          if (q.owner_id?._id) owners.set(q.owner_id._id, q.owner_id.name || q.owner_id.email || q.owner_id._id);
-        }
-        setAccountOptions(Array.from(accts, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
-        setOwnerOptions(Array.from(owners, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Populate Account/Owner dropdown options from their own master-data
+    // endpoints — not by fetching every quote just to read the account/owner
+    // it happens to reference.
+    Promise.all([
+      fetch("/api/crm/accounts", { cache: "no-store" }).then((res) => res.json()),
+      fetch("/api/users", { cache: "no-store" }).then((res) => res.json()),
+    ]).then(([accountsData, usersData]) => {
+      const accts = (accountsData.data?.accounts || []) as any[];
+      setAccountOptions(
+        accts
+          .map((a) => ({ id: a._id, name: a.company_name || a._id }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
+      const users = (usersData.users || []) as any[];
+      setOwnerOptions(
+        users
+          .map((u) => ({ id: u._id || u.id, name: u.name || u.email || u._id }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
+    });
   }, []);
 
   useEffect(() => {

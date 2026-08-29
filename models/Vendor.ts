@@ -60,6 +60,9 @@ const VendorSchema = new mongoose.Schema({
   },
 });
 
+VendorSchema.index({ tenantId: 1, createdAt: -1 });
+VendorSchema.index({ tenantId: 1, category: 1 });
+
 const Vendor: Model<IVendor> =
   (mongoose.models.Vendor as Model<IVendor>) ||
   mongoose.model<IVendor>("Vendor", VendorSchema);

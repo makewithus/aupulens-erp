@@ -56,7 +56,7 @@ export default function PerformancePage() {
     try {
       setLoading(true);
       const [empRes, reviewRes] = await Promise.all([
-        cachedFetch("/api/hr/employees?lifecycleStatus=active"),
+        cachedFetch("/api/hr/employees?lifecycle=active"),
         cachedFetch("/api/hr/performance"),
       ]);
       const empJson = await empRes.json();

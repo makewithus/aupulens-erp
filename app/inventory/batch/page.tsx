@@ -79,18 +79,27 @@ const customsStatusLabels: Record<string, string> = {
   bonded: "Bonded",
 };
 
+const LIMIT = 10;
+
 export default function BatchLotPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [batches, setBatches] = useState<Batch[]>([]);
+  // Separate, unpaginated fetch used only for the KPI cards — those need
+  // totals across every matching batch, not just the current page of 10.
+  const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -141,24 +150,47 @@ export default function BatchLotPage() {
     }
   }, [status, router, session]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const fetchBatches = useCallback(async () => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-      
+      if (debouncedSearch) params.append('search', debouncedSearch);
+
       const res = await cachedFetch(`/api/inventory/batch?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch batches');
-      
+
       const data = await res.json();
       setBatches(data.batches || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       console.error('Error fetching batches:', err);
       setError('Failed to load batches');
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, debouncedSearch, page]);
+
+  const fetchAllBatchesForStats = useCallback(async () => {
+    try {
+      const res = await cachedFetch('/api/inventory/batch');
+      if (!res.ok) return;
+      const data = await res.json();
+      setAllBatches(data.batches || []);
+    } catch (err) {
+      console.error('Error fetching batch stats:', err);
+    }
+  }, []);
 
   const fetchWarehouses = useCallback(async () => {
     try {
@@ -178,6 +210,10 @@ export default function BatchLotPage() {
       fetchWarehouses();
     }
   }, [status, fetchBatches, fetchWarehouses]);
+
+  useEffect(() => {
+    if (status === 'authenticated') fetchAllBatchesForStats();
+  }, [status, fetchAllBatchesForStats]);
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +247,7 @@ export default function BatchLotPage() {
         customsStatus: 'cleared',
       });
       fetchBatches();
+      fetchAllBatchesForStats();
     } catch (err) {
       console.error('Error creating batch:', err);
       setError('Failed to create batch');
@@ -278,30 +315,17 @@ export default function BatchLotPage() {
     return diff;
   };
 
-  // Filter batches list
-  const filteredBatches = useMemo(() => {
-    const baseFiltered = statusFilter === 'all' 
-      ? batches 
-      : batches.filter(batch => batch.status === statusFilter);
+  // batches is already filtered + paginated server-side.
+  const filteredBatches = batches;
 
-    return baseFiltered.filter((b) => {
-      const matchesSearch =
-        b.batchNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.lotNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.itemCode.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-  }, [batches, searchQuery, statusFilter]);
-
-  // Compute metrics for KPIs
+  // Compute metrics for KPIs from the full (unpaginated) matching set.
   const kpis = useMemo(() => {
-    const total = batches.length;
-    const active = batches.filter(b => b.status === 'active').length;
-    const quarantine = batches.filter(b => b.status === 'quarantine').length;
-    const expired = batches.filter(b => b.status === 'expired').length;
+    const total = allBatches.length;
+    const active = allBatches.filter(b => b.status === 'active').length;
+    const quarantine = allBatches.filter(b => b.status === 'quarantine').length;
+    const expired = allBatches.filter(b => b.status === 'expired').length;
     return { total, active, quarantine, expired };
-  }, [batches]);
+  }, [allBatches]);
 
   return (
     <DashboardLayout
@@ -318,7 +342,7 @@ export default function BatchLotPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
-      onRefresh={fetchBatches}
+      onRefresh={() => { fetchBatches(); fetchAllBatchesForStats(); }}
     >
       <div className="space-y-6">
         {/* Page Header Toolbar */}
@@ -554,8 +578,8 @@ export default function BatchLotPage() {
                     Batch Records
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                    {filteredBatches.length}{" "}
-                    {filteredBatches.length === 1 ? "Batch" : "Batches"}
+                    {total}{" "}
+                    {total === 1 ? "Batch" : "Batches"}
                   </p>
                 </div>
 
@@ -747,6 +771,22 @@ export default function BatchLotPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

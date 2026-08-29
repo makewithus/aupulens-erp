@@ -77,19 +77,28 @@ const statusColors: Record<string, string> = {
   [PRODUCTION_STATUS.CANCELLED]: "text-muted-foreground",
 };
 
+const LIMIT = 10;
+
 export default function ManufacturingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   const [orders, setOrders] = useState<ManufacturingOrder[]>([]);
+  // Separate, unpaginated fetch used only for the KPI cards — those need
+  // totals across every matching order, not just the current page of 10.
+  const [allOrders, setAllOrders] = useState<ManufacturingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [products, setProducts] = useState([]);
@@ -117,6 +126,13 @@ export default function ManufacturingPage() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchOrders();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, page, debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchAllOrdersForStats();
       fetchResources();
     }
   }, [status]);
@@ -140,16 +156,40 @@ export default function ManufacturingPage() {
     }
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/inventory/operations/manufacturing");
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (statusFilter !== "all") params.set("productionStatus", statusFilter);
+      const res = await cachedFetch(`/api/inventory/operations/manufacturing?${params.toString()}`);
       const data = await res.json();
       setOrders(data.orders || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (e) {
       toast.error("Failed to load orders");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllOrdersForStats = async () => {
+    try {
+      const res = await cachedFetch("/api/inventory/operations/manufacturing");
+      const data = await res.json();
+      setAllOrders(data.orders || []);
+    } catch (e) {
+      console.error("Failed to load manufacturing stats", e);
     }
   };
 
@@ -205,6 +245,7 @@ export default function ManufacturingPage() {
       toast.success("Saved");
       setIsModalOpen(false);
       fetchOrders();
+      fetchAllOrdersForStats();
       fetchResources();
     } catch (e) {
       toast.error("Error saving");
@@ -234,6 +275,7 @@ export default function ManufacturingPage() {
         `Status → ${PRODUCTION_STATUS_LABELS[nextStatus]}`,
       );
       fetchOrders();
+      fetchAllOrdersForStats();
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
     }
@@ -263,41 +305,29 @@ export default function ManufacturingPage() {
     }
   };
 
-  // Client-side search and status filters
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const productName = order.header.productId?.header?.name || "";
-      const matchesSearch =
-        order.header.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        productName.toLowerCase().includes(searchQuery.toLowerCase());
+  // orders is already filtered + paginated server-side.
+  const filteredOrders = orders;
 
-      const matchesStatus =
-        statusFilter === "all" || order.productionStatus === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [orders, searchQuery, statusFilter]);
-
-  // Compute KPIs
+  // Compute KPIs from the full (unpaginated) matching set.
   const kpis = useMemo(() => {
-    const total = orders.length;
-    const inProduction = orders.filter(
+    const totalCount = allOrders.length;
+    const inProduction = allOrders.filter(
       (o) => o.productionStatus === PRODUCTION_STATUS.IN_PRODUCTION
     ).length;
-    const qcPending = orders.filter(
+    const qcPending = allOrders.filter(
       (o) => o.productionStatus === PRODUCTION_STATUS.QC_PENDING
     ).length;
-    const completed = orders.filter(
+    const completed = allOrders.filter(
       (o) => o.productionStatus === PRODUCTION_STATUS.FINISHED
     ).length;
 
     return {
-      total,
+      total: totalCount,
       inProduction,
       qcPending,
       completed,
     };
-  }, [orders]);
+  }, [allOrders]);
 
   if (status === "loading") {
     return (
@@ -321,7 +351,7 @@ export default function ManufacturingPage() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
-      onRefresh={fetchOrders}
+      onRefresh={() => { fetchOrders(); fetchAllOrdersForStats(); }}
       profilePath="/inventory/profile"
     >
       <div className="space-y-6">
@@ -375,8 +405,8 @@ export default function ManufacturingPage() {
                     All Orders
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                    {filteredOrders.length}{" "}
-                    {filteredOrders.length === 1 ? "Order" : "Orders"}
+                    {total}{" "}
+                    {total === 1 ? "Order" : "Orders"}
                   </p>
                 </div>
 
@@ -578,6 +608,22 @@ export default function ManufacturingPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -588,7 +634,7 @@ export default function ManufacturingPage() {
         open={isModalOpen}
         onOpenChange={(open) => {
           setIsModalOpen(open);
-          if (!open) fetchOrders();
+          if (!open) { fetchOrders(); fetchAllOrdersForStats(); }
         }}
         title={formData?.header?.name || "New MO"}
         className="w-[80vw] max-w-[1400px]"

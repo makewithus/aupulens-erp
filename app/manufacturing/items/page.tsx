@@ -85,6 +85,8 @@ const COUPON_INITIAL: any = {
 
 type ActiveTab = "items" | "bom" | "coupons";
 
+const LIMIT = 10;
+
 export default function ItemsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -95,6 +97,10 @@ export default function ItemsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+  const [debouncedItemSearch, setDebouncedItemSearch] = useState("");
+  const [itemPage, setItemPage] = useState(1);
+  const [itemTotal, setItemTotal] = useState(0);
+  const [itemTotalPages, setItemTotalPages] = useState(1);
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [itemViewOnly, setItemViewOnly] = useState(false);
@@ -105,6 +111,10 @@ export default function ItemsPage() {
   const [boms, setBoms] = useState<any[]>([]);
   const [bomsLoading, setBomsLoading] = useState(false);
   const [bomSearch, setBomSearch] = useState("");
+  const [debouncedBomSearch, setDebouncedBomSearch] = useState("");
+  const [bomPage, setBomPage] = useState(1);
+  const [bomTotal, setBomTotal] = useState(0);
+  const [bomTotalPages, setBomTotalPages] = useState(1);
   const [bomModalOpen, setBomModalOpen] = useState(false);
   const [selectedBom, setSelectedBom] = useState<any>(null);
   const [bomViewOnly, setBomViewOnly] = useState(false);
@@ -115,6 +125,10 @@ export default function ItemsPage() {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [couponSearch, setCouponSearch] = useState("");
+  const [debouncedCouponSearch, setDebouncedCouponSearch] = useState("");
+  const [couponPage, setCouponPage] = useState(1);
+  const [couponTotal, setCouponTotal] = useState(0);
+  const [couponTotalPages, setCouponTotalPages] = useState(1);
   const [couponModalOpen, setCouponModalOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
   const [couponViewOnly, setCouponViewOnly] = useState(false);
@@ -124,6 +138,10 @@ export default function ItemsPage() {
   // Shared data
   const [accounts, setAccounts] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  // Unbounded item list used only for the BOM tab's "component" picker —
+  // separate from the paginated `items` table state above, since the picker
+  // needs the full catalog, not just the current page of 10.
+  const [allItemsForPicker, setAllItemsForPicker] = useState<any[]>([]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -131,46 +149,94 @@ export default function ItemsPage() {
     }
   }, [status, router]);
 
+  // ─── Debounced search + page-reset ──────────────────────────────────────
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedItemSearch(itemSearch), 300);
+    return () => clearTimeout(t);
+  }, [itemSearch]);
+  useEffect(() => { setItemPage(1); }, [debouncedItemSearch]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBomSearch(bomSearch), 300);
+    return () => clearTimeout(t);
+  }, [bomSearch]);
+  useEffect(() => { setBomPage(1); }, [debouncedBomSearch]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCouponSearch(couponSearch), 300);
+    return () => clearTimeout(t);
+  }, [couponSearch]);
+  useEffect(() => { setCouponPage(1); }, [debouncedCouponSearch]);
+
   // ─── Fetch functions ────────────────────────────────────────────────────
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (currentPage = itemPage, search = debouncedItemSearch) => {
     setItemsLoading(true);
     try {
-      const res = await fetch("/api/manufacturing/items");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("query", search);
+      const res = await fetch(`/api/manufacturing/items?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setItems(json.data?.items || []);
+      if (json.success) {
+        setItems(json.data?.items || []);
+        setItemTotal(json.data?.total ?? 0);
+        setItemTotalPages(json.data?.totalPages ?? 1);
+      }
     } catch {
       toast.error("Failed to load items");
     } finally {
       setItemsLoading(false);
     }
+  }, [itemPage, debouncedItemSearch]);
+
+  const fetchAllItemsForPicker = useCallback(async () => {
+    try {
+      const res = await fetch("/api/manufacturing/items");
+      const json = await res.json();
+      if (json.success) setAllItemsForPicker(json.data?.items || []);
+    } catch {
+      // Non-critical — the BOM popup just falls back to an empty picker list.
+    }
   }, []);
 
-  const fetchBoms = useCallback(async () => {
+  const fetchBoms = useCallback(async (currentPage = bomPage, search = debouncedBomSearch) => {
     setBomsLoading(true);
     try {
-      const res = await fetch("/api/manufacturing/item-bom");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("query", search);
+      const res = await fetch(`/api/manufacturing/item-bom?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setBoms(json.data || []);
+      if (json.success) {
+        setBoms(json.data || []);
+        setBomTotal(json.total ?? 0);
+        setBomTotalPages(json.totalPages ?? 1);
+      }
     } catch {
       toast.error("Failed to load BOMs");
     } finally {
       setBomsLoading(false);
     }
-  }, []);
+  }, [bomPage, debouncedBomSearch]);
 
-  const fetchCoupons = useCallback(async () => {
+  const fetchCoupons = useCallback(async (currentPage = couponPage, search = debouncedCouponSearch) => {
     setCouponsLoading(true);
     try {
-      const res = await fetch("/api/manufacturing/coupons");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("query", search);
+      const res = await fetch(`/api/manufacturing/coupons?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setCoupons(json.data || []);
+      if (json.success) {
+        setCoupons(json.data || []);
+        setCouponTotal(json.total ?? 0);
+        setCouponTotalPages(json.totalPages ?? 1);
+      }
     } catch {
       toast.error("Failed to load coupons");
     } finally {
       setCouponsLoading(false);
     }
-  }, []);
+  }, [couponPage, debouncedCouponSearch]);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -197,6 +263,10 @@ export default function ItemsPage() {
       fetchVendors();
     }
   }, [status, fetchItems, fetchBoms, fetchCoupons, fetchAccounts, fetchVendors]);
+
+  useEffect(() => {
+    if (status === "authenticated") fetchAllItemsForPicker();
+  }, [status, fetchAllItemsForPicker]);
 
   // ─── Item CRUD ──────────────────────────────────────────────────────────
 
@@ -261,6 +331,7 @@ export default function ItemsPage() {
       toast.success(selectedItem ? "Item updated" : "Item created");
       setItemModalOpen(false);
       fetchItems();
+      fetchAllItemsForPicker();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
@@ -276,6 +347,7 @@ export default function ItemsPage() {
       if (!json.success) throw new Error(json.message);
       toast.success("Item deleted");
       fetchItems();
+      fetchAllItemsForPicker();
     } catch (err: any) {
       toast.error(err.message || "Delete failed");
     }
@@ -423,26 +495,10 @@ export default function ItemsPage() {
     }
   };
 
-  // ─── Filtered lists ──────────────────────────────────────────────────────
-
-  const filteredItems = items.filter(
-    (i) =>
-      i.name?.toLowerCase().includes(itemSearch.toLowerCase()) ||
-      i.sku?.toLowerCase().includes(itemSearch.toLowerCase()) ||
-      i.category?.toLowerCase().includes(itemSearch.toLowerCase())
-  );
-
-  const filteredBoms = boms.filter(
-    (b) =>
-      b.name?.toLowerCase().includes(bomSearch.toLowerCase()) ||
-      b.bomNumber?.toLowerCase().includes(bomSearch.toLowerCase())
-  );
-
-  const filteredCoupons = coupons.filter(
-    (c) =>
-      c.name?.toLowerCase().includes(couponSearch.toLowerCase()) ||
-      c.couponCode?.toLowerCase().includes(couponSearch.toLowerCase())
-  );
+  // items/boms/coupons are already filtered + paginated server-side.
+  const filteredItems = items;
+  const filteredBoms = boms;
+  const filteredCoupons = coupons;
 
   // ─── Render helpers ──────────────────────────────────────────────────────
 
@@ -528,7 +584,7 @@ export default function ItemsPage() {
                 <Button onClick={handleNewItem} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={fetchItems} disabled={itemsLoading}>
+                <Button variant="outline" onClick={() => fetchItems()} disabled={itemsLoading}>
                   <RefreshCcw className={`h-4 w-4 mr-2 ${itemsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
@@ -616,6 +672,22 @@ export default function ItemsPage() {
                   </Table>
                 </div>
               )}
+              {itemTotalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(itemPage - 1) * LIMIT + 1}–{Math.min(itemPage * LIMIT, itemTotal)} of {itemTotal}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setItemPage((p) => Math.max(1, p - 1))} disabled={itemPage === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {itemPage} of {itemTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setItemPage((p) => Math.min(itemTotalPages, p + 1))} disabled={itemPage === itemTotalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -628,7 +700,7 @@ export default function ItemsPage() {
                 <Button onClick={handleNewBom} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={fetchBoms} disabled={bomsLoading}>
+                <Button variant="outline" onClick={() => fetchBoms()} disabled={bomsLoading}>
                   <RefreshCcw className={`h-4 w-4 mr-2 ${bomsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
@@ -709,6 +781,22 @@ export default function ItemsPage() {
                   </Table>
                 </div>
               )}
+              {bomTotalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(bomPage - 1) * LIMIT + 1}–{Math.min(bomPage * LIMIT, bomTotal)} of {bomTotal}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setBomPage((p) => Math.max(1, p - 1))} disabled={bomPage === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {bomPage} of {bomTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setBomPage((p) => Math.min(bomTotalPages, p + 1))} disabled={bomPage === bomTotalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -721,7 +809,7 @@ export default function ItemsPage() {
                 <Button onClick={handleNewCoupon} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={fetchCoupons} disabled={couponsLoading}>
+                <Button variant="outline" onClick={() => fetchCoupons()} disabled={couponsLoading}>
                   <RefreshCcw className={`h-4 w-4 mr-2 ${couponsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
@@ -813,6 +901,22 @@ export default function ItemsPage() {
                   </Table>
                 </div>
               )}
+              {couponTotalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(couponPage - 1) * LIMIT + 1}–{Math.min(couponPage * LIMIT, couponTotal)} of {couponTotal}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCouponPage((p) => Math.max(1, p - 1))} disabled={couponPage === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {couponPage} of {couponTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCouponPage((p) => Math.min(couponTotalPages, p + 1))} disabled={couponPage === couponTotalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -889,7 +993,7 @@ export default function ItemsPage() {
           formData={bomFormData}
           setFormData={setBomFormData}
           isViewOnly={bomViewOnly}
-          items={items}
+          items={allItemsForPicker}
           nextBomNumber={getNextBomNumber()}
         />
       </ModularModal>

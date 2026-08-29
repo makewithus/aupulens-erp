@@ -193,6 +193,8 @@ function NewTaskModal({
   );
 }
 
+const LIMIT = 25;
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [view, setView] = useState('my');
@@ -201,16 +203,24 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [aiTaskData, setAiTaskData] = useState<any>(undefined);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchTasks = () => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     params.set('view', view);
     if (statusFilter) params.set('status', statusFilter);
+    if (priorityFilter) params.set('priority', priorityFilter);
     fetch(`/api/crm/tasks?${params}`)
       .then(r => r.json())
       .then(d => {
-        if (d.success) setTasks(d.data);
+        if (d.success) {
+          setTasks(d.data);
+          setTotal(d.total ?? 0);
+          setTotalPages(d.totalPages ?? 1);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -218,7 +228,12 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchTasks();
-  }, [view, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, statusFilter, priorityFilter, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [view, statusFilter, priorityFilter]);
 
   // AI-native: extract the task's details → open New Task pre-filled.
   useAiPrefill("task", (p) => {
@@ -237,12 +252,7 @@ export default function TasksPage() {
     setTasks(tasks.map(t => t._id === taskId ? { ...t, status: newStatus } : t));
   };
 
-  const filteredTasks = tasks.filter((t) => {
-    if (priorityFilter && t.priority !== priorityFilter) {
-      return false;
-    }
-    return true;
-  });
+  const filteredTasks = tasks;
 
   return (
     <div className="space-y-6">
@@ -257,7 +267,7 @@ export default function TasksPage() {
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {filteredTasks.length} {filteredTasks.length === 1 ? "Task" : "Tasks"}
+                {total} {total === 1 ? "Task" : "Tasks"}
               </p>
             </div>
 
@@ -448,6 +458,22 @@ export default function TasksPage() {
               )}
             </TableBody>
           </TableContainer>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  Previous
+                </Button>
+                <span className="text-sm">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

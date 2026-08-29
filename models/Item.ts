@@ -132,6 +132,7 @@ const ItemSchema = new Schema<IItem>(
 ItemSchema.index({ tenantId: 1, name: 1 });
 ItemSchema.index({ tenantId: 1, sku: 1 }, { unique: true, sparse: true });
 ItemSchema.index({ tenantId: 1, status: 1 });
+ItemSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Item: Model<IItem> =
   (mongoose.models.Item as Model<IItem>) ||

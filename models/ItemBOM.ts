@@ -55,6 +55,7 @@ const ItemBOMSchema = new Schema<IItemBOM>(
 
 ItemBOMSchema.index({ tenantId: 1, bomNumber: 1 }, { unique: true });
 ItemBOMSchema.index({ tenantId: 1, itemToProduceId: 1 });
+ItemBOMSchema.index({ tenantId: 1, createdAt: -1 });
 
 const ItemBOM: Model<IItemBOM> =
   (mongoose.models.ItemBOM as Model<IItemBOM>) ||

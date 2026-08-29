@@ -59,6 +59,7 @@ ChatHistorySchema.index({ userId: 1, isArchived: 1 });
 ChatHistorySchema.index({ tenantId: 1, conversationId: 1 }, { unique: true });
 // Quickly list all conversations for a module within a tenant
 ChatHistorySchema.index({ tenantId: 1, module: 1, createdAt: -1 });
+ChatHistorySchema.index({ tenantId: 1, userId: 1, isArchived: 1, updatedAt: -1 });
 
 const ChatHistory: Model<IChatHistory> =
   (mongoose.models?.ChatHistory as Model<IChatHistory>) ||

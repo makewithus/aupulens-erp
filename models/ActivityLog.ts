@@ -33,6 +33,8 @@ const ActivityLogSchema: Schema<IActivityLog> = new Schema(
 ActivityLogSchema.index({ timestamp: -1 });
 ActivityLogSchema.index({ userId: 1 });
 ActivityLogSchema.index({ userRole: 1 });
+ActivityLogSchema.index({ tenantId: 1, timestamp: -1 });
+ActivityLogSchema.index({ tenantId: 1, userRole: 1, timestamp: -1 });
 
 const ActivityLog =
   (mongoose.models?.ActivityLog as mongoose.Model<IActivityLog>) ||

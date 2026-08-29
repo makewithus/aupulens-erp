@@ -25,22 +25,24 @@ export async function GET() {
 
   await connectDB();
 
-  const [org, history] = await Promise.all([
+  const isMasterAdmin = session!.user.role === "master-admin";
+  const currentPeriod = getAiPeriod();
+
+  // Model-override health check (stale/invalid settings.ai.model). A workspace
+  // admin only sees their OWN tenant's status (scoped server-side so this
+  // doesn't scan every tenant on the platform); a master-admin sees the whole
+  // platform (so they can spot and fix any tenant silently 400-ing on AI).
+  const [org, history, healthReport, globalUsed] = await Promise.all([
     Organization.findOne({ subdomain: tenantId }, { tier: 1, "settings.ai": 1 }).lean(),
     AiUsage.find({ tenantId }).sort({ period: -1 }).limit(12).lean(),
+    checkTenantModelOverrides(isMasterAdmin ? undefined : tenantId),
+    getGlobalAiUsageCount(currentPeriod),
   ]);
 
   const tier = (org as any)?.tier ?? "starter";
   const { aiCallsPerMonth: cap } = getTierLimits(tier);
-  const currentPeriod = getAiPeriod();
   const current = (history as any[]).find((h) => h.period === currentPeriod)?.count ?? 0;
 
-  const isMasterAdmin = session!.user.role === "master-admin";
-
-  // Model-override health check (stale/invalid settings.ai.model). A workspace
-  // admin only sees their OWN tenant's status; a master-admin sees the whole
-  // platform (so they can spot and fix any tenant silently 400-ing on AI).
-  const healthReport = await checkTenantModelOverrides();
   const modelHealth = {
     deployedChatModels: healthReport.deployedChatModels,
     configured: healthReport.configured,
@@ -56,7 +58,6 @@ export async function GET() {
   // Platform-wide trial-budget ceiling (visible so an admin understands a
   // possible AI_GLOBAL_LIMIT_REACHED even while under their own tier cap).
   const globalCap = getGlobalMonthlyCap();
-  const globalUsed = await getGlobalAiUsageCount(currentPeriod);
 
   return NextResponse.json({
     success: true,

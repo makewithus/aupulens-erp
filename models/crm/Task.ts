@@ -45,5 +45,7 @@ const TaskSchema = new Schema<ITask>({
 TaskSchema.index({ tenantId: 1, status: 1 });
 TaskSchema.index({ tenantId: 1, assigned_to_id: 1, status: 1 });
 TaskSchema.index({ tenantId: 1, due_date: 1 });
+TaskSchema.index({ tenantId: 1, linked_account_id: 1 });
+TaskSchema.index({ tenantId: 1, linked_case_id: 1 });
 
 export default (mongoose.models.CrmTask as Model<ITask>) || mongoose.model<ITask>("CrmTask", TaskSchema);

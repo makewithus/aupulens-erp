@@ -95,5 +95,6 @@ OpportunitySchema.index({ tenantId: 1, stage: 1 });
 OpportunitySchema.index({ tenantId: 1, owner_id: 1, stage: 1 });
 OpportunitySchema.index({ tenantId: 1, is_at_risk: 1 });
 OpportunitySchema.index({ tenantId: 1, expected_close_date: 1 });
+OpportunitySchema.index({ tenantId: 1, account_id: 1 });
 
 export default (mongoose.models.CrmOpportunity as Model<IOpportunity & any>) || mongoose.model<IOpportunity & any>("CrmOpportunity", OpportunitySchema);

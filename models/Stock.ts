@@ -32,6 +32,11 @@ const StockSchema: Schema<IStock> = new Schema(
 );
 
 StockSchema.index({ product: 1, tenantId: 1 });
+// On-hand-quantity lookups (stockGuard.getOnHandQuantity, the transfer
+// availableStock check) filter {tenantId, product, type, isReserved} — the
+// index above only covers {product,tenantId}, so type/isReserved filtering
+// fell back to scanning every ledger row for that product/tenant.
+StockSchema.index({ tenantId: 1, product: 1, type: 1, isReserved: 1 });
 
 const Stock: Model<IStock> =
   (mongoose.models.Stock as Model<IStock>) ||

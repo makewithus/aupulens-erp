@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Attendance from "@/models/Attendance";
-import "@/models/Employee";
+import Employee from "@/models/Employee";
 import "@/models/Department";
 
 export async function GET(req: NextRequest) {
@@ -21,12 +21,26 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
     const employeeId = searchParams.get("employeeId");
-    const month = searchParams.get("month");
-    const year = searchParams.get("year");
+    // Accepts either a "YYYY-MM" combined string (from an <input type="month">)
+    // or separate `month`(1-12)/`year` params.
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
+    const search = searchParams.get("search")?.trim();
 
     const query: any = { tenantId };
 
     if (employeeId) query.employeeId = employeeId;
+
+    let month: number | null = null;
+    let year: number | null = null;
+    if (monthParam && monthParam.includes("-")) {
+      const [y, m] = monthParam.split("-");
+      year = parseInt(y);
+      month = parseInt(m);
+    } else if (monthParam && yearParam) {
+      month = parseInt(monthParam);
+      year = parseInt(yearParam);
+    }
 
     if (date) {
       const d = new Date(date);
@@ -34,23 +48,62 @@ export async function GET(req: NextRequest) {
       const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
       query.date = { $gte: start, $lt: end };
     } else if (month && year) {
-      const m = parseInt(month) - 1;
-      const y = parseInt(year);
-      const start = new Date(y, m, 1);
-      const end = new Date(y, m + 1, 1);
+      const m = month - 1;
+      const start = new Date(year, m, 1);
+      const end = new Date(year, m + 1, 1);
       query.date = { $gte: start, $lt: end };
     }
 
-    const attendance = await Attendance.find(query)
+    if (search) {
+      const employeeIds = await Employee.find({
+        tenantId,
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+          { employeeCode: { $regex: search, $options: "i" } },
+        ],
+      }).distinct("_id");
+      query.employeeId = employeeId ? employeeId : { $in: employeeIds };
+    }
+
+    const baseQuery = Attendance.find(query)
       .populate({
         path: "employeeId",
         select: "firstName lastName employeeCode departmentId designation",
         populate: { path: "departmentId", select: "name code" },
       })
-      .sort({ date: -1 })
-      .lean();
+      .sort({ date: -1 });
 
-    return NextResponse.json({ items: attendance });
+    // Stats (summary cards) reflect every record within the applied
+    // date/month/employee filter — unaffected by pagination, so they don't
+    // undercount once the table itself is paginated.
+    const [statsPresent, statsAbsent, statsOnLeave, statsLocked] = await Promise.all([
+      Attendance.countDocuments({ ...query, status: "present" }),
+      Attendance.countDocuments({ ...query, status: "absent" }),
+      Attendance.countDocuments({ ...query, status: "on-leave" }),
+      Attendance.countDocuments({ ...query, isLocked: true }),
+    ]);
+    const stats = { present: statsPresent, absent: statsAbsent, onLeave: statsOnLeave, locked: statsLocked };
+
+    // Pagination is opt-in via `page` — no other consumer of this route
+    // exists today, but omitting `page` still returns everything to stay
+    // consistent with every other list API in this codebase.
+    const pageParam = searchParams.get("page");
+    if (!pageParam) {
+      const attendance = await baseQuery.lean();
+      return NextResponse.json({ items: attendance, total: attendance.length, page: 1, totalPages: 1, stats });
+    }
+
+    const page = Math.max(1, parseInt(pageParam));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const skip = (page - 1) * limit;
+
+    const [total, attendance] = await Promise.all([
+      Attendance.countDocuments(query),
+      baseQuery.skip(skip).limit(limit).lean(),
+    ]);
+
+    return NextResponse.json({ items: attendance, total, page, totalPages: Math.max(1, Math.ceil(total / limit)), stats });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

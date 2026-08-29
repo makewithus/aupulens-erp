@@ -28,30 +28,24 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Calculate stock levels for each product
+    // Calculate stock levels for each product — one batched query for every
+    // product instead of a per-product round trip, then group in memory.
     const levels: Record<string, number> = {};
+    for (const productId of productIds) levels[productId] = 0;
 
-    for (const productId of productIds) {
-      // Get all stock movements for this product (excluding reservations)
-      const stockMovements = await Stock.find({
-        product: productId,
-         
-        isReserved: { $ne: true }, // Exclude reserved stock
-      }).lean();
+    const stockMovements = await Stock.find({
+      product: { $in: productIds },
+      isReserved: { $ne: true }, // Exclude reserved stock
+    }).lean();
 
-      // Calculate net stock: sum of 'in' minus sum of 'out'
-      let totalIn = 0;
-      let totalOut = 0;
-
-      for (const movement of stockMovements) {
-        if (movement.type === "in" || movement.type === "adjustment") {
-          totalIn += movement.quantity;
-        } else if (movement.type === "out") {
-          totalOut += movement.quantity;
-        }
+    for (const movement of stockMovements) {
+      const productId = String(movement.product);
+      if (!(productId in levels)) continue;
+      if (movement.type === "in" || movement.type === "adjustment") {
+        levels[productId] += movement.quantity;
+      } else if (movement.type === "out") {
+        levels[productId] -= movement.quantity;
       }
-
-      levels[productId] = totalIn - totalOut;
     }
 
     return NextResponse.json({ levels });

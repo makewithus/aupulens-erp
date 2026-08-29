@@ -154,11 +154,17 @@ function NewCampaignModal({
   );
 }
 
+const LIMIT = 25;
+
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [aiCampaignData, setAiCampaignData] = useState<any>(undefined);
 
@@ -171,16 +177,29 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);
     const res = await fetch(`/api/crm/campaigns?${params}`);
     const data = await res.json();
-    if (data.success) setCampaigns(data.data.campaigns || []);
+    if (data.success) {
+      setCampaigns(data.data.campaigns || []);
+      setTotal(data.data.total ?? 0);
+      setTotalPages(data.data.totalPages ?? 1);
+    }
     setLoading(false);
-  }, [search, statusFilter]);
+  }, [page, debouncedSearch, statusFilter]);
 
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   const forceROIUpdate = async () => {
     toast.info("Updating global ROI metrics...");
@@ -299,6 +318,22 @@ export default function CampaignsPage() {
             ))}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                Previous
+              </Button>
+              <span className="text-sm">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

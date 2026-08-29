@@ -26,7 +26,7 @@ export interface ICase extends Document {
 
 const CaseSchema = new Schema<ICase>({
   tenantId: { type: String, required: true },
-  case_number: { type: String, required: true, unique: true },
+  case_number: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String },
   account_id: { type: Schema.Types.ObjectId, ref: 'CrmAccount', required: true },
@@ -54,10 +54,13 @@ const CaseSchema = new Schema<ICase>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
+CaseSchema.index({ tenantId: 1, case_number: 1 }, { unique: true });
 CaseSchema.index({ tenantId: 1, status: 1 });
 CaseSchema.index({ tenantId: 1, severity: 1 });
 CaseSchema.index({ tenantId: 1, owner_id: 1, status: 1 });
 CaseSchema.index({ tenantId: 1, sla_target_at: 1 });
 CaseSchema.index({ tenantId: 1, escalation_level: 1 });
+CaseSchema.index({ tenantId: 1, createdAt: -1 });
+CaseSchema.index({ tenantId: 1, account_id: 1 });
 
 export default (mongoose.models.CrmCase as Model<ICase>) || mongoose.model<ICase>("CrmCase", CaseSchema);

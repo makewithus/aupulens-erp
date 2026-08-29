@@ -81,26 +81,23 @@ export default function LeavePage() {
   const [total, setTotal] = useState(0);
   const LIMIT = 25;
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "view">("create");
   const [formData, setFormData] = useState<any>({});
   const [rejectionReason, setRejectionReason] = useState("");
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
 
-  const filtered = requests.filter((r) => {
-    const nameMatch =
-      `${r.employeeId?.firstName || ""} ${r.employeeId?.lastName || ""}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.employeeId?.employeeCode || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const statusMatch = !filterStatus || r.status === filterStatus;
-    return nameMatch && statusMatch;
-  });
+  const filtered = requests;
 
-  const load = useCallback(async (currentPage = 1) => {
+  const load = useCallback(async (currentPage = page, search = debouncedSearch, statusF = filterStatus) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
-      if (filterStatus) params.set("status", filterStatus);
+      if (statusF) params.set("status", statusF);
+      if (search) params.set("search", search);
       const [leaveRes, empRes] = await Promise.all([
         cachedFetch(`/api/hr/leave?${params.toString()}`),
         cachedFetch("/api/hr/employees"),
@@ -110,18 +107,28 @@ export default function LeavePage() {
       setRequests(leaveJson.items || []);
       setTotal(leaveJson.total ?? 0);
       setTotalPages(leaveJson.totalPages ?? 1);
+      if (leaveJson.stats) setStats(leaveJson.stats);
       setEmployees(empJson.items || []);
     } catch {
       toast.error("Failed to load leave requests");
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, [page, debouncedSearch, filterStatus]);
 
   useEffect(() => {
-    
-    if (status === "authenticated") load(page);
-  }, [status, router, load, page]);
+    if (status === "authenticated") load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, router, load]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterStatus]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -225,8 +232,6 @@ export default function LeavePage() {
     }
   };
 
-  const pending = requests.filter((r) => r.status === "pending").length;
-  const approved = requests.filter((r) => r.status === "approved").length;
 
   return (
     <DashboardLayout
@@ -252,7 +257,7 @@ export default function LeavePage() {
             <CardContent className="p-4 flex items-center gap-3">
               <CalendarDays className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-2xl font-black">{requests.length}</p>
+                <p className="text-2xl font-black">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </CardContent>
@@ -261,7 +266,7 @@ export default function LeavePage() {
             <CardContent className="p-4 flex items-center gap-3">
               <Clock className="h-8 w-8 text-amber-500" />
               <div>
-                <p className="text-2xl font-black">{pending}</p>
+                <p className="text-2xl font-black">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
             </CardContent>
@@ -270,7 +275,7 @@ export default function LeavePage() {
             <CardContent className="p-4 flex items-center gap-3">
               <CheckCircle2 className="h-8 w-8 text-green-500" />
               <div>
-                <p className="text-2xl font-black">{approved}</p>
+                <p className="text-2xl font-black">{stats.approved}</p>
                 <p className="text-xs text-muted-foreground">Approved</p>
               </div>
             </CardContent>
@@ -279,7 +284,7 @@ export default function LeavePage() {
             <CardContent className="p-4 flex items-center gap-3">
               <XCircle className="h-8 w-8 text-red-500" />
               <div>
-                <p className="text-2xl font-black">{requests.filter((r) => r.status === "rejected").length}</p>
+                <p className="text-2xl font-black">{stats.rejected}</p>
                 <p className="text-xs text-muted-foreground">Rejected</p>
               </div>
             </CardContent>

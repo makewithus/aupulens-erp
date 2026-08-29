@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import StockTransfer from "@/models/StockTransfer";
-import Customer from "@/models/Customer"; // Ensure model registration
+import Customer from "@/models/Customer";
 import Product from "@/models/Product"; // Ensure model registration
 
 export async function GET(req: NextRequest) {
@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams;
     const type = searchParams.get("type"); // 'incoming' or 'outgoing'
+    const statusFilter = searchParams.get("status");
+    const search = searchParams.get("search")?.trim();
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
@@ -24,18 +26,47 @@ export async function GET(req: NextRequest) {
     if (type) {
       query["header.operationType"] = type;
     }
+    if (statusFilter && statusFilter !== "all") {
+      query.status = statusFilter;
+    }
+    if (search) {
+      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
+      query.$or = [
+        { "header.name": re },
+        { "header.partnerName": re },
+        { "header.partnerId": { $in: matchingPartners.map((p) => p._id) } },
+      ];
+    }
 
-    const transfers = await StockTransfer.find(query)
+    const baseQuery = StockTransfer.find(query)
       .populate("header.partnerId", "header.name contact_details.email")
       .populate(
         "operations_tab.productId",
         "header.name tab_general_information.default_code",
       )
       .populate("chatter.authorId", "name image")
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
 
-    return NextResponse.json({ transfers });
+    // Pagination is opt-in via `page` — the current single consumer set
+    // (Deliveries/Receipts pages) may grow other unbounded readers later, so
+    // this follows the same safe convention used everywhere else.
+    const pageParam = searchParams.get("page");
+    if (!pageParam) {
+      const transfers = await baseQuery.lean();
+      return NextResponse.json({ transfers, total: transfers.length, page: 1, totalPages: 1 });
+    }
+
+    const page = Math.max(1, parseInt(pageParam));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
+    const skip = (page - 1) * limit;
+
+    const [total, transfers] = await Promise.all([
+      StockTransfer.countDocuments(query),
+      baseQuery.skip(skip).limit(limit).lean(),
+    ]);
+
+    return NextResponse.json({ transfers, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
     console.error("Fetch Transfers Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

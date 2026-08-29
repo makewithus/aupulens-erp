@@ -77,15 +77,21 @@ export function classifyModelOverride(
 }
 
 /**
- * Scan every tenant with a model override and classify each against the
- * currently-deployed Azure chat deployment(s).
+ * Scan tenants with a model override and classify each against the
+ * currently-deployed Azure chat deployment(s). Pass `scopeSubdomain` to
+ * restrict the scan to a single tenant (used for a workspace admin's own
+ * AI Studio view, which only needs its own override status) — omit it for a
+ * platform-wide scan (master-admin view, scripts/check-model-health.ts).
  */
-export async function checkTenantModelOverrides(): Promise<ModelHealthReport> {
+export async function checkTenantModelOverrides(scopeSubdomain?: string): Promise<ModelHealthReport> {
   await connectDB();
   const deployedChatModels = getDeployedChatModelNames();
 
+  const filter: Record<string, unknown> = { "settings.ai.model": { $exists: true, $nin: [null, ""] } };
+  if (scopeSubdomain) filter.subdomain = scopeSubdomain;
+
   const orgs = await Organization.find(
-    { "settings.ai.model": { $exists: true, $nin: [null, ""] } },
+    filter,
     { subdomain: 1, name: 1, "settings.ai.model": 1 }
   ).lean<{ subdomain: string; name?: string; settings?: { ai?: { model?: string } } }[]>();
 

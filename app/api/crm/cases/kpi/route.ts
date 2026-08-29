@@ -17,24 +17,43 @@ export async function GET(req: NextRequest) {
     openCases,
     overdueCases,
     slaBreaches,
+    breachedOpenCases,
     resolvedToday,
     escalations,
-    avgSatData
+    reopenedCases,
+    avgSatData,
+    avgResTimeData,
+    escalationsTodayData,
   ] = await Promise.all([
     CrmCase.countDocuments({ tenantId, status: { $nin: ['Resolved', 'Closed'] } }),
     CrmCase.countDocuments({ tenantId, status: { $nin: ['Resolved', 'Closed'] }, sla_target_at: { $lt: now } }),
     CrmCase.countDocuments({ tenantId, sla_breached: true }),
+    CrmCase.countDocuments({ tenantId, sla_breached: true, status: { $nin: ['Resolved', 'Closed'] } }),
     CrmCase.countDocuments({ tenantId, status: 'Resolved', updatedAt: { $gte: startOfDay } }),
     CrmCase.countDocuments({ tenantId, escalation_level: { $gt: 0 } }),
+    CrmCase.countDocuments({ tenantId, status: 'Reopened' }),
     CrmCase.aggregate([
       { $match: { tenantId, satisfaction_score: { $exists: true, $ne: null } } },
       { $group: { _id: null, avgScore: { $avg: "$satisfaction_score" } } }
-    ])
+    ]),
+    CrmCase.aggregate([
+      { $match: { tenantId, status: { $in: ['Resolved', 'Closed'] } } },
+      { $group: { _id: null, avgMs: { $avg: { $subtract: ["$updatedAt", "$createdAt"] } } } }
+    ]),
+    CrmCase.aggregate([
+      { $match: { tenantId, escalation_history: { $exists: true, $ne: [] } } },
+      { $unwind: "$escalation_history" },
+      { $match: { "escalation_history.timestamp": { $gte: startOfDay } } },
+      { $count: "count" },
+    ]),
   ]);
 
   const avgSatScore = avgSatData.length > 0 ? avgSatData[0].avgScore.toFixed(1) : 0;
-  const avgResTime = "4h 20m"; // Mocked complex calculation for now unless there's a resolved_at field
-  const reopenedCases = await CrmCase.countDocuments({ tenantId, status: 'Reopened' });
+  const avgResTimeMs = avgResTimeData[0]?.avgMs || 0;
+  const avgResTime = avgResTimeMs > 0
+    ? `${Math.floor(avgResTimeMs / 3600000)}h ${Math.round((avgResTimeMs % 3600000) / 60000)}m`
+    : "N/A";
+  const escalationsToday = escalationsTodayData[0]?.count || 0;
 
   return NextResponse.json({
     success: true,
@@ -42,11 +61,13 @@ export async function GET(req: NextRequest) {
       openCases,
       overdueCases,
       slaBreaches,
+      breachedOpenCases,
       resolvedToday,
       avgResTime,
       reopenedCases,
       avgSatScore,
-      escalations
+      escalations,
+      escalationsToday,
     }
   });
 }

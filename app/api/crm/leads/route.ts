@@ -15,10 +15,8 @@ export async function GET(req: NextRequest) {
   
   await dbConnect();
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '25');
   const search = searchParams.get('search');
-  
+
   const query: any = { tenantId: session.user.tenantId };
   if (search) {
     query.$or = [
@@ -28,16 +26,26 @@ export async function GET(req: NextRequest) {
       { phone: { $regex: search, $options: 'i' } }
     ];
   }
-  
-  const total = await CrmLead.countDocuments(query);
-  const leads = await CrmLead.find(query)
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate('owner_id', 'name email')
-    .lean();
-    
-  return NextResponse.json({ success: true, data: { leads, total, page, totalPages: Math.ceil(total / limit) } });
+
+  const baseQuery = CrmLead.find(query).sort({ createdAt: -1 }).populate('owner_id', 'name email');
+
+  // Pagination is opt-in via `page` — omitting it keeps returning everything,
+  // matching the convention used across the rest of this codebase.
+  const pageParam = searchParams.get('page');
+  if (!pageParam) {
+    const leads = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: { leads, total: leads.length, page: 1, totalPages: 1 } });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
+
+  const [total, leads] = await Promise.all([
+    CrmLead.countDocuments(query),
+    baseQuery.skip((page - 1) * limit).limit(limit).lean(),
+  ]);
+
+  return NextResponse.json({ success: true, data: { leads, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) } });
 }
 
 export async function POST(req: NextRequest) {

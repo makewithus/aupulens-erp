@@ -16,16 +16,45 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId;
     await connectDB();
 
-    const orders = await ManufacturingOrder.find({ tenantId })
+    const { searchParams } = new URL(req.url);
+    const statusFilter = searchParams.get("productionStatus");
+    const search = searchParams.get("search")?.trim();
+
+    const query: any = { tenantId };
+    if (statusFilter && statusFilter !== "all") {
+      query.productionStatus = statusFilter;
+    }
+    if (search) {
+      query["header.name"] = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+
+    const baseQuery = ManufacturingOrder.find(query)
       .populate(
         "header.productId",
         "header.name tab_general_information.default_code",
       )
       .populate("chatter.authorId", "name image")
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
 
-    return NextResponse.json({ orders });
+    // Pagination is opt-in via `page` — the Manufacturing module's own pages
+    // (app/manufacturing/manufacturing, app/manufacturing/dashboard) also
+    // read this same route unbounded, so that default must be preserved.
+    const pageParam = searchParams.get("page");
+    if (!pageParam) {
+      const orders = await baseQuery.lean();
+      return NextResponse.json({ orders, total: orders.length, page: 1, totalPages: 1 });
+    }
+
+    const page = Math.max(1, parseInt(pageParam));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
+    const skip = (page - 1) * limit;
+
+    const [total, orders] = await Promise.all([
+      ManufacturingOrder.countDocuments(query),
+      baseQuery.skip(skip).limit(limit).lean(),
+    ]);
+
+    return NextResponse.json({ orders, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

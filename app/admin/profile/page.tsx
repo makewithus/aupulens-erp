@@ -55,9 +55,9 @@ export default function ProfilePage() {
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/users');
+      const res = await fetch(`/api/users?search=${encodeURIComponent(session?.user?.email || '')}`);
       if (!res.ok) throw new Error('Failed to fetch profile');
-      
+
       const data = await res.json();
       const currentUser = data.users.find((u: UserProfile) => u.email === session?.user?.email);
       

@@ -24,34 +24,36 @@ async function nextGRN(tenantId: string): Promise<string> {
   return `GRN/${year}/${String(count + 1).padStart(5, "0")}`;
 }
 
-/** Check available (non-reserved) stock for a product */
-async function availableStock(
-  productId: string,
+/**
+ * Check available (non-reserved) stock for every product in one batched
+ * aggregate instead of a per-product round trip (2 queries × N products).
+ * Same in-minus-out math as before, just grouped by product+type in a
+ * single query.
+ */
+async function availableStockBatch(
+  productIds: string[],
   tenantId: string,
-): Promise<number> {
-  const [inResult] = await Stock.aggregate([
+): Promise<Map<string, number>> {
+  const results = await Stock.aggregate([
     {
       $match: {
-        product: productId,
+        product: { $in: productIds },
         tenantId,
-        type: "in",
+        type: { $in: ["in", "out"] },
         isReserved: false,
       },
     },
-    { $group: { _id: null, total: { $sum: "$quantity" } } },
+    { $group: { _id: { product: "$product", type: "$type" }, total: { $sum: "$quantity" } } },
   ]);
-  const [outResult] = await Stock.aggregate([
-    {
-      $match: {
-        product: productId,
-        tenantId,
-        type: "out",
-        isReserved: false,
-      },
-    },
-    { $group: { _id: null, total: { $sum: "$quantity" } } },
-  ]);
-  return (inResult?.total ?? 0) - (outResult?.total ?? 0);
+
+  const map = new Map<string, number>();
+  for (const id of productIds) map.set(id, 0);
+  for (const r of results) {
+    const productId = String(r._id.product);
+    const current = map.get(productId) ?? 0;
+    map.set(productId, r._id.type === "in" ? current + r.total : current - r.total);
+  }
+  return map;
 }
 
 /* ------------------------------------------------------------------ */
@@ -359,11 +361,10 @@ export async function PATCH(
       ) {
         // Check availability for every line
         const shortages: string[] = [];
+        const lineProductIds = existing.operations_tab.map((op: any) => op.productId.toString());
+        const availMap = await availableStockBatch(lineProductIds, tenantId);
         for (const op of existing.operations_tab) {
-          const avail = await availableStock(
-            op.productId.toString(),
-            tenantId,
-          );
+          const avail = availMap.get(op.productId.toString()) ?? 0;
           if (avail < op.demand) {
             shortages.push(
               `Product ${op.productId}: need ${op.demand}, available ${avail}`,

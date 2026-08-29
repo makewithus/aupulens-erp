@@ -20,14 +20,39 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const employeeId = searchParams.get("employeeId");
+    const search = searchParams.get("search")?.trim();
 
     const query: any = { tenantId };
     if (status) query.status = status;
     if (employeeId) query.employeeId = employeeId;
 
+    if (search) {
+      const employeeIds = await Employee.find({
+        tenantId,
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+          { employeeCode: { $regex: search, $options: "i" } },
+        ],
+      }).distinct("_id");
+      query.employeeId = employeeId ? employeeId : { $in: employeeIds };
+    }
+
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
     const skip = (page - 1) * limit;
+
+    // Stats (KPI cards) always reflect every leave request tenant-wide —
+    // unaffected by the current status/search filters, matching the original
+    // page's behavior of computing KPIs from the full unfiltered set rather
+    // than just the current page.
+    const [statsTotal, statsPending, statsApproved, statsRejected] = await Promise.all([
+      LeaveRequest.countDocuments({ tenantId }),
+      LeaveRequest.countDocuments({ tenantId, status: "pending" }),
+      LeaveRequest.countDocuments({ tenantId, status: "approved" }),
+      LeaveRequest.countDocuments({ tenantId, status: "rejected" }),
+    ]);
+    const stats = { total: statsTotal, pending: statsPending, approved: statsApproved, rejected: statsRejected };
 
     const [total, leaves] = await Promise.all([
       LeaveRequest.countDocuments(query),
@@ -45,7 +70,7 @@ export async function GET(req: NextRequest) {
         .lean(),
     ]);
 
-    return NextResponse.json({ items: leaves, total, page, totalPages: Math.ceil(total / limit) });
+    return NextResponse.json({ items: leaves, total, page, totalPages: Math.ceil(total / limit), stats });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

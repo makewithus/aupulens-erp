@@ -71,19 +71,28 @@ const statusColors: Record<string, string> = {
   closed: "text-purple-500",
 };
 
+const LIMIT = 10;
+
 export default function ReceiptsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
+  // Separate, unpaginated fetch used only for the KPI cards — those need
+  // totals across every matching receipt, not just the current page of 10.
+  const [allTransfers, setAllTransfers] = useState<InventoryTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Resources
@@ -117,6 +126,13 @@ export default function ReceiptsPage() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchTransfers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, page, debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchAllTransfersForStats();
       fetchResources();
     }
   }, [status]);
@@ -145,18 +161,40 @@ export default function ReceiptsPage() {
     }
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const fetchTransfers = async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch(
-        "/api/inventory/operations/transfers?type=incoming",
-      );
+      const params = new URLSearchParams({ type: "incoming", page: String(page), limit: String(LIMIT) });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      const res = await cachedFetch(`/api/inventory/operations/transfers?${params.toString()}`);
       const data = await res.json();
       setTransfers(data.transfers || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (e) {
       toast.error("Failed to load receipts");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllTransfersForStats = async () => {
+    try {
+      const res = await cachedFetch("/api/inventory/operations/transfers?type=incoming");
+      const data = await res.json();
+      setAllTransfers(data.transfers || []);
+    } catch (e) {
+      console.error("Failed to load receipt stats", e);
     }
   };
 
@@ -260,6 +298,7 @@ export default function ReceiptsPage() {
       toast.success("Receipt saved");
       setIsModalOpen(false);
       fetchTransfers();
+      fetchAllTransfersForStats();
       fetchResources();
     } catch (e) {
       toast.error("Error saving receipt");
@@ -281,6 +320,7 @@ export default function ReceiptsPage() {
       }
       toast.success(`Status updated`);
       fetchTransfers();
+      fetchAllTransfersForStats();
     } catch (e: any) {
       toast.error(e.message || "Update failed");
     }
@@ -302,6 +342,7 @@ export default function ReceiptsPage() {
       }
       toast.success("Updated");
       fetchTransfers();
+      fetchAllTransfersForStats();
     } catch (e: any) {
       toast.error(e.message || "Update failed");
     }
@@ -354,38 +395,23 @@ export default function ReceiptsPage() {
     }
   };
 
-  // Filter transfers list
-  const filteredTransfers = useMemo(() => {
-    return transfers.filter((t) => {
-      const partner =
-        t.header.partnerId?.header?.name ||
-        t.header.partnerId?.name ||
-        t.header.partnerName ||
-        "";
-      const matchesSearch =
-        t.header.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        partner.toLowerCase().includes(searchQuery.toLowerCase());
-        
-      const matchesStatus = statusFilter === "all" || t.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
-    });
-  }, [transfers, searchQuery, statusFilter]);
+  // transfers is already filtered + paginated server-side.
+  const filteredTransfers = transfers;
 
-  // Compute KPIs
+  // Compute KPIs from the full (unpaginated) matching set.
   const kpis = useMemo(() => {
-    const total = transfers.length;
-    const drafts = transfers.filter((t) => t.status === "draft").length;
-    const pending = transfers.filter((t) => t.status !== "closed" && t.status !== "draft").length;
-    const completed = transfers.filter((t) => t.status === "closed").length;
+    const totalCount = allTransfers.length;
+    const drafts = allTransfers.filter((t) => t.status === "draft").length;
+    const pending = allTransfers.filter((t) => t.status !== "closed" && t.status !== "draft").length;
+    const completed = allTransfers.filter((t) => t.status === "closed").length;
 
     return {
-      total,
+      total: totalCount,
       drafts,
       pending,
       completed,
     };
-  }, [transfers]);
+  }, [allTransfers]);
 
   return (
     <DashboardLayout
@@ -401,7 +427,7 @@ export default function ReceiptsPage() {
       userEmail={session?.user?.email || ""}
       userRole={session?.user?.role || "inventory"}
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
-      onRefresh={fetchTransfers}
+      onRefresh={() => { fetchTransfers(); fetchAllTransfersForStats(); }}
       profilePath="/inventory/profile"
     >
       <div className="space-y-6">
@@ -456,8 +482,8 @@ export default function ReceiptsPage() {
                     All Receipts
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                    {filteredTransfers.length}{" "}
-                    {filteredTransfers.length === 1 ? "Receipt" : "Receipts"}
+                    {total}{" "}
+                    {total === 1 ? "Receipt" : "Receipts"}
                   </p>
                 </div>
 
@@ -650,6 +676,22 @@ export default function ReceiptsPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -660,7 +702,7 @@ export default function ReceiptsPage() {
         open={isModalOpen}
         onOpenChange={(open) => {
           setIsModalOpen(open);
-          if (!open) fetchTransfers();
+          if (!open) { fetchTransfers(); fetchAllTransfersForStats(); }
         }}
         title={formData?.header?.name || "New Receipt"}
         className="w-[80vw] max-w-[1400px]"

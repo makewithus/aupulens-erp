@@ -13,6 +13,9 @@
  * index, the correct compound unique index is left untouched (or created by
  * Mongoose on next app start if somehow missing).
  *
+ * 2026-08-27 CRM audit pass added two more: `crmcases` (case_number_1) and
+ * `crmcontracts` (contract_number_1) — same stale-global-unique pattern.
+ *
  * Usage: npx tsx scripts/migrate-drop-stale-unique-indexes.ts
  */
 import "dotenv/config";
@@ -32,6 +35,8 @@ const TARGETS: { collection: string; staleIndexName: string }[] = [
   { collection: "stocktransfers", staleIndexName: "header.name_1" },
   { collection: "crmquotes", staleIndexName: "quote_number_1" },
   { collection: "deliverychallans", staleIndexName: "dcNumber_1" },
+  { collection: "crmcases", staleIndexName: "case_number_1" },
+  { collection: "crmcontracts", staleIndexName: "contract_number_1" },
 ];
 
 async function main() {

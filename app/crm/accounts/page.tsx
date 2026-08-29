@@ -35,15 +35,21 @@ const STATUS_COLORS_REDESIGNED: Record<string, string> = {
   Customer: "text-[#A77DFF]",  // Soft purple
 };
 
+const LIMIT = 25;
+
 const EMPTY_FORM = { company_name: "", website: "", industry: "" };
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
@@ -53,12 +59,18 @@ export default function AccountsPage() {
     if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
   });
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = async (currentPage = page, currentSearch = debouncedSearch) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/crm/accounts?search=${search}`);
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (currentSearch) params.set("search", currentSearch);
+      const res = await fetch(`/api/crm/accounts?${params.toString()}`);
       const data = await res.json();
-      if (data.success) setAccounts(data.data.accounts ?? data.data ?? []);
+      if (data.success) {
+        setAccounts(data.data.accounts ?? data.data ?? []);
+        setTotal(data.data.total ?? 0);
+        setTotalPages(data.data.totalPages ?? 1);
+      }
     } catch (e) {
       toast.error("Failed to load accounts.");
     } finally {
@@ -67,9 +79,18 @@ export default function AccountsPage() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchAccounts(), 400);
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchAccounts(page, debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch]);
 
   const setField = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
@@ -113,7 +134,7 @@ export default function AccountsPage() {
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {accounts.length} {accounts.length === 1 ? "Account" : "Accounts"}
+                {total} {total === 1 ? "Account" : "Accounts"}
               </p>
             </div>
 
@@ -269,6 +290,22 @@ export default function AccountsPage() {
               )}
             </TableBody>
           </TableContainer>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  Previous
+                </Button>
+                <span className="text-sm">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

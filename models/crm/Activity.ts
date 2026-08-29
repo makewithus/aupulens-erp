@@ -45,5 +45,10 @@ const ActivitySchema = new Schema<IActivity>({
 
 ActivitySchema.index({ tenantId: 1, activity_date: -1 });
 ActivitySchema.index({ tenantId: 1, type: 1 });
+ActivitySchema.index({ tenantId: 1, linked_lead_id: 1 });
+ActivitySchema.index({ tenantId: 1, linked_account_id: 1 });
+ActivitySchema.index({ tenantId: 1, linked_contact_id: 1 });
+ActivitySchema.index({ tenantId: 1, linked_opportunity_id: 1 });
+ActivitySchema.index({ tenantId: 1, linked_case_id: 1 });
 
 export default (mongoose.models.CrmActivity as Model<IActivity>) || mongoose.model<IActivity>("CrmActivity", ActivitySchema);

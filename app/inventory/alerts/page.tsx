@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -38,16 +38,24 @@ import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const LIMIT = 10;
+
 export default function AlertsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [restockingId, setRestockingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [warehouseOptions, setWarehouseOptions] = useState<string[]>([]);
+  const [kpis, setKpis] = useState({ total: 0, outOfStock: 0, critical: 0, totalValuation: 0 });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -57,13 +65,30 @@ export default function AlertsPage() {
     }
   }, [status, router, session]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedWarehouse, selectedStatus]);
+
   const fetchAlerts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await cachedFetch('/api/inventory/alerts');
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (selectedWarehouse !== 'all') params.set('warehouse', selectedWarehouse);
+      if (selectedStatus !== 'all') params.set('status', selectedStatus);
+      const res = await cachedFetch(`/api/inventory/alerts?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setAlerts(data.alerts || []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        setKpis(data.kpis || { total: 0, outOfStock: 0, critical: 0, totalValuation: 0 });
+        setWarehouseOptions(data.warehouses || []);
       } else {
         toast.error('Failed to retrieve active reorder alerts');
       }
@@ -73,7 +98,7 @@ export default function AlertsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [page, debouncedSearch, selectedWarehouse, selectedStatus]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -81,37 +106,8 @@ export default function AlertsPage() {
     }
   }, [status, fetchAlerts]);
 
-  const uniqueWarehouses = useMemo(() => {
-    const list = alerts.map((item) => item.warehouse).filter(Boolean);
-    return Array.from(new Set(list));
-  }, [alerts]);
-
-  const filteredAlerts = useMemo(() => {
-    return alerts.filter((item) => {
-      const matchesSearch =
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesWarehouse =
-        selectedWarehouse === 'all' || item.warehouse === selectedWarehouse;
-
-      const isOutOfStock = item.quantity === 0;
-      const isCritical = item.quantity > 0 && item.quantity <= item.reorderLevel * 0.5;
-      const isLowStock = item.quantity > item.reorderLevel * 0.5 && item.quantity <= item.reorderLevel;
-
-      let matchesStatus = true;
-      if (selectedStatus === 'out_of_stock') {
-        matchesStatus = isOutOfStock;
-      } else if (selectedStatus === 'critical') {
-        matchesStatus = isCritical;
-      } else if (selectedStatus === 'low_stock') {
-        matchesStatus = isLowStock;
-      }
-
-      return matchesSearch && matchesWarehouse && matchesStatus;
-    });
-  }, [alerts, searchTerm, selectedWarehouse, selectedStatus]);
+  const uniqueWarehouses = warehouseOptions;
+  const filteredAlerts = alerts;
 
   const handleRestock = async (item: any) => {
     setRestockingId(item._id);
@@ -133,19 +129,6 @@ export default function AlertsPage() {
     }
   };
 
-  const kpis = useMemo(() => {
-    const total = alerts.length;
-    const outOfStock = alerts.filter((item) => item.quantity === 0).length;
-    const critical = alerts.filter((item) => item.quantity > 0 && item.quantity <= item.reorderLevel * 0.5).length;
-    const totalValuation = alerts.reduce((sum, item) => sum + (item.reorderQuantity * item.unitCost), 0);
-
-    return {
-      total,
-      outOfStock,
-      critical,
-      totalValuation,
-    };
-  }, [alerts]);
 
   if (status === 'loading') {
     return (
@@ -225,8 +208,8 @@ export default function AlertsPage() {
                     Active Alerts
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                    {filteredAlerts.length}{' '}
-                    {filteredAlerts.length === 1 ? 'alert' : 'alerts'} active
+                    {total}{' '}
+                    {total === 1 ? 'alert' : 'alerts'} active
                   </p>
                 </div>
 
@@ -498,6 +481,22 @@ export default function AlertsPage() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      Previous
+                    </Button>
+                    <span className="text-sm">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

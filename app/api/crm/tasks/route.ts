@@ -12,9 +12,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const view = searchParams.get('view') || 'my';
   const query: any = { tenantId: session.user.tenantId };
-  
+
   if (view === 'my') query.assigned_to_id = session.user.id;
   if (searchParams.get('status')) query.status = searchParams.get('status');
+  if (searchParams.get('priority')) query.priority = searchParams.get('priority');
 
   // Overdue engine bulk update
   await CrmTask.updateMany(
@@ -22,14 +23,25 @@ export async function GET(req: NextRequest) {
     { $set: { status: 'Overdue' } }
   );
 
-  const limit = parseInt(searchParams.get('limit') || '50');
-  const tasks = await CrmTask.find(query)
-    .sort({ due_date: 1 })
-    .limit(limit)
-    .lean()
-    .populate('assigned_to_id', 'name email');
+  const baseQuery = CrmTask.find(query).sort({ due_date: 1 }).populate('assigned_to_id', 'name email');
 
-  return NextResponse.json({ success: true, data: tasks });
+  // Pagination is opt-in via `page` — omitting it keeps returning everything,
+  // matching the convention used across the rest of this codebase.
+  const pageParam = searchParams.get('page');
+  if (!pageParam) {
+    const tasks = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: tasks, total: tasks.length, page: 1, totalPages: 1 });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
+
+  const [total, tasks] = await Promise.all([
+    CrmTask.countDocuments(query),
+    baseQuery.skip((page - 1) * limit).limit(limit).lean(),
+  ]);
+
+  return NextResponse.json({ success: true, data: tasks, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
 
 export async function POST(req: NextRequest) {

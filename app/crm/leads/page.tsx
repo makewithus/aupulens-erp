@@ -71,22 +71,34 @@ const EMPTY_FORM = {
   next_followup_date: "",
 };
 
+const LIMIT = 25;
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const { data: session } = useSession();
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (currentPage = page, currentSearch = debouncedSearch) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/crm/leads?search=${encodeURIComponent(search)}`);
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (currentSearch) params.set("search", currentSearch);
+      const res = await fetch(`/api/crm/leads?${params.toString()}`);
       const data = await res.json();
-      if (data.success) setLeads(data.data.leads ?? data.data ?? []);
+      if (data.success) {
+        setLeads(data.data.leads ?? data.data ?? []);
+        setTotal(data.data.total ?? 0);
+        setTotalPages(data.data.totalPages ?? 1);
+      }
     } catch {
       toast.error("Failed to load leads.");
     } finally {
@@ -95,9 +107,18 @@ export default function LeadsPage() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchLeads(), 400);
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchLeads(page, debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch]);
 
   // AI-native pre-fill: if the assistant prepared a lead, open the form with the
   // extracted values pre-filled and surface its suggestions. The user still
@@ -204,7 +225,7 @@ export default function LeadsPage() {
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {leads.length} {leads.length === 1 ? "Lead" : "Leads"}
+                {total} {total === 1 ? "Lead" : "Leads"}
               </p>
             </div>
 
@@ -347,6 +368,22 @@ export default function LeadsPage() {
               )}
             </TableBody>
           </TableContainer>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  Previous
+                </Button>
+                <span className="text-sm">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

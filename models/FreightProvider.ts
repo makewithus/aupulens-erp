@@ -54,6 +54,8 @@ const FreightProviderSchema = new Schema<IFreightProvider>({
 // Compound with tenantId per Golden Rule #7 — provider codes only need to be
 // unique within a tenant, not globally across the whole platform.
 FreightProviderSchema.index({ tenantId: 1, providerCode: 1 }, { unique: true });
+FreightProviderSchema.index({ tenantId: 1, providerName: 1 });
+FreightProviderSchema.index({ tenantId: 1, createdAt: -1 });
 
 const FreightProvider: Model<IFreightProvider> =
   (models.FreightProvider as Model<IFreightProvider>) ||

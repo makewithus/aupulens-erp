@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
     const deleteCheck = requireRole(session, ['task.delete']);
     if (deleteCheck) return deleteCheck;
     await CrmTask.deleteMany(query);
-    
+
     // Audit log
-    for (const id of taskIds) {
-      await CrmAuditLog.create({ tenantId: session.user.tenantId, user_id: session.user.id, action: 'deleted', record_type: 'Task', record_id: id, timestamp: new Date() });
-    }
+    await CrmAuditLog.insertMany(
+      taskIds.map((id: string) => ({ tenantId: session.user.tenantId, user_id: session.user.id, action: 'deleted', record_type: 'Task', record_id: id, timestamp: new Date() }))
+    );
     return NextResponse.json({ success: true, message: 'Deleted' });
   } else {
     return NextResponse.json({ success: false, message: 'Invalid operation' }, { status: 400 });
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
 
   await CrmTask.updateMany(query, { $set: updateData });
 
-  for (const id of taskIds) {
-    await CrmAuditLog.create({
+  await CrmAuditLog.insertMany(
+    taskIds.map((id: string) => ({
       tenantId: session.user.tenantId,
       user_id: session.user.id,
       action: 'bulk_updated',
@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
       record_id: id,
       field_name: operation,
       timestamp: new Date()
-    });
-  }
+    }))
+  );
 
   return NextResponse.json({ success: true });
 }

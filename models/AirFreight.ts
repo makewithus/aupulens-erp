@@ -43,6 +43,9 @@ const AirFreightSchema = new Schema<IAirFreight>({
   timestamps: true,
 });
 
+AirFreightSchema.index({ tenantId: 1, departureTime: -1 });
+AirFreightSchema.index({ tenantId: 1, createdAt: 1 });
+
 const AirFreight: Model<IAirFreight> =
   (models.AirFreight as Model<IAirFreight>) ||
   model<IAirFreight>('AirFreight', AirFreightSchema);

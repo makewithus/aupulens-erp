@@ -52,9 +52,13 @@ export async function GET() {
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
     const lastSixMonths = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    // Finance: Revenue (using SalesInvoice)
-    const outInvoices = await (SalesInvoice as any).find({ tenantId }).lean();
-    
+    // Finance: Revenue (using SalesInvoice) & Expenses (vendor bills) — these
+    // two finds are independent (different models), so run them together.
+    const [outInvoices, inInvoices] = await Promise.all([
+      (SalesInvoice as any).find({ tenantId }).lean(),
+      (Invoice as any).find({ tenantId, moveType: "in_invoice" }).lean(),
+    ]);
+
     // Valid finalized statuses for SalesInvoice
     const isPostedSales = (inv: any) => ["saved", "partially_paid", "paid", "overdue"].includes(inv.status);
     
@@ -84,11 +88,6 @@ export async function GET() {
           new Date(inv.invoiceDate) <= prevMonthEnd,
       )
       .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
-
-    // Finance: Expenses (vendor bills — Invoice model, moveType: "in_invoice")
-    const inInvoices = await (Invoice as any)
-      .find({ tenantId, moveType: "in_invoice" })
-      .lean();
 
     const totalExpenses = inInvoices
       .filter(
@@ -157,17 +156,12 @@ export async function GET() {
       `[Admin Dashboard] Products: ${totalProducts}, Stock Transfers: ${totalStockTransfers}`,
     );
 
-    // Manufacturing
-    const totalManufacturingOrders = await ManufacturingOrder.countDocuments({
-      tenantId,
-    });
-
-    // Users
-    const totalUsers = await User.countDocuments({ tenantId });
-    const activeUsers = await User.countDocuments({
-      tenantId,
-      status: ENTITY_STATUS.ACTIVE,
-    });
+    // Manufacturing & Users
+    const [totalManufacturingOrders, totalUsers, activeUsers] = await Promise.all([
+      ManufacturingOrder.countDocuments({ tenantId }),
+      User.countDocuments({ tenantId }),
+      User.countDocuments({ tenantId, status: ENTITY_STATUS.ACTIVE }),
+    ]);
 
     console.log(
       `[Admin Dashboard] Users: ${totalUsers}, Active: ${activeUsers}`,
@@ -185,14 +179,15 @@ export async function GET() {
     ]);
 
     // Chart Data: Revenue by month (last 6 months)
-    const revenueByMonth: any[] = [];
-    const ordersByMonth: any[] = [];
-
-    for (let i = 5; i >= 0; i--) {
+    const monthRanges = Array.from({ length: 6 }, (_, idx) => {
+      const i = 5 - idx;
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      return { monthStart, monthEnd };
+    });
 
-      const monthRevenue = outInvoices
+    const revenueByMonth = monthRanges.map(({ monthStart, monthEnd }) =>
+      outInvoices
         .filter(
           (inv: any) =>
             isPostedSales(inv) &&
@@ -200,16 +195,17 @@ export async function GET() {
             new Date(inv.invoiceDate) >= monthStart &&
             new Date(inv.invoiceDate) <= monthEnd,
         )
-        .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
+        .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0),
+    );
 
-      const monthOrders = await SaleOrder.countDocuments({
-        createdAt: { $gte: monthStart, $lte: monthEnd },
-        tenantId,
-      });
-
-      revenueByMonth.push(monthRevenue);
-      ordersByMonth.push(monthOrders);
-    }
+    const ordersByMonth = await Promise.all(
+      monthRanges.map(({ monthStart, monthEnd }) =>
+        SaleOrder.countDocuments({
+          createdAt: { $gte: monthStart, $lte: monthEnd },
+          tenantId,
+        }),
+      ),
+    );
 
     // Calculate percentage changes
     const revenueChange = revenuePreviousMonth

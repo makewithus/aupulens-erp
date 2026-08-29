@@ -12,9 +12,6 @@ export async function GET(req: NextRequest) {
 
   await dbConnect();
   const url = new URL(req.url);
-  const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
-  const skip = (page - 1) * limit;
 
   const query: Record<string, unknown> = { tenantId: session.user.tenantId };
   if (url.searchParams.get("status")) query.status = url.searchParams.get("status");
@@ -34,17 +31,45 @@ export async function GET(req: NextRequest) {
     query.status = { $in: ["Active", "Renewal Due", "Expiring"] };
   }
 
+  const baseQuery = CrmContract.find(query)
+    .sort({ end_date: 1, createdAt: -1 })
+    .populate("account_id", "company_name account_health_score status")
+    .populate("owner_id", "name email")
+    .populate("opportunity_id", "deal_name amount stage")
+    .populate("quote_id", "quote_number grand_total");
+
+  // Stats (summary cards) reflect every contract matching the current
+  // filters — unaffected by pagination, so they don't undercount once the
+  // table itself is paginated.
+  const [statsAgg, activeCount, expiringCount] = await Promise.all([
+    CrmContract.aggregate([
+      { $match: query },
+      { $group: { _id: null, totalValue: { $sum: "$contract_value" } } },
+    ]),
+    CrmContract.countDocuments({ ...query, status: "Active" }),
+    CrmContract.countDocuments({ ...query, status: { $in: ["Renewal Due", "Expiring"] } }),
+  ]);
+  const stats = {
+    totalValue: statsAgg[0]?.totalValue || 0,
+    activeCount,
+    expiringCount,
+  };
+
+  // Pagination is opt-in via `page` — omitting it keeps returning everything,
+  // matching the convention used across the rest of this codebase.
+  const pageParam = url.searchParams.get("page");
+  if (!pageParam) {
+    const contracts = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: { contracts, total: contracts.length, page: 1, totalPages: 1, stats } });
+  }
+
+  const page = Math.max(parseInt(pageParam), 1);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
+  const skip = (page - 1) * limit;
+
   const [total, contracts] = await Promise.all([
     CrmContract.countDocuments(query),
-    CrmContract.find(query)
-      .sort({ end_date: 1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("account_id", "company_name account_health_score status")
-      .populate("owner_id", "name email")
-      .populate("opportunity_id", "deal_name amount stage")
-      .populate("quote_id", "quote_number grand_total")
-      .lean(),
+    baseQuery.skip(skip).limit(limit).lean(),
   ]);
 
   return NextResponse.json({
@@ -53,7 +78,8 @@ export async function GET(req: NextRequest) {
       contracts,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      stats,
     },
   });
 }

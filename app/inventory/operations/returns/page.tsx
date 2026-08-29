@@ -18,6 +18,8 @@ import { SearchInput } from "@/components/SearchInput";
 import { ReturnsTable } from "@/components/inventory/operations/returns/ReturnsTable";
 import { ReturnsModals } from "@/components/inventory/operations/returns/ReturnsModals";
 
+const LIMIT = 10;
+
 export default function ReturnsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -25,6 +27,10 @@ export default function ReturnsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -36,14 +42,29 @@ export default function ReturnsPage() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
+  useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/inventory");
     }
     if (status === "authenticated") {
       fetchReturns();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, router, page, debouncedQuery]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
       fetchResources();
     }
-  }, [status, router]);
+  }, [status]);
 
   const fetchResources = async () => {
     try {
@@ -72,9 +93,13 @@ export default function ReturnsPage() {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/inventory/operations/returns");
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (debouncedQuery) params.set("search", debouncedQuery);
+      const res = await cachedFetch(`/api/inventory/operations/returns?${params.toString()}`);
       const data = await res.json();
       setItems(data.items || []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
     } catch (e) {
       toast.error("Failed to load returns");
     } finally {
@@ -173,12 +198,8 @@ export default function ReturnsPage() {
     }
   };
 
-  const filtered = items.filter(
-    (t) =>
-      (t.header?.name || "").toLowerCase().includes(query.toLowerCase()) ||
-      (t.header?.partnerId?.header?.name || t.header?.partnerId?.name || "").toLowerCase().includes(query.toLowerCase()) ||
-      (t.header?.sourceDocument || "").toLowerCase().includes(query.toLowerCase())
-  );
+  // items is already filtered + paginated server-side.
+  const filtered = items;
 
   return (
     <DashboardLayout
@@ -204,7 +225,7 @@ export default function ReturnsPage() {
               <div>
                 <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Returns</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                  {filtered.length} {filtered.length === 1 ? "Return" : "Returns"} Total
+                  {total} {total === 1 ? "Return" : "Returns"} Total
                 </p>
               </div>
 
@@ -239,11 +260,29 @@ export default function ReturnsPage() {
                 </p>
               </div>
             ) : (
-              <ReturnsTable
-                items={filtered}
-                handleView={handleView}
-                updateStatus={updateStatus}
-              />
+              <>
+                <ReturnsTable
+                  items={filtered}
+                  handleView={handleView}
+                  updateStatus={updateStatus}
+                />
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+                    <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
+                      Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                        Previous
+                      </Button>
+                      <span className="text-sm">Page {page} of {totalPages}</span>
+                      <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

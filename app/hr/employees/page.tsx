@@ -92,13 +92,18 @@ export default function EmployeesPage() {
   // filling the form; this stays visible the whole time the modal is open).
   const [aiNotice, setAiNotice] = useState<string[] | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [stats, setStats] = useState({ total: 0, active: 0, linked: 0, unlinked: 0 });
 
-  const load = useCallback(async (currentPage = 1) => {
+  const load = useCallback(async (currentPage = page, search = debouncedSearch, lifecycle = lifecycleFilter, account = accountFilter) => {
     setIsLoading(true);
     try {
       const empParams = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) empParams.set("search", search);
+      if (lifecycle !== "all") empParams.set("lifecycle", lifecycle);
+      if (account !== "all") empParams.set("account", account);
       const [empRes, deptRes] = await Promise.all([
         cachedFetch(`/api/hr/employees?${empParams.toString()}`),
         cachedFetch("/api/hr/departments"),
@@ -110,13 +115,14 @@ export default function EmployeesPage() {
       setFilteredEmployees(items);
       setTotal(empJson.total ?? 0);
       setTotalPages(empJson.totalPages ?? 1);
+      if (empJson.stats) setStats(empJson.stats);
       setDepartments(deptJson.items || []);
     } catch (error) {
       toast.error("Failed to load employees");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [page, debouncedSearch, lifecycleFilter, accountFilter]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -127,40 +133,19 @@ export default function EmployeesPage() {
     ) {
       router.push("/auth/hr");
     } else if (status === "authenticated") {
-      load(page);
+      load();
     }
-  }, [status, session, router, load, page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session, router, load]);
 
   useEffect(() => {
-    let filtered = employees;
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (emp) =>
-          emp.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          emp.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          emp.employeeCode
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          emp.phone.includes(searchQuery),
-      );
-    }
-
-    if (lifecycleFilter !== "all") {
-      filtered = filtered.filter(
-        (emp) => emp.lifecycleStatus === lifecycleFilter,
-      );
-    }
-
-    if (accountFilter === "linked") {
-      filtered = filtered.filter((emp) => emp.userId);
-    } else if (accountFilter === "unlinked") {
-      filtered = filtered.filter((emp) => !emp.userId);
-    }
-
-    setFilteredEmployees(filtered);
-  }, [searchQuery, lifecycleFilter, accountFilter, employees]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, lifecycleFilter, accountFilter]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -336,9 +321,6 @@ export default function EmployeesPage() {
     });
   };
 
-  const linkedCount = employees.filter((e) => e.userId).length;
-  const unlinkedCount = employees.filter((e) => !e.userId).length;
-
   return (
     <DashboardLayout
       sidebarSections={hrSidebarConfig}
@@ -375,25 +357,25 @@ export default function EmployeesPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
             <StatCard
               title="Total Employees"
-              value={employees.length}
+              value={stats.total}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="Active Employees"
-              value={ employees.filter((e) => e.lifecycleStatus === "active").length }
+              value={stats.active}
               visual={<ActivePulse/>}
             />
 
             <StatCard
               title="Linked to User"
-              value={linkedCount}
+              value={stats.linked}
               visual={<UsersGraph/>}
             />
 
             <StatCard
               title="No User Account"
-              value={unlinkedCount}
+              value={stats.unlinked}
               visual={<UsersGraph/>}
             />
           </div>
@@ -422,8 +404,8 @@ export default function EmployeesPage() {
           />
 
             {/* Pagination */}
-            {/* {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-1 py-3">
                 <p className="text-sm text-muted-foreground">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
@@ -438,8 +420,6 @@ export default function EmployeesPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card> */}
       </div>
       </div>
 

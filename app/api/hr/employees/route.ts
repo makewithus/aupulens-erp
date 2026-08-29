@@ -21,14 +21,23 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
+    // Accepts either a single lifecycle status or a comma-separated list
+    // (e.g. "on_notice,exit_initiated,clearance") to let callers that need
+    // several statuses fetch them in one request instead of one per value.
     const lifecycle = searchParams.get("lifecycle");
     const department = searchParams.get("department");
     const search = searchParams.get("search");
+    const account = searchParams.get("account");
 
     const query: any = { tenantId };
 
-    if (lifecycle) query.lifecycleStatus = lifecycle;
+    if (lifecycle) {
+      const statuses = lifecycle.split(",").map((s) => s.trim()).filter(Boolean);
+      query.lifecycleStatus = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
     if (department) query.departmentId = department;
+    if (account === "linked") query.userId = { $ne: null };
+    else if (account === "unlinked") query.userId = null;
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: "i" } },
@@ -37,6 +46,18 @@ export async function GET(req: NextRequest) {
         { email: { $regex: search, $options: "i" } },
       ];
     }
+
+    // Stats (KPI cards) always reflect every employee tenant-wide — unaffected
+    // by the current search/lifecycle/department/account filters, matching
+    // the original page's behavior of computing KPIs from the full,
+    // unfiltered employee set rather than just the current page.
+    const [statsTotal, statsActive, statsLinked, statsUnlinked] = await Promise.all([
+      Employee.countDocuments({ tenantId }),
+      Employee.countDocuments({ tenantId, lifecycleStatus: "active" }),
+      Employee.countDocuments({ tenantId, userId: { $ne: null } }),
+      Employee.countDocuments({ tenantId, userId: null }),
+    ]);
+    const stats = { total: statsTotal, active: statsActive, linked: statsLinked, unlinked: statsUnlinked };
 
     const pageParam = searchParams.get("page");
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
@@ -56,7 +77,7 @@ export async function GET(req: NextRequest) {
           .limit(limit)
           .lean(),
       ]);
-      return NextResponse.json({ items: employees, total, page, totalPages: Math.ceil(total / limit) });
+      return NextResponse.json({ items: employees, total, page, totalPages: Math.ceil(total / limit), stats });
     }
 
     // No ?page= → return all (backward-compat for dropdowns and cross-module consumers)
@@ -67,7 +88,7 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ items: employees, total: employees.length, page: 1, totalPages: 1 });
+    return NextResponse.json({ items: employees, total: employees.length, page: 1, totalPages: 1, stats });
   } catch (error: any) {
     console.error("Get Employees Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

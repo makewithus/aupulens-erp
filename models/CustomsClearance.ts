@@ -82,6 +82,7 @@ const CustomsClearanceSchema = new Schema<ICustomsClearance>({
 // Compound with tenantId per Golden Rule #7 — clearance numbers only need to
 // be unique within a tenant, not globally across the whole platform.
 CustomsClearanceSchema.index({ tenantId: 1, clearanceNumber: 1 }, { unique: true });
+CustomsClearanceSchema.index({ tenantId: 1, createdAt: -1 });
 
 const CustomsClearance: Model<ICustomsClearance> =
   (models.CustomsClearance as Model<ICustomsClearance>) ||

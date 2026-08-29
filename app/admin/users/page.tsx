@@ -61,17 +61,30 @@ export default function UsersPage() {
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 25;
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (currentPage = page, search = debouncedSearch, role = roleFilter, statusF = statusFilter) => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/users");
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (search) params.set("search", search);
+      if (role !== "all") params.set("role", role);
+      if (statusF !== "all") params.set("status", statusF);
+      const res = await fetch(`/api/users?${params.toString()}`);
       const data = await res.json();
       if (res.ok) {
         setUsers(data.users);
         setFilteredUsers(data.users);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        if (data.stats) setStats(data.stats);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -92,31 +105,17 @@ export default function UsersPage() {
     } else if (status === "authenticated") {
       fetchUsers();
     }
-  }, [status, session, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session, router, page, debouncedSearch, roleFilter, statusFilter]);
 
   useEffect(() => {
-    let filtered = users;
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.phone.includes(searchQuery) ||
-          user.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-    }
-
-    if (roleFilter !== "all") {
-      filtered = filtered.filter((user) => user.role === roleFilter);
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((user) => user.status === statusFilter);
-    }
-
-    setFilteredUsers(filtered);
-  }, [searchQuery, roleFilter, statusFilter, users]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, roleFilter, statusFilter]);
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
@@ -213,21 +212,21 @@ export default function UsersPage() {
         <div className="grid grid-cols-1 gap-1 md:grid-cols-3">          
           <StatCard
             title="Total Users"
-            value={users.length}
+            value={stats.total}
             visual={<UsersGraph/>}
             subtitle="Registered users"
           />
 
           <StatCard
             title="Active Users"
-            value={users.filter((u) => u.status === "active").length}
+            value={stats.active}
             visual={<ActivePulse/>}
             subtitle="Currently active"
           />
 
           <StatCard
             title="Inactive Users"
-            value={users.filter((u) => u.status === "inactive").length}
+            value={stats.inactive}
             visual={<InactiveOrbit/>}
             subtitle="Currently inactive"
           />
@@ -254,6 +253,23 @@ export default function UsersPage() {
 
           getRoleBadgeColor={getRoleBadgeColor}
       />
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-1 py-3">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+              Previous
+            </Button>
+            <span className="text-sm">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
 

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!contact) return NextResponse.json({ success: false, message: "Contact not found" }, { status: 404 });
 
   // Fetch activities and opportunities linked to this contact (or account) to calculate relationship
-  const activities = await CrmActivity.find({ recordId: params.id, tenantId: session.user.tenantId }).lean();
+  const activities = await CrmActivity.find({ linked_contact_id: params.id, tenantId: session.user.tenantId }).lean();
   
   // Since opportunities are linked to accounts, we fetch opps linked to the contact's account
   const opportunities = await CrmOpportunity.find({ account_id: contact.account_id?._id, tenantId: session.user.tenantId }).lean();

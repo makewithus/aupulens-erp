@@ -44,6 +44,7 @@ export default function ActivityLogsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<ActivityLog[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
 
@@ -66,6 +67,7 @@ export default function ActivityLogsPage() {
       const data = await res.json();
       setLogs(data.logs);
       setFilteredLogs(data.logs);
+      setTotalLogs(data.total ?? data.logs.length);
     } catch (err) {
       console.error('Error fetching logs:', err);
     } finally {
@@ -224,7 +226,7 @@ export default function ActivityLogsPage() {
               <Activity className="h-4 w-4 text-blue-800" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{logs.length}</div>
+              <div className="text-2xl font-bold">{totalLogs}</div>
               <p className="text-xs text-muted-foreground">All recorded activities</p>
             </CardContent>
           </Card>

@@ -101,5 +101,10 @@ QuoteSchema.pre("save", function(next) {
 });
 
 QuoteSchema.index({ tenantId: 1, quote_number: 1 }, { unique: true });
+QuoteSchema.index({ tenantId: 1, status: 1 });
+QuoteSchema.index({ tenantId: 1, account_id: 1 });
+QuoteSchema.index({ tenantId: 1, opportunity_id: 1 });
+QuoteSchema.index({ tenantId: 1, owner_id: 1 });
+QuoteSchema.index({ tenantId: 1, createdAt: -1 });
 
 export default (mongoose.models.CrmQuote as Model<IQuote>) || mongoose.model<IQuote>("CrmQuote", QuoteSchema);

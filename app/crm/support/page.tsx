@@ -11,49 +11,25 @@ export default function SupportDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Re-use existing cases route with custom metrics wrapper or fetch cases and map
-    fetch('/api/crm/cases?limit=1000')
-      .then(res => res.json())
-      .then(d => {
-        if (d.success) {
-          const cases = d.data.cases;
-          const openCases = cases.filter((c: any) => !['Resolved', 'Closed'].includes(c.status));
-          const breachedCases = cases.filter((c: any) => c.sla_breached && !['Resolved', 'Closed'].includes(c.status));
-          
-          let totalSat = 0;
-          let satCount = 0;
-          let totalResTime = 0;
-          let resCount = 0;
-          let escalationsToday = 0;
-
-          cases.forEach((c: any) => {
-            if (c.satisfaction_score) {
-              totalSat += c.satisfaction_score;
-              satCount++;
-            }
-            if (['Resolved', 'Closed'].includes(c.status) && c.createdAt && c.updatedAt) {
-              totalResTime += (new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime());
-              resCount++;
-            }
-            if (c.escalation_history) {
-              const today = new Date().toDateString();
-              c.escalation_history.forEach((e: any) => {
-                if (new Date(e.timestamp).toDateString() === today) escalationsToday++;
-              });
-            }
-          });
-
-          setData({
-            cases,
-            openCount: openCases.length,
-            breachedCount: breachedCases.length,
-            avgSat: satCount > 0 ? (totalSat / satCount).toFixed(1) : 'N/A',
-            avgResTime: resCount > 0 ? (totalResTime / resCount / 3600000).toFixed(1) + ' hrs' : 'N/A',
-            escalationsToday
-          });
-        }
-        setLoading(false);
-      });
+    // KPI cards come from the same dedicated aggregate endpoint the Cases
+    // page uses; the table below only needs a handful of recent cases, not
+    // the entire tenant case history.
+    Promise.all([
+      fetch('/api/crm/cases/kpi').then(res => res.json()),
+      fetch('/api/crm/cases?page=1&limit=10').then(res => res.json()),
+    ]).then(([kpi, recent]) => {
+      if (kpi.success && recent.success) {
+        setData({
+          cases: recent.data.cases,
+          openCount: kpi.data.openCases,
+          breachedCount: kpi.data.breachedOpenCases,
+          avgSat: kpi.data.avgSatScore,
+          avgResTime: kpi.data.avgResTime,
+          escalationsToday: kpi.data.escalationsToday,
+        });
+      }
+      setLoading(false);
+    });
   }, []);
 
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -98,7 +74,7 @@ export default function SupportDashboard() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.cases.slice(0, 10).map((c: any) => (
+            {data.cases.map((c: any) => (
               <TableRow key={c._id}>
                 <TableCell className="font-medium">{c.case_number}</TableCell>
                 <TableCell>{c.account_id?.company_name}</TableCell>

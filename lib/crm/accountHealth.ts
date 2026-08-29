@@ -72,65 +72,21 @@ export interface AccountHealthResult {
   };
 }
 
-export async function computeAndStoreAccountHealth(
-  accountId: string,
-  tenantId: string,
-  systemUserId?: string
-): Promise<AccountHealthResult> {
-  await dbConnect();
+// ── Pure scoring — shared by the single-account and bulk-refresh paths ──────
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+interface HealthSignals {
+  openOpps: number;
+  recentActivities: number;
+  allActivities: number;
+  openCases: number;
+  breachedCases: number;
+  closedCasesWithRating: { satisfaction_score?: number }[];
+  activeContracts: number;
+  expiringContracts: number;
+}
 
-  // ── Fetch signals in parallel ─────────────────────────────────────────────
-  const [
-    openOpps,
-    recentActivities,
-    allActivities,
-    openCases,
-    breachedCases,
-    closedCasesWithRating,
-    activeContracts,
-    expiringContracts,
-  ] = await Promise.all([
-    CrmOpportunity.countDocuments({
-      account_id: accountId,
-      tenantId,
-      stage: { $nin: ["Closed Won", "Closed Lost"] },
-    }),
-    CrmActivity.countDocuments({
-      linked_account_id: accountId,
-      tenantId,
-      activity_date: { $gte: thirtyDaysAgo },
-    }),
-    CrmActivity.countDocuments({ linked_account_id: accountId, tenantId }),
-    CrmCase.countDocuments({
-      account_id: accountId,
-      tenantId,
-      status: { $nin: ["Resolved", "Closed"] },
-    }),
-    CrmCase.countDocuments({
-      account_id: accountId,
-      tenantId,
-      sla_breached: true,
-      createdAt: { $gte: ninetyDaysAgo },
-    }),
-    CrmCase.find({
-      account_id: accountId,
-      tenantId,
-      satisfaction_score: { $exists: true, $ne: null },
-    })
-      .select("satisfaction_score")
-      .lean(),
-    CrmContract.countDocuments({ account_id: accountId, tenantId, status: "Active" }),
-    CrmContract.countDocuments({
-      account_id: accountId,
-      tenantId,
-      status: { $in: ["Renewal Due", "Expiring"] },
-    }),
-  ]);
+function scoreAccountHealth(signals: HealthSignals): AccountHealthResult {
+  const { openOpps, recentActivities, allActivities, openCases, breachedCases, closedCasesWithRating, activeContracts, expiringContracts } = signals;
 
   // ── Score each dimension (0–20 per bucket, max 120 → normalised to 100) ───
 
@@ -192,6 +148,92 @@ export async function computeAndStoreAccountHealth(
   const score = Math.max(0, Math.min(100, rawScore));
   const category = getHealthCategory(score);
 
+  return {
+    score,
+    category,
+    breakdown: {
+      opportunityScore,
+      activityScore,
+      caseScore,
+      contractScore,
+      satisfactionScore,
+      engagementScore,
+    },
+  };
+}
+
+export async function computeAndStoreAccountHealth(
+  accountId: string,
+  tenantId: string,
+  systemUserId?: string
+): Promise<AccountHealthResult> {
+  await dbConnect();
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  // ── Fetch signals in parallel ─────────────────────────────────────────────
+  const [
+    openOpps,
+    recentActivities,
+    allActivities,
+    openCases,
+    breachedCases,
+    closedCasesWithRating,
+    activeContracts,
+    expiringContracts,
+  ] = await Promise.all([
+    CrmOpportunity.countDocuments({
+      account_id: accountId,
+      tenantId,
+      stage: { $nin: ["Closed Won", "Closed Lost"] },
+    }),
+    CrmActivity.countDocuments({
+      linked_account_id: accountId,
+      tenantId,
+      activity_date: { $gte: thirtyDaysAgo },
+    }),
+    CrmActivity.countDocuments({ linked_account_id: accountId, tenantId }),
+    CrmCase.countDocuments({
+      account_id: accountId,
+      tenantId,
+      status: { $nin: ["Resolved", "Closed"] },
+    }),
+    CrmCase.countDocuments({
+      account_id: accountId,
+      tenantId,
+      sla_breached: true,
+      createdAt: { $gte: ninetyDaysAgo },
+    }),
+    CrmCase.find({
+      account_id: accountId,
+      tenantId,
+      satisfaction_score: { $exists: true, $ne: null },
+    })
+      .select("satisfaction_score")
+      .lean(),
+    CrmContract.countDocuments({ account_id: accountId, tenantId, status: "Active" }),
+    CrmContract.countDocuments({
+      account_id: accountId,
+      tenantId,
+      status: { $in: ["Renewal Due", "Expiring"] },
+    }),
+  ]);
+
+  const result = scoreAccountHealth({
+    openOpps,
+    recentActivities,
+    allActivities,
+    openCases,
+    breachedCases,
+    closedCasesWithRating: closedCasesWithRating as any,
+    activeContracts,
+    expiringContracts,
+  });
+  const { score, category } = result;
+
   // ── Persist score to account ──────────────────────────────────────────────
   const account = await CrmAccount.findOne({ _id: accountId, tenantId });
   if (account) {
@@ -223,36 +265,122 @@ export async function computeAndStoreAccountHealth(
     }
   }
 
-  return {
-    score,
-    category,
-    breakdown: {
-      opportunityScore,
-      activityScore,
-      caseScore,
-      contractScore,
-      satisfactionScore,
-      engagementScore,
-    },
-  };
+  return result;
 }
 
 // ─── Bulk health refresh for tenant ──────────────────────────────────────────
-
+//
+// Rewritten to the same "bulk-fetch-and-group" pattern as
+// scanTenantChurnRisk() (lib/crm/churnRisk.ts) instead of looping
+// computeAndStoreAccountHealth() one account at a time — that loop meant N
+// accounts paid N sequential round-trip groups (8 queries each) plus N
+// individual account.save() writes. This does 5 tenant-wide queries total,
+// groups everything by account_id in memory, and persists with one
+// bulkWrite + one insertMany.
 export async function refreshAllAccountHealth(
   tenantId: string,
   systemUserId?: string
 ): Promise<{ updated: number }> {
   await dbConnect();
-  const accounts = await CrmAccount.find({ tenantId }).select("_id").lean();
-  let updated = 0;
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const [accounts, opportunities, activities, cases, contracts] = await Promise.all([
+    CrmAccount.find({ tenantId }).select("_id status account_health_score").lean(),
+    CrmOpportunity.find({ tenantId, stage: { $nin: ["Closed Won", "Closed Lost"] } })
+      .select("account_id")
+      .lean(),
+    CrmActivity.find({ tenantId }).select("linked_account_id activity_date").lean(),
+    CrmCase.find({ tenantId }).select("account_id status sla_breached createdAt satisfaction_score").lean(),
+    CrmContract.find({ tenantId }).select("account_id status").lean(),
+  ]);
+
+  const oppMap: Record<string, number> = {};
+  for (const o of opportunities) {
+    const id = String((o as any).account_id);
+    oppMap[id] = (oppMap[id] || 0) + 1;
+  }
+
+  const activityMap: Record<string, { total: number; recent: number }> = {};
+  for (const a of activities) {
+    const id = String((a as any).linked_account_id);
+    if (!activityMap[id]) activityMap[id] = { total: 0, recent: 0 };
+    activityMap[id].total++;
+    if (new Date((a as any).activity_date) >= thirtyDaysAgo) activityMap[id].recent++;
+  }
+
+  const caseMap: Record<string, any[]> = {};
+  for (const c of cases) {
+    const id = String((c as any).account_id);
+    if (!caseMap[id]) caseMap[id] = [];
+    caseMap[id].push(c);
+  }
+
+  const contractMap: Record<string, any[]> = {};
+  for (const c of contracts) {
+    const id = String((c as any).account_id);
+    if (!contractMap[id]) contractMap[id] = [];
+    contractMap[id].push(c);
+  }
+
+  const accountUpdates: any[] = [];
+  const auditLogs: any[] = [];
+
   for (const acct of accounts) {
-    try {
-      await computeAndStoreAccountHealth(String(acct._id), tenantId, systemUserId);
-      updated++;
-    } catch {
-      // Continue on individual failures
+    const acctId = String(acct._id);
+    const acctCases = caseMap[acctId] || [];
+    const acctContracts = contractMap[acctId] || [];
+    const acctActivity = activityMap[acctId] || { total: 0, recent: 0 };
+
+    const openCases = acctCases.filter((c) => !["Resolved", "Closed"].includes(c.status)).length;
+    const breachedCases = acctCases.filter((c) => c.sla_breached && new Date(c.createdAt) >= ninetyDaysAgo).length;
+    const closedCasesWithRating = acctCases.filter((c) => c.satisfaction_score != null);
+    const activeContracts = acctContracts.filter((c) => c.status === "Active").length;
+    const expiringContracts = acctContracts.filter((c) => ["Renewal Due", "Expiring"].includes(c.status)).length;
+
+    const { score, category } = scoreAccountHealth({
+      openOpps: oppMap[acctId] || 0,
+      recentActivities: acctActivity.recent,
+      allActivities: acctActivity.total,
+      openCases,
+      breachedCases,
+      closedCasesWithRating,
+      activeContracts,
+      expiringContracts,
+    });
+
+    const prevScore = (acct as any).account_health_score;
+    const update: Record<string, unknown> = { account_health_score: score };
+    if ((category === "Critical" || category === "At Risk") && (acct as any).status === "Active") {
+      update.status = "At Risk";
+    } else if ((category === "Healthy" || category === "Warning") && (acct as any).status === "At Risk") {
+      update.status = "Active";
+    }
+
+    accountUpdates.push({
+      updateOne: { filter: { _id: acct._id, tenantId }, update: { $set: update } },
+    });
+
+    if (systemUserId && Math.abs(score - prevScore) >= 10) {
+      auditLogs.push({
+        tenantId,
+        user_id: systemUserId,
+        action: "status_changed",
+        record_type: "Account",
+        record_id: acct._id,
+        field_name: "account_health_score",
+        old_value: prevScore.toString(),
+        new_value: `${score} (${category})`,
+        timestamp: new Date(),
+      });
     }
   }
-  return { updated };
+
+  if (accountUpdates.length) await CrmAccount.bulkWrite(accountUpdates);
+  if (auditLogs.length) await CrmAuditLog.insertMany(auditLogs);
+
+  return { updated: accounts.length };
 }

@@ -23,84 +23,83 @@ export async function GET() {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
-    // 1. Total Items (Products)
-    const currentItems = await Product.countDocuments({
-      tenantId,
-    });
+    // These 6 reads are independent of each other, so run them concurrently
+    // instead of as a sequential waterfall.
+    const [currentItems, valueAgg, receiptsToProcess, deliveriesToProcess, manufacturingToProcess, lowStockAgg] =
+      await Promise.all([
+        // 1. Total Items (Products)
+        Product.countDocuments({ tenantId }),
 
-    // 2. Total Value (Stock * Cost)
-    const valueAgg = await Stock.aggregate([
-      { $match: { tenantId } },
-      {
-        $group: {
-          _id: "$product",
-          quantity: { $sum: "$quantity" },
-        },
-      },
-      {
-        $lookup: {
-          from: "products",
-          localField: "_id",
-          foreignField: "_id",
-          as: "productDoc",
-        },
-      },
-      { $unwind: "$productDoc" },
-      {
-        $project: {
-          value: {
-            $multiply: [
-              "$quantity",
-              {
-                $ifNull: [
-                  "$productDoc.tab_general_information.standard_price",
-                  0,
+        // 2. Total Value (Stock * Cost)
+        Stock.aggregate([
+          { $match: { tenantId } },
+          {
+            $group: {
+              _id: "$product",
+              quantity: { $sum: "$quantity" },
+            },
+          },
+          {
+            $lookup: {
+              from: "products",
+              localField: "_id",
+              foreignField: "_id",
+              as: "productDoc",
+            },
+          },
+          { $unwind: "$productDoc" },
+          {
+            $project: {
+              value: {
+                $multiply: [
+                  "$quantity",
+                  {
+                    $ifNull: [
+                      "$productDoc.tab_general_information.standard_price",
+                      0,
+                    ],
+                  },
                 ],
               },
-            ],
+            },
           },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalValue: { $sum: "$value" },
-        },
-      },
-    ]);
+          {
+            $group: {
+              _id: null,
+              totalValue: { $sum: "$value" },
+            },
+          },
+        ]),
+
+        // 3. Operational Counts
+        StockTransfer.countDocuments({
+          "header.operationType": "incoming",
+          status: { $ne: DOCUMENT_STATUS.CLOSED },
+        }),
+
+        StockTransfer.countDocuments({
+          "header.operationType": "outgoing",
+          status: { $ne: DOCUMENT_STATUS.CLOSED },
+        }),
+
+        ManufacturingOrder.countDocuments({
+          status: { $ne: DOCUMENT_STATUS.CLOSED },
+        }),
+
+        // 4. Low Stock (Items with quantity <= 5)
+        Stock.aggregate([
+          { $match: { tenantId } },
+          {
+            $group: {
+              _id: "$product",
+              quantity: { $sum: "$quantity" },
+            },
+          },
+          { $match: { quantity: { $lte: 5 } } },
+          { $count: "count" },
+        ]),
+      ]);
     const totalValue = valueAgg[0]?.totalValue || 0;
-
-    // 3. Operational Counts
-    const receiptsToProcess = await StockTransfer.countDocuments({
-      "header.operationType": "incoming",
-      status: { $ne: DOCUMENT_STATUS.CLOSED },
-    });
-
-    const deliveriesToProcess = await StockTransfer.countDocuments({
-      "header.operationType": "outgoing",
-      status: { $ne: DOCUMENT_STATUS.CLOSED },
-    });
-
-    const manufacturingToProcess = await ManufacturingOrder.countDocuments({
-       
-      status: { $ne: DOCUMENT_STATUS.CLOSED },
-    });
-
-    // 4. Low Stock (Items with quantity <= 5)
-    // We need to aggregate stock first.
-    // Re-use aggregation or simpler check?
-    // Aggregate all products quantities. Count those <= 5.
-    const lowStockAgg = await Stock.aggregate([
-      { $match: { tenantId } },
-      {
-        $group: {
-          _id: "$product",
-          quantity: { $sum: "$quantity" },
-        },
-      },
-      { $match: { quantity: { $lte: 5 } } },
-      { $count: "count" },
-    ]);
     const lowStockCount = lowStockAgg[0]?.count || 0;
 
     const summary = {

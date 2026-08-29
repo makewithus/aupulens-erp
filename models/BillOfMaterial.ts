@@ -81,6 +81,8 @@ const BillOfMaterialSchema = new Schema<IBillOfMaterial>(
   { timestamps: true },
 );
 
+BillOfMaterialSchema.index({ tenantId: 1, createdAt: -1 });
+
 // Prevent overwrite
 const BillOfMaterial: Model<IBillOfMaterial> =
   (mongoose.models.BillOfMaterial as Model<IBillOfMaterial>) ||

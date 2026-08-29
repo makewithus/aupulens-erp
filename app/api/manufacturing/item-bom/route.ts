@@ -21,13 +21,27 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const boms = await ItemBOM.find(filter)
+  const baseQuery = ItemBOM.find(filter)
     .populate("itemToProduceId", "name unit type")
     .populate("components.itemId", "name unit")
-    .sort({ createdAt: -1 })
-    .lean();
+    .sort({ createdAt: -1 });
 
-  return NextResponse.json({ success: true, data: boms });
+  const pageParam = searchParams.get("page");
+  if (!pageParam) {
+    const boms = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: boms, total: boms.length, page: 1, totalPages: 1 });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
+  const skip = (page - 1) * limit;
+
+  const [total, boms] = await Promise.all([
+    ItemBOM.countDocuments(filter),
+    baseQuery.skip(skip).limit(limit).lean(),
+  ]);
+
+  return NextResponse.json({ success: true, data: boms, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
 
 export async function POST(req: NextRequest) {

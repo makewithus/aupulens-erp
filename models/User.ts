@@ -103,6 +103,9 @@ UserSchema.index(
     },
   },
 );
+UserSchema.index({ tenantId: 1, createdAt: -1 });
+UserSchema.index({ tenantId: 1, role: 1, createdAt: -1 });
+UserSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 
 // Export the model with proper handling for Next.js hot reload
 const User =

@@ -74,6 +74,9 @@ const ExpenseSchema = new Schema<IExpense>(
   { timestamps: true },
 );
 
+ExpenseSchema.index({ tenantId: 1 });
+ExpenseSchema.index({ tenantId: 1, status: 1 });
+
 const Expense: Model<IExpense> =
   (mongoose.models.Expense as Model<IExpense>) ||
   mongoose.model<IExpense>("Expense", ExpenseSchema);

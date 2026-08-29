@@ -5,7 +5,7 @@ import connectDB from "@/lib/db";
 import StockMove from "@/models/StockMove";
 import "@/models/Warehouse";
 import "@/models/Product";
-import { checkNegativeStockGuard } from "@/lib/inventory/stockGuard";
+import { checkNegativeStockGuardBatch } from "@/lib/inventory/stockGuard";
 
 export async function GET(req: NextRequest) {
   try {
@@ -92,13 +92,16 @@ export async function POST(req: NextRequest) {
 
       // Outgoing moves reduce on-hand stock — reject any line that would
       // take a product's quantity below zero (unless it has opted in via
-      // Product.allowNegativeStock).
+      // Product.allowNegativeStock). Batched: one Product/Stock lookup for
+      // every line instead of 2 round trips per line.
       if (body.moveType === "outgoing") {
-        for (const line of body.lines) {
-          const guard = await checkNegativeStockGuard(tenantId, line.productId, -(line.demand || 0));
-          if (guard.ok === false) {
-            return NextResponse.json({ error: guard.message }, { status: 400 });
-          }
+        const guards = await checkNegativeStockGuardBatch(
+          tenantId,
+          body.lines.map((line: any) => ({ productId: line.productId, delta: -(line.demand || 0) })),
+        );
+        const failed = guards.find((g) => g.ok === false);
+        if (failed && failed.ok === false) {
+          return NextResponse.json({ error: failed.message }, { status: 400 });
         }
       }
     }

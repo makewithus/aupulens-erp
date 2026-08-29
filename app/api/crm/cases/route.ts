@@ -14,22 +14,42 @@ export async function GET(req: NextRequest) {
   
   await dbConnect();
   const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '25');
   const query: any = { tenantId: session.user.tenantId };
-  
+
   if (searchParams.get('status')) query.status = searchParams.get('status');
   if (searchParams.get('severity')) query.severity = searchParams.get('severity');
-  
-  const total = await CrmCase.countDocuments(query);
-  const cases = await CrmCase.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate('account_id', 'company_name')
-      .populate('owner_id', 'name email').lean();
-    
-  return NextResponse.json({ success: true, data: { cases, total, page } });
+  const search = searchParams.get('search');
+  if (search) {
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { case_number: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const baseQuery = CrmCase.find(query)
+    .sort({ createdAt: -1 })
+    .populate('account_id', 'company_name')
+    .populate('owner_id', 'name email');
+
+  // Pagination is opt-in via `page` — omitting it keeps returning everything,
+  // matching the convention used across the rest of this codebase.
+  const pageParam = searchParams.get('page');
+  if (!pageParam) {
+    const cases = await baseQuery.lean();
+    return NextResponse.json({ success: true, data: { cases, total: cases.length, page: 1, totalPages: 1 } });
+  }
+
+  const page = Math.max(1, parseInt(pageParam));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
+  const skip = (page - 1) * limit;
+
+  const [total, cases] = await Promise.all([
+    CrmCase.countDocuments(query),
+    baseQuery.skip(skip).limit(limit).lean(),
+  ]);
+
+  return NextResponse.json({ success: true, data: { cases, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) } });
 }
 
 export async function POST(req: NextRequest) {

@@ -56,20 +56,9 @@ export default function OnboardingPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/hr/employees?lifecycleStatus=onboarding");
+      const res = await cachedFetch("/api/hr/employees?lifecycle=onboarding,candidate");
       const json = await res.json();
-      const items = json.items || [];
-      // Also include candidates
-      const res2 = await cachedFetch("/api/hr/employees?lifecycleStatus=candidate");
-      const json2 = await res2.json();
-      const combined = [...items, ...(json2.items || [])];
-      // Deduplicate by _id in case an employee appears in both results
-      const seen = new Set<string>();
-      setEmployees(combined.filter((e) => {
-        if (seen.has(e._id)) return false;
-        seen.add(e._id);
-        return true;
-      }));
+      setEmployees(json.items || []);
     } catch {
       toast.error("Failed to load onboarding employees");
     } finally {

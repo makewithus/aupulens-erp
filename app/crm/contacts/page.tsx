@@ -29,15 +29,21 @@ const EMPTY_FORM = {
   is_primary: false, is_decision_maker: false
 };
 
+const LIMIT = 25;
+
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [stats, setStats] = useState({ total: 0, decisionMakers: 0, primary: 0, thisMonth: 0 });
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
@@ -47,14 +53,18 @@ export default function ContactsPage() {
     if (p.suggestions && p.suggestions.length) toast.info("Review before saving", { description: p.suggestions.join("  •  "), duration: 9000 });
   });
 
-  const fetchContacts = async () => {
+  const fetchContacts = async (currentPage = page, currentSearch = debouncedSearch) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/crm/contacts?search=${search}`);
+      const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (currentSearch) params.set("search", currentSearch);
+      const res = await fetch(`/api/crm/contacts?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setContacts(data.data.contacts);
         setStats(data.data.stats);
+        setTotal(data.data.total ?? 0);
+        setTotalPages(data.data.totalPages ?? 1);
       }
     } catch (e) {
       toast.error("Failed to load contacts.");
@@ -76,9 +86,18 @@ export default function ContactsPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchContacts(), 400);
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchContacts(page, debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch]);
 
   const setField = (field: string, value: any) => setForm(p => ({ ...p, [field]: value }));
 
@@ -151,7 +170,7 @@ export default function ContactsPage() {
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {contacts.length} {contacts.length === 1 ? "Contact" : "Contacts"}
+                {total} {total === 1 ? "Contact" : "Contacts"}
               </p>
             </div>
 
@@ -387,6 +406,22 @@ export default function ContactsPage() {
               )}
             </TableBody>
           </TableContainer>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  Previous
+                </Button>
+                <span className="text-sm">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

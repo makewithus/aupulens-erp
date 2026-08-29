@@ -70,14 +70,10 @@ export async function POST(request: NextRequest) {
     // ALL TEXT IN BLACK - NO COLORS
     switch (type) {
       case "sales": {
-        const orders = await SaleOrder.find({
-          tenantId,
-          createdAt: { $gte: startDate },
-        }).lean();
-        const customers = await Customer.find({
-          tenantId,
-          createdAt: { $gte: startDate },
-        }).lean();
+        const [orders, customers] = await Promise.all([
+          SaleOrder.find({ tenantId, createdAt: { $gte: startDate } }).lean(),
+          Customer.find({ tenantId, createdAt: { $gte: startDate } }).lean(),
+        ]);
 
         const totalOrders = orders.length;
         const totalRevenue = orders.reduce(
@@ -135,14 +131,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "finance": {
-        const invoices = await Invoice.find({
-          tenantId,
-          moveType: "out_invoice",
-        }).lean();
-        const bills = await Invoice.find({
-          tenantId,
-          moveType: "in_invoice",
-        }).lean();
+        const [invoices, bills] = await Promise.all([
+          Invoice.find({ tenantId, moveType: "out_invoice" }).lean(),
+          Invoice.find({ tenantId, moveType: "in_invoice" }).lean(),
+        ]);
 
         const revenue = invoices
           .filter((inv: any) => inv.state === DOCUMENT_STATUS.POSTED)
@@ -203,11 +195,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "inventory": {
-        const products = await Product.find({ tenantId }).lean();
-        const transfers = await StockTransfer.find({
-          tenantId,
-          createdAt: { $gte: startDate },
-        }).lean();
+        const [products, transfers] = await Promise.all([
+          Product.find({ tenantId }).lean(),
+          StockTransfer.find({ tenantId, createdAt: { $gte: startDate } }).lean(),
+        ]);
 
         const activeProducts = products.filter(
           (p: any) => p.status === "published",
@@ -451,8 +442,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "ledger": {
-        const accounts = await Account.find({ tenantId }).lean();
-        const invoices = await Invoice.find({ tenantId }).lean();
+        const [accounts, invoices] = await Promise.all([
+          Account.find({ tenantId }).lean(),
+          Invoice.find({ tenantId }).lean(),
+        ]);
 
         htmlContent = `
           <div class="mb-8">
@@ -502,11 +495,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "stock": {
-        const products = await Product.find({ tenantId }).lean();
-        const transfers = await StockTransfer.find({
-          tenantId,
-          createdAt: { $gte: startDate },
-        }).lean();
+        const [products, transfers] = await Promise.all([
+          Product.find({ tenantId }).lean(),
+          StockTransfer.find({ tenantId, createdAt: { $gte: startDate } }).lean(),
+        ]);
 
         htmlContent = `
           <div class="mb-8">
@@ -557,11 +549,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "warehouse": {
-        const warehouses = await Warehouse.find({ tenantId }).lean();
-        const transfers = await StockTransfer.find({
-          tenantId,
-          createdAt: { $gte: startDate },
-        }).lean();
+        const [warehouses, transfers] = await Promise.all([
+          Warehouse.find({ tenantId }).lean(),
+          StockTransfer.find({ tenantId, createdAt: { $gte: startDate } }).lean(),
+        ]);
 
         htmlContent = `
           <div class="mb-8">
@@ -706,8 +697,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "balance": {
-        const invoices = await Invoice.find({ tenantId }).lean();
-        const products = await Product.find({ tenantId }).lean();
+        const [invoices, products] = await Promise.all([
+          Invoice.find({ tenantId }).lean(),
+          Product.find({ tenantId }).lean(),
+        ]);
 
         // Current Assets - Accounts Receivable (Amount Due on Customer Invoices)
         const receivables = invoices

@@ -93,6 +93,7 @@ const CouponSchema = new Schema<ICoupon>(
 
 CouponSchema.index({ tenantId: 1, couponCode: 1 }, { unique: true });
 CouponSchema.index({ tenantId: 1, name: 1 });
+CouponSchema.index({ tenantId: 1, createdAt: -1 });
 
 const Coupon: Model<ICoupon> =
   (mongoose.models.Coupon as Model<ICoupon>) ||

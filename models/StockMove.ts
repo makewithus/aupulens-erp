@@ -130,6 +130,13 @@ StockMoveSchema.index({ tenantId: 1, moveStatus: 1 });
 StockMoveSchema.index({ tenantId: 1, moveType: 1 });
 StockMoveSchema.index({ tenantId: 1, "sourceLocation.warehouseId": 1 });
 StockMoveSchema.index({ tenantId: 1, "destinationLocation.warehouseId": 1 });
+// The Stock Moves list (and Reports page's unfiltered fetch) sort by
+// createdAt against {tenantId}/{tenantId,moveStatus}/{tenantId,moveType}
+// filters — none of the indexes above cover that sort, so it ran as a
+// blocking in-memory sort over the whole matching set.
+StockMoveSchema.index({ tenantId: 1, createdAt: -1 });
+StockMoveSchema.index({ tenantId: 1, moveStatus: 1, createdAt: -1 });
+StockMoveSchema.index({ tenantId: 1, moveType: 1, createdAt: -1 });
 
 const StockMove: Model<IStockMove> =
   (mongoose.models.StockMove as Model<IStockMove>) ||
