@@ -43,7 +43,7 @@ export function NetProfitCard({
       <CardContent className="p-10">
         <div className="text-center">
           <p
-            className={`text-[64px] font-black leading-none tracking-tighter ${
+            className={`font-mono text-[64px] font-bold leading-none tracking-tighter ${
               isProfit ? "text-emerald-500" : "text-rose-500"
             }`}
           >

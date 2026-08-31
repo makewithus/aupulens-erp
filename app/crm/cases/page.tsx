@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,21 +33,37 @@ const EMPTY_FORM = {
 };
 
 export default function CasesPage() {
+  return (
+    <Suspense fallback={null}>
+      <CasesPageInner />
+    </Suspense>
+  );
+}
+
+function CasesPageInner() {
+  const searchParams = useSearchParams();
   const [cases, setCases] = useState<any[]>([]);
   const [stats, setStats] = useState({ openCases: 0, overdueCases: 0, slaBreaches: 0, resolvedToday: 0, avgResTime: "0", reopenedCases: 0, avgSatScore: 0, escalations: 0 });
   const [accounts, setAccounts] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. `statusFilter` has no filter UI on this page yet,
+  // but the API accepts it, so an AI-initiated redirect can still land on
+  // a pre-filtered list. `debouncedSearch` is seeded too (not just
+  // `search`) so a seeded search term doesn't wait out its typing-debounce.
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
@@ -63,6 +80,7 @@ export default function CasesPage() {
       if (currentSearch) params.set("search", currentSearch);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`/api/crm/cases?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -109,12 +127,11 @@ export default function CasesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, dateFrom, dateTo]);
+  }, [debouncedSearch, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     fetchCases(page, debouncedSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, dateFrom, dateTo]);
+  }, [page, debouncedSearch, dateFrom, dateTo, statusFilter]);
 
   const setField = (field: string, value: any) => setForm(p => ({ ...p, [field]: value }));
 

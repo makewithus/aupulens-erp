@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -47,8 +47,17 @@ import { toast } from "sonner";
 import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 export default function TasksPage() {
+  return (
+    <Suspense fallback={null}>
+      <TasksPageInner />
+    </Suspense>
+  );
+}
+
+function TasksPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -69,12 +78,17 @@ export default function TasksPage() {
   const [aiGoal, setAiGoal] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the tasks fetched on
+  // mount are already narrowed by them. This page filters entirely
+  // client-side (fetches every task, then narrows locally), so seeding
+  // this state is all that's needed — no API param wiring required.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState("createdAt");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterDepartment, setFilterDepartment] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   const departments = ["Sales", "Finance", "Inventory", "Manufacturing"];
 

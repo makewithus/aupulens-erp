@@ -122,9 +122,21 @@ export async function POST(request: NextRequest) {
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
+    // Recent conversation, if the client sent any — lets a bare follow-up
+    // ("and returns?", "now show me all of them") resolve against what was
+    // just discussed instead of being extracted in isolation and missing
+    // context every message after the first turn used to lose.
+    const rawHistory: Array<{ role?: string; content?: string }> = Array.isArray(body.history) ? body.history : [];
+    const historyTurns = rawHistory
+      .filter((h) => h && (h.role === "user" || h.role === "assistant") && typeof h.content === "string" && h.content.trim())
+      .slice(-8);
+    const historySection = historyTurns.length
+      ? `Recent conversation (oldest first — for resolving a follow-up; the CURRENT question below always wins on anything it states explicitly):\n${historyTurns.map((h) => `${h.role === "user" ? "User" : "Assistant"}: ${String(h.content).slice(0, 500)}`).join("\n")}\n\n`
+      : "";
+
     const prompt = `You are extracting a structured lookup query from an Inventory-module chat question in an ERP system. Today's date is ${todayIso}.
 
-User question: "${message}"
+${historySection}User question: "${message}"
 
 Return ONLY JSON (no markdown, no prose) in this exact shape:
 {"entity": "product" | "batch" | "warehouse" | "receipt" | "delivery" | "manufacturing_order" | "return" | "stock_move" | "inventory_order" | "alert" | "none", "wantsToOpen": false, "nameQuery": "", "dateFrom": "", "dateTo": "", "status": "", "amountMin": null, "amountMax": null}
@@ -136,7 +148,8 @@ Rules:
 - "dateFrom"/"dateTo": resolve ANY date-range phrasing to real YYYY-MM-DD dates using today (${todayIso}) as the anchor. An explicit date WITH a year is absolute — use that exact date, even if it's in the future relative to your training data; today's date above is the only source of truth for "now"/"future". "X till now"/"X to date"/"since X" → dateFrom = X, dateTo empty. "first week of August" → the 1st to the 7th of the nearest August not in the future. "last three months" → 3 months before today to today. "this month" → the 1st of the current month to today. "in August" with no year → the nearest August that is not in the future. For "batch"/"manufacturing_order" a date phrase like "expiring in September" or "scheduled for..." still maps to dateFrom/dateTo the same way. If there is NO date phrasing at all, leave both empty strings.
 - "status": only when the user clearly names a status. Map their words to the closest ONE of these, depending on entity — product: draft, published. batch: active, expired, quarantine, released. warehouse: active, inactive, maintenance. receipt/delivery/return: draft, pending_approval, approved, posted, closed, rejected, cancelled. manufacturing_order: demand_forecast, production_order, material_reserved, material_issued, in_production, qc_pending, qc_passed, qc_failed, rework, finished, cancelled. stock_move: requested, source_validated, destination_assigned, move_executed, valuation_updated, accounting_created, cancelled. inventory_order: draft, pending_approval, approved, posted, closed, rejected, cancelled. alert: out_of_stock, critical, low_stock (map "out of stock"/"zero stock" → out_of_stock, "critical"/"urgent" → critical, "low stock"/"running low" → low_stock; "all alerts" → empty string). Empty string if no status named.
 - "amountMin"/"amountMax": a plain number, no currency symbol or commas. For "batch" and "manufacturing_order" this is a QUANTITY (units). For "stock_move" and "inventory_order" this is a rupee AMOUNT/valuation. Not applicable to product, warehouse, receipt, delivery, return, or alert — leave both null for those. "above/over/more than/at least X" → amountMin = X. "below/under/less than X" → amountMax = X. "between X and Y" → amountMin = X, amountMax = Y. "at most X" → amountMax = X. If no such phrasing at all, leave both null.
-- Never invent a name, a date, or an amount that isn't implied by the question. Output strict JSON, nothing else.`;
+- USE THE RECENT CONVERSATION ABOVE (if any) to resolve a follow-up that doesn't fully stand on its own — e.g. "and returns?" after a question about receipts means entity: "return" with the SAME name/date/status/amount scope the receipts question used; "now show me all of them" after a filtered lookup means the SAME entity with wantsToOpen true and every filter cleared. But the CURRENT question's own explicit words always override anything from history: if the current question names its OWN date range, status, or amount, use that instead of carrying the old one forward, and if the current question says "all time"/"all of them"/"any status"/similarly explicit language that CLEARS a filter, leave that field empty — do NOT keep a filter from an earlier turn once the user has said something that supersedes it. A current question that is already a complete, self-contained request (names its own entity and everything it needs) should be extracted from ITS OWN wording alone — ignore history for anything it doesn't otherwise need.
+- Never invent a name, a date, or an amount that isn't implied by the question or the recent conversation above. Output strict JSON, nothing else.`;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 300 });

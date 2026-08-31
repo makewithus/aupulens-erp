@@ -41,8 +41,14 @@ export async function tryAiInventoryMemoryFlow(input: {
 }): Promise<MemoryFlowOutcome> {
   const q = input.text.trim();
   if (!q || !INVENTORY_ENTITY_RX.test(q)) return { handled: false };
+  // Mid-conversation, a bare entity mention with no other signal word ("and
+  // returns?", "what about batches") is still very likely a real follow-up —
+  // the server-side extraction resolves it against the conversation history
+  // and safely falls back to "entity: none" if it isn't. Only a COLD first
+  // message (no history yet) needs the extra lookup-verb/all/date/amount/
+  // status signal to avoid over-triggering on a casual mention.
   const looksLikeLookup =
-    LOOKUP_VERB_RX.test(q) || ALL_RX.test(q) || AMOUNT_RX.test(q) || DATE_RX.test(q) || STATUS_RX.test(q);
+    LOOKUP_VERB_RX.test(q) || ALL_RX.test(q) || AMOUNT_RX.test(q) || DATE_RX.test(q) || STATUS_RX.test(q) || Boolean(input.history && input.history.length > 0);
   if (!looksLikeLookup) return { handled: false };
 
   try {

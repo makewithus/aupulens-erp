@@ -3,10 +3,10 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersTable } from "@/components/admin/UsersTable";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,17 @@ interface User {
 }
 
 export default function UsersPage() {
+  return (
+    <Suspense fallback={null}>
+      <UsersPageInner />
+    </Suspense>
+  );
+}
+
+function UsersPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,12 +69,17 @@ export default function UsersPage() {
   });
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. `debouncedSearch` is seeded too (not just
+  // `searchQuery`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,7 +123,6 @@ export default function UsersPage() {
     } else if (status === "authenticated") {
       fetchUsers();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session, router, page, debouncedSearch, roleFilter, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {

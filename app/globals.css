@@ -135,7 +135,14 @@
   body {
     @apply bg-background text-foreground;
   }
-  h1, h2, h3, h4, h5, h6 {
+  /* Excludes .font-mono headings — several components (stat cards, big
+     numeric figures) deliberately opt a heading INTO Roboto Mono for a
+     tabular/monospaced number display. Without this exclusion, this rule's
+     !important silently swapped their font-family back to Roboto Sans (and
+     their weight back to 400) no matter what utility classes the component
+     applied, so a "font-mono font-bold" heading rendered as neither mono nor
+     bold — visibly not real Roboto Mono despite the class name saying so. */
+  h1:not(.font-mono), h2:not(.font-mono), h3:not(.font-mono), h4:not(.font-mono), h5:not(.font-mono), h6:not(.font-mono) {
     font-family: var(--font-roboto), sans-serif !important;
     font-weight: 400 !important;
     letter-spacing: -0.05em !important;

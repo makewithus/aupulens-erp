@@ -3,7 +3,8 @@
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { Suspense, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,29 @@ import { BillsTable } from "@/components/finance/bills/BillsTable";
 import { BillsModals } from "@/components/finance/bills/BillsModals";
 
 export default function VendorBillsPage() {
+  return (
+    <Suspense fallback={null}>
+      <VendorBillsPageInner />
+    </Suspense>
+  );
+}
+
+function VendorBillsPageInner() {
+  const searchParams = useSearchParams();
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. `statusFilter`/`partnerId` have no filter UI on this
+  // page yet, but the API accepts both, so an AI-initiated redirect can
+  // still land on a pre-filtered list.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [partnerId, setPartnerId] = useState(() => searchParams.get("partnerId") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -45,6 +64,9 @@ export default function VendorBillsPage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (debouncedSearchQuery) params.set("search", debouncedSearchQuery);
+      if (statusFilter) params.set("status", statusFilter);
+      if (partnerId) params.set("partnerId", partnerId);
       const [res, cRes] = await Promise.all([
         cachedFetch(`/api/finance/bills?${params.toString()}`),
         cachedFetch("/api/sales/customers"),
@@ -63,6 +85,11 @@ export default function VendorBillsPage() {
   };
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
     load(page);
   }, [page]);
 
@@ -72,8 +99,7 @@ export default function VendorBillsPage() {
     } else {
       load(1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, debouncedSearchQuery, statusFilter, partnerId]);
 
   const filteredBills = useMemo(() => {
     return bills.filter(

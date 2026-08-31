@@ -3,7 +3,8 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import {
@@ -45,12 +46,30 @@ import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 const LIMIT = 10;
 
 export default function PurchaseOrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <PurchaseOrdersPageInner />
+    </Suspense>
+  );
+}
+
+function PurchaseOrdersPageInner() {
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. `statusFilter`/`partnerId` have no filter UI on this
+  // page yet, but the API accepts both, so an AI-initiated redirect can
+  // still land on a pre-filtered list. `debouncedQuery` is seeded too (not
+  // just `searchQuery`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [partnerId, setPartnerId] = useState(() => searchParams.get("partnerId") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -65,7 +84,7 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, dateFrom, dateTo]);
+  }, [debouncedQuery, dateFrom, dateTo, statusFilter, partnerId]);
 
   const load = async (currentPage = page, search = debouncedQuery) => {
     setLoading(true);
@@ -74,6 +93,8 @@ export default function PurchaseOrdersPage() {
       if (search) params.set("search", search);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (statusFilter) params.set("status", statusFilter);
+      if (partnerId) params.set("partnerId", partnerId);
       const res = await cachedFetch(`/api/finance/purchase-orders?${params.toString()}`);
       const data = await res.json();
       setOrders(data.items || []);
@@ -88,8 +109,7 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     load(page, debouncedQuery);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedQuery, dateFrom, dateTo]);
+  }, [page, debouncedQuery, dateFrom, dateTo, statusFilter, partnerId]);
 
   const filteredOrders = orders;
 

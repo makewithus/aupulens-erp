@@ -17,7 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2, Sparkles } from 'lucide-react';
-import { StatCard } from '@/components/manufacturing/StatCard';
+import { StatCard } from '@/components/admin/StatCard';
+import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
+import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -388,34 +390,30 @@ export default function AirFreightPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Active Flights"
             value={airFreights.length}
-            icon={Plane}
-            description="Currently scheduled"
-            colorClass="text-blue-800 dark:text-blue-400"
+            subtitle="Currently scheduled"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="In Transit"
             value={airFreights.filter(f => f.status === 'in-transit').length}
-            icon={Clock}
-            description="En route"
-            colorClass="text-blue-800 dark:text-blue-400"
+            subtitle="En route"
+            visual={<ActivePulse />}
           />
           <StatCard
             title="Total Cargo"
             value={`${airFreights.reduce((sum, f) => sum + f.cargo, 0)} kg`}
-            icon={MapPin}
-            description="Current shipments"
-            colorClass="text-blue-600 dark:text-blue-400"
+            subtitle="Current shipments"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="Avg Transit Time"
             value="8.5 hrs"
-            icon={Clock}
-            description="Last 30 days"
-            colorClass="text-purple-600 dark:text-purple-400"
+            subtitle="Last 30 days"
+            visual={<UsersGraph />}
           />
         </div>
 

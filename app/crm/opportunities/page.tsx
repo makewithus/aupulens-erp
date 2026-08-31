@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,15 @@ const STAGE_COLORS: Record<string, string> = {
 };
 
 export default function OpportunitiesPage() {
+  return (
+    <Suspense fallback={null}>
+      <OpportunitiesPageInner />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageInner() {
+  const searchParams = useSearchParams();
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [kpis, setKpis] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -51,11 +61,15 @@ export default function OpportunitiesPage() {
   const LIMIT = 25;
 
   // Toolbar state
-  const [search, setSearch] = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. This page's fetch is already debounced as a whole
+  // (see the effect below), so no separate `debouncedSearch` seed is needed.
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [stageFilter, setStageFilter] = useState(() => searchParams.get("stage") || "all");
   const [riskFilter, setRiskFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

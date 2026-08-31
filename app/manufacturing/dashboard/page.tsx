@@ -21,7 +21,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { StatsRowSkeleton, FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
-import { StatCard } from "@/components/manufacturing/StatCard";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import { ManufacturingVisualization } from "@/components/manufacturing/ManufacturingVisualization";
 import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
@@ -219,58 +222,51 @@ export default function ManufacturingDashboard() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard
             title="Planning"
             value={summary.demandForecast}
-            icon={FileText}
-            description="Demand / Orders"
-            colorClass="text-slate-600 dark:text-slate-400"
+            subtitle="Demand / Orders"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="In Production"
             value={summary.inProduction}
-            icon={Factory}
-            description="Reserved / Issued / Producing"
-            colorClass="text-blue-600 dark:text-blue-400"
+            subtitle="Reserved / Issued / Producing"
+            visual={<ActivePulse />}
           />
           <StatCard
             title="QC Pending"
             value={summary.qcPending}
-            icon={FlaskConical}
-            description="Awaiting Quality Check"
-            colorClass="text-yellow-600 dark:text-yellow-400"
+            subtitle="Awaiting Quality Check"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="Rework"
             value={summary.rework}
-            icon={RotateCcw}
-            description="QC Failed / Rework"
-            colorClass="text-orange-600 dark:text-orange-400"
+            subtitle="QC Failed / Rework"
+            visual={<InactiveOrbit />}
           />
           <StatCard
             title="Finished Goods"
             value={summary.finished}
-            icon={CheckCircle}
-            description="Completed Orders"
-            colorClass="text-green-600 dark:text-green-400"
+            subtitle="Completed Orders"
+            visual={<ActivePulse />}
           />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Bill of Materials"
             value={summary.totalBoms}
-            icon={FileText}
-            description="Active BOMs"
-            colorClass="text-purple-600 dark:text-purple-400"
+            subtitle="Active BOMs"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="Products"
             value={summary.totalProducts}
-            icon={Package}
-            description="Catalog Items"
-            colorClass="text-indigo-600 dark:text-indigo-400"
+            subtitle="Catalog Items"
+            visual={<UsersGraph />}
           />
         </div>
 

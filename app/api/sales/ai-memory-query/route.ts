@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
+import Product from "@/models/inventory/Product";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import SaleOrder from "@/models/sales/SaleOrder";
@@ -37,6 +38,7 @@ import {
   PAYMENT_STATE_VALUES,
   PRODUCTION_STATUS_VALUES,
   BATCH_STATUS_VALUES,
+  PRODUCT_STATUS_VALUES,
 } from "@/lib/constants/statuses";
 
 function escapeRegex(s: string): string {
@@ -54,6 +56,19 @@ function formatDate(d: any): string {
 
 function customerDisplayName(c: any): string {
   return c?.header?.displayName || c?.header?.companyName || c?.header?.name || "Unnamed customer";
+}
+
+/** Case-insensitive match against an entity's real status/stage values.
+ * `extracted.status` is normalized to lowercase during extraction below, but
+ * several entities (CRM leads/opportunities/cases/campaigns/contracts) use
+ * Title-Case vocabularies ("Closed", "New", "Prospecting") — a raw equality
+ * or `.includes()` check against those arrays would never match a lowercase
+ * value, silently breaking status filtering for the whole entity. Returns
+ * the correctly-cased canonical value (safe to assign to the query or
+ * redirect), or undefined if nothing matches. */
+function matchStatus(raw: string, values: readonly string[]): string | undefined {
+  if (!raw) return undefined;
+  return values.find((v) => v.toLowerCase() === raw.toLowerCase());
 }
 
 /** Shared $gte/$lte range builder for a Date-typed field — end date is
@@ -79,7 +94,7 @@ function amountRangeFilter(min: number | null, max: number | null): Record<strin
   return range;
 }
 
-type MemoryEntity = "customer" | "invoice" | "quote" | "sales_order" | "payment" | "subscription" | "delivery_challan" | "vendor_bill" | "expense" | "purchase_order" | "inventory_delivery" | "inventory_receipt" | "manufacturing_order" | "batch" | "crm_lead" | "crm_opportunity" | "crm_case" | "crm_campaign" | "crm_contract" | "admin_user" | "admin_task" | "activity_log" | "none";
+type MemoryEntity = "customer" | "product" | "invoice" | "quote" | "sales_order" | "payment" | "subscription" | "delivery_challan" | "vendor_bill" | "expense" | "purchase_order" | "inventory_delivery" | "inventory_receipt" | "manufacturing_order" | "batch" | "crm_lead" | "crm_opportunity" | "crm_case" | "crm_campaign" | "crm_contract" | "admin_user" | "admin_task" | "activity_log" | "none";
 
 interface Extracted {
   entity: MemoryEntity;
@@ -142,23 +157,41 @@ export async function POST(request: NextRequest) {
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
+    // Recent conversation, if the client sent any — lets a bare follow-up
+    // ("and quotes?", "now show me all of them") resolve against what was
+    // just discussed instead of being extracted in isolation and missing
+    // context every message after the first turn used to lose.
+    const rawHistory: Array<{ role?: string; content?: string }> = Array.isArray(body.history) ? body.history : [];
+    const historyTurns = rawHistory
+      .filter((h) => h && (h.role === "user" || h.role === "assistant") && typeof h.content === "string" && h.content.trim())
+      .slice(-8);
+    const historySection = historyTurns.length
+      ? `Recent conversation (oldest first — for resolving a follow-up; the CURRENT question below always wins on anything it states explicitly):\n${historyTurns.map((h) => `${h.role === "user" ? "User" : "Assistant"}: ${String(h.content).slice(0, 500)}`).join("\n")}\n\n`
+      : "";
+
     const prompt = `You are extracting a structured lookup query from a Sales-, Finance-, Inventory-, or CRM-module chat question in an ERP system. Today's date is ${todayIso}.
 
-User question: "${message}"
+${historySection}User question: "${message}"
 
 Return ONLY JSON (no markdown, no prose) in this exact shape:
-{"entity": "customer" | "invoice" | "quote" | "sales_order" | "payment" | "subscription" | "delivery_challan" | "vendor_bill" | "expense" | "purchase_order" | "inventory_delivery" | "inventory_receipt" | "manufacturing_order" | "batch" | "crm_lead" | "crm_opportunity" | "crm_case" | "crm_campaign" | "crm_contract" | "admin_user" | "admin_task" | "activity_log" | "none", "wantsToOpen": false, "nameQuery": "", "dateFrom": "", "dateTo": "", "status": "", "amountMin": null, "amountMax": null}
+{"entity": "customer" | "product" | "invoice" | "quote" | "sales_order" | "payment" | "subscription" | "delivery_challan" | "vendor_bill" | "expense" | "purchase_order" | "inventory_delivery" | "inventory_receipt" | "manufacturing_order" | "batch" | "crm_lead" | "crm_opportunity" | "crm_case" | "crm_campaign" | "crm_contract" | "admin_user" | "admin_task" | "activity_log" | "none", "wantsToOpen": false, "nameQuery": "", "dateFrom": "", "dateTo": "", "status": "", "amountMin": null, "amountMax": null}
 
 Rules:
-- "entity": "customer" for a customer/client, INCLUDING questions about a customer's own receivables/balance/amount-owed (that's a property of the customer record, not a document search). "invoice" for a customer-facing sales invoice (money owed TO us BY a customer). "vendor_bill" for a vendor/supplier bill (money WE owe TO a vendor) — pick this over "invoice" whenever the question mentions a vendor/supplier, or says "bill" without customer context. "quote" for a quote/quotation/estimate. "sales_order" for a sales order/order. "payment" for a customer payment/receipt. "subscription" for a subscription/recurring plan. "delivery_challan" for a delivery challan/DC/delivery note. "expense" for an employee/business expense claim. "purchase_order" for a purchase order/PO placed with a vendor. "inventory_delivery" for a warehouse/stock delivery, outgoing shipment, or dispatch to a customer (a physical stock movement out, NOT a sales invoice). "inventory_receipt" for an incoming warehouse receipt/goods receipt from a vendor (a physical stock movement in, NOT a vendor bill). "manufacturing_order" for a manufacturing/production order/MO/work order. "batch" for an inventory batch/lot record. "crm_lead" for a CRM lead/prospect. "crm_opportunity" for a CRM deal/opportunity/pipeline item. "crm_case" for a CRM support case/ticket. "crm_campaign" for a CRM marketing campaign. "crm_contract" for a CRM customer contract/agreement (NOT a purchase/manufacturing order). "admin_user" for a system user/account/login. "admin_task" for an internal admin to-do/task assignment. "activity_log" for a system activity/audit log entry. "none" if the question isn't actually asking to look up or list a record (a how-to question, or unrelated) — when "none", leave every other field at its empty/null/false default.
+- "entity": "customer" for a customer/client, INCLUDING questions about a customer's own receivables/balance/amount-owed (that's a property of the customer record, not a document search). "product" for a product/item/SKU/catalog entry — ONLY when the question explicitly names the "sales" module (e.g. "in the sales module", "sales catalog", "sales product") or is clearly about the sales-facing catalog/pricing (list price, "can be sold", pricelists) rather than warehouse stock levels. A plain, module-unspecified product/stock question ("does this product exist", "show me all products") is Inventory's to answer, not this route's — use "none" for those so the caller's own Inventory lookup handles them; picking "product" here for an unspecified-module question would wrongly short-circuit that. "invoice" for a customer-facing sales invoice (money owed TO us BY a customer). "vendor_bill" for a vendor/supplier bill (money WE owe TO a vendor) — pick this over "invoice" whenever the question mentions a vendor/supplier, or says "bill" without customer context. "quote" for a quote/quotation/estimate. "sales_order" for a sales order/order. "payment" for a customer payment/receipt. "subscription" for a subscription/recurring plan. "delivery_challan" for a delivery challan/DC/delivery note. "expense" for an employee/business expense claim. "purchase_order" for a purchase order/PO placed with a vendor. "inventory_delivery" for a warehouse/stock delivery, outgoing shipment, or dispatch to a customer (a physical stock movement out, NOT a sales invoice). "inventory_receipt" for an incoming warehouse receipt/goods receipt from a vendor (a physical stock movement in, NOT a vendor bill). "manufacturing_order" for a manufacturing/production order/MO/work order. "batch" for an inventory batch/lot record. "crm_lead" for a CRM lead/prospect. "crm_opportunity" for a CRM deal/opportunity/pipeline item. "crm_case" for a CRM support case/ticket. "crm_campaign" for a CRM marketing campaign. "crm_contract" for a CRM customer contract/agreement (NOT a purchase/manufacturing order). "admin_user" for a system user/account/login. "admin_task" for an internal admin to-do/task assignment. "activity_log" for a system activity/audit log entry. "none" if the question isn't actually asking to look up or list a record (a how-to question, or unrelated) — when "none", leave every other field at its empty/null/false default.
 - "wantsToOpen": true whenever the user is asking for a LIST or SET of records rather than a single yes/no fact — this includes "show me", "take me to", "open", "go to", "list all", "I want to see/the ...", but ALSO "give me all/the ...", "get me ...", "fetch ...", "pull up ...", "what are all the ...", "all the ...", or any plural request scoped by a filter (a date range, a status, an amount) with no single specific name/number mentioned. false only for a genuine yes/no or single-fact question ("does X exist", "was there an invoice for X", "how many customers this month", "check if X exists", "did we create an invoice for X").
 - "nameQuery": a customer/vendor/company/account name mentioned, or a document number mentioned (invoice/quote/order/payment/DC/bill/PO/MO/batch/case/contract number). For "expense", this can also be a description/category keyword. For "batch", this can also be an item code. For "crm_lead"/"crm_opportunity", this can be a lead/deal name or company name. For "admin_user", this can be a user's name or email. For "activity_log", this can be the acting user's name or the activity text. Empty string if none mentioned.
 - "dateFrom"/"dateTo": resolve ANY date-range phrasing to real YYYY-MM-DD dates using today (${todayIso}) as the anchor. An explicit date WITH a year (e.g. "15 Aug 2026", "since 15 August 2026", "after 15/08/2026") is absolute — use that exact date, even if it's in the future relative to your training data; today's date above is the only source of truth for "now"/"future". "X till now"/"X to date"/"since X" → dateFrom = X, dateTo empty (an open-ended range needs no upper bound). "first week of August" → the 1st to the 7th of the nearest August not in the future. "last three months" → 3 months before today to today. "this month" → the 1st of the current month to today. "in August" with no year → the nearest August that is not in the future. If there is NO date phrasing at all, leave both empty strings.
-- "status": only when the user clearly names a status. Map their words to the closest ONE of these, depending on entity — invoice: draft, saved, partially_paid, paid, overdue, cancelled, unpaid. quote: draft, sent, accepted, rejected, invoiced. sales_order: draft, pending_approval, approved, confirmed, on_hold, void, closed. payment: draft, paid, void. subscription: draft, trial, active, non_renewing, unpaid, dunning, cancelled, expired. delivery_challan: pending, issued, delivered. vendor_bill: draft, pending_approval, approved, posted, closed, rejected, cancelled, paid, overdue, unpaid. expense: draft, pending_approval, approved, posted, closed, rejected, cancelled. purchase_order: draft, pending_approval, approved, posted, closed, rejected, cancelled. inventory_delivery / inventory_receipt: draft, pending_approval, approved, posted, closed, rejected, cancelled. manufacturing_order: demand_forecast, production_order, material_reserved, material_issued, in_production, qc_pending, qc_passed, qc_failed, rework, finished, cancelled. batch: active, quarantine, expired, released. crm_lead: New, Attempting Contact, Connected, Qualified, Nurture, Disqualified, Converted. crm_opportunity (this maps to the "stage", not a status): Prospecting, Discovery, Requirement Gathering, Solution Fit, Proposal Sent, Negotiation, Approval, Closed Won, Closed Lost. crm_case: New, Open, In Progress, Waiting on Customer, Waiting on Internal Team, Resolved, Closed, Reopened. crm_campaign: Draft, Planned, Active, Paused, Completed, Archived. crm_contract: Draft, Active, Renewal Due, Expiring, Expired, Terminated, Cancelled (use the closest match). admin_user: active, inactive. admin_task: todo, in_progress, review, done. Empty string if no status named.
+- "status": only when the user clearly names a status. Map their words to the closest ONE of these, depending on entity — product: draft, published. invoice: draft, saved, partially_paid, paid, overdue, cancelled, unpaid. quote: draft, sent, accepted, rejected, invoiced. sales_order: draft, pending_approval, approved, confirmed, on_hold, void, closed. payment: draft, paid, void. subscription: draft, trial, active, non_renewing, unpaid, dunning, cancelled, expired. delivery_challan: pending, issued, delivered. vendor_bill: draft, pending_approval, approved, posted, closed, rejected, cancelled, paid, overdue, unpaid. expense: draft, pending_approval, approved, posted, closed, rejected, cancelled. purchase_order: draft, pending_approval, approved, posted, closed, rejected, cancelled. inventory_delivery / inventory_receipt: draft, pending_approval, approved, posted, closed, rejected, cancelled. manufacturing_order: demand_forecast, production_order, material_reserved, material_issued, in_production, qc_pending, qc_passed, qc_failed, rework, finished, cancelled. batch: active, quarantine, expired, released. crm_lead: New, Attempting Contact, Connected, Qualified, Nurture, Disqualified, Converted. crm_opportunity (this maps to the "stage", not a status): Prospecting, Discovery, Requirement Gathering, Solution Fit, Proposal Sent, Negotiation, Approval, Closed Won, Closed Lost. crm_case: New, Open, In Progress, Waiting on Customer, Waiting on Internal Team, Resolved, Closed, Reopened. crm_campaign: Draft, Planned, Active, Paused, Completed, Archived. crm_contract: Draft, Active, Renewal Due, Expiring, Expired, Terminated, Cancelled (use the closest match). admin_user: active, inactive. admin_task: todo, in_progress, review, done. Empty string if no status named.
 - "amountMin"/"amountMax" (invoice, quote, sales_order, payment, subscription, vendor_bill, expense, purchase_order, and customer — a plain rupee number, no currency symbol or commas; NOT applicable to any other entity, none of which have a comparable single amount field exposed here): "above/over/more than/at least X" → amountMin = X. "below/under/less than X" → amountMax = X. "between X and Y" → amountMin = X, amountMax = Y. "at most X" → amountMax = X. If no amount phrasing at all, leave both null. For "customer", this filters by the customer's own receivables/balance — a question about a CUSTOMER's outstanding balance/receivables (e.g. "customers with receivables above 10000", "clients who owe more than 5000") is entity "customer" with amountMin/amountMax set, NOT entity "invoice" — only pick "invoice" when the question is actually about invoice documents themselves (e.g. "invoices above 10000").
-- Never invent a name, a date, or an amount that isn't implied by the question. Output strict JSON, nothing else.`;
+- USE THE RECENT CONVERSATION ABOVE (if any) to resolve a follow-up that doesn't fully stand on its own — e.g. "and quotes?" after a question about invoices means entity: "quote" with the SAME name/date/status/amount scope the invoice question used; "now show me all of them" after a filtered lookup means the SAME entity with wantsToOpen true and every filter cleared. But the CURRENT question's own explicit words always override anything from history: if the current question names its OWN date range, status, or amount, use that instead of carrying the old one forward, and if the current question says "all time"/"all of them"/"any status"/similarly explicit language that CLEARS a filter, leave that field empty — do NOT keep a filter from an earlier turn once the user has said something that supersedes it. A current question that is already a complete, self-contained request (names its own entity and everything it needs) should be extracted from ITS OWN wording alone — ignore history for anything it doesn't otherwise need.
+- Never invent a name, a date, or an amount that isn't implied by the question or the recent conversation above. Output strict JSON, nothing else.`;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    // History is embedded as readable text inside `prompt` itself (via
+    // historySection above) rather than passed as real multi-turn API
+    // messages — this is a single-shot extraction call, so one flat prompt
+    // keeps "today's date" / rules / conversation / current question in a
+    // single coherent context instead of splitting them across turns.
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 300 });
     if (!("text" in result)) {
       // Gated (AI disabled / cap reached) — fall through silently, let the
@@ -166,7 +199,7 @@ Rules:
       return NextResponse.json({ success: true, handled: false });
     }
 
-    const VALID_ENTITIES: MemoryEntity[] = ["customer", "invoice", "quote", "sales_order", "payment", "subscription", "delivery_challan", "vendor_bill", "expense", "purchase_order", "inventory_delivery", "inventory_receipt", "manufacturing_order", "batch", "crm_lead", "crm_opportunity", "crm_case", "crm_campaign", "crm_contract", "admin_user", "admin_task", "activity_log", "none"];
+    const VALID_ENTITIES: MemoryEntity[] = ["customer", "product", "invoice", "quote", "sales_order", "payment", "subscription", "delivery_challan", "vendor_bill", "expense", "purchase_order", "inventory_delivery", "inventory_receipt", "manufacturing_order", "batch", "crm_lead", "crm_opportunity", "crm_case", "crm_campaign", "crm_contract", "admin_user", "admin_task", "activity_log", "none"];
     let extracted: Extracted | undefined;
     try {
       const m = result.text.match(/\{[\s\S]*\}/);
@@ -289,6 +322,63 @@ Rules:
         const more = total > 10 ? `\n\n…and ${total - 10} more.` : "";
         const openNote = route ? "\n\nOpening the filtered list for you now." : "";
         message2 = `Found **${total}** customer${total === 1 ? "" : "s"}${scopeLabel ? ` ${scopeLabel}` : extracted.nameQuery ? ` matching "${extracted.nameQuery}"` : ""}:\n\n${lines.join("\n")}${more}${openNote}`;
+      }
+
+      return NextResponse.json({ success: true, handled: true, message: message2, route });
+    }
+
+    if (extracted.entity === "product") {
+      // Sales-module product catalog lookup — /sales/products, NOT
+      // /inventory/stock. Same underlying Product model as Inventory's own
+      // product lookup, but scoped to this route only when the extraction
+      // prompt above has already confirmed a "sales module" signal, so this
+      // branch never fires for a module-unspecified product question.
+      const query: any = { tenantId };
+      if (extracted.nameQuery) {
+        const rx = { $regex: escapeRegex(extracted.nameQuery), $options: "i" };
+        query.$or = [{ "header.name": rx }, { "tab_general_information.default_code": rx }];
+      }
+      if (extracted.status && (PRODUCT_STATUS_VALUES as readonly string[]).includes(extracted.status)) {
+        query.status = extracted.status;
+      }
+
+      const [total, products] = await Promise.all([
+        Product.countDocuments(query),
+        Product.find(query).sort({ createdAt: -1 }).limit(10).lean(),
+      ]);
+
+      let route: string | undefined;
+      if (extracted.wantsToOpen) {
+        const params = new URLSearchParams();
+        // The Sales Products page reads its search box from `query`, not
+        // `search` (matches /api/sales/products's own param name).
+        if (extracted.nameQuery) params.set("query", extracted.nameQuery);
+        if (extracted.status && (PRODUCT_STATUS_VALUES as readonly string[]).includes(extracted.status)) params.set("status", extracted.status);
+        if (dateFromValid) params.set("dateFrom", dateFromValid);
+        if (dateToValid) params.set("dateTo", dateToValid);
+        route = `/sales/products${params.toString() ? `?${params.toString()}` : ""}`;
+      }
+
+      const forWhom = extracted.nameQuery ? ` matching "${extracted.nameQuery}"` : "";
+      let message2: string;
+      if (extracted.nameQuery && total > 0 && !extracted.wantsToOpen) {
+        const p: any = products[0];
+        const bits = [
+          p.tab_general_information?.default_code ? `Code: ${p.tab_general_information.default_code}` : "",
+          p.tab_general_information?.list_price != null ? `List price: ${formatCurrency(p.tab_general_information.list_price)}` : "",
+          `Status: ${String(p.status || "draft").replace(/_/g, " ")}`,
+        ].filter(Boolean);
+        message2 = `Yes — **${p.header?.name}** exists in the sales catalog.\n\n${bits.map((b) => `- ${b}`).join("\n")}`;
+      } else if (extracted.nameQuery && total === 0 && !extracted.wantsToOpen) {
+        message2 = `No — I couldn't find a product named **${extracted.nameQuery}** in the sales catalog.`;
+      } else if (total === 0) {
+        message2 = `No products found${forWhom}.`;
+      } else {
+        const header = "| Product | Code | Status |\n|---|---|---|";
+        const rows = products.slice(0, 10).map((p: any) => `| ${p.header?.name} | ${p.tab_general_information?.default_code || "—"} | ${String(p.status || "draft").replace(/_/g, " ")} |`);
+        const more = total > 10 ? `\n\n…and ${total - 10} more.` : "";
+        const openNote = route ? "\n\nOpening the filtered list for you now." : "";
+        message2 = `Found **${total}** product${total === 1 ? "" : "s"}${forWhom} in the sales catalog:\n\n${header}\n${rows.join("\n")}${more}${openNote}`;
       }
 
       return NextResponse.json({ success: true, handled: true, message: message2, route });
@@ -1077,8 +1167,9 @@ Rules:
       const leadDateRange = dateRangeFilter(dateFromValid, dateToValid);
       if (leadDateRange) query.createdAt = leadDateRange;
       const LEAD_STATUS_VALUES = ["New", "Attempting Contact", "Connected", "Qualified", "Nurture", "Disqualified", "Converted"];
-      if (extracted.status && LEAD_STATUS_VALUES.includes(extracted.status)) {
-        query.status = extracted.status;
+      const matchedLeadStatus = matchStatus(extracted.status, LEAD_STATUS_VALUES);
+      if (matchedLeadStatus) {
+        query.status = matchedLeadStatus;
       }
 
       const [total, leads] = await Promise.all([
@@ -1129,8 +1220,9 @@ Rules:
       const oppDateRange = dateRangeFilter(dateFromValid, dateToValid);
       if (oppDateRange) query.expected_close_date = oppDateRange;
       const STAGE_VALUES = ["Prospecting", "Discovery", "Requirement Gathering", "Solution Fit", "Proposal Sent", "Negotiation", "Approval", "Closed Won", "Closed Lost"];
-      if (extracted.status && STAGE_VALUES.includes(extracted.status)) {
-        query.stage = extracted.status;
+      const matchedStage = matchStatus(extracted.status, STAGE_VALUES);
+      if (matchedStage) {
+        query.stage = matchedStage;
       }
 
       const [total, opportunities] = await Promise.all([
@@ -1143,7 +1235,7 @@ Rules:
         const params = new URLSearchParams();
         if (extracted.nameQuery) params.set("search", extracted.nameQuery);
         // Only echo a stage the query above actually applied.
-        if (extracted.status && STAGE_VALUES.includes(extracted.status)) params.set("stage", extracted.status);
+        if (matchedStage) params.set("stage", matchedStage);
         route = `/crm/opportunities${params.toString() ? `?${params.toString()}` : ""}`;
       }
 
@@ -1173,8 +1265,9 @@ Rules:
       const caseDateRange = dateRangeFilter(dateFromValid, dateToValid);
       if (caseDateRange) query.createdAt = caseDateRange;
       const CASE_STATUS_VALUES = ["New", "Open", "In Progress", "Waiting on Customer", "Waiting on Internal Team", "Resolved", "Closed", "Reopened"];
-      if (extracted.status && CASE_STATUS_VALUES.includes(extracted.status)) {
-        query.status = extracted.status;
+      const matchedCaseStatus = matchStatus(extracted.status, CASE_STATUS_VALUES);
+      if (matchedCaseStatus) {
+        query.status = matchedCaseStatus;
       }
 
       const [total, cases] = await Promise.all([
@@ -1188,6 +1281,7 @@ Rules:
         if (extracted.nameQuery) params.set("search", extracted.nameQuery);
         if (dateFromValid) params.set("dateFrom", dateFromValid);
         if (dateToValid) params.set("dateTo", dateToValid);
+        if (matchedCaseStatus) params.set("status", matchedCaseStatus);
         route = `/crm/cases${params.toString() ? `?${params.toString()}` : ""}`;
       }
 
@@ -1228,8 +1322,9 @@ Rules:
       }
       if (overlapConditions.length > 0) query.$and = overlapConditions;
       const CAMPAIGN_STATUS_VALUES = ["Draft", "Planned", "Active", "Paused", "Completed", "Archived"];
-      if (extracted.status && CAMPAIGN_STATUS_VALUES.includes(extracted.status)) {
-        query.status = extracted.status;
+      const matchedCampaignStatus = matchStatus(extracted.status, CAMPAIGN_STATUS_VALUES);
+      if (matchedCampaignStatus) {
+        query.status = matchedCampaignStatus;
       }
 
       const [total, campaigns] = await Promise.all([
@@ -1244,7 +1339,7 @@ Rules:
         if (dateFromValid) params.set("dateFrom", dateFromValid);
         if (dateToValid) params.set("dateTo", dateToValid);
         // Only echo a status the query above actually applied.
-        if (extracted.status && CAMPAIGN_STATUS_VALUES.includes(extracted.status)) params.set("status", extracted.status);
+        if (matchedCampaignStatus) params.set("status", matchedCampaignStatus);
         route = `/crm/campaigns${params.toString() ? `?${params.toString()}` : ""}`;
       }
 
@@ -1287,7 +1382,9 @@ Rules:
         end.setHours(23, 59, 59, 999);
         query.start_date = { $lte: end };
       }
-      if (extracted.status) query.status = extracted.status;
+      const CONTRACT_STATUS_VALUES = ["Draft", "Active", "Renewal Due", "Expiring", "Expired", "Terminated", "Cancelled"];
+      const matchedContractStatus = matchStatus(extracted.status, CONTRACT_STATUS_VALUES);
+      if (matchedContractStatus) query.status = matchedContractStatus;
 
       const [total, contracts] = await Promise.all([
         CrmContract.countDocuments(query),
@@ -1298,7 +1395,9 @@ Rules:
       if (extracted.wantsToOpen) {
         const params = new URLSearchParams();
         if (extracted.nameQuery) params.set("search", extracted.nameQuery);
-        if (extracted.status) params.set("status", extracted.status);
+        if (dateFromValid) params.set("dateFrom", dateFromValid);
+        if (dateToValid) params.set("dateTo", dateToValid);
+        if (matchedContractStatus) params.set("status", matchedContractStatus);
         route = `/crm/contracts${params.toString() ? `?${params.toString()}` : ""}`;
       }
 
@@ -1384,6 +1483,7 @@ Rules:
       let route: string | undefined;
       if (extracted.wantsToOpen) {
         const params = new URLSearchParams();
+        if (extracted.nameQuery) params.set("search", extracted.nameQuery);
         if (dateFromValid) params.set("dateFrom", dateFromValid);
         if (dateToValid) params.set("dateTo", dateToValid);
         route = `/admin/tasks${params.toString() ? `?${params.toString()}` : ""}`;

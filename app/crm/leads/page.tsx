@@ -1,6 +1,7 @@
 'use client';
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { AiTextarea } from "@/components/ai/AiTextarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,18 +76,32 @@ const EMPTY_FORM = {
 const LIMIT = 25;
 
 export default function LeadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsPageInner />
+    </Suspense>
+  );
+}
+
+function LeadsPageInner() {
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. `debouncedSearch` is seeded too (not just `search`)
+  // so a seeded search term doesn't wait out its normal typing-debounce.
+  // No status param — /api/crm/leads has no status filter to seed.
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   const { data: session } = useSession();
 
@@ -122,7 +137,6 @@ export default function LeadsPage() {
 
   useEffect(() => {
     fetchLeads(page, debouncedSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedSearch, dateFrom, dateTo]);
 
   // AI-native pre-fill: if the assistant prepared a lead, open the form with the

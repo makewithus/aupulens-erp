@@ -25,7 +25,7 @@ export interface MemoryFlowOutcome {
 // anything that isn't really a lookup, and this whole flow always resolves
 // to {handled:false} on anything it can't confidently answer.
 const SALES_ENTITY_RX =
-  /\b(customer|customers|client|clients|invoice|invoices|bill|bills|vendor[\s-]?bills?|quote|quotes|quotation|quotations|sales?[\s-]?orders?|orders?|payment|payments|subscription|subscriptions|delivery[\s-]?challans?|challans?|expense|expenses|purchase[\s-]?orders?|POs?|deliver(?:y|ies)|receipts?|manufacturing[\s-]?orders?|production[\s-]?orders?|MOs?|batch(?:es)?|lots?|leads?|opportunit(?:y|ies)|deals?|cases?|tickets?|campaigns?|contracts?|activity[\s-]?logs?|audit[\s-]?logs?|user[\s-]?accounts?|system[\s-]?users?|admin[\s-]?tasks?|to-?dos?)\b/i;
+  /\b(customer|customers|client|clients|product|products|item|items|catalog(?:ue)?|invoice|invoices|bill|bills|vendor[\s-]?bills?|quote|quotes|quotation|quotations|sales?[\s-]?orders?|orders?|payment|payments|subscription|subscriptions|delivery[\s-]?challans?|challans?|expense|expenses|purchase[\s-]?orders?|POs?|deliver(?:y|ies)|receipts?|manufacturing[\s-]?orders?|production[\s-]?orders?|MOs?|batch(?:es)?|lots?|leads?|opportunit(?:y|ies)|deals?|cases?|tickets?|campaigns?|contracts?|activity[\s-]?logs?|audit[\s-]?logs?|user[\s-]?accounts?|system[\s-]?users?|admin[\s-]?tasks?|to-?dos?)\b/i;
 const LOOKUP_VERB_RX =
   /\b(exist|exists|existed|find|found|search|show|display|list|check|look ?up|is there|are there|was there|were there|how many|count|when (was|did)|give|get me|fetch|pull up|i want (to see|the)|do we have|did (we|i) create|created)\b/i;
 const ALL_RX = /\ball\b/i;
@@ -50,8 +50,14 @@ export async function tryAiMemoryFlow(input: {
 }): Promise<MemoryFlowOutcome> {
   const q = input.text.trim();
   if (!q || !SALES_ENTITY_RX.test(q)) return { handled: false };
+  // Mid-conversation, a bare entity mention with no other signal word ("and
+  // quotes?", "what about invoices") is still very likely a real follow-up —
+  // the server-side extraction resolves it against the conversation history
+  // and safely falls back to "entity: none" if it isn't. Only a COLD first
+  // message (no history yet) needs the extra lookup-verb/all/date/amount/
+  // status signal to avoid over-triggering on a casual mention.
   const looksLikeLookup =
-    LOOKUP_VERB_RX.test(q) || ALL_RX.test(q) || AMOUNT_RX.test(q) || DATE_RX.test(q) || STATUS_RX.test(q);
+    LOOKUP_VERB_RX.test(q) || ALL_RX.test(q) || AMOUNT_RX.test(q) || DATE_RX.test(q) || STATUS_RX.test(q) || Boolean(input.history && input.history.length > 0);
   if (!looksLikeLookup) return { handled: false };
 
   try {

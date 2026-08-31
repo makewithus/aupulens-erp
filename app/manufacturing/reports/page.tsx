@@ -11,7 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, BarChart3, Download, TrendingUp, TrendingDown, FileSpreadsheet, FileText } from 'lucide-react';
-import { StatCard } from '@/components/manufacturing/StatCard';
+import { StatCard } from '@/components/admin/StatCard';
+import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
+import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
+import { InactiveOrbit } from '@/components/admin/graphics/InactiveOrbit';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { toast } from 'sonner';
 
@@ -194,34 +197,30 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Shipments"
             value={stats.totalShipments}
-            icon={BarChart3}
-            description="all time"
-            colorClass="text-blue-800 dark:text-blue-400"
+            subtitle="all time"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="On-Time Delivery"
             value={`${stats.onTimeRate}%`}
-            icon={TrendingUp}
-            description="of delivered shipments"
-            colorClass="text-blue-600 dark:text-blue-400"
+            subtitle="of delivered shipments"
+            visual={<ActivePulse />}
           />
           <StatCard
             title="Avg Transit Time"
             value={`${stats.avgTransitDays} days`}
-            icon={TrendingDown}
-            description="delivered shipments"
-            colorClass="text-blue-800 dark:text-blue-400"
+            subtitle="delivered shipments"
+            visual={<UsersGraph />}
           />
           <StatCard
             title="Customs Delays"
             value={stats.customsDelays}
-            icon={TrendingDown}
-            description="delayed or held"
-            colorClass="text-red-600 dark:text-red-400"
+            subtitle="delayed or held"
+            visual={<InactiveOrbit />}
           />
         </div>
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -137,14 +137,29 @@ const INITIAL_PRODUCT_STATE: ProductFormData = {
 const LIMIT = 10;
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageInner />
+    </Suspense>
+  );
+}
+
+function ProductsPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. `debouncedQuery` is seeded too (not just `query`) so
+  // a seeded search term doesn't wait out its normal 300ms typing-debounce.
+  const [query, setQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -174,13 +189,14 @@ export default function ProductsPage() {
     parent_id: null,
   });
 
-  const load = useCallback(async (currentPage = page, search = debouncedQuery, from = dateFrom, to = dateTo) => {
+  const load = useCallback(async (currentPage = page, search = debouncedQuery, from = dateFrom, to = dateTo, statusF = statusFilter) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
+      if (statusF) params.set("status", statusF);
       const res = await cachedFetch(`/api/sales/products?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
@@ -192,7 +208,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery, dateFrom, dateTo]);
+  }, [page, debouncedQuery, dateFrom, dateTo, statusFilter]);
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -237,16 +253,15 @@ export default function ProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, dateFrom, dateTo]);
+  }, [debouncedQuery, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     if (status === "authenticated") {
-      load(page, debouncedQuery, dateFrom, dateTo);
+      load(page, debouncedQuery, dateFrom, dateTo, statusFilter);
       loadAccounts();
       loadPricelists();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, loadAccounts, loadPricelists, page, debouncedQuery, dateFrom, dateTo]);
+  }, [status, loadAccounts, loadPricelists, page, debouncedQuery, dateFrom, dateTo, statusFilter]);
 
   const filtered = data;
 

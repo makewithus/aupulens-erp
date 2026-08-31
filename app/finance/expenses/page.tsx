@@ -3,9 +3,9 @@
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,13 +21,27 @@ import { ExpensesTable } from "@/components/finance/expenses/ExpensesTable";
 import { ExpensesModals } from "@/components/finance/expenses/ExpensesModals";
 
 export default function ExpensesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExpensesPageInner />
+    </Suspense>
+  );
+}
+
+function ExpensesPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // AI-native "redirect with filters" — seed date filters from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. This API only supports dateFrom/dateTo server-side
+  // (search filters client-side over the loaded page), so that's all that's
+  // seeded here.
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);

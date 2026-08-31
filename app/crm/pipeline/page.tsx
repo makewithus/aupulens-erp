@@ -5,8 +5,11 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/manufacturing/StatCard";
-import { Layers, DollarSign, Scale, BarChart3, Trophy, TrendingDown, ChevronDown, ChevronUp } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const STAGES = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval', 'Closed Won', 'Closed Lost'];
 const PAGE_SIZE = 5;
@@ -123,13 +126,13 @@ export default function PipelinePage() {
       <div className="mb-6 space-y-4">
         <h1 className="text-2xl font-bold">Kanban Pipeline</h1>
         {analytics && (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-            <StatCard title="Total Deals" value={analytics.totalOpportunities} icon={Layers} colorClass="text-blue-800 dark:text-blue-400" />
-            <StatCard title="Pipeline Value" value={`₹${analytics.totalPipelineValue.toLocaleString()}`} icon={DollarSign} colorClass="text-emerald-800 dark:text-emerald-400" />
-            <StatCard title="Weighted Value" value={`₹${analytics.weightedPipeline.toLocaleString()}`} icon={Scale} colorClass="text-indigo-800 dark:text-indigo-400" />
-            <StatCard title="Avg Deal Size" value={`₹${analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={BarChart3} colorClass="text-blue-800 dark:text-blue-400" />
-            <StatCard title="Win Rate" value={`${analytics.winRate.toFixed(1)}%`} icon={Trophy} colorClass="text-emerald-800 dark:text-emerald-400" />
-            <StatCard title="Loss Rate" value={`${analytics.lossRate.toFixed(1)}%`} icon={TrendingDown} colorClass="text-rose-800 dark:text-rose-400" />
+          <div className="grid grid-cols-2 gap-1 md:grid-cols-3 xl:grid-cols-6">
+            <StatCard title="Total Deals" value={analytics.totalOpportunities} visual={<UsersGraph />} />
+            <StatCard title="Pipeline Value" value={`₹${analytics.totalPipelineValue.toLocaleString()}`} visual={<ActivePulse />} />
+            <StatCard title="Weighted Value" value={`₹${analytics.weightedPipeline.toLocaleString()}`} visual={<UsersGraph />} />
+            <StatCard title="Avg Deal Size" value={`₹${analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} visual={<UsersGraph />} />
+            <StatCard title="Win Rate" value={`${analytics.winRate.toFixed(1)}%`} visual={<ActivePulse />} />
+            <StatCard title="Loss Rate" value={`${analytics.lossRate.toFixed(1)}%`} visual={<InactiveOrbit />} />
           </div>
         )}
       </div>
