@@ -55,6 +55,35 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const status = searchParams.get("status");
+    if (status && status !== "all") query.salesOrderStatus = status;
+
+    const customerId = searchParams.get("customerId");
+    if (customerId) query["header.partnerId"] = customerId;
+
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query["header.dateOrder"] = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query["header.dateOrder"].$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query["header.dateOrder"].$lte = end;
+      }
+      if (Object.keys(query["header.dateOrder"]).length === 0) delete query["header.dateOrder"];
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query["totals.amountTotal"] = {};
+      if (amountMin && !isNaN(Number(amountMin))) query["totals.amountTotal"].$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query["totals.amountTotal"].$lte = Number(amountMax);
+      if (Object.keys(query["totals.amountTotal"]).length === 0) delete query["totals.amountTotal"];
+    }
+
     const [total, orders] = await Promise.all([
       SaleOrder.countDocuments(query),
       (SaleOrder as any)

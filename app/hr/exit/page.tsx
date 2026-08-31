@@ -4,8 +4,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -49,7 +48,7 @@ const exitChecklist = [
 ];
 
 export default function ExitPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [employees, setEmployees] = useState<ExitEmployee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +69,8 @@ export default function ExitPage() {
       setLoading(false);
     }
   }, []);
+
+  usePageRefresh(load);
 
   useEffect(() => {
 
@@ -164,17 +165,7 @@ export default function ExitPage() {
   };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Exit & Clearance"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Exit & Clearance" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-8 max-w-8xl mx-auto">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -330,6 +321,6 @@ export default function ExitPage() {
           </div>
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

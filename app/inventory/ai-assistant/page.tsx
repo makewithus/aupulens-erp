@@ -16,6 +16,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
 import { Toaster } from '@/components/ui/toaster';
 import { tryAiCreateFlow } from '@/lib/ai/createFlow';
+import { tryAiNavFlow } from '@/lib/ai/navFlow';
+import { tryAiInventoryMemoryFlow } from '@/lib/ai/inventoryMemoryFlow';
 import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 
 interface Message {
@@ -294,6 +296,73 @@ export default function InventoryAIAssistant() {
           setTimeout(() => saveCurrentChat(), 500);
         }
         if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
+    // AI "memory": real database lookups for factual Inventory questions
+    // ("does this batch exist", "batches expiring in September", "inventory
+    // orders above 50000", "low stock items in Warehouse B") — answers from
+    // real, tenant-scoped data and, for browse-style phrasing, also
+    // navigates to the real list page with the same filters already
+    // applied. Cheap regex-gated, so this is a no-op for anything that
+    // isn't plausibly about an Inventory record.
+    try {
+      const priorTurnsForMemory = messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content }));
+      const memOutcome = await tryAiInventoryMemoryFlow({ text: userInputText, history: priorTurnsForMemory });
+      if (memOutcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: memOutcome.message || '', timestamp: new Date() };
+        setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        if (isFirstMessage) {
+          const title = userInputText.slice(0, 50).toUpperCase();
+          fetch('/api/inventory/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, messages: [
+              { role: 'user', content: userInputText, timestamp: userMessage.timestamp },
+              { role: 'assistant', content: assistantMessage.content, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved?.chat?._id) { setCurrentChatId(saved.chat._id); fetchChatHistory(); }
+          }).catch(() => {});
+        } else {
+          setTimeout(() => saveCurrentChat(), 500);
+        }
+        if (memOutcome.route) router.push(memOutcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
+    // AI navigation: "redirect to X" / "take me to X" / "open X" for ANY
+    // feature in ANY module — resolved against the app's real sidebar routes,
+    // never guessed. Actually navigates instead of just describing the steps.
+    try {
+      const navOutcome = await tryAiNavFlow({ text: userInputText });
+      if (navOutcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: navOutcome.message || '', timestamp: new Date() };
+        setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        if (isFirstMessage) {
+          const title = userInputText.slice(0, 50).toUpperCase();
+          fetch('/api/inventory/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, messages: [
+              { role: 'user', content: userInputText, timestamp: userMessage.timestamp },
+              { role: 'assistant', content: assistantMessage.content, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved?.chat?._id) { setCurrentChatId(saved.chat._id); fetchChatHistory(); }
+          }).catch(() => {});
+        } else {
+          setTimeout(() => saveCurrentChat(), 500);
+        }
+        if (navOutcome.route) router.push(navOutcome.route);
         return;
       }
     } catch {

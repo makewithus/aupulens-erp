@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 // Extracted Subcomponents
 import { ReturnsTable } from "@/components/inventory/operations/returns/ReturnsTable";
@@ -21,16 +22,38 @@ import { ReturnsModals } from "@/components/inventory/operations/returns/Returns
 const LIMIT = 10;
 
 export default function ReturnsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReturnsPageInner />
+    </Suspense>
+  );
+}
+
+function ReturnsPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. No status selector exists in this page's UI, but the
+  // API accepts the param, so an AI-initiated redirect can still land on a
+  // pre-filtered list. This used to seed via a separate useEffect after
+  // mount, which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect. `debouncedQuery` is seeded too (not just `query`) so
+  // a seeded search term doesn't wait out its normal 300ms typing-debounce.
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("search") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [formData, setFormData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -48,7 +71,7 @@ export default function ReturnsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -57,8 +80,7 @@ export default function ReturnsPage() {
     if (status === "authenticated") {
       fetchReturns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, router, page, debouncedQuery]);
+  }, [status, router, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -95,6 +117,9 @@ export default function ReturnsPage() {
       setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (statusFilter) params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(`/api/inventory/operations/returns?${params.toString()}`);
       const data = await res.json();
       setItems(data.items || []);
@@ -237,6 +262,12 @@ export default function ReturnsPage() {
                     placeholder="Search returns..."
                   />
                 </div>
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
                 <Button
                   onClick={handleCreate}
                   className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"

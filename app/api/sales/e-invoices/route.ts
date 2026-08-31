@@ -53,9 +53,25 @@ export async function GET(request: NextRequest) {
       query.status = status;
     }
 
-    const createdRange = dateRangeForFilter(searchParams.get("range"));
-    if (createdRange) {
-      query.createdAt = createdRange;
+    // An explicit custom dateFrom/dateTo takes precedence over the preset
+    // "range" quick-filter (today/this week/this month/...) when both are
+    // somehow present — a user picking exact dates is more specific intent.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.createdAt = range;
+    } else {
+      const createdRange = dateRangeForFilter(searchParams.get("range"));
+      if (createdRange) {
+        query.createdAt = createdRange;
+      }
     }
 
     const search = searchParams.get("search")?.trim().toLowerCase();

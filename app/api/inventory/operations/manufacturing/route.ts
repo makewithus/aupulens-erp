@@ -28,6 +28,29 @@ export async function GET(req: NextRequest) {
       query["header.name"] = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     }
 
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query["header.scheduledDate"] = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query["header.scheduledDate"].$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query["header.scheduledDate"].$lte = end;
+      }
+      if (Object.keys(query["header.scheduledDate"]).length === 0) delete query["header.scheduledDate"];
+    }
+    const quantityMin = searchParams.get("quantityMin");
+    const quantityMax = searchParams.get("quantityMax");
+    if (quantityMin || quantityMax) {
+      query["header.quantity"] = {};
+      if (quantityMin && !isNaN(Number(quantityMin))) query["header.quantity"].$gte = Number(quantityMin);
+      if (quantityMax && !isNaN(Number(quantityMax))) query["header.quantity"].$lte = Number(quantityMax);
+      if (Object.keys(query["header.quantity"]).length === 0) delete query["header.quantity"];
+    }
+
     const baseQuery = ManufacturingOrder.find(query)
       .populate(
         "header.productId",

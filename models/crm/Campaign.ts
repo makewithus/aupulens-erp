@@ -59,5 +59,6 @@ CampaignSchema.index({ tenantId: 1, channel: 1 });
 CampaignSchema.index({ tenantId: 1, campaign_code: 1 }, { unique: true });
 CampaignSchema.index({ tenantId: 1, owner_id: 1 });
 CampaignSchema.index({ tenantId: 1, createdAt: -1 });
+CampaignSchema.index({ tenantId: 1, start_date: 1, end_date: 1 });
 
 export default (mongoose.models.CrmCampaign as Model<ICampaign>) || mongoose.model<ICampaign>("CrmCampaign", CampaignSchema);

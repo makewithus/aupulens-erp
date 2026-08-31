@@ -28,6 +28,31 @@ export async function GET(req: NextRequest) {
       query.$or = [{ batchNumber: re }, { lotNumber: re }, { itemName: re }, { itemCode: re }];
     }
 
+    // AI-native "redirect with filters" support — a date range on
+    // expiryDate (the most common "batch" question is expiry-driven) and a
+    // quantity range. Additive: omitting these params leaves every existing
+    // caller's behavior unchanged.
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    if (dateFrom || dateTo) {
+      query.expiryDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.expiryDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.expiryDate.$lte = end;
+      }
+      if (Object.keys(query.expiryDate).length === 0) delete query.expiryDate;
+    }
+    const quantityMin = searchParams.get('quantityMin');
+    const quantityMax = searchParams.get('quantityMax');
+    if (quantityMin || quantityMax) {
+      query.quantity = {};
+      if (quantityMin && !isNaN(Number(quantityMin))) query.quantity.$gte = Number(quantityMin);
+      if (quantityMax && !isNaN(Number(quantityMax))) query.quantity.$lte = Number(quantityMax);
+      if (Object.keys(query.quantity).length === 0) delete query.quantity;
+    }
+
     const baseQuery = Batch.find(query).sort({ createdAt: -1 });
 
     // Pagination is opt-in via `page` — Analytics and Reports need the full

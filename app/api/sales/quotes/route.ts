@@ -41,6 +41,32 @@ export async function GET(request: NextRequest) {
       query.$or = [{ quoteNumber: { $regex: search, $options: "i" } }, { subject: { $regex: search, $options: "i" } }];
     }
 
+    const customerId = searchParams.get("customerId");
+    if (customerId) query.customerId = customerId;
+
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.quoteDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.quoteDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.quoteDate.$lte = end;
+      }
+      if (Object.keys(query.quoteDate).length === 0) delete query.quoteDate;
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query.totalAmount = {};
+      if (amountMin && !isNaN(Number(amountMin))) query.totalAmount.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query.totalAmount.$lte = Number(amountMax);
+      if (Object.keys(query.totalAmount).length === 0) delete query.totalAmount;
+    }
+
     const [total, quotes] = await Promise.all([
       SalesQuotation.countDocuments(query),
       (SalesQuotation as any)

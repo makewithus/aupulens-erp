@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -64,6 +65,8 @@ export default function SalesOrdersPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -225,9 +228,9 @@ export default function SalesOrdersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, statusFilter]);
+  }, [debouncedQuery, statusFilter, dateFrom, dateTo]);
 
-  const load = useCallback(async (currentPage = page, search = debouncedQuery, statusF = statusFilter) => {
+  const load = useCallback(async (currentPage = page, search = debouncedQuery, statusF = statusFilter, from = dateFrom, to = dateTo) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -236,6 +239,8 @@ export default function SalesOrdersPage() {
         limit: String(LIMIT),
       });
       if (search) params.set("search", search);
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
       const res = await cachedFetch(`/api/sales/sale-orders?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
@@ -247,15 +252,15 @@ export default function SalesOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery, statusFilter]);
+  }, [page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
-      load(page, debouncedQuery, statusFilter);
+      load(page, debouncedQuery, statusFilter, dateFrom, dateTo);
       loadResources();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, router, page, debouncedQuery, statusFilter]);
+  }, [status, router, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
     setCurrentOrder(null);
@@ -636,6 +641,13 @@ export default function SalesOrdersPage() {
                 <SelectItem value="cancel">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              inputClassName="bg-background"
+            />
             <Button onClick={handleOpenCreate} className="font-mono text-[11px] uppercase tracking-wider">
               <Plus className="h-4 w-4 mr-2" /> New Order
             </Button>

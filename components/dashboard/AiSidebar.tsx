@@ -10,6 +10,8 @@ import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
 import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
+import { tryAiInventoryMemoryFlow } from "@/lib/ai/inventoryMemoryFlow";
+import { NAV_TRIGGER_RX } from "@/lib/ai/navFlow";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { toast } from "sonner";
@@ -230,11 +232,16 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   };
 
   // Verb-led messages ("create a customer…", "add a lead and a task…") and
-  // navigation phrases ("go to leads", "open invoices") are routed to the
-  // Command Center. Everything else (and anything with an attachment) is a
-  // normal Q&A/analysis.
+  // navigation phrases ("go to leads", "open invoices", "redirect to
+  // receipts") are routed to the Command Center. Everything else (and
+  // anything with an attachment) is a normal Q&A/analysis. NAV_RX is the
+  // same broad trigger shared with every per-module AI Assistant page
+  // (lib/ai/navFlow.ts) — a message like "redirect to incoming receipts"
+  // used to fall through to plain Q&A here because "redirect" wasn't in this
+  // regex, so the assistant only ever described the click-path instead of
+  // actually navigating.
   const ACTION_RX = /\b(create|add|make|new|generate|draft|delete|remove|update|change|set|book|record|raise|issue)\b/i;
-  const NAV_RX = /\b(go to|goto|open|navigate|take me|show me|bring up|jump to)\b/i;
+  const NAV_RX = NAV_TRIGGER_RX;
 
   // Run the prefill flow for a chosen target: extract fields, then either ask
   // (missing dependency) or stash + navigate to the pre-filled form. Shared by
@@ -376,10 +383,31 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     // isn't plausibly about a customer or invoice record.
     if (attachments.length === 0) {
       const priorTurnsForMemory = messages.filter((m) => !m.isLoading && m.text).map((m) => ({ role: m.role, content: m.text }));
+
+      // Show the user's own message + a "Thinking…" placeholder immediately,
+      // BEFORE awaiting either memory-flow round trip — these two `await`s
+      // used to run first, with the user's message and any loading state
+      // added to the thread only once both had resolved. That left the
+      // panel showing nothing at all (not even the prompt just sent) for the
+      // full round trip, then popped the prompt and the final answer in
+      // together — the "I can't see my own prompt or that it's thinking"
+      // report. Every branch below now replaces this same placeholder
+      // instead of pushing a fresh pair, so there's exactly one user bubble
+      // and one assistant bubble for this turn no matter which flow (memory,
+      // inventory memory, command, or plain Q&A) ends up answering it.
+      setIsLoading(true);
+      setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
+
       const memOutcome = await tryAiMemoryFlow({ text: q, history: priorTurnsForMemory });
       if (memOutcome.handled) {
-        const base = messages;
-        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: memOutcome.message || "" }]);
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0 && next[next.length - 1].role === "assistant") {
+            next[next.length - 1] = { role: "assistant", text: memOutcome.message || "" };
+          }
+          return next;
+        });
+        setIsLoading(false);
         fetch("/api/admin/chat-history", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -394,6 +422,33 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         if (memOutcome.route) router.push(memOutcome.route);
         return;
       }
+
+      const invMemOutcome = await tryAiInventoryMemoryFlow({ text: q, history: priorTurnsForMemory });
+      if (invMemOutcome.handled) {
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0 && next[next.length - 1].role === "assistant") {
+            next[next.length - 1] = { role: "assistant", text: invMemOutcome.message || "" };
+          }
+          return next;
+        });
+        setIsLoading(false);
+        fetch("/api/admin/chat-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: q.slice(0, 50),
+            messages: [
+              { role: "user", content: q, timestamp: new Date() },
+              { role: "assistant", content: invMemOutcome.message || "", timestamp: new Date() },
+            ],
+          }),
+        }).catch(() => {});
+        if (invMemOutcome.route) router.push(invMemOutcome.route);
+        return;
+      }
+
+      setIsLoading(false);
     }
 
     const isCommand = ACTION_RX.test(q) || NAV_RX.test(q);
@@ -716,7 +771,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
 
       {/* Conversation or Workspace Area */}
       <div className={cn(
-        "flex-1 overflow-y-auto flex flex-col justify-start",
+        "flex-1 overflow-y-auto youtube-scrollbar flex flex-col justify-start",
         isDark ? "bg-gradient-to-b from-neutral-950 to-neutral-950/40" : "bg-neutral-50/30"
       )}>
         {showHistory ? (
@@ -864,23 +919,37 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
 
-                {/* Hover actions — only Edit (on your own prompts). Copy/Retry
-                    were removed as clutter. */}
-                {!msg.isLoading && msg.role === "user" && (
+                {/* Hover actions — Copy on every message, Edit on your own prompts. */}
+                {!msg.isLoading && (
                   <div className={cn(
                     "absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 border px-1 py-0.5 rounded shadow-lg backdrop-blur-sm",
                     isDark ? "bg-neutral-950/90 border-neutral-800 shadow-black/40" : "bg-white border-neutral-200 shadow-neutral-200/50"
                   )}>
                     <button
-                      onClick={() => handleEditMessage(i)}
+                      onClick={() => {
+                        navigator.clipboard.writeText(msg.text);
+                        toast.success("Copied to clipboard");
+                      }}
                       className={cn(
                         "p-1 text-[11px] tracking-wide font-sans cursor-pointer",
                         isDark ? "text-neutral-500 hover:text-white" : "text-neutral-400 hover:text-neutral-800"
                       )}
-                      title="Edit message"
+                      title="Copy message"
                     >
-                      Edit
+                      Copy
                     </button>
+                    {msg.role === "user" && (
+                      <button
+                        onClick={() => handleEditMessage(i)}
+                        className={cn(
+                          "p-1 text-[11px] tracking-wide font-sans cursor-pointer",
+                          isDark ? "text-neutral-500 hover:text-white" : "text-neutral-400 hover:text-neutral-800"
+                        )}
+                        title="Edit message"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -951,6 +1020,21 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 if ((input.trim() || attachments.length) && !isLoading) {
                   handleSend(input.trim());
                   setInput("");
+                }
+                return;
+              }
+              // Recall the last prompt you sent — only when the box is empty,
+              // so this never clobbers text you're already typing/editing.
+              if (e.key === "ArrowUp" && input === "") {
+                const lastUserMsg = [...messages].reverse().find((m) => m.role === "user" && m.text);
+                if (lastUserMsg) {
+                  e.preventDefault();
+                  setInput(lastUserMsg.text);
+                  // Put the caret at the end instead of leaving it at the start.
+                  setTimeout(() => {
+                    const el = textareaRef.current;
+                    if (el) el.setSelectionRange(el.value.length, el.value.length);
+                  }, 0);
                 }
               }
             }}

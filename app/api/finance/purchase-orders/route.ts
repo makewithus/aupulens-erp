@@ -43,6 +43,19 @@ export async function GET(request: Request) {
       ];
     }
 
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.dateOrder = range;
+    }
+
     const pageParam = searchParams.get("page");
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
 

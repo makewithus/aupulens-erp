@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, User } from "lucide-react";
 
 export default function HRProfilePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -106,16 +104,6 @@ export default function HRProfilePage() {
   };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Profile"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Profile" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-    >
       <div className="space-y-6 max-w-3xl mx-auto">
         <div>
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Profile</h1>
@@ -222,6 +210,5 @@ export default function HRProfilePage() {
           </>
         )}
       </div>
-    </DashboardLayout>
   );
 }

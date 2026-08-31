@@ -64,6 +64,8 @@ export default function UsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -77,6 +79,8 @@ export default function UsersPage() {
       if (search) params.set("search", search);
       if (role !== "all") params.set("role", role);
       if (statusF !== "all") params.set("status", statusF);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/users?${params.toString()}`);
       const data = await res.json();
       if (res.ok) {
@@ -106,7 +110,7 @@ export default function UsersPage() {
       fetchUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, session, router, page, debouncedSearch, roleFilter, statusFilter]);
+  }, [status, session, router, page, debouncedSearch, roleFilter, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -115,7 +119,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, roleFilter, statusFilter]);
+  }, [debouncedSearch, roleFilter, statusFilter, dateFrom, dateTo]);
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
@@ -171,7 +175,9 @@ export default function UsersPage() {
   const hasFilters =
     !!searchQuery ||
     roleFilter !== "all" ||
-    statusFilter !== "all";
+    statusFilter !== "all" ||
+    !!dateFrom ||
+    !!dateTo;
 
   return (
     <DashboardLayout
@@ -244,6 +250,12 @@ export default function UsersPage() {
 
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
+
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+
+          dateTo={dateTo}
+          setDateTo={setDateTo}
 
           hasFilters={hasFilters}
 

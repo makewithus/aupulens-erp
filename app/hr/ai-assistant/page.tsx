@@ -5,12 +5,11 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { Send, Trash2, Plus, MessageSquare, Menu, X, Mic, Paperclip } from "lucide-react";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useChatAttachments } from "@/lib/hooks/useChatAttachments";
 import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { tryAiNavFlow } from "@/lib/ai/navFlow";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { ChatAttachmentBar } from "@/components/ai/ChatAttachmentBar";
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
@@ -36,7 +35,7 @@ interface ChatHistoryItem {
 }
 
 export default function HRAIAssistantPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -182,6 +181,42 @@ export default function HRAIAssistantPage() {
       /* fall through to the normal assistant on any unexpected error */
     }
 
+    // AI navigation: "redirect to X" / "take me to X" / "open X" for ANY
+    // feature in ANY module — resolved against the app's real sidebar routes,
+    // never guessed. Actually navigates instead of just describing the steps.
+    try {
+      const navOutcome = await tryAiNavFlow({ text: userInput });
+      if (navOutcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: navOutcome.message || "", timestamp: new Date() };
+        setMessages((prev) => prev.filter((m) => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        if (isFirstMessage) {
+          const title = userInput.slice(0, 50).toUpperCase();
+          fetch("/api/hr/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, messages: [
+              { role: "user", content: userInput, timestamp: userMessage.timestamp },
+              { role: "assistant", content: assistantMessage.content, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved) { setCurrentChatId(saved.chat?._id || null); fetchChatHistory(); }
+          }).catch(() => {});
+        } else if (currentChatId) {
+          const allMsgs = [...messages.filter((m) => !m.isLoading), userMessage, assistantMessage].map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
+          fetch("/api/hr/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: currentChatId, messages: allMsgs }),
+          }).then(() => fetchChatHistory()).catch(() => {});
+        }
+        if (navOutcome.route) router.push(navOutcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
     try {
       const res = await fetch("/api/hr/ai-assistant", {
         method: "POST",
@@ -267,16 +302,6 @@ export default function HRAIAssistantPage() {
   };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="AI Assistant"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "AI Assistant" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-    >
       <div className="flex h-[calc(100vh-130px)] max-w-8xl mx-auto gap-0">
         {/* Chat History Sidebar */}
         <div className={`${sidebarOpen ? "w-72" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border/40 bg-muted/20 flex-shrink-0`}>
@@ -407,6 +432,5 @@ export default function HRAIAssistantPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
   );
 }

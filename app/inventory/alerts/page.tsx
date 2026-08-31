@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,15 +41,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 const LIMIT = 10;
 
 export default function AlertsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AlertsPageInner />
+    </Suspense>
+  );
+}
+
+function AlertsPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [isLoading, setIsLoading] = useState(true);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. This used to seed via a separate useEffect after
+  // mount, which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect. `debouncedSearch` is seeded too (not just
+  // `searchTerm`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce before the first fetch uses it.
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '');
+  const [selectedWarehouse, setSelectedWarehouse] = useState(() => searchParams.get('warehouse') || 'all');
+  const [selectedStatus, setSelectedStatus] = useState(() => searchParams.get('status') || 'all');
   const [restockingId, setRestockingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);

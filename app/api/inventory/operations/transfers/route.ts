@@ -39,6 +39,23 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const partnerId = searchParams.get("customerId");
+    if (partnerId) query["header.partnerId"] = partnerId;
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query["header.scheduledDate"] = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query["header.scheduledDate"].$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query["header.scheduledDate"].$lte = end;
+      }
+      if (Object.keys(query["header.scheduledDate"]).length === 0) delete query["header.scheduledDate"];
+    }
+
     const baseQuery = StockTransfer.find(query)
       .populate("header.partnerId", "header.name contact_details.email")
       .populate(

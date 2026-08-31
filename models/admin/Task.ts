@@ -75,6 +75,7 @@ const TaskSchema = new mongoose.Schema({
 
 TaskSchema.index({ tenantId: 1, createdAt: -1 });
 TaskSchema.index({ tenantId: 1, status: 1 });
+TaskSchema.index({ tenantId: 1, dueDate: 1 });
 
 const Task: Model<ITask> =
   (mongoose.models.Task as Model<ITask>) ||

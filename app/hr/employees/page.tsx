@@ -2,10 +2,9 @@
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useEffect, useState, useCallback } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,6 +94,8 @@ export default function EmployeesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [lifecycleFilter, setLifecycleFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [stats, setStats] = useState({ total: 0, active: 0, linked: 0, unlinked: 0 });
 
   const load = useCallback(async (currentPage = page, search = debouncedSearch, lifecycle = lifecycleFilter, account = accountFilter) => {
@@ -104,6 +105,8 @@ export default function EmployeesPage() {
       if (search) empParams.set("search", search);
       if (lifecycle !== "all") empParams.set("lifecycle", lifecycle);
       if (account !== "all") empParams.set("account", account);
+      if (dateFrom) empParams.set("dateFrom", dateFrom);
+      if (dateTo) empParams.set("dateTo", dateTo);
       const [empRes, deptRes] = await Promise.all([
         cachedFetch(`/api/hr/employees?${empParams.toString()}`),
         cachedFetch("/api/hr/departments"),
@@ -122,7 +125,9 @@ export default function EmployeesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, lifecycleFilter, accountFilter]);
+  }, [page, debouncedSearch, lifecycleFilter, accountFilter, dateFrom, dateTo]);
+
+  usePageRefresh(load);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -135,7 +140,6 @@ export default function EmployeesPage() {
     } else if (status === "authenticated") {
       load();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session, router, load]);
 
   useEffect(() => {
@@ -145,7 +149,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, lifecycleFilter, accountFilter]);
+  }, [debouncedSearch, lifecycleFilter, accountFilter, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -322,21 +326,7 @@ export default function EmployeesPage() {
   };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Employees"
-      breadcrumbs={[
-        { label: "HR", href: "/hr/dashboard" },
-        { label: "Employees" },
-      ]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onSignOut={() => signOut({ callbackUrl: "/auth/hr" })}
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
@@ -387,7 +377,9 @@ export default function EmployeesPage() {
               !!(
                 searchQuery ||
                 lifecycleFilter !== "all" ||
-                accountFilter !== "all"
+                accountFilter !== "all" ||
+                dateFrom ||
+                dateTo
               )
             }
             searchQuery={searchQuery}
@@ -396,6 +388,10 @@ export default function EmployeesPage() {
             setLifecycleFilter={setLifecycleFilter}
             accountFilter={accountFilter}
             setAccountFilter={setAccountFilter}
+            dateFrom={dateFrom}
+            setDateFrom={setDateFrom}
+            dateTo={dateTo}
+            setDateTo={setDateTo}
             lifecycleColors={lifecycleColors}
             getRoleBadgeColor={getRoleBadgeColor}
             onView={handleOpenView}
@@ -987,6 +983,6 @@ export default function EmployeesPage() {
           )}
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

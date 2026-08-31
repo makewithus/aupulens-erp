@@ -49,7 +49,7 @@ export function StatCard({
             </p>
 
             <h2 className={cn(
-              "tabular-nums font-black leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80",
+              "font-mono tabular-nums font-bold leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80",
               valueSize,
             )}>
               {value}

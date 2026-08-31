@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 // Shared subcomponents from inventory returns
 import { ReturnsTable } from "@/components/inventory/operations/returns/ReturnsTable";
@@ -27,6 +28,8 @@ export default function FinanceReturnsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,14 +50,14 @@ export default function FinanceReturnsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchReturns();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page, debouncedQuery]);
+  }, [status, page, debouncedQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -91,6 +94,8 @@ export default function FinanceReturnsPage() {
       setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(`/api/inventory/operations/returns?${params.toString()}`);
       const data = await res.json();
       setItems(data.items || []);
@@ -204,6 +209,12 @@ export default function FinanceReturnsPage() {
                     placeholder="Search returns..."
                   />
                 </div>
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
                 <Button
                   onClick={handleCreate}
                   className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"

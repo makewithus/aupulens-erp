@@ -24,7 +24,35 @@ export async function GET(req: NextRequest) {
 
     const query: any = { tenantId };
     const status = searchParams.get("status");
-    if (status) query.status = status;
+    if (status && status !== "all") query.status = status;
+
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const search = searchParams.get("search")?.trim();
+    if (search) {
+      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      query.$or = [{ orderNumber: re }, { customerName: re }];
+    }
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.orderDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.orderDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.orderDate.$lte = end;
+      }
+      if (Object.keys(query.orderDate).length === 0) delete query.orderDate;
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query.totalAmount = {};
+      if (amountMin && !isNaN(Number(amountMin))) query.totalAmount.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query.totalAmount.$lte = Number(amountMax);
+      if (Object.keys(query.totalAmount).length === 0) delete query.totalAmount;
+    }
 
     const [total, orders] = await Promise.all([
       InventoryOrder.countDocuments(query),

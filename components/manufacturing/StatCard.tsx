@@ -25,7 +25,7 @@ export function StatCard({
   colorClass = "text-blue-800 dark:text-blue-400",
 }: StatCardProps) {
   return (
-    <Card className="rounded-none border-l-4 border-l-primary border-y border-r border-border bg-card hover:shadow-md transition-all duration-200">
+    <Card className="rounded-none border-0 shadow-none bg-card transition-all duration-200">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
           {title}
@@ -35,7 +35,7 @@ export function StatCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-foreground">{value}</div>
+        <div className="font-mono text-2xl font-bold text-foreground">{value}</div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}

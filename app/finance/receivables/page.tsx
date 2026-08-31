@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Badge } from '@/components/ui/badge';
 import { Plus, CreditCard, BarChart3, DollarSign, Clock, CheckCircle, AlertCircle, Search } from 'lucide-react';
 import { StatsRowSkeleton, TableSkeleton } from '@/components/ui/loading-skeletons';
@@ -44,6 +45,8 @@ export default function ReceivablesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -68,19 +71,21 @@ export default function ReceivablesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, statusFilter]);
+  }, [debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   // Reads from the canonical customer-invoice store (SalesInvoice, via
   // /api/sales/invoices) — the same one /sales/invoices itself uses. This
   // page used to read from the deprecated models/Invoice.ts collection
   // via /api/finance/invoices, which no longer receives new invoices now
   // that /finance/invoices redirects to /sales/invoices.
-  const fetchInvoices = useCallback(async (currentPage: number, search: string, statusF: string) => {
+  const fetchInvoices = useCallback(async (currentPage: number, search: string, statusF: string, from: string, to: string) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusF && statusF !== 'all') params.append('status', statusF);
       if (search) params.append('search', search);
+      if (from) params.append('dateFrom', from);
+      if (to) params.append('dateTo', to);
 
       const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch invoices');
@@ -111,14 +116,16 @@ export default function ReceivablesPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchInvoices(page, debouncedQuery, statusFilter);
+      fetchInvoices(page, debouncedQuery, statusFilter, dateFrom, dateTo);
     }
-  }, [status, fetchInvoices, page, debouncedQuery, statusFilter]);
+  }, [status, fetchInvoices, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
-  const fetchAllInvoicesForStats = useCallback(async (statusF: string) => {
+  const fetchAllInvoicesForStats = useCallback(async (statusF: string, from: string, to: string) => {
     try {
       const params = new URLSearchParams({ page: '1', limit: '1000' });
       if (statusF && statusF !== 'all') params.append('status', statusF);
+      if (from) params.append('dateFrom', from);
+      if (to) params.append('dateTo', to);
       const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       if (!res.ok) return;
       const data = await res.json();
@@ -142,9 +149,9 @@ export default function ReceivablesPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchAllInvoicesForStats(statusFilter);
+      fetchAllInvoicesForStats(statusFilter, dateFrom, dateTo);
     }
-  }, [status, fetchAllInvoicesForStats, statusFilter]);
+  }, [status, fetchAllInvoicesForStats, statusFilter, dateFrom, dateTo]);
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN')}`;
@@ -227,7 +234,7 @@ export default function ReceivablesPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
-      onRefresh={() => { fetchInvoices(page, debouncedQuery, statusFilter); fetchAllInvoicesForStats(statusFilter); }}
+      onRefresh={() => { fetchInvoices(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllInvoicesForStats(statusFilter, dateFrom, dateTo); }}
     >
       <div className="space-y-6">
         <FinancePageHeader
@@ -343,6 +350,12 @@ export default function ReceivablesPage() {
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
               </div>
             </div>
           </CardHeader>
@@ -364,7 +377,9 @@ export default function ReceivablesPage() {
                   {filteredInvoices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                        No invoices found. Create your first invoice to get started.
+                        {query || statusFilter !== 'all' || dateFrom || dateTo
+                          ? "No invoices match your search or filters."
+                          : "No invoices found. Create your first invoice to get started."}
                       </TableCell>
                     </TableRow>
                   ) : (

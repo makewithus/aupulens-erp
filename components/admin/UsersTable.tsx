@@ -41,6 +41,12 @@ interface UsersTableProps {
   statusFilter: string;
   setStatusFilter: (value: string) => void;
 
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+
+  dateTo: string;
+  setDateTo: (value: string) => void;
+
   onEdit: (user: User) => void;
   onDelete: (userId: string) => void;
   onToggleActive: (userId: string, status: string) => void;
@@ -60,6 +66,12 @@ export function UsersTable({
 
   statusFilter,
   setStatusFilter,
+
+  dateFrom,
+  setDateFrom,
+
+  dateTo,
+  setDateTo,
 
   onEdit,
   onDelete,
@@ -89,6 +101,10 @@ export function UsersTable({
               setRoleFilter={setRoleFilter}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
+              dateFrom={dateFrom}
+              setDateFrom={setDateFrom}
+              dateTo={dateTo}
+              setDateTo={setDateTo}
             />
           </div>
         </div>

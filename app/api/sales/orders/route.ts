@@ -27,6 +27,19 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     if (status) query.status = status;
 
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query["header.dateOrder"] = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query["header.dateOrder"].$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query["header.dateOrder"].$lte = end;
+      }
+      if (Object.keys(query["header.dateOrder"]).length === 0) delete query["header.dateOrder"];
+    }
+
     await connectDB();
     const [total, items] = await Promise.all([
       SaleOrder.countDocuments(query),

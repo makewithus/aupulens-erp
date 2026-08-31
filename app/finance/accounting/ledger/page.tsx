@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter, ArrowUpDown, FileStack } from "lucide-react";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 const LIMIT = 10;
 
@@ -40,6 +41,8 @@ export default function GeneralLedgerPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [reconciledFilter, setReconciledFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -52,14 +55,16 @@ export default function GeneralLedgerPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, reconciledFilter]);
+  }, [debouncedQuery, reconciledFilter, dateFrom, dateTo]);
 
-  const load = useCallback(async (currentPage: number, search: string, reconciled: string) => {
+  const load = useCallback(async (currentPage: number, search: string, reconciled: string, from = "", to = "") => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
       if (reconciled) params.set("reconciled", reconciled);
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
       const res = await cachedFetch(`/api/finance/journal-items?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
@@ -74,13 +79,15 @@ export default function GeneralLedgerPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") load(page, debouncedQuery, reconciledFilter);
-  }, [status, router, load, page, debouncedQuery, reconciledFilter]);
+    if (status === "authenticated") load(page, debouncedQuery, reconciledFilter, dateFrom, dateTo);
+  }, [status, router, load, page, debouncedQuery, reconciledFilter, dateFrom, dateTo]);
 
-  const hasActiveFilters = !!(query || reconciledFilter);
+  const hasActiveFilters = !!(query || reconciledFilter || dateFrom || dateTo);
   const resetFilters = () => {
     setQuery("");
     setReconciledFilter("");
+    setDateFrom("");
+    setDateTo("");
   };
 
   const filtered = items;
@@ -100,7 +107,7 @@ export default function GeneralLedgerPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      onRefresh={() => load(page, debouncedQuery, reconciledFilter)}
+      onRefresh={() => load(page, debouncedQuery, reconciledFilter, dateFrom, dateTo)}
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -136,6 +143,12 @@ export default function GeneralLedgerPage() {
                 <SelectItem value="false">Open</SelectItem>
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 Clear

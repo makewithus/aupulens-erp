@@ -47,6 +47,23 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Filters by dateOfJoining ("who joined in this window") — additive,
+    // omitting these params leaves every existing unbounded consumer of
+    // this route (dropdowns in leave/attendance/exit/onboarding/etc.)
+    // untouched.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.dateOfJoining = range;
+    }
+
     // Stats (KPI cards) always reflect every employee tenant-wide — unaffected
     // by the current search/lifecycle/department/account filters, matching
     // the original page's behavior of computing KPIs from the full,

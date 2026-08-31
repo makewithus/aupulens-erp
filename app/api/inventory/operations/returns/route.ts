@@ -48,6 +48,25 @@ export async function GET(req: NextRequest) {
       delete query.$or;
     }
 
+    // AI-native "redirect with filters" support — plain top-level fields,
+    // safe to add alongside the $or/$and return-detection shape above.
+    // Additive: omitting these params leaves every existing caller's
+    // behavior unchanged.
+    const status = searchParams.get("status");
+    if (status && status !== "all") query.status = status;
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query["header.scheduledDate"] = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query["header.scheduledDate"].$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query["header.scheduledDate"].$lte = end;
+      }
+      if (Object.keys(query["header.scheduledDate"]).length === 0) delete query["header.scheduledDate"];
+    }
+
     const baseQuery = StockTransfer.find(query)
       .populate("header.partnerId", "header.name contact_details.email")
       .populate(

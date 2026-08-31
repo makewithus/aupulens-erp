@@ -52,6 +52,35 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const status = searchParams.get("status");
+    if (status && status !== "all") query.status = status;
+
+    const customerId = searchParams.get("customerId");
+    if (customerId) query.customerId = customerId;
+
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.startDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.startDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.startDate.$lte = end;
+      }
+      if (Object.keys(query.startDate).length === 0) delete query.startDate;
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query.totalAmount = {};
+      if (amountMin && !isNaN(Number(amountMin))) query.totalAmount.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query.totalAmount.$lte = Number(amountMax);
+      if (Object.keys(query.totalAmount).length === 0) delete query.totalAmount;
+    }
+
     const baseQuery = (Subscription as any)
       .find(query)
       .populate("customerId", "header contact_details")

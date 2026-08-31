@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const skip = (page - 1) * limit;
-    const sortField = searchParams.get("sortField") || "paymentDate";
+    const sortField = searchParams.get("sortField") || "createdAt";
     const sortDir = searchParams.get("sortDir") === "asc" ? 1 : -1;
     const viewId = searchParams.get("viewId");
     const search = searchParams.get("search")?.trim();
@@ -49,6 +49,35 @@ export async function GET(request: NextRequest) {
         { paymentNumber: { $regex: search, $options: "i" } },
         { reference: { $regex: search, $options: "i" } },
       ];
+    }
+
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const status = searchParams.get("status");
+    if (status && status !== "all") query.status = status;
+
+    const customerId = searchParams.get("customerId");
+    if (customerId) query.customerId = customerId;
+
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.paymentDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.paymentDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.paymentDate.$lte = end;
+      }
+      if (Object.keys(query.paymentDate).length === 0) delete query.paymentDate;
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query.amountReceived = {};
+      if (amountMin && !isNaN(Number(amountMin))) query.amountReceived.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query.amountReceived.$lte = Number(amountMax);
+      if (Object.keys(query.amountReceived).length === 0) delete query.amountReceived;
     }
 
     const [total, payments] = await Promise.all([

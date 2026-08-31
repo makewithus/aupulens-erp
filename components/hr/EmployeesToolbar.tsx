@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 interface EmployeeToolbarProps {
   searchQuery: string;
@@ -18,6 +19,10 @@ interface EmployeeToolbarProps {
   setLifecycleFilter: (value: string) => void;
   accountFilter: string;
   setAccountFilter: (value: string) => void;
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+  dateTo: string;
+  setDateTo: (value: string) => void;
 }
 
 export function EmployeeToolbar({
@@ -27,6 +32,10 @@ export function EmployeeToolbar({
   setLifecycleFilter,
   accountFilter,
   setAccountFilter,
+  dateFrom,
+  setDateFrom,
+  dateTo,
+  setDateTo,
 }: EmployeeToolbarProps) {
   return (
     <div className="px-8 py-5">
@@ -145,6 +154,13 @@ export function EmployeeToolbar({
             <SelectItem value="unlinked">No User Account</SelectItem>
           </SelectContent>
         </Select>
+
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
       </div>
     </div>
   );

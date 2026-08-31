@@ -67,7 +67,7 @@ export function NetProfitCard({
               Revenue
             </p>
 
-            <h3 className="mt-2 text-3xl font-black tracking-tighter text-emerald-500">
+            <h3 className="mt-2 font-mono text-3xl font-bold tracking-tighter text-emerald-500">
               {formatCurrency(revenue)}
             </h3>
           </div>
@@ -77,7 +77,7 @@ export function NetProfitCard({
               Expenses
             </p>
 
-            <h3 className="mt-2 text-3xl font-black tracking-tighter text-rose-500">
+            <h3 className="mt-2 font-mono text-3xl font-bold tracking-tighter text-rose-500">
               {formatCurrency(expenses)}
             </h3>
           </div>

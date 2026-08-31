@@ -7,13 +7,13 @@ import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
   Table,
@@ -71,7 +71,7 @@ const leaveTypeLabels: Record<string, string> = {
 };
 
 export default function LeavePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -83,6 +83,8 @@ export default function LeavePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "view">("create");
@@ -98,6 +100,8 @@ export default function LeavePage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusF) params.set("status", statusF);
       if (search) params.set("search", search);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const [leaveRes, empRes] = await Promise.all([
         cachedFetch(`/api/hr/leave?${params.toString()}`),
         cachedFetch("/api/hr/employees"),
@@ -114,11 +118,12 @@ export default function LeavePage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, filterStatus]);
+  }, [page, debouncedSearch, filterStatus, dateFrom, dateTo]);
+
+  usePageRefresh(load);
 
   useEffect(() => {
     if (status === "authenticated") load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, load]);
 
   useEffect(() => {
@@ -128,7 +133,7 @@ export default function LeavePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterStatus]);
+  }, [debouncedSearch, filterStatus, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -234,17 +239,7 @@ export default function LeavePage() {
 
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Leave Requests"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Leave Requests" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Leave Requests</h1>
@@ -310,6 +305,12 @@ export default function LeavePage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
           </div>
           <Button onClick={handleOpenCreate} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -545,6 +546,6 @@ export default function LeavePage() {
           )}
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Plus,
   MoreHorizontal,
@@ -101,23 +102,46 @@ function LifecycleDiagram() {
 const LIMIT = 10;
 
 export default function PaymentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PaymentsPageInner />
+    </Suspense>
+  );
+}
+
+function PaymentsPageInner() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
   const [activeViewId, setActiveViewId] = useState<string>("all");
   const [viewSearch, setViewSearch] = useState("");
-  const [sortField, setSortField] = useState("paymentDate");
+  const [sortField, setSortField] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exportOpen, setExportOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. This used to seed via a separate useEffect after
+  // mount, which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect. `debouncedQuery` is seeded too (not just `query`) so
+  // a seeded search term doesn't wait out its normal 300ms typing-debounce.
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("search") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
 
   const activeView = views.find((v) => v._id === activeViewId);
   const extraColumns: string[] = activeView?.columns?.length ? activeView.columns : [];
@@ -144,6 +168,12 @@ export default function PaymentsPage() {
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (statusFilter) params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (customerId) params.set("customerId", customerId);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
       const res = await cachedFetch(`/api/sales/payments?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
@@ -158,7 +188,7 @@ export default function PaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, sortDir, page, debouncedQuery]);
+  }, [activeViewId, sortField, sortDir, page, debouncedQuery, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax]);
 
   useEffect(() => {
     fetchViews();
@@ -202,7 +232,8 @@ export default function PaymentsPage() {
     if (key === "invoiceNumbers") {
       return (p.allocations || []).map((a: any) => a.invoiceId?.number).filter(Boolean).join(", ") || "—";
     }
-    return String(getPath(p, key) ?? "—");
+    const value = getPath(p, key);
+    return value === null || value === undefined || value === "" ? "—" : String(value);
   };
 
   return (
@@ -222,7 +253,7 @@ export default function PaymentsPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
-                {activeView?.name || "All Received Payments"} <ChevronDown className="w-8 h-8 mb-2" />
+                {activeView?.name || "All Payments"} <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72 rounded-none">
@@ -268,6 +299,13 @@ export default function PaymentsPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-11 w-56 rounded-none bg-background"
+            />
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              inputClassName="rounded-none bg-background"
             />
             <Link href="/sales/payments/new">
               <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
@@ -327,7 +365,7 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        {!loading && payments.length === 0 && !debouncedQuery ? (
+        {!loading && payments.length === 0 && !debouncedQuery && !statusFilter && !dateFrom && !dateTo ? (
           <div className="space-y-6">
             <div className="flex flex-col items-center py-16 px-4 text-center">
               <Wallet className="w-12 h-12 mb-6 text-muted-foreground/30" />
@@ -379,7 +417,7 @@ export default function PaymentsPage() {
                   ) : payments.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5 + extraColumns.length} className="py-16 text-center text-sm text-muted-foreground">
-                        No payments match your search.
+                        No payments match your search or filters.
                       </TableCell>
                     </TableRow>
                   ) : (

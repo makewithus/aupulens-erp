@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -24,6 +24,7 @@ import { Plus } from "lucide-react";
 // Extracted Subcomponents
 import { DeliveryChallanTable } from "@/components/sales/delivery-challans/DeliveryChallanTable";
 import { DeliveryChallanModals } from "@/components/sales/delivery-challans/DeliveryChallanModals";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 interface DeliveryChallan {
   _id: string;
@@ -41,13 +42,30 @@ interface DeliveryChallan {
 }
 
 export default function DeliveryChallansPage() {
+  return (
+    <Suspense fallback={null}>
+      <DeliveryChallansPageInner />
+    </Suspense>
+  );
+}
+
+function DeliveryChallansPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [data, setData] = useState<DeliveryChallan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so a link the AI assistant
+  // sends the user to arrives already filtered from the very first render
+  // (search/status reuse the existing client-side filter below; this page
+  // has no amount field to filter on). A normal, param-less visit just gets
+  // the defaults below, unchanged.
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   // Resources
   const [warehouses, setWarehouses] = useState([]);
@@ -286,7 +304,10 @@ export default function DeliveryChallansPage() {
       v?.toLowerCase().includes(query.toLowerCase()),
     );
     const matchesStatus = statusFilter === "all" || dc.status === statusFilter;
-    return matchesQuery && matchesStatus;
+    const created = dc.createdAt ? new Date(dc.createdAt) : null;
+    const matchesDateFrom = !dateFrom || (created != null && created >= new Date(dateFrom));
+    const matchesDateTo = !dateTo || (created != null && created <= new Date(new Date(dateTo).setHours(23, 59, 59, 999)));
+    return matchesQuery && matchesStatus && matchesDateFrom && matchesDateTo;
   });
 
   return (
@@ -348,6 +369,13 @@ export default function DeliveryChallansPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
 
                 <Button
                   onClick={handleOpenCreate}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -19,12 +19,26 @@ import { WarehouseTable } from "@/components/inventory/warehouse/WarehouseTable"
 import { WarehouseModals } from "@/components/inventory/warehouse/WarehouseModals";
 
 export default function WarehousePage() {
+  return (
+    <Suspense fallback={null}>
+      <WarehousePageInner />
+    </Suspense>
+  );
+}
+
+function WarehousePageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
+  // AI-native "redirect with filters" — seed the search box from the URL
+  // synchronously (lazy useState initializer) so a link the AI assistant
+  // sends the user to arrives already filtered from the very first render
+  // (this page filters client-side, so seeding `query` is enough). A
+  // normal, param-less visit just gets the default, unchanged.
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);

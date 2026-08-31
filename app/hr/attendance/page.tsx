@@ -7,13 +7,13 @@ import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import {
   Table,
@@ -77,7 +77,7 @@ const statusColors: Record<string, string> = {
 const LIMIT = 25;
 
 export default function AttendancePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -86,6 +86,8 @@ export default function AttendancePage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
   const [filterMonth, setFilterMonth] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
@@ -101,8 +103,14 @@ export default function AttendancePage() {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
-      if (filterDate && !filterMonth) params.set("date", filterDate);
-      if (filterMonth) params.set("month", filterMonth);
+      if (dateFrom || dateTo) {
+        if (dateFrom) params.set("dateFrom", dateFrom);
+        if (dateTo) params.set("dateTo", dateTo);
+      } else if (filterDate && !filterMonth) {
+        params.set("date", filterDate);
+      } else if (filterMonth) {
+        params.set("month", filterMonth);
+      }
       if (search) params.set("search", search);
       const [attRes, empRes] = await Promise.all([
         cachedFetch(`/api/hr/attendance?${params.toString()}`),
@@ -120,11 +128,12 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [filterDate, filterMonth, page, debouncedSearch]);
+  }, [filterDate, filterMonth, dateFrom, dateTo, page, debouncedSearch]);
+
+  usePageRefresh(load);
 
   useEffect(() => {
     if (status === "authenticated") load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, load]);
 
   useEffect(() => {
@@ -134,7 +143,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterDate, filterMonth]);
+  }, [debouncedSearch, filterDate, filterMonth, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
     setModalMode("create");
@@ -268,17 +277,7 @@ export default function AttendancePage() {
   const { present, absent, onLeave, locked } = stats;
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Attendance"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Attendance" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Attendance</h1>
@@ -338,6 +337,8 @@ export default function AttendancePage() {
               onChange={(e) => {
                 setFilterDate(e.target.value);
                 setFilterMonth("");
+                setDateFrom("");
+                setDateTo("");
               }}
               className="w-44"
             />
@@ -347,9 +348,23 @@ export default function AttendancePage() {
               onChange={(e) => {
                 setFilterMonth(e.target.value);
                 setFilterDate("");
+                setDateFrom("");
+                setDateTo("");
               }}
               className="w-44"
               placeholder="Month view"
+            />
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={(v) => {
+                setDateFrom(v);
+                if (v) { setFilterDate(""); setFilterMonth(""); }
+              }}
+              onDateToChange={(v) => {
+                setDateTo(v);
+                if (v) { setFilterDate(""); setFilterMonth(""); }
+              }}
             />
           </div>
           <div className="flex gap-2">
@@ -577,6 +592,6 @@ export default function AttendancePage() {
           )}
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

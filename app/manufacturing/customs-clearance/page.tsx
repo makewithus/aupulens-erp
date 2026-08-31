@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Loader2, FileText, Plus, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { ManufacturingVisualization } from '@/components/manufacturing/ManufacturingVisualization';
 import { useToast } from '@/components/ui/use-toast';
@@ -43,6 +44,8 @@ export default function CustomsClearancePage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
   const [visualizationData, setVisualizationData] = useState<any[]>([]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [formData, setFormData] = useState({
     declarationNumber: '',
     shipmentId: '',
@@ -57,7 +60,11 @@ export default function CustomsClearancePage() {
   const fetchClearances = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/manufacturing/customs-clearance');
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      const qs = params.toString();
+      const res = await fetch(`/api/manufacturing/customs-clearance${qs ? `?${qs}` : ''}`);
       const data = await res.json();
       setClearances(data.clearances || []);
     } catch (err) {
@@ -70,7 +77,7 @@ export default function CustomsClearancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, dateFrom, dateTo]);
 
   const fetchShipments = useCallback(async () => {
     try {
@@ -254,6 +261,12 @@ export default function CustomsClearancePage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button
               onClick={loadVisualizationData}
               variant="outline"
@@ -408,7 +421,9 @@ export default function CustomsClearancePage() {
                   {clearances.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center p-8 text-muted-foreground dark:text-muted-foreground">
-                        No customs clearances found. Create your first clearance to get started.
+                        {dateFrom || dateTo
+                          ? "No customs clearances match your filters."
+                          : "No customs clearances found. Create your first clearance to get started."}
                       </TableCell>
                     </TableRow>
                   ) : (

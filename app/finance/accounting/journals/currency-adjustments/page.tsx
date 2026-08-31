@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Users } from "lucide-react";
 import { DateField } from "@/components/finance/accounting/DateField";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { useAccountingCurrencyStore } from "@/store/useAccountingCurrencyStore";
 
 const FILTERS = [
@@ -32,6 +33,8 @@ export default function CurrencyAdjustmentsPage() {
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("this_month");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [accountantsOpen, setAccountantsOpen] = useState(false);
 
   const { baseCurrency, enabledCurrencies, fetchCurrency } = useAccountingCurrencyStore();
@@ -43,10 +46,13 @@ export default function CurrencyAdjustmentsPage() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchAdjustments = async (f: string) => {
+  const fetchAdjustments = async (f: string, from = "", to = "") => {
     setLoading(true);
     try {
-      const res = await cachedFetch(`/api/finance/accounting/currency-adjustments?filter=${f}`);
+      const params = new URLSearchParams({ filter: f });
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
+      const res = await cachedFetch(`/api/finance/accounting/currency-adjustments?${params.toString()}`);
       const data = await res.json();
       if (data.success) setAdjustments(data.data);
     } catch {
@@ -57,8 +63,8 @@ export default function CurrencyAdjustmentsPage() {
   };
 
   useEffect(() => {
-    fetchAdjustments(filter);
-  }, [filter]);
+    fetchAdjustments(filter, dateFrom, dateTo);
+  }, [filter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchCurrency();
@@ -89,7 +95,7 @@ export default function CurrencyAdjustmentsPage() {
       setModalOpen(false);
       setNotes("");
       setExchangeRate("");
-      fetchAdjustments(filter);
+      fetchAdjustments(filter, dateFrom, dateTo);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -122,20 +128,28 @@ export default function CurrencyAdjustmentsPage() {
           </div>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              Filter By: {FILTERS.find((f) => f.value === filter)?.label}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {FILTERS.map((f) => (
-              <DropdownMenuItem key={f.value} onClick={() => setFilter(f.value)}>
-                {f.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                Filter By: {FILTERS.find((f) => f.value === filter)?.label}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {FILTERS.map((f) => (
+                <DropdownMenuItem key={f.value} onClick={() => setFilter(f.value)}>
+                  {f.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
+        </div>
 
         <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
           <Table>

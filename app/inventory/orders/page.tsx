@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -48,6 +48,7 @@ import {
   Search,
 } from "lucide-react";
 import { DraggableVisualization } from "@/components/finance/DraggableVisualization";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
@@ -109,8 +110,17 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrdersPageInner />
+    </Suspense>
+  );
+}
+
+function OrdersPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [page, setPage] = useState(1);
@@ -121,11 +131,22 @@ export default function OrdersPage() {
   const [stockItems, setStockItems] = useState<InventoryItem[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  // Search input
-  const [searchQuery, setSearchQuery] = useState("");
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. `searchQuery` is filtered client-side already;
+  // date/amount aren't, so they're sent to the API directly. This used to
+  // seed via a separate useEffect after mount, which let an initial
+  // unfiltered fetch fire and render before the filtered one landed: a
+  // visible flash of the wrong rows on every filtered redirect.
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -187,6 +208,10 @@ export default function OrdersPage() {
       setIsLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (amountMin) params.append("amountMin", amountMin);
+      if (amountMax) params.append("amountMax", amountMax);
 
       const res = await cachedFetch(`/api/inventory/orders?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch orders");
@@ -201,7 +226,7 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, dateFrom, dateTo, amountMin, amountMax]);
 
   const fetchWarehouses = useCallback(async () => {
     try {
@@ -865,6 +890,13 @@ export default function OrdersPage() {
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
               </div>
             </div>
@@ -938,12 +970,12 @@ export default function OrdersPage() {
                       <TableCell colSpan={7} className="py-24 text-center">
                         <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
                         <h3 className="text-lg font-medium text-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "No orders match your filters"
                             : "No fulfillment orders found"}
                         </h3>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "Try adjusting your search or status query."
                             : "Create your first order to get started."}
                         </p>

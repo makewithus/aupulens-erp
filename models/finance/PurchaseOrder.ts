@@ -89,6 +89,7 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
 PurchaseOrderSchema.index({ tenantId: 1, name: 1 }, { unique: true });
 PurchaseOrderSchema.index({ partnerId: 1 });
 PurchaseOrderSchema.index({ status: 1 });
+PurchaseOrderSchema.index({ tenantId: 1, dateOrder: 1 });
 
 const PurchaseOrder: Model<IPurchaseOrder> =
   (models.PurchaseOrder as Model<IPurchaseOrder>) ||

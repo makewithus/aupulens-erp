@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -36,6 +36,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";
 import { toast } from "sonner";
 import {
@@ -80,8 +81,17 @@ const statusColors: Record<string, string> = {
 const LIMIT = 10;
 
 export default function ManufacturingPage() {
+  return (
+    <Suspense fallback={null}>
+      <ManufacturingPageInner />
+    </Suspense>
+  );
+}
+
+function ManufacturingPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [orders, setOrders] = useState<ManufacturingOrder[]>([]);
   // Separate, unpaginated fetch used only for the KPI cards — those need
@@ -97,9 +107,23 @@ export default function ManufacturingPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. Note: this route's status filter is named
+  // `productionStatus`, not `status`. This used to seed via a separate
+  // useEffect after mount, which let an initial unfiltered fetch fire and
+  // render before the filtered one landed: a visible flash of the wrong
+  // rows on every filtered redirect. `debouncedSearch` is seeded too (not
+  // just `searchQuery`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce before the first fetch uses it.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("productionStatus") || "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [quantityMin, setQuantityMin] = useState(() => searchParams.get("quantityMin") || "");
+  const [quantityMax, setQuantityMax] = useState(() => searchParams.get("quantityMax") || "");
 
   const [products, setProducts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -127,8 +151,7 @@ export default function ManufacturingPage() {
     if (status === "authenticated") {
       fetchOrders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page, debouncedSearch, statusFilter]);
+  }, [status, page, debouncedSearch, statusFilter, dateFrom, dateTo, quantityMin, quantityMax]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -163,7 +186,7 @@ export default function ManufacturingPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo, quantityMin, quantityMax]);
 
   const fetchOrders = async () => {
     try {
@@ -171,6 +194,10 @@ export default function ManufacturingPage() {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("productionStatus", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (quantityMin) params.set("quantityMin", quantityMin);
+      if (quantityMax) params.set("quantityMax", quantityMax);
       const res = await cachedFetch(`/api/inventory/operations/manufacturing?${params.toString()}`);
       const data = await res.json();
       setOrders(data.orders || []);
@@ -437,6 +464,13 @@ export default function ManufacturingPage() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
               </div>
             </div>
@@ -505,12 +539,12 @@ export default function ManufacturingPage() {
                       <TableCell colSpan={7} className="py-24 text-center">
                         <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
                         <h3 className="text-lg font-medium text-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "No orders match your filters"
                             : "No manufacturing orders found"}
                         </h3>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "Try adjusting your search or filters."
                             : "Create your first manufacturing order to begin production."}
                         </p>

@@ -10,6 +10,7 @@ import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -54,6 +55,8 @@ export default function EInvoicingPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [range, setRange] = useState("this_year");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [gspStatus, setGspStatus] = useState<{ status: string; username?: string } | null>(null);
@@ -70,12 +73,14 @@ export default function EInvoicingPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, activeTab, range]);
+  }, [debouncedSearch, activeTab, range, dateFrom, dateTo]);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ status: activeTab, search: debouncedSearch, range, page: String(page), limit: String(LIMIT) });
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/sales/e-invoices?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -90,7 +95,7 @@ export default function EInvoicingPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch, range, page]);
+  }, [activeTab, debouncedSearch, range, page, dateFrom, dateTo]);
 
   const fetchGspStatus = useCallback(async () => {
     try {
@@ -223,12 +228,18 @@ export default function EInvoicingPage() {
               ))}
             </SelectContent>
           </Select>
+          <DateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
           <Button variant="outline" size="icon" className="h-11 w-11 rounded-none border-border/40" onClick={fetchRecords} title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
 
-        {!loading && records.length === 0 && !debouncedSearch && activeTab === "all" && range === "this_year" ? (
+        {!loading && records.length === 0 && !debouncedSearch && activeTab === "all" && range === "this_year" && !dateFrom && !dateTo ? (
           renderEmptyState()
         ) : (
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">

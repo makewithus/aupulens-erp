@@ -90,12 +90,25 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
-    // JWT token validity: 24 hours. If the user is active, token is refreshed.
-    // Cookie has NO maxAge (see below) so it is a browser SESSION cookie —
-    // it is deleted the moment the browser is closed, ensuring fresh opens
-    // always require login.
-    maxAge: 24 * 60 * 60,   // 24 h server-side JWT validity
-    updateAge: 60 * 60,     // refresh every 1 h of active use
+    // Session/cookie validity: 8 hours, matching the documented security
+    // policy (CLAUDE.md: "JWT strategy, 8h session"). If the user is active,
+    // the token is refreshed (see updateAge).
+    //
+    // Correction: a prior version of this comment claimed the session cookie
+    // had no maxAge and was a true browser-session cookie (deleted on close),
+    // "ensuring fresh opens always require login." That was never actually
+    // true for Auth.js v5's JWT strategy — @auth/core unconditionally stamps
+    // the session cookie's `expires` to `now + session.maxAge` on every
+    // login/refresh (see @auth/core/lib/actions/callback/index.js), with no
+    // config knob to opt out and make it a real session-only cookie. The
+    // previous 24h maxAge meant a browser that logged in once stayed silently
+    // signed in for a full day (longer, since updateAge re-extends it on each
+    // hour of activity) even after being closed and reopened — this is what
+    // let someone land in a module straight past the login screen with no
+    // prompt. 8h + the 1h rolling refresh below is the actual mechanism that
+    // now bounds how long a closed/reopened browser stays signed in.
+    maxAge: 8 * 60 * 60,   // 8 h server-side JWT + cookie validity
+    updateAge: 60 * 60,    // refresh every 1 h of active use
   },
   // We remove the explicit `cookies` override. NextAuth (Auth.js v5) automatically 
   // uses the `__Secure-` prefix on HTTPS and strips it on HTTP.

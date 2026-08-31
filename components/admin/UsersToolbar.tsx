@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 interface UsersToolbarProps {
   searchQuery: string;
@@ -18,6 +19,10 @@ interface UsersToolbarProps {
   setRoleFilter: (value: string) => void;
   statusFilter: string;
   setStatusFilter: (value: string) => void;
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+  dateTo: string;
+  setDateTo: (value: string) => void;
 }
 
 export function UsersToolbar({
@@ -27,6 +32,10 @@ export function UsersToolbar({
   setRoleFilter,
   statusFilter,
   setStatusFilter,
+  dateFrom,
+  setDateFrom,
+  dateTo,
+  setDateTo,
 }: UsersToolbarProps) {
   return (
     <div className="px-8 py-5">
@@ -140,6 +149,13 @@ export function UsersToolbar({
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -72,7 +73,8 @@ export default function TasksPage() {
   const [sortBy, setSortBy] = useState("createdAt");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterDepartment, setFilterDepartment] = useState("all");
-  const [filterDate, setFilterDate] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const departments = ["Sales", "Finance", "Inventory", "Manufacturing"];
 
@@ -241,9 +243,10 @@ export default function TasksPage() {
         task.assignedDepartment === filterDepartment;
 
       const matchesDate =
-        !filterDate ||
+        (!dateFrom && !dateTo) ||
         (task.dueDate &&
-          new Date(task.dueDate).toISOString().split("T")[0] === filterDate);
+          (!dateFrom || new Date(task.dueDate) >= new Date(dateFrom)) &&
+          (!dateTo || new Date(task.dueDate) <= new Date(new Date(dateTo).setHours(23, 59, 59, 999))));
 
       return (
         matchesSearch && matchesAssignee && matchesDepartment && matchesDate
@@ -358,11 +361,12 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
 
-              <Input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="w-full md:w-[130px] h-9"
+              <DateRangeFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                inputClassName="h-9"
               />
             </div>
             <Select value={sortBy} onValueChange={setSortBy}>

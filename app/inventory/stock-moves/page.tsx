@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Plus } from "lucide-react";
 import {
   Select,
@@ -45,17 +46,39 @@ const DEFAULT_FORM: any = {
 };
 
 export default function StockMovesPage() {
+  return (
+    <Suspense fallback={null}>
+      <StockMovesPageInner />
+    </Suspense>
+  );
+}
+
+function StockMovesPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Data
   const [moves, setMoves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [query, setQuery] = useState("");
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. `dateFrom`/`dateTo`/`amountMin`/`amountMax` aren't
+  // filtered client-side (unlike `query`), so they're sent to the API
+  // directly. This used to seed via a separate useEffect after mount,
+  // which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect.
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("moveStatus") || "all");
+  const [typeFilter, setTypeFilter] = useState<string>(() => searchParams.get("moveType") || "all");
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
 
   // Resources
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -78,7 +101,7 @@ export default function StockMovesPage() {
 
   // Auth guard
   useEffect(() => {
-    
+
     if (status === "authenticated") {
       fetchMoves();
       fetchResources();
@@ -92,6 +115,10 @@ export default function StockMovesPage() {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("moveStatus", statusFilter);
       if (typeFilter !== "all") params.set("moveType", typeFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
 
       const res = await cachedFetch(`/api/inventory/stock-moves?${params}`);
       const data = await res.json();
@@ -101,7 +128,7 @@ export default function StockMovesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, dateFrom, dateTo, amountMin, amountMax]);
 
   useEffect(() => {
     if (status === "authenticated") fetchMoves();
@@ -405,6 +432,13 @@ export default function StockMovesPage() {
                       <SelectItem value="adjustment">Adjustment</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
 
                 <Button

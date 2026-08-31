@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Plus,
   MoreHorizontal,
@@ -104,8 +105,17 @@ function LifecycleDiagram() {
 }
 
 export default function SalesOrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <SalesOrdersPageInner />
+    </Suspense>
+  );
+}
+
+function SalesOrdersPageInner() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
@@ -115,6 +125,21 @@ export default function SalesOrdersPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exportOpen, setExportOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. This page has no visible filter UI for these yet
+  // (only saved views + sort), so this is a silent, additive narrowing of
+  // the fetched rows — a normal, param-less visit is completely unaffected.
+  // This used to seed via a separate useEffect after mount, which let an
+  // initial unfiltered fetch fire and render before the filtered one
+  // landed: a visible flash of the wrong rows on every filtered redirect.
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
 
   const activeView = views.find((v) => v._id === activeViewId);
   const extraColumns: string[] = activeView?.columns?.length ? activeView.columns : [];
@@ -140,6 +165,13 @@ export default function SalesOrdersPage() {
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       params.set("sortDir", sortDir);
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (customerId) params.set("customerId", customerId);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
       const res = await cachedFetch(`/api/sales/sales-orders?${params.toString()}`);
       const json = await res.json();
       if (json.success) setOrders(json.data || []);
@@ -149,7 +181,7 @@ export default function SalesOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, sortDir]);
+  }, [activeViewId, sortField, sortDir, search, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax]);
 
   useEffect(() => {
     fetchViews();
@@ -239,6 +271,13 @@ export default function SalesOrdersPage() {
           </DropdownMenu>
 
           <div className="flex items-center gap-2">
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              inputClassName="rounded-none bg-background"
+            />
             <Link href="/sales/sales-orders/new">
               <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
@@ -357,11 +396,14 @@ export default function SalesOrdersPage() {
                         <TableCell className="px-8 py-7 text-right font-mono text-sm text-foreground">
                           ₹{Number(o.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
-                        {extraColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
-                            {String(getPath(o, key) ?? "—")}
-                          </TableCell>
-                        ))}
+                        {extraColumns.map((key) => {
+                          const value = getPath(o, key);
+                          return (
+                            <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                              {value === null || value === undefined || value === "" ? "—" : String(value)}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     ))
                   )}

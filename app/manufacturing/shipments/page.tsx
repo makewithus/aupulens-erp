@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,8 @@ export default function ShipmentsPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -119,6 +122,8 @@ export default function ShipmentsPage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set('query', search);
       if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
       const res = await fetch(`/api/manufacturing/shipments?${params.toString()}`);
       const json = await res.json();
       setData(json.shipments || []);
@@ -129,7 +134,7 @@ export default function ShipmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery, statusFilter]);
+  }, [page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   const fetchFreightProviders = useCallback(async () => {
     try {
@@ -166,7 +171,7 @@ export default function ShipmentsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, statusFilter]);
+  }, [debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -352,6 +357,12 @@ export default function ShipmentsPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button onClick={() => load()}>Refresh</Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>

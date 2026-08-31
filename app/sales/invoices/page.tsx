@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { toast } from "sonner";
 
 export default function SalesInvoicesLandingPage() {
@@ -33,29 +34,21 @@ function SalesInvoicesLandingPageInner() {
   const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [customerId, setCustomerId] = useState("");
-
   // AI-native "redirect with filters" — when the AI assistant sends the user
-  // here with ?search=/&status=/&dateFrom=/&dateTo=/&customerId=, seed the
-  // existing filter state from the URL on first load so the list arrives
-  // already filtered. A normal, param-less visit to this page behaves
-  // exactly as before (every value below just stays at its default).
-  useEffect(() => {
-    const qSearch = searchParams.get("search");
-    const qStatus = searchParams.get("status");
-    const qDateFrom = searchParams.get("dateFrom");
-    const qDateTo = searchParams.get("dateTo");
-    const qCustomerId = searchParams.get("customerId");
-    if (qSearch) setSearch(qSearch);
-    if (qStatus) setStatusFilter(qStatus);
-    if (qDateFrom) setDateFrom(qDateFrom);
-    if (qDateTo) setDateTo(qDateTo);
-    if (qCustomerId) setCustomerId(qCustomerId);
-  }, []);
+  // here with ?search=/&status=/&dateFrom=/&dateTo=/&customerId=/&amountMin=/
+  // &amountMax=, seed the filter state from the URL synchronously (lazy
+  // useState initializer) so the very first fetch already uses them — a
+  // normal, param-less visit just gets every default below, unchanged. This
+  // used to seed via a separate useEffect after mount, which let an initial
+  // unfiltered fetch fire and render before the filtered one landed: a
+  // visible flash of the wrong rows on every filtered redirect.
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -64,6 +57,8 @@ function SalesInvoicesLandingPageInner() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (customerId) params.set("customerId", customerId);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
       const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -80,7 +75,7 @@ function SalesInvoicesLandingPageInner() {
 
   useEffect(() => {
     fetchInvoices();
-  }, [search, statusFilter, dateFrom, dateTo, customerId]);
+  }, [search, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax]);
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -172,7 +167,7 @@ function SalesInvoicesLandingPageInner() {
           </div>
         </div>
 
-        {!loading && invoices.length === 0 && !search && statusFilter === "all" ? (
+        {!loading && invoices.length === 0 && !search && statusFilter === "all" && !dateFrom && !dateTo && !customerId && !amountMin && !amountMax ? (
           renderEmptyState()
         ) : (
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
@@ -210,6 +205,12 @@ function SalesInvoicesLandingPageInner() {
                       <SelectItem value="overdue">Overdue</SelectItem>
                     </SelectContent>
                   </Select>
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
               </div>
             </div>

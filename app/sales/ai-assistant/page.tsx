@@ -11,6 +11,7 @@ import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Paperclip } from 'luci
 import { useChatAttachments } from '@/lib/hooks/useChatAttachments';
 import { tryAiCreateFlow } from '@/lib/ai/createFlow';
 import { tryAiMemoryFlow } from '@/lib/ai/memoryFlow';
+import { tryAiNavFlow } from '@/lib/ai/navFlow';
 import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 import { ChatAttachmentBar } from '@/components/ai/ChatAttachmentBar';
 import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
@@ -290,6 +291,43 @@ export default function SalesAIAssistant() {
           }).then(() => fetchChatHistory()).catch(() => {});
         }
         if (memOutcome.route) router.push(memOutcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
+    // AI navigation: "redirect to X" / "take me to X" / "open X" for ANY
+    // feature in ANY module — resolved against the app's real sidebar routes
+    // (lib/ai/navRoutes.ts), never guessed. Actually navigates instead of
+    // just describing the click-path.
+    try {
+      const navOutcome = await tryAiNavFlow({ text: userInputText });
+      if (navOutcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: navOutcome.message || '', timestamp: new Date() };
+        setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        if (isFirstMessage) {
+          const title = userInputText.slice(0, 50).toUpperCase();
+          fetch('/api/sales/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, messages: [
+              { role: 'user', content: userInputText, timestamp: userMessage.timestamp },
+              { role: 'assistant', content: assistantMessage.content, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved?.chat?._id) { setCurrentChatId(saved.chat._id); fetchChatHistory(); }
+          }).catch(() => {});
+        } else if (currentChatId) {
+          const allMessages = [...messages.filter(m => !m.isLoading), userMessage, assistantMessage].map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
+          fetch('/api/sales/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
+          }).then(() => fetchChatHistory()).catch(() => {});
+        }
+        if (navOutcome.route) router.push(navOutcome.route);
         return;
       }
     } catch {

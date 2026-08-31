@@ -38,6 +38,7 @@ import {
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import PurchaseOrderPopupContent from "@/components/finance/purchase-orders/PurchaseOrderPopupContent";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
@@ -48,6 +49,8 @@ export default function PurchaseOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -62,13 +65,15 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, dateFrom, dateTo]);
 
   const load = async (currentPage = page, search = debouncedQuery) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(`/api/finance/purchase-orders?${params.toString()}`);
       const data = await res.json();
       setOrders(data.items || []);
@@ -84,7 +89,7 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     load(page, debouncedQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, dateFrom, dateTo]);
 
   const filteredOrders = orders;
 
@@ -265,6 +270,12 @@ export default function PurchaseOrdersPage() {
               className="pl-10 h-11 none-xl border-2 focus:ring-primary/20"
             />
           </div>
+          <DateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
           <Button
             onClick={handleOpenCreate}
             className="none-xl h-11 px-6 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all font-black uppercase tracking-tighter group"

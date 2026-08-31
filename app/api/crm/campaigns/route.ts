@@ -29,6 +29,25 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // A campaign spans [start_date, end_date], so "within this filter window"
+  // means the two ranges overlap — a campaign that started before the
+  // window but is still running (or has no end_date, i.e. open-ended)
+  // should still match.
+  const dateFrom = url.searchParams.get("dateFrom");
+  const dateTo = url.searchParams.get("dateTo");
+  const overlapConditions: Record<string, unknown>[] = [];
+  if (dateFrom && !isNaN(Date.parse(dateFrom))) {
+    overlapConditions.push({ $or: [{ end_date: { $gte: new Date(dateFrom) } }, { end_date: { $exists: false } }] });
+  }
+  if (dateTo && !isNaN(Date.parse(dateTo))) {
+    const end = new Date(dateTo);
+    end.setHours(23, 59, 59, 999);
+    overlapConditions.push({ start_date: { $lte: end } });
+  }
+  if (overlapConditions.length > 0) {
+    (query as any).$and = [...((query as any).$and || []), ...overlapConditions];
+  }
+
   const baseQuery = CrmCampaign.find(query).sort({ createdAt: -1 }).populate("owner_id", "name email");
 
   // Pagination is opt-in via `page` — omitting it keeps returning everything,

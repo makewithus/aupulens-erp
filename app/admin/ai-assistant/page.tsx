@@ -34,6 +34,7 @@ import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { tryAiNavFlow } from "@/lib/ai/navFlow";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 
 interface Message {
@@ -342,6 +343,24 @@ export default function AIAssistant() {
         // Recent Chats and the user can pick the thread back up later.
         setTimeout(() => saveCurrentChat(), 500);
         if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
+    // AI navigation: "redirect to X" / "take me to X" / "open X" for ANY
+    // feature in ANY module — resolved against the app's real sidebar routes,
+    // never guessed. Actually navigates instead of just describing the steps.
+    try {
+      const navOutcome = await tryAiNavFlow({ text: userInputText });
+      if (navOutcome.handled) {
+        setMessages((prev) => prev.filter((m) => !m.isLoading).concat({
+          id: (Date.now() + 1).toString(), role: "assistant", content: navOutcome.message || "", timestamp: new Date(),
+        }));
+        setIsLoading(false);
+        setTimeout(() => saveCurrentChat(), 500);
+        if (navOutcome.route) router.push(navOutcome.route);
         return;
       }
     } catch {

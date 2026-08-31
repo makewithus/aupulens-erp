@@ -6,6 +6,7 @@ import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 interface SubscriptionEvent {
   _id: string;
@@ -31,16 +32,23 @@ export default function BillingHistoryPage() {
   const [events, setEvents] = useState<SubscriptionEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
-    fetch("/api/billing/history")
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    fetch(`/api/billing/history${qs ? `?${qs}` : ""}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setEvents(data.data);
         else setError(data.message || "Could not load billing history");
         setLoading(false);
       });
-  }, []);
+  }, [dateFrom, dateTo]);
 
   return (
     <DashboardLayout
@@ -57,6 +65,13 @@ export default function BillingHistoryPage() {
             A record of subscription and plan events for this workspace.
           </p>
         </div>
+
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
 
         {loading ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -79,7 +94,9 @@ export default function BillingHistoryPage() {
                 {events.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                      No billing events yet.
+                      {dateFrom || dateTo
+                        ? "No billing events match this date range."
+                        : "No billing events yet."}
                     </TableCell>
                   </TableRow>
                 ) : (

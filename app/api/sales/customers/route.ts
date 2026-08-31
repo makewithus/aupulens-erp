@@ -86,6 +86,16 @@ export async function GET(request: Request) {
       if (Object.keys(range).length > 0) query.createdAt = range;
     }
 
+    // Receivables (openingBalance) threshold — additive, same convention.
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      const range: Record<string, number> = {};
+      if (amountMin && !isNaN(Number(amountMin))) range.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) range.$lte = Number(amountMax);
+      if (Object.keys(range).length > 0) query.openingBalance = range;
+    }
+
     let cursor = Customer.find(query).sort(
       sortField ? { [sortField]: sortDir } : { createdAt: -1 },
     );

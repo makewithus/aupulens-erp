@@ -76,6 +76,7 @@ const ExpenseSchema = new Schema<IExpense>(
 
 ExpenseSchema.index({ tenantId: 1 });
 ExpenseSchema.index({ tenantId: 1, status: 1 });
+ExpenseSchema.index({ tenantId: 1, expenseDate: 1 });
 
 const Expense: Model<IExpense> =
   (mongoose.models.Expense as Model<IExpense>) ||

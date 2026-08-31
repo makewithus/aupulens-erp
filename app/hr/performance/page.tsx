@@ -4,8 +4,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -43,7 +42,7 @@ interface Review {
 }
 
 export default function PerformancePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,8 +71,10 @@ export default function PerformancePage() {
     }
   }, []);
 
+  usePageRefresh(load);
+
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -165,17 +166,7 @@ export default function PerformancePage() {
   };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Performance"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Performance" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-6 max-w-6xl mx-auto">
         <div>
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Performance Reviews</h1>
@@ -349,6 +340,6 @@ export default function PerformancePage() {
           </div>
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

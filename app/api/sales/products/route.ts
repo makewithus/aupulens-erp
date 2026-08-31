@@ -36,6 +36,19 @@ export async function GET(req: any) {
       filter.status = status;
     }
 
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) filter.createdAt = range;
+    }
+
     if (query) {
       const regex = new RegExp(escapeRegex(query), "i");
       filter.$and = [

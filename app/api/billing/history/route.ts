@@ -4,7 +4,7 @@ import connectDB from "@/lib/db";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import { requireOrgAdmin } from "@/lib/org/rbac";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -28,7 +28,22 @@ export async function GET(_req: NextRequest) {
 
     await connectDB();
 
-    const events = await SubscriptionEvent.find({ tenantId })
+    const { searchParams } = new URL(req.url);
+    const query: any = { tenantId };
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.occurredAt = range;
+    }
+
+    const events = await SubscriptionEvent.find(query)
       .sort({ occurredAt: -1 })
       .lean();
 

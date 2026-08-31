@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, Plane, Plus, BarChart3, Clock, MapPin, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { StatCard } from '@/components/manufacturing/StatCard';
@@ -39,6 +40,8 @@ export default function AirFreightPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [airFreights, setAirFreights] = useState<AirFreight[]>([]);
   const [freightProviders, setFreightProviders] = useState<any[]>([]);
   const [shipments, setShipments] = useState<any[]>([]);
@@ -63,7 +66,11 @@ export default function AirFreightPage() {
   const fetchAirFreights = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/manufacturing/air-freight');
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      const qs = params.toString();
+      const response = await fetch(`/api/manufacturing/air-freight${qs ? `?${qs}` : ''}`);
       if (!response.ok) throw new Error('Failed to fetch air freights');
       const data = await response.json();
       setAirFreights(data);
@@ -76,7 +83,7 @@ export default function AirFreightPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, dateFrom, dateTo]);
 
   const fetchFreightProviders = useCallback(async () => {
     try {
@@ -340,6 +347,12 @@ export default function AirFreightPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button
               onClick={loadVisualizationData}
               variant="outline"

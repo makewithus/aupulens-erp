@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Plus } from "lucide-react";
 
 // Extracted Subcomponents
@@ -25,6 +26,8 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,7 +44,11 @@ export default function ExpensesPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/finance/expenses");
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      const qs = params.toString();
+      const res = await cachedFetch(`/api/finance/expenses${qs ? `?${qs}` : ""}`);
       const json = await res.json();
       setExpenses(json.items || []);
     } catch (error) {
@@ -49,10 +56,10 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -219,6 +226,13 @@ export default function ExpensesPage() {
                     placeholder="Search expenses..."
                   />
                 </div>
+
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
 
                 <Button
                   onClick={handleOpenCreate}

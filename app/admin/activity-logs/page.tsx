@@ -17,6 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import {
   Select,
   SelectContent,
@@ -47,6 +48,8 @@ export default function ActivityLogsPage() {
   const [totalLogs, setTotalLogs] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -56,12 +59,21 @@ export default function ActivityLogsPage() {
         fetchLogs();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (status === 'authenticated') fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
 
   const fetchLogs = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/activity-logs?limit=200');
+      const params = new URLSearchParams({ limit: '200' });
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      const res = await fetch(`/api/activity-logs?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch logs');
 
       const data = await res.json();
@@ -293,11 +305,19 @@ export default function ActivityLogsPage() {
                   <SelectItem value="manufacturing">Manufacturing</SelectItem>
                 </SelectContent>
               </Select>
+              <DateRangeFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+              />
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setRoleFilter('all');
+                  setDateFrom('');
+                  setDateTo('');
                 }}
               >
                 Clear Filters

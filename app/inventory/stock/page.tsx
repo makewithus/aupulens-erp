@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,8 +17,17 @@ import { StockTable } from "@/components/inventory/stock/StockTable";
 import { StockModals } from "@/components/inventory/stock/StockModals";
 
 export default function StockTrackingPage() {
+  return (
+    <Suspense fallback={null}>
+      <StockTrackingPageInner />
+    </Suspense>
+  );
+}
+
+function StockTrackingPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Data State
   const [products, setProducts] = useState<any[]>([]);
@@ -28,8 +37,17 @@ export default function StockTrackingPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   // Pagination & Filter State
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // AI-native "redirect with filters" support — seed the search box from
+  // the URL synchronously (lazy useState initializer) so a link the AI
+  // assistant sends the user to arrives already filtered from the very
+  // first render. A normal, param-less visit just gets the defaults below,
+  // unchanged. No status selector exists in this page's UI, but the API
+  // accepts the param, so an AI-initiated redirect can still land on a
+  // pre-filtered list. `debouncedQuery` is seeded too (not just `query`) so
+  // a seeded search term doesn't wait out its normal 500ms typing-debounce.
+  const [query, setQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -133,6 +151,7 @@ export default function StockTrackingPage() {
         limit: pagination.limit.toString(),
         query: debouncedQuery,
       });
+      if (statusFilter) params.set("status", statusFilter);
 
       const res = await cachedFetch(`/api/sales/products?${params}`);
       const data = await res.json();
@@ -147,7 +166,7 @@ export default function StockTrackingPage() {
     } finally {
       setLoadingProducts(false);
     }
-  }, [debouncedQuery, pagination.limit, pagination.page]);
+  }, [debouncedQuery, pagination.limit, pagination.page, statusFilter]);
 
   // Fetch Products
   useEffect(() => {

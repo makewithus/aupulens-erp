@@ -64,6 +64,8 @@ const AssetSchema = new Schema<IAsset>(
   { timestamps: true },
 );
 
+AssetSchema.index({ tenantId: 1, purchaseDate: 1 });
+
 const Asset: Model<IAsset> =
   (mongoose.models.Asset as Model<IAsset>) ||
   mongoose.model<IAsset>("Asset", AssetSchema);

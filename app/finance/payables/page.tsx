@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Plus, CheckCircle, BarChart3, DollarSign, Clock, AlertCircle, Search } from 'lucide-react';
@@ -44,6 +45,8 @@ export default function PayablesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -70,12 +73,14 @@ export default function PayablesPage() {
     dueDate: '',
   });
 
-  const fetchBills = useCallback(async (currentPage: number, search: string, statusF: string) => {
+  const fetchBills = useCallback(async (currentPage: number, search: string, statusF: string, from: string, to: string) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (statusF && statusF !== 'all') params.append('status', statusF);
       if (search) params.append('search', search);
+      if (from) params.append('dateFrom', from);
+      if (to) params.append('dateTo', to);
 
       const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bills');
@@ -92,10 +97,12 @@ export default function PayablesPage() {
     }
   }, []);
 
-  const fetchAllBillsForStats = useCallback(async (statusF: string) => {
+  const fetchAllBillsForStats = useCallback(async (statusF: string, from: string, to: string) => {
     try {
       const params = new URLSearchParams({ page: '1', limit: '1000' });
       if (statusF && statusF !== 'all') params.append('status', statusF);
+      if (from) params.append('dateFrom', from);
+      if (to) params.append('dateTo', to);
       const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
       if (!res.ok) return;
       const data = await res.json();
@@ -112,21 +119,21 @@ export default function PayablesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, statusFilter]);
+  }, [debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
       if (session?.user?.role !== 'finance' && session?.user?.role !== 'admin') {
         router.push('/auth/finance');
       } else {
-        fetchBills(page, debouncedQuery, statusFilter);
+        fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
       }
     }
-  }, [status, router, session, fetchBills, page, debouncedQuery, statusFilter]);
+  }, [status, router, session, fetchBills, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchAllBillsForStats(statusFilter);
-  }, [status, fetchAllBillsForStats, statusFilter]);
+    if (status === "authenticated") fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
+  }, [status, fetchAllBillsForStats, statusFilter, dateFrom, dateTo]);
 
   const handleAddItem = () => {
     setNewBill({
@@ -191,8 +198,8 @@ export default function PayablesPage() {
         issueDate: new Date().toISOString().split('T')[0],
         dueDate: '',
       });
-      fetchBills(page, debouncedQuery, statusFilter);
-      fetchAllBillsForStats(statusFilter);
+      fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
+      fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
     } catch (err) {
       console.error('Error creating bill:', err);
       setError('Failed to create bill');
@@ -212,8 +219,8 @@ export default function PayablesPage() {
 
       if (!res.ok) throw new Error('Failed to update bill');
 
-      fetchBills(page, debouncedQuery, statusFilter);
-      fetchAllBillsForStats(statusFilter);
+      fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
+      fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
     } catch (err) {
       console.error('Error updating bill:', err);
       setError('Failed to mark bill as paid');
@@ -285,7 +292,7 @@ export default function PayablesPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
-      onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter); fetchAllBillsForStats(statusFilter); }}
+      onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllBillsForStats(statusFilter, dateFrom, dateTo); }}
     >
       <div className="space-y-6">
         <FinancePageHeader
@@ -526,6 +533,12 @@ export default function PayablesPage() {
                     <SelectItem value="overdue">Overdue</SelectItem>
                   </SelectContent>
                 </Select>
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
               </div>
             </div>
           </CardHeader>
@@ -546,7 +559,9 @@ export default function PayablesPage() {
                 {filteredBills.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No bills found. Create your first bill to get started.
+                      {query || statusFilter !== 'all' || dateFrom || dateTo
+                        ? "No bills match your search or filters."
+                        : "No bills found. Create your first bill to get started."}
                     </TableCell>
                   </TableRow>
                 ) : (

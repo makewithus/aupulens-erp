@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Select,
   SelectContent,
@@ -71,6 +72,8 @@ export default function JournalEntriesPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [voucherTypeFilter, setVoucherTypeFilter] = useState("");
   const [voucherStatusFilter, setVoucherStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -87,15 +90,17 @@ export default function JournalEntriesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, voucherTypeFilter, voucherStatusFilter]);
+  }, [debouncedQuery, voucherTypeFilter, voucherStatusFilter, dateFrom, dateTo]);
 
-  const load = useCallback(async (currentPage = 1, search = "", voucherType = "", voucherStatus = "") => {
+  const load = useCallback(async (currentPage = 1, search = "", voucherType = "", voucherStatus = "", from = "", to = "") => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("search", search);
       if (voucherType) params.set("voucherType", voucherType);
       if (voucherStatus) params.set("voucherStatus", voucherStatus);
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
       const res = await cachedFetch(`/api/finance/journal-entries?${params.toString()}`);
       const json = await res.json();
       setItems(json.items || []);
@@ -109,14 +114,16 @@ export default function JournalEntriesPage() {
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter);
-  }, [status, router, load, page, debouncedQuery, voucherTypeFilter, voucherStatusFilter]);
+    if (status === "authenticated") load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter, dateFrom, dateTo);
+  }, [status, router, load, page, debouncedQuery, voucherTypeFilter, voucherStatusFilter, dateFrom, dateTo]);
 
-  const hasActiveFilters = !!(query || voucherTypeFilter || voucherStatusFilter);
+  const hasActiveFilters = !!(query || voucherTypeFilter || voucherStatusFilter || dateFrom || dateTo);
   const resetFilters = () => {
     setQuery("");
     setVoucherTypeFilter("");
     setVoucherStatusFilter("");
+    setDateFrom("");
+    setDateTo("");
   };
 
   const handleOpenCreate = () => {
@@ -309,7 +316,7 @@ export default function JournalEntriesPage() {
       userEmail={session?.user?.email ?? ""}
       userRole={(session?.user as any)?.role ?? "finance"}
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
-      onRefresh={() => load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter)}
+      onRefresh={() => load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter, dateFrom, dateTo)}
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -363,6 +370,12 @@ export default function JournalEntriesPage() {
                 ))}
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 Clear

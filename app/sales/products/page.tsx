@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -142,6 +143,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -171,11 +174,13 @@ export default function ProductsPage() {
     parent_id: null,
   });
 
-  const load = useCallback(async (currentPage = page, search = debouncedQuery) => {
+  const load = useCallback(async (currentPage = page, search = debouncedQuery, from = dateFrom, to = dateTo) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
       const res = await cachedFetch(`/api/sales/products?${params.toString()}`);
       const json = await res.json();
       setData(json.items || []);
@@ -187,7 +192,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, dateFrom, dateTo]);
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -232,16 +237,16 @@ export default function ProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
-      load(page, debouncedQuery);
+      load(page, debouncedQuery, dateFrom, dateTo);
       loadAccounts();
       loadPricelists();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, loadAccounts, loadPricelists, page, debouncedQuery]);
+  }, [status, loadAccounts, loadPricelists, page, debouncedQuery, dateFrom, dateTo]);
 
   const filtered = data;
 
@@ -523,6 +528,12 @@ export default function ProductsPage() {
                 className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-64 text-foreground"
               />
             </div>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button
               onClick={handleOpenCreate}
               className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"

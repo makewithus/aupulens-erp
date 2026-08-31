@@ -245,6 +245,7 @@ SaleOrderSchema.index({ tenantId: 1, createdAt: -1 });
 // {tenantId,status} index doesn't cover that sort, so it ran as a blocking
 // in-memory sort over every matching order.
 SaleOrderSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
+SaleOrderSchema.index({ tenantId: 1, "header.dateOrder": 1 });
 
 const SaleOrder: Model<ISaleOrder> =
   (models.SaleOrder as Model<ISaleOrder>) ||

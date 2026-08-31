@@ -4,8 +4,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,7 +22,7 @@ import {
 } from "lucide-react";
 
 export default function HRReportsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
@@ -41,8 +40,10 @@ export default function HRReportsPage() {
     }
   }, []);
 
+  usePageRefresh(load);
+
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -161,17 +162,6 @@ export default function HRReportsPage() {
   ];
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="HR Reports"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Reports" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
       <div className="space-y-8 max-w-8xl mx-auto">
         <div>
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">HR Reports</h1>
@@ -273,6 +263,5 @@ export default function HRReportsPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
   );
 }

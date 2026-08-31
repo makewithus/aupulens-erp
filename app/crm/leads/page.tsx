@@ -6,6 +6,7 @@ import { AiTextarea } from "@/components/ai/AiTextarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   TableContainer,
   TableHead,
@@ -84,6 +85,8 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data: session } = useSession();
 
@@ -92,6 +95,8 @@ export default function LeadsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/crm/leads?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -113,12 +118,12 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchLeads(page, debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, dateFrom, dateTo]);
 
   // AI-native pre-fill: if the assistant prepared a lead, open the form with the
   // extracted values pre-filled and surface its suggestions. The user still
@@ -235,6 +240,12 @@ export default function LeadsPage() {
                 onChange={setSearch}
                 placeholder="Search leads..."
               />
+              <DateRangeFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+              />
               <Button
               onClick={() => setSheetOpen(true)}
               className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
@@ -296,11 +307,11 @@ export default function LeadsPage() {
                     <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
 
                     <h3 className="text-lg font-medium">
-                      {search ? "No leads match your filters" : "No leads found"}
+                      {search || dateFrom || dateTo ? "No leads match your filters" : "No leads found"}
                     </h3>
 
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {search ? "Try adjusting your search query." : "Click \"New Lead\" to create one."}
+                      {search || dateFrom || dateTo ? "Try adjusting your search or date range." : "Click \"New Lead\" to create one."}
                     </p>
                   </TableCell>
                 </TableRow>

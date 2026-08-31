@@ -26,6 +26,21 @@ export async function GET(req: NextRequest) {
     if (status) query.status = status;
     if (employeeId) query.employeeId = employeeId;
 
+    // A leave request spans [startDate, endDate], so "within this filter
+    // window" means the two ranges overlap — not that startDate itself
+    // falls inside the window — otherwise a multi-day leave that started
+    // before the window but is still ongoing during it would be missed.
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom && !isNaN(Date.parse(dateFrom))) {
+      query.endDate = { $gte: new Date(dateFrom) };
+    }
+    if (dateTo && !isNaN(Date.parse(dateTo))) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      query.startDate = { $lte: end };
+    }
+
     if (search) {
       const employeeIds = await Employee.find({
         tenantId,

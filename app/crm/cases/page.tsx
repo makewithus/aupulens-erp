@@ -4,6 +4,7 @@ import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   TableContainer,
   TableHead,
@@ -44,6 +45,8 @@ export default function CasesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
@@ -58,6 +61,8 @@ export default function CasesPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (currentSearch) params.set("search", currentSearch);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/crm/cases?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -104,12 +109,12 @@ export default function CasesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchCases(page, debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, dateFrom, dateTo]);
 
   const setField = (field: string, value: any) => setForm(p => ({ ...p, [field]: value }));
 
@@ -199,6 +204,13 @@ export default function CasesPage() {
                   placeholder="Search cases..."
                 />
               </div>
+
+              <DateRangeFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+              />
 
               {/* Saved Views Dropdown */}
               <div className="flex items-center gap-1">

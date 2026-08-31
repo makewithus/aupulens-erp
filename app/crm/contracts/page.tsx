@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -198,6 +199,8 @@ export default function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [churnFilter, setChurnFilter] = useState("");
   const [expiryFilter, setExpiryFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [renewalSummary, setRenewalSummary] = useState<any>(null);
   const [runningEngine, setRunningEngine] = useState(false);
@@ -212,7 +215,12 @@ export default function ContractsPage() {
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);
     if (churnFilter) params.set("churn_risk", churnFilter);
-    if (expiryFilter) params.set("expiry_days", expiryFilter);
+    if (expiryFilter) {
+      params.set("expiry_days", expiryFilter);
+    } else {
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+    }
     const res = await fetch(`/api/crm/contracts?${params}`);
     const data = await res.json();
     if (data.success) {
@@ -222,7 +230,7 @@ export default function ContractsPage() {
       if (data.data.stats) setStats(data.data.stats);
     }
     setLoading(false);
-  }, [page, debouncedSearch, statusFilter, churnFilter, expiryFilter]);
+  }, [page, debouncedSearch, statusFilter, churnFilter, expiryFilter, dateFrom, dateTo]);
 
   const fetchSummary = useCallback(async () => {
     const res = await fetch("/api/crm/renewals");
@@ -240,7 +248,7 @@ export default function ContractsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, churnFilter, expiryFilter]);
+  }, [debouncedSearch, statusFilter, churnFilter, expiryFilter, dateFrom, dateTo]);
 
   const runEngine = async () => {
     setRunningEngine(true);
@@ -350,7 +358,10 @@ export default function ContractsPage() {
         </select>
 
         {/* Expiry window */}
-        <select value={expiryFilter} onChange={(e) => setExpiryFilter(e.target.value)}
+        <select value={expiryFilter} onChange={(e) => {
+          setExpiryFilter(e.target.value);
+          if (e.target.value) { setDateFrom(""); setDateTo(""); }
+        }}
           className="bg-card border border-border rounded h-8 text-sm px-2">
           <option value="">Any Expiry</option>
           <option value="7">Expiring in 7 days</option>
@@ -358,6 +369,14 @@ export default function ContractsPage() {
           <option value="60">Expiring in 60 days</option>
           <option value="90">Expiring in 90 days</option>
         </select>
+
+        {/* Custom date range — takes precedence over the expiry-window preset above */}
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={(v) => { setDateFrom(v); if (v) setExpiryFilter(""); }}
+          onDateToChange={(v) => { setDateTo(v); if (v) setExpiryFilter(""); }}
+        />
       </div>
 
       {/* Table */}
@@ -384,7 +403,9 @@ export default function ContractsPage() {
             )}
             {!loading && contracts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No contracts found.</TableCell>
+                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                  {debouncedSearch || statusFilter || churnFilter || expiryFilter || dateFrom || dateTo ? "No contracts match your search or filters." : "No contracts found."}
+                </TableCell>
               </TableRow>
             )}
             {!loading && contracts.map((c) => {

@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 // ─── Type definitions ───────────────────────────────────────────────────────
 
@@ -98,6 +99,8 @@ export default function ItemsPage() {
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const [debouncedItemSearch, setDebouncedItemSearch] = useState("");
+  const [itemDateFrom, setItemDateFrom] = useState("");
+  const [itemDateTo, setItemDateTo] = useState("");
   const [itemPage, setItemPage] = useState(1);
   const [itemTotal, setItemTotal] = useState(0);
   const [itemTotalPages, setItemTotalPages] = useState(1);
@@ -155,7 +158,7 @@ export default function ItemsPage() {
     const t = setTimeout(() => setDebouncedItemSearch(itemSearch), 300);
     return () => clearTimeout(t);
   }, [itemSearch]);
-  useEffect(() => { setItemPage(1); }, [debouncedItemSearch]);
+  useEffect(() => { setItemPage(1); }, [debouncedItemSearch, itemDateFrom, itemDateTo]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedBomSearch(bomSearch), 300);
@@ -176,6 +179,8 @@ export default function ItemsPage() {
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
       if (search) params.set("query", search);
+      if (itemDateFrom) params.set("dateFrom", itemDateFrom);
+      if (itemDateTo) params.set("dateTo", itemDateTo);
       const res = await fetch(`/api/manufacturing/items?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
@@ -188,7 +193,7 @@ export default function ItemsPage() {
     } finally {
       setItemsLoading(false);
     }
-  }, [itemPage, debouncedItemSearch]);
+  }, [itemPage, debouncedItemSearch, itemDateFrom, itemDateTo]);
 
   const fetchAllItemsForPicker = useCallback(async () => {
     try {
@@ -589,13 +594,21 @@ export default function ItemsPage() {
                   Refresh
                 </Button>
               </div>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search items..."
-                  className="pl-8"
-                  value={itemSearch}
-                  onChange={(e) => setItemSearch(e.target.value)}
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search items..."
+                    className="pl-8"
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                  />
+                </div>
+                <DateRangeFilter
+                  dateFrom={itemDateFrom}
+                  dateTo={itemDateTo}
+                  onDateFromChange={setItemDateFrom}
+                  onDateToChange={setItemDateTo}
                 />
               </div>
             </div>

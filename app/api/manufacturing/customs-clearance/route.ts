@@ -21,20 +21,36 @@ const STATUS_MAP: Record<string, string> = {
   rejected: 'rejected',
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session || !ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    
+
 
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-await connectDB();
-    const clearances = await CustomsClearance.find({ tenantId }).sort({ createdAt: -1 }).lean();
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const query: any = { tenantId };
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.createdAt = range;
+    }
+
+    const clearances = await CustomsClearance.find(query).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ clearances });
   } catch (error) {
     console.error('Error fetching customs clearances:', error);

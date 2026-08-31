@@ -29,6 +29,20 @@ export async function GET(req: NextRequest) {
     cutoff.setDate(cutoff.getDate() + parseInt(expiryDays));
     query.end_date = { $lte: cutoff, $gte: new Date() };
     query.status = { $in: ["Active", "Renewal Due", "Expiring"] };
+  } else {
+    // A contract spans [start_date, end_date], so "within this filter
+    // window" means the two ranges overlap — a contract that started
+    // before the window but is still active during it should still match.
+    const dateFrom = url.searchParams.get("dateFrom");
+    const dateTo = url.searchParams.get("dateTo");
+    if (dateFrom && !isNaN(Date.parse(dateFrom))) {
+      query.end_date = { $gte: new Date(dateFrom) };
+    }
+    if (dateTo && !isNaN(Date.parse(dateTo))) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      query.start_date = { $lte: end };
+    }
   }
 
   const baseQuery = CrmContract.find(query)

@@ -42,8 +42,25 @@ export async function GET(req: NextRequest) {
   const filter = searchParams.get("filter");
 
   const query: any = { tenantId: session.user.tenantId };
-  const range = dateRangeForFilter(filter);
-  if (range) query.dateOfAdjustment = range;
+
+  // An explicit custom dateFrom/dateTo takes precedence over the preset
+  // "filter" quick-range (today/this week/this month/...) when both are
+  // somehow present — a user picking exact dates is more specific intent.
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
+  if (dateFrom || dateTo) {
+    const range: any = {};
+    if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+    if (dateTo && !isNaN(Date.parse(dateTo))) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      range.$lte = end;
+    }
+    if (Object.keys(range).length > 0) query.dateOfAdjustment = range;
+  } else {
+    const range = dateRangeForFilter(filter);
+    if (range) query.dateOfAdjustment = range;
+  }
 
   const adjustments = await CurrencyAdjustment.find(query).sort({ dateOfAdjustment: -1 }).lean();
   return NextResponse.json({ success: true, data: adjustments });

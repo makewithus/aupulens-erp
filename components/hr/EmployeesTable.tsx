@@ -57,6 +57,12 @@ interface EmployeeTableProps {
   accountFilter: string;
   setAccountFilter: (value: string) => void;
 
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+
+  dateTo: string;
+  setDateTo: (value: string) => void;
+
   lifecycleColors: Record<string, string>;
   getRoleBadgeColor: (role: string) => string;
 
@@ -78,6 +84,12 @@ export function EmployeeTable({
 
   accountFilter,
   setAccountFilter,
+
+  dateFrom,
+  setDateFrom,
+
+  dateTo,
+  setDateTo,
 
   lifecycleColors,
   getRoleBadgeColor,
@@ -110,6 +122,10 @@ export function EmployeeTable({
               setLifecycleFilter={setLifecycleFilter}
               accountFilter={accountFilter}
               setAccountFilter={setAccountFilter}
+              dateFrom={dateFrom}
+              setDateFrom={setDateFrom}
+              dateTo={dateTo}
+              setDateTo={setDateTo}
             />
           </div>
         </div>

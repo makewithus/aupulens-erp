@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { inventorySidebarConfig } from "@/config/sidebar/inventory";
@@ -37,6 +37,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { StockTransferPopup } from "@/app/inventory/operations/popups/StockTransferPopup";
 import { CustomerPopupContent } from "@/app/sales/customers/popup/CustomerPopup";
 import { toast } from "sonner";
@@ -74,8 +75,17 @@ const statusColors: Record<string, string> = {
 const LIMIT = 10;
 
 export default function ReceiptsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReceiptsPageInner />
+    </Suspense>
+  );
+}
+
+function ReceiptsPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
   // Separate, unpaginated fetch used only for the KPI cards — those need
@@ -91,9 +101,20 @@ export default function ReceiptsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Filters state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. This used to seed via a separate useEffect after
+  // mount, which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect. `debouncedSearch` is seeded too (not just
+  // `searchQuery`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce before the first fetch uses it.
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
   // Resources
   const [partners, setPartners] = useState([]);
@@ -127,8 +148,7 @@ export default function ReceiptsPage() {
     if (status === "authenticated") {
       fetchTransfers();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page, debouncedSearch, statusFilter]);
+  }, [status, page, debouncedSearch, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -168,7 +188,7 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo]);
 
   const fetchTransfers = async () => {
     try {
@@ -176,6 +196,8 @@ export default function ReceiptsPage() {
       const params = new URLSearchParams({ type: "incoming", page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(`/api/inventory/operations/transfers?${params.toString()}`);
       const data = await res.json();
       setTransfers(data.transfers || []);
@@ -514,6 +536,13 @@ export default function ReceiptsPage() {
                       <SelectItem value="closed">Closed</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
               </div>
             </div>
@@ -577,12 +606,12 @@ export default function ReceiptsPage() {
                       <TableCell colSpan={6} className="py-24 text-center">
                         <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
                         <h3 className="text-lg font-medium text-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "No receipts match your filters"
                             : "No incoming receipts found"}
                         </h3>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          {searchQuery || statusFilter !== "all"
+                          {searchQuery || statusFilter !== "all" || dateFrom || dateTo
                             ? "Try adjusting your search or filters."
                             : "Create your first receipt to begin receiving inventory."}
                         </p>

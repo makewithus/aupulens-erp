@@ -13,6 +13,7 @@ import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -69,26 +70,24 @@ function CustomersPageInner() {
   const [sortField, setSortField] = useState("createdAt");
   const [exportOpen, setExportOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // AI-native "redirect with filters" — seed filter state from the URL
+  // synchronously (?search=/&dateFrom=/&dateTo=/&amountMin=/&amountMax=,
+  // lazy useState initializer) so the very first fetch already uses them. A
+  // normal, param-less visit just gets the defaults below, unchanged. This
+  // used to seed via a separate useEffect after mount, which let an initial
+  // unfiltered fetch fire and render before the filtered one landed: a
+  // visible flash of the wrong rows on every filtered redirect.
+  // `debouncedQuery` is seeded too (not just `query`) so a seeded search
+  // term doesn't wait out its normal 300ms typing-debounce first.
+  const [query, setQuery] = useState(() => searchParams.get("search") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("search") || "");
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
+  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-
-  // AI-native "redirect with filters" — seed filter state from the URL on
-  // first load (?search=/&dateFrom=/&dateTo=) so a link the AI assistant
-  // sends the user to arrives already filtered. A normal, param-less visit
-  // is unaffected — every value below just stays at its default.
-  useEffect(() => {
-    const qSearch = searchParams.get("search");
-    const qDateFrom = searchParams.get("dateFrom");
-    const qDateTo = searchParams.get("dateTo");
-    if (qSearch) setQuery(qSearch);
-    if (qDateFrom) setDateFrom(qDateFrom);
-    if (qDateTo) setDateTo(qDateTo);
-  }, []);
 
   const activeView = views.find((v) => v._id === activeViewId);
   const activeColumns: string[] =
@@ -117,6 +116,8 @@ function CustomersPageInner() {
       if (debouncedQuery) params.set("search", debouncedQuery);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
       const res = await cachedFetch(`/api/sales/customers?${params.toString()}`);
       const json = await res.json();
       setCustomers(json.items || []);
@@ -128,7 +129,7 @@ function CustomersPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo]);
+  }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo, amountMin, amountMax]);
 
   useEffect(() => {
     fetchViews();
@@ -141,7 +142,7 @@ function CustomersPageInner() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, activeViewId, sortField]);
+  }, [debouncedQuery, activeViewId, sortField, dateFrom, dateTo, amountMin, amountMax]);
 
   useEffect(() => {
     load();
@@ -223,6 +224,13 @@ function CustomersPageInner() {
                 className="pl-9 w-56 bg-background rounded-none"
               />
             </div>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              inputClassName="rounded-none"
+            />
             <Link href="/sales/customers/new">
               <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-2" /> New
@@ -272,12 +280,12 @@ function CustomersPageInner() {
           </div>
         </div>
 
-        {!loading && customers.length === 0 && debouncedQuery ? (
+        {!loading && customers.length === 0 && (debouncedQuery || dateFrom || dateTo || amountMin || amountMax) ? (
           <div className="flex flex-col items-center py-16 px-4 text-center">
             <Users2 className="w-12 h-12 mb-6 text-muted-foreground/30" />
-            <h2 className="text-[20px] font-medium tracking-[-0.05em] text-foreground mb-2">No customers match your search</h2>
+            <h2 className="text-[20px] font-medium tracking-[-0.05em] text-foreground mb-2">No customers match your filters</h2>
             <p className="text-sm text-muted-foreground max-w-md">
-              Try a different name or email, or clear the search box.
+              Try adjusting your search, date range, or receivables filter.
             </p>
           </div>
         ) : !loading && customers.length === 0 ? (
@@ -352,11 +360,14 @@ function CustomersPageInner() {
                         <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
                           {c.header?.displayName || c.header?.name}
                         </TableCell>
-                        {activeColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
-                            {String(getPath(c, key) ?? "—")}
-                          </TableCell>
-                        ))}
+                        {activeColumns.map((key) => {
+                          const value = getPath(c, key);
+                          return (
+                            <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                              {value === null || value === undefined || value === "" ? "—" : String(value)}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     ))
                   )}

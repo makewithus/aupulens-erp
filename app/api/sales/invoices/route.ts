@@ -75,6 +75,18 @@ export async function GET(request: NextRequest) {
       if (Object.keys(query.invoiceDate).length === 0) delete query.invoiceDate;
     }
 
+    // AI-native "redirect with filters" support — an amount range on
+    // totalAmount ("invoices above 50000"). Additive: omitting these params
+    // leaves every existing caller's behavior unchanged.
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query.totalAmount = {};
+      if (amountMin && !isNaN(Number(amountMin))) query.totalAmount.$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query.totalAmount.$lte = Number(amountMax);
+      if (Object.keys(query.totalAmount).length === 0) delete query.totalAmount;
+    }
+
     const [total, invoices] = await Promise.all([
       SalesInvoice.countDocuments(query),
       (SalesInvoice as any)

@@ -26,12 +26,15 @@ import {
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { AssetPopupContent } from "@/components/accounting/AssetPopupContent";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 
 export default function FixedAssetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,7 +46,11 @@ export default function FixedAssetsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await cachedFetch("/api/finance/assets");
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      const qs = params.toString();
+      const res = await cachedFetch(`/api/finance/assets${qs ? `?${qs}` : ""}`);
       const json = await res.json();
       setAssets(json.items || []);
     } catch (error) {
@@ -51,7 +58,7 @@ export default function FixedAssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     
@@ -219,6 +226,12 @@ export default function FixedAssetsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button onClick={handleOpenCreate}>
               <Plus className="h-4 w-4 mr-2" /> Register Asset
             </Button>

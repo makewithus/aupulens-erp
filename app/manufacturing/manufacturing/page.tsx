@@ -26,6 +26,7 @@ import {
   Search,
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { ManufacturingOrderPopup } from "@/app/inventory/operations/popups/ManufacturingOrderPopup";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
@@ -241,6 +242,8 @@ export default function ManufacturingPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -274,7 +277,7 @@ export default function ManufacturingPage() {
       fetchOrders();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page, debouncedSearch, filterStatus]);
+  }, [status, page, debouncedSearch, filterStatus, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -290,7 +293,7 @@ export default function ManufacturingPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterStatus]);
+  }, [debouncedSearch, filterStatus, dateFrom, dateTo]);
 
   const fetchResources = async () => {
     try {
@@ -317,6 +320,8 @@ export default function ManufacturingPage() {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (filterStatus !== "all") params.set("productionStatus", filterStatus);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`/api/inventory/operations/manufacturing?${params.toString()}`);
       const data = await res.json();
       setOrders(data.orders || []);
@@ -451,6 +456,12 @@ export default function ManufacturingPage() {
                 className="pl-8"
               />
             </div>
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
             <Button onClick={() => handleAction(null, "create")}>
               <Plus className="h-4 w-4 mr-2" /> Create MO
             </Button>
@@ -598,11 +609,9 @@ export default function ManufacturingPage() {
                 </Table>
                 {filteredOrders.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
-                    No manufacturing orders
-                    {filterStatus !== "all"
-                      ? ` with status "${PRODUCTION_STATUS_LABELS[filterStatus as ProductionStatus]}"`
-                      : ""}
-                    .
+                    {searchQuery || filterStatus !== "all" || dateFrom || dateTo
+                      ? "No manufacturing orders match your search or filters."
+                      : "No manufacturing orders."}
                   </div>
                 )}
                 {totalPages > 1 && (

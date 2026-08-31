@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Plus } from "lucide-react";
 import { DOCUMENT_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
 
@@ -22,6 +23,8 @@ export default function VendorBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -40,6 +43,8 @@ export default function VendorBillsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(LIMIT) });
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const [res, cRes] = await Promise.all([
         cachedFetch(`/api/finance/bills?${params.toString()}`),
         cachedFetch("/api/sales/customers"),
@@ -60,6 +65,15 @@ export default function VendorBillsPage() {
   useEffect(() => {
     load(page);
   }, [page]);
+
+  useEffect(() => {
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      load(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
 
   const filteredBills = useMemo(() => {
     return bills.filter(
@@ -274,6 +288,13 @@ export default function VendorBillsPage() {
                     placeholder="Search by bill or vendor..."
                   />
                 </div>
+
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
 
                 <Button
                   onClick={handleOpenCreate}

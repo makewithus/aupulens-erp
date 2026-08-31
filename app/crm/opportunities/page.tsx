@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { StatCard } from "@/components/admin/StatCard";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +54,8 @@ export default function OpportunitiesPage() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -93,6 +96,8 @@ export default function OpportunitiesPage() {
     if (search) params.set('search', search);
     if (stageFilter && stageFilter !== "all") params.set('stage', stageFilter);
     if (riskFilter && riskFilter !== "all") params.set('risk_level', riskFilter);
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
 
     try {
       const res = await fetch(`/api/crm/opportunities?${params.toString()}`);
@@ -162,7 +167,7 @@ export default function OpportunitiesPage() {
       fetchKpis();
     }, 300);
     return () => clearTimeout(delayDebounce);
-  }, [search, stageFilter, riskFilter]);
+  }, [search, stageFilter, riskFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchOpportunities(page);
@@ -332,6 +337,14 @@ export default function OpportunitiesPage() {
               </Select>
             </div>
 
+            {/* Expected Close Date Filter */}
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
+
             {/* Export Selected */}
             
               <div className="ml-auto">
@@ -405,11 +418,11 @@ export default function OpportunitiesPage() {
                     <FolderKanban className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
 
                     <h3 className="text-lg font-medium">
-                      {search ? "No opportunities match your filters" : "No opportunities found"}
+                      {search || stageFilter !== "all" || riskFilter !== "all" || dateFrom || dateTo ? "No opportunities match your filters" : "No opportunities found"}
                     </h3>
 
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {search ? "Try adjusting your search query or filters." : 'Click "New Opportunity" to create one.'}
+                      {search || stageFilter !== "all" || riskFilter !== "all" || dateFrom || dateTo ? "Try adjusting your search query or filters." : 'Click "New Opportunity" to create one.'}
                     </p>
                   </TableCell>
                 </TableRow>

@@ -42,7 +42,22 @@ export async function GET(req: NextRequest) {
       year = parseInt(yearParam);
     }
 
-    if (date) {
+    // An explicit custom dateFrom/dateTo range takes precedence over the
+    // single `date`/`month`+`year` filters when present — a user picking a
+    // range is more specific intent (dateFrom === dateTo covers the
+    // "exact date" case too, so `date` stays as a convenience shorthand).
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.date = range;
+    } else if (date) {
       const d = new Date(date);
       const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);

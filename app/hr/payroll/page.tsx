@@ -5,8 +5,7 @@ import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -106,12 +105,13 @@ const nextActionLabels: Record<string, string> = {
 };
 
 export default function PayrollPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [payrolls, setPayrolls] = useState<PayrollRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,6 +135,11 @@ export default function PayrollPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (filterStatus) params.set("status", filterStatus);
+      if (filterMonth) {
+        const [y, m] = filterMonth.split("-");
+        params.set("year", y);
+        params.set("month", String(parseInt(m, 10)));
+      }
       const res = await cachedFetch(`/api/hr/payroll?${params.toString()}`);
       const json = await res.json();
       setPayrolls(json.items || []);
@@ -143,10 +148,12 @@ export default function PayrollPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, [filterStatus, filterMonth]);
+
+  usePageRefresh(load);
 
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -286,17 +293,7 @@ export default function PayrollPage() {
   const getStepIndex = (s: string) => workflowSteps.findIndex((ws) => ws.key === s);
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Payroll Processing"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Payroll Processing" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-6 max-w-8xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
@@ -360,6 +357,12 @@ export default function PayrollPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="h-11 w-44 rounded-none border-0 border-b border-border/40 bg-transparent shadow-none focus-visible:border-primary focus-visible:ring-0"
+            />
           </div>
         </div>
 
@@ -597,6 +600,6 @@ export default function PayrollPage() {
           </div>
         </div>
       </ModularModal>
-    </DashboardLayout>
+    </>
   );
 }

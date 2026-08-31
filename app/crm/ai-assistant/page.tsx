@@ -8,6 +8,7 @@ import { Send, Trash2, Plus, MessageSquare, Menu, X, Mic, Paperclip } from "luci
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useChatAttachments } from "@/lib/hooks/useChatAttachments";
 import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { tryAiNavFlow } from "@/lib/ai/navFlow";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { ChatAttachmentBar } from "@/components/ai/ChatAttachmentBar";
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
@@ -167,6 +168,42 @@ export default function CRMAIAssistantPage() {
           }).then(() => fetchChatHistory()).catch(() => {});
         }
         if (outcome.route) router.push(outcome.route);
+        return;
+      }
+    } catch {
+      /* fall through to the normal assistant on any unexpected error */
+    }
+
+    // AI navigation: "redirect to X" / "take me to X" / "open X" for ANY
+    // feature in ANY module — resolved against the app's real sidebar routes,
+    // never guessed. Actually navigates instead of just describing the steps.
+    try {
+      const navOutcome = await tryAiNavFlow({ text: userInput });
+      if (navOutcome.handled) {
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: navOutcome.message || "", timestamp: new Date() };
+        setMessages((prev) => prev.filter((m) => !m.isLoading).concat(assistantMessage));
+        setIsLoading(false);
+        if (isFirstMessage) {
+          const title = userInput.slice(0, 50).toUpperCase();
+          fetch("/api/crm/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, messages: [
+              { role: "user", content: userInput, timestamp: userMessage.timestamp },
+              { role: "assistant", content: assistantMessage.content, timestamp: assistantMessage.timestamp },
+            ] }),
+          }).then((r) => r.ok && r.json()).then((saved) => {
+            if (saved) { setCurrentChatId(saved.chat?._id || null); fetchChatHistory(); }
+          }).catch(() => {});
+        } else if (currentChatId) {
+          const allMsgs = [...messages.filter((m) => !m.isLoading), userMessage, assistantMessage].map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
+          fetch("/api/crm/chat-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: currentChatId, messages: allMsgs }),
+          }).then(() => fetchChatHistory()).catch(() => {});
+        }
+        if (navOutcome.route) router.push(navOutcome.route);
         return;
       }
     } catch {

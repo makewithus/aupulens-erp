@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/SearchInput";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Plus } from "lucide-react";
 
 // Extracted Subcomponents
@@ -24,6 +25,8 @@ export default function PricelistPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Resources
   const [products, setProducts] = useState([]);
@@ -181,9 +184,13 @@ export default function PricelistPage() {
     }
   };
 
-  const filtered = data.filter((p) =>
-    p.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = data.filter((p) => {
+    const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+    const created = p.createdAt ? new Date(p.createdAt) : null;
+    const matchesFrom = !dateFrom || (created != null && created >= new Date(dateFrom));
+    const matchesTo = !dateTo || (created != null && created <= new Date(new Date(dateTo).setHours(23, 59, 59, 999)));
+    return matchesQuery && matchesFrom && matchesTo;
+  });
 
   return (
     <DashboardLayout
@@ -229,6 +236,13 @@ export default function PricelistPage() {
                     placeholder="Search pricelists..."
                   />
                 </div>
+
+                <DateRangeFilter
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onDateFromChange={setDateFrom}
+                  onDateToChange={setDateTo}
+                />
 
                 <Button
                   onClick={handleOpenCreate}

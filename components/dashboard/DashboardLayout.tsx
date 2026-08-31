@@ -8,6 +8,7 @@ import { AiSidebar } from "./AiSidebar";
 import { cn } from "@/lib/utils";
 import { clearAllStores } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
+import { usePageActionsStore } from "@/store/pageActionsStore";
 import Lenis from "lenis";
 
 interface DashboardLayoutProps {
@@ -47,6 +48,12 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const sections = sidebarSections || sidebarConfig || [];
   const profile = profilePath || profileHref;
+  // Pages that live under a shared module `layout.tsx` (this component
+  // mounted once, not per-page) can't pass `onRefresh` as a prop — they
+  // register it via usePageRefresh() instead. A directly-passed prop always
+  // wins, so pages that still own their DashboardLayout call are unaffected.
+  const registeredOnRefresh = usePageActionsStore((s) => s.onRefresh);
+  const effectiveOnRefresh = onRefresh || registeredOnRefresh || undefined;
 
   const [isMainScrolling, setIsMainScrolling] = useState(false);
   const mainScrollRef = useRef<HTMLElement>(null);
@@ -136,7 +143,7 @@ export function DashboardLayout({
           console.log("[DashboardLayout] Invoking native signOut...");
           await signOut({ callbackUrl: "/auth", redirect: true });
         }}
-        onRefresh={onRefresh}
+        onRefresh={effectiveOnRefresh}
         profilePath={profile}
         sidebarConfig={sections}
         onToggleAi={toggleAiSidebar}

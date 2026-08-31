@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { JournalEntryPopupContent } from "@/components/accounting/JournalEntryPopupContent";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Select,
   SelectContent,
@@ -247,6 +248,8 @@ export default function VouchersPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -263,7 +266,7 @@ export default function VouchersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, typeFilter, statusFilter]);
+  }, [debouncedQuery, typeFilter, statusFilter, dateFrom, dateTo]);
 
   const load = useCallback(async (currentPage = page) => {
     try {
@@ -276,6 +279,8 @@ export default function VouchersPage() {
       if (typeFilter !== "all") params.set("voucherType", typeFilter);
       if (statusFilter !== "all") params.set("voucherStatus", statusFilter);
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await cachedFetch(
         `/api/finance/journal-entries?${params.toString()}`,
       );
@@ -288,12 +293,12 @@ export default function VouchersPage() {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, statusFilter, debouncedQuery, page]);
+  }, [typeFilter, statusFilter, debouncedQuery, page, dateFrom, dateTo]);
 
   useEffect(() => {
     if (status === "authenticated") load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, router, page, typeFilter, statusFilter, debouncedQuery]);
+  }, [status, router, page, typeFilter, statusFilter, debouncedQuery, dateFrom, dateTo]);
 
   const handleOpenAction = (actionName: string) => {
     setFormData({
@@ -570,7 +575,13 @@ export default function VouchersPage() {
                 ))}
               </SelectContent>
             </Select>
-            {(query || typeFilter !== "all" || statusFilter !== "all") && (
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
+            {(query || typeFilter !== "all" || statusFilter !== "all" || dateFrom || dateTo) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -578,6 +589,8 @@ export default function VouchersPage() {
                   setQuery("");
                   setTypeFilter("all");
                   setStatusFilter("all");
+                  setDateFrom("");
+                  setDateTo("");
                 }}
               >
                 Clear

@@ -30,6 +30,33 @@ export async function GET(req: NextRequest) {
       query.moveType = moveType;
     }
 
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const search = searchParams.get("search")?.trim();
+    if (search) {
+      query.reference = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      query.scheduledDate = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) query.scheduledDate.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        query.scheduledDate.$lte = end;
+      }
+      if (Object.keys(query.scheduledDate).length === 0) delete query.scheduledDate;
+    }
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      query["valuation.totalValue"] = {};
+      if (amountMin && !isNaN(Number(amountMin))) query["valuation.totalValue"].$gte = Number(amountMin);
+      if (amountMax && !isNaN(Number(amountMax))) query["valuation.totalValue"].$lte = Number(amountMax);
+      if (Object.keys(query["valuation.totalValue"]).length === 0) delete query["valuation.totalValue"];
+    }
+
     const moves = await StockMove.find(query)
       .populate("sourceLocation.warehouseId", "name warehouseCode")
       .populate("destinationLocation.warehouseId", "name warehouseCode")

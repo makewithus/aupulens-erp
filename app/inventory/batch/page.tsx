@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAiPrefill } from '@/lib/hooks/useAiPrefill';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, BarChart3, Search, CheckCircle2 } from 'lucide-react';
 import { DraggableVisualization } from '@/components/finance/DraggableVisualization';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 import { StatCard } from '@/components/admin/StatCard';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
@@ -82,8 +83,17 @@ const customsStatusLabels: Record<string, string> = {
 const LIMIT = 10;
 
 export default function BatchLotPage() {
+  return (
+    <Suspense fallback={null}>
+      <BatchLotPageInner />
+    </Suspense>
+  );
+}
+
+function BatchLotPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [batches, setBatches] = useState<Batch[]>([]);
   // Separate, unpaginated fetch used only for the KPI cards — those need
@@ -91,15 +101,27 @@ export default function BatchLotPage() {
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Search query
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // AI-native "redirect with filters" support — seeded from the URL
+  // synchronously (lazy useState initializer) so the very first fetch
+  // already uses them. A normal, param-less visit just gets the defaults
+  // below, unchanged. This used to seed via a separate useEffect after
+  // mount, which let an initial unfiltered fetch fire and render before the
+  // filtered one landed: a visible flash of the wrong rows on every
+  // filtered redirect. `debouncedSearch` is seeded too (not just
+  // `searchQuery`) so a seeded search term doesn't wait out its normal
+  // 300ms typing-debounce before the first fetch uses it.
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '');
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get('dateFrom') || '');
+  const [dateTo, setDateTo] = useState(() => searchParams.get('dateTo') || '');
+  const [quantityMin, setQuantityMin] = useState(() => searchParams.get('quantityMin') || '');
+  const [quantityMax, setQuantityMax] = useState(() => searchParams.get('quantityMax') || '');
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -165,6 +187,10 @@ export default function BatchLotPage() {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       if (debouncedSearch) params.append('search', debouncedSearch);
+      if (dateFrom) params.append('dateFrom', dateFrom);
+      if (dateTo) params.append('dateTo', dateTo);
+      if (quantityMin) params.append('quantityMin', quantityMin);
+      if (quantityMax) params.append('quantityMax', quantityMax);
 
       const res = await cachedFetch(`/api/inventory/batch?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch batches');
@@ -179,7 +205,7 @@ export default function BatchLotPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, debouncedSearch, page]);
+  }, [statusFilter, debouncedSearch, page, dateFrom, dateTo, quantityMin, quantityMax]);
 
   const fetchAllBatchesForStats = useCallback(async () => {
     try {
@@ -609,6 +635,13 @@ export default function BatchLotPage() {
                       <SelectItem value="released">Released</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <DateRangeFilter
+                    dateFrom={dateFrom}
+                    dateTo={dateTo}
+                    onDateFromChange={setDateFrom}
+                    onDateToChange={setDateTo}
+                  />
                 </div>
               </div>
             </div>

@@ -89,6 +89,7 @@ ContractSchema.index({ tenantId: 1 });
 ContractSchema.index({ tenantId: 1, contract_number: 1 }, { unique: true });
 ContractSchema.index({ tenantId: 1, status: 1 });
 ContractSchema.index({ tenantId: 1, end_date: 1 });
+ContractSchema.index({ tenantId: 1, start_date: 1, end_date: 1 });
 ContractSchema.index({ tenantId: 1, account_id: 1 });
 ContractSchema.index({ tenantId: 1, owner_id: 1 });
 ContractSchema.index({ tenantId: 1, churn_risk: 1 });

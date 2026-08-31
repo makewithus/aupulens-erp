@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -162,6 +163,8 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -180,6 +183,8 @@ export default function CampaignsPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter) params.set("status", statusFilter);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
     const res = await fetch(`/api/crm/campaigns?${params}`);
     const data = await res.json();
     if (data.success) {
@@ -188,7 +193,7 @@ export default function CampaignsPage() {
       setTotalPages(data.data.totalPages ?? 1);
     }
     setLoading(false);
-  }, [page, debouncedSearch, statusFilter]);
+  }, [page, debouncedSearch, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
@@ -199,7 +204,7 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo]);
 
   const forceROIUpdate = async () => {
     toast.info("Updating global ROI metrics...");
@@ -259,6 +264,13 @@ export default function CampaignsPage() {
               className="h-8 text-xs" onClick={() => setStatusFilter(s === statusFilter ? "" : s)}>{s}</Button>
           ))}
         </div>
+
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
       </div>
 
       {/* Table */}
@@ -283,7 +295,9 @@ export default function CampaignsPage() {
             )}
             {!loading && campaigns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No campaigns found.</TableCell>
+                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                  {debouncedSearch || statusFilter || dateFrom || dateTo ? "No campaigns match your search or filters." : "No campaigns found."}
+                </TableCell>
               </TableRow>
             )}
             {!loading && campaigns.map((c) => (

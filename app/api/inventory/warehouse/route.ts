@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Warehouse from "@/models/inventory/Warehouse";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const allowedRoles = ["admin", "inventory", "sales"];
@@ -18,7 +18,20 @@ export async function GET() {
     const tenantId = (session.user as any).tenantId;
 
     await connectDB();
-    const warehouses = await Warehouse.find({ tenantId })
+
+    // AI-native "redirect with filters" support — additive: omitting these
+    // params leaves every existing caller's behavior unchanged.
+    const { searchParams } = new URL(req.url);
+    const query: any = { tenantId };
+    const status = searchParams.get("status");
+    if (status && status !== "all") query.status = status;
+    const search = searchParams.get("search")?.trim();
+    if (search) {
+      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      query.$or = [{ name: re }, { warehouseCode: re }];
+    }
+
+    const warehouses = await Warehouse.find(query)
       .sort({ createdAt: -1 })
       .lean();
 

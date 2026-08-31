@@ -4,8 +4,7 @@ import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { hrSidebarConfig } from "@/config/sidebar/hr";
+import { usePageRefresh } from "@/lib/hooks/usePageRefresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +40,7 @@ const onboardingChecklist = [
 ];
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [employees, setEmployees] = useState<OnboardingEmployee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +65,10 @@ export default function OnboardingPage() {
     }
   }, []);
 
+  usePageRefresh(load);
+
   useEffect(() => {
-    
+
     if (status === "authenticated") load();
   }, [status, router, load]);
 
@@ -89,17 +90,7 @@ export default function OnboardingPage() {
 };
 
   return (
-    <DashboardLayout
-      sidebarSections={hrSidebarConfig}
-      dashboardTitle="HR & Payroll"
-      pageName="Onboarding"
-      breadcrumbs={[{ label: "HR", href: "/hr/dashboard" }, { label: "Onboarding" }]}
-      userName={session?.user?.name || ""}
-      userEmail={session?.user?.email || ""}
-      userRole={session?.user?.role}
-      profilePath="/hr/profile"
-      onRefresh={load}
-    >
+    <>
       <div className="space-y-8 max-w-6xl mx-auto">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -180,6 +171,6 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 }

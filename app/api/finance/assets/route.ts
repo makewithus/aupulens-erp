@@ -15,7 +15,22 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
     await dbConnect();
 
-    const items = await Asset.find({ tenantId })
+    const { searchParams } = new URL(req.url);
+    const query: any = { tenantId };
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query.purchaseDate = range;
+    }
+
+    const items = await Asset.find(query)
           .populate("accounts.assetAccountId")
           .populate("accounts.depreciationAccountId").lean();
 

@@ -21,6 +21,19 @@ export async function GET(req: NextRequest) {
 
     const query: any = { tenantId };
 
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom && !isNaN(Date.parse(dateFrom))) range.$gte = new Date(dateFrom);
+      if (dateTo && !isNaN(Date.parse(dateTo))) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      if (Object.keys(range).length > 0) query["header.date"] = range;
+    }
+
     // Bank reconciliation needs the full open-lines set to match against
     // statement lines, so pagination is opt-in via `page` — omitting it
     // preserves the original unbounded response exactly.
