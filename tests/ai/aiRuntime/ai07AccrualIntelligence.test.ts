@@ -221,7 +221,7 @@ describe("AI-07 — Accrual intelligence", () => {
 
     await runWorkflow(ai07AccrualIntelligence, { tenantId: TENANT, eventKey: "bill.created", payload: { invoiceId: String(bill._id) } });
 
-    const record = await AiLearningRecord.findOne({ tenantId: TENANT, workflowId: "AI-07", "proposal.basis": "accrual_accuracy" }).lean();
+    const record = await AiLearningRecord.findOne({ tenantId: TENANT, workflowId: "AI-07", "proposal.accrualAccuracy.basis": "accrual_accuracy" }).lean();
     expect(record).not.toBeNull();
     expect(record!.outcome).toBe("accepted"); // 1000 accrual vs 1000 invoice — exact match
   });
