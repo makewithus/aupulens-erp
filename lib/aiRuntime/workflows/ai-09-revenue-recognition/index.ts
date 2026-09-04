@@ -51,6 +51,21 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Adds `months` calendar months, clamping to the target month's real last day — plain
+ *  `date.setUTCMonth(date.getUTCMonth() + months)` overflows into the month after when `date`'s
+ *  day-of-month doesn't exist there (most narrowly: Feb 29 + 12 months rolls into Mar 1/2 of the
+ *  following, non-leap year instead of Feb 28). Same defect shape as AI-07's own
+ *  `addOneMonthClamped`, found while sweeping this pattern across the workflow catalogue during
+ *  Chunk 9 verification (docs/ai/BRIEF-09-VERIFICATION.md Part A.2 — "check the same defect shape
+ *  across all other workflows"). */
+function addMonthsClamped(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const lastDayOfTargetMonth = new Date(Date.UTC(year, month + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month + months, Math.min(day, lastDayOfTargetMonth)));
+}
+
 interface Ai09Raw {
   mode: "scan" | "schedule_run";
   actingUserId?: string;
@@ -414,8 +429,7 @@ export const ai09RevenueRecognition: WorkflowDefinition<Ai09Raw, Ai09Extracted, 
     if (extracted.deferredRevenueAccountId && extracted.revenueAccountId) {
       for (const o of reasoned.proposal.newOverTimeSchedules) {
         const startDate = new Date();
-        const endDate = new Date();
-        endDate.setUTCMonth(endDate.getUTCMonth() + 12);
+        const endDate = addMonthsClamped(startDate, 12);
         try {
           await rt.callTool(
             "draft_prepaid_schedule",

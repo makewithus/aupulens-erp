@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, expect, it, beforeAll, afterAll, afterEach, vi } from "vitest";
 import mongoose from "mongoose";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_ai09edge";
@@ -334,5 +334,34 @@ describe("AI-09 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     expect(journalCount).toBe(1);
     const scheduleCount = await AiSchedule.countDocuments({ tenantId: TENANT, "sourceRef.model": "SaleOrder" });
     expect(scheduleCount).toBe(0);
+  });
+
+  // ── C.2 Month-length/leap-day boundary ─────────────────────────────────────────────────────
+  // Regression test for a bug found during this verification pass, in the same defect shape
+  // already fixed in AI-07 (docs/ai/BRIEF-09-VERIFICATION.md Part A.2 — "check the same defect
+  // shape across all other workflows"): the new deferred_revenue schedule's endDate used plain
+  // `endDate.setUTCMonth(endDate.getUTCMonth() + 12)`, which rolls Feb 29 into Mar 1/2 of the
+  // following non-leap year instead of clamping to Feb 28. Fixed with `addMonthsClamped()`.
+  it("month-length boundary: a subscription schedule created on Feb 29 (leap day) gets an endDate of Feb 28 next year, not Mar 1/2", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2028-02-29T10:00:00Z")); // 2028 is a leap year; 2029 is not
+    try {
+      await makeAccount("income");
+      await makeAccount("liability_current");
+      const userId = await makeUser();
+      const partnerId = await makeCustomer();
+      await makeSaleOrder({ partnerId, amount: 12000, name: "Annual subscription plan" });
+      await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-09", killSwitchEnabled: true, maxAutonomyLevel: "draft", confidenceThreshold: 0.1 });
+
+      await runWorkflow(ai09RevenueRecognition, { tenantId: TENANT, eventKey: "ai.sweep.hourly", payload: { actingUserId: userId } });
+
+      const schedule = await AiSchedule.findOne({ tenantId: TENANT, "sourceRef.model": "SaleOrder" }).lean();
+      expect(schedule).not.toBeNull();
+      expect(schedule!.endDate.getUTCFullYear()).toBe(2029);
+      expect(schedule!.endDate.getUTCMonth()).toBe(1); // February (0-indexed)
+      expect(schedule!.endDate.getUTCDate()).toBe(28); // clamped to Feb's last real day, NOT Mar 1/2
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
