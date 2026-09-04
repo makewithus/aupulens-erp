@@ -5,12 +5,17 @@ import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
 import { listWorkflows } from "@/lib/aiRuntime/runtime/registry";
 import { computeAndPersistTenantMetrics } from "@/lib/aiRuntime/metrics/computeMetrics";
 import { checkDrift } from "@/lib/aiRuntime/metrics/drift";
+import { runResolutionSweep } from "@/lib/aiRuntime/learning/resolveOutcomes";
 
 /**
  * The nightly metric-snapshot sweep (docs/ai/BRIEF-08b-FINAL.md C.1/C.4). Same bearer-secret
  * shape and per-tenant iteration as `app/api/cron/ai/runtime-sweep/route.ts` — a separate route
  * (not folded into the hourly sweep) because this is genuinely nightly cadence, per C.1's own
  * instruction, not another `ai.sweep.hourly` consumer.
+ *
+ * Chunk 9 (0.1): the learning-loop resolution sweep runs FIRST, per tenant, before metrics are
+ * computed — so a record that resolves (or ages to `outcome_unknown`) tonight is reflected in
+ * tonight's own snapshot, not next night's.
  */
 async function handler(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -29,8 +34,13 @@ async function handler(req: NextRequest) {
 
   let tenantsProcessed = 0;
   let driftFindings = 0;
+  let learningResolved = 0;
+  let learningAgedToUnknown = 0;
   for (const org of orgs) {
     const tenantId = (org as { subdomain: string }).subdomain;
+    const sweep = await runResolutionSweep(tenantId);
+    learningResolved += sweep.resolved;
+    learningAgedToUnknown += sweep.agedToUnknown;
     await computeAndPersistTenantMetrics(tenantId);
     for (const workflowId of workflowIds) {
       const findings = await checkDrift(tenantId, workflowId);
@@ -39,7 +49,7 @@ async function handler(req: NextRequest) {
     tenantsProcessed++;
   }
 
-  return NextResponse.json({ success: true, tenantsProcessed, workflowsPerTenant: workflowIds.length, driftFindings });
+  return NextResponse.json({ success: true, tenantsProcessed, workflowsPerTenant: workflowIds.length, driftFindings, learningResolved, learningAgedToUnknown });
 }
 
 export { handler as GET, handler as POST };

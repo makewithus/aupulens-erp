@@ -5,6 +5,7 @@ import { previewWorkflow } from "@/lib/aiRuntime/runtime/executor";
 import { runWorkflowFromChat } from "@/lib/aiRuntime/nl/chatBridge";
 import { explainRun } from "@/lib/aiRuntime/nl/explain";
 import { summarizePreview } from "@/lib/aiRuntime/nl/previewSummary";
+import { resolveLearningRecordForRun } from "@/lib/aiRuntime/learning/resolveOutcomes";
 import { AI_AUTONOMY_LEVEL } from "@/lib/constants/statuses";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 
@@ -71,9 +72,16 @@ export async function handleWorkflowIntent(tenantId: string, userId: string, wor
 
 /** Executes a workflow proposal after confirmation — called from the confirm route for
  *  `module: "ai-workflow"` proposals. The actual mutation is exactly `runWorkflowFromChat` again,
- *  same as the OBSERVE immediate path — there is no separate "confirmed execution" code. */
+ *  same as the OBSERVE immediate path — there is no separate "confirmed execution" code.
+ *
+ *  Chunk 9 (0.1), resolution signal #2: a human explicitly confirming this run IS an accept
+ *  signal for its own learning record — resolved here, once, right after the run completes.
+ *  `resolveLearningRecordForRun()` only touches a record still `pending`, so this is a genuine
+ *  no-op (not a second, conflicting write) whenever the workflow's own `act()` already resolved
+ *  it via `ActResult.learningOutcome`. */
 export async function executeWorkflowProposal(tenantId: string, userId: string, params: { workflowId: string; eventKey: string; parameters: Record<string, unknown> }) {
   const envelope = await runWorkflowFromChat(params.workflowId, params.eventKey, tenantId, userId, params.parameters);
+  await resolveLearningRecordForRun(envelope.runId, "accepted", "confirmed via AI-NL chat");
   const explanation = await explainRun(envelope);
   return { resultRef: envelope.runId, result: { envelope, message: explanation.message } };
 }

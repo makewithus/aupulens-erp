@@ -73,7 +73,8 @@ describe("Part 4.5 safety assertions", () => {
       draft_prepaid_schedule: { file: "lib/aiRuntime/tools/scheduleWriteTools.ts", fn: "draftPrepaidScheduleHandler" },
       draft_depreciation_schedule: { file: "lib/aiRuntime/tools/scheduleWriteTools.ts", fn: "draftDepreciationScheduleHandler" },
       link_schedule_draft: { file: "lib/aiRuntime/tools/scheduleWriteTools.ts", fn: "linkScheduleDraftHandler" },
-      record_learning_outcome: { file: "lib/aiRuntime/tools/internalStateTools.ts", fn: "recordLearningOutcomeHandler" },
+      // record_learning_outcome removed Chunk 9 (0.1) — the executor now owns AiLearningRecord
+      // creation/resolution exclusively (lib/aiRuntime/runtime/executor.ts), never a tool call.
       draft_communication: { file: "lib/aiRuntime/tools/receivablesTools.ts", fn: "draftCommunicationHandler" },
       open_dispute: { file: "lib/aiRuntime/tools/receivablesTools.ts", fn: "openDisputeHandler" },
       record_payment_run_proposal: { file: "lib/aiRuntime/tools/payablesTools.ts", fn: "recordPaymentRunProposalHandler" },
