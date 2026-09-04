@@ -1,0 +1,17 @@
+{
+  "route": "/sales/sales-orders",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 387,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCustomers\nQuotes\nSubscriptions\nSales Orders\nInvoices\nPayments\nE-Invoicing\nAll Sales Orders\nFROM\nTO\nNEW\nDATE\tSALES ORDER#\tCUSTOMER NAME\tORDER STATUS\tAMOUNT\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t",
+  "durationMs": 2098,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/sales/sales-orders\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "route": "/sales/quotes",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 410,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCustomers\nQuotes\nSubscriptions\nSales Orders\nInvoices\nPayments\nE-Invoicing\nAll Quotes\nNEW\nAll Status\nFROM\nTO\nQUOTE #\tCUSTOMER\tQUOTE DATE\tEXPIRY DATE\tSTATUS\tAMOUNT\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t",
+  "durationMs": 2107,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3000/sales/quotes\" is interrupted by another navigation to \"http://localhost:3000/sales/quotes\"\nCall log:\n  - navigating to \"http://localhost:3000/sales/quotes\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

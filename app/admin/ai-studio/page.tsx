@@ -79,12 +79,12 @@ export default function AiStudioPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="border-2 rounded-xl p-5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">This Month</p>
-                <p className="text-3xl font-bold font-mono mt-1">{data.currentUsage}</p>
+                <p className="text-3xl font-bold font-sans tabular-nums mt-1">{data.currentUsage}</p>
                 <p className="text-xs text-muted-foreground mt-1">of {data.cap} AI calls ({data.tier} plan)</p>
               </div>
               <div className="border-2 rounded-xl p-5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Remaining</p>
-                <p className="text-3xl font-bold font-mono mt-1">{data.remaining}</p>
+                <p className="text-3xl font-bold font-sans tabular-nums mt-1">{data.remaining}</p>
                 <p className="text-xs text-muted-foreground mt-1">{data.percentUsed}% used</p>
               </div>
               <div className="border-2 rounded-xl p-5">
@@ -176,7 +176,7 @@ export default function AiStudioPage() {
                       <div className="flex-1 bg-muted rounded-full h-2">
                         <div className="bg-primary/60 h-2 rounded-full" style={{ width: `${Math.min(100, data.cap > 0 ? (h.count / data.cap) * 100 : 0)}%` }} />
                       </div>
-                      <span className="text-xs font-mono w-16 text-right">{h.count}</span>
+                      <span className="text-xs font-sans tabular-nums w-16 text-right">{h.count}</span>
                     </div>
                   ))}
                 </div>

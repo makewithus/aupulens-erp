@@ -293,7 +293,7 @@ export default function FixedAssetsPage() {
                       <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
                         Purchase Value
                       </p>
-                      <p className="text-xl font-black text-primary">
+                      <p className="text-xl font-black font-sans tabular-nums text-primary">
                         ₹{asset.originalValue.toLocaleString()}
                       </p>
                     </div>
@@ -433,7 +433,7 @@ export default function FixedAssetsPage() {
                 <span className="text-muted-foreground font-medium">
                   Monthly Amount
                 </span>
-                <span className="text-lg font-black text-primary">
+                <span className="text-lg font-black font-sans tabular-nums text-primary">
                   ₹{computeResult.totals?.amountTotal?.toLocaleString()}
                 </span>
               </div>

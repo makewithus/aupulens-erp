@@ -490,25 +490,25 @@ export default function PayrollPage() {
               <Card className="border-border/40">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Employees</p>
-                  <p className="text-xl font-black">{selectedPayroll.lineItems?.length || 0}</p>
+                  <p className="text-xl font-black font-sans tabular-nums">{selectedPayroll.lineItems?.length || 0}</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Total Gross</p>
-                  <p className="text-xl font-black">₹{(selectedPayroll.totals?.totalGross || 0).toLocaleString()}</p>
+                  <p className="text-xl font-black font-sans tabular-nums">₹{(selectedPayroll.totals?.totalGross || 0).toLocaleString()}</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Deductions</p>
-                  <p className="text-xl font-black text-destructive">₹{(selectedPayroll.totals?.totalDeductions || 0).toLocaleString()}</p>
+                  <p className="text-xl font-black font-sans tabular-nums text-destructive">₹{(selectedPayroll.totals?.totalDeductions || 0).toLocaleString()}</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Net Payable</p>
-                  <p className="text-xl font-black text-green-600">₹{(selectedPayroll.totals?.totalNet || 0).toLocaleString()}</p>
+                  <p className="text-xl font-black font-sans tabular-nums text-green-600">₹{(selectedPayroll.totals?.totalNet || 0).toLocaleString()}</p>
                 </CardContent>
               </Card>
             </div>
@@ -535,16 +535,16 @@ export default function PayrollPage() {
                           <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
                           <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
                         </TableCell>
-                        <TableCell className="text-right font-mono">{item.daysWorked || 0}</TableCell>
-                        <TableCell className="text-right font-mono">₹{(item.basic || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-destructive">
+                        <TableCell className="text-right font-sans tabular-nums">{item.daysWorked || 0}</TableCell>
+                        <TableCell className="text-right font-sans tabular-nums">₹{(item.basic || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-sans tabular-nums">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-sans tabular-nums text-destructive">
                           ₹{(
                             item.deductions?.totalDeductions ||
                             ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
                           ).toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-sans tabular-nums font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

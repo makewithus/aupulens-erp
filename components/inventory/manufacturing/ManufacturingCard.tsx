@@ -85,7 +85,7 @@ export function ManufacturingCard({
               Quantity
             </p>
 
-            <p className="mt-2 text-lg font-medium">
+            <p className="mt-2 text-lg font-medium font-sans tabular-nums">
               {quantity}
             </p>
           </div>
@@ -95,7 +95,7 @@ export function ManufacturingCard({
               Reworks
             </p>
 
-            <p className="mt-2 text-lg font-medium">
+            <p className="mt-2 text-lg font-medium font-sans tabular-nums">
               {reworkCount}
             </p>
           </div>

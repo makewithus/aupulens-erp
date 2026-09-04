@@ -1,0 +1,12 @@
+{
+  "route": "/manufacturing/hs-codes",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 301,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nHS Code Management\n\nHarmonized System codes for product classification\n\nAdd HS Code\nHS Codes (0)\nHS Code\tCategory\tDescription\tRestrictions\tActions\nNo HS codes found. A",
+  "durationMs": 3969
+}

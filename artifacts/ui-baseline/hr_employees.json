@@ -1,0 +1,12 @@
+{
+  "route": "/hr/employees",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 954,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nEmployee Directory\nAdd Employee\n\nTotal Employees\n\n12\n\nActive Employees\n\n12\n\nLinked to User\n\n12\n\nNo User Account\n\n0\nAll Employees\n\n12 EMPLOYEES\n\nAll Lifecycle\nAll Accounts\nFROM\nTO\nEMPLOYEE\tCONT",
+  "durationMs": 7282
+}

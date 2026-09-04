@@ -1,0 +1,12 @@
+{
+  "route": "/document-intelligence",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 329,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nDocument Intelligence\n\nUpload a vendor bill — it's read with OCR + AI, checked for duplicates, and turned into a draft bill you review before posting.\n\nUpload a document\nChoose file\nNo file chose",
+  "durationMs": 11939
+}

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import BankAccount from "@/models/finance/BankAccount";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -30,6 +31,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.isPrimary) {
       await BankAccount.updateMany({ tenantId: session.user.tenantId, _id: { $ne: doc._id } }, { $set: { isPrimary: false } });
     }
+
+    await safeEmitEvent(session.user.tenantId, "master_data.changed", { model: "BankAccount", id: String(doc._id), tenantId: session.user.tenantId });
 
     return NextResponse.json({ success: true, data: doc });
   } catch (error: any) {

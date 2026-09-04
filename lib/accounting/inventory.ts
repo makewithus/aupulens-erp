@@ -5,7 +5,7 @@ import { VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 
-type InventoryAccountRole = "inventory" | "grni" | "cogs" | "equity";
+export type InventoryAccountRole = "inventory" | "grni" | "cogs" | "equity";
 
 type StockMoveAccountingResult = {
   journalEntryId?: mongoose.Types.ObjectId;
@@ -14,14 +14,17 @@ type StockMoveAccountingResult = {
   totalValue: number;
 };
 
-const preferredAccountCodes: Record<InventoryAccountRole, string[]> = {
+/** Additive exports (docs/ai/BRIEF-08a-BATCH-G.md, AI-11) — AI-11 reuses this exact
+ *  code-then-type resolution to answer "which accounts constitute inventory" rather than
+ *  re-deriving a second, potentially-disagreeing answer. */
+export const preferredAccountCodes: Record<InventoryAccountRole, string[]> = {
   inventory: ["1300"],
   grni: ["2200"],
   cogs: ["5100"],
   equity: ["3100", "3200"],
 };
 
-const accountPreference: Record<InventoryAccountRole, string[]> = {
+export const accountPreference: Record<InventoryAccountRole, string[]> = {
   inventory: ["asset_current", "asset_non_current"],
   grni: ["liability_current", "liability_payable"],
   cogs: ["expense_direct_cost", "expense"],
@@ -32,7 +35,7 @@ function roundCurrency(value: number) {
   return Number(value.toFixed(2));
 }
 
-async function resolveAccount(tenantId: string, role: InventoryAccountRole) {
+export async function resolveAccount(tenantId: string, role: InventoryAccountRole) {
   for (const code of preferredAccountCodes[role]) {
     const account = await Account.findOne({ tenantId, code });
     if (account) return account;

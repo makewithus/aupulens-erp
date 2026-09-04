@@ -1,0 +1,17 @@
+{
+  "route": "/sales/payments",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 364,
+  "bodyTextSnippet": "AA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCustomers\nQuotes\nSubscriptions\nSales Orders\nInvoices\nPayments\nE-Invoicing\nAll Payments\nFROM\nTO\nNEW\nDATE\tCUSTOMER NAME\tMODE\tAMOUNT\tSTATUS\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t",
+  "durationMs": 17829,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/sales/payments\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

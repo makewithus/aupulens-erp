@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/batch",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 420,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nBatch & Lot Tracking\nADD BATCH\n\nTotal Batches\n\n1\n\nActive Batches\n\n1\n\nQuarantined Batches\n\n0\n\nExpired Batches\n\n0\nBatch Records\n\n1 BATCH\n\nAll Statuses\nFROM\nTO\nBATCH #\tLOT #\tITEM INFO\tQUANTITY\tMANUFACTURE & EXPIRY\tWAREHOUSE LOCATION\tSTATUS\tC",
+  "durationMs": 7133
+}

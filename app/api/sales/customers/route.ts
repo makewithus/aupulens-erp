@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
 import SalesView from "@/models/sales/SalesView";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 import { SYSTEM_VIEW_DEFINITIONS, buildMongoFilterFromCriteria } from "@/lib/sales/customerViews";
 import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
 
@@ -171,6 +172,9 @@ export async function POST(request: Request) {
       tenantId,
       createdBy: session.user.id,
     });
+
+    // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
 
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {

@@ -1,0 +1,19 @@
+{
+  "route": "/admin/activity-logs",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 401,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nActivity Logs\n\nMonitor all user activities across the system",
+  "durationMs": 1980,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3000/admin/activity-logs\" is interrupted by another navigation to \"http://localhost:3000/admin/dashboard\"\nCall log:\n  - navigating to \"http://localhost:3000/admin/activity-logs\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": [
+      "Invalid or unexpected token"
+    ]
+  }
+}

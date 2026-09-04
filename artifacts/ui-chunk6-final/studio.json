@@ -1,0 +1,12 @@
+{
+  "route": "/studio",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 315,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nAupulens Studio\n\nBuild automations: trigger → conditions → actions. Test them, then enable to run on live events.\n\nNew workflow\nWorkflows\nLoading…\n\nSelect or create a workfl",
+  "durationMs": 18484
+}

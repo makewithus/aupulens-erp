@@ -182,25 +182,25 @@ export default function HRReportsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="border-border/40">
                 <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-black">{data?.stats?.totalEmployees || 0}</p>
+                  <p className="text-3xl font-black font-sans tabular-nums">{data?.stats?.totalEmployees || 0}</p>
                   <p className="text-xs text-muted-foreground">Total Employees</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-black text-green-600">{data?.stats?.activeEmployees || 0}</p>
+                  <p className="text-3xl font-black font-sans tabular-nums text-green-600">{data?.stats?.activeEmployees || 0}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-black">{data?.stats?.totalDepartments || 0}</p>
+                  <p className="text-3xl font-black font-sans tabular-nums">{data?.stats?.totalDepartments || 0}</p>
                   <p className="text-xs text-muted-foreground">Departments</p>
                 </CardContent>
               </Card>
               <Card className="border-border/40">
                 <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-black text-primary">₹{((data?.payrollSummary?.totalGross || data?.stats?.monthlyPayroll || 0) / 100000).toFixed(1)}L</p>
+                  <p className="text-3xl font-black font-sans tabular-nums text-primary">₹{((data?.payrollSummary?.totalGross || data?.stats?.monthlyPayroll || 0) / 100000).toFixed(1)}L</p>
                   <p className="text-xs text-muted-foreground">Monthly Payroll</p>
                 </CardContent>
               </Card>

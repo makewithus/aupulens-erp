@@ -1,0 +1,12 @@
+{
+  "route": "/subscription-inactive",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 54,
+  "bodyTextSnippet": "Subscription Inactive\n\nYour organization's trial has ended or its subscription is no longer active. Please contact your administrator to renew access.\n\nContact Support",
+  "durationMs": 6359
+}

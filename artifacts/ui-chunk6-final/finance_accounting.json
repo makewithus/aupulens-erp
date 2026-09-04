@@ -1,0 +1,18 @@
+{
+  "route": "/finance/accounting",
+  "status": "scanned",
+  "httpStatus": 0,
+  "ok": false,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "",
+  "domElementCount": 0,
+  "bodyTextSnippet": "",
+  "durationMs": 11415,
+  "screenshot": "artifacts/ui-chunk6-final/finance_accounting.png",
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3001/finance/accounting\" is interrupted by another navigation to \"http://localhost:3001/finance/summary\"\nCall log:\n  - navigating to \"http://localhost:3001/finance/accounting\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "route": "/migration",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 345,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nData Migration\n\nMove data in from Tally, Zoho, SAP, Excel and more — AI maps the fields, you preview before anything is written, and every import is reversible.\n\nNew migrati",
+  "durationMs": 9623
+}

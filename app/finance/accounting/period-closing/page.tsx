@@ -801,7 +801,7 @@ export default function PeriodClosingPage() {
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-mono">
                           {s.label}
                         </p>
-                        <p className="text-lg font-black font-mono mt-1 text-foreground">
+                        <p className="text-lg font-black font-sans tabular-nums mt-1 text-foreground">
                           ₹{(s.value ?? 0).toLocaleString("en-IN")}
                         </p>
                       </div>

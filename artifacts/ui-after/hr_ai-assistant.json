@@ -1,0 +1,8 @@
+{
+  "route": "/hr/ai-assistant",
+  "status": "error",
+  "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/hr/ai-assistant\", waiting until \"domcontentloaded\"\n",
+  "consoleErrors": [],
+  "pageErrors": [],
+  "durationMs": 20003
+}

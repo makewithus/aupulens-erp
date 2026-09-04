@@ -1,0 +1,5 @@
+{
+  "route": "/finance/accounting/budgets/[id]/edit",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

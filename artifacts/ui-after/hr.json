@@ -1,0 +1,17 @@
+{
+  "route": "/hr",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 362,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar",
+  "durationMs": 14915,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/hr\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

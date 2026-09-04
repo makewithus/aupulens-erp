@@ -17,21 +17,21 @@ export default function SLACommandCenter() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">SLA Compliance</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-400">96.4%</div>
+            <div className="text-3xl font-bold font-sans tabular-nums text-green-400">96.4%</div>
             <p className="text-xs text-muted-foreground mt-1">Target: 95.0%</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Average Resolution Time</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-400">4.2h</div>
+            <div className="text-3xl font-bold font-sans tabular-nums text-blue-400">4.2h</div>
             <p className="text-xs text-green-500 flex items-center gap-1 mt-1"><TrendingDown className="w-3 h-3"/> -0.5h from last week</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-red-900/30">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-red-400 flex items-center gap-1"><AlertOctagon className="w-4 h-4"/> Active Breaches</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-500">2</div>
+            <div className="text-3xl font-bold font-sans tabular-nums text-red-500">2</div>
             <p className="text-xs text-red-400 mt-1">Requires immediate escalation</p>
           </CardContent>
         </Card>

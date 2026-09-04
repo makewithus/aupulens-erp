@@ -111,7 +111,7 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
                 {data.account_id?.company_name}
               </Link>
               <span className="mx-2 text-muted-foreground">â¢</span>
-              <span className="font-mono text-green-400 font-semibold">₹{data.contract_value?.toLocaleString()}</span>
+              <span className="font-sans tabular-nums text-green-400 font-semibold">₹{data.contract_value?.toLocaleString()}</span>
               <span className="text-sm text-muted-foreground ml-1">/ {data.billing_frequency}</span>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
             <div className="flex items-center gap-1.5 mb-1 opacity-80 text-xs uppercase font-bold">
               <HeartPulse className="w-3.5 h-3.5" /> Account Health
             </div>
-            <div className="text-xl font-bold">{data.account_id?.account_health_score || 0} <span className="text-sm font-normal opacity-70">/ 100</span></div>
+            <div className="text-xl font-bold font-sans tabular-nums">{data.account_id?.account_health_score || 0} <span className="text-sm font-normal opacity-70">/ 100</span></div>
           </div>
           <div className="p-3 rounded-md border border-border bg-background">
             <div className="flex items-center gap-1.5 mb-1 text-muted-foreground text-xs uppercase font-bold">
@@ -182,7 +182,7 @@ export default function ContractDetailPage(props: { params: Promise<{ id: string
               <div><p className="text-muted-foreground mb-1">Start Date</p><p className="font-medium">{new Date(data.start_date).toLocaleDateString()}</p></div>
               <div><p className="text-muted-foreground mb-1">End Date</p><p className="font-medium">{new Date(data.end_date).toLocaleDateString()}</p></div>
               <div><p className="text-muted-foreground mb-1">Billing Frequency</p><p className="font-medium">{data.billing_frequency}</p></div>
-              <div><p className="text-muted-foreground mb-1">Value</p><p className="font-medium font-mono">₹{data.contract_value?.toLocaleString()}</p></div>
+              <div><p className="text-muted-foreground mb-1">Value</p><p className="font-medium font-sans tabular-nums">₹{data.contract_value?.toLocaleString()}</p></div>
               <div><p className="text-muted-foreground mb-1">Owner</p><p className="font-medium">{data.owner_id?.name || "â"}</p></div>
               <div><p className="text-muted-foreground mb-1">Created</p><p className="font-medium">{new Date(data.createdAt).toLocaleDateString()}</p></div>
             </div>

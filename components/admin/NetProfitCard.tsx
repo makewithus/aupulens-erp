@@ -43,7 +43,7 @@ export function NetProfitCard({
       <CardContent className="p-10">
         <div className="text-center">
           <p
-            className={`font-mono text-[64px] font-bold leading-none tracking-tighter ${
+            className={`font-sans tabular-nums text-[64px] font-bold leading-none tracking-tighter ${
               isProfit ? "text-emerald-500" : "text-rose-500"
             }`}
           >
@@ -67,7 +67,7 @@ export function NetProfitCard({
               Revenue
             </p>
 
-            <h3 className="mt-2 font-mono text-3xl font-bold tracking-tighter text-emerald-500">
+            <h3 className="mt-2 font-sans tabular-nums text-3xl font-bold tracking-tighter text-emerald-500">
               {formatCurrency(revenue)}
             </h3>
           </div>
@@ -77,7 +77,7 @@ export function NetProfitCard({
               Expenses
             </p>
 
-            <h3 className="mt-2 font-mono text-3xl font-bold tracking-tighter text-rose-500">
+            <h3 className="mt-2 font-sans tabular-nums text-3xl font-bold tracking-tighter text-rose-500">
               {formatCurrency(expenses)}
             </h3>
           </div>

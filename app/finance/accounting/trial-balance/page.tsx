@@ -157,7 +157,7 @@ export default function TrialBalancePage() {
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Debit Balance
               </p>
-              <p className="mt-2 text-2xl font-black">
+              <p className="mt-2 text-2xl font-black font-sans tabular-nums">
                 {formatCurrency(data?.totals.debitBalance)}
               </p>
             </CardContent>
@@ -167,7 +167,7 @@ export default function TrialBalancePage() {
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Credit Balance
               </p>
-              <p className="mt-2 text-2xl font-black">
+              <p className="mt-2 text-2xl font-black font-sans tabular-nums">
                 {formatCurrency(data?.totals.creditBalance)}
               </p>
             </CardContent>

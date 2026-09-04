@@ -828,7 +828,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           <div className="bg-card rounded-none border border-border/40 shadow-none p-6 space-y-4">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-mono font-medium">₹ {totals.subtotal.toFixed(decimals)}</span>
+              <span className="font-sans tabular-nums font-medium">₹ {totals.subtotal.toFixed(decimals)}</span>
             </div>
 
             <div className="flex justify-between items-center text-sm">
@@ -847,12 +847,12 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
             <div className="flex justify-between items-center text-sm py-2 border-y border-dashed border-border/40">
               <span className="font-medium">Taxable Amount</span>
-              <span className="font-mono font-semibold">₹ {totals.taxableAmount.toFixed(decimals)}</span>
+              <span className="font-sans tabular-nums font-semibold">₹ {totals.taxableAmount.toFixed(decimals)}</span>
             </div>
 
             {totals.gstBreakup.map((g) => (
               <div key={g.label} className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>{g.label}</span><span className="font-mono">₹ {g.amount.toFixed(decimals)}</span>
+                <span>{g.label}</span><span className="font-sans tabular-nums">₹ {g.amount.toFixed(decimals)}</span>
               </div>
             ))}
 
@@ -861,7 +861,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                 <span className="text-muted-foreground">Round Off</span>
                 <Checkbox checked={roundOff} onCheckedChange={(c) => setRoundOff(!!c)} />
               </div>
-              <span className="font-mono font-medium">{roundOff ? totals.roundOffAmount.toFixed(decimals) : "0.00"}</span>
+              <span className="font-sans tabular-nums font-medium">{roundOff ? totals.roundOffAmount.toFixed(decimals) : "0.00"}</span>
             </div>
 
             <div className="flex gap-4 text-xs">
@@ -873,7 +873,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
             <div className="flex justify-between items-center pt-2">
               <span className="text-lg font-bold">Total Amount</span>
-              <span className="text-2xl font-mono font-bold text-primary">₹ {totals.totalAmount.toFixed(decimals)}</span>
+              <span className="text-2xl font-sans tabular-nums font-bold text-primary">₹ {totals.totalAmount.toFixed(decimals)}</span>
             </div>
             <p className="text-xs text-muted-foreground -mt-2">Total Discount: ₹ {totals.totalDiscount.toFixed(decimals)}</p>
             <p className="text-xs text-muted-foreground italic">{numberToWords(totals.totalAmount)}</p>

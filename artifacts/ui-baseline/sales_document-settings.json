@@ -1,0 +1,12 @@
+{
+  "route": "/sales/document-settings",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 257,
+  "bodyTextSnippet": "PIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar",
+  "durationMs": 19560
+}

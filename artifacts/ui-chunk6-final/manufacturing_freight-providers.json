@@ -1,0 +1,12 @@
+{
+  "route": "/manufacturing/freight-providers",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 302,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nFreight Providers\n\nManage freight and shipping partners\n\nView Analytics\nAdd Provider\nAll Freight Providers (0)\nName\tCode\tType\tContact\tStatus\tActions\nNo freight provide",
+  "durationMs": 7092
+}

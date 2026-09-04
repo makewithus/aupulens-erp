@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(
   request: Request,
@@ -93,6 +94,8 @@ export async function PATCH(
         { status: 404 },
       );
     }
+
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Customer", id: String(customer._id), tenantId });
 
     return NextResponse.json({ customer });
   } catch (error) {

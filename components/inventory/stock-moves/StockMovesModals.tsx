@@ -585,7 +585,7 @@ export function StockMovesModals({
                 <div className="flex justify-end">
                   <div className="bg-muted/10 border border-border/35 rounded-none px-4 py-2 text-sm font-mono">
                     <span className="text-muted-foreground mr-2">Total Valuation:</span>
-                    <span className="font-bold text-[#8AE06C] text-lg">
+                    <span className="font-bold font-sans tabular-nums text-[#8AE06C] text-lg">
                       ₹
                       {formData.lines
                         .reduce(

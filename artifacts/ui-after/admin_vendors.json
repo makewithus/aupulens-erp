@@ -1,0 +1,12 @@
+{
+  "route": "/admin/vendors",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 315,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nVendor Evaluation\nAll Categories\nName\nAdd Vendor",
+  "durationMs": 8673
+}

@@ -1,0 +1,5 @@
+{
+  "route": "/auth/[[...portal]]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

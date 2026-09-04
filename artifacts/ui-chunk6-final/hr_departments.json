@@ -1,0 +1,17 @@
+{
+  "route": "/hr/departments",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 451,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nDepartment Directory\nAdd Department\n\nTotal Departments\n\n0\n\nActive Departments\n\n0\n\nInactive Departments\n\n0\n\nAssigned Employees\n\n0\nAll Status",
+  "durationMs": 6782,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3001/hr/departments\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

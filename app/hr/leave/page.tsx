@@ -357,7 +357,7 @@ export default function LeavePage() {
                       </TableCell>
                       <TableCell className="text-xs">{new Date(req.startDate).toLocaleDateString()}</TableCell>
                       <TableCell className="text-xs">{new Date(req.endDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-mono font-bold">{req.totalDays}</TableCell>
+                      <TableCell className="font-sans tabular-nums font-bold">{req.totalDays}</TableCell>
                       <TableCell>
                         <Badge className={leaveStatusColors[req.status] || ""}>{req.status}</Badge>
                       </TableCell>

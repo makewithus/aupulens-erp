@@ -108,7 +108,7 @@ export default function SubscriptionDetailPage() {
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount</p>
-                  <p className="font-mono text-foreground mt-1">₹{Number(sub.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  <p className="font-sans tabular-nums text-foreground mt-1">₹{Number(sub.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Billing Frequency</p>

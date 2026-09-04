@@ -1,0 +1,12 @@
+{
+  "route": "/hr/reports",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 433,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nHR Reports\n\nGenerate and export HR analytics and reports\n\n12\n\nTotal Employees\n\n12\n\nActive\n\n6\n\nDepartments\n\n₹0.0L\n\nMonthly Payroll\n\nDEPARTMENT DISTRIBUTION\nSales & Marketing\n3\nOperations & Logi",
+  "durationMs": 1578
+}

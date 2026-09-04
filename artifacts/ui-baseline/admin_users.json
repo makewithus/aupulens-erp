@@ -1,0 +1,12 @@
+{
+  "route": "/admin/users",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 543,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nUSER MANAGEMENT\nAll Users\nMy Profile\nActivity Logs\nENTERPRISE\nData Migration\nAupulens Connect\nDocument Intelligence\nAupulens Studio\nCalendar\nOrg Structure\nBusiness Twin\nMarketplace\nSYSTEM\nReports\nAI Studio\nSettings\nBilling\nUser Directory\nAdd New User\n\nTotal Users\n\n0\n\nRegistered users\n\nActive Users\n\n0\n\nCurrently active\n\nInactive Users\n\n0\n\nCurrently inactive\n\nAll Users\n\n0 USERS\n\nFROM\nTO\nUSER\tCONTACT\tEMPLOYEE ID\tROLE\t",
+  "durationMs": 18819
+}

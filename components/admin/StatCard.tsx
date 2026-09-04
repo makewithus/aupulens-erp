@@ -49,14 +49,14 @@ export function StatCard({
             </p>
 
             <h2 className={cn(
-              "font-mono tabular-nums font-bold leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80",
+              "font-sans tabular-nums font-bold leading-none tracking-tighter transition-opacity duration-500 group-hover:opacity-80",
               valueSize,
             )}>
               {value}
             </h2>
 
             {subtitle && (
-              <p className="text-sm text-muted-foreground/50">
+              <p className="text-sm text-muted-foreground/50 truncate" title={subtitle}>
                 {subtitle}
               </p>
             )}

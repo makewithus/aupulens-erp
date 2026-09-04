@@ -94,7 +94,7 @@ export default function BusinessTwinPage() {
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[["Customers", data.graph.stats.customers], ["Invoices", data.graph.stats.invoices], ["Receivable", data.graph.stats.totalReceivable], ["Payable", data.graph.stats.totalPayable]].map(([k, v]) => (
-            <div key={k as string} className="border-2 rounded-xl p-3"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</p><p className="text-xl font-bold font-mono">{v as number}</p></div>
+            <div key={k as string} className="border-2 rounded-xl p-3"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</p><p className="text-xl font-bold font-sans tabular-nums">{v as number}</p></div>
           ))}
         </div>
       )}

@@ -24,11 +24,19 @@ export async function GET() {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
 
-    // Get date ranges for current and previous month
+    // Rolling 30-day windows rather than calendar-month-to-date: a
+    // month-to-date window reads as empty for several days at the start of
+    // every calendar month (nothing posted yet in the new month), even when
+    // there is plenty of recent activity just before the month boundary.
+    // "Current" = last 30 days ending now, "previous" = the 30 days before
+    // that, so the dashboard always reflects the most recent activity.
     const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const currentPeriodStart = new Date(now);
+    currentPeriodStart.setDate(currentPeriodStart.getDate() - 29);
+    const prevPeriodEnd = new Date(currentPeriodStart);
+    prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+    const prevPeriodStart = new Date(prevPeriodEnd);
+    prevPeriodStart.setDate(prevPeriodStart.getDate() - 29);
 
     const [
       currentJournalReport,
@@ -40,21 +48,21 @@ export async function GET() {
     ] = await Promise.all([
       buildPostedJournalReport({
         tenantId,
-        startDate: currentMonthStart,
+        startDate: currentPeriodStart,
       }),
       buildPostedJournalReport({
         tenantId,
-        startDate: prevMonthStart,
-        endDate: prevMonthEnd,
+        startDate: prevPeriodStart,
+        endDate: prevPeriodEnd,
       }),
       buildPostedCashFlowTotals({
         tenantId,
-        startDate: currentMonthStart,
+        startDate: currentPeriodStart,
       }),
       buildPostedCashFlowTotals({
         tenantId,
-        startDate: prevMonthStart,
-        endDate: prevMonthEnd,
+        startDate: prevPeriodStart,
+        endDate: prevPeriodEnd,
       }),
       buildAgedPartnerReport({
         tenantId,

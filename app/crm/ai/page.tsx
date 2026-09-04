@@ -74,7 +74,7 @@ export default function AIInsightsPage() {
                     insight.severity === 'High' ? 'border-orange-900/50 text-orange-400' : ''
                   }`}>{insight.severity}</Badge>
                 </TableCell>
-                <TableCell className="font-mono text-xs">{insight.confidence}%</TableCell>
+                <TableCell className="font-sans tabular-nums text-xs">{insight.confidence}%</TableCell>
                 <TableCell className="text-indigo-400 text-xs font-semibold cursor-pointer hover:underline">
                   {insight.recommendedAction || "Review"}
                 </TableCell>

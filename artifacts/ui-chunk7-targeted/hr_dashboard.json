@@ -1,0 +1,12 @@
+{
+  "route": "/hr/dashboard",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 357,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nHR Dashboard\n\nTotal Employees\n\n12\n\nActive Employees\n\n12\n\nOnboarding\n\n0\n\nPending Leaves\n\n2\n\nMonthly Payroll\n\n₹0\nAttendance\nNo attendance has been recorded today.\nRecent Hires\nNo recent hires.\nD",
+  "durationMs": 1555
+}

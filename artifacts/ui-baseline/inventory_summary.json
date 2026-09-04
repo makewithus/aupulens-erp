@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/summary",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 391,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nInventory Summary\n\nTotal Items\n\n18\n\nProducts in inventory\n\nInventory Value\n\n₹1,09,22,900\n\nBased on standard cost\n\nLow Stock\n\n0\n\nBelow threshold\n\nOperations\n\nReceipts\n\n2\n\nAwaiting processing\n\nDeliveries\n\n1\n\nReady for dispatch\n\nManufacturin",
+  "durationMs": 4438
+}

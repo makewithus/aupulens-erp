@@ -1,0 +1,12 @@
+{
+  "route": "/projects",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 169,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPROJECTS\nAll Projects\nOVERVIEW\nDashboard\nProjects\n\nTrack initiatives, owners, and progress.\n\nNew Project\nLoading…",
+  "durationMs": 5955
+}

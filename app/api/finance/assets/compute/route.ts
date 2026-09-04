@@ -7,6 +7,7 @@ import JournalEntry from "@/models/finance/JournalEntry";
 import { DOCUMENT_STATUS, VOUCHER_TYPE } from "@/lib/constants/statuses";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { escapeRegex } from "@/lib/utils/regex";
+import { computeMonthlyDepreciation } from "@/lib/accounting/depreciation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,11 +30,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Basic Linear Depreciation Logic
-    // Depreciation per year = (Original Value - Salvage Value) / Duration
-    const annualDepreciation =
-      (asset.originalValue - asset.salvageValue) / asset.durationYears;
-    const monthlyDepreciation = annualDepreciation / 12;
+    // Basic Linear Depreciation Logic — extracted to lib/accounting/depreciation.ts so
+    // AI-10 (docs/ai/BRIEF-03-BATCH-B.md) can reuse the identical formula instead of
+    // reimplementing it. Behaviour here is unchanged.
+    const monthlyDepreciation = computeMonthlyDepreciation(asset);
 
     // Create a Journal Entry for this month's depreciation
     const baseName = `DEP/${asset.name}/${new Date().toISOString().slice(0, 7)}`;

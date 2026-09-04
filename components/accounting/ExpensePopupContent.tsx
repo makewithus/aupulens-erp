@@ -511,7 +511,7 @@ export function ExpensePopupContent({
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
                         Total
                       </span>
-                      <span className="text-3xl font-black text-primary tracking-tighter">
+                      <span className="text-3xl font-black font-sans tabular-nums text-primary tracking-tighter">
                         ₹ {formData.total?.toLocaleString()}
                       </span>
                     </div>

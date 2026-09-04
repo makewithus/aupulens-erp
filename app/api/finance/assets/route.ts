@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import Asset from "@/models/finance/Asset";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     });
 
     await asset.save();
+    await safeEmitEvent(tenantId, "asset.created", { assetId: String(asset._id), actingUserId: (session.user as any).id });
     return NextResponse.json(asset);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

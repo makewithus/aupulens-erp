@@ -1,0 +1,12 @@
+{
+  "route": "/manufacturing/reports",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 384,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nReports & Analytics\n\nGenerate and analyze manufacturing reports\n\nTotal Shipments\n\n0\n\nall time\n\nOn-Time Delivery\n\n0%\n\nof delivered shipments\n\nAvg Transit Time\n\n0 days\n\n",
+  "durationMs": 5038
+}

@@ -1,0 +1,12 @@
+{
+  "route": "/sales/products",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 382,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nProducts\nFROM\nTO\nNEW PRODUCT\nProduct Catalog\n\n0 PRODUCTS\n\nREFRESH\nPRODUCT\tTYPE\tSTATUS\tPRICE\tCOST\tACTIONS\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t",
+  "durationMs": 17523
+}

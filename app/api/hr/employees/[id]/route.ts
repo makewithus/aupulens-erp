@@ -7,6 +7,7 @@ import User from "@/models/auth/User";
 import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(
   req: NextRequest,
@@ -129,6 +130,8 @@ export async function PATCH(
         { status: 404 },
       );
     }
+
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId });
 
     // ── Sync fields back to linked User ──
     if (employee.userId) {

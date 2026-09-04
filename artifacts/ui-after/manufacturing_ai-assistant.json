@@ -1,0 +1,12 @@
+{
+  "route": "/manufacturing/ai-assistant",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 321,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nNew Chat\nRecent Chats\nManufacturing AI Assistant\nManufacturing AI Assistant\n\nAsk me anything about shipments, freight, customs clearance, trackin",
+  "durationMs": 9989
+}

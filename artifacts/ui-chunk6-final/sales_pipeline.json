@@ -1,0 +1,17 @@
+{
+  "route": "/sales/pipeline",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 412,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nQuote-to-Cash Pipeline\n\nPipeline Value\n\n₹0\n\nTotal open pipeline\n\nActive Deals\n\n0\n\nCurrently in progress\n\nWon\n\n0\n\nClosed successfully\n\nLost\n\n0\n\nClosed lost",
+  "durationMs": 19293,
+  "transientFirstAttempt": {
+    "reason": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/sales/pipeline\nCall log:\n  - navigating to \"http://localhost:3001/sales/pipeline\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/stock",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 295,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nStock Tracking\n\n0 products total\n\nNew Product\nShowing 1 to 0 of 0 entries\nFirst\nPrev\n1 / 1\nNext\nLast",
+  "durationMs": 6436
+}

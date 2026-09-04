@@ -72,7 +72,7 @@ export default function AutomationsPage() {
                 <TableCell><Badge variant="outline" className="border-blue-900/50 text-blue-400 bg-blue-900/10">{rule.entity}</Badge></TableCell>
                 <TableCell className="font-mono text-xs">{rule.trigger}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{rule.actions?.length || 0} Actions</TableCell>
-                <TableCell className="text-right font-mono">{rule.executionCount}</TableCell>
+                <TableCell className="text-right font-sans tabular-nums">{rule.executionCount}</TableCell>
                 <TableCell className="text-center">
                   <Button 
                     variant={rule.enabled ? "default" : "outline"}

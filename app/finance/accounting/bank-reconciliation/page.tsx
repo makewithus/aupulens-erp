@@ -335,7 +335,7 @@ export default function BankReconciliationPage() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-black text-lg">
+                          <p className="font-black text-lg font-sans tabular-nums">
                             <span className="text-xs mr-0.5">₹</span>
                             {(line.debit || line.credit).toLocaleString()}
                           </p>
@@ -360,7 +360,7 @@ export default function BankReconciliationPage() {
                 <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
                   Statement Line
                 </p>
-                <p className="font-black text-xl text-primary">
+                <p className="font-black text-xl font-sans tabular-nums text-primary">
                   ₹{selectedStatement.amount.toLocaleString()}
                 </p>
               </div>
@@ -371,7 +371,7 @@ export default function BankReconciliationPage() {
                 <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
                   ERP Record
                 </p>
-                <p className="font-black text-xl">
+                <p className="font-black text-xl font-sans tabular-nums">
                   ₹
                   {(
                     selectedJournal.debit || selectedJournal.credit

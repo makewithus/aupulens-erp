@@ -281,7 +281,7 @@ export default function ExportDocsPage() {
                 </p>
               </div>
               <div className="text-3xl font-mono font-bold text-blue-500 mt-6">
-                {orders.length} available
+                <span className="font-sans tabular-nums">{orders.length}</span> available
               </div>
             </div>
           </Card>
@@ -302,7 +302,7 @@ export default function ExportDocsPage() {
                 </p>
               </div>
               <div className="text-3xl font-mono font-bold text-emerald-500 mt-6">
-                {orders.length} available
+                <span className="font-sans tabular-nums">{orders.length}</span> available
               </div>
             </div>
           </Card>
@@ -323,7 +323,7 @@ export default function ExportDocsPage() {
                 </p>
               </div>
               <div className="text-3xl font-mono font-bold text-violet-500 mt-6">
-                {orders.length} available
+                <span className="font-sans tabular-nums">{orders.length}</span> available
               </div>
             </div>
           </Card>

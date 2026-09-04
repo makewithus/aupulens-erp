@@ -1,0 +1,12 @@
+{
+  "route": "/sales/sales-orders/import",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 336,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nSales Orders - Select File\n1\nCONFIGURE\n2\nMAP FIELDS\n3\nPREVIEW\n\nDrag and drop file to import\n\nMaximum File Size: 25 MB • File Format: CSV or TSV or XLS\n\nCHOOSE FILE\n\nDownload a sample file and compare i",
+  "durationMs": 10508
+}

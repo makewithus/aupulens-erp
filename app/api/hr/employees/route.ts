@@ -7,6 +7,7 @@ import User from "@/models/auth/User";
 import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -205,6 +206,9 @@ export async function POST(req: NextRequest) {
     });
 
     await employee.save();
+
+    // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Employee", id: String(employee._id), tenantId });
 
     // Populate for response
     const populated = await Employee.findOne({ _id: employee._id, tenantId })

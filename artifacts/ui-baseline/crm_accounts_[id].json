@@ -1,0 +1,5 @@
+{
+  "route": "/crm/accounts/[id]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

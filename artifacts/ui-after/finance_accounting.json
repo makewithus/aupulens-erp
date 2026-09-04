@@ -1,0 +1,17 @@
+{
+  "route": "/finance/accounting",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "",
+  "domElementCount": 0,
+  "bodyTextSnippet": "",
+  "durationMs": 21297,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3000/finance/accounting\" is interrupted by another navigation to \"http://localhost:3000/finance/summary\"\nCall log:\n  - navigating to \"http://localhost:3000/finance/accounting\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

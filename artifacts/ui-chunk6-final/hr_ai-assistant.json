@@ -1,0 +1,17 @@
+{
+  "route": "/hr/ai-assistant",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 308,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nCHAT HISTORY\n\nNo chats yet\n\nHR AI Assistant\nAsk about employees, payroll, attendance, leave, or any HR query\nHR AI Assistant\n\nAsk me about employee details, payroll information, attendance stats, leave balances, de",
+  "durationMs": 19306,
+  "transientFirstAttempt": {
+    "reason": "page.goto: net::ERR_ABORTED at http://localhost:3001/hr/ai-assistant\nCall log:\n  - navigating to \"http://localhost:3001/hr/ai-assistant\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

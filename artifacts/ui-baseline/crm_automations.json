@@ -1,0 +1,12 @@
+{
+  "route": "/crm/automations",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 424,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nCRM\nDashboard\nLeads\nAccounts\nContacts\nOpportunities\nPipeline\nQuotes\nOPERATIONS\nActivities\nTasks\nCases\nCampaigns\nContracts\nENGAGEMENT\nCommunications\nNotifications\nOnboarding\nHandoffs\nSupport\nAUTOMATION & AI\nAutomations\nWorkflows\nAI Insights\nAI Control Center\nDATA & INTEGRATIONS\nDocuments\nImport\nIntegrations\nSYSTEM\nReports\nExecutive View\nCompliance\nSystem Health\nMobile\nApprovals\nSettings\nAudit Logs\nAutomation Engine\n\nBuild and manage w",
+  "durationMs": 15082
+}

@@ -5,6 +5,7 @@ import connectDB from "@/lib/db";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
 import { COMMAND_ACTIONS, CommandActionError, isCommandAction, executeCommandBatch } from "@/lib/ai/commandActions";
+import { executeWorkflowProposal } from "@/lib/aiRuntime/nl/workflowChatHandler";
 
 /**
  * Step 2 of the generalized Command Center confirm gate: the user has
@@ -47,6 +48,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         );
       }
       return NextResponse.json({ success: true, data: { proposal, outcome } });
+    }
+
+    // AI-NL (docs/ai/BRIEF-08b-FINAL.md Part B): a workflow proposal's actionType is the literal
+    // workflow id (e.g. "AI-07"), never a COMMAND_ACTIONS key — routed separately, same confirm
+    // gate (this route), same execution path chat used for its immediate OBSERVE runs.
+    if (proposal.module === "ai-workflow") {
+      const { resultRef, result } = await executeWorkflowProposal(session.user.tenantId, session.user.id, proposal.params as { workflowId: string; eventKey: string; parameters: Record<string, unknown> });
+      proposal.status = AI_ACTION_STATUS.EXECUTED;
+      proposal.resultRef = resultRef;
+      proposal.executedAt = new Date();
+      await proposal.save();
+      return NextResponse.json({ success: true, data: { proposal, result } });
     }
 
     if (!isCommandAction(proposal.actionType)) {

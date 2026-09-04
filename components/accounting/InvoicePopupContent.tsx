@@ -517,7 +517,7 @@ export function InvoicePopupContent({
                 )}
 
                 <div className="flex justify-end mt-4 text-xl font-bold">
-                  Total: ₹{formData.amountTotal?.toLocaleString()}
+                  Total: <span className="font-sans tabular-nums">₹{formData.amountTotal?.toLocaleString()}</span>
                 </div>
               </TabsContent>
 

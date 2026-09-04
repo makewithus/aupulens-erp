@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/profile",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 37,
+  "bodyTextSnippet": "",
+  "durationMs": 6267
+}

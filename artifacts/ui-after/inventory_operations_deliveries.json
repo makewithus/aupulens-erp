@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/operations/deliveries",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 471,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nDeliveries\nNEW DELIVERY\n\nTotal Deliveries\n\n0\n\nDraft Deliveries\n\n0\n\nPending Picking/Packing\n\n0\n\nClosed Deliveries\n\n0\nAll Deliveries\n\n0 DELIVERIES\n\nFROM\nTO\nREFERENCE\tCUSTOMER\tSCHEDULED DATE\tSTATUS STATE\tSUGGESTED ACTION\tACTIONS\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t",
+  "durationMs": 14640
+}

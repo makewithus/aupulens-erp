@@ -1,0 +1,19 @@
+{
+  "route": "/finance/ledger",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "",
+  "domElementCount": 0,
+  "bodyTextSnippet": "",
+  "durationMs": 7035,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3001/finance/ledger\" is interrupted by another navigation to \"http://localhost:3001/sales/invoices\"\nCall log:\n  - navigating to \"http://localhost:3001/finance/ledger\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": [
+      "Invalid or unexpected token"
+    ]
+  }
+}

@@ -23,6 +23,7 @@ import Invoice from "@/models/finance/Invoice";
 import Customer from "@/models/sales/Customer";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import type { VendorBillExtraction } from "@/lib/docIntel/extractionSchemas";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 interface Ctx {
   tenantId: string;
@@ -97,6 +98,11 @@ export async function createDraftBill(ext: VendorBillExtraction, ctx: Ctx): Prom
     poReference: ext.poReference || undefined,
     createdBy: new mongoose.Types.ObjectId(ctx.userId),
   });
+
+  // Additive (docs/ai/BRIEF-02-BATCH-A.md B.2) — AI-02 reacts to this to classify the new
+  // draft bill's lines; AI-27 (a later chunk) reacts to it for duplicate-payment detection.
+  // See lib/aiRuntime/runtime/safeEmit.ts for why this can never throw.
+  await safeEmitEvent(ctx.tenantId, "bill.created", { invoiceId: String(invoice._id), actingUserId: ctx.userId });
 
   return { invoiceId: invoice._id as mongoose.Types.ObjectId, partnerId, name: uniqueName };
 }

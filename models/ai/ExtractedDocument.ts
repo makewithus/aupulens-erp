@@ -28,6 +28,9 @@ export interface IExtractedDocument extends mongoose.Document {
   createdRecordId?: mongoose.Types.ObjectId;
   rejectedReason?: string;
   createdBy: mongoose.Types.ObjectId;
+  /** SHA-256 of the uploaded file's bytes, hashed at upload time (docs/ai/BRIEF-02-BATCH-A.md
+   *  AI-01 step 1) — the only point the raw bytes exist, since this document never stores them. */
+  fileHash?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,11 +51,13 @@ const ExtractedDocumentSchema = new Schema<IExtractedDocument>(
     createdRecordId: { type: Schema.Types.ObjectId },
     rejectedReason: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    fileHash: { type: String },
   },
   { timestamps: true },
 );
 
 ExtractedDocumentSchema.index({ tenantId: 1, createdAt: -1 });
+ExtractedDocumentSchema.index({ tenantId: 1, fileHash: 1 });
 
 const ExtractedDocument: Model<IExtractedDocument> =
   (mongoose.models.ExtractedDocument as Model<IExtractedDocument>) ||

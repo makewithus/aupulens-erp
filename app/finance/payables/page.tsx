@@ -465,7 +465,7 @@ export default function PayablesPage() {
               <DollarSign className="h-4 w-4 text-foreground/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{allBills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString('en-IN')}</div>
+              <div className="text-2xl font-bold font-sans tabular-nums">₹{allBills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString('en-IN')}</div>
             </CardContent>
           </Card>
           <Card>
@@ -574,7 +574,7 @@ export default function PayablesPage() {
                       </TableCell>
                       <TableCell className="text-sm">{formatDate(bill.issueDate)}</TableCell>
                       <TableCell className="text-sm">{formatDate(bill.dueDate)}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
+                      <TableCell className="text-right font-semibold font-sans tabular-nums">
                         {formatCurrency(bill.total)}
                       </TableCell>
                       <TableCell>{getStatusBadge(bill.status)}</TableCell>

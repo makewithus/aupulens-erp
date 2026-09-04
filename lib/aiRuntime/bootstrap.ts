@@ -1,0 +1,125 @@
+import { registerControlTools } from "@/lib/aiRuntime/tools/control";
+import { registerFinanceReadTools } from "@/lib/aiRuntime/tools/financeReadTools";
+import { registerFinanceWriteTools } from "@/lib/aiRuntime/tools/financeWriteTools";
+import { registerScheduleReadTools } from "@/lib/aiRuntime/tools/scheduleReadTools";
+import { registerScheduleWriteTools } from "@/lib/aiRuntime/tools/scheduleWriteTools";
+import { registerCloseReadTools, registerCloseWriteTools } from "@/lib/aiRuntime/tools/closeTools";
+import { registerInternalStateTools } from "@/lib/aiRuntime/tools/internalStateTools";
+import { registerReceivablesTools } from "@/lib/aiRuntime/tools/receivablesTools";
+import { registerPayablesTools } from "@/lib/aiRuntime/tools/payablesTools";
+import { registerAnomalyTools } from "@/lib/aiRuntime/tools/anomalyTools";
+import { registerTaxReadTools, registerTaxWriteTools } from "@/lib/aiRuntime/tools/taxTools";
+import { registerStatementTools } from "@/lib/aiRuntime/tools/statementTools";
+import { registerAuditReadTools, registerAuditWriteTools } from "@/lib/aiRuntime/tools/auditTools";
+import { registerJournalReviewTools } from "@/lib/aiRuntime/tools/journalReviewTools";
+import { registerControlMonitoringReadTools, registerControlMonitoringWriteTools } from "@/lib/aiRuntime/tools/controlMonitoringTools";
+import { registerMasterDataReadTools, registerMasterDataWriteTools } from "@/lib/aiRuntime/tools/masterDataTools";
+import { registerInventoryReadTools, registerInventoryWriteTools } from "@/lib/aiRuntime/tools/inventoryTools";
+import { registerDuplicateWriteTools } from "@/lib/aiRuntime/tools/duplicateTools";
+import { registerPolicyWriteTools } from "@/lib/aiRuntime/tools/policyTools";
+import { registerOpsHealthWriteTools } from "@/lib/aiRuntime/tools/opsHealthTools";
+import { registerAccountMappingTools } from "@/lib/aiRuntime/tools/accountMappingTools";
+import { registerWorkflow } from "@/lib/aiRuntime/runtime/registry";
+import { aiSmokeWorkflow } from "@/lib/aiRuntime/workflows/ai-00-smoke";
+import { ai02LedgerClassification } from "@/lib/aiRuntime/workflows/ai-02-ledger-classification";
+import { ai01DocumentIngestion } from "@/lib/aiRuntime/workflows/ai-01-document-ingestion";
+import { ai03BankReconciliation } from "@/lib/aiRuntime/workflows/ai-03-bank-reconciliation";
+import { ai04ExpenseIntelligence } from "@/lib/aiRuntime/workflows/ai-04-expense-intelligence";
+import { ai08PrepaidSchedule } from "@/lib/aiRuntime/workflows/ai-08-prepaid-schedule";
+import { ai10FixedAsset } from "@/lib/aiRuntime/workflows/ai-10-fixed-asset";
+import { ai07AccrualIntelligence } from "@/lib/aiRuntime/workflows/ai-07-accrual-intelligence";
+import { ai09RevenueRecognition } from "@/lib/aiRuntime/workflows/ai-09-revenue-recognition";
+import { ai22ContinuousReconciliation } from "@/lib/aiRuntime/workflows/ai-22-continuous-reconciliation";
+import { ai13DayZeroClose } from "@/lib/aiRuntime/workflows/ai-13-day-zero-close";
+import { ai24CloseEvidence } from "@/lib/aiRuntime/workflows/ai-24-close-evidence";
+import { ai28CutoffIntelligence } from "@/lib/aiRuntime/workflows/ai-28-cutoff-intelligence";
+import { ai05ReceivablesOperations } from "@/lib/aiRuntime/workflows/ai-05-receivables-operations";
+import { ai06PayablesOperations } from "@/lib/aiRuntime/workflows/ai-06-payables-operations";
+import { ai16CashIntelligence } from "@/lib/aiRuntime/workflows/ai-16-cash-intelligence";
+import { ai14FluxAnalysis } from "@/lib/aiRuntime/workflows/ai-14-flux-analysis";
+import { ai15AnomalyDetection } from "@/lib/aiRuntime/workflows/ai-15-anomaly-detection";
+import { ai25WorkingCapitalIntelligence } from "@/lib/aiRuntime/workflows/ai-25-working-capital-intelligence";
+import { ai12TaxIntelligence } from "@/lib/aiRuntime/workflows/ai-12-tax-intelligence";
+import { ai17ComplianceReadiness } from "@/lib/aiRuntime/workflows/ai-17-compliance-readiness";
+import { ai21StatementIntelligence } from "@/lib/aiRuntime/workflows/ai-21-statement-intelligence";
+import { ai20RelatedPartyDetection } from "@/lib/aiRuntime/workflows/ai-20-related-party-detection";
+import { ai18AuditEvidence } from "@/lib/aiRuntime/workflows/ai-18-audit-evidence";
+import { ai23JournalReview } from "@/lib/aiRuntime/workflows/ai-23-journal-review";
+import { ai29ControlMonitoring } from "@/lib/aiRuntime/workflows/ai-29-control-monitoring";
+import { ai19MasterData } from "@/lib/aiRuntime/workflows/ai-19-master-data";
+import { ai11InventoryCogs } from "@/lib/aiRuntime/workflows/ai-11-inventory-cogs";
+import { ai27DuplicateDetection } from "@/lib/aiRuntime/workflows/ai-27-duplicate-detection";
+import { ai26AccountingPolicy } from "@/lib/aiRuntime/workflows/ai-26-accounting-policy";
+import { ai30ErpOperations } from "@/lib/aiRuntime/workflows/ai-30-erp-operations";
+
+/**
+ * Registers every tool and workflow the AI runtime currently knows about.
+ * Call this once before emitting events or invoking workflows directly
+ * (idempotent — safe to call multiple times, e.g. once per test file and
+ * once per cold serverless start). Every future chunk's workflows/tools get
+ * added to this function, not scattered across ad-hoc import sites.
+ */
+let bootstrapped = false;
+
+export function bootstrapAiRuntime(): void {
+  if (bootstrapped) return;
+  registerControlTools();
+  registerFinanceReadTools();
+  registerFinanceWriteTools();
+  registerScheduleReadTools();
+  registerScheduleWriteTools();
+  registerCloseReadTools();
+  registerCloseWriteTools();
+  registerInternalStateTools();
+  registerReceivablesTools();
+  registerPayablesTools();
+  registerAnomalyTools();
+  registerTaxReadTools();
+  registerTaxWriteTools();
+  registerStatementTools();
+  registerAuditReadTools();
+  registerAuditWriteTools();
+  registerJournalReviewTools();
+  registerControlMonitoringReadTools();
+  registerControlMonitoringWriteTools();
+  registerMasterDataReadTools();
+  registerMasterDataWriteTools();
+  registerInventoryReadTools();
+  registerInventoryWriteTools();
+  registerDuplicateWriteTools();
+  registerPolicyWriteTools();
+  registerOpsHealthWriteTools();
+  registerAccountMappingTools();
+  registerWorkflow(aiSmokeWorkflow);
+  registerWorkflow(ai02LedgerClassification);
+  registerWorkflow(ai01DocumentIngestion);
+  registerWorkflow(ai03BankReconciliation);
+  registerWorkflow(ai04ExpenseIntelligence);
+  registerWorkflow(ai08PrepaidSchedule);
+  registerWorkflow(ai10FixedAsset);
+  registerWorkflow(ai07AccrualIntelligence);
+  registerWorkflow(ai09RevenueRecognition);
+  registerWorkflow(ai22ContinuousReconciliation);
+  registerWorkflow(ai13DayZeroClose);
+  registerWorkflow(ai24CloseEvidence);
+  registerWorkflow(ai28CutoffIntelligence);
+  registerWorkflow(ai05ReceivablesOperations);
+  registerWorkflow(ai06PayablesOperations);
+  registerWorkflow(ai16CashIntelligence);
+  registerWorkflow(ai14FluxAnalysis);
+  registerWorkflow(ai15AnomalyDetection);
+  registerWorkflow(ai25WorkingCapitalIntelligence);
+  registerWorkflow(ai12TaxIntelligence);
+  registerWorkflow(ai17ComplianceReadiness);
+  registerWorkflow(ai21StatementIntelligence);
+  registerWorkflow(ai20RelatedPartyDetection);
+  registerWorkflow(ai18AuditEvidence);
+  registerWorkflow(ai23JournalReview);
+  registerWorkflow(ai29ControlMonitoring);
+  registerWorkflow(ai19MasterData);
+  registerWorkflow(ai11InventoryCogs);
+  registerWorkflow(ai27DuplicateDetection);
+  registerWorkflow(ai26AccountingPolicy);
+  registerWorkflow(ai30ErpOperations);
+  bootstrapped = true;
+}

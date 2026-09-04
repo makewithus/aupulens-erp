@@ -1,0 +1,17 @@
+{
+  "route": "/finance/expenses",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 363,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nEmployee Expenses\n\n1 EXPENSE TOTAL\n\nFROM\nTO\nRecord Expense\nEXPENSE\tSTAFF\tDATE\tTOTAL\tSTATUS\tACTIONS\n\nuhuhuh\nOTHE",
+  "durationMs": 3817,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3000/finance/expenses\" is interrupted by another navigation to \"http://localhost:3000/finance/summary\"\nCall log:\n  - navigating to \"http://localhost:3000/finance/expenses\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

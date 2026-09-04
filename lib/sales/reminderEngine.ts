@@ -3,6 +3,7 @@ import Reminder from "@/models/sales/Reminder";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Invoice from "@/models/finance/Invoice";
 import EmailTemplate from "@/models/sales/EmailTemplate";
+import AiDispute, { AI_DISPUTE_STATUS } from "@/models/ai/AiDispute";
 import { getEmailService, renderTemplate } from "@/lib/email/sendEmail";
 import { REMINDER_SCOPE, REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
 import "@/models/sales/Customer";
@@ -43,6 +44,15 @@ export async function evaluateInvoiceReminders(tenantId: string): Promise<{ eval
   const todayEnd = endOfDay(new Date());
   let sent = 0;
 
+  // AI-05 (docs/ai/BRIEF-05-BATCH-D.md, algorithm step 5): a disputed invoice stops its reminder
+  // sequence — chasing a disputed invoice is the fastest way to damage a customer relationship.
+  // A minimal additive guard in the real send path, not a second reminder mechanism.
+  const disputedInvoiceIds = new Set(
+    (await AiDispute.find({ tenantId, subjectModel: "SalesInvoice", status: AI_DISPUTE_STATUS.OPEN }).select("subjectId").lean()).map((d) =>
+      String(d.subjectId),
+    ),
+  );
+
   for (const reminder of reminders) {
     const basis = reminder.basis || REMINDER_BASIS.DUE_DATE;
     const dateField = basis === REMINDER_BASIS.EXPECTED_PAYMENT_DATE ? "dueDate" : "dueDate"; // no separate expected-payment field on SalesInvoice today — both bases key off dueDate
@@ -52,6 +62,7 @@ export async function evaluateInvoiceReminders(tenantId: string): Promise<{ eval
       .lean();
 
     for (const invoice of invoices) {
+      if (disputedInvoiceIds.has(String(invoice._id))) continue;
       const base = invoice[dateField];
       if (!base) continue;
       const fireOn = targetDate(new Date(base), reminder.offsetDays, reminder.direction);

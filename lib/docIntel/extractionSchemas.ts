@@ -21,6 +21,12 @@ export type DocIntelStatus = (typeof DOC_INTEL_STATUS)[keyof typeof DOC_INTEL_ST
 
 export const DOC_INTEL_TYPE = {
   VENDOR_BILL: "vendor_bill",
+  // Additive (docs/ai/BRIEF-02-BATCH-A.md AI-04) — schema/prompt/coerce only in this batch.
+  // Wiring lib/docIntel/extractor.ts's typed extractDocument() to accept this type (so it
+  // flows through the same upload pipeline as vendor_bill) is a deliberate follow-up, not
+  // done here — see docs/ai/OPEN_QUESTIONS.md. AI-04 reacts to `expense.submitted` (an
+  // already-created Expense) in this chunk, not to a receipt upload event.
+  RECEIPT: "receipt",
 } as const;
 
 export type DocIntelType = (typeof DOC_INTEL_TYPE)[keyof typeof DOC_INTEL_TYPE];
@@ -42,6 +48,20 @@ export interface VendorBillExtraction {
   dueDate: string;
   currency: string;
   poReference: string;
+  lineItems: ExtractedLineItem[];
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  /** 0-100 self-reported extraction confidence. */
+  confidence: number;
+}
+
+export interface ReceiptExtraction {
+  merchantName: string;
+  receiptDate: string;
+  currency: string;
+  paymentMethod: string;
+  category: string;
   lineItems: ExtractedLineItem[];
   subtotal: number;
   taxAmount: number;
@@ -100,6 +120,56 @@ export function coerceVendorBill(parsed: Record<string, unknown>): VendorBillExt
   };
 }
 
+/** Coerce arbitrary parsed JSON into a clean ReceiptExtraction — same pattern as
+ *  coerceVendorBill, additive (docs/ai/BRIEF-02-BATCH-A.md AI-04). */
+export function coerceReceipt(parsed: Record<string, unknown>): ReceiptExtraction {
+  const rawLines = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
+  const lineItems: ExtractedLineItem[] = rawLines
+    .map((l) => {
+      const li = (l ?? {}) as Record<string, unknown>;
+      const quantity = toNum(li.quantity) || 1;
+      const unitPrice = toNum(li.unitPrice ?? li.rate ?? li.price);
+      const amount = toNum(li.amount ?? li.total) || quantity * unitPrice;
+      return { description: toStr(li.description ?? li.item ?? li.name), quantity, unitPrice, amount };
+    })
+    .filter((l) => l.description || l.amount > 0);
+
+  const subtotal = toNum(parsed.subtotal ?? parsed.amountUntaxed);
+  const taxAmount = toNum(parsed.taxAmount ?? parsed.tax ?? parsed.gst);
+  const linesSum = lineItems.reduce((s, l) => s + l.amount, 0);
+  const totalAmount = toNum(parsed.totalAmount ?? parsed.total ?? parsed.grandTotal) || subtotal + taxAmount || linesSum;
+  const confidence = Math.max(0, Math.min(100, toNum(parsed.confidence)));
+
+  return {
+    merchantName: toStr(parsed.merchantName ?? parsed.merchant ?? parsed.vendor),
+    receiptDate: toStr(parsed.receiptDate ?? parsed.date),
+    currency: toStr(parsed.currency) || "INR",
+    paymentMethod: toStr(parsed.paymentMethod ?? parsed.payment_method),
+    category: toStr(parsed.category),
+    lineItems,
+    subtotal: subtotal || Math.max(0, totalAmount - taxAmount),
+    taxAmount,
+    totalAmount,
+    confidence,
+  };
+}
+
+const RECEIPT_PROMPT = `You are extracting structured data from an EXPENSE RECEIPT.
+Return ONLY a JSON object — no markdown fences, no prose — in exactly this shape:
+{
+  "merchantName": "<merchant/store name>",
+  "receiptDate": "<yyyy-mm-dd if resolvable, else the date text>",
+  "currency": "<ISO code, default INR>",
+  "paymentMethod": "<cash|card|upi|other, best guess or empty>",
+  "category": "<a short expense category guess, e.g. travel, meals, supplies>",
+  "lineItems": [{ "description": "", "quantity": 0, "unitPrice": 0, "amount": 0 }],
+  "subtotal": <number>,
+  "taxAmount": <number>,
+  "totalAmount": <number, amount actually paid>,
+  "confidence": <0-100, how confident you are given the document quality>
+}
+Extract only what is actually present. Never invent a merchant, date, or amount that is not in the document. If a field is missing, use an empty string or 0.`;
+
 const VENDOR_BILL_PROMPT = `You are extracting structured data from a VENDOR BILL / PURCHASE INVOICE.
 Return ONLY a JSON object — no markdown fences, no prose — in exactly this shape:
 {
@@ -120,6 +190,8 @@ Extract only what is actually present. Never invent a vendor, number, or amount 
 
 export function buildExtractionPrompt(type: DocIntelType): string {
   switch (type) {
+    case DOC_INTEL_TYPE.RECEIPT:
+      return RECEIPT_PROMPT;
     case DOC_INTEL_TYPE.VENDOR_BILL:
       return VENDOR_BILL_PROMPT;
     default:
@@ -127,11 +199,20 @@ export function buildExtractionPrompt(type: DocIntelType): string {
   }
 }
 
-/** Parse the model's raw text response into a coerced extraction, or throw. */
+/** Parse the model's raw text response into a coerced VendorBillExtraction, or throw.
+ *  Kept to its original signature/behavior (additive-only) — see parseReceiptExtraction
+ *  below for the parallel receipt path. */
 export function parseExtraction(type: DocIntelType, rawText: string): VendorBillExtraction {
   const match = rawText.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Model did not return parseable JSON");
   const parsed = JSON.parse(match[0]) as Record<string, unknown>;
-  // Only one type today; switch when more are added.
   return coerceVendorBill(parsed);
+}
+
+/** Parse the model's raw text response into a coerced ReceiptExtraction, or throw. */
+export function parseReceiptExtraction(rawText: string): ReceiptExtraction {
+  const match = rawText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Model did not return parseable JSON");
+  const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+  return coerceReceipt(parsed);
 }

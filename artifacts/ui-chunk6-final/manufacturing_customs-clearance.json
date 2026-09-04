@@ -1,0 +1,12 @@
+{
+  "route": "/manufacturing/customs-clearance",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 310,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nCustoms Clearance\n\nManage customs declarations and clearances\n\nFROM\nTO\nView Analytics\nNew Clearance\nAll Customs Clearances (0)\nDeclaration #\tShipment ID\tOffice\tStatus\t",
+  "durationMs": 10087
+}

@@ -1,0 +1,12 @@
+{
+  "route": "/sales/visualization",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 317,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCHARTS & ANALYTICS\nSALES KPIS\nOrders Trend\n|\nRevenue Trend\n|\nQuotation → Order Conversion\n|\nOrder Status Breakdown\nDATE RANGE\nLast 7 days\nLast 30 days\nLast 90 days\nLast 12 months\nINTERVAL\nDay\nWeek\nMonth\nRESET\nORDERS TREND\n|",
+  "durationMs": 6153
+}

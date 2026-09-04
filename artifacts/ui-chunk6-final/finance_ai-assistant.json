@@ -1,0 +1,17 @@
+{
+  "route": "/finance/ai-assistant",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 361,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nAI Operations\nNew Chat\nRecent Chats\nFinance AI Assistant\nFinance AI Assistant\n\nAsk me anything about invoices, ledgers, journal en",
+  "durationMs": 18711,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3001/finance/ai-assistant\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

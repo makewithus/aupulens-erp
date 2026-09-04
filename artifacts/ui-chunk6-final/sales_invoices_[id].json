@@ -1,0 +1,5 @@
+{
+  "route": "/sales/invoices/[id]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

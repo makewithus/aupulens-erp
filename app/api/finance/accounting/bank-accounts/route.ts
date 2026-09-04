@@ -5,6 +5,7 @@ import BankAccount from "@/models/finance/BankAccount";
 import Account from "@/models/finance/Account";
 import AccountType from "@/models/finance/AccountType";
 import { BANK_ACCOUNT_TYPE } from "@/lib/constants/statuses";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -84,6 +85,9 @@ export async function POST(req: NextRequest) {
     if (doc.isPrimary) {
       await BankAccount.updateMany({ tenantId, _id: { $ne: doc._id } }, { $set: { isPrimary: false } });
     }
+
+    // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "BankAccount", id: String(doc._id), tenantId });
 
     return NextResponse.json({ success: true, data: doc }, { status: 201 });
   } catch (error: any) {

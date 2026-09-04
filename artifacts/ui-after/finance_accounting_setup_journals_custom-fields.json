@@ -1,0 +1,12 @@
+{
+  "route": "/finance/accounting/setup/journals/custom-fields",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 364,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nAI Operations\nChart of Accounts\n▾\nJournals\n▾\nBanking\n▾\nBudgets\nTransaction Locking\nPeriod Closing\nSetup\n▾\nJournals – Custom Fields",
+  "durationMs": 3694
+}

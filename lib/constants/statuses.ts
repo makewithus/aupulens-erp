@@ -1897,3 +1897,116 @@ export const SALES_ORDER_INVOICING_STATUS_VALUES = Object.values(SALES_ORDER_INV
 export type SalesOrderInvoicingStatus =
   (typeof SALES_ORDER_INVOICING_STATUS)[keyof typeof SALES_ORDER_INVOICING_STATUS];
 
+// ============================================================
+//  AI RUNTIME (Aupulens AI-native finance operating layer —
+//  docs/ai/BRIEF-01-FOUNDATION.md Part 2). Shared by every AI-XX workflow.
+// ============================================================
+
+export const AI_AUTONOMY_LEVEL = {
+  OBSERVE: "observe",
+  RECOMMEND: "recommend",
+  DRAFT: "draft",
+  EXECUTE: "execute",
+  CONTROLLED_AUTONOMOUS: "controlled_autonomous",
+  NEVER_AUTONOMOUS: "never_autonomous",
+} as const;
+export const AI_AUTONOMY_LEVEL_VALUES = Object.values(AI_AUTONOMY_LEVEL);
+export type AiAutonomyLevel =
+  (typeof AI_AUTONOMY_LEVEL)[keyof typeof AI_AUTONOMY_LEVEL];
+/** Ordered lowest→highest; used by the gate to "drop one level" on a failed check. */
+export const AI_AUTONOMY_LEVEL_ORDER: AiAutonomyLevel[] = [
+  AI_AUTONOMY_LEVEL.OBSERVE,
+  AI_AUTONOMY_LEVEL.RECOMMEND,
+  AI_AUTONOMY_LEVEL.DRAFT,
+  AI_AUTONOMY_LEVEL.EXECUTE,
+  AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS,
+];
+
+export const AI_RUN_STATUS = {
+  RUNNING: "running",
+  COMPLETED: "completed",
+  ESCALATED: "escalated",
+  FAILED: "failed",
+  NO_ACTION: "no_action",
+} as const;
+export const AI_RUN_STATUS_VALUES = Object.values(AI_RUN_STATUS);
+export type AiRunStatus = (typeof AI_RUN_STATUS)[keyof typeof AI_RUN_STATUS];
+
+export const AI_EVENT_STATUS = {
+  PENDING: "pending",
+  PROCESSING: "processing",
+  PROCESSED: "processed",
+  FAILED: "failed",
+  DEAD_LETTER: "dead_letter",
+} as const;
+export const AI_EVENT_STATUS_VALUES = Object.values(AI_EVENT_STATUS);
+export type AiEventStatus = (typeof AI_EVENT_STATUS)[keyof typeof AI_EVENT_STATUS];
+
+export const AI_FINDING_TYPE = {
+  MATCH: "match",
+  EXCEPTION: "exception",
+  ANOMALY: "anomaly",
+  BLOCKER: "blocker",
+  PROPOSAL: "proposal",
+  EXPLANATION: "explanation",
+} as const;
+export const AI_FINDING_TYPE_VALUES = Object.values(AI_FINDING_TYPE);
+export type AiFindingType = (typeof AI_FINDING_TYPE)[keyof typeof AI_FINDING_TYPE];
+
+export const AI_FINDING_SEVERITY = {
+  CRITICAL: "critical",
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low",
+  INFO: "info",
+} as const;
+export const AI_FINDING_SEVERITY_VALUES = Object.values(AI_FINDING_SEVERITY);
+export type AiFindingSeverity =
+  (typeof AI_FINDING_SEVERITY)[keyof typeof AI_FINDING_SEVERITY];
+
+export const AI_ATTENTION_PRIORITY = {
+  CRITICAL: "critical",
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low",
+  INFO: "info",
+} as const;
+export const AI_ATTENTION_PRIORITY_VALUES = Object.values(AI_ATTENTION_PRIORITY);
+export type AiAttentionPriority =
+  (typeof AI_ATTENTION_PRIORITY)[keyof typeof AI_ATTENTION_PRIORITY];
+
+export const AI_ATTENTION_STATUS = {
+  OPEN: "open",
+  RESOLVED: "resolved",
+  AUTO_RESOLVED: "auto_resolved",
+  DISMISSED: "dismissed",
+} as const;
+export const AI_ATTENTION_STATUS_VALUES = Object.values(AI_ATTENTION_STATUS);
+export type AiAttentionStatus =
+  (typeof AI_ATTENTION_STATUS)[keyof typeof AI_ATTENTION_STATUS];
+
+export const AI_LEARNING_OUTCOME = {
+  ACCEPTED: "accepted",
+  EDITED: "edited",
+  REJECTED: "rejected",
+  PENDING: "pending",
+  /** Chunk 9 (0.1) — a record whose resolution window (see `lib/aiRuntime/learning/resolveOutcomes.ts`)
+   *  elapsed with no accept/edit/reject signal. Deliberately NOT "accepted" — silence is not
+   *  agreement, and defaulting an unresolved proposal to accepted would inflate every metric
+   *  reading it (override_rate, the autonomy evidence bar, governed promotion). */
+  OUTCOME_UNKNOWN: "outcome_unknown",
+} as const;
+export const AI_LEARNING_OUTCOME_VALUES = Object.values(AI_LEARNING_OUTCOME);
+export type AiLearningOutcome =
+  (typeof AI_LEARNING_OUTCOME)[keyof typeof AI_LEARNING_OUTCOME];
+
+export const AI_TOOL_SIDE_EFFECT = {
+  READ: "read",
+  ANALYSE: "analyse",
+  DRAFT: "draft",
+  EXECUTE: "execute",
+} as const;
+export const AI_TOOL_SIDE_EFFECT_VALUES = Object.values(AI_TOOL_SIDE_EFFECT);
+export type AiToolSideEffect =
+  (typeof AI_TOOL_SIDE_EFFECT)[keyof typeof AI_TOOL_SIDE_EFFECT];
+

@@ -1,0 +1,12 @@
+{
+  "route": "/finance/accounting/banking/rules/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 449,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nNew Rules\nRule Name*\nApply To*\nDeposits\nWithdrawals\nTransaction Handling*\nRecognized Transactions\nCategorize",
+  "durationMs": 7634
+}

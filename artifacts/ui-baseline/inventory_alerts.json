@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/alerts",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 501,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nReorder Alerts\nRefresh Alerts\n\nActive Alerts\n\n0\n\nOut of Stock\n\n0\n\nCritical Warnings\n\n0\n\nRestock Valuation\n\n₹0\nActive Alerts\n\n0 ALERTS ACTIVE\n\nAll Alerts\nITEM\tLOCATION\tSTOCK LEVEL\tSUGGESTED REORDER\tVALUATION\tALERT STATUS\tACTIONS\n\n\t\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t",
+  "durationMs": 6200
+}

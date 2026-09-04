@@ -1,0 +1,19 @@
+{
+  "route": "/finance/bills",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 343,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nAI Operations\nVendor Bills\n\n0 BILLS TOTAL\n\nFROM\nTO\nNew Bill",
+  "durationMs": 1849,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3001/finance/bills\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": [
+      "Invalid or unexpected token"
+    ]
+  }
+}

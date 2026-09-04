@@ -10,9 +10,24 @@ import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmLead from "@/models/crm/Lead";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import { calculateForecast } from "@/lib/crm/forecast";
+import { resolveWorkflowIntentCheap, unmatchedResponse } from "@/lib/aiRuntime/nl/resolveIntent";
+import { handleWorkflowIntent } from "@/lib/aiRuntime/nl/workflowChatHandler";
+import { listWorkflows } from "@/lib/aiRuntime/runtime/registry";
+import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
 
 /**
  * AI Command Center dispatcher.
+ *
+ * AI-NL (docs/ai/BRIEF-08b-FINAL.md Part B) widens this from seven hard-coded accounting actions
+ * to the 30 registered AI runtime workflows — same proposal record (`AiCommandProposal`), same
+ * confirm gate, same TTL, no second chat. **Resolution is layered, cheapest first**: a curated
+ * keyword table (`lib/aiRuntime/nl/resolveIntent.ts`) is tried BEFORE any LLM call; only an
+ * utterance it can't match falls through to the LLM classification below, whose own prompt is
+ * extended with a `"workflow"` intent constrained to the real registry (`listWorkflows()`) —
+ * never a workflow id the model invented. **If this whole layer were deleted, all 30 workflows
+ * keep running on their triggers and schedules** — nothing here is imported by
+ * `lib/aiRuntime/runtime/**`, `lib/aiRuntime/bootstrap.ts`, or any cron route (asserted directly,
+ * `tests/ai/aiRuntime/aiNl.test.ts`).
  *
  * One LLM call classifies the natural-language command into an intent, then we
  * dispatch to a REAL implementation for each:
@@ -25,6 +40,9 @@ import { calculateForecast } from "@/lib/crm/forecast";
  *                     AiCommandProposal. NEVER executes here — the mutation only
  *                     happens after an explicit human confirm click via
  *                     /api/ai/command/actions/[id]/confirm.
+ *   - workflow      → AI-NL: resolve to a registered AI-XX workflow and run it (OBSERVE) or
+ *                     preview + propose it (above OBSERVE) through the exact same executor and
+ *                     autonomy gate an event trigger uses.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -32,9 +50,27 @@ export async function POST(req: NextRequest) {
     const tenantId = (session?.user as any)?.tenantId as string | undefined;
     if (!session || !tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const role = ((session.user as any).role || "").toLowerCase();
+    const userId = String((session.user as any).id ?? "");
 
     const { command, context } = await req.json();
     if (!command) return NextResponse.json({ error: "No command provided" }, { status: 400 });
+
+    // Layer 1/2 — cheap, deterministic, no LLM call (docs/ai/BRIEF-08b-FINAL.md B.1).
+    bootstrapAiRuntime();
+    const cheapMatch = resolveWorkflowIntentCheap(command);
+    if (cheapMatch) {
+      if (cheapMatch.alternatives.length > 0) {
+        return NextResponse.json({
+          action: "clarify",
+          message: `Did you mean ${cheapMatch.workflowId}, or one of: ${cheapMatch.alternatives.join(", ")}? Please say which.`,
+          resolvedBy: cheapMatch.resolvedBy,
+        });
+      }
+      const result = await handleWorkflowIntent(tenantId, userId, cheapMatch.workflowId, cheapMatch.eventKey, cheapMatch.parameters);
+      return NextResponse.json({ ...result, resolvedBy: cheapMatch.resolvedBy });
+    }
+
+    const registeredWorkflowIds = listWorkflows().map((w) => w.id);
 
     const prompt = `You are the command dispatcher for Aupulens ERP. Classify the user's command into ONE intent and extract its parameters.
 
@@ -58,10 +94,11 @@ Intents:
     • create_journal_entry → {"narration":"...","journalType":"general|sale|purchase|cash|bank","lines":[{"account":"<ledger name>","debit":5000,"credit":0,"label":"..."},{"account":"<ledger name>","debit":0,"credit":5000}]}  (debits MUST equal credits; each line is debit XOR credit)
   Extract every detail the user gives (names, emails, phones, amounts, GSTIN, quantities, tax rates) into actionParams. Do NOT invent values the user did not state. For journal entries, infer the correct debit/credit sides so the entry balances, using ledger names as the user refers to them.
 - "batch": user wants MULTIPLE actions in one request (e.g. "create a customer AND an invoice for them", "add a lead and a follow-up task and a ledger"). Provide "actions": an ARRAY of {"actionType":"...","actionParams":{...}} using the SAME actionTypes/params as "action" above, ordered so that anything others depend on is created FIRST (e.g. create the customer before the invoice that references it).
+- "workflow": user wants the AI OPERATING LAYER to DO or EXPLAIN something it already owns — reconcile an account, explain a margin/variance, prepare accruals, check close readiness, find duplicate bills/payments, chase collections, forecast cash, show supporting evidence for a number, or explain why the system did something. Provide "workflowId" — ONE of exactly these registered ids, never another: ${registeredWorkflowIds.join(", ")}. Pick the closest real match; if truly nothing fits, use "unknown" instead.
 - "unknown": if none apply.
 
 Return ONLY JSON (no markdown):
-{"intent":"...","destination":"...","searchTerm":"...","reportType":"...","actionType":"...","actionParams":{...},"actions":[{"actionType":"...","actionParams":{...}}],"message":"short friendly message"}`;
+{"intent":"...","destination":"...","searchTerm":"...","reportType":"...","actionType":"...","actionParams":{...},"actions":[{"actionType":"...","actionParams":{...}}],"workflowId":"...","message":"short friendly message"}`;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: AI_MAX_TOKENS.intent });
@@ -114,8 +151,19 @@ Return ONLY JSON (no markdown):
       case "batch":
         return await proposeBatch(tenantId, session.user.id, role, parsed.actions || []);
 
-      default:
-        return NextResponse.json({ action: "unknown", message: parsed.message || "I didn't quite understand that command." });
+      case "workflow": {
+        if (!parsed.workflowId || !registeredWorkflowIds.includes(parsed.workflowId)) {
+          const fallback = unmatchedResponse(command);
+          return NextResponse.json({ action: "unknown", message: fallback.message, suggestions: fallback.suggestions });
+        }
+        const result = await handleWorkflowIntent(tenantId, userId, parsed.workflowId, "ai.sweep.hourly", {});
+        return NextResponse.json({ ...result, resolvedBy: "llm" });
+      }
+
+      default: {
+        const fallback = unmatchedResponse(command);
+        return NextResponse.json({ action: "unknown", message: parsed.message || fallback.message, suggestions: fallback.suggestions });
+      }
     }
   } catch (error: any) {
     console.error("AI Command processing error:", error);

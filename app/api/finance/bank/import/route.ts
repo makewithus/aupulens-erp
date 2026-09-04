@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import BankStatement from "@/models/finance/BankStatement";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,6 +25,13 @@ export async function POST(req: NextRequest) {
     });
 
     await statement.save();
+
+    // Additive (docs/ai/BRIEF-02-BATCH-A.md B.2) — never throws back into this route.
+    await safeEmitEvent(tenantId, "bank.transaction.imported", {
+      bankStatementId: String(statement._id),
+      actingUserId: (session.user as any).id,
+    });
+
     return NextResponse.json(statement);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

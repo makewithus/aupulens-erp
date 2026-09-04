@@ -1,0 +1,12 @@
+{
+  "route": "/hr/leave",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 397,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nEMPLOYEE MANAGEMENT\nEmployees\nDepartments\nOnboarding\nExit & Clearance\nTIME & ATTENDANCE\nAttendance\nLeave Requests\nPAYROLL\nPayroll Processing\nPERFORMANCE\nPerformance\nREPORTS\nHR Reports\nEnterprise Calendar\nLeave Requests\n\nManage employee leave applications\n\n0\n\nTotal\n\n0\n\nPending\n\n0\n\nApproved\n\n0\n\nRejected\n\nFROM\nTO\nNew Leave Request",
+  "durationMs": 3898
+}

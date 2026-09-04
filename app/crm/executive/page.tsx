@@ -37,28 +37,28 @@ export default function ExecutiveCommandCenter() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Likely Forecast (Q3)</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-400">₹{data.forecast.likely.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Best Case: ${data.forecast.best.toLocaleString()}</p>
+            <div className="text-2xl font-sans tabular-nums font-bold text-green-400">₹{data.forecast.likely.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Best Case: ₹{data.forecast.best.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pipeline Coverage</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.pipeline.coverage}x</div>
+            <div className="text-2xl font-sans tabular-nums font-bold">{data.pipeline.coverage}x</div>
             <p className="text-xs text-green-500 mt-1">Healthy target achieved</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Retention Rate</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-400">{data.retention.rate}%</div>
+            <div className="text-2xl font-sans tabular-nums font-bold text-blue-400">{data.retention.rate}%</div>
             <p className="text-xs text-red-400 mt-1">₹{data.retention.churnRiskTotal.toLocaleString()} At Risk</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Data Governance</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.governance.score}/100</div>
+            <div className="text-2xl font-sans tabular-nums font-bold">{data.governance.score}/100</div>
             <p className="text-xs text-yellow-500 mt-1">{data.governance.orphans} Orphan Records</p>
           </CardContent>
         </Card>

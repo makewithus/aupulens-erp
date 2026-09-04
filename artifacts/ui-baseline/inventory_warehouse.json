@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/warehouse",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 323,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nWarehouses\n\n2 WAREHOUSES TOTAL\n\nNew Warehouse\nCODE\tNAME\tLOCATION\tTYPE\tSTATUS\tACTIONS\nWH-COLD-001\tCold Storage Facility\tNoida, Uttar Pradesh\tcold-storage\tactive\tViewEditDelete\nWH-DEFAULT-TENANT\tPrimary Warehouse - Aupulens Corporate HQ\tCen",
+  "durationMs": 6836
+}

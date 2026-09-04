@@ -1,0 +1,17 @@
+{
+  "route": "/crm/quotes/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 511,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nCRM\nDashboard\nLeads\nAccounts\nContacts\nOpportunities\nPipeline\nQuotes\nOPERATIONS\nActivities\nTasks\nCases\nCampaigns\nContracts\nENGAGEMENT\nCommunications\nNotifications\nOnboarding\nHandoffs\nSupport\nAUTOMATION & AI\nAutomations\nWorkflows\nAI Insights\nAI Control Center\nDATA & INTEGRATIONS\nDocuments\nImport\nIntegrations\nSYSTEM\nReports\nExecutive View\nCompliance\nSystem Health\nMobile\nApprovals\nSettings\nAudit Logs\nBack to Quotes\nCreate New Quote\n\nBuil",
+  "durationMs": 5852,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/crm/quotes/new\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

@@ -673,7 +673,7 @@ export default function MasterAdminPage() {
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
                 Total Tenants
               </p>
-              <h3 className="font-mono text-3xl font-bold tracking-tighter text-blue-600">
+              <h3 className="font-sans tabular-nums text-3xl font-bold tracking-tighter text-blue-600">
                 {stats.total}
               </h3>
             </CardContent>
@@ -689,7 +689,7 @@ export default function MasterAdminPage() {
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
                 Active Organizations
               </p>
-              <h3 className="font-mono text-3xl font-bold tracking-tighter text-emerald-600">
+              <h3 className="font-sans tabular-nums text-3xl font-bold tracking-tighter text-emerald-600">
                 {stats.active}
               </h3>
             </CardContent>
@@ -705,7 +705,7 @@ export default function MasterAdminPage() {
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">
                 Trial Subscriptions
               </p>
-              <h3 className="font-mono text-3xl font-bold tracking-tighter text-amber-600">
+              <h3 className="font-sans tabular-nums text-3xl font-bold tracking-tighter text-amber-600">
                 {stats.trial}
               </h3>
             </CardContent>

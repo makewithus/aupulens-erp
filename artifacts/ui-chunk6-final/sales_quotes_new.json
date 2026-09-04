@@ -1,0 +1,12 @@
+{
+  "route": "/sales/quotes/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 421,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nQUOTE\nSUBSCRIPTION QUOTE\nCustomer Name *\nSelect or add a customer\nQuote #\nReference#\nQuote Date\nSalesperson\nProject Name\nSubject\nITEM TABLE\nBULK ACTIONS\nITEM DETAILS\tQUANTITY\tRATE\tAMOUNT\t\n\n\t\n\t\n\t0.00\t\nAdd New Row\nAdd Items i",
+  "durationMs": 8741
+}

@@ -41,23 +41,23 @@ export default function SupportDashboard() {
       <div className="grid grid-cols-5 gap-4">
         <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">Open Cases</p>
-          <p className="text-3xl font-bold">{data.openCount}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums">{data.openCount}</p>
         </div>
         <div className="bg-card border border-red-800 p-4 rounded-lg">
           <p className="text-red-500 text-sm">Breached SLA</p>
-          <p className="text-3xl font-bold text-red-500">{data.breachedCount}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums text-red-500">{data.breachedCount}</p>
         </div>
         <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">Avg Resolution</p>
-          <p className="text-3xl font-bold">{data.avgResTime}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums">{data.avgResTime}</p>
         </div>
         <div className="bg-card border border-border p-4 rounded-lg">
           <p className="text-muted-foreground text-sm">CSAT Score</p>
-          <p className="text-3xl font-bold text-green-500">{data.avgSat}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums text-green-500">{data.avgSat}</p>
         </div>
         <div className="bg-card border border-orange-800 p-4 rounded-lg">
           <p className="text-orange-500 text-sm">Escalations Today</p>
-          <p className="text-3xl font-bold text-orange-500">{data.escalationsToday}</p>
+          <p className="text-3xl font-bold font-sans tabular-nums text-orange-500">{data.escalationsToday}</p>
         </div>
       </div>
 

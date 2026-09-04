@@ -159,7 +159,7 @@ export default function PipelinePage() {
                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                               className={`p-4 bg-accent border border-border rounded shadow-sm ${snapshot.isDragging ? 'opacity-70' : ''}`}>
                               <div className="font-bold">{item.deal_name}</div>
-                              <div className="text-sm text-green-600 dark:text-green-400 font-mono mt-1">₹{item.amount?.toLocaleString()}</div>
+                              <div className="text-sm text-green-600 dark:text-green-400 font-sans tabular-nums mt-1">₹{item.amount?.toLocaleString()}</div>
                               <div className="text-xs text-muted-foreground mt-2 flex justify-between">
                                 <span>{new Date(item.expected_close_date || Date.now()).toLocaleDateString()}</span>
                                 <span>{item.probability}%</span>

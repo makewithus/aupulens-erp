@@ -1,0 +1,12 @@
+{
+  "route": "/finance/accounting/budgets/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 353,
+  "bodyTextSnippet": "AA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nAI Operations\nNew Budget\nName*\nFiscal Year*\nBudget Period*\n\nINCOME AND EXPENSE ACCOUNTS\n\nIncome Accounts\nAdd Accounts\nExpense Accounts\nAdd Accounts\nInclude Asset, Liability, and Equity Accou",
+  "durationMs": 10804
+}

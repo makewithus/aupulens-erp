@@ -1,0 +1,12 @@
+{
+  "route": "/sales/customers/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 392,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nNew Customer\nPrefill Customer details from the GST portal using the Customer's GSTIN.\nPREFILL\nCustomer Type\nBusiness\nIndividual\nPrimary Contact\nSalutation\nCompany Name\nDisplay Name *\nEmail Address\nPhon",
+  "durationMs": 9571
+}

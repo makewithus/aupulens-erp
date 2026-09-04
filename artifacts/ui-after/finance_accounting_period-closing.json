@@ -1,0 +1,8 @@
+{
+  "route": "/finance/accounting/period-closing",
+  "status": "error",
+  "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/finance/accounting/period-closing\", waiting until \"domcontentloaded\"\n",
+  "consoleErrors": [],
+  "pageErrors": [],
+  "durationMs": 20023
+}

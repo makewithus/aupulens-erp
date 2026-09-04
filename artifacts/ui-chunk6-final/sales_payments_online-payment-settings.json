@@ -1,0 +1,12 @@
+{
+  "route": "/sales/payments/online-payment-settings",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 293,
+  "bodyTextSnippet": "AA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCustomers\nQuotes\nSubscriptions\nSales Orders\nInvoices\nPayments\nE-Invoicing\nOnline Payments\n\nConnect a payment gateway so customers can pay invoices online.\n\nGATEWAY\tSTATUS\tACTION\n",
+  "durationMs": 5884
+}

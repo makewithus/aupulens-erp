@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Vendor from "@/models/admin/Vendor";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
       tenantId,
     });
 
+    // Additive (docs/ai/BRIEF-08a-BATCH-G.md 0.5) — never throws back into this route.
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Vendor", id: String(vendor._id), tenantId });
+
     return NextResponse.json({ vendor });
   } catch (error) {
     console.error("Create vendor error:", error);
@@ -86,6 +90,8 @@ export async function PUT(request: NextRequest) {
     if (!vendor) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
+
+    await safeEmitEvent(tenantId, "master_data.changed", { model: "Vendor", id: String(vendor._id), tenantId });
 
     return NextResponse.json({ vendor });
   } catch (error) {

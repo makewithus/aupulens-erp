@@ -10,7 +10,7 @@ function AIWidget({ title, value, sub, icon: Icon, alert = false }: any) {
         <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
         {Icon && <Icon className={`w-4 h-4 ${alert ? 'text-red-500' : 'text-indigo-400'}`} />}
       </div>
-      <div className="text-3xl font-bold font-mono tracking-tight">{value}</div>
+      <div className="text-3xl font-bold font-sans tabular-nums tracking-tight">{value}</div>
       <p className="text-xs text-muted-foreground mt-2">{sub}</p>
     </div>
   );
@@ -88,7 +88,7 @@ export default function AIDashboard() {
                 <p className="text-muted-foreground text-sm">No leads created in the last 30 days.</p>
               ) : (
                 <>
-                  <div className="text-3xl font-bold font-mono">{data.leadQuality.avgScoreLast30Days}</div>
+                  <div className="text-3xl font-bold font-sans tabular-nums">{data.leadQuality.avgScoreLast30Days}</div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Average lead score across {data.leadQuality.sampleSize} lead{data.leadQuality.sampleSize === 1 ? "" : "s"}
                   </p>

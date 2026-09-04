@@ -1,0 +1,12 @@
+{
+  "route": "/finance/assets",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "",
+  "domElementCount": 0,
+  "bodyTextSnippet": "",
+  "durationMs": 6378
+}

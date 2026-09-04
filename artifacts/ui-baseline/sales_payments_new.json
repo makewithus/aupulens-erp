@@ -1,0 +1,12 @@
+{
+  "route": "/sales/payments/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 357,
+  "bodyTextSnippet": "AA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nRecord Payment\nCustomer Name*\nSelect Customer\nAmount Received*\n₹\nBank Charges (if any)\nPayment Date*\nPayment #*\nPayment Mode\nDeposit To*\nLoading accounts...\nReference#\nTax deducted?\nNo Tax deducted\nYes, TDS (Income Tax)\nUNPAID INVOICES\nCLEAR APPLIED AMOUNT\nDATE\tINVOICE NUMBER\tINVOIC",
+  "durationMs": 8583
+}

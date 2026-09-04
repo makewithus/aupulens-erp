@@ -77,7 +77,7 @@ export function PipelineColumn({
             {orders.length}
           </Badge>
         </div>
-        <p className="text-xs text-muted-foreground/50 font-mono mt-1.5">
+        <p className="text-xs text-muted-foreground/50 font-sans tabular-nums mt-1.5">
           {formatCurrency(stageTotal)}
         </p>
       </div>

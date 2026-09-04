@@ -1,0 +1,17 @@
+{
+  "route": "/sales/invoices/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 426,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCREATE INVOICE /\nYour Company\nRegular\nSELECT CUSTOMER *\nSearch customers by name, company, GSTIN, tags...\n+ Create Customer\nNOTES\nDraft with AI\nTERMS & CONDITIONS\nDraft with AI\nCreate E-Waybill\nCreate E-Invoice\nUSE COUPONS\n",
+  "durationMs": 4165,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/sales/invoices/new\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

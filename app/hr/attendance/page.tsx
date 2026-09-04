@@ -427,8 +427,8 @@ export default function AttendancePage() {
                       <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
                       <TableCell>{rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</TableCell>
                       <TableCell>{rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</TableCell>
-                      <TableCell className="font-mono">{rec.hoursWorked?.toFixed(1) || "0"}</TableCell>
-                      <TableCell className="font-mono">{rec.overtime?.toFixed(1) || "0"}</TableCell>
+                      <TableCell className="font-sans tabular-nums">{rec.hoursWorked?.toFixed(1) || "0"}</TableCell>
+                      <TableCell className="font-sans tabular-nums">{rec.overtime?.toFixed(1) || "0"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge className={statusColors[rec.status] || ""}>{rec.status}</Badge>

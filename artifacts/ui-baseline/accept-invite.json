@@ -1,0 +1,12 @@
+{
+  "route": "/accept-invite",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 71,
+  "bodyTextSnippet": "Join workspace.\n\nAccept your invitation to start collaborating.\n\nNo invite token was found in this link. Ask whoever invited you to resend it.\nGo to sign in",
+  "durationMs": 5731
+}

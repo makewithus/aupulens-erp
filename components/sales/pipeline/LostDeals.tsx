@@ -27,7 +27,7 @@ export function LostDeals({
             </span>
           </div>
           <span className="font-mono text-[11px] text-muted-foreground/60">
-            {orders.length} {orders.length === 1 ? "Deal" : "Deals"}
+            <span className="font-sans tabular-nums">{orders.length}</span> {orders.length === 1 ? "Deal" : "Deals"}
           </span>
         </CardTitle>
       </CardHeader>

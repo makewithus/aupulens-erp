@@ -249,7 +249,7 @@ export default function PurchaseOrderPopupContent({
                         className="border-none shadow-none bg-transparent text-center h-10 font-black"
                       />
                     </TableCell>
-                    <TableCell className="p-4 text-center font-bold text-[11px] tabular-nums text-muted-foreground">
+                    <TableCell className="p-4 text-center font-bold font-sans tabular-nums text-[11px] text-muted-foreground">
                       {line.receivedQty || 0}
                     </TableCell>
                     <TableCell className="p-2 w-32">
@@ -263,7 +263,7 @@ export default function PurchaseOrderPopupContent({
                         className="border-none shadow-none bg-transparent text-right h-10 font-black"
                       />
                     </TableCell>
-                    <TableCell className="p-4 text-right font-black text-[11px] tabular-nums">
+                    <TableCell className="p-4 text-right font-black font-sans tabular-nums text-[11px]">
                       ₹ {(line.priceSubtotal || 0).toLocaleString()}
                     </TableCell>
                     {!isViewOnly && (

@@ -138,6 +138,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         href: "/finance/returns",
         icon: Shuffle,
       },
+      {
+        title: "AI Operations",
+        href: "/finance/ai-operations",
+        icon: Sparkles,
+      },
     ],
   },
 ];

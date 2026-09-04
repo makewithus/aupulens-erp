@@ -1,0 +1,17 @@
+{
+  "route": "/sales/quotations",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "",
+  "domElementCount": 0,
+  "bodyTextSnippet": "",
+  "durationMs": 14898,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Timeout 20000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/sales/quotations\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}

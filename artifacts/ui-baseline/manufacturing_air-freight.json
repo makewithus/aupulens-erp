@@ -1,0 +1,19 @@
+{
+  "route": "/manufacturing/air-freight",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 411,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nITEMS\nItems\nPRODUCTS\nProducts\nBills of Materials\nLOGISTICS & SHIPPING\nShipments\nFreight Providers\nTracking\nCUSTOMS & COMPLIANCE\nCustoms Clearance\nHS Code Management\nDocumentation\nOPERATIONS\nManufacturing Orders\nReports\nAir Freight\nTOOLS\nActivity Logs\nAir Freight\n\nManage air cargo and flight schedules\n\nFROM\nTO\nView Analytics\nSchedule Flight\n\nActive Flights\n\n0\n\nCurrently scheduled\n\nIn Transit\n\n0\n\nEn route\n\nTotal Carg",
+  "durationMs": 15334,
+  "transientFirstAttempt": {
+    "reason": "page.goto: net::ERR_CONNECTION_RESET at http://localhost:3000/manufacturing/air-freight\nCall log:\n  - navigating to \"http://localhost:3000/manufacturing/air-freight\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_SOCKET_NOT_CONNECTED"
+    ],
+    "pageErrors": []
+  }
+}

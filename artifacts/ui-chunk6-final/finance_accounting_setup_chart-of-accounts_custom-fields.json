@@ -1,0 +1,12 @@
+{
+  "route": "/finance/accounting/setup/chart-of-accounts/custom-fields",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 342,
+  "bodyTextSnippet": "AA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nAI Operations\nChart of Accounts\n▾\nJournals\n▾\nBanking\n▾\nBudgets\nTransaction Locking\nPeriod Closing\nSetup\n▾\nChart of Accounts – Custom Fields\nLabel\nType\nRequired\nAdd Field\nLABEL\tTYPE\tREQUIRED\t",
+  "durationMs": 7608
+}

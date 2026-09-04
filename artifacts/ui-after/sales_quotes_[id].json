@@ -1,0 +1,5 @@
+{
+  "route": "/sales/quotes/[id]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

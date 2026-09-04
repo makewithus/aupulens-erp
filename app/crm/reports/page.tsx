@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as xlsx from "xlsx";
 import { PipelineTrendChart } from "@/components/crm/PipelineTrendChart";
 import { RevenueTrendChart } from "@/components/crm/RevenueTrendChart";
+import { CampaignROIChart } from "@/components/crm/CampaignROIChart";
 import { ChurnRiskChart } from "@/components/crm/ChurnRiskChart";
 import { UpcomingRenewalsChart } from "@/components/crm/UpcomingRenewalsChart";
 import { SupportPerformanceChart } from "@/components/crm/SupportPerformanceChart";
@@ -17,17 +17,6 @@ import { useThemeStore } from "@/store/themeStore";
 // "support" (case performance) have no aggregation endpoint built yet —
 // left out of this set rather than faking one, per QA_GAP_REPORT.md #25.
 const SUPPORTED_REPORTS = new Set(["pipeline", "revenue", "churn", "renewals"]);
-
-// three.js is heavy and WebGL-only — loaded client-side on demand rather than
-// bundled into the initial page JS.
-const CampaignROIGlobe = dynamic(
-  () => import("@/components/crm/CampaignROIGlobe").then((m) => m.CampaignROIGlobe),
-  { ssr: false, loading: () => (
-    <div className="flex items-center justify-center h-[420px] text-muted-foreground text-sm gap-2 border border-border rounded-lg bg-card">
-      <Loader2 className="h-4 w-4 animate-spin" /> Loading 3D view…
-    </div>
-  ) },
-);
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -191,7 +180,7 @@ export default function ReportsBuilderPage() {
       <div className="w-full transition-all duration-300">
         {reportType === "pipeline" && <PipelineTrendChart />}
         {reportType === "revenue" && <RevenueTrendChart />}
-        {reportType === "campaign" && <CampaignROIGlobe />}
+        {reportType === "campaign" && <CampaignROIChart />}
         {reportType === "churn" && <ChurnRiskChart />}
         {reportType === "renewals" && <UpcomingRenewalsChart />}
         {reportType === "support" && <SupportPerformanceChart />}

@@ -3,6 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import Expense from "@/models/finance/Expense";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -84,6 +85,12 @@ export async function POST(req: NextRequest) {
     });
 
     await expense.save();
+
+    // Additive (docs/ai/BRIEF-02-BATCH-A.md B.2) — never throws back into this route.
+    await safeEmitEvent(tenantId, "expense.submitted", {
+      expenseId: String(expense._id),
+      actingUserId: session.user.id,
+    });
 
     return NextResponse.json({ success: true, expense });
   } catch (error: any) {

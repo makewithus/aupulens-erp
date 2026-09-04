@@ -341,7 +341,7 @@ export default function QuoteDetailPage(props: {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Grand Total</p>
-            <p className="font-bold text-xl text-green-400">
+            <p className="font-bold text-xl font-sans tabular-nums text-green-400">
               ${(data.grand_total || 0).toLocaleString()}
             </p>
           </div>

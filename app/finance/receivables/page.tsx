@@ -278,7 +278,7 @@ export default function ReceivablesPage() {
               <DollarSign className="h-4 w-4 text-foreground/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{allInvoices.reduce((sum, inv) => sum + inv.total, 0).toLocaleString('en-IN')}</div>
+              <div className="text-2xl font-bold font-sans tabular-nums">₹{allInvoices.reduce((sum, inv) => sum + inv.total, 0).toLocaleString('en-IN')}</div>
             </CardContent>
           </Card>
           <Card>
@@ -399,7 +399,7 @@ export default function ReceivablesPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
+                        <TableCell className="text-right font-semibold font-sans tabular-nums">
                           {formatCurrency(invoice.total)}
                         </TableCell>
                         <TableCell>{getStatusBadge(invoice.status)}</TableCell>

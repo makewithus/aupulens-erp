@@ -1,0 +1,12 @@
+{
+  "route": "/sales/payments/views/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 438,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAupulens Corporate HQ\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nNew View\nName *\nMark as Favorite\nDEFINE THE CRITERIA (IF ANY)\n1.\nStatus\nis\nAdd Criterion\nCOLUMNS PREFERENCE\n\nAVAILABLE COLUMNS\n\nPayment#\nReference#\nInvoice#\nUnused Amount\nStatus\nPayment Type\nBank Charg",
+  "durationMs": 9496
+}

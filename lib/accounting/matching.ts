@@ -1,8 +1,76 @@
-import PurchaseOrder from "@/models/finance/PurchaseOrder";
-import Invoice from "@/models/finance/Invoice";
+import PurchaseOrder, { type IPurchaseOrderLine } from "@/models/finance/PurchaseOrder";
+import Invoice, { type IInvoiceLine } from "@/models/finance/Invoice";
 import StockMove from "@/models/inventory/StockMove";
 import StockTransfer from "@/models/inventory/StockTransfer";
 import mongoose from "mongoose";
+
+/**
+ * AI-06 (docs/ai/BRIEF-05-BATCH-D.md) — a pure, additive extension of this file's existing
+ * matching logic: `runPOMatching()` already decides match/mismatch and already checks the
+ * receipt leg for `poMatchType: "3_way"` (both confirmed present, not missing, before this
+ * function was added — the actual gap was that a mismatch only ever produced a terse boolean
+ * verdict + a hand-written text note, never a structured "which leg, by how much"). This function
+ * computes that structure from the same two documents `runPOMatching()` already reads, without
+ * calling or altering it in any way — `runPOMatching()`'s own callers and behaviour are
+ * completely unaffected by this export existing.
+ */
+/** `reference` is the PO's quantity/price for the `quantity`/`price` legs, and the received
+ *  quantity (from goods-receipt stock moves) for the `receipt` leg — one shared shape for all
+ *  three, since each is structurally the same "billed vs what it should be" comparison. */
+export interface MatchLegVariance {
+  billed: number;
+  reference: number;
+  variance: number;
+  withinTolerance: boolean;
+}
+export interface LineMatchResult {
+  productId: string;
+  name: string;
+  quantity: MatchLegVariance;
+  price: MatchLegVariance;
+  receipt?: MatchLegVariance; // only when poMatchType is "3_way"
+  verdict: "match" | "exception";
+}
+
+/** No PO line found for this invoice line at all — its own, unambiguous verdict, kept separate
+ *  from a computed variance so a caller never mistakes "nothing to compare" for "compared and
+ *  fine." */
+export interface UnmatchedLine {
+  productId: string;
+  name: string;
+  verdict: "no_po_line";
+}
+
+const DEFAULT_TOLERANCE_PCT = 0.01; // 1% — a documented heuristic (no tolerance field exists anywhere in this codebase to consult), applied uniformly to quantity, price, and receipt legs.
+
+function legVariance(billed: number, reference: number, tolerancePct: number): MatchLegVariance {
+  const variance = Math.round((billed - reference) * 100) / 100;
+  const withinTolerance = reference === 0 ? billed === 0 : Math.abs(variance) / Math.abs(reference) <= tolerancePct;
+  return { billed, reference, variance, withinTolerance };
+}
+
+export function computeLineVariances(
+  invoiceLines: IInvoiceLine[],
+  poLines: IPurchaseOrderLine[],
+  poMatchType: "2_way" | "3_way" | undefined,
+  tolerancePct: number = DEFAULT_TOLERANCE_PCT,
+): (LineMatchResult | UnmatchedLine)[] {
+  return invoiceLines.map((invLine): LineMatchResult | UnmatchedLine => {
+    const poLine = poLines.find((l) => String(l.productId) === String(invLine.productId));
+    if (!poLine) {
+      return { productId: String(invLine.productId), name: invLine.name, verdict: "no_po_line" };
+    }
+
+    const quantity = legVariance(invLine.quantity, poLine.productQty, tolerancePct);
+    const price = legVariance(invLine.priceUnit, poLine.priceUnit, tolerancePct);
+    const receipt = poMatchType === "3_way" ? legVariance(invLine.quantity, poLine.receivedQty, tolerancePct) : undefined;
+
+    const verdict: "match" | "exception" =
+      quantity.withinTolerance && price.withinTolerance && (!receipt || receipt.withinTolerance) ? "match" : "exception";
+
+    return { productId: String(invLine.productId), name: invLine.name, quantity, price, receipt, verdict };
+  });
+}
 
 export async function runPOMatching(invoiceId: string, tenantId: string) {
   const invoice = await Invoice.findOne({ _id: invoiceId, tenantId });

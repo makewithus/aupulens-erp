@@ -228,7 +228,7 @@ export function CanvasAreaChart({
             <span class="inline-block w-2 h-2 rounded-full" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-mono font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
 
@@ -491,7 +491,7 @@ export function CanvasBarChart({
             <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-mono font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
 
@@ -936,7 +936,7 @@ export function CanvasComposedChart({
             <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-mono font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
       const lineVal = d[lineSeries.key] || 0;
@@ -945,7 +945,7 @@ export function CanvasComposedChart({
           <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${lineSeries.color}"></span>
           ${lineSeries.name}
         </span>
-        <span class="font-mono font-semibold text-foreground text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
+        <span class="font-sans tabular-nums font-semibold text-foreground text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
       </div>`;
 
       tooltip.innerHTML = tooltipContent;

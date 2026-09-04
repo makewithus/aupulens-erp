@@ -17,7 +17,7 @@ function MetricCard({ title, value, sub, icon: Icon, colorClass, loading }: any)
       {loading ? (
         <div className="h-8 w-24 bg-accent animate-pulse rounded mt-1"></div>
       ) : (
-        <div className={`text-3xl font-bold font-mono tracking-tight ${colorClass || "text-foreground"}`}>
+        <div className={`text-3xl font-bold font-sans tabular-nums tracking-tight ${colorClass || "text-foreground"}`}>
           {value}
         </div>
       )}
@@ -114,7 +114,7 @@ export default function CampaignDashboardPage() {
                     <tr key={c.channel} className="border-b border-border/50 hover:bg-accent/20">
                       <td className="py-3 font-medium text-foreground">{c.channel}</td>
                       <td className="py-3 text-right text-blue-400">{c.leads.toLocaleString()}</td>
-                      <td className="py-3 text-right font-mono font-bold text-green-400">₹{c.revenue.toLocaleString()}</td>
+                      <td className="py-3 text-right font-sans tabular-nums font-bold text-green-400">₹{c.revenue.toLocaleString()}</td>
                     </tr>
                   ))}
                   {reports?.channelAttribution?.length === 0 && (
@@ -141,7 +141,7 @@ export default function CampaignDashboardPage() {
                     <Link href={`/crm/campaigns/${c._id}`} className="font-semibold text-sm hover:text-primary hover:underline line-clamp-1">
                       {c.campaign_name}
                     </Link>
-                    <span className="font-mono text-sm text-green-400 font-bold ml-2">+{c.roi_percentage?.toFixed(1)}%</span>
+                    <span className="font-sans tabular-nums text-sm text-green-400 font-bold ml-2">+{c.roi_percentage?.toFixed(1)}%</span>
                   </div>
                 ))}
               </div>

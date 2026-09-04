@@ -1,0 +1,12 @@
+{
+  "route": "/finance/profile",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 130,
+  "bodyTextSnippet": "",
+  "durationMs": 15919
+}

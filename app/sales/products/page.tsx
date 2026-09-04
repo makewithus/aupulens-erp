@@ -721,10 +721,10 @@ function ProductsPageInner() {
                           {p.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground">
                         {formatCurrency(p.tab_general_information.list_price)}
                       </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm text-foreground/80">
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground/80">
                         {formatCurrency(p.tab_general_information.standard_price)}
                       </TableCell>
                       <TableCell className="px-8 py-7 text-right">

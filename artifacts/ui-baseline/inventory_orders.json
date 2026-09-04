@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/orders",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 477,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nOrder Fulfillment Tracking\nNEW ORDER\n\nTotal Orders\n\n0\n\nPending Orders\n\n0\n\nProcessing Orders\n\n0\n\nDelivered Orders\n\n0\nAll Fulfillment Orders\n\n0 ORDERS\n\nAll Statuses\nFROM\nTO\nORDER #\tCUSTOMER\tITEMS\tWAREHOUSE\tORDER & EXPECTED DATE\tFULFILLMENT PROGRESS\tSTATUS STATE\n",
+  "durationMs": 7682
+}

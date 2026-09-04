@@ -119,7 +119,7 @@ export default function SalesOrderDetailPage() {
               <div className="grid grid-cols-2 gap-6 text-sm">
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount</p>
-                  <p className="font-mono text-foreground mt-1">₹{Number(order.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  <p className="font-sans tabular-nums text-foreground mt-1">₹{Number(order.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Shipment Status</p>
@@ -153,9 +153,9 @@ export default function SalesOrderDetailPage() {
                   {order.orderLines?.map((line: any, i: number) => (
                     <TableRow key={i}>
                       <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 text-sm text-foreground/85">{line.name}</TableCell>
-                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm text-foreground">{line.productQty}</TableCell>
-                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-mono text-sm text-foreground/80">{Number(line.priceUnit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="px-6 py-4 text-right font-mono text-sm text-foreground">
+                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground">{line.productQty}</TableCell>
+                      <TableCell className="px-6 py-4 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground/80">{Number(line.priceUnit).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="px-6 py-4 text-right font-sans tabular-nums text-sm text-foreground">
                         {Number(line.priceSubtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>

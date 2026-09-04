@@ -1,0 +1,12 @@
+{
+  "route": "/autologin",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 43,
+  "bodyTextSnippet": "",
+  "durationMs": 12879
+}

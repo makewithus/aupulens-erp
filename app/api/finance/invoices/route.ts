@@ -12,6 +12,7 @@ import {
   PAYMENT_STATE_VALUES,
 } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 function serializeInvoice(invoice: any) {
   const partner = invoice.partnerId;
@@ -217,6 +218,13 @@ export async function POST(req: Request) {
       activity: `Created invoice ${invoice.name}`,
       details: `Amount: ${invoice.amountTotal} ${invoice.currencyId}, Due: ${invoice.dueDate.toISOString()}`,
       req,
+    });
+
+    // Additive (docs/ai/BRIEF-02-BATCH-A.md B.2) — never throws back into this route.
+    await safeEmitEvent(tenantId, "invoice.created", {
+      invoiceId: String(invoice._id),
+      moveType: invoice.moveType,
+      actingUserId: session.user.id,
     });
 
     return NextResponse.json({ invoice }, { status: 201 });

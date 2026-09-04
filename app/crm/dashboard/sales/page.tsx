@@ -9,7 +9,7 @@ function KPI({ title, value, sub, icon: Icon }: any) {
         <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
         {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
       </div>
-      <div className="text-3xl font-bold font-mono tracking-tight">{value}</div>
+      <div className="text-3xl font-bold font-sans tabular-nums tracking-tight">{value}</div>
       <p className="text-xs text-muted-foreground mt-2">{sub}</p>
     </div>
   );

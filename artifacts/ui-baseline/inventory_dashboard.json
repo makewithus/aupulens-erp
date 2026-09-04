@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/dashboard",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 48,
+  "bodyTextSnippet": "Loading...",
+  "durationMs": 6220
+}

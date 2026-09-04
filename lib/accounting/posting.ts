@@ -12,6 +12,7 @@ import {
   requiresBalancedJournal,
   validateJournalLinesForPosting,
 } from "@/lib/accounting/journal-validation";
+import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 
 type JournalType = "sale" | "purchase" | "cash" | "bank" | "general";
 
@@ -175,7 +176,15 @@ export async function createJournalEntry(
   input: JournalPostingInput,
 ) {
   const payload = await buildJournalEntryPayload(input);
-  return JournalEntry.create(payload);
+  const entry = await JournalEntry.create(payload);
+
+  if (payload.voucherStatus === VOUCHER_STATUS.POSTED) {
+    // Additive (docs/ai/BRIEF-02-BATCH-A.md B.2) — see lib/aiRuntime/runtime/safeEmit.ts
+    // for why this can never throw or break an existing caller of this function.
+    await safeEmitEvent(input.tenantId, "journal.posted", { journalEntryId: String(entry._id) });
+  }
+
+  return entry;
 }
 
 export async function createPostedJournalEntry(

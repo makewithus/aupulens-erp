@@ -33,7 +33,7 @@ export default function ComplianceCenterPage() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-card border border-border p-4 rounded-lg flex flex-col items-center justify-center">
           <Activity className="w-6 h-6 text-green-600 dark:text-green-400 mb-2" />
-          <div className="text-2xl font-bold">100%</div>
+          <div className="text-2xl font-bold font-sans tabular-nums">100%</div>
           <div className="text-xs text-muted-foreground">Spec Completion</div>
         </div>
         <div className="bg-card border border-border p-4 rounded-lg flex flex-col items-center justify-center">

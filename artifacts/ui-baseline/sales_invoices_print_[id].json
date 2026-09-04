@@ -1,0 +1,5 @@
+{
+  "route": "/sales/invoices/print/[id]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

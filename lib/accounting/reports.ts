@@ -140,6 +140,77 @@ export async function buildPostedJournalReport({
   return report;
 }
 
+/**
+ * AI-14 (docs/ai/BRIEF-05-BATCH-D.md) — a pure, additive extension: `buildPostedJournalReport()`
+ * gives account-level totals only (confirmed, not assumed, before this was added — no line-level
+ * detail exists anywhere else to drill into). This reads the same posted `JournalEntry` lines for
+ * ONE account over a date range, keeping enough detail (counterparty, entry id, date, amount) for
+ * a caller to decompose a movement into drivers and cite the specific transactions behind it.
+ * Never called by `buildPostedJournalReport()` itself and never changes its output.
+ */
+export interface AccountTransactionLine {
+  entryId: string;
+  entryName: string;
+  date: string;
+  partnerId: string | null;
+  partnerName: string | null;
+  label: string;
+  signedAmount: number;
+  /** The document this line was posted from, when the posting path set one (e.g. a vendor bill
+   *  posting sets `sourceId` to its own Invoice _id — app/api/accounting/invoices/[id]/route.ts).
+   *  Additive (docs/ai/BRIEF-06-BATCH-E.md Part 0.4) — lets a caller trace a line back to a
+   *  source document (AI-14 uses it to ask AI-28's evaluateCutoff() whether a driver is a real
+   *  timing difference) without a second query. `null` when the line has no such link. */
+  sourceId: string | null;
+}
+
+export async function getAccountTransactionDetail({
+  tenantId,
+  accountId,
+  startDate,
+  endDate,
+}: {
+  tenantId: string;
+  accountId: string;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<AccountTransactionLine[]> {
+  const query: Record<string, any> = { tenantId, status: DOCUMENT_STATUS.POSTED };
+  if (startDate || endDate) {
+    query["header.date"] = {};
+    if (startDate) query["header.date"].$gte = startDate;
+    if (endDate) query["header.date"].$lte = toDateEnd(endDate);
+  }
+
+  const entries = await JournalEntry.find(query).populate("lineIds.accountId").populate("lineIds.partnerId").lean();
+  const lines: AccountTransactionLine[] = [];
+
+  for (const entry of entries) {
+    for (const line of entry.lineIds || []) {
+      const account = line.accountId as any;
+      if (!account || String(account._id) !== accountId) continue;
+
+      const internalGroup = (account.internal_group || "off_balance") as ReportGroup;
+      const debit = Number(line.debit) || 0;
+      const credit = Number(line.credit) || 0;
+      const partner = line.partnerId as any;
+
+      lines.push({
+        entryId: String(entry._id),
+        entryName: entry.header?.name || "",
+        date: new Date(entry.header?.date ?? entry.createdAt).toISOString(),
+        partnerId: partner?._id ? String(partner._id) : null,
+        partnerName: partner?.header?.displayName || partner?.header?.name || null,
+        label: line.label || "",
+        signedAmount: getSignedAmount(internalGroup, debit, credit),
+        sourceId: line.sourceId ? String(line.sourceId) : null,
+      });
+    }
+  }
+
+  return lines;
+}
+
 export type AgedReportType = "receivable" | "payable";
 
 export type AgingBucket = "current" | "1-30" | "31-60" | "61-90" | "90+";

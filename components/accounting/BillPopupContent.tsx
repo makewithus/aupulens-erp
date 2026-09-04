@@ -457,7 +457,7 @@ export default function BillPopupContent({
                                 className="border-none shadow-none bg-transparent text-right h-10 font-black"
                               />
                             </TableCell>
-                            <TableCell className="p-4 text-right font-black text-[11px] tabular-nums">
+                            <TableCell className="p-4 text-right font-black font-sans tabular-nums text-[11px]">
                               ₹ {line.priceSubtotal?.toLocaleString()}
                             </TableCell>
                             {!isViewOnly && (
@@ -655,7 +655,7 @@ export default function BillPopupContent({
                     <span className="text-[11px] font-black uppercase text-primary/60">
                       Total
                     </span>
-                    <span className="text-4xl font-black text-primary tracking-tighter tabular-nums leading-none">
+                    <span className="text-4xl font-black font-sans tabular-nums text-primary tracking-tighter leading-none">
                       ₹ {formData.amountTotal?.toLocaleString()}
                     </span>
                   </div>

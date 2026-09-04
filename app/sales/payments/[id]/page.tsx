@@ -112,15 +112,15 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Amount Received</p>
-                  <p className="font-mono text-foreground mt-1">₹{Number(payment.amountReceived).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  <p className="font-sans tabular-nums text-foreground mt-1">₹{Number(payment.amountReceived).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Bank Charges</p>
-                  <p className="font-mono text-foreground mt-1">₹{Number(payment.bankCharges || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  <p className="font-sans tabular-nums text-foreground mt-1">₹{Number(payment.bankCharges || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Unused Amount</p>
-                  <p className="font-mono text-foreground mt-1">₹{Number(payment.unusedAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  <p className="font-sans tabular-nums text-foreground mt-1">₹{Number(payment.unusedAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Reference#</p>

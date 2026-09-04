@@ -1,0 +1,12 @@
+{
+  "route": "/sales/subscriptions/settings/email-notifications",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 293,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nEmail Notifications\n\nChoose which subscription lifecycle events send an email to the customer, and customize each template.\n\nNOTIFICATION TYPE\tENABLED\tTEMPLATE\n",
+  "durationMs": 9774
+}

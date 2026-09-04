@@ -1,0 +1,21 @@
+{
+  "route": "/finance/accounting/journals/templates/new",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 383,
+  "bodyTextSnippet": "AA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nChart of Accounts\n▾\nJournals\n▾\nBanking\n▾\nBudgets\nTransaction Locking\nPeriod Closing\nSetup\n▾\nNew Template\nTemplate Name*\nReference#\nNotes*\nReporting Method ⓘ\nAccrual and Cash\nAccrual Only\nCas",
+  "durationMs": 16108,
+  "transientFirstAttempt": {
+    "reason": "page.goto: net::ERR_CONNECTION_RESET at http://localhost:3000/finance/accounting/journals/templates/new\nCall log:\n  - navigating to \"http://localhost:3000/finance/accounting/journals/templates/new\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_RESET",
+      "Failed to load resource: net::ERR_CONNECTION_RESET",
+      "Failed to load resource: net::ERR_CONNECTION_RESET"
+    ],
+    "pageErrors": []
+  }
+}

@@ -206,12 +206,7 @@ export default function FinanceSummaryPage() {
           </div>
           <div className="flex items-center gap-3 px-4 py-2 border border-border/40 font-mono text-[11px] uppercase tracking-wider text-muted-foreground bg-white/[0.02]">
             <Calendar className="h-4 w-4 text-primary" />
-            <span>
-              {new Date().toLocaleDateString("en-IN", {
-                month: "long",
-                year: "numeric",
-              })}
-            </span>
+            <span>Last 30 Days</span>
           </div>
         </div>
 
@@ -304,7 +299,7 @@ export default function FinanceSummaryPage() {
                                   {new Date(bill.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-rose-500">
+                              <TableCell className="px-6 py-5 font-sans tabular-nums text-sm font-semibold text-rose-500">
                                 {formatCurrency(bill.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
@@ -366,7 +361,7 @@ export default function FinanceSummaryPage() {
                                   {new Date(inv.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-blue-500">
+                              <TableCell className="px-6 py-5 font-sans tabular-nums text-sm font-semibold text-blue-500">
                                 {formatCurrency(inv.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">
@@ -431,7 +426,7 @@ export default function FinanceSummaryPage() {
                                   {new Date(exp.date).toLocaleDateString("en-IN")}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-6 py-5 font-mono text-sm font-semibold text-purple-500">
+                              <TableCell className="px-6 py-5 font-sans tabular-nums text-sm font-semibold text-purple-500">
                                 {formatCurrency(exp.amount)}
                               </TableCell>
                               <TableCell className="px-6 py-5 text-right">

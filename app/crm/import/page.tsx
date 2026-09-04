@@ -127,19 +127,19 @@ export default function ImportCenterPage() {
             <div className="grid grid-cols-3 gap-4 p-4 border border-border/45 bg-muted/5 rounded-none text-center">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Inserted</span>
-                <h3 className="text-2xl font-bold font-mono text-[#8AE06C] flex items-center justify-center gap-1.5">
+                <h3 className="text-2xl font-bold font-sans tabular-nums text-[#8AE06C] flex items-center justify-center gap-1.5">
                   <CheckCircle className="w-5 h-5"/> {results.insertedCount || 0}
                 </h3>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Duplicates Removed</span>
-                <h3 className="text-2xl font-bold font-mono text-blue-500">
+                <h3 className="text-2xl font-bold font-sans tabular-nums text-blue-500">
                   {results.duplicatesRemoved || 0}
                 </h3>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Validation Errors</span>
-                <h3 className="text-2xl font-bold font-mono text-red-500 flex items-center justify-center gap-1.5">
+                <h3 className="text-2xl font-bold font-sans tabular-nums text-red-500 flex items-center justify-center gap-1.5">
                   <AlertCircle className="w-5 h-5"/> {results.errors?.length || 0}
                 </h3>
               </div>

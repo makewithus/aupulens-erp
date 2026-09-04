@@ -1,0 +1,12 @@
+{
+  "route": "/sales/orders",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 329,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nPIPELINE\nQ2C Pipeline\nORDERS\nQuotes\nOrders\nInvoices\nCATALOG\nProducts\nPricelists\nRELATIONSHIPS\nCustomers\nLOGISTICS\nDelivery Challans\nExport Docs\nANALYTICS\nDashboard\nVisualization\nTOOLS\nPrint-Format Builder\nCalendar\nCustomers\nQuotes\nSubscriptions\nSales Orders\nInvoices\nPayments\nE-Invoicing\nSales Orders\n\nConfirmed orders and historical records\n\nAll Status\nFROM\nTO\nNEW ORDER",
+  "durationMs": 16955
+}

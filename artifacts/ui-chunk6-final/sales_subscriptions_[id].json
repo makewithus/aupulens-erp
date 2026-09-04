@@ -1,0 +1,5 @@
+{
+  "route": "/sales/subscriptions/[id]",
+  "status": "skipped",
+  "reason": "dynamic route, no fixture id"
+}

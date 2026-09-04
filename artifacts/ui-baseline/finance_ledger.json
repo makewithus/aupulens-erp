@@ -1,0 +1,19 @@
+{
+  "route": "/finance/ledger",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 340,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nDashboard\nACCOUNTING\nChart of Accounts\nTransactions\nJournal Entries\nGeneral Ledger\nBank Reconciliation\nReceivables\nPayables\nPeriod Closing\nFixed Assets\nFINANCIAL REPORTS\nProfit & Loss\nBalance Sheet\nTrial Balance\nAged Partners\nPURCHASES\nPurchase Orders\nVendor Bills\nOTHERS\nEmployee Expenses\nReturns\nGeneral Ledger\n\nMaster list of all financial transactions\n\nAll Status\nFROM\nTO\nJournal Entries",
+  "durationMs": 3469,
+  "transientFirstAttempt": {
+    "reason": "page.goto: Navigation to \"http://localhost:3000/finance/ledger\" is interrupted by another navigation to \"http://localhost:3000/sales/invoices\"\nCall log:\n  - navigating to \"http://localhost:3000/finance/ledger\", waiting until \"domcontentloaded\"\n",
+    "consoleErrors": [],
+    "pageErrors": [
+      "Invalid or unexpected token"
+    ]
+  }
+}

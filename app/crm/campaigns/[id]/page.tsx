@@ -125,21 +125,21 @@ export default function CampaignDetailPage(props: { params: Promise<{ id: string
                 <span className="text-xs uppercase font-bold text-muted-foreground">Budget Spent</span>
                 <DollarSign className="w-4 h-4 text-muted-foreground" />
               </div>
-              <div className="text-2xl font-bold font-mono">₹{(metrics.budget || 0).toLocaleString()}</div>
+              <div className="text-2xl font-bold font-sans tabular-nums">₹{(metrics.budget || 0).toLocaleString()}</div>
             </div>
             <div className="p-4 rounded-md border border-green-900/30 bg-green-900/10">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs uppercase font-bold text-green-500/70">Attributed Revenue</span>
                 <TrendingUp className="w-4 h-4 text-green-500/70" />
               </div>
-              <div className="text-2xl font-bold font-mono text-green-400">₹{(metrics.attributedRevenue || 0).toLocaleString()}</div>
+              <div className="text-2xl font-bold font-sans tabular-nums text-green-400">₹{(metrics.attributedRevenue || 0).toLocaleString()}</div>
             </div>
             <div className={`p-4 rounded-md border ${metrics.roiPercentage >= 0 ? 'border-green-900/50 bg-green-900/20' : 'border-red-900/50 bg-red-900/20'}`}>
               <div className="flex items-center justify-between mb-1">
                 <span className={`text-xs uppercase font-bold ${metrics.roiPercentage >= 0 ? 'text-green-500/70' : 'text-red-500/70'}`}>ROI %</span>
                 <Activity className={`w-4 h-4 ${metrics.roiPercentage >= 0 ? 'text-green-500/70' : 'text-red-500/70'}`} />
               </div>
-              <div className={`text-2xl font-bold font-mono ${metrics.roiPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <div className={`text-2xl font-bold font-sans tabular-nums ${metrics.roiPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {metrics.roiPercentage >= 0 ? "+" : ""}{metrics.roiPercentage?.toFixed(1)}%
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function CampaignDetailPage(props: { params: Promise<{ id: string
                 <span className="text-xs uppercase font-bold text-blue-500/70">Conversion Rate</span>
                 <Target className="w-4 h-4 text-blue-500/70" />
               </div>
-              <div className="text-2xl font-bold font-mono text-blue-400">
+              <div className="text-2xl font-bold font-sans tabular-nums text-blue-400">
                 {metrics.conversionRate?.toFixed(1)}%
               </div>
             </div>
@@ -165,7 +165,7 @@ export default function CampaignDetailPage(props: { params: Promise<{ id: string
               <div><p className="text-muted-foreground mb-1">Target Audience</p><p className="font-medium">{data.target_audience || "â"}</p></div>
               <div><p className="text-muted-foreground mb-1">Owner</p><p className="font-medium">{data.owner_id?.name || "â"}</p></div>
               <div><p className="text-muted-foreground mb-1">Expected Leads</p><p className="font-medium">{data.expected_leads?.toLocaleString()}</p></div>
-              <div><p className="text-muted-foreground mb-1">Expected Revenue</p><p className="font-medium font-mono">₹{data.expected_revenue?.toLocaleString()}</p></div>
+              <div><p className="text-muted-foreground mb-1">Expected Revenue</p><p className="font-medium font-sans tabular-nums">₹{data.expected_revenue?.toLocaleString()}</p></div>
             </div>
             {data.notes && (
               <div className="mt-4 pt-4 border-t border-border">
@@ -205,11 +205,11 @@ export default function CampaignDetailPage(props: { params: Promise<{ id: string
                <div className="pt-4 mt-4 border-t border-border space-y-3">
                  <div className="flex justify-between text-sm">
                    <span className="text-muted-foreground">Cost per Lead</span>
-                   <span className="font-mono font-medium">₹{metrics.costPerLead?.toFixed(2)}</span>
+                   <span className="font-sans tabular-nums font-medium">₹{metrics.costPerLead?.toFixed(2)}</span>
                  </div>
                  <div className="flex justify-between text-sm">
                    <span className="text-muted-foreground">Cost per Opportunity</span>
-                   <span className="font-mono font-medium">₹{metrics.costPerOpportunity?.toFixed(2)}</span>
+                   <span className="font-sans tabular-nums font-medium">₹{metrics.costPerOpportunity?.toFixed(2)}</span>
                  </div>
                </div>
              </div>

@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/operations/receipts",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 470,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nIncoming Receipts\nNEW RECEIPT\n\nTotal Receipts\n\n0\n\nDraft Receipts\n\n0\n\nPending Processing\n\n0\n\nClosed Receipts\n\n0\nAll Receipts\n\n0 RECEIPTS\n\nAll Statuses\nFROM\nTO\nREFERENCE\tVENDOR\tSCHEDULED DATE\tSTATUS STATE\tSUGGESTED ACTION\tACTIONS\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t",
+  "durationMs": 10122
+}

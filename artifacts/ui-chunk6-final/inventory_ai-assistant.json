@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/ai-assistant",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 303,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nNew Chat\nRecent Chats\ninventory AI Assistant\ninventory AI Assistant\n\nAsk me anything about your inventorys, ledgers, transactions, assets, or reports.\n\nAI Assistant for inventory • Powered by Aupulens",
+  "durationMs": 13389
+}

@@ -1,0 +1,15 @@
+{
+  "route": "/crm/mobile",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [
+    "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\n%s%s https://react.dev/link/hydration-mismatch \n\n  ...\n    <LoadingBoundary loading={null}>\n      <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>\n        <RedirectBoundary>\n          <RedirectErrorBoundary router={{...}}>\n            <InnerLayoutRouter url=\"/crm/mobile\" tree={[...]} cacheNode={{lazyData:null, ...}} segmentPath={[...]}>\n              <SegmentViewNode type=\"page\" pagePath=\"crm/mobile...\">\n                <SegmentTrieNode>\n                <ClientPageRoot Component={function MobileCRMHome} searchParams={{}} params={{}}>\n                  <MobileCRMHome params={Promise} searchParams={Promise}>\n                    <div className=\"flex flex-...\">\n                      <div className=\"flex justi...\">\n                        <h1>\n                        <div className=\"flex gap-2\">\n                          <_c variant=\"ghost\" size=\"icon\" className=\"h-8 w-8\" onClick={function handleSync}>\n                            <button className={\"inline-f...\"} ref={null} onClick={function handleSync}>\n                              <div\n+                               className=\"w-2 h-2 rounded-full bg-green-500\"\n-                               className=\"w-2 h-2 rounded-full bg-red-500\"\n                              >\n                      ...\n              ...\n            ...\n"
+  ],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 492,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nCRM\nDashboard\nLeads\nAccounts\nContacts\nOpportunities\nPipeline\nQuotes\nOPERATIONS\nActivities\nTasks\nCases\nCampaigns\nContracts\nENGAGEMENT\nCommunications\nNotifications\nOnboarding\nHandoffs\nSupport\nAUTOMATION & AI\nAutomations\nWorkflows\nAI Insights\nAI Control Center\nDATA & INTEGRATIONS\nDocuments\nImport\nIntegrations\nSYSTEM\nReports\nExecutive View\nCompliance\nSystem Health\nMobile\nApprovals\nSettings\nAudit Logs\nAupulens Mobile\nRecent Records\nFavori",
+  "durationMs": 1861,
+  "screenshot": "artifacts/ui-chunk6-final/crm_mobile.png"
+}

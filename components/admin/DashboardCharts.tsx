@@ -38,7 +38,7 @@ export function DashboardCharts({
                 <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Revenue
                 </p>
-                <p className="mt-1 font-mono text-3xl font-bold tracking-tighter text-foreground">
+                <p className="mt-1 font-sans tabular-nums text-3xl font-bold tracking-tighter text-foreground">
                   {formatCurrency(revenue)}
                 </p>
               </div>
@@ -49,7 +49,7 @@ export function DashboardCharts({
                 <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Expenses
                 </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                <p className="mt-1 font-sans tabular-nums text-2xl font-semibold tracking-tight text-foreground">
                   {formatCurrency(expenses)}
                 </p>
               </div>
@@ -273,7 +273,7 @@ function RevenueCanvas({
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-400 font-mono text-xs mt-0.5 block">${formatCurrency(
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
         d.revenue
       )}</span>`;
 
@@ -439,7 +439,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-400 font-mono text-xs mt-0.5 block">${d.orders} orders</span>`;
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
 
       tooltip.style.display = "block";
       const tipWidth = tooltip.offsetWidth || 110;

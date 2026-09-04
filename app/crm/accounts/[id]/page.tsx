@@ -544,27 +544,27 @@ function AccountOpportunities({ accountId }: { accountId: string }) {
       <div className="grid grid-cols-6 gap-4">
         <div className="bg-background border border-border p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Open Opps</p>
-          <p className="text-xl font-bold">{openOpps.length}</p>
+          <p className="text-xl font-bold font-sans tabular-nums">{openOpps.length}</p>
         </div>
         <div className="bg-background border border-border p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Pipeline Value</p>
-          <p className="text-xl font-bold">₹{pipelineValue.toLocaleString()}</p>
+          <p className="text-xl font-bold font-sans tabular-nums">₹{pipelineValue.toLocaleString()}</p>
         </div>
         <div className="bg-background border border-border p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Forecast</p>
-          <p className="text-xl font-bold text-blue-400">₹{forecastRevenue.toLocaleString()}</p>
+          <p className="text-xl font-bold font-sans tabular-nums text-blue-400">₹{forecastRevenue.toLocaleString()}</p>
         </div>
         <div className="bg-background border border-border p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Win Rate</p>
-          <p className="text-xl font-bold">{winRate}</p>
+          <p className="text-xl font-bold font-sans tabular-nums">{winRate}</p>
         </div>
         <div className="bg-background border border-border p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Expected Rev.</p>
-          <p className="text-xl font-bold text-green-500">₹{closedWonRevenue.toLocaleString()}</p>
+          <p className="text-xl font-bold font-sans tabular-nums text-green-500">₹{closedWonRevenue.toLocaleString()}</p>
         </div>
         <div className={`bg-background border p-4 rounded-lg text-center ${atRiskCount > 0 ? 'border-red-900' : 'border-border'}`}>
           <p className="text-sm text-muted-foreground">Deals At Risk</p>
-          <p className={`text-xl font-bold ${atRiskCount > 0 ? 'text-red-500' : 'text-green-500'}`}>{atRiskCount}</p>
+          <p className={`text-xl font-bold font-sans tabular-nums ${atRiskCount > 0 ? 'text-red-500' : 'text-green-500'}`}>{atRiskCount}</p>
         </div>
       </div>
 

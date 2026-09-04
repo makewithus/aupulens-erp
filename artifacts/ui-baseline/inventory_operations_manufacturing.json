@@ -1,0 +1,12 @@
+{
+  "route": "/inventory/operations/manufacturing",
+  "status": "scanned",
+  "httpStatus": 200,
+  "ok": true,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "title": "Aupulens ERP - Enterprise Resource Planning",
+  "domElementCount": 471,
+  "bodyTextSnippet": "Sales\nInventory\nFinance\nManufacturing\nHR\nAdmin\nCRM\nProjects\nAA\nOVERVIEW\nSummary\nAnalytics\nSTOCK MANAGEMENT\nStock Tracking\nBatch & Lot\nWarehouse\nOPERATIONS\nReceipts\nDeliveries\nManufacturing\nReturns\nStock Moves\nOrders\nINSIGHTS\nAlerts\nReports\nManufacturing Orders\nCREATE MO\n\nTotal Orders\n\n0\n\nIn Production\n\n0\n\nQC Pending\n\n0\n\nCompleted MOs\n\n0\nAll Orders\n\n0 ORDERS\n\nFROM\nTO\nREFERENCE\tPRODUCT\tQUANTITY\tREWORKS\tPRODUCTION STATUS\tSUGGESTED ACTION\tACTIONS\n\n\t\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\t\n",
+  "durationMs": 4977
+}
