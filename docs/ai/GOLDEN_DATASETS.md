@@ -13,22 +13,43 @@ it produce the specific right answer." One harness test per workflow
 real executor, and reports a **pass rate**, not just a pass/fail — `expect(passRate).toBeGreaterThanOrEqual(threshold)`
 fails the whole CI run if it drops, and the console log names exactly which case(s) regressed.
 
-## Status, honestly, per workflow the brief named
+## Status, honestly, per workflow
 
-| Workflow | Status | Detail |
+Every workflow below has a **real, CI-checked golden dataset** as of Chunk 9 (0.3). All are
+100%-threshold and fully deterministic (no live model call in the loop) — several workflows
+initially assumed to need a model-assisted tolerance band (AI-01, AI-02) turned out, on reading
+the actual code, not to: AI-01 reacts to an already-extracted `ExtractedDocument` (the LLM/OCR
+step lives upstream in `lib/docIntel/`, outside this workflow), and AI-02's golden cases are
+scoped to its deterministic `BankingRule`/history paths with the model-fallback branch stubbed to
+a fixed `gated: true`, the same way its own unit test already does.
+
+| Workflow | Cases | Detail |
 |---|---|---|
-| **AI-27** (duplicates) | **Real, CI-checked, 4/4 cases (100%)** | `tests/golden/ai27/goldenCases.ts` + `tests/golden/ai27.golden.test.ts`. Formalises the exact false-positive fixtures already relied on throughout Chunk 8a (same-number-different-formatting, the twelve-monthly-subscription false positive, legitimate PO instalments, same-vendor-same-amount-same-date) into the harness shape, rather than a second, different set. |
-| AI-01 (extraction) | Not built this chunk | Would need real, anonymised sample documents (PDFs/images) with hand-verified expected field values — a genuinely different asset type (binary files, not JSON/fixture code) than the other four, and the extraction pipeline itself is LLM-assisted, so "expected" needs a tolerance band, not exact equality. Scoped out given this chunk's time budget; the harness SHAPE above (case file + pass-rate harness) is ready to receive it. |
-| AI-02 (classification) | Not built this chunk | Real fixture data exists in `tests/ai/aiRuntime/ai02LedgerClassification.test.ts` (BankingRule matches + model-assisted fallback) — a real golden set here would mostly be formalising those, the same move already made for AI-27. Not done — scoped out for time. |
-| AI-03 (bank matching) | Not built this chunk | Same story as AI-02 — `tests/ai/aiRuntime/ai03BankReconciliation.test.ts` already has the real fixtures; formalising them into the golden harness is real, scoped, and not done here. |
-| AI-15 (anomaly detection) | Not built this chunk | Eleven detectors, each with its own precision-floor auto-disable logic already tested individually (`tests/ai/aiRuntime/ai15AnomalyDetection.test.ts`) — a golden set here is the highest-value one to build next (this is explicitly the workflow C.2 says costs the most on a wrong answer), just not built in the time this chunk had. |
+| **AI-27** (duplicates) | 4/4 (100%) | `tests/golden/ai27/`. Formalises the false-positive fixtures already relied on throughout Chunk 8a (same-number-different-formatting, twelve-monthly-subscription false positive, legitimate PO instalments, same-vendor-same-amount-same-date). |
+| **AI-01** (document ingestion) | 7/7 (100%) | `tests/golden/ai01/`. Clean known-vendor draft, duplicate-bill-number escalation, lines-don't-reconcile escalation, non-INR escalation, unknown-vendor escalation, tax-mismatch escalation, and a must-stay-silent case (rounding/tax gaps inside the workflow's own tolerance bands must draft normally, not escalate). |
+| **AI-02** (ledger classification) | 5/5 (100%) | `tests/golden/ai02/`. BankingRule match at EXECUTE (acting user) and RECOMMEND (no acting user), a must-stay-silent superficial-but-non-matching rule, a 90%-dominant vendor-history classification (documents the two-threshold design: AI-02's own `HISTORY_MIN_SHARE` 0.7 vs. the autonomy gate's separate `historicalStabilityThreshold` 0.9 needed to reach EXECUTE), and a no-match fallthrough. |
+| **AI-03** (bank reconciliation) | 6/6 (100%) | `tests/golden/ai03/`. Exact-match auto-reconcile, no-candidate must-stay-silent, the `AMOUNT_TOLERANCE` boundary inclusively, ambiguous-multiple-candidates escalation (never guesses), bank-fee keyword classification, and the AR-side-unknown scope boundary (reported, not guessed). |
+| **AI-15** (anomaly detection) | 12/12 (100%) | `tests/golden/ai15/`. One correct-fire case per all eleven detectors (`amount_outlier`, `amount_near_approval_threshold`, `new_vendor_large_first_txn`, `dormant_vendor_reactivated`, `rare_account_activity`, `weekend_or_after_hours_posting`, `backdated_posting`, `manual_journal_to_sensitive_account`, `ratio_trend_step_change`, `product_margin_step_change`, `vendor_shares_bank_or_address_with_employee` — the last three read directly from AI-14/AI-11/AI-19's own most recent trace, never re-derived), PLUS a year-of-healthy-activity must-stay-silent case asserting **zero** findings across all eleven at once — the single most important case in this dataset, since AI-15 is explicitly the workflow with the highest cost of a wrong answer. |
+| AI-07 (accrual intelligence) | 4/4 (100%) | `tests/golden/ai07/`. GRNI-gap-below-threshold accrual, fully-billed must-stay-silent, over-billed exception (not an accrual), and an accuracy-check case exercising the Chunk 9 (0.1) `accrualAccuracy`/`learningOutcome` refactor end to end. |
+| AI-09 (revenue recognition) | 4/4 (100%) | `tests/golden/ai09/`. Point-in-time recognition + deferred-revenue journal, fully-recognised must-stay-silent, delivered-never-billed revenue-leakage, subscription-keyword-inferred deferred schedule. |
+| AI-10 (fixed assets) | 4/4 (100%) | `tests/golden/ai10/`. Above-threshold capital candidate, below-threshold must-stay-silent, non-INR `fx_unsupported` skip, and depreciation-schedule init whose periods sum exactly to `originalValue`. |
+| AI-14 (flux analysis) | 3/3 (100%) | `tests/golden/ai14/`. New-vendor material driver with exact variance, flat-account zero-movement must-stay-silent, and an immaterial move that stays below the configured materiality threshold. |
+| AI-16 (cash intelligence) | 3/3 (100%) | `tests/golden/ai16/`. Shortfall from a large due bill (a genuine one-day dip), single-receivable concentration risk (a distinct, non-envelope-finding branch), and ample-headroom must-stay-silent. |
+| AI-19 (master data) | 10/10 (100%) | `tests/golden/ai19/`. One correct+silent pair for each of its five distinct checks: duplicate vendor/customer (same GSTIN), duplicate inventory item (normalized name), missing critical fields, employee/vendor email collision, and the bank-detail-change hold (change fires + un-liftable hold; unchanged re-observations stay silent). |
+| AI-23 (journal review) | 3/3 (100%) | `tests/golden/ai23/`. Weekend manual entry to a sensitive account (three risk factors), same-user prepares-and-approves (SoD, isolated to one factor), and a routine recurring journal matching its own history, must-stay-silent. |
+| AI-26 (accounting policy) | 3/3 (100%) | `tests/golden/ai26/`. Capitalisation-treatment inconsistency, consistent-treatment must-stay-silent, and all-policy-relevant-action-classes-configured must-stay-silent (a distinct branch from the treatment check). |
+| AI-28 (cutoff intelligence) | 4/4 (100%) | `tests/golden/ai28/`. Prior-period-unlocked reclass, prior-period-locked "never back-dated" current-period adjustment (a distinct branch), same-period must-stay-silent, and a no-PO-evidence case that must report `evidenceUnavailableCount` honestly rather than silently treating it as clean. |
 
-**Why AI-27 first, honestly**: it was the workflow this chunk was already deep in (0.1's
-`sourceId` duplicate-payment finding), so its fixtures were freshest and its scoring is fully
-deterministic (no model call in the loop) — the cleanest case to prove the harness SHAPE works
-before investing in the other four, which either need a different asset type (AI-01) or are
-lower-marginal-value to formalise right now since their existing test suites already cover the
-same fixtures directly.
+**No real bugs were found** in any of these thirteen workflows while building their golden
+datasets — every case passed against the actual, already-shipped workflow logic on first or
+second iteration (a fixture mistake corrected in the case data, never the workflow source). This
+is itself worth stating plainly rather than omitting: it means these workflows' core decision
+logic held up under a second, independent, correctness-first pass — not just "does it run."
+
+**Why AI-27 first, historically**: it was the workflow the project was already deep in when the
+harness shape was first proven out (0.1's `sourceId` duplicate-payment finding), so its fixtures
+were freshest and its scoring is fully deterministic — the cleanest case to prove the harness
+shape before extending it to the other twelve.
 
 ## How to add the next one
 
