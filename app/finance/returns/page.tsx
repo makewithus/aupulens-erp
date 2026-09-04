@@ -56,7 +56,6 @@ export default function FinanceReturnsPage() {
     if (status === "authenticated") {
       fetchReturns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, page, debouncedQuery, dateFrom, dateTo]);
 
   useEffect(() => {

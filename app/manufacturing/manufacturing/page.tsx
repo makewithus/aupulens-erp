@@ -276,7 +276,6 @@ export default function ManufacturingPage() {
     if (status === "authenticated") {
       fetchOrders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, page, debouncedSearch, filterStatus, dateFrom, dateTo]);
 
   useEffect(() => {

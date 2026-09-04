@@ -45,6 +45,8 @@
     ".next-build/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts/ui-regression-scan.ts",
+    "scripts/verify-policy-loop.ts"
   ]
 }

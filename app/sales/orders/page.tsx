@@ -259,7 +259,6 @@ export default function SalesOrdersPage() {
       load(page, debouncedQuery, statusFilter, dateFrom, dateTo);
       loadResources();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
