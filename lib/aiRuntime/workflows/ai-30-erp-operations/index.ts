@@ -11,6 +11,7 @@ import {
   findOrphanWorkflowRuns,
   findDuplicateRunExecutions,
 } from "@/lib/aiRuntime/opsHealth/detect";
+import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
 
@@ -35,16 +36,8 @@ import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, Verif
  * `issues[]`) — just not auto-repaired.
  */
 
-const NOT_IMPLEMENTED = [
-  {
-    what: "relink_orphan",
-    reason: "surveyed every real parent-child relationship in this schema (AiToolCall.runId, AiDecisionTrace.runId, AiEvent, AiSchedule) — none has a genuine dangling-reference-with-a-determinable-parent pattern; AiWorkflowRun-without-a-trace is a real, detected orphan but has no correct parent to relink to (the trace is missing, not misattached). The generic relink primitive (lib/aiRuntime/opsHealth/relinkOrphan.ts) is built and tested standalone, ready the moment a real case exists.",
-  },
-  {
-    what: "retry_integration_connection",
-    reason: 'the only re-runnable operation for a third-party connector, testConnection(), mutates and saves the Integration document (models/shared/Integration.ts) — not an Ai* model, so it cannot be an internal_state tool; the normal write path requires a real human userId (routePermissionCheck fails closed without one), which AI-30\'s autonomous "ai.sweep.hourly" trigger never has. No safe write path exists for this repair today (lib/aiRuntime/tools/opsHealthTools.ts).',
-  },
-];
+// Chunk 9 (0.2): read live from the shared capability registry (lib/aiRuntime/capabilities/registry.ts).
+const NOT_IMPLEMENTED = getWorkflowGaps("AI-30");
 
 interface Ai30Raw {
   triggered: boolean;

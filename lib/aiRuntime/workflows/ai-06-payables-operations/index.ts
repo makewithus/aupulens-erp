@@ -5,6 +5,7 @@ import PurchaseOrder from "@/models/finance/PurchaseOrder";
 import Customer from "@/models/sales/Customer";
 import AiMaterialityPolicy, { findThreshold, type IAiMaterialityPolicy } from "@/models/ai/AiMaterialityPolicy";
 import { computeLineVariances, type LineMatchResult, type UnmatchedLine } from "@/lib/accounting/matching";
+import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
 
@@ -24,11 +25,11 @@ import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, Verif
  * `draft_match_annotation`. It never sets `poMatchStatus` or `manualReviewRequired` — that
  * verdict stays exclusively with the deterministic matcher.
  *
- * **`checks_not_implemented`** (A.3, plus one more gap found while building this): vendor-bank-
- * change hold (no field tracks bank-detail changes — AI-19, Chunk 8), cross-source duplicate
- * search over payments/bank transactions (AI-27, Chunk 8), and early-payment discounts (no
- * payment-terms/discount field exists on `Invoice`, `PurchaseOrder`, or `Vendor` anywhere in this
- * codebase — confirmed by search, not assumed missing).
+ * **`checks_not_implemented`** — read live from `lib/aiRuntime/capabilities/registry.ts`
+ * (Chunk 9, 0.2), not a local array: this file's own hand-written list of gaps went stale in
+ * Chunk 8a (AI-19/AI-27 closed two of its three items and nothing here was ever updated —
+ * docs/ai/OPEN_QUESTIONS.md #36). Today that leaves exactly one real gap for AI-06:
+ * `vendor_bank_change_detection` (Vendor/Customer carry no bank-detail field at all).
  *
  * **Payment release is impossible by construction**: no "release"/"execute" tool exists anywhere
  * in the tool registry for `AiPaymentRunProposal`, and the model itself carries no status field
@@ -108,15 +109,11 @@ interface Ai06Proposal {
   checksNotImplemented: { what: string; reason: string }[];
 }
 
-// Chunk 8b (D.3 handover audit): this list was stale — AI-19/AI-27 shipped in Chunk 8a and
-// closed two of these three items, but this array was never revisited. `cross_source_duplicate_search`
-// and `early_payment_discount` are now real (delegated to sibling workflows, not duplicated here);
-// `vendor_bank_change_hold` is still genuinely not_implemented — 0.3's investigation confirmed
-// Vendor/Customer really do carry no bank-detail field at all (AI-19's own hold mechanism is real
-// for Employee/BankAccount, not Vendor).
-const CHECKS_NOT_IMPLEMENTED: { what: string; reason: string }[] = [
-  { what: "vendor_bank_change_hold", reason: "Vendor/Customer (the AP 'vendor' model) carry no bank-detail field at all, confirmed by schema inspection (docs/ai/SYSTEM_INVENTORY.md 0.3) — AI-19's real hold mechanism only covers Employee.bankDetails/BankAccount, which this workflow doesn't touch" },
-];
+// Chunk 9 (0.2): reads from the shared capability registry (lib/aiRuntime/capabilities/registry.ts)
+// instead of a local, hand-written array — the array WAS the reason this list went stale in
+// Chunk 8a (AI-19/AI-27 closed two of its three items and this file was never revisited;
+// docs/ai/OPEN_QUESTIONS.md #36). A capability-registry drift test now asserts this can't happen
+// silently again.
 
 function describeVariance(label: string, lineIndex: number, name: string, leg: { billed: number; reference: number; variance: number }): string {
   return `${label} variance of ${Math.abs(leg.variance)} on line ${lineIndex + 1} ("${name}"), PO says ${leg.reference}, bill says ${leg.billed}`;
@@ -291,7 +288,7 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
       }
 
       return {
-        proposal: { mode: "bill_match", matchResult: extracted.matchResult, checksNotImplemented: CHECKS_NOT_IMPLEMENTED },
+        proposal: { mode: "bill_match", matchResult: extracted.matchResult, checksNotImplemented: getWorkflowGaps("AI-06") },
         confidence: extracted.matchResult.verdict === "exception" ? 1 : 0,
         confidenceComponents: { match_evidence: 1 },
         findings,
@@ -310,7 +307,7 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
         mode: "sweep",
         dueSchedule: extracted.dueSchedule,
         cashImpact: extracted.cashImpact,
-        checksNotImplemented: CHECKS_NOT_IMPLEMENTED,
+        checksNotImplemented: getWorkflowGaps("AI-06"),
       },
       confidence: 1,
       findings: [],
@@ -394,7 +391,7 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
           included: included.map((c) => ({ billId: c.billId, billNumber: c.billNumber, vendorId: c.vendorId, vendorName: c.vendorName, currency: c.currency, amount: c.amount, dueDate: c.dueDate })),
           excluded: excluded.map((c) => ({ billId: c.billId, billNumber: c.billNumber, reason: c.excludeReason! })),
           totalsByCurrency,
-          checksNotImplemented: CHECKS_NOT_IMPLEMENTED,
+          checksNotImplemented: getWorkflowGaps("AI-06"),
         },
         { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE, idempotencyKey: `ai-06-payment-run:${ctx.tenantId}:${new Date().toISOString().slice(0, 10)}` },
       );

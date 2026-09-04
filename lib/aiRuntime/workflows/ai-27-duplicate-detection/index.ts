@@ -10,6 +10,7 @@ import {
   type DuplicatePaymentPosting,
   type RetrospectiveSweepResult,
 } from "@/lib/aiRuntime/duplicates/detect";
+import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
 
@@ -78,12 +79,8 @@ interface Ai27Proposal {
   checksNotImplemented: { what: string; reason: string }[];
 }
 
-const NOT_IMPLEMENTED = [
-  {
-    what: "credit_note_applied_to_rebill",
-    reason: "Invoice.ts (models/finance/Invoice.ts) has no applied-against/reversal-link field between an out_refund/in_refund and the invoice it offsets — confirmed by schema inspection, nothing to compute this check from",
-  },
-];
+// Chunk 9 (0.2): read live from the shared capability registry (lib/aiRuntime/capabilities/registry.ts).
+const NOT_IMPLEMENTED = getWorkflowGaps("AI-27");
 
 export const ai27DuplicateDetection: WorkflowDefinition<Ai27Raw, Ai27Extracted, Ai27Proposal> = {
   id: "AI-27",

@@ -14,6 +14,7 @@ import { DOCUMENT_STATUS, PAYMENT_STATE, STOCK_MOVE_STATUS, PAYROLL_STATUS } fro
 import { computeBankPosition } from "@/lib/aiRuntime/workflows/ai-03-bank-reconciliation/position";
 import { computeAssetRegisterToGl } from "@/lib/accounting/registerToGl";
 import { resolveMappedAccounts } from "@/lib/aiRuntime/accountMapping/resolve";
+import { getCapability } from "@/lib/aiRuntime/capabilities/registry";
 import type { ReconciliationDefinition, ReconciliationResult, ReconciliationDifference } from "@/lib/aiRuntime/reconciliation/types";
 
 /**
@@ -498,9 +499,13 @@ const taxDefinition: ReconciliationDefinition = {
 };
 
 // ── not_implemented ──────────────────────────────────────────────────────────
+// Chunk 9 (0.2): the reason text is read live from the shared capability registry
+// (lib/aiRuntime/capabilities/registry.ts) — this helper no longer takes its own copy of the
+// text, so the registry is the actual single source of truth, not just a matching duplicate.
 
-function notImplemented(id: string, name: string, reason: string): ReconciliationDefinition {
-  return { id, name, owner: "unassigned", defaultTolerance: 0, run: null, notImplementedReason: reason };
+function notImplemented(id: string, name: string): ReconciliationDefinition {
+  const capability = getCapability(id);
+  return { id, name, owner: "unassigned", defaultTolerance: 0, run: null, notImplementedReason: capability?.reason ?? `no capability-registry entry for "${id}"` };
 }
 
 export const RECONCILIATION_DEFINITIONS: ReconciliationDefinition[] = [
@@ -514,12 +519,8 @@ export const RECONCILIATION_DEFINITIONS: ReconciliationDefinition[] = [
   scheduleDefinition("deferred_revenue", AI_SCHEDULE_TYPE.DEFERRED_REVENUE),
   suspenseClearingDefinition,
   taxDefinition,
-  notImplemented(
-    "intercompany",
-    "Intercompany reconciliation",
-    "group consolidation requires an entity model that does not exist — see docs/ai/AI-20-ARCHITECTURE-NOTE.md",
-  ),
-  notImplemented("processor_settlement", "Payment processor settlement", "no payment processor settlement data source exists"),
+  notImplemented("intercompany", "Intercompany reconciliation"),
+  notImplemented("processor_settlement", "Payment processor settlement"),
 ];
 
 export type { ReconciliationDefinition, ReconciliationResult };

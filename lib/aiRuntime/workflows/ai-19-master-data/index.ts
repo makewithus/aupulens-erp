@@ -8,6 +8,7 @@ import { findDuplicateEntities, findDuplicateItems, type DuplicatePair } from "@
 import { findMissingFields, type MissingFieldFinding } from "@/lib/aiRuntime/masterData/gaps";
 import { findEmployeeVendorCollisions, type EmployeeCollision } from "@/lib/aiRuntime/masterData/employeeCollision";
 import { computeObservedPaymentTerms } from "@/lib/aiRuntime/masterData/paymentTerms";
+import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
 
@@ -60,11 +61,10 @@ interface Ai19Proposal {
   checksNotImplemented: { what: string; reason: string }[];
 }
 
-const NOT_IMPLEMENTED = [
-  { what: "expiring_documents", reason: "no tax-certificate/insurance/license expiry field exists anywhere on Vendor or Customer — confirmed, not assumed (docs/ai/SYSTEM_INVENTORY.md)" },
-  { what: "vendor_bank_change_detection", reason: "Vendor/Customer carry no bank-detail field at all (docs/ai/SYSTEM_INVENTORY.md 0.3) — the snapshot mechanism activates the moment such a field is ever added; real today only for Employee.bankDetails and BankAccount" },
-  { what: "classification_inconsistencies", reason: "deferred to AI-26 (accounting policy intelligence), which owns cross-transaction treatment consistency" },
-];
+// Chunk 9 (0.2): read live from the shared capability registry rather than a local array —
+// AI-06's own copy of this exact pattern going stale (docs/ai/OPEN_QUESTIONS.md #36) is why this
+// registry exists at all.
+const NOT_IMPLEMENTED = getWorkflowGaps("AI-19");
 
 export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Proposal> = {
   id: "AI-19",

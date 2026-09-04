@@ -210,13 +210,13 @@ describe("AI-06 — Payables operations", () => {
     void vendor;
   });
 
-  it("vendor_bank_change_hold is still honestly declared not_implemented — Vendor/Customer genuinely carry no bank-detail field", async () => {
+  it("vendor_bank_change_detection is still honestly declared not_implemented — Vendor/Customer genuinely carry no bank-detail field (Chunk 9 0.2: read from the shared capability registry, same id AI-19 declares)", async () => {
     const userId = await makeUser();
     await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-06", killSwitchEnabled: true, maxAutonomyLevel: "draft" });
     const envelope = await runAi06Sweep(userId);
     const trace = await AiDecisionTrace.findOne({ runId: envelope.runId }).lean();
     const proposal = trace!.rawProposal as unknown as { checksNotImplemented: { what: string; reason: string }[] };
-    const check = proposal.checksNotImplemented.find((c) => c.what === "vendor_bank_change_hold");
+    const check = proposal.checksNotImplemented.find((c) => c.what === "vendor_bank_change_detection");
     expect(check).toBeDefined();
     expect(check!.reason).toMatch(/no bank-detail field/);
   });

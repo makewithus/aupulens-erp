@@ -7,7 +7,8 @@ import User from "@/models/auth/User";
 import ExtractedDocument from "@/models/ai/ExtractedDocument";
 import { DOCUMENT_STATUS, TRANSACTION_LOCK_MODULE, PERIOD_CLOSING_STATUS } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
-import { checkSod, SOD_PERMISSION_CONFLICT_NOT_IMPLEMENTED_REASON } from "@/lib/aiRuntime/journalPatterns/sod";
+import { checkSod } from "@/lib/aiRuntime/journalPatterns/sod";
+import { getCapability } from "@/lib/aiRuntime/capabilities/registry";
 import type { ControlDefinition } from "@/lib/aiRuntime/controls/types";
 
 /**
@@ -34,8 +35,11 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function notImplemented<TItem = unknown>(id: string, description: string, severity: ControlDefinition<TItem>["severity"], reasonIfLimited: string): ControlDefinition<TItem> {
-  return { id, description, status: "not_implemented", reasonIfLimited, severity, remediationOwner: "unassigned", frequency: "monthly", population: null, test: null, refOf: () => "", labelOf: () => "" };
+// Chunk 9 (0.2): the reason text is read live from the shared capability registry
+// (lib/aiRuntime/capabilities/registry.ts) — never a copy passed in by the caller.
+function notImplemented<TItem = unknown>(id: string, description: string, severity: ControlDefinition<TItem>["severity"]): ControlDefinition<TItem> {
+  const capability = getCapability(id);
+  return { id, description, status: "not_implemented", reasonIfLimited: capability?.reason ?? `no capability-registry entry for "${id}"`, severity, remediationOwner: "unassigned", frequency: "monthly", population: null, test: null, refOf: () => "", labelOf: () => "" };
 }
 
 // ── approval_present ─────────────────────────────────────────────────────────
@@ -148,7 +152,7 @@ const sodPreparerApproverDefinition: ControlDefinition<SodItem> = {
 
 // ── sod_permission_conflict ──────────────────────────────────────────────────
 
-const sodPermissionConflictDefinition = notImplemented("sod_permission_conflict", "No user holds a conflicting permission combination", "medium", SOD_PERMISSION_CONFLICT_NOT_IMPLEMENTED_REASON);
+const sodPermissionConflictDefinition = notImplemented("sod_permission_conflict", "No user holds a conflicting permission combination", "medium");
 
 // ── no_posting_into_locked_period ────────────────────────────────────────────
 
@@ -409,7 +413,6 @@ const accessChangeAuthorisedDefinition = notImplemented(
   "access_change_authorised",
   "Role/permission changes were authorised",
   "medium",
-  "ActivityLog.activity/.details are free text with no structured entity/action-type field — matching this to 'a role was changed' would require guessing from prose, the same class of heuristic this project avoids elsewhere",
 );
 
 // ── override_logged ───────────────────────────────────────────────────────────

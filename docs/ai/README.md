@@ -142,61 +142,60 @@ cron route imports it (asserted, `tests/ai/aiRuntime/aiNl.test.ts`).
 
 ## Learning & metrics
 
-`AiLearningRecord` (proposal-vs-outcome, Part 2.6) has existed since Chunk 1; only AI-05 and AI-07
-currently call `record_learning_outcome` to populate it with real override data — every other
-workflow's `override_rate` metric will read `not_computable` until its own call site is wired the
-same way. `AiMetricSnapshot` (nightly, `app/api/cron/ai/metrics-snapshot`) computes every metric
+`AiLearningRecord` (proposal-vs-outcome, Part 2.6) has existed since Chunk 1. As of Chunk 9 (0.1)
+it is instrumented in the EXECUTOR itself, not per-workflow: every proposal-producing run gets
+exactly one record (`AiLearningRecord.runId` is uniquely indexed — a structural guarantee, not a
+convention), resolved via three signals — an `ActResult.learningOutcome` a workflow's own `act()`
+can attach (today: AI-07's accrual-accuracy check), an AI-NL chat confirmation, or a nightly
+resolution sweep (`lib/aiRuntime/learning/resolveOutcomes.ts`) that checks each run's own
+`findings[].subjectRefs[]` against downstream document status. A record with no resolution signal
+within its window ages to `outcome_unknown` — never `accepted`; silence is not agreement. Every
+other workflow's `override_rate` metric reads `not_computable` until it has its own resolvable
+signal. `AiMetricSnapshot` (nightly, `app/api/cron/ai/metrics-snapshot`) computes every metric
 from data this system already writes — never invents one (`lib/aiRuntime/metrics/computeMetrics.ts`
 documents exactly which of the twelve C.1 metrics are and aren't computable today, and why).
 
 ## The honest `not_implemented` inventory
 
-Every declared gap in this system, with its real reason — grep `notImplemented(`/`NOT_IMPLEMENTED`/
-`checksNotImplemented` across `lib/aiRuntime/` to find the exact source. This list is worth more
-than any amount of prose about what does work — it's checked and current as of Chunk 8b:
+The single source of truth for every declared gap is `lib/aiRuntime/capabilities/registry.ts`
+(Chunk 9, 0.2). Workflows read their own declarations from `getWorkflowGaps(workflowId)` rather
+than hard-coding a local `{what, reason}` array, and the block below is generated straight from
+that same file (`npx tsx scripts/generate-capability-inventory.ts`) — never hand-edited — so this
+document cannot drift from the code the way AI-06's report once did (`docs/ai/OPEN_QUESTIONS.md`
+#36: AI-06's own report declared gaps AI-19/AI-27 had already closed while AI-06's code still
+declared them open — a report being right and the code still being wrong).
 
-**Reconciliation (AI-22)**: `intercompany` — group consolidation needs an entity model that
-doesn't exist (`docs/ai/AI-20-ARCHITECTURE-NOTE.md`). `processor_settlement` — no payment
-processor settlement data source exists anywhere.
+<!-- CAPABILITY_INVENTORY:START -->
 
-**Controls (AI-29)**: `sod_permission_conflict` — no role-permission matrix exists to check a
-conflicting-permission-combination against. `access_change_authorised` — `ActivityLog` is free
-text with no structured entity/action-type field; guessing "this log line was a role change" from
-prose was rejected as exactly the heuristic this project avoids elsewhere.
+Generated from `lib/aiRuntime/capabilities/registry.ts` by `scripts/generate-capability-inventory.ts` — do not hand-edit this block, it will be overwritten. Workflows read these same declarations via `getWorkflowGaps(workflowId)`; nothing here is a second, independently-maintained copy.
 
-**AI-06 (Payables)**: `vendor_bank_change_hold` — Vendor/Customer genuinely carry no bank-detail
-field at all (confirmed by schema inspection); AI-19's real hold mechanism only covers
-Employee/BankAccount.
+### Open (12)
 
-**AI-19 (Master data)**: `expiring_documents` — no tax-certificate/insurance/licence expiry field
-exists on Vendor or Customer. `vendor_bank_change_detection` — same root cause as AI-06's item
-above (Vendor/Customer have no bank field); real today only for Employee/BankAccount.
-`classification_inconsistencies` — deliberately deferred to AI-26, which owns cross-transaction
-treatment consistency as its whole job.
+- **`intercompany`** (declared by AI-22) — not_implemented. group consolidation requires an entity model that does not exist — see docs/ai/AI-20-ARCHITECTURE-NOTE.md. Blocking dependency: a group/entity-hierarchy model.
+- **`processor_settlement`** (declared by AI-22) — not_implemented. no payment processor settlement data source exists. Blocking dependency: a payment-processor settlement feed/model.
+- **`sod_permission_conflict`** (declared by AI-29) — not_implemented. no role-permission matrix exists anywhere in this codebase (lib/org/rbac.ts has only admin-gate functions, no permission taxonomy) — checking whether one user holds two conflicting permissions would require inventing which permission pairs are mutually exclusive, which this batch does not do. Blocking dependency: a real permission taxonomy in lib/org/rbac.ts.
+- **`access_change_authorised`** (declared by AI-29) — not_implemented. ActivityLog.activity/.details are free text with no structured entity/action-type field — matching this to 'a role was changed' would require guessing from prose, the same class of heuristic this project avoids elsewhere. Blocking dependency: a structured entity/action-type field on ActivityLog.
+- **`vendor_bank_change_detection`** (declared by AI-06, AI-19) — not_implemented. Vendor/Customer (the AP 'vendor' model) carry no bank-detail field at all, confirmed by schema inspection (docs/ai/SYSTEM_INVENTORY.md 0.3) — AI-19's real hold mechanism only covers Employee.bankDetails/BankAccount, which neither AI-06 nor Vendor/Customer's own records have. Blocking dependency: a bank-detail field on Vendor/Customer.
+- **`expiring_documents`** (declared by AI-19) — not_implemented. no tax-certificate/insurance/license expiry field exists anywhere on Vendor or Customer — confirmed, not assumed (docs/ai/SYSTEM_INVENTORY.md). Blocking dependency: an expiry-date field on Vendor/Customer.
+- **`classification_inconsistencies`** (declared by AI-19) — not_implemented — deferred to AI-26, not yet closed. deferred to AI-26 (accounting policy intelligence), which owns cross-transaction treatment consistency — AI-26 implements a real consistency sweep (capitalisation treatment) but not yet a general ACCOUNT-CLASSIFICATION consistency check specifically, so this stays open rather than marked resolved on a partial match. Blocking dependency: a classification-consistency detector in AI-26's own sweep.
+- **`credit_note_applied_to_rebill`** (declared by AI-27) — not_implemented. Invoice.ts (models/finance/Invoice.ts) has no applied-against/reversal-link field between an out_refund/in_refund and the invoice it offsets — confirmed by schema inspection, nothing to compute this check from. Blocking dependency: an applied-against/reversal-link field on Invoice.
+- **`relink_orphan`** (declared by AI-30) — not_implemented. surveyed every real parent-child relationship in this schema (AiToolCall.runId, AiDecisionTrace.runId, AiEvent, AiSchedule) — none has a genuine dangling-reference-with-a-determinable-parent pattern; AiWorkflowRun-without-a-trace is a real, detected orphan but has no correct parent to relink to (the trace is missing, not misattached). The generic relink primitive (lib/aiRuntime/opsHealth/relinkOrphan.ts) is built and tested standalone, ready the moment a real case exists. Blocking dependency: a real orphan-with-determinable-parent case in the schema.
+- **`retry_integration_connection`** (declared by AI-30) — not_implemented. the only re-runnable operation for a third-party connector, testConnection(), mutates and saves the Integration document (models/shared/Integration.ts) — not an Ai* model, so it cannot be an internal_state tool; the normal write path requires a real human userId (routePermissionCheck fails closed without one), which AI-30's autonomous "ai.sweep.hourly" trigger never has. No safe write path exists for this repair today (lib/aiRuntime/tools/opsHealthTools.ts). Blocking dependency: a system-principal/service-account concept for autonomous non-Ai* writes.
+- **`group_consolidation`** (declared by AI-20) — not_implemented. permanently not_implemented by design, not a gap to close — docs/ai/AI-20-ARCHITECTURE-NOTE.md. AI-20 stops at related-party DETECTION; consolidation itself was never in scope. No blocker to name — permanent, by-design scope boundary.
+- **`statutory_submission`** (declared by AI-12, AI-17) — not_implemented. nothing in this system files anything with a tax authority or regulator, anywhere, by design — AI-12/AI-17 stop at workpaper/readiness output. Not a missing-data gap; a deliberate scope boundary. No blocker to name — permanent, by-design scope boundary.
 
-**AI-27 (Duplicates)**: `credit_note_applied_to_rebill` — `Invoice` has no applied-against/
-reversal-link field between an `out_refund`/`in_refund` and the invoice it offsets.
+### Resolved (0)
 
-**AI-30 (ERP operations)**: `relink_orphan` — surveyed every real parent-child relationship in
-this schema; none has a genuine dangling-reference-with-a-determinable-parent pattern (the
-generic repair primitive is built and tested, ready the moment a real case exists).
-`retry_integration_connection` — the only re-runnable connector operation (`testConnection()`)
-mutates a non-`Ai*` model, which an `internal_state` tool structurally cannot do, and the normal
-RBAC write path needs a human `userId` an autonomous hourly sweep never has
-(`docs/ai/OPEN_QUESTIONS.md` #34 — a real architectural finding, not a shortcut).
+- None yet.
 
-**Group consolidation (AI-20)**: permanently `not_implemented` by design, not a gap to close —
-`docs/ai/AI-20-ARCHITECTURE-NOTE.md`.
-
-**Statutory submission**: nothing in this system files anything with a tax authority or
-regulator, anywhere, by design — AI-12/AI-17 stop at workpaper/readiness.
+<!-- CAPABILITY_INVENTORY:END -->
 
 **Metrics (C.1)**: `hours_saved` — no manual-effort-per-task baseline exists to multiply
 automation coverage by; inventing one would be a guess presented as a measurement.
 `downstream_reconciliation_survival` — a real join across `AiWorkflowRun` → the entries it
 created → AI-22/AI-13's own later results, not yet built. Per-workflow `override_rate`/
-`extraction_accuracy` — `not_computable` for every workflow except AI-05/AI-07 until its own
-`record_learning_outcome` call site is wired.
+`extraction_accuracy` — `not_computable` for every workflow with no resolvable learning signal
+wired yet (see "Learning & metrics" above).
 
 **Golden datasets (C.2)**: see `docs/ai/GOLDEN_DATASETS.md` for exactly which workflows have a
 real, CI-checked dataset today vs. a scaffolded format waiting for one.
