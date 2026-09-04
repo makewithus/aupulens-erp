@@ -45,6 +45,24 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Chunk 9 (verification) — root-cause fix for a month-length boundary bug found while testing
+ * the C.2 edge-case matrix: `date.setUTCMonth(date.getUTCMonth() + 1)` on a 29th/30th/31st
+ * naively rolls over into the month AFTER the intended one whenever the target month is shorter
+ * (e.g. Jan 31 -> Mar 3, not Feb 28/29) — JS's own Date arithmetic, not a typo. For a GRNI
+ * accrual's reversal date this silently scheduled the reversing entry a full extra month late.
+ * This adds one calendar month and clamps the day-of-month to the target month's real last day,
+ * matching standard "add one month" semantics. See the regression test in this workflow's own
+ * test file ("month-length boundary").
+ */
+function addOneMonthClamped(date: Date): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const lastDayOfTargetMonth = new Date(Date.UTC(year, month + 2, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month + 1, Math.min(day, lastDayOfTargetMonth)));
+}
+
 interface Ai07Raw {
   mode: "grni_scan" | "accuracy_check" | "reversal_run";
   actingUserId?: string;
@@ -151,7 +169,14 @@ export const ai07AccrualIntelligence: WorkflowDefinition<Ai07Raw, Ai07Extracted,
     await connectDB();
 
     if (observed.raw.mode === "reversal_run") {
-      const schedule = await AiSchedule.findById(observed.raw.scheduleId).lean();
+      // Chunk 9 (verification) — tenant-scoped here too, not only in `subscriptionFilter`'s
+      // `scheduleBelongsTo` check: `subscriptionFilter` only runs on the eventBus fan-out path
+      // (lib/aiRuntime/runtime/eventBus.ts), not when a workflow is invoked directly via
+      // `runWorkflow()` — which `runWorkflowFromChat()` (lib/aiRuntime/nl/chatBridge.ts) does on
+      // purpose so chat-triggered runs behave identically to event-triggered ones. Without this,
+      // a hostile/malformed `scheduleId` parameter from that path could read another tenant's
+      // AiSchedule. See the regression test "cross-tenant hostile input" in this workflow's test file.
+      const schedule = await AiSchedule.findOne({ _id: observed.raw.scheduleId, tenantId: ctx.tenantId }).lean();
       if (!schedule) throw new Error(`AiSchedule ${observed.raw.scheduleId} not found`);
 
       const owned = schedule.scheduleType === AI_SCHEDULE_TYPE.ACCRUAL_REVERSAL && schedule.sourceRef.model === "PurchaseOrder";
@@ -173,7 +198,10 @@ export const ai07AccrualIntelligence: WorkflowDefinition<Ai07Raw, Ai07Extracted,
     }
 
     if (observed.raw.mode === "accuracy_check") {
-      const invoice = await Invoice.findById(observed.raw.invoiceId).lean();
+      // Chunk 9 (verification) — tenant-scoped by construction (see the reversal_run branch's
+      // comment above for why this matters even though `bill.created` is normally emitted with
+      // a trustworthy tenantId by the real business route).
+      const invoice = await Invoice.findOne({ _id: observed.raw.invoiceId, tenantId: ctx.tenantId }).lean();
       if (!invoice) throw new Error(`Invoice ${observed.raw.invoiceId} not found`);
       const po = await PurchaseOrder.findOne({ tenantId: ctx.tenantId, invoiceIds: invoice._id }).lean();
       let priorAccrualAmount: number | null = null;
@@ -407,8 +435,7 @@ export const ai07AccrualIntelligence: WorkflowDefinition<Ai07Raw, Ai07Extracted,
 
     const actionsTaken: ActResult["actionsTaken"] = [];
     for (const c of reasoned.proposal.draftable) {
-      const reversalDate = new Date();
-      reversalDate.setUTCMonth(reversalDate.getUTCMonth() + 1);
+      const reversalDate = addOneMonthClamped(new Date());
       try {
         await rt.callTool(
           "draft_accrual",

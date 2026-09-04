@@ -145,7 +145,10 @@ export const ai02LedgerClassification: WorkflowDefinition<Ai02Raw, Ai02Extracted
     let historyKey: { partnerId?: mongoose.Types.ObjectId; category?: string };
 
     if (recordModel === "Invoice") {
-      const invoice = await Invoice.findById(recordId).lean();
+      // Bug found in Chunk 9 verification (docs/ai/BRIEF-09-VERIFICATION.md Part C.4 cross-tenant
+      // hostile input) — same shape as AI-01's own finding, fixed there too: this was a plain
+      // `findById` with no tenant filter. Scoped by tenantId — the root-cause fix.
+      const invoice = await Invoice.findOne({ _id: recordId, tenantId: ctx.tenantId }).lean();
       if (!invoice) throw new Error(`Invoice ${recordId} not found`);
       const line = (invoice as { invoiceLines?: { name?: string; priceSubtotal?: number }[] }).invoiceLines?.[0];
       const vendorName = await resolveVendorName((invoice as { partnerId?: mongoose.Types.ObjectId }).partnerId);
@@ -158,7 +161,7 @@ export const ai02LedgerClassification: WorkflowDefinition<Ai02Raw, Ai02Extracted
       };
       historyKey = { partnerId: (invoice as { partnerId?: mongoose.Types.ObjectId }).partnerId };
     } else {
-      const expense = await Expense.findById(recordId).lean();
+      const expense = await Expense.findOne({ _id: recordId, tenantId: ctx.tenantId }).lean();
       if (!expense) throw new Error(`Expense ${recordId} not found`);
       subject = {
         description: (expense as { description?: string }).description,

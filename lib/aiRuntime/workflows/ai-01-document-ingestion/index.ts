@@ -53,6 +53,9 @@ interface Ai01Extracted {
   arithmeticValid: boolean;
   isNonInr: boolean;
   vendorMatchId: string | null;
+  /** True when 2+ distinct Vendor records match the extracted name (case-insensitive, exact,
+   *  after regex-escaping) — an ambiguity that must escalate, never pick one arbitrarily. */
+  vendorAmbiguous: boolean;
   duplicate: { isDuplicate: boolean; matches: { id: string; reason: string }[] };
   candidateTaxRate: { id: string; ratePercent: number; impliedTax: number; withinTolerance: boolean } | null;
 }
@@ -62,6 +65,18 @@ interface Ai01Proposal {
   vendorMatchId: string | null;
   candidateTaxRateId: string | null;
   blockReason: string | null;
+}
+
+/** Escapes regex metacharacters in a user-controlled string before it's interpolated into a
+ *  MongoDB $regex — a vendor name containing `.`, `(`, `)`, `+`, `*`, `[`, `]`, `?`, `|`, `^`, `$`
+ *  or `\` (all legal in a real business name — "A.B. Traders (India) Pvt. Ltd.", "3M+", etc.)
+ *  would otherwise either throw "Invalid regular expression" (an unbalanced group) or silently
+ *  false-match an unrelated vendor (an unescaped `.` matches any character) — found while writing
+ *  AI-01's Chunk 9 verification adversarial pass; the same unescaped-input-into-$regex pattern
+ *  also exists in AI-10 (lib/aiRuntime/workflows/ai-10-fixed-asset/index.ts) and the shared
+ *  financeReadTools.ts nameContains filter — out of this workflow's scope to fix, reported. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function arithmeticOk(ext: VendorBillExtraction): boolean {
@@ -91,16 +106,36 @@ export const ai01DocumentIngestion: WorkflowDefinition<Ai01Raw, Ai01Extracted, A
 
   async extract(observed, ctx): Promise<Ai01Extracted> {
     await connectDB();
-    const doc = await ExtractedDocument.findById(observed.raw.extractedDocumentId).lean();
+    // Bug found in Chunk 9 verification (docs/ai/BRIEF-09-VERIFICATION.md Part C.4 cross-tenant
+    // hostile input): this used to be a plain `findById` with no tenant filter — a hostile or
+    // malformed event payload referencing ANOTHER tenant's ExtractedDocument id would be read
+    // (and, at DRAFT autonomy, acted on — a real Invoice drafted under THIS tenant using another
+    // tenant's confidential bill data) with nothing in the executor's generic `context` stage
+    // catching it (buildContext never cross-checks a subjectRef's owning tenant). Scoping the
+    // lookup by tenantId is the root-cause fix — CLAUDE.md's own Golden Rule #1. The identical
+    // unscoped-findById shape was found in AI-02 and AI-03's own extract() too (fixed there,
+    // same commit) — flagged as a defect CLASS, not an incident, for the other 27 workflows.
+    const doc = await ExtractedDocument.findOne({ _id: observed.raw.extractedDocumentId, tenantId: ctx.tenantId }).lean();
     if (!doc) throw new Error(`ExtractedDocument ${observed.raw.extractedDocumentId} not found`);
 
     const extraction = doc.extraction as unknown as VendorBillExtraction;
     const isNonInr = Boolean(extraction.currency) && extraction.currency.toUpperCase() !== "INR";
 
     let vendorMatchId: string | null = null;
+    let vendorAmbiguous = false;
     if (extraction.vendorName) {
-      const vendor = await Vendor.findOne({ tenantId: ctx.tenantId, name: { $regex: `^${extraction.vendorName.trim()}$`, $options: "i" } }).lean();
-      vendorMatchId = vendor ? String(vendor._id) : null;
+      // Vendor.name has no uniqueness constraint (not even compound with tenantId — see
+      // models/admin/Vendor.ts) — two real Vendor records can legitimately share a name (two
+      // branches, a duplicate entry never merged). Matching ALL candidates (not just the first)
+      // is what makes an ambiguous match escalate instead of silently binding to whichever
+      // record Mongo happens to return first — the exact "a vendor whose name matches two real
+      // vendors" adversarial case named in docs/ai/BRIEF-09-VERIFICATION.md Part C.6.
+      const vendors = await Vendor.find({ tenantId: ctx.tenantId, name: { $regex: `^${escapeRegex(extraction.vendorName.trim())}$`, $options: "i" } }).lean();
+      if (vendors.length === 1) {
+        vendorMatchId = String(vendors[0]._id);
+      } else if (vendors.length > 1) {
+        vendorAmbiguous = true;
+      }
     }
 
     const duplicate = (await runDuplicateScanHandler({
@@ -142,6 +177,7 @@ export const ai01DocumentIngestion: WorkflowDefinition<Ai01Raw, Ai01Extracted, A
       arithmeticValid: arithmeticOk(extraction),
       isNonInr,
       vendorMatchId,
+      vendorAmbiguous,
       duplicate,
       candidateTaxRate,
     };
@@ -200,6 +236,16 @@ export const ai01DocumentIngestion: WorkflowDefinition<Ai01Raw, Ai01Extracted, A
         proposal: nullProposal("non_inr"),
         confidence: 0,
         findings: escalationFinding("Non-INR document", `Currency: ${extracted.extraction.currency}`),
+        reasonChain,
+      };
+    }
+
+    if (extracted.vendorAmbiguous) {
+      reasonChain.push(`vendor name "${extracted.extraction.vendorName}" matches more than one Vendor record — cannot pick one without human review`);
+      return {
+        proposal: nullProposal("ambiguous_vendor"),
+        confidence: 0,
+        findings: escalationFinding("Vendor name matches multiple records", `"${extracted.extraction.vendorName}" matches 2+ Vendor records — select the correct one before drafting`, AI_FINDING_SEVERITY.MEDIUM),
         reasonChain,
       };
     }

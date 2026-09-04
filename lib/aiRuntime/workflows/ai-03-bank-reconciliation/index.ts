@@ -133,7 +133,14 @@ export const ai03BankReconciliation: WorkflowDefinition<Ai03Raw, Ai03Extracted, 
     const positions: Ai03Extracted["positions"] = [];
 
     for (const bankStatementId of observed.raw.bankStatementIds) {
-      const statement = await BankStatement.findById(bankStatementId).lean();
+      // Bug found in Chunk 9 verification (docs/ai/BRIEF-09-VERIFICATION.md Part C.4 cross-tenant
+      // hostile input) — same shape as AI-01/AI-02's own finding, fixed there too: this was a
+      // plain `findById` with no tenant filter. `ai.sweep.hourly`'s own observe() already
+      // tenant-scopes its statement list, but `bank.transaction.imported`'s bankStatementId comes
+      // straight from the event payload — a hostile/malformed payload referencing another
+      // tenant's statement would otherwise be read (and, at EXECUTE autonomy, reconciled)
+      // cross-tenant. Scoped by tenantId — the root-cause fix.
+      const statement = await BankStatement.findOne({ _id: bankStatementId, tenantId: ctx.tenantId }).lean();
       if (!statement) continue;
       const bankAccountId = statement.header.journalId;
 

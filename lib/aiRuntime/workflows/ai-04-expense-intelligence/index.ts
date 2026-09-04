@@ -81,7 +81,11 @@ export const ai04ExpenseIntelligence: WorkflowDefinition<Ai04Raw, Ai04Extracted,
 
   async extract(observed, ctx): Promise<Ai04Extracted> {
     await connectDB();
-    const expense = await Expense.findById(observed.raw.expenseId).lean();
+    // Chunk 9 (verification) — tenant-scoped by construction, not just by ID: a hostile or
+    // spoofed event whose tenantId doesn't match the referenced Expense's real tenant must
+    // fail closed (treated as "not found") rather than read another tenant's data. See the
+    // regression test "cross-tenant hostile input" in this workflow's test file.
+    const expense = await Expense.findOne({ _id: observed.raw.expenseId, tenantId: ctx.tenantId }).lean();
     if (!expense) throw new Error(`Expense ${observed.raw.expenseId} not found`);
 
     const policy = await AiExpensePolicy.findOne({ tenantId: ctx.tenantId }).lean();

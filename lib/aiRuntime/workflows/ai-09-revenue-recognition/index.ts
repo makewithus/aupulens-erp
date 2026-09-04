@@ -130,7 +130,12 @@ export const ai09RevenueRecognition: WorkflowDefinition<Ai09Raw, Ai09Extracted, 
       const schedule = await AiSchedule.findById(observed.raw.scheduleId).lean();
       if (!schedule) throw new Error(`AiSchedule ${observed.raw.scheduleId} not found`);
 
-      const owned = schedule.scheduleType === AI_SCHEDULE_TYPE.DEFERRED_REVENUE && schedule.sourceRef.model === "SaleOrder";
+      // Tenant re-check, defense in depth (docs/ai/BRIEF-09-VERIFICATION.md Part C.4 cross-tenant):
+      // scheduleBelongsTo() already gates this at dispatch time for the real event-bus path, but a
+      // direct/replayed invocation bypasses that filter — extract() must not trust a scheduleId
+      // from the payload without re-checking it actually belongs to ctx.tenantId, or a foreign
+      // tenant's schedule (accounts, amounts) would be read and drafted against under this tenant.
+      const owned = schedule.tenantId === ctx.tenantId && schedule.scheduleType === AI_SCHEDULE_TYPE.DEFERRED_REVENUE && schedule.sourceRef.model === "SaleOrder";
       const today = new Date();
       const duePeriods = owned
         ? (schedule.periods ?? [])

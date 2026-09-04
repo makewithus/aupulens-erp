@@ -131,7 +131,14 @@ export const ai08PrepaidSchedule: WorkflowDefinition<Ai08Raw, Ai08Extracted, Ai0
     await connectDB();
 
     if (observed.raw.mode === "execute") {
-      const schedule = await AiSchedule.findById(observed.raw.scheduleId).lean();
+      // Chunk 9 (verification) — tenant-scoped here too, not only in `subscriptionFilter`'s
+      // `scheduleBelongsTo` check: that check only runs on the eventBus fan-out path
+      // (lib/aiRuntime/runtime/eventBus.ts), not when a workflow is invoked directly via
+      // `runWorkflow()` — which `runWorkflowFromChat()` (lib/aiRuntime/nl/chatBridge.ts) does on
+      // purpose so chat-triggered runs behave identically to event-triggered ones. Without this,
+      // a hostile/malformed `scheduleId` parameter from that path could read another tenant's
+      // AiSchedule. See the regression test "cross-tenant hostile input" in this workflow's test file.
+      const schedule = await AiSchedule.findOne({ _id: observed.raw.scheduleId, tenantId: ctx.tenantId }).lean();
       if (!schedule) throw new Error(`AiSchedule ${observed.raw.scheduleId} not found`);
 
       // `schedule.due` fans out to every workflow registered on this eventKey (AI-08/AI-09/AI-10
@@ -162,7 +169,10 @@ export const ai08PrepaidSchedule: WorkflowDefinition<Ai08Raw, Ai08Extracted, Ai0
       };
     }
 
-    const invoice = await Invoice.findById(observed.raw.recordId).lean();
+    // Chunk 9 (verification) — tenant-scoped by construction (see the execute branch's comment
+    // above for why this matters even though `bill.created`/`invoice.created` are normally
+    // emitted with a trustworthy tenantId by the real business route).
+    const invoice = await Invoice.findOne({ _id: observed.raw.recordId, tenantId: ctx.tenantId }).lean();
     if (!invoice) throw new Error(`Invoice ${observed.raw.recordId} not found`);
     const line = (invoice as { invoiceLines?: { name?: string; priceSubtotal?: number; accountId?: unknown }[] }).invoiceLines?.[0];
     const isBill = (invoice as { moveType?: string }).moveType === "in_invoice";

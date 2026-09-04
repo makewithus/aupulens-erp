@@ -121,7 +121,11 @@ export const ai10FixedAsset: WorkflowDefinition<Ai10Raw, Ai10Extracted, Ai10Prop
     await connectDB();
 
     if (observed.raw.mode === "schedule_init") {
-      const asset = await Asset.findById(observed.raw.assetId).lean();
+      // Tenant-scoped lookup, not findById (docs/ai/BRIEF-09-VERIFICATION.md Part C.4
+      // cross-tenant): the real `asset.created` call site always emits an assetId that belongs
+      // to its own tenant, but extract() must not trust that from the payload alone — a foreign
+      // tenant's assetId must fail closed here, not read another tenant's Asset.
+      const asset = await Asset.findOne({ _id: observed.raw.assetId, tenantId: ctx.tenantId }).lean();
       if (!asset) throw new Error(`Asset ${observed.raw.assetId} not found`);
       const existing = await AiSchedule.findOne({
         tenantId: ctx.tenantId,
@@ -144,7 +148,10 @@ export const ai10FixedAsset: WorkflowDefinition<Ai10Raw, Ai10Extracted, Ai10Prop
 
       // `schedule.due` fans out to every workflow registered on this eventKey — AI-10 only
       // owns depreciation schedules on Assets; anything else no-ops rather than racing AI-08/09.
-      const owned = schedule.scheduleType === AI_SCHEDULE_TYPE.DEPRECIATION && schedule.sourceRef.model === "Asset";
+      // Tenant re-check, defense in depth (same reasoning as AI-09's own schedule_run fix): a
+      // direct/replayed invocation bypasses scheduleBelongsTo()'s dispatch-time filter, so a
+      // foreign tenant's schedule must not be treated as owned just because its type/model match.
+      const owned = schedule.tenantId === ctx.tenantId && schedule.scheduleType === AI_SCHEDULE_TYPE.DEPRECIATION && schedule.sourceRef.model === "Asset";
       const asset = owned ? await Asset.findById(schedule.sourceRef.id).lean() : null;
 
       const today = new Date();
@@ -170,7 +177,9 @@ export const ai10FixedAsset: WorkflowDefinition<Ai10Raw, Ai10Extracted, Ai10Prop
       };
     }
 
-    const invoice = await Invoice.findById(observed.raw.invoiceId).lean();
+    // Tenant-scoped lookup, not findById — same cross-tenant defense-in-depth reasoning as the
+    // schedule_init branch above: a foreign tenant's invoiceId must fail closed, not be read.
+    const invoice = await Invoice.findOne({ _id: observed.raw.invoiceId, tenantId: ctx.tenantId }).lean();
     if (!invoice) throw new Error(`Invoice ${observed.raw.invoiceId} not found`);
     const invoiceLines = (invoice as { invoiceLines?: { name?: string; priceSubtotal?: number; accountId?: unknown }[] }).invoiceLines ?? [];
 
