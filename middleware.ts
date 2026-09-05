@@ -38,6 +38,10 @@ async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgMo
 
 // Extract tenant ID from subdomain
 function getTenantFromHost(hostname: string): string | null {
+  if (hostname.endsWith(".vercel.app")) {
+    return null;
+  }
+
   const hostParts = hostname.split(".");
 
   // For companyx.aupulens.online, extract 'companyx'

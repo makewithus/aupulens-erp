@@ -6,6 +6,10 @@ import { useAuthStore } from "@/store/authStore";
 import { APP_BASE_URL } from "@/lib/config";
 
 function getTenantFromHost(hostname: string): string | null {
+  if (hostname.endsWith(".vercel.app")) {
+    return null;
+  }
+
   const hostParts = hostname.split(".");
 
   // For companyx.aupulens.online (and local testing formats)
