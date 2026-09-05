@@ -106,6 +106,20 @@ function daysBetween(start: Date, end: Date): number {
   return Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
 }
 
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// Same defect class fixed in AI-14 (same "period.horizon.reached" payload shape, same
+// String(undefined) -> "undefined" -> Invalid Date -> uncaught Mongoose cast exception, found by
+// direct reproduction in this pass — see this workflow's own verification record §9). Unlike
+// AI-14, no cheap NL keyword currently routes to AI-25 with empty parameters, but nothing
+// upstream of extract() validates event.payload.period either, so a malformed/absent period from
+// any future caller (chat, a scheduled re-run, a hand-built event) must degrade to "this period,"
+// never crash.
+function currentPeriodString(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function toBalances(items: AgedPartnerReportItem[]): PartnerBalance[] {
   return items.map((i) => ({ partnerId: i.partnerId, partnerName: i.partnerName, total: i.total }));
 }
@@ -151,8 +165,12 @@ export const ai25WorkingCapitalIntelligence: WorkflowDefinition<Ai25Raw, Ai25Ext
   },
 
   async observe(event): Promise<ObservedResult<Ai25Raw>> {
-    const period = String(event.payload.period);
-    const periodEnd = String(event.payload.periodEnd);
+    // See this file's currentPeriodString() doc comment — a missing/malformed period must
+    // degrade to "this period," never reach extract()'s Date.UTC() construction as NaN.
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriodString();
+    const [py, pm] = period.split("-").map(Number);
+    const periodEnd = new Date(Date.UTC(py, pm, 0, 23, 59, 59, 999)).toISOString();
     return { entityId: `${event.tenantId}:${period}`, raw: { period, periodEnd, actingUserId: event.payload.actingUserId ? String(event.payload.actingUserId) : undefined } };
   },
 

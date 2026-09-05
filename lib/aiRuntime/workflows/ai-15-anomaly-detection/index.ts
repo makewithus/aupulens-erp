@@ -549,7 +549,16 @@ export const ai15AnomalyDetection: WorkflowDefinition<Ai15Raw, Ai15Extracted, Ai
             suppressionKey: a.suppressionKey,
             silent: true, // A.5 — every detector ships silent until it has cleared review at acceptable precision
           },
-          { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE, idempotencyKey: `ai-15-anomaly:${a.detectorId}:${a.subjectRefs[0]?.id ?? a.suppressionKey}:${Date.now()}` },
+          // Deterministic, NOT time-based (a prior bug appended Date.now() here, which defeated
+          // the persistent idempotency store entirely — see this workflow's own verification
+          // record, docs/ai/verification/AI-15.md §9). The 24h lookback window overlaps almost
+          // entirely between consecutive hourly sweeps, so the exact same detected instance is
+          // re-evaluated by `reason()` on every sweep it remains inside the window; the key must
+          // stay identical across those re-evaluations (one AiAnomaly row per real instance,
+          // never one per sweep) while still distinguishing two different instances that happen
+          // to share a coarser suppressionKey (e.g. two different postings to the same rare
+          // account) — combining suppressionKey with the specific subjectRef achieves both.
+          { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE, idempotencyKey: `ai-15-anomaly:${a.detectorId}:${a.suppressionKey}:${a.subjectRefs[0]?.id ?? "none"}` },
         );
         actionsTaken.push({ tool: "record_anomaly", args: { detectorId: a.detectorId }, reversible: true });
       } catch {

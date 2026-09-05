@@ -229,10 +229,17 @@ export const ai27DuplicateDetection: WorkflowDefinition<Ai27Raw, Ai27Extracted, 
       if (c.classification !== "certain" && c.classification !== "probable") continue;
       if (c.matchedOn.includes("split_amount")) continue; // no single valid subject document to hold — a combination, not one record
 
+      // Bug fix (Chunk 9 verification, AI-27 section 9 / same class as AI-19's): place_hold's
+      // handler is a bare findOne-then-create with no unique constraint on the (subject, open)
+      // pair — a genuinely concurrent duplicate event (e.g. two overlapping bill.created/
+      // ai.sweep.hourly runs finding the same duplicate candidate) can race past that check and
+      // create two open AiHold rows for the same Invoice. A per-subject idempotencyKey engages
+      // callTool()'s existing persistent-idempotency lock, closing the race without touching the
+      // shared tool file.
       const holdResult = await rt.callTool<{ holdId: string; alreadyOpen: boolean }>(
         "place_hold",
         { tenantId, subjectModel: "Invoice", subjectId: c.duplicateRef, reason: `Likely duplicate of ${c.primaryRef} (${c.classification}, matched on ${c.matchedOn.join(", ")})`, placedByWorkflow: "AI-27" },
-        { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS },
+        { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS, idempotencyKey: `ai27-hold:Invoice:${c.duplicateRef}` },
       );
       c.holdPlaced = true;
       void holdResult;
@@ -242,7 +249,7 @@ export const ai27DuplicateDetection: WorkflowDefinition<Ai27Raw, Ai27Extracted, 
       const holdResult = await rt.callTool<{ holdId: string; alreadyOpen: boolean }>(
         "place_hold",
         { tenantId, subjectModel: "Invoice", subjectId: dp.billId, reason: `Paid twice: ${dp.paymentIds.length} posted payments totalling ₹${dp.totalPaid} against a ₹${dp.billAmount} bill`, placedByWorkflow: "AI-27" },
-        { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS },
+        { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS, idempotencyKey: `ai27-hold:Invoice:${dp.billId}` },
       );
       dp.holdPlaced = true;
       void holdResult;

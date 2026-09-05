@@ -176,14 +176,37 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
               if (l.receipt && !l.receipt.withinTolerance) variances.push(describeVariance("receipt", idx, l.name, l.receipt));
             }
           });
-          const verdict: "match" | "exception" = legs.some((l) => "verdict" in l && l.verdict !== "match") ? "exception" : "match";
+          let verdict: "match" | "exception" = legs.some((l) => "verdict" in l && l.verdict !== "match") ? "exception" : "match";
+          // Bug found in this verification pass (docs/ai/BRIEF-09-VERIFICATION.md Part C.6
+          // adversarial pass): neither this lookup NOR the pre-existing real matcher
+          // (lib/accounting/matching.ts::runPOMatching(), confirmed by reading it — same gap,
+          // out of this file's scope to fix) ever checks that the PO belongs to the SAME vendor
+          // as the bill. `PurchaseOrder` names are only unique per {tenantId, name}, not per
+          // vendor, so a bill referencing another vendor's real PO number, with line
+          // quantities/prices that happen to line up, previously came back `verdict: "match"` —
+          // a textbook confidently-wrong answer a human would approve for payment without a
+          // second look. Root-cause fix: a vendor identity check ALWAYS wins over line-level
+          // agreement.
+          if (invoice.partnerId && String(po.partnerId) !== String(invoice.partnerId)) {
+            verdict = "exception";
+            variances.unshift(`PO ${po.name} belongs to a different vendor than this bill — vendor mismatch, not a legitimate match regardless of line-level agreement`);
+          }
           matchResult = { billId: String(invoice._id), billNumber: invoice.name, poId: String(po._id), legs, verdict, variances };
         }
       }
 
       let vendorName = "";
       if (invoice.partnerId) {
-        const vendor = await Customer.findById(invoice.partnerId).select("header.name header.displayName").lean();
+        // Tenant-scoped by construction (Chunk 9 verification pass, docs/ai/BRIEF-09-VERIFICATION.md
+        // Part A.2/C.4): `invoice` was fetched with a tenantId filter above, but its own
+        // `partnerId` field is NOT guaranteed to reference a same-tenant Customer — the manual
+        // bill-creation route (app/api/finance/bills/route.ts) accepts `body.partnerId` from the
+        // request without validating it belongs to the caller's tenant, so a bad/hostile write
+        // there can leave an Invoice whose partnerId points at another tenant's Customer. An
+        // unscoped `Customer.findById()` here would then read (and expose in this workflow's own
+        // findings/proposal) that other tenant's vendor name. Scoping this read to `tenantId`
+        // closes that regardless of what the write path allows.
+        const vendor = await Customer.findOne({ _id: invoice.partnerId, tenantId }).select("header.name header.displayName").lean();
         vendorName = (vendor as { header?: { name?: string; displayName?: string } } | null)?.header?.displayName ?? (vendor as { header?: { name?: string } } | null)?.header?.name ?? "";
       }
 
@@ -215,7 +238,9 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
     for (const bill of bills) {
       const vendorIdStr = String(bill.partnerId);
       if (!vendorNameCache.has(vendorIdStr)) {
-        const vendor = await Customer.findById(bill.partnerId).select("header.name header.displayName").lean();
+        // Tenant-scoped — see the identical note above the bill_match-mode lookup: bill.partnerId
+        // is a field on an already tenant-scoped Invoice, not a guaranteed same-tenant reference.
+        const vendor = await Customer.findOne({ _id: bill.partnerId, tenantId }).select("header.name header.displayName").lean();
         vendorNameCache.set(vendorIdStr, (vendor as { header?: { displayName?: string; name?: string } } | null)?.header?.displayName ?? (vendor as { header?: { name?: string } } | null)?.header?.name ?? "Vendor");
       }
       const vendorName = vendorNameCache.get(vendorIdStr)!;

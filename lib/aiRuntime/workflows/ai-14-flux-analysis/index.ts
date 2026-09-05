@@ -91,6 +91,19 @@ interface Ai14Proposal {
   notImplemented: { what: string; reason: string }[];
 }
 
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// The real cron sweep (app/api/cron/ai/runtime-sweep/route.ts) always supplies a valid
+// "YYYY-MM" — this is for the OTHER real trigger this workflow has: AI-NL's "explain_margin"
+// chat intent (lib/aiRuntime/nl/workflowIntentMap.ts) resolves to this workflow with an EMPTY
+// parameters object (docs/ai/BRIEF-09-VERIFICATION.md D.3 dialogue 4: "Why is gross margin
+// down?"), so `event.payload.period` is genuinely absent on a real, ordinary user utterance —
+// not just a theoretical malformed-input case.
+function currentPeriodString(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function monthBounds(period: string): { start: Date; end: Date } {
   const [y, m] = period.split("-").map(Number);
   const start = new Date(Date.UTC(y, m - 1, 1));
@@ -139,8 +152,15 @@ export const ai14FluxAnalysis: WorkflowDefinition<Ai14Raw, Ai14Extracted, Ai14Pr
   },
 
   async observe(event): Promise<ObservedResult<Ai14Raw>> {
-    const period = String(event.payload.period);
-    const periodEnd = String(event.payload.periodEnd);
+    // A missing or malformed period must never reach monthBounds() as a literal "undefined"
+    // string — that produced an Invalid Date and an uncaught Mongoose cast exception thrown all
+    // the way into the chat route (a real bug found in this pass, see this workflow's own
+    // verification record §9). "This period" (the current calendar month, UTC) is the correct,
+    // non-invented default for a read-only analysis triggered with no explicit period — exactly
+    // what "why is margin down?" means with no period stated.
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriodString();
+    const periodEnd = monthBounds(period).end.toISOString();
     return { entityId: `${event.tenantId}:${period}`, raw: { period, periodEnd, actingUserId: event.payload.actingUserId ? String(event.payload.actingUserId) : undefined } };
   },
 

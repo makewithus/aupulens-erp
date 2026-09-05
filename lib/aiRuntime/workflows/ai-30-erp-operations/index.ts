@@ -189,28 +189,49 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
         continue;
       }
       const toolName = issue.repairType === "requeue_dead_letter" ? "requeue_dead_lettered_event" : "refresh_tax_projection";
-      const result = await rt.callTool<{ repaired: boolean; reason?: string }>(
-        toolName,
-        { tenantId, ...issue.repairArgs },
-        { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS },
-      );
-      repairsAttempted.push({ issueKey: `${issue.subjectRef.model}:${issue.subjectRef.id}`, repairType: issue.repairType, outcome: result.repaired ? "success" : (result.reason ?? "not repaired") });
+      const issueKey = `${issue.subjectRef.model}:${issue.subjectRef.id}`;
+      // Chunk 9 verification fix (docs/ai/BRIEF-09-VERIFICATION.md Part A.2): this call was
+      // previously unguarded. Every handler behind it already catches its OWN internal failures
+      // and resolves to `{repaired:false, reason}` rather than throwing — but callTool() itself
+      // can still throw ahead of the handler (ToolAutonomyExceededError, ToolPermissionDeniedError,
+      // ToolNotFoundError, or a bug elsewhere in the call path). Unguarded, one bad repair among
+      // several independent ones aborted the ENTIRE sweep — skipping every remaining repair in
+      // this loop AND the record_operations_findings call below, silently discarding that hour's
+      // whole health report even though issue detection itself succeeded. Same
+      // per-item-isolation pattern AI-05/AI-06's own act() already use for their record-keeping
+      // calls (open_dispute/create_task/record_payment_run_proposal).
+      try {
+        const result = await rt.callTool<{ repaired: boolean; reason?: string }>(
+          toolName,
+          { tenantId, ...issue.repairArgs },
+          { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS },
+        );
+        repairsAttempted.push({ issueKey, repairType: issue.repairType, outcome: result.repaired ? "success" : (result.reason ?? "not repaired") });
+      } catch (err) {
+        repairsAttempted.push({ issueKey, repairType: issue.repairType, outcome: `failed — ${err instanceof Error ? err.message : String(err)}` });
+      }
     }
 
     reasoned.proposal.repairsAttempted = repairsAttempted;
 
-    await rt.callTool(
-      "record_operations_findings",
-      {
-        tenantId,
-        runId: rt.runId,
-        healthByModule: reasoned.proposal.healthByModule,
-        healthByIntegration: reasoned.proposal.healthByIntegration,
-        issues: reasoned.proposal.issues,
-        repairsAttempted,
-      },
-      { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
-    );
+    try {
+      await rt.callTool(
+        "record_operations_findings",
+        {
+          tenantId,
+          runId: rt.runId,
+          healthByModule: reasoned.proposal.healthByModule,
+          healthByIntegration: reasoned.proposal.healthByIntegration,
+          issues: reasoned.proposal.issues,
+          repairsAttempted,
+        },
+        { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
+      );
+    } catch {
+      // Best-effort, same as every other workflow's own record-keeping call — the run itself
+      // still reports issues/repairsAttempted on the envelope even if persisting the
+      // AiOperationsFinding document failed.
+    }
 
     return { findings: [], actionsTaken: repairsAttempted.map((r) => ({ tool: r.repairType, args: { issueKey: r.issueKey }, reversible: true })) };
   },

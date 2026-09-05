@@ -120,7 +120,16 @@ export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Prop
     };
 
     if (extracted.mode === "sweep") {
-      const allDuplicates = [...extracted.vendorDuplicates, ...extracted.customerDuplicates, ...extracted.itemDuplicates];
+      // Bug fix (Chunk 9 verification, AI-19 section 9): vendor/customer duplicates are Customer
+      // records but item duplicates are InventoryItem records — merging all three arrays into one
+      // untagged loop and hardcoding `model: "Customer"` on every finding's subjectRefs meant an
+      // item-duplicate finding pointed at a Customer id that doesn't exist (the real id was an
+      // InventoryItem). Each pair is now tagged with its real source model before merging.
+      const allDuplicates = [
+        ...extracted.vendorDuplicates.map((d) => ({ ...d, subjectModel: "Customer" as const })),
+        ...extracted.customerDuplicates.map((d) => ({ ...d, subjectModel: "Customer" as const })),
+        ...extracted.itemDuplicates.map((d) => ({ ...d, subjectModel: "InventoryItem" as const })),
+      ];
       proposal.duplicates = allDuplicates.map((d) => ({ records: [d.aId, d.bId], similarity: d.score, matchedOn: d.matchedOn, classification: d.classification, proposedSurvivor: d.proposedSurvivor }));
       proposal.missingFields = [...extracted.vendorGaps, ...extracted.customerGaps];
       proposal.employeeCollisions = extracted.collisions;
@@ -133,7 +142,7 @@ export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Prop
           title: `Possible duplicate record (${d.classification}): matched on ${d.matchedOn.join(", ")}`,
           detail: `proposed survivor ${d.proposedSurvivor}`,
           confidence: d.score,
-          subjectRefs: [{ model: "Customer", id: d.aId }, { model: "Customer", id: d.bId }],
+          subjectRefs: [{ model: d.subjectModel, id: d.aId }, { model: d.subjectModel, id: d.bId }],
           evidence: [],
           reasonChain: [],
         });
@@ -184,10 +193,17 @@ export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Prop
         const riskFactors: string[] = [];
         if (diffResult.isFirstSnapshot) continue; // no baseline to compare against yet — never a false alarm on first sight
 
+        // Bug fix (Chunk 9 verification, AI-19 section 9): place_hold's own handler is a bare
+        // findOne-then-create with no unique constraint on the (subject, open) pair — a
+        // genuinely concurrent duplicate `master_data.changed` event for the same subject can
+        // race past that check and create two open AiHold rows. Passing a per-subject
+        // idempotencyKey engages callTool()'s existing persistent-idempotency lock (the
+        // AiToolCall unique index IS the lock, per that file's own doc comment), which AI-19
+        // never previously supplied here — closing the race without touching the shared tool.
         const holdResult = await rt.callTool<{ holdId: string; alreadyOpen: boolean }>(
           "place_hold",
           { tenantId, subjectModel: extracted.model, subjectId: extracted.recordId, reason: `Bank detail changed: ${d.field}`, placedByWorkflow: "AI-19" },
-          { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS },
+          { requestedAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS, idempotencyKey: `ai19-hold:${extracted.model}:${extracted.recordId}` },
         );
 
         alerts.push({ entityRef: { model: extracted.model, id: extracted.recordId }, field: d.field, oldMasked: d.oldMasked, newMasked: d.newMasked, riskFactors, holdPlaced: true, holdRef: holdResult.holdId });
