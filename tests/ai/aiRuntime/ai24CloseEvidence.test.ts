@@ -154,11 +154,14 @@ describe("AI-24 — Close evidence controller", () => {
       totals: { amountUntaxed: 5000, amountTax: 0, amountTotal: 5000 },
     });
 
-    await runAi24(userId);
+    const envelope = await runAi24(userId);
     item = await AiAttentionItem.findOne({ tenantId: TENANT, dedupeKey: "ai24:bank_reconciled:2026-01" }).lean();
     expect(item!.status).toBe("auto_resolved");
     const assertion = await AiCloseAssertion.findOne({ tenantId: TENANT, period: "2026-01", item: "bank_reconciled" }).lean();
     expect(assertion!.verified).toBe(true);
+    // Silence proof: a properly-evidenced, non-contradicted close item raises zero findings —
+    // the workflow does not keep re-flagging an item once real evidence resolves it.
+    expect(envelope.findings).toEqual([]);
   });
 
   it("completeness_pct excludes not_applicable items from the denominator", async () => {

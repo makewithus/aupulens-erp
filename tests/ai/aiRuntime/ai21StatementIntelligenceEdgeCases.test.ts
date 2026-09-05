@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { execSync } from "node:child_process";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_ai21_edge";
+process.env.CRON_SECRET = process.env.CRON_SECRET || "ai21-edge-test-secret";
 
 import Account from "@/models/finance/Account";
 import JournalEntry from "@/models/finance/JournalEntry";
@@ -20,6 +21,7 @@ import AiSchedule from "@/models/ai/AiSchedule";
 import AiTaxTransaction from "@/models/ai/AiTaxTransaction";
 import AiComplianceProfile from "@/models/ai/AiComplianceProfile";
 import AiMaterialityPolicy from "@/models/ai/AiMaterialityPolicy";
+import Organization from "@/models/admin/Organization";
 
 let runWorkflow: typeof import("@/lib/aiRuntime/runtime/executor").runWorkflow;
 let bootstrapAiRuntime: typeof import("@/lib/aiRuntime/bootstrap").bootstrapAiRuntime;
@@ -39,7 +41,7 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
     await Promise.all([
       Account.init(), JournalEntry.init(), AiWorkflowRun.init(), AiDecisionTrace.init(), AiEvent.init(),
       AiToolCall.init(), AiWorkflowPolicy.init(), AiCloseState.init(), PeriodClosing.init(), BankStatement.init(),
-      Asset.init(), TaxRate.init(), AiSchedule.init(), AiTaxTransaction.init(), AiComplianceProfile.init(), AiMaterialityPolicy.init(),
+      Asset.init(), TaxRate.init(), AiSchedule.init(), AiTaxTransaction.init(), AiComplianceProfile.init(), AiMaterialityPolicy.init(), Organization.init(),
     ]);
     ({ runWorkflow } = await import("@/lib/aiRuntime/runtime/executor"));
     ({ bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap"));
@@ -58,8 +60,33 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
       Account.deleteMany({}), JournalEntry.deleteMany({}), AiWorkflowRun.deleteMany({}), AiDecisionTrace.deleteMany({}),
       AiEvent.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), AiCloseState.deleteMany({}),
       PeriodClosing.deleteMany({}), BankStatement.deleteMany({}), Asset.deleteMany({}), TaxRate.deleteMany({}),
-      AiSchedule.deleteMany({}), AiTaxTransaction.deleteMany({}), AiComplianceProfile.deleteMany({}), AiMaterialityPolicy.deleteMany({}),
+      AiSchedule.deleteMany({}), AiTaxTransaction.deleteMany({}), AiComplianceProfile.deleteMany({}), AiMaterialityPolicy.deleteMany({}), Organization.deleteMany({}),
     ]);
+  });
+
+  // ── Trigger proof: the real cron sweep route, not runWorkflow() directly ──────────────────
+  it("trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-21 and annotates the current period's balance sheet", async () => {
+    await Organization.create({ name: "AI21 Edge Co", subdomain: TENANT, ownerUserId: new mongoose.Types.ObjectId(), isActive: true });
+    const cash = await makeAccount("asset_cash", "asset");
+    const equity = await makeAccount("equity", "equity");
+    await JournalEntry.create({
+      tenantId: TENANT,
+      header: { name: "JE-TRIGGER", date: new Date(), journalType: "general" },
+      status: "posted", voucherStatus: "posted",
+      lineIds: [{ accountId: cash, label: "x", debit: 5000, credit: 0 }, { accountId: equity, label: "x", debit: 0, credit: 5000 }],
+      totals: { amountUntaxed: 5000, amountTax: 0, amountTotal: 5000 },
+    });
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-21", killSwitchEnabled: true, maxAutonomyLevel: "observe" });
+
+    const { POST } = await import("@/app/api/cron/ai/runtime-sweep/route");
+    const req = { headers: { get: (h: string) => (h.toLowerCase() === "authorization" ? `Bearer ${process.env.CRON_SECRET}` : null) } } as unknown as Request;
+    const res = await POST(req as never);
+    expect(res.status).toBe(200);
+
+    const run = await AiWorkflowRun.findOne({ tenantId: TENANT, workflowId: "AI-21" }).sort({ startedAt: -1 }).lean();
+    expect(run, "the cron route must have dispatched a real period.horizon.reached event that reached AI-21").not.toBeNull();
+    // runWorkflow(ai21StatementIntelligence, ...) never called directly here — proves the whole
+    // real path (route -> emitEvent -> eventBus -> executor) works end to end.
   });
 
   // ── C.2 / C.4 defect class 2: unvalidated period.horizon.reached payload ──────────────────
@@ -124,9 +151,12 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
     const cash = await makeAccount("asset_cash", "asset");
     const controlAcc = await makeAccount("liability_payable", "liability", "AP Control");
     const equity = await makeAccount("equity", "equity");
-    // Two entries that keep the WHOLE balance sheet balanced (debits==credits overall) while the
-    // AP control account itself nets to zero GL activity — the exact "aggregate looks fine"
-    // shape a human skimming only the balance check would accept.
+    // Two entries that keep the WHOLE balance sheet balanced (debits==credits overall, and
+    // asset total == liability+equity total) while the AP control account carries a real GL
+    // balance with NOTHING behind it in the AP subledger (zero open vendor invoices) — the exact
+    // "aggregate looks fine" shape a human skimming only the balance check would accept, and a
+    // genuine GL-vs-subledger tie-out failure underneath (ap_control reconciliation: leftTotal
+    // (open invoices) = 0 vs rightTotal (GL balance) = 5000 → unreconciled, not a wash).
     await JournalEntry.create({
       tenantId: TENANT,
       header: { name: "JE-A", date: new Date("2026-01-10"), journalType: "general" },
@@ -138,8 +168,8 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
       tenantId: TENANT,
       header: { name: "JE-B", date: new Date("2026-01-11"), journalType: "general" },
       status: "posted", voucherStatus: "posted",
-      lineIds: [{ accountId: controlAcc, label: "x", debit: 500, credit: 0 }, { accountId: controlAcc, label: "x", debit: 0, credit: 500 }],
-      totals: { amountUntaxed: 500, amountTax: 0, amountTotal: 500 },
+      lineIds: [{ accountId: cash, label: "x", debit: 5000, credit: 0 }, { accountId: controlAcc, label: "x", debit: 0, credit: 5000 }],
+      totals: { amountUntaxed: 5000, amountTax: 0, amountTotal: 5000 },
     });
     // Seed an AI-14 comparison marking the control account as a material, unreconciled variance.
     const run = await AiWorkflowRun.create({

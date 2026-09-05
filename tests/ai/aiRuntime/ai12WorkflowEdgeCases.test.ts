@@ -206,4 +206,31 @@ describe("AI-12 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     expect(proposal.treatmentExceptions.length).toBeGreaterThan(0);
     expect(proposal.treatmentExceptions[0].detail).toContain("5%");
   });
+
+  // ── C.2/C.4 defect class, consolidated finding across all 30 workflows using
+  // period.horizon.reached (docs/ai/BRIEF-09-VERIFICATION.md Part B) ─────────────────────────────
+  // Real bug found in this pass: unlike the 11 sibling workflows already fixed for this exact
+  // shape, AI-12's own observe() did `String(event.payload.periodEnd)` with NO validation at
+  // all — not even a truthy check — so a missing/malformed periodEnd produced the literal string
+  // "undefined" -> `new Date("undefined")` (Invalid Date) -> extract()'s periodEnd field -> act()'s
+  // unconditional `.toISOString()` call, throwing an uncaught `RangeError: Invalid time value` on
+  // every affected tenant's run. This record's own AI-12.md previously called this event key "not
+  // applicable" to AI-12 — that framing predates this defect class's discovery and was stale, the
+  // same "report right, code wrong" pattern this whole chunk exists to catch. Fixed by validating
+  // `period`'s own shape and always deriving periodEnd from it, matching the other 11 workflows.
+  it("malformed/missing period.horizon.reached payload degrades to the current period instead of throwing (regression)", async () => {
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-12", killSwitchEnabled: true, maxAutonomyLevel: "recommend" });
+
+    const malformed = await runWorkflow(ai12TaxIntelligence, { tenantId: TENANT, eventKey: "period.horizon.reached", payload: {} });
+    expect(malformed.status).not.toBe("failed");
+
+    const garbage = await runWorkflow(ai12TaxIntelligence, { tenantId: TENANT, eventKey: "period.horizon.reached", payload: { period: "not-a-period", periodEnd: "also-garbage" } });
+    expect(garbage.status).not.toBe("failed");
+
+    const trace = await AiDecisionTrace.findOne({ runId: garbage.runId }).lean();
+    const proposal = trace!.rawProposal as unknown as { period: string };
+    const now = new Date();
+    const expectedPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    expect(proposal.period).toBe(expectedPeriod); // defaulted to the current calendar month, never "NaN-NaN" or thrown
+  });
 });

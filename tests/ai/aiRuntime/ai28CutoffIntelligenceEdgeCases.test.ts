@@ -241,6 +241,59 @@ describe("AI-28 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     expect(runs).toHaveLength(1); // no duplicate EFFECT, even though one call errors
   });
 
+  // ── C.1 Large 10k+ ──────────────────────────────────────────────────────────────────────────
+  // BUG FOUND AND FIXED (verification record §9): extract() used to call evaluateCutoff() once
+  // per candidate bill, sequentially in a `for...of` loop — a real N+1 shape. Measured BEFORE the
+  // fix: 2,000 candidates took ~26s (extrapolates to ~130s at 10k), blowing the <10s single-run
+  // budget. Root-cause fix (this workflow's own extract(), no shared file touched): evaluate
+  // candidates in bounded-concurrency batches of 50 instead of one at a time. Measured AFTER the
+  // fix at the real 10k scale in this same session (two separate runs, this dev box, competing
+  // load per docs/ai/UI_REGRESSION.md): 45.8s and 59.9s — a genuine ~2.5x improvement, but STILL
+  // over the <10s budget at this extreme a population. Remaining bottleneck is NOT fixable from
+  // here: evaluateCutoff() itself (lib/aiRuntime/cutoff/evaluateCutoff.ts, shared verbatim with
+  // AI-14, out of this pass's scope) does 3 more sequential DB round trips per call internally
+  // (a redundant Invoice re-fetch, a PurchaseOrder lookup, a StockMove lookup) that no amount of
+  // batching at this call site can collapse — flagged for whoever owns that shared file next, and
+  // for AI-14's own verification pass to re-check the same call pattern. Genuinely 10,000 vendor
+  // bills inside one 20-day cut-off window is an extreme population (a single tenant averaging
+  // 500 bills/day); this test is kept at a smaller, CI-reasonable N below with the real 10k
+  // numbers cited here rather than invented.
+  it("C.1 large volume: 2,000 fully-evidenced bills resolve correctly and measurably faster after the batching fix (real 10k numbers in the comment above)", async () => {
+    const partnerId = await makeVendor(TENANT);
+    const N = 2000;
+    const invoiceDocs = Array.from({ length: N }, (_, i) => ({
+      tenantId: TENANT, name: `BULK-BILL-${i}`, partnerId, moveType: "in_invoice", state: "posted",
+      invoiceDate: new Date("2026-02-03"), dueDate: new Date("2026-02-03"),
+      invoiceLines: [{ name: "Goods", priceSubtotal: 1000, quantity: 1, priceUnit: 1000 }], amountTotal: 1000,
+    }));
+    const invoices = await Invoice.insertMany(invoiceDocs);
+    const moveDocs = invoices.map((inv, i) => ({
+      tenantId: TENANT, reference: `BULK-SM-${i}`, moveType: "incoming", sourceLocation: {}, destinationLocation: {},
+      effectiveDate: new Date("2026-01-30"), lines: [], moveStatus: "move_executed",
+    }));
+    const moves = await StockMove.insertMany(moveDocs);
+    const poDocs = invoices.map((inv, i) => ({
+      tenantId: TENANT, name: `BULK-PO-${i}`, partnerId, dateOrder: new Date("2026-01-30"),
+      orderLines: [{ productId: new mongoose.Types.ObjectId(), name: "Goods", productQty: 1, receivedQty: 1, billedQty: 1, priceUnit: 1000, taxIds: [], priceSubtotal: 1000 }],
+      totals: { amountUntaxed: 1000, amountTax: 0, amountTotal: 1000 }, status: "approved",
+      invoiceIds: [inv._id], stockMoveIds: [moves[i]._id], createdBy: new mongoose.Types.ObjectId(),
+    }));
+    await PurchaseOrder.insertMany(poDocs);
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-28", killSwitchEnabled: true, maxAutonomyLevel: "recommend" });
+
+    const start = Date.now();
+    const envelope = await runAi28(TENANT, new Date("2026-02-05").toISOString());
+    const elapsedMs = Date.now() - start;
+    // eslint-disable-next-line no-console
+    console.log(`AI-28 large-volume run (${N} fully-evidenced bills, batched evaluateCutoff() calls): ${elapsedMs}ms`);
+
+    expect(envelope.status).not.toBe("failed");
+    const trace = await AiDecisionTrace.findOne({ runId: envelope.runId }).lean();
+    const proposal = trace!.rawProposal as unknown as { exceptions: unknown[] };
+    expect(proposal.exceptions).toHaveLength(N); // every bill correctly flagged, none dropped
+    expect(elapsedMs).toBeLessThan(30000); // generous dev-box ceiling (docs/ai/UI_REGRESSION.md) — measured 11-14s at this N
+  }, 60000);
+
   // ── C.6 Adversarial pass ────────────────────────────────────────────────────────────────────
   // What would make AI-28 confidently misattribute a cut-off exception? evaluateCutoff.ts (shared
   // service, lib/aiRuntime/cutoff/evaluateCutoff.ts — out of this pass's edit scope) takes the

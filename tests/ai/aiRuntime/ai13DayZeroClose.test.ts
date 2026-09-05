@@ -142,9 +142,12 @@ describe("AI-13 — Day Zero Close", () => {
       totals: { amountUntaxed: 50000, amountTax: 0, amountTotal: 50000 },
     });
 
-    await runAi13();
+    const envelope = await runAi13();
     state = await AiCloseState.findOne({ tenantId: TENANT, period: "2026-01" }).lean();
     expect(state!.readiness.status).not.toBe("blocked");
+    // Silence proof: once the underlying gap is genuinely fixed, the recompute raises zero
+    // findings — no lingering blocker/exception/contradiction finding for a clean period.
+    expect(envelope.findings).toEqual([]);
     void bankStatementId;
   });
 

@@ -113,14 +113,28 @@ export const ai28CutoffIntelligence: WorkflowDefinition<Ai28Raw, Ai28Extracted, 
       .select("_id name invoiceDate amountTotal")
       .lean();
 
+    // Chunk 9 bug fix (verification record §9): evaluateCutoff() does 3 sequential DB round
+    // trips per bill (lib/aiRuntime/cutoff/evaluateCutoff.ts, shared with AI-14, out of this
+    // pass's edit scope) — running that one bill at a time in a `for...of` loop made this
+    // workflow's own wall-clock scale linearly with population size (measured: ~26s at 2,000
+    // candidates, ~130s extrapolated at 10k — well past the <10s single-run budget). Fixed at the
+    // root cause reachable from this workflow's own code: evaluate candidates in bounded-
+    // concurrency batches instead of one at a time, so wall-clock is bound by round-trip latency
+    // divided by batch width rather than by candidate count. Does not touch evaluateCutoff.ts
+    // itself (shared with AI-14, which has the identical sequential-call shape at its own call
+    // site — flagged, not fixed here, per this pass's scope).
+    const EVAL_BATCH_SIZE = 50;
     const candidates: CutoffCandidate[] = [];
-    for (const bill of bills) {
-      const evaluation = await evaluateCutoff(ctx.tenantId, String(bill._id), periodEnd);
-      candidates.push({
-        invoiceId: String(bill._id),
-        invoiceName: (bill as { name?: string }).name ?? String(bill._id),
-        amount: (bill as { amountTotal?: number }).amountTotal ?? 0,
-        evaluation,
+    for (let i = 0; i < bills.length; i += EVAL_BATCH_SIZE) {
+      const batch = bills.slice(i, i + EVAL_BATCH_SIZE);
+      const evaluations = await Promise.all(batch.map((bill) => evaluateCutoff(ctx.tenantId, String(bill._id), periodEnd)));
+      batch.forEach((bill, idx) => {
+        candidates.push({
+          invoiceId: String(bill._id),
+          invoiceName: (bill as { name?: string }).name ?? String(bill._id),
+          amount: (bill as { amountTotal?: number }).amountTotal ?? 0,
+          evaluation: evaluations[idx],
+        });
       });
     }
 

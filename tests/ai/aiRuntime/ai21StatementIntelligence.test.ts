@@ -209,6 +209,11 @@ describe("AI-21 — Financial statement intelligence", () => {
     // Account never appears in the report at all (zero activity) — nothing to flag either way.
     expect(line?.unsupportedMaterial ?? false).toBe(false);
     expect(annotated.unsupportedMaterialCount).toBe(0);
+
+    // Silence proof at the full workflow level, not just the annotation function.
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-21", killSwitchEnabled: true, maxAutonomyLevel: "observe" });
+    const envelope = await runWorkflow(ai21StatementIntelligence, { tenantId: TENANT, eventKey: "period.horizon.reached", payload: { period: PERIOD } });
+    expect(envelope.findings).toEqual([]);
   });
 
   it("the drill-down chain reaches real journal entries and transaction lines", async () => {

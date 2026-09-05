@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { execSync } from "node:child_process";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_ai24_edge";
+process.env.CRON_SECRET = process.env.CRON_SECRET || "ai24-edge-test-secret";
 
 import Account from "@/models/finance/Account";
 import BankStatement from "@/models/finance/BankStatement";
@@ -17,6 +18,7 @@ import AiEvent from "@/models/ai/AiEvent";
 import AiToolCall from "@/models/ai/AiToolCall";
 import AiWorkflowPolicy from "@/models/ai/AiWorkflowPolicy";
 import User from "@/models/auth/User";
+import Organization from "@/models/admin/Organization";
 
 let runWorkflow: typeof import("@/lib/aiRuntime/runtime/executor").runWorkflow;
 let bootstrapAiRuntime: typeof import("@/lib/aiRuntime/bootstrap").bootstrapAiRuntime;
@@ -39,7 +41,7 @@ describe("AI-24 — Close evidence controller: verification edge cases (docs/ai/
     await Promise.all([
       Account.init(), BankStatement.init(), JournalEntry.init(), PeriodClosing.init(),
       AiMaterialityPolicy.init(), AiCloseAssertion.init(), AiAttentionItem.init(), AiWorkflowRun.init(),
-      AiDecisionTrace.init(), AiEvent.init(), AiToolCall.init(), AiWorkflowPolicy.init(), User.init(),
+      AiDecisionTrace.init(), AiEvent.init(), AiToolCall.init(), AiWorkflowPolicy.init(), User.init(), Organization.init(),
     ]);
     ({ runWorkflow } = await import("@/lib/aiRuntime/runtime/executor"));
     ({ bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap"));
@@ -56,8 +58,30 @@ describe("AI-24 — Close evidence controller: verification edge cases (docs/ai/
     await Promise.all([
       Account.deleteMany({}), BankStatement.deleteMany({}), JournalEntry.deleteMany({}), PeriodClosing.deleteMany({}),
       AiMaterialityPolicy.deleteMany({}), AiCloseAssertion.deleteMany({}), AiAttentionItem.deleteMany({}), AiWorkflowRun.deleteMany({}),
-      AiDecisionTrace.deleteMany({}), AiEvent.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), User.deleteMany({}),
+      AiDecisionTrace.deleteMany({}), AiEvent.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), User.deleteMany({}), Organization.deleteMany({}),
     ]);
+  });
+
+  // ── Trigger proof: the real cron sweep route, not runWorkflow() directly ──────────────────
+  it("trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-24 and records a close assertion for the current period", async () => {
+    await Organization.create({ name: "AI24 Edge Co", subdomain: TENANT, ownerUserId: new mongoose.Types.ObjectId(), isActive: true });
+    const bankAccountId = await makeAccount(TENANT, "asset_cash");
+    await BankStatement.create({ tenantId: TENANT, header: { name: "STMT", journalId: bankAccountId, date: new Date(), balance_start: 0, balance_end_real: 5000 }, lineIds: [], status: "draft" });
+    await AiMaterialityPolicy.create({ tenantId: TENANT, thresholds: [{ appliesTo: "bank", absoluteAmount: 100 }] });
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-24", killSwitchEnabled: true, maxAutonomyLevel: "observe" });
+
+    const { POST } = await import("@/app/api/cron/ai/runtime-sweep/route");
+    const req = { headers: { get: (h: string) => (h.toLowerCase() === "authorization" ? `Bearer ${process.env.CRON_SECRET}` : null) } } as unknown as Request;
+    const res = await POST(req as never);
+    expect(res.status).toBe(200);
+
+    const now = new Date();
+    const expectedPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const assertion = await AiCloseAssertion.findOne({ tenantId: TENANT, period: expectedPeriod, item: "bank_reconciled" }).lean();
+    expect(assertion, "the cron route must have dispatched a real period.horizon.reached event that reached AI-24").not.toBeNull();
+    expect(assertion!.verified).toBe(false); // unmatched bank statement -> unverified, as seeded
+    // runWorkflow(ai24CloseEvidence, ...) never called directly here — proves the whole real
+    // path (route -> emitEvent -> eventBus -> executor) works end to end.
   });
 
   // ── C.2 / C.4 defect class 2: unvalidated period.horizon.reached payload ──────────────────

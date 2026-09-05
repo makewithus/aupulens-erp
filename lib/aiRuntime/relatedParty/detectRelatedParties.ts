@@ -35,6 +35,14 @@ const MIN_NAME_SIMILARITY = 0.6;
 const CANDIDATE_LIMIT = 300;
 const GENERIC_EMAIL_DOMAINS = new Set(["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "rediffmail.com", "protonmail.com"]);
 const LEGAL_SUFFIX_RE = /\b(pvt|private|ltd|limited|llp|inc|incorporated|corp|corporation|co|company)\b/g;
+// Same canonical formats as lib/migration/validation.ts's GSTIN_RE (kept as a local literal, not
+// an import, since that module is the migration-import pipeline's own scope — this workflow has
+// no dependency on it otherwise). A real GSTIN/PAN match is as certain as this gets without a
+// human; a shared PLACEHOLDER value ("NA", "N/A", "PENDING", "-", "0000000000") is not — two
+// genuinely unrelated companies both leaving this field as a data-entry placeholder must never
+// be promoted to `certain` (bug found in this pass, see this workflow's verification record §9).
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 export type RelatedPartyClassification = "certain" | "probable" | "possible";
 
@@ -106,14 +114,14 @@ export function matchPair(c: CustomerLike, v: CustomerLike): MatchResult {
 
   const cGstin = c.gstin?.trim().toUpperCase();
   const vGstin = v.gstin?.trim().toUpperCase();
-  if (cGstin && vGstin && cGstin === vGstin) {
+  if (cGstin && vGstin && cGstin === vGstin && GSTIN_RE.test(cGstin)) {
     certain = true;
     matchedOn.push("tax_registration_number");
   }
 
   const cPan = c.pan?.trim().toUpperCase();
   const vPan = v.pan?.trim().toUpperCase();
-  if (cPan && vPan && cPan === vPan) {
+  if (cPan && vPan && cPan === vPan && PAN_RE.test(cPan)) {
     certain = true;
     matchedOn.push("pan");
   }

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { execSync } from "node:child_process";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_ai13_edge";
+process.env.CRON_SECRET = process.env.CRON_SECRET || "ai13-edge-test-secret";
 
 import Account from "@/models/finance/Account";
 import BankStatement from "@/models/finance/BankStatement";
@@ -16,6 +17,7 @@ import AiEvent from "@/models/ai/AiEvent";
 import AiToolCall from "@/models/ai/AiToolCall";
 import AiWorkflowPolicy from "@/models/ai/AiWorkflowPolicy";
 import User from "@/models/auth/User";
+import Organization from "@/models/admin/Organization";
 
 let runWorkflow: typeof import("@/lib/aiRuntime/runtime/executor").runWorkflow;
 let bootstrapAiRuntime: typeof import("@/lib/aiRuntime/bootstrap").bootstrapAiRuntime;
@@ -38,7 +40,7 @@ describe("AI-13 — Day Zero Close: verification edge cases (docs/ai/BRIEF-09-VE
     await Promise.all([
       Account.init(), BankStatement.init(), JournalEntry.init(), PeriodClosing.init(),
       AiMaterialityPolicy.init(), AiCloseState.init(), AiWorkflowRun.init(), AiDecisionTrace.init(),
-      AiEvent.init(), AiToolCall.init(), AiWorkflowPolicy.init(), User.init(),
+      AiEvent.init(), AiToolCall.init(), AiWorkflowPolicy.init(), User.init(), Organization.init(),
     ]);
     ({ runWorkflow } = await import("@/lib/aiRuntime/runtime/executor"));
     ({ bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap"));
@@ -55,8 +57,30 @@ describe("AI-13 — Day Zero Close: verification edge cases (docs/ai/BRIEF-09-VE
     await Promise.all([
       Account.deleteMany({}), BankStatement.deleteMany({}), JournalEntry.deleteMany({}), PeriodClosing.deleteMany({}),
       AiMaterialityPolicy.deleteMany({}), AiCloseState.deleteMany({}), AiWorkflowRun.deleteMany({}), AiDecisionTrace.deleteMany({}),
-      AiEvent.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), User.deleteMany({}),
+      AiEvent.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), User.deleteMany({}), Organization.deleteMany({}),
     ]);
+  });
+
+  // ── Trigger proof: the real cron sweep route, not runWorkflow() directly ──────────────────
+  it("trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-13 and produces a blocked AiCloseState for the current period", async () => {
+    await Organization.create({ name: "AI13 Edge Co", subdomain: TENANT, ownerUserId: new mongoose.Types.ObjectId(), isActive: true });
+    const bankAccountId = await makeAccount(TENANT, "asset_cash");
+    await BankStatement.create({ tenantId: TENANT, header: { name: "STMT", journalId: bankAccountId, date: new Date(), balance_start: 0, balance_end_real: 50000 }, lineIds: [], status: "draft" }); // no offsetting GL entry -> a real, material gap
+    await AiMaterialityPolicy.create({ tenantId: TENANT, thresholds: [{ appliesTo: "bank", absoluteAmount: 100 }] });
+    await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-13", killSwitchEnabled: true, maxAutonomyLevel: "observe" });
+
+    const { POST } = await import("@/app/api/cron/ai/runtime-sweep/route");
+    const req = { headers: { get: (h: string) => (h.toLowerCase() === "authorization" ? `Bearer ${process.env.CRON_SECRET}` : null) } } as unknown as Request;
+    const res = await POST(req as never);
+    expect(res.status).toBe(200);
+
+    const now = new Date();
+    const expectedPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const state = await AiCloseState.findOne({ tenantId: TENANT, period: expectedPeriod }).lean();
+    expect(state, "the cron route must have dispatched a real period.horizon.reached event that reached AI-13").not.toBeNull();
+    expect(state!.readiness.status).toBe("blocked");
+    // runWorkflow(ai13DayZeroClose, ...) never called directly here — proves the whole real
+    // path (route -> emitEvent -> eventBus -> executor) works end to end.
   });
 
   // ── C.2 / C.4 defect class 2: unvalidated period.horizon.reached payload ──────────────────

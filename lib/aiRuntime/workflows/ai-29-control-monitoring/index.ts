@@ -26,7 +26,6 @@ import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, Verif
 
 const DESIGN_CONCERN_FAILURE_RATE = 0.2;
 const DESIGN_CONCERN_MIN_SAMPLE = 5;
-const MAX_EXCEPTION_TASKS_PER_CONTROL = 10;
 
 // Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md Part B, "known defect
 // class 2"): an unvalidated event.payload.period/periodStart/periodEnd on `period.horizon.reached`
@@ -170,24 +169,20 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
         { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
       );
 
-      for (const exc of c.exceptions.slice(0, MAX_EXCEPTION_TASKS_PER_CONTROL)) {
-        if (exc.severity !== "critical" && exc.severity !== "high") continue;
-        await rt.callTool(
-          "create_task",
-          {
-            tenantId,
-            workflowId: "AI-29",
-            runId: rt.runId,
-            priority: exc.severity === "critical" ? "critical" : "high",
-            what: `Control exception: ${c.controlId} — ${exc.detail}`,
-            why: c.description,
-            dedupeKey: `ai29-exception-${c.controlId}-${exc.ref}`,
-            evidence: exc.evidence,
-          },
-          { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
-        );
-      }
-
+      // Chunk 9 bug fix (docs/ai/verification/AI-29.md §9): this loop used to also call
+      // `create_task` here, once per exception, with dedupeKey `ai29-exception-${controlId}-
+      // ${ref}` (no workflow-id prefix). But every exception above is ALSO already pushed as an
+      // EXCEPTION-type finding in reason() — and the executor's own generic per-finding
+      // escalation (lib/aiRuntime/runtime/executor.ts, "an EXCEPTION-type finding ... always gets
+      // an attention item") ALREADY calls createAttentionItem() for every one of them, using
+      // dedupeKey `${workflow.id}:${finding.id}` = `AI-29:ai29-exception-${controlId}-${ref}`.
+      // Two call sites building two different-looking dedupeKeys for the same logical exception
+      // meant two AiAttentionItem rows were upserted instead of one (caught by the concurrent-
+      // duplicate-dispatch edge-case test). AI-22's identical "one engine, many definitions"
+      // reconciliation workflow never had this second call site — it relies on the generic
+      // mechanism alone — so this removal makes AI-29 consistent with that established pattern,
+      // not a new one. The design-concern task below stays: it's an ANOMALY-type finding, which
+      // the generic per-finding escalation does not cover unless the whole run escalates.
       if (c.designConcern) {
         await rt.callTool(
           "create_task",

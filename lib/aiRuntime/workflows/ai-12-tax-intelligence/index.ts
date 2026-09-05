@@ -35,6 +35,27 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+// Same defect class fixed in AI-13/14/17/18/21/22/23/24/25/28/29 (docs/ai/BRIEF-09-VERIFICATION.md
+// Part B, consolidated across all 30 workflows using `period.horizon.reached`): `observe()` used
+// to do `String(event.payload.periodEnd)` with no validation at all, so a missing/malformed
+// periodEnd produced the literal string "undefined" -> `new Date("undefined")` -> an Invalid Date
+// that `act()` unconditionally calls `.toISOString()` on, throwing an uncaught
+// `RangeError: Invalid time value` on every affected tenant's run. Fixed the same way the other 11
+// workflows were: validate `period`'s own shape and always DERIVE periodEnd from the validated
+// period rather than trusting a separately-supplied periodEnd string, so the two can never
+// disagree.
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function currentPeriodString(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function periodEndOf(period: string): Date {
+  const [y, m] = period.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0, 23, 59, 59));
+}
+
 interface Ai12Raw {
   actingUserId?: string;
   period: string;
@@ -73,8 +94,9 @@ export const ai12TaxIntelligence: WorkflowDefinition<Ai12Raw, Ai12Extracted, Ai1
   },
 
   async observe(event): Promise<ObservedResult<Ai12Raw>> {
-    const period = String(event.payload.period);
-    const periodEnd = String(event.payload.periodEnd);
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriodString();
+    const periodEnd = periodEndOf(period).toISOString();
     return { entityId: `${event.tenantId}:${period}`, raw: { period, periodEnd, actingUserId: event.payload.actingUserId ? String(event.payload.actingUserId) : undefined } };
   },
 
