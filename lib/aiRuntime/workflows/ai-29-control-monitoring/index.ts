@@ -28,6 +28,29 @@ const DESIGN_CONCERN_FAILURE_RATE = 0.2;
 const DESIGN_CONCERN_MIN_SAMPLE = 5;
 const MAX_EXCEPTION_TASKS_PER_CONTROL = 10;
 
+// Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md Part B, "known defect
+// class 2"): an unvalidated event.payload.period/periodStart/periodEnd on `period.horizon.reached`
+// reaching Date.UTC()/`new Date()` as NaN/Invalid Date, then into a Mongoose Date-typed query
+// inside runAllControlDefinitions() -> an uncaught cast exception instead of a clean degrade.
+// Before this fix, observe() only guarded against a MISSING field (`event.payload.period ? ... :
+// fallback`) — a present-but-malformed string (e.g. "garbage", "2026-13", "") still passed
+// straight through as a literal Date string. Now: validate the period's shape and always DERIVE
+// periodStart/periodEnd from the validated period, never trust a separately-supplied
+// periodStart/periodEnd string (the real cron trigger doesn't even send periodStart today —
+// app/api/cron/ai/runtime-sweep/route.ts only emits {period, periodEnd} — so trusting it was
+// already dead weight, not a used feature).
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function currentPeriodString(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function periodBounds(period: string): { periodStart: Date; periodEnd: Date } {
+  const [y, m] = period.split("-").map(Number);
+  return { periodStart: new Date(Date.UTC(y, m - 1, 1)), periodEnd: new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)) };
+}
+
 interface Ai29Raw {
   period: string;
   periodStart: string;
@@ -49,14 +72,6 @@ interface Ai29Proposal {
   overallControlHealth: number | null;
 }
 
-function currentPeriodBounds(): { period: string; periodStart: Date; periodEnd: Date } {
-  const now = new Date();
-  const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-  return { period, periodStart, periodEnd };
-}
-
 export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, Ai29Proposal> = {
   id: "AI-29",
   version: "1.0.0",
@@ -69,11 +84,10 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
   },
 
   async observe(event): Promise<ObservedResult<Ai29Raw>> {
-    const fallback = currentPeriodBounds();
-    const period = event.payload.period ? String(event.payload.period) : fallback.period;
-    const periodStart = event.payload.periodStart ? String(event.payload.periodStart) : fallback.periodStart.toISOString();
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
-    return { entityId: event.tenantId, raw: { period, periodStart, periodEnd } };
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriodString();
+    const { periodStart, periodEnd } = periodBounds(period);
+    return { entityId: event.tenantId, raw: { period, periodStart: periodStart.toISOString(), periodEnd: periodEnd.toISOString() } };
   },
 
   async extract(observed, ctx): Promise<Ai29Extracted> {

@@ -212,7 +212,6 @@ export function DashboardHeader({
   };
 
   const pathname = usePathname();
-  // Extract all pages from sidebar config
   const allPages = sidebarConfig.flatMap((section) =>
     section.items.map((item) => ({
       title: item.title,

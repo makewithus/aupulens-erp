@@ -64,6 +64,17 @@ function currentPeriod(): { period: string; periodEnd: Date } {
   return { period, periodEnd };
 }
 
+// Same defect class fixed in AI-14/AI-25/AI-17/AI-29 (docs/ai/BRIEF-09-VERIFICATION.md Part B):
+// an unvalidated event.payload.period/periodEnd on `period.horizon.reached` reaches
+// annotateStatement()'s report-building Date logic as NaN/Invalid Date, which risks an uncaught
+// Mongoose cast exception the same way AI-14's did. Only a MISSING field was guarded before
+// (`event.payload.period ? ... : fallback`); a present-but-malformed string was not. Now: validate
+// the period's shape and always DERIVE periodEnd from the validated period rather than trusting a
+// separately-supplied periodEnd string.
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const MAX_ACCOUNTS_PER_SWEEP = 20;
+
 export const ai18AuditEvidence: WorkflowDefinition<Ai18Raw, Ai18Extracted, Ai18Proposal> = {
   id: "AI-18",
   version: "1.0.0",
@@ -76,9 +87,10 @@ export const ai18AuditEvidence: WorkflowDefinition<Ai18Raw, Ai18Extracted, Ai18P
   },
 
   async observe(event): Promise<ObservedResult<Ai18Raw>> {
-    const fallback = currentPeriod();
-    const period = event.payload.period ? String(event.payload.period) : fallback.period;
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriod().period;
+    const [y, m] = period.split("-").map(Number);
+    const periodEnd = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)).toISOString();
     return { entityId: event.tenantId, raw: { period, periodEnd } };
   },
 
@@ -125,7 +137,7 @@ export const ai18AuditEvidence: WorkflowDefinition<Ai18Raw, Ai18Extracted, Ai18P
     let missingEvidenceCount = 0;
     let checkedCount = 0;
 
-    for (const acc of extracted.sweptAccounts.slice(0, 20)) {
+    for (const acc of extracted.sweptAccounts.slice(0, MAX_ACCOUNTS_PER_SWEEP)) {
       const built = await rt.callTool<{ figures: Claim[]; documents: Claim[]; approvals: Claim[]; missingEvidence: Ai18AccountPack["missingEvidence"]; reconciliations: Claim[] }>(
         "build_evidence_pack",
         { tenantId, accountId: acc.accountId, accountName: acc.accountName, period: extracted.period, periodEnd: extracted.periodEnd },
@@ -150,6 +162,35 @@ export const ai18AuditEvidence: WorkflowDefinition<Ai18Raw, Ai18Extracted, Ai18P
       }
     }
 
+    // Bug found in this pass (docs/ai/verification/AI-18.md §9, C.6 adversarial): with more than
+    // MAX_ACCOUNTS_PER_SWEEP material-unsupported accounts in a period, the sweep above only ever
+    // BUILDS a pack for the first 20 — but completenessScore was computed as
+    // `1 - missingEvidenceCount / checkedCount`, i.e. only over the accounts actually checked. A
+    // tenant with, say, 25 unsupported accounts where the first 20 all evidence cleanly reported
+    // completenessScore: 1 (100% complete) while 5 known-unsupported accounts were never
+    // evidenced at all this run — a confidently wrong "fully evidenced" signal a reviewer would
+    // accept at face value. Root cause: the denominator excluded the very items the cap skipped.
+    // Fixed by scoring against the TOTAL swept population (never just what fit this run) and
+    // treating every unchecked account as incomplete (honest, conservative — we have no evidence
+    // either way), plus a stated finding so "N accounts not yet evidenced this run" is never
+    // silent. The skipped accounts are still picked up on the next sweep (this trigger recurs
+    // hourly) — this only fixes what THIS run's own completenessScore claims about itself.
+    const sweptTotal = extracted.sweptAccounts.length;
+    const uncheckedCount = sweptTotal - checkedCount;
+    if (uncheckedCount > 0) {
+      findings.push({
+        id: `ai18-sweep-cap-${extracted.period}`,
+        type: AI_FINDING_TYPE.ANOMALY,
+        severity: AI_FINDING_SEVERITY.MEDIUM,
+        title: `${uncheckedCount} material unsupported account(s) not yet evidenced this run`,
+        detail: `${sweptTotal} account(s) were flagged material-and-unsupported this period; only the first ${MAX_ACCOUNTS_PER_SWEEP} were evidenced in this run. The remaining ${uncheckedCount} are not reflected in this run's completenessScore as complete and will be picked up on a subsequent sweep.`,
+        confidence: 1,
+        subjectRefs: extracted.sweptAccounts.slice(MAX_ACCOUNTS_PER_SWEEP).map((a) => ({ model: "Account", id: a.accountId })),
+        evidence: [],
+        reasonChain: [],
+      });
+    }
+
     const sampleSeed = `${tenantId}:${extracted.period}`;
     const sample =
       accountPacks.length > 0
@@ -160,7 +201,7 @@ export const ai18AuditEvidence: WorkflowDefinition<Ai18Raw, Ai18Extracted, Ai18P
           }
         : null;
 
-    const completenessScore = checkedCount === 0 ? 1 : Math.max(0, 1 - missingEvidenceCount / Math.max(checkedCount, 1));
+    const completenessScore = sweptTotal === 0 ? 1 : Math.max(0, 1 - (missingEvidenceCount + uncheckedCount) / sweptTotal);
 
     await rt.callTool(
       "record_evidence_pack",

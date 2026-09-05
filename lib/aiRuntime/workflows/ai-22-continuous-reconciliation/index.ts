@@ -45,6 +45,25 @@ function currentPeriod(): { period: string; periodEnd: Date } {
   return { period, periodEnd };
 }
 
+// Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md cross-workflow check):
+// `observe()` used to trust a caller-supplied `periodEnd` string verbatim (`String(...)`, no
+// parse check), which reached extract()'s `new Date(observed.raw.periodEnd)` as an Invalid Date
+// whenever it was present-but-malformed — engine.ts's own definitions mostly ignore `periodEnd`
+// so this never crashed today (only the tax definition reads it, via getUTCFullYear()/
+// getUTCMonth(), which degrades to a harmless "NaN-NaN" periodKey rather than a Mongoose cast),
+// but the shape is identical to AI-14/25's real crash and a future periodEnd-filtered definition
+// would inherit it silently. Fixed by validating `periodEnd` directly (it — not `period`, which
+// is only ever used as a display/id label here, never Date-cast — is the field that actually
+// reaches a Mongoose query): a missing or unparseable value degrades to "this period's end,"
+// never an Invalid Date. `period` is deliberately NOT re-derived from it (and vice versa): a
+// caller may legitimately label a run with an arbitrary period string while supplying explicit
+// boundaries (see tests/golden/ai23.golden.test.ts's own "golden" sentinel for the sibling
+// workflow, same payload shape) — collapsing the two would silently discard real caller-supplied
+// boundaries whenever the label isn't literally "YYYY-MM".
+function isValidIsoInstant(raw: unknown): raw is string {
+  return typeof raw === "string" && raw.length > 0 && !Number.isNaN(new Date(raw).getTime());
+}
+
 export const ai22ContinuousReconciliation: WorkflowDefinition<Ai22Raw, Ai22Extracted, Ai22Proposal> = {
   id: "AI-22",
   version: "1.0.0",
@@ -62,7 +81,7 @@ export const ai22ContinuousReconciliation: WorkflowDefinition<Ai22Raw, Ai22Extra
   async observe(event): Promise<ObservedResult<Ai22Raw>> {
     const fallback = currentPeriod();
     const period = event.payload.period ? String(event.payload.period) : fallback.period;
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
+    const periodEnd = isValidIsoInstant(event.payload.periodEnd) ? event.payload.periodEnd : fallback.periodEnd.toISOString();
     return { entityId: event.tenantId, raw: { period, periodEnd } };
   },
 
