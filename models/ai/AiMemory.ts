@@ -1,7 +1,15 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import type { AiModule } from "./ChatHistory";
 
-export type AiMemoryScope = "global" | AiModule;
+/** "ai_nl_session" (Chunk 9, Part D — docs/ai/BRIEF-09-VERIFICATION.md) holds AI-NL's per-
+ *  conversation working memory (result sets, pending clarification/proposal, applied modifiers —
+ *  see lib/aiRuntime/nl/conversationMemory.ts). Deliberately NOT added to
+ *  `app/api/ai/memory/route.ts`'s own `VALID_SCOPES` array (a separate, hand-maintained list, not
+ *  derived from this one) — that route is a generic user-facing "remember this fact" surface with
+ *  no `userId` dimension, and session state must never be listable/overwritable through it. This
+ *  is "extend an existing model," not "build a third store": same collection, a scope value the
+ *  generic memory API simply never validates. */
+export type AiMemoryScope = "global" | "ai_nl_session" | AiModule;
 
 export interface IAiMemory extends Document {
   tenantId: string;
@@ -13,6 +21,7 @@ export interface IAiMemory extends Document {
 
 const AI_MEMORY_SCOPES: AiMemoryScope[] = [
   "global",
+  "ai_nl_session",
   "admin",
   "finance",
   "hr",

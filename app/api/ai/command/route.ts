@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
@@ -7,13 +8,87 @@ import { runCombinedSearch } from "@/lib/search/universalSearch";
 import { COMMAND_ACTIONS, COMMAND_ACTION_TYPES, CommandActionError, isCommandAction } from "@/lib/ai/commandActions";
 import { resolveNavDestination, topNavSuggestions } from "@/lib/ai/navRoutes";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
+import AiWorkflowRun from "@/models/ai/AiWorkflowRun";
 import CrmLead from "@/models/crm/Lead";
 import CrmOpportunity from "@/models/crm/Opportunity";
 import { calculateForecast } from "@/lib/crm/forecast";
 import { resolveWorkflowIntentCheap, unmatchedResponse } from "@/lib/aiRuntime/nl/resolveIntent";
 import { handleWorkflowIntent } from "@/lib/aiRuntime/nl/workflowChatHandler";
+import { resolveReference } from "@/lib/aiRuntime/nl/resolveReference";
+import { loadSession, saveSession, recordTurn, rememberResultSet, clearPending, clearClarification, clearProposal, type AiNlSessionState, type AiNlResultItem } from "@/lib/aiRuntime/nl/conversationMemory";
 import { listWorkflows } from "@/lib/aiRuntime/runtime/registry";
 import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
+import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
+
+/**
+ * Conversational memory (Chunk 9, Part D — docs/ai/BRIEF-09-VERIFICATION.md). `finalize()` is the
+ * single place every response passes through: records the assistant's turn, remembers a fresh
+ * result set when a response carries citations (the ONLY thing a later "the second one"/"that
+ * one" reference is allowed to resolve against — see resolveReference.ts), tracks/clears a
+ * pending proposal, and attaches `conversationId` so the client can carry it to the next turn.
+ * Every existing branch's own response shape is untouched — this only wraps it.
+ */
+async function finalize(res: NextResponse, priorSession: AiNlSessionState, opts?: { preserveClarification?: boolean }): Promise<NextResponse> {
+  const body = await res.clone().json().catch(() => ({}) as Record<string, unknown>);
+  let updated = recordTurn(priorSession, "assistant", String((body as any).message ?? ""));
+
+  const citations = (body as any).citations;
+  const workflowId = (body as any).workflowId;
+  if (Array.isArray(citations) && citations.length > 0 && workflowId) {
+    const items: AiNlResultItem[] = citations.map((c: any) => ({ id: String(c.ref), model: String(c.kind), label: String(c.label) }));
+    updated = rememberResultSet(updated, String(workflowId), items, (body as any).resultRef ? String((body as any).resultRef) : undefined);
+  }
+
+  if (!opts?.preserveClarification) updated = clearClarification(updated);
+
+  if ((body as any).action === "confirm" && (body as any).proposalId) {
+    updated = {
+      ...updated,
+      pendingProposal: {
+        proposalId: String((body as any).proposalId),
+        workflowId: String(workflowId ?? (body as any).actionType ?? "unknown"),
+        summary: String((body as any).summary ?? (body as any).message ?? ""),
+        createdAt: new Date().toISOString(),
+      },
+    };
+  } else {
+    updated = clearProposal(updated);
+  }
+
+  await saveSession(updated);
+  return NextResponse.json({ ...(body as object), conversationId: priorSession.conversationId }, { status: res.status });
+}
+
+/** D.2's "meta" reference type ("why did it flag that", "tell me more about that one") — answers
+ *  from the SAME run's own findings, never the model's own recollection. The remembered item's id
+ *  is looked up against that run's real `subjectRefs`, so this can only ever surface a finding
+ *  this tenant's own workflow run actually produced. */
+async function explainRememberedItem(tenantId: string, session: AiNlSessionState, item: AiNlResultItem): Promise<{ message: string; citations: { kind: string; ref: string; label: string }[] }> {
+  await connectDB();
+  const runId = session.resultSet?.runId;
+  if (runId) {
+    const run = await AiWorkflowRun.findOne({ _id: runId, tenantId }).lean();
+    const match = run?.findings?.find((f: any) => (f.subjectRefs || []).some((r: any) => String(r.id) === item.id && r.model === item.model));
+    if (match) {
+      const lines = [`${match.title}: ${match.detail}`];
+      if (Array.isArray(match.reasonChain) && match.reasonChain.length) lines.push(...match.reasonChain.map((r: string) => `- ${r}`));
+      return { message: lines.join("\n"), citations: (match.evidence || []).map((e: any) => ({ kind: e.kind, ref: e.ref, label: e.label })) };
+    }
+  }
+  return { message: `Here's what I have on ${item.label}: it was part of the last ${session.resultSet?.workflowId ?? "workflow"} result, but I don't have further detail recorded for it.`, citations: [] };
+}
+
+/** D.2's "undo" reference type — rejects the remembered pending proposal, same operation as the
+ *  explicit reject button (`app/api/ai/command/actions/[id]/reject/route.ts`), reachable from chat. */
+async function undoPendingProposal(tenantId: string, session: AiNlSessionState): Promise<string> {
+  if (!session.pendingProposal) return "There's nothing pending to undo.";
+  await connectDB();
+  const proposal = await AiCommandProposal.findOne({ _id: session.pendingProposal.proposalId, tenantId });
+  if (!proposal || proposal.status !== AI_ACTION_STATUS.PROPOSED) return "That proposal is no longer pending — nothing to undo.";
+  proposal.status = AI_ACTION_STATUS.REJECTED;
+  await proposal.save();
+  return `Cancelled: ${session.pendingProposal.summary}`;
+}
 
 /**
  * AI Command Center dispatcher.
@@ -52,22 +127,63 @@ export async function POST(req: NextRequest) {
     const role = ((session.user as any).role || "").toLowerCase();
     const userId = String((session.user as any).id ?? "");
 
-    const { command, context } = await req.json();
+    const { command, context, conversationId: incomingConversationId } = await req.json();
     if (!command) return NextResponse.json({ error: "No command provided" }, { status: 400 });
+
+    // Chunk 9, Part D — conversational memory. A fresh conversationId is minted on the first turn
+    // and echoed back in every response; the client carries it forward so the next turn's
+    // resolveReference() has something to resolve against. Loading/permission is re-derived fresh
+    // every turn from this request's own tenantId/userId (D.4) — nothing here widens what the
+    // session can see beyond what THIS request is already allowed to touch.
+    const conversationId: string = typeof incomingConversationId === "string" && incomingConversationId ? incomingConversationId : randomUUID();
+    let nlSession = await loadSession(tenantId, userId, conversationId);
+    nlSession = recordTurn(nlSession, "user", String(command));
+
+    // Reference resolution (D.2) — tried BEFORE any fresh-intent classification, and only ever
+    // does anything if the session actually has a result set/pending state to resolve against
+    // (resolveReference short-circuits to "not_a_reference" for free otherwise). A resolved
+    // reference always continues through the exact same handleWorkflowIntent() path a fresh
+    // command would use — never a shortcut that skips the autonomy gate.
+    const reference = await resolveReference(tenantId, command, nlSession);
+    if (reference.type === "explain_item" && reference.item) {
+      const { message, citations } = await explainRememberedItem(tenantId, nlSession, reference.item);
+      return finalize(NextResponse.json({ action: "explain", message, citations, workflowId: nlSession.resultSet?.workflowId }), nlSession);
+    }
+    if (reference.type === "undo") {
+      const message = await undoPendingProposal(tenantId, nlSession);
+      return finalize(NextResponse.json({ action: "explain", message }), clearPending(nlSession));
+    }
+    if (reference.type === "clarify" && reference.question) {
+      const withClarification: AiNlSessionState = {
+        ...nlSession,
+        pendingClarification: {
+          question: reference.question,
+          forWorkflowId: nlSession.resultSet?.workflowId ?? nlSession.pendingClarification?.forWorkflowId ?? "",
+          forEventKey: nlSession.pendingClarification?.forEventKey ?? "ai.sweep.hourly",
+          forParameters: nlSession.pendingClarification?.forParameters ?? {},
+          askedAt: new Date().toISOString(),
+        },
+      };
+      return finalize(NextResponse.json({ action: "clarify", message: reference.question }), withClarification, { preserveClarification: true });
+    }
+    if (reference.type === "rerun" && reference.workflowId) {
+      const result = await handleWorkflowIntent(tenantId, userId, reference.workflowId, reference.eventKey ?? "ai.sweep.hourly", reference.parameters ?? {});
+      return finalize(NextResponse.json({ ...result, resolvedBy: "reference" }), nlSession);
+    }
 
     // Layer 1/2 — cheap, deterministic, no LLM call (docs/ai/BRIEF-08b-FINAL.md B.1).
     bootstrapAiRuntime();
     const cheapMatch = resolveWorkflowIntentCheap(command);
     if (cheapMatch) {
       if (cheapMatch.alternatives.length > 0) {
-        return NextResponse.json({
+        return finalize(NextResponse.json({
           action: "clarify",
           message: `Did you mean ${cheapMatch.workflowId}, or one of: ${cheapMatch.alternatives.join(", ")}? Please say which.`,
           resolvedBy: cheapMatch.resolvedBy,
-        });
+        }), nlSession);
       }
       const result = await handleWorkflowIntent(tenantId, userId, cheapMatch.workflowId, cheapMatch.eventKey, cheapMatch.parameters);
-      return NextResponse.json({ ...result, resolvedBy: cheapMatch.resolvedBy });
+      return finalize(NextResponse.json({ ...result, resolvedBy: cheapMatch.resolvedBy }), nlSession);
     }
 
     const registeredWorkflowIds = listWorkflows().map((w) => w.id);
@@ -105,14 +221,14 @@ Return ONLY JSON (no markdown):
 
     // strictNullChecks is off in this project — narrow on "text" in result.
     if (!("text" in result)) {
-      return NextResponse.json({ error: result.error, code: result.code, action: "unknown" }, { status: 403 });
+      return finalize(NextResponse.json({ error: result.error, code: result.code, action: "unknown" }, { status: 403 }), nlSession);
     }
 
     let parsed: any;
     try {
       parsed = JSON.parse(result.text.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim());
     } catch {
-      return NextResponse.json({ action: "unknown", message: "I didn't quite understand that command." });
+      return finalize(NextResponse.json({ action: "unknown", message: "I didn't quite understand that command." }), nlSession);
     }
 
     switch (parsed.intent) {
@@ -122,47 +238,47 @@ Return ONLY JSON (no markdown):
         // "go to leads" resolves even if the model omits "destination".
         const dest = resolveNavDestination(parsed.destination || parsed.url || parsed.searchTerm || command);
         if (dest) {
-          return NextResponse.json({ action: "navigate", url: dest.href, message: `Opening ${dest.title}…` });
+          return finalize(NextResponse.json({ action: "navigate", url: dest.href, message: `Opening ${dest.title}…` }), nlSession);
         }
         // No confident match → offer a search instead of navigating somewhere wrong.
         const { results } = await runCombinedSearch(tenantId, role, parsed.searchTerm || command, { semantic: true });
         if (results.length) {
-          return NextResponse.json({ action: "search", results, message: `I couldn't find a page called that, but here are matching records.` });
+          return finalize(NextResponse.json({ action: "search", results, message: `I couldn't find a page called that, but here are matching records.` }), nlSession);
         }
-        return NextResponse.json({ action: "unknown", message: `I couldn't find that page. I can open pages like: ${topNavSuggestions().join(", ")}.` });
+        return finalize(NextResponse.json({ action: "unknown", message: `I couldn't find that page. I can open pages like: ${topNavSuggestions().join(", ")}.` }), nlSession);
       }
 
       case "search": {
         // Natural-language commands benefit most from the semantic layer.
         const { results } = await runCombinedSearch(tenantId, role, parsed.searchTerm || command, { semantic: true });
-        return NextResponse.json({
+        return finalize(NextResponse.json({
           action: "search",
           results,
           message: results.length ? `Found ${results.length} result(s) for "${parsed.searchTerm}".` : `No results for "${parsed.searchTerm}".`,
-        });
+        }), nlSession);
       }
 
       case "explain_report":
-        return await explainReport(tenantId, tier, aiSettings, parsed.reportType || "pipeline", command);
+        return finalize(await explainReport(tenantId, tier, aiSettings, parsed.reportType || "pipeline", command), nlSession);
 
       case "action":
-        return await proposeAction(tenantId, session.user.id, role, parsed.actionType, parsed.actionParams || {});
+        return finalize(await proposeAction(tenantId, session.user.id, role, parsed.actionType, parsed.actionParams || {}), nlSession);
 
       case "batch":
-        return await proposeBatch(tenantId, session.user.id, role, parsed.actions || []);
+        return finalize(await proposeBatch(tenantId, session.user.id, role, parsed.actions || []), nlSession);
 
       case "workflow": {
         if (!parsed.workflowId || !registeredWorkflowIds.includes(parsed.workflowId)) {
           const fallback = unmatchedResponse(command);
-          return NextResponse.json({ action: "unknown", message: fallback.message, suggestions: fallback.suggestions });
+          return finalize(NextResponse.json({ action: "unknown", message: fallback.message, suggestions: fallback.suggestions }), nlSession);
         }
         const result = await handleWorkflowIntent(tenantId, userId, parsed.workflowId, "ai.sweep.hourly", {});
-        return NextResponse.json({ ...result, resolvedBy: "llm" });
+        return finalize(NextResponse.json({ ...result, resolvedBy: "llm" }), nlSession);
       }
 
       default: {
         const fallback = unmatchedResponse(command);
-        return NextResponse.json({ action: "unknown", message: parsed.message || fallback.message, suggestions: fallback.suggestions });
+        return finalize(NextResponse.json({ action: "unknown", message: parsed.message || fallback.message, suggestions: fallback.suggestions }), nlSession);
       }
     }
   } catch (error: any) {

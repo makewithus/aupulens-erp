@@ -464,9 +464,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: q, context: { pathname: typeof window !== "undefined" ? window.location.pathname : "" } }),
+        body: JSON.stringify({ command: q, context: { pathname: typeof window !== "undefined" ? window.location.pathname : "" }, conversationId }),
       });
       const data = await res.json().catch(() => ({}));
+      if (data.conversationId && data.conversationId !== conversationId) setConversationId(data.conversationId);
       if (res.ok && data.action === "confirm" && data.proposalId) {
         setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.summary || data.message || "Confirm to proceed.", proposal: { proposalId: data.proposalId, destructive: !!data.destructive, status: "pending" } }]);
         setIsLoading(false);
