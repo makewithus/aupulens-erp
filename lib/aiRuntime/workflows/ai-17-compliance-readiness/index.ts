@@ -37,6 +37,19 @@ function currentPeriod(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md Part B): an
+// unvalidated event.payload.period on `period.horizon.reached` reaches
+// computeReadiness.ts's periodEndOf()/`period.split("-").map(Number)` as NaN, producing an
+// Invalid Date `deadline`. That doesn't throw immediately (no Mongoose Date-typed query uses it —
+// AiTaxTransaction is queried by the string `periodKey`, not a Date field) but a monthly
+// obligation still gets scored (obligationDueThisPeriod() returns true for "monthly" regardless
+// of month), and this workflow's own reason() step then calls
+// `o.deadline.toISOString().slice(0, 10)` on that Invalid Date — `Invalid Date.toISOString()`
+// throws a RangeError, an uncaught exception on a tenant with any compliance profile configured
+// (confirmed by direct reproduction in this pass). Only a MISSING field was guarded before
+// (`event.payload.period ? ... : currentPeriod()`); a present-but-malformed string was not.
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 export const ai17ComplianceReadiness: WorkflowDefinition<Ai17Raw, Ai17Extracted, Ai17Proposal> = {
   id: "AI-17",
   version: "1.0.0",
@@ -49,7 +62,8 @@ export const ai17ComplianceReadiness: WorkflowDefinition<Ai17Raw, Ai17Extracted,
   },
 
   async observe(event): Promise<ObservedResult<Ai17Raw>> {
-    const period = event.payload.period ? String(event.payload.period) : currentPeriod();
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriod();
     return { entityId: event.tenantId, raw: { period } };
   },
 

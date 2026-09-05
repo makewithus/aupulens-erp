@@ -34,11 +34,16 @@ interface Ai13Proposal {
   computation: CloseReadinessComputation;
 }
 
-function currentPeriod(): { period: string; periodEnd: Date } {
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function currentPeriodString(): string {
   const now = new Date();
-  const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
-  return { period, periodEnd };
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function periodEndOf(period: string): Date {
+  const [y, m] = period.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0, 23, 59, 59));
 }
 
 export const ai13DayZeroClose: WorkflowDefinition<Ai13Raw, Ai13Extracted, Ai13Proposal> = {
@@ -55,9 +60,14 @@ export const ai13DayZeroClose: WorkflowDefinition<Ai13Raw, Ai13Extracted, Ai13Pr
   },
 
   async observe(event): Promise<ObservedResult<Ai13Raw>> {
-    const fallback = currentPeriod();
-    const period = event.payload.period ? String(event.payload.period) : fallback.period;
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
+    // A missing or malformed period must never reach periodEndOf() as a literal "undefined" or
+    // arbitrary string — that produced Date.UTC(NaN, ...) → an Invalid Date → an uncaught
+    // Mongoose CastError thrown out of computeCloseReadiness() (a real bug found in this pass,
+    // see this workflow's own verification record §9). periodEnd is always derived from the
+    // validated period, never trusted from the payload directly, so the two can never disagree.
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriodString();
+    const periodEnd = periodEndOf(period).toISOString();
     return { entityId: event.tenantId, raw: { period, periodEnd } };
   },
 

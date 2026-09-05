@@ -29,6 +29,8 @@ interface Ai21Proposal {
   incomeStatement: AnnotatedStatement;
 }
 
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 function currentPeriod(): string {
   const now = new Date();
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -46,7 +48,14 @@ export const ai21StatementIntelligence: WorkflowDefinition<Ai21Raw, Ai21Extracte
   },
 
   async observe(event): Promise<ObservedResult<Ai21Raw>> {
-    const period = event.payload.period ? String(event.payload.period) : currentPeriod();
+    // A missing or malformed period must never reach annotateStatement()'s monthBounds() as a
+    // literal "undefined" or arbitrary string — that produces Date.UTC(NaN, ...) → an Invalid
+    // Date → an uncaught Mongoose CastError on JournalEntry.find() (a real bug found in this
+    // pass, see this workflow's own verification record §9). "This period" (the current
+    // calendar month, UTC) is the correct, non-invented default for a statement run triggered
+    // with no explicit period.
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : currentPeriod();
     return { entityId: event.tenantId, raw: { period } };
   },
 

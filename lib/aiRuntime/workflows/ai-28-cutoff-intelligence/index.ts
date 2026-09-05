@@ -71,6 +71,17 @@ function currentPeriodEnd(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
 }
 
+// Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md, cross-workflow
+// check): a missing OR malformed `event.payload.periodEnd` must never reach extract()'s
+// `new Date(observed.raw.periodEnd)` as an un-parseable string — that produced an Invalid Date,
+// which Invoice.find()'s Mongoose cast then throws on as an uncaught CastError (reproduced
+// directly in this pass — see this workflow's own verification record §9). Unlike AI-14/AI-25,
+// AI-28's payload carries a full ISO instant (`periodEnd`), not a "YYYY-MM" period string, so the
+// guard validates parseability directly rather than a regex shape.
+function isValidIsoInstant(raw: unknown): raw is string {
+  return typeof raw === "string" && raw.length > 0 && !Number.isNaN(new Date(raw).getTime());
+}
+
 export const ai28CutoffIntelligence: WorkflowDefinition<Ai28Raw, Ai28Extracted, Ai28Proposal> = {
   id: "AI-28",
   version: "1.0.0",
@@ -83,7 +94,7 @@ export const ai28CutoffIntelligence: WorkflowDefinition<Ai28Raw, Ai28Extracted, 
   },
 
   async observe(event): Promise<ObservedResult<Ai28Raw>> {
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : currentPeriodEnd().toISOString();
+    const periodEnd = isValidIsoInstant(event.payload.periodEnd) ? event.payload.periodEnd : currentPeriodEnd().toISOString();
     return { entityId: event.tenantId, raw: { periodEnd } };
   },
 
