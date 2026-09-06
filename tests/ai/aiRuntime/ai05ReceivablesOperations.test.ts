@@ -186,7 +186,7 @@ describe("AI-05 — Receivables operations", () => {
     const payment = await makeDraftPayment(String(customer._id), 850); // 85% — inside the short-payment band
     await AiWorkflowPolicy.create({ tenantId: TENANT, workflowId: "AI-05", killSwitchEnabled: true, maxAutonomyLevel: "draft" });
 
-    await runAi05();
+    const envelope = await runAi05();
 
     const updated = await Payment.findById(payment._id).lean();
     expect(updated!.allocations.length).toBe(0); // no false allocation
@@ -195,6 +195,13 @@ describe("AI-05 — Receivables operations", () => {
     const dispute = await AiDispute.findOne({ tenantId: TENANT, subjectModel: "SalesInvoice", subjectId: inv._id }).lean();
     expect(dispute).not.toBeNull();
     expect(dispute!.status).toBe(AI_DISPUTE_STATUS.OPEN);
+
+    // Regression (same class as AI-29's fixed bug, docs/ai/verification/AI-29.md §9): act() used
+    // to ALSO call create_task explicitly for this exact event, on top of the executor's own
+    // generic per-EXCEPTION-finding escalation — two different dedupeKey formats, two rows for
+    // one logical event. Exactly one now.
+    const items = await AiAttentionItem.find({ tenantId: TENANT, workflowId: "AI-05", runId: envelope.runId }).lean();
+    expect(items).toHaveLength(1);
   });
 
   it("overpayment becomes credit on account, not a forced match", async () => {

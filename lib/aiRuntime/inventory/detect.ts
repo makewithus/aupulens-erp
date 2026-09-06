@@ -295,19 +295,36 @@ export interface SlowMovingFinding {
 const STALE_MOVEMENT_DAYS = 180;
 const EXPIRY_WARNING_DAYS = 30;
 
+// Chunk 10 (P0.3, docs/ai/BRIEF-10-PRE-QA.md): this used to run TWO round trips (Stock.findOne,
+// Product.findOne) per distinct product — found and fixed while re-verifying this pass's own
+// P0.3 claim that this function was already bulk (it wasn't). Root-cause fix: one aggregation
+// gets each product's own latest stock-movement timestamp in a single pass; one bulk Product.find
+// resolves names for only the products that actually turn out stale.
 export async function detectSlowMoving(tenantId: string): Promise<SlowMovingFinding[]> {
   await connectDB();
   const findings: SlowMovingFinding[] = [];
   const now = Date.now();
 
-  const productIds: mongoose.Types.ObjectId[] = await Stock.distinct("product", { tenantId });
-  for (const productId of productIds) {
-    const latest = await Stock.findOne({ tenantId, product: productId }).sort({ createdAt: -1 }).lean();
-    if (!latest) continue;
-    const ageDays = Math.floor((now - new Date((latest as unknown as StockLeanWithTimestamps).createdAt).getTime()) / (24 * 60 * 60 * 1000));
+  const latestByProduct = await Stock.aggregate([
+    { $match: { tenantId } },
+    { $group: { _id: "$product", latestCreatedAt: { $max: "$createdAt" } } },
+  ]);
+  const staleProductIds: mongoose.Types.ObjectId[] = [];
+  const ageDaysByProduct = new Map<string, number>();
+  for (const row of latestByProduct) {
+    const ageDays = Math.floor((now - new Date(row.latestCreatedAt).getTime()) / (24 * 60 * 60 * 1000));
     if (ageDays >= STALE_MOVEMENT_DAYS) {
-      const product = await Product.findOne({ _id: productId, tenantId }).select("header").lean();
-      findings.push({ productId: String(productId), productName: product?.header?.name ?? "", what: "no_recent_movement", detail: `no stock movement in ${ageDays} day(s)` });
+      staleProductIds.push(row._id);
+      ageDaysByProduct.set(String(row._id), ageDays);
+    }
+  }
+  if (staleProductIds.length > 0) {
+    const products = await Product.find({ tenantId, _id: { $in: staleProductIds } }).select("header").lean();
+    const productById = new Map(products.map((p) => [String(p._id), p]));
+    for (const productId of staleProductIds) {
+      const key = String(productId);
+      const product = productById.get(key);
+      findings.push({ productId: key, productName: product?.header?.name ?? "", what: "no_recent_movement", detail: `no stock movement in ${ageDaysByProduct.get(key)} day(s)` });
     }
   }
 
@@ -330,45 +347,56 @@ export interface MarginByProduct {
   priorMarginPercent: number | null;
 }
 
-async function marginForPeriod(tenantId: string, productId: string, start: Date, end: Date, costByProduct: Map<string, number>): Promise<number | null> {
-  const invoices = await Invoice.find({ tenantId, moveType: "out_invoice", invoiceDate: { $gte: start, $lte: end }, state: { $ne: "cancelled" } })
-    .select("invoiceLines")
-    .lean();
-  let revenue = 0;
-  let units = 0;
-  for (const inv of invoices) {
-    for (const line of inv.invoiceLines ?? []) {
-      if (String((line as { productId?: unknown }).productId) !== productId) continue;
-      revenue += (line as { priceSubtotal?: number }).priceSubtotal ?? 0;
-      units += (line as { quantity?: number }).quantity ?? 0;
-    }
-  }
-  if (revenue <= 0 || units <= 0) return null;
-  const cost = costByProduct.get(productId) ?? 0;
-  const estimatedCogs = units * cost;
-  return round2(((revenue - estimatedCogs) / revenue) * 100);
+/** One bulk aggregation for an entire period, grouped by product — replaces what used to be a
+ *  separate `Invoice.find()` PER PRODUCT that re-scanned the whole period's invoice set every
+ *  time (see `computeMarginByProduct`'s own fix note below). */
+async function revenueAndUnitsByProduct(tenantId: string, start: Date, end: Date): Promise<Map<string, { revenue: number; units: number }>> {
+  const rows = await Invoice.aggregate([
+    { $match: { tenantId, moveType: "out_invoice", invoiceDate: { $gte: start, $lte: end }, state: { $ne: "cancelled" } } },
+    { $unwind: "$invoiceLines" },
+    { $group: { _id: "$invoiceLines.productId", revenue: { $sum: "$invoiceLines.priceSubtotal" }, units: { $sum: "$invoiceLines.quantity" } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), { revenue: r.revenue as number, units: r.units as number }]));
+}
+
+function marginFromTotals(totals: { revenue: number; units: number } | undefined, cost: number): number | null {
+  if (!totals || totals.revenue <= 0 || totals.units <= 0) return null;
+  const estimatedCogs = totals.units * cost;
+  return round2(((totals.revenue - estimatedCogs) / totals.revenue) * 100);
 }
 
 /** Estimated, not exact — no real COGS-on-fulfillment posting path exists anywhere in this
  *  codebase (confirmed by research, docs/ai/SYSTEM_INVENTORY.md), so this uses
  *  `Product.tab_general_information.standard_price` × units sold as the cost estimate. Documented
- *  as an estimate throughout, never presented as a real posted figure. */
+ *  as an estimate throughout, never presented as a real posted figure.
+ *
+ *  Chunk 10 (P0.3, docs/ai/BRIEF-10-PRE-QA.md / docs/ai/verification/AI-11.md §9): this used to
+ *  call a per-product `marginForPeriod()` TWICE (current + prior month) for EVERY product, and
+ *  each call re-ran a full-period `Invoice.find()` with no productId filter — an O(products ×
+ *  invoices-in-period) shape, the worst of AI-11's four detectors. Root-cause fix: one bulk
+ *  aggregation per period (current, prior), grouped by product server-side, regardless of how
+ *  many products exist — 2 round trips total instead of up to 2×N. */
 export async function computeMarginByProduct(tenantId: string, now: Date = new Date()): Promise<MarginByProduct[]> {
   await connectDB();
   const products = await Product.find({ tenantId }).select("header tab_general_information").lean();
-  const costByProduct = new Map(products.map((p) => [String(p._id), p.tab_general_information?.standard_price ?? 0]));
 
   const curStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const curEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
   const priorStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
   const priorEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59, 999));
 
+  const [currentByProduct, priorByProduct] = await Promise.all([
+    revenueAndUnitsByProduct(tenantId, curStart, curEnd),
+    revenueAndUnitsByProduct(tenantId, priorStart, priorEnd),
+  ]);
+
   const results: MarginByProduct[] = [];
   for (const p of products) {
     const productId = String(p._id);
-    const currentMarginPercent = await marginForPeriod(tenantId, productId, curStart, curEnd, costByProduct);
+    const cost = p.tab_general_information?.standard_price ?? 0;
+    const currentMarginPercent = marginFromTotals(currentByProduct.get(productId), cost);
     if (currentMarginPercent === null) continue;
-    const priorMarginPercent = await marginForPeriod(tenantId, productId, priorStart, priorEnd, costByProduct);
+    const priorMarginPercent = marginFromTotals(priorByProduct.get(productId), cost);
     results.push({ productId, productName: p.header?.name ?? "", currentMarginPercent, priorMarginPercent });
   }
   return results;

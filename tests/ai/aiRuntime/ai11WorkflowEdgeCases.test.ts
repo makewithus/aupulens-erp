@@ -126,6 +126,45 @@ describe("AI-11 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     expect(elapsedMs, "AI-11's per-product detectors are documented as N+1 in the verification record — measured honestly here, not asserted to an unrealistic bound").toBeLessThan(60000);
   }, 90000);
 
+  // ── C.1 Large volume: computeMarginByProduct with REAL invoice load (Chunk 10, P0.3) ────────
+  // The previous large-volume test above never stressed computeMarginByProduct's own worst-case
+  // path — it seeded no invoices at all, so marginForPeriod's per-product Invoice.find() never
+  // actually ran. This test proves the FIXED shape (one bulk aggregation per period, not one
+  // full-period Invoice.find() re-scanned per product) at a real scale with real invoice volume.
+  it("large volume: computeMarginByProduct resolves 2,000 products against 4,000 real invoices via bulk aggregation, not a per-product scan (C.1 Large; regression for the N+1 fixed in this pass)", async () => {
+    const customer = await Customer.create({ tenantId: TENANT, header: { name: "Bulk Margin Customer", is_company: true }, createdBy: CREATOR });
+    const products = Array.from({ length: 2000 }, (_, i) => ({
+      tenantId: TENANT,
+      header: { name: `Margin Product ${i}`, sale_ok: true, purchase_ok: true, can_be_expensed: false },
+      tab_general_information: { type: "consu", invoice_policy: "order", service_upsell: false, list_price: 100, taxes_id: [], standard_price: 40 },
+      createdBy: CREATOR,
+    }));
+    const inserted = await Product.insertMany(products);
+    const now = new Date();
+    // Two invoices per product this month (current-period margin becomes computable), one last
+    // month (prior-period margin also computable) — 4,000 invoice documents total.
+    const invoices = inserted.flatMap((p, i) => [
+      { tenantId: TENANT, name: `MARGIN-CUR-A-${i}`, partnerId: customer._id, moveType: "out_invoice", state: "posted", invoiceDate: now, dueDate: now, invoiceLines: [{ productId: p._id, name: "line", priceSubtotal: 100, quantity: 1, priceUnit: 100 }], amountUntaxed: 100, amountTax: 0, amountTotal: 100, amountResidual: 0, paymentState: "paid" },
+      { tenantId: TENANT, name: `MARGIN-PRIOR-${i}`, partnerId: customer._id, moveType: "out_invoice", state: "posted", invoiceDate: new Date(now.getFullYear(), now.getMonth() - 1, 15), dueDate: now, invoiceLines: [{ productId: p._id, name: "line", priceSubtotal: 100, quantity: 1, priceUnit: 100 }], amountUntaxed: 100, amountTax: 0, amountTotal: 100, amountResidual: 0, paymentState: "paid" },
+    ]);
+    await Invoice.insertMany(invoices);
+
+    const { computeMarginByProduct } = await import("@/lib/aiRuntime/inventory/detect");
+    const start = Date.now();
+    const margins = await computeMarginByProduct(TENANT, now);
+    const elapsedMs = Date.now() - start;
+    // eslint-disable-next-line no-console
+    console.log(`AI-11 computeMarginByProduct (2,000 products, 4,000 invoices): ${elapsedMs}ms`);
+
+    expect(margins).toHaveLength(2000);
+    // revenue 100, cost 40 * 1 unit -> (100-40)/100 * 100 = 60% margin, both periods identical.
+    expect(margins[0].currentMarginPercent).toBe(60);
+    expect(margins[0].priorMarginPercent).toBe(60);
+    // A bulk, 2-round-trip aggregation resolves this in well under a second on any real hardware;
+    // generous ceiling for this shared dev box's own documented contention (docs/ai/UI_REGRESSION.md).
+    expect(elapsedMs, "computeMarginByProduct must not re-scan the invoice set per product").toBeLessThan(15000);
+  }, 30000);
+
   // ── C.1 Null/missing + malformed ───────────────────────────────────────────────────────────
   it("null/missing fields and malformed data (no warehouse, HTML/unicode product name, zero standard_price) never crash the scan", async () => {
     await makeAccount("asset_current", "1300b");

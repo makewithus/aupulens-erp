@@ -280,4 +280,22 @@ describe("AI-11 — Inventory / COGS intelligence", () => {
       .filter((line) => !/AiInventoryFinding/.test(line));
     expect(forbiddenWrites).toEqual([]);
   });
+
+  // Regression for the N+1 fixed in this pass (docs/ai/BRIEF-10-PRE-QA.md P0.3, found while
+  // re-verifying this pass's own claim that detectSlowMoving was already bulk — it wasn't:
+  // Stock.findOne + Product.findOne per distinct product, now one aggregation + one bulk find.
+  it("detectSlowMoving: a product with no movement in 180+ days is flagged; one with recent movement is not", async () => {
+    const stale = await makeProduct("Stale Mover", 50);
+    await Stock.create({ tenantId: TENANT, product: stale._id, quantity: 5, type: "in", reference: "OLD-MOVE", createdAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000) });
+    const fresh = await makeProduct("Fresh Mover", 50);
+    await Stock.create({ tenantId: TENANT, product: fresh._id, quantity: 5, type: "in", reference: "RECENT-MOVE", createdAt: new Date() });
+
+    const { detectSlowMoving } = await import("@/lib/aiRuntime/inventory/detect");
+    const findings = await detectSlowMoving(TENANT);
+    const staleFinding = findings.find((f) => f.productId === String(stale._id));
+    expect(staleFinding).toBeDefined();
+    expect(staleFinding!.productName).toBe("Stale Mover");
+    expect(staleFinding!.what).toBe("no_recent_movement");
+    expect(findings.some((f) => f.productId === String(fresh._id))).toBe(false);
+  });
 });

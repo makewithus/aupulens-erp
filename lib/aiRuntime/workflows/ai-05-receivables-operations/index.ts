@@ -434,21 +434,14 @@ export const ai05ReceivablesOperations: WorkflowDefinition<Ai05Raw, Ai05Extracte
             { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE, idempotencyKey: `ai-05-dispute:${c.disputeInvoiceId}:${c.paymentId}` },
           );
           actionsTaken.push({ tool: "open_dispute", args: { invoiceId: c.disputeInvoiceId, paymentId: c.paymentId }, reversible: true });
-          await rt.callTool(
-            "create_task",
-            {
-              tenantId: ctx.tenantId,
-              workflowId: "AI-05",
-              runId: rt.runId,
-              priority: "high",
-              what: `Short payment on invoice ${c.disputeInvoiceNumber}`,
-              why: `Payment ${c.paymentNumber} received ₹${c.unusedAmount}, less than the invoice's outstanding balance — reminder sequence stopped for this invoice`,
-              dedupeKey: `ai05-dispute:${ctx.tenantId}:${c.disputeInvoiceId}`,
-              impactAmount: c.unusedAmount,
-              evidence: [{ kind: "record", ref: c.paymentId, label: c.paymentNumber }],
-            },
-            { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
-          );
+          // Chunk 10 (P0.6 follow-up — same class as AI-29's fixed bug, docs/ai/verification/
+          // AI-29.md §9): an explicit `create_task` used to fire here too, for the exact same
+          // "short_payment" event `reason()` already pushes as an EXCEPTION-type finding
+          // (`ai05-dispute-${c.paymentId}`) — which the executor's own generic per-finding
+          // escalation (executor.ts) ALREADY turns into an attention item, under a DIFFERENT
+          // dedupeKey format (`AI-05:${finding.id}` vs. the removed call's `ai05-dispute:...`).
+          // Two call sites, two keys, two rows for one logical event. Removed; `open_dispute`
+          // itself (the real, distinct action) is unaffected.
         } catch {
           // Dispute already open or transient failure — next sweep retries.
         }
@@ -456,25 +449,11 @@ export const ai05ReceivablesOperations: WorkflowDefinition<Ai05Raw, Ai05Extracte
       }
 
       if (c.type === "no_open_invoices") {
-        try {
-          await rt.callTool(
-            "create_task",
-            {
-              tenantId: ctx.tenantId,
-              workflowId: "AI-05",
-              runId: rt.runId,
-              priority: "medium",
-              what: `Unallocated cash: ${c.paymentNumber}`,
-              why: `₹${c.unusedAmount} received with no open invoices for this customer`,
-              dedupeKey: `ai05-unallocated:${ctx.tenantId}:${c.paymentId}`,
-              impactAmount: c.unusedAmount,
-              evidence: [{ kind: "record", ref: c.paymentId, label: c.paymentNumber }],
-            },
-            { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
-          );
-        } catch {
-          // Best-effort.
-        }
+        // Same class, same fix (see the short_payment branch's comment above): reason() already
+        // pushes this as an EXCEPTION finding (`ai05-unallocated-${c.paymentId}`), which the
+        // executor's generic escalation already turns into an attention item. No tool call
+        // needed here at all — this branch exists only to `continue` past the allocation logic
+        // below for a candidate with nothing to allocate against.
         continue;
       }
 
