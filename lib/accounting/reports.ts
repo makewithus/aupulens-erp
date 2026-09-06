@@ -41,8 +41,19 @@ function getSignedAmount(group: ReportGroup, debit: number, credit: number) {
 }
 
 function toDateEnd(date: Date) {
+  // Chunk 10a addendum, Part 1.2 (three-pinned-date sweep) — this used LOCAL `setHours`, while
+  // every caller in lib/aiRuntime/** builds its period boundaries with `Date.UTC(...)`. On a
+  // server whose TZ is ahead of UTC (this dev box: IST, UTC+5:30), a UTC end-of-day instant like
+  // 2026-01-31T23:59:59.999Z is already 2026-02-01 in local time, so `setHours(23,59,59,999)`
+  // pushed the effective upper bound to 2026-02-01T18:29:59.999Z — silently absorbing up to ~18.5
+  // hours of the NEXT period into "prior period" report queries. Found by pinning wall-clock time
+  // to the 1st of a month and posting a same-instant entry: AI-14's "prior month" query wrongly
+  // included it. Reachable from AI-05/14/21/25 and annotateStatement() (AI-18/21) via
+  // buildPostedJournalReport()/getAccountTransactionDetail()/buildAgedPartnerReport(), plus
+  // several non-AI finance report routes that share this function — `setUTCHours` makes the
+  // boundary match its UTC construction everywhere, independent of server timezone.
   const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
+  end.setUTCHours(23, 59, 59, 999);
   return end;
 }
 
