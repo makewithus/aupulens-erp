@@ -201,8 +201,8 @@ describe("AI-05 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
 
     await runWorkflow(ai05ReceivablesOperations, { tenantId: TENANT, eventKey: "ai.sweep.hourly", payload: { actingUserId: String(new mongoose.Types.ObjectId()) } });
 
-    const atItem = await AiAttentionItem.findOne({ tenantId: TENANT, dedupeKey: `ai05-worklist:${TENANT}:${invAt._id}` }).lean();
-    const underItem = await AiAttentionItem.findOne({ tenantId: TENANT, dedupeKey: `ai05-worklist:${TENANT}:${invUnder._id}` }).lean();
+    const atItem = await AiAttentionItem.findOne({ tenantId: TENANT, dedupeKey: `AI-05:worklist:${TENANT}:${invAt._id}` }).lean();
+    const underItem = await AiAttentionItem.findOne({ tenantId: TENANT, dedupeKey: `AI-05:worklist:${TENANT}:${invUnder._id}` }).lean();
     expect(atItem, "exactly-at-threshold must escalate (>=), not just strictly-over").not.toBeNull();
     expect(underItem).toBeNull();
   });

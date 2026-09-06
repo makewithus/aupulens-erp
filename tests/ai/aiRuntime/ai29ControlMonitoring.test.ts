@@ -270,7 +270,7 @@ describe("AI-29 — Audit / control monitoring", () => {
 
     for (let i = 0; i < 5; i++) await run();
 
-    const designConcernItems = await AiAttentionItem.find({ tenantId: TENANT, workflowId: "AI-29", dedupeKey: "ai29-design-concern-approval_present" }).lean();
+    const designConcernItems = await AiAttentionItem.find({ tenantId: TENANT, workflowId: "AI-29", dedupeKey: "AI-29:design-concern:approval_present" }).lean();
     expect(designConcernItems).toHaveLength(1);
   });
 

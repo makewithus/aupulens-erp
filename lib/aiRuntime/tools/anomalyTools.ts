@@ -3,6 +3,7 @@ import AiAnomaly, { AI_ANOMALY_STATUS } from "@/models/ai/AiAnomaly";
 import AiDetectorHealth from "@/models/ai/AiDetectorHealth";
 import AiAnomalySuppression from "@/models/ai/AiAnomalySuppression";
 import { createAttentionItem } from "@/lib/aiRuntime/attention/attentionEngine";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 import { AI_TOOL_SIDE_EFFECT, AI_AUTONOMY_LEVEL } from "@/lib/constants/statuses";
 import { registerTool } from "@/lib/aiRuntime/tools/registry";
 
@@ -103,7 +104,7 @@ async function reviewAnomaly(args: ReviewAnomalyArgs, outcome: "confirmed" | "di
       priority: "info",
       what: `Detector "${anomaly.detectorId}" auto-disabled`,
       why: `Precision fell to ${precision !== null ? Math.round(precision * 100) : 0}% over ${sampleSize} reviewed anomalies, below the ${Math.round(AI15_PRECISION_FLOOR * 100)}% floor — this detector will not raise further anomalies until re-enabled`,
-      dedupeKey: `ai15-auto-disabled:${args.tenantId}:${anomaly.detectorId}`,
+      dedupeKey: buildDedupeKey("AI-15", "auto-disabled", args.tenantId, anomaly.detectorId),
     });
   }
 

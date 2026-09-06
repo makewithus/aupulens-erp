@@ -271,7 +271,7 @@ describe("AI-15 — Anomaly detection", () => {
     expect(health!.precision).toBeCloseTo(0.25, 2);
     expect(health!.autoDisabled).toBe(true);
 
-    const infoItem = await AiAttentionItem.findOne({ tenantId, dedupeKey: `ai15-auto-disabled:${tenantId}:test_detector_precision` }).lean();
+    const infoItem = await AiAttentionItem.findOne({ tenantId, dedupeKey: `AI-15:auto-disabled:${tenantId}:test_detector_precision` }).lean();
     expect(infoItem).not.toBeNull();
     expect(infoItem!.priority).toBe("info");
   });

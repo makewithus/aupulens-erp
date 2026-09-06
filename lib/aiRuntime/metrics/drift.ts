@@ -2,6 +2,7 @@ import connectDB from "@/lib/db";
 import AiMetricSnapshot from "@/models/ai/AiMetricSnapshot";
 import AiWorkflowRun from "@/models/ai/AiWorkflowRun";
 import { createAttentionItem } from "@/lib/aiRuntime/attention/attentionEngine";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 import { AI_ATTENTION_PRIORITY } from "@/lib/constants/statuses";
 
 /**
@@ -88,7 +89,7 @@ export async function checkDrift(tenantId: string, workflowId: string, now = new
           what: `${f.metric} drift on ${f.workflowId}`,
           why: f.detail,
           evidence: [],
-          dedupeKey: `${workflowId}:drift:${f.metric}:${today.toISOString().slice(0, 10)}`,
+          dedupeKey: buildDedupeKey(workflowId, "drift", f.metric, today.toISOString().slice(0, 10)),
         });
       }
     }

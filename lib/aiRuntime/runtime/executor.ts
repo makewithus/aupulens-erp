@@ -19,6 +19,7 @@ import {
 } from "@/lib/aiRuntime/audit/auditTrace";
 import { recordProposal, recordOutcome } from "@/lib/aiRuntime/learning/learningStore";
 import { createAttentionItem } from "@/lib/aiRuntime/attention/attentionEngine";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 import { toEnvelope, type WorkflowRunEnvelope } from "@/lib/aiRuntime/contracts/outputContract";
 import type {
   ActResult,
@@ -142,7 +143,7 @@ export async function runWorkflow(
         priority: AI_ATTENTION_PRIORITY.MEDIUM,
         what: `${workflow.id} proposal vetoed by deterministic validation`,
         why: validation.vetoReason ?? "the deterministic engine disagreed with the model",
-        dedupeKey: `${workflow.id}:${runId}:veto`,
+        dedupeKey: buildDedupeKey(workflow.id, runId, "veto"),
       });
       await finalizeTrace(traceId, {
         finalOutcome: AI_RUN_STATUS.ESCALATED,
@@ -231,7 +232,7 @@ export async function runWorkflow(
         why: finding.detail || decision.reasons.join("; ") || verifyResult.detail || "escalated",
         evidence: finding.evidence,
         impactAmount: finding.amount,
-        dedupeKey: `${workflow.id}:${finding.id}`,
+        dedupeKey: buildDedupeKey(workflow.id, finding.id),
       });
     }
 

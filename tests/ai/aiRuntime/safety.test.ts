@@ -308,4 +308,17 @@ describe("Part 4.5 safety assertions", () => {
     expect(doc.killSwitchEnabled).toBe(false);
     await AiWorkflowPolicy.deleteMany({ tenantId: TENANT });
   });
+
+  it("✗ a dedupeKey is hand-rolled outside buildDedupeKey() → no `dedupeKey:` template-literal construction exists anywhere in lib/aiRuntime/** except inside lib/aiRuntime/attention/dedupeKey.ts itself (Chunk 10a addendum, Part 3)", () => {
+    // The exact AI-29/AI-05 duplicate-attention-item bug (two call sites building the same
+    // logical key inconsistently) was a CONVENTION, not a guarantee — nothing stopped a new call
+    // site from hand-rolling its own template string. buildDedupeKey() is now the only place a
+    // dedupeKey is assembled; this grep makes it structurally impossible to bypass, the same
+    // "grep the real source" spirit as this file's other checks.
+    const output = execSync(
+      "grep -rn \"dedupeKey: \\`\" lib/aiRuntime --include=*.ts | grep -v \"lib/aiRuntime/attention/dedupeKey.ts\" || true",
+      { cwd: process.cwd(), encoding: "utf-8" },
+    );
+    expect(output.trim(), `found hand-rolled dedupeKey template literal(s) outside buildDedupeKey():\n${output}`).toBe("");
+  });
 });

@@ -14,6 +14,7 @@ import {
   PAYMENT_STATE,
 } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 import "@/models/sales/Customer";
 
 /**
@@ -509,7 +510,7 @@ export const ai05ReceivablesOperations: WorkflowDefinition<Ai05Raw, Ai05Extracte
               priority: entry.overdueDays > 45 ? "high" : "medium",
               what: `Collection risk: ${entry.invoiceNumber} (${entry.customerName})`,
               why: entry.reason,
-              dedupeKey: `ai05-worklist:${ctx.tenantId}:${entry.invoiceId}`,
+              dedupeKey: buildDedupeKey("AI-05", "worklist", ctx.tenantId, entry.invoiceId),
               impactAmount: entry.amountAtRisk,
               evidence: [{ kind: "record", ref: entry.invoiceId, label: entry.invoiceNumber }],
             },

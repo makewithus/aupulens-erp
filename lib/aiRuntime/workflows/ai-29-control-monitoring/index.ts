@@ -3,6 +3,7 @@ import { runAllControlDefinitions } from "@/lib/aiRuntime/controls/engine";
 import type { ControlRunResult } from "@/lib/aiRuntime/controls/types";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 
 /**
  * AI-29 — Audit / control monitoring (docs/ai/BRIEF-07-BATCH-F.md). Internal controls tested
@@ -193,7 +194,7 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
             priority: "high",
             what: `Control design concern: ${c.controlId} is failing ${Math.round(c.failureRate * 100)}% of the time`,
             why: `${c.description} — a persistent failure rate above ${Math.round(DESIGN_CONCERN_FAILURE_RATE * 100)}% suggests a process design problem, not an isolated incident`,
-            dedupeKey: `ai29-design-concern-${c.controlId}`,
+            dedupeKey: buildDedupeKey("AI-29", "design-concern", c.controlId),
           },
           { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
         );

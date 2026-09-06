@@ -8,6 +8,7 @@ import { computeLineVariances, type LineMatchResult, type UnmatchedLine } from "
 import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY, DOCUMENT_STATUS } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 
 /**
  * AI-06 — Payables operations (docs/ai/BRIEF-05-BATCH-D.md). Matches bills to POs and receipts
@@ -369,7 +370,7 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
               priority: "high",
               what: `Possible duplicate bill: ${extracted.matchResult.billNumber}`,
               why: realMatches.map((m) => m.reason).join("; "),
-              dedupeKey: `ai06-duplicate:${ctx.tenantId}:${extracted.invoiceId}`,
+              dedupeKey: buildDedupeKey("AI-06", "duplicate", ctx.tenantId, extracted.invoiceId),
               evidence: realMatches.map((m) => ({ kind: "record", ref: m.id, label: "possible duplicate" })),
             },
             { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
