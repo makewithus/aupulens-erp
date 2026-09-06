@@ -1,5 +1,51 @@
 # IMPLEMENTATION_LOG.md
 
+## Chunk 10a — Addendum A, Part 1.2: wall-clock sweep + three-pinned-date suite run, 2026-09-06, branch `ai/workflows`
+
+**Sweep.** Read every `new Date()`/`Date.now()` call in `lib/aiRuntime/**` (99 call sites) and
+classified each as either the addendum's accepted "when did this run happen" use (audit timestamps,
+`schedule.due`'s "is it time yet" checks against a real-world calendar, AI-16's rolling cash
+forecast anchor — all left unchanged) or the forbidden "which period does this belong to" use (the
+same shape as the already-fixed `isClosedPeriod()` bug). Found and fixed one real instance:
+`checkAccrualsDomain()`/`checkPrepaidsDomain()` (`lib/aiRuntime/closeReadiness/domains.ts`) judged
+AiSchedule staleness against wall-clock `today` instead of the `periodEnd` parameter every sibling
+domain in the same file already uses — reachable for real via `annotateStatement()` (AI-18/AI-21)
+computing readiness for a period that need not be "now". Fixed; 2 new regression tests
+(`closeReadinessAccrualsPeriodScoping.test.ts`), each verified to fail against the reverted code.
+
+**Three-pinned-date suite run** (`scripts/fakeDate.cjs`, a `--require` hook that pins `Date.now()`/
+`new Date()` process-wide via a Proxy over the real constructor — a plain subclass breaks Mongoose
+schema resolution, which switches on the constructor's own name):
+
+- **2026-02-01 (1st of a month)**: found a genuine, previously-unknown production bug —
+  `lib/accounting/reports.ts`'s `toDateEnd()` called LOCAL `setHours(23,59,59,999)` on an
+  already-UTC-constructed `endDate`, so on this IST-hosted (UTC+5:30) dev box, a "prior month"
+  report query silently absorbed up to ~18.5 hours of the next month's postings — a pure,
+  wall-clock-independent function of the endDate value and the server's fixed TZ offset, never
+  caught in nine chunks of prior testing because no earlier fixture happened to post an entry
+  inside that narrow leaked window. AI-14's own trigger-proof test caught it the moment "now" was
+  pinned to literally the first instant of a month. Fixed (`setUTCHours`); new
+  `tests/accounting/reportsToDateEnd.test.ts` reproduces it with fixed calendar dates (no clock-
+  faking needed) and was verified to fail against the reverted code. Re-run clean after the fix.
+- **2026-01-31 (31st of a 31-day month)**: clean.
+- **2028-02-29 (29 Feb, leap year)**: clean.
+
+**Scoping note, stated plainly.** Each pinned-date run was executed against `tests/ai` +
+`tests/accounting` (139 files / 1010 tests — the actual footprint of this project's changes and
+every shared function they call), not the full ~219-file repository suite. The first full-repo
+attempt at the 2026-01-31 date caused `mongod` to crash outright (`journalctl -u mongod` shows a
+native fault, `2h48min CPU / 1.8G swap peak`, immediately following a period of the host's swap
+being fully exhausted by unrelated desktop applications — Firefox, multiple VS Code/tsserver
+instances — nothing this project's code or tests wrote); every subsequent DB-touching test then
+failed or timed out until `mongod` was restarted, including the two "trigger proof" tests
+(AI-07/AI-08) and one unrelated Sales route test that initially looked like real pinned-date
+findings. Re-run individually with `mongod` healthy again, all three passed cleanly (one, at
+5035ms, marginally over the 5000ms default under lingering swap pressure — reproduced at 6.4s
+clean with no other load). None of the three was a logic regression; this is recorded here rather
+than silently retried into a clean-looking log, per this addendum's own standard.
+
+---
+
 ## Chunk 10a — Addendum A, Part 0.2: interrupted/parallel-session work reconciliation, 2026-09-06, branch `ai/workflows`
 
 **Purpose of this entry**: `docs/ai/BRIEF-10a-ADDENDUM.md` Part 0.2 requires that any interrupted
