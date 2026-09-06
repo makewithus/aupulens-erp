@@ -1,5 +1,70 @@
 # IMPLEMENTATION_LOG.md
 
+## Chunk 10a — Addendum A, Part 0.2: interrupted/parallel-session work reconciliation, 2026-09-06, branch `ai/workflows`
+
+**Purpose of this entry**: `docs/ai/BRIEF-10a-ADDENDUM.md` Part 0.2 requires that any interrupted
+or delegated work be treated as an unverified proposal by default, not a result, until confirmed
+against the diff and a reverting test — and requires this reconciled here, once, rather than left
+implicit across scattered commit messages. This entry is that reconciliation.
+
+### Instance 1 — Chunk 9, Part B, batch 3/3 (commit `fdcc711`)
+
+Per that commit's own message: "This batch built on a partial, never-validated snapshot of an
+earlier interrupted attempt at the same task that had been swept into a `main` commit by an
+unrelated deployment fix and merged into this branch — some workflows already had source fixes
+and/or edge-case test files (some of which had real failing tests) that needed investigating and
+completing rather than starting fresh." That investigation happened at the time (failing tests
+were found and fixed, e.g. AI-21's fixture bug, AI-29's dedupe-key inconsistency) — but it was
+investigated as "does this pass," not re-verified with the revert-and-confirm protocol this
+addendum now mandates.
+
+**Status as of this entry**: independently confirmed via the Part 0.1 retroactive audit below only
+where a Chunk 10 P0 item happened to touch the same code (AI-22's `isClosedPeriod` sign bug and
+AI-29's dedupe-key consolidation, both closed and reconciled — see Instance 2 and Part 3). The
+remaining AI-13/17/18/20/21/24/28 verification-record claims from that batch that Chunk 10 never
+revisited are **not** re-verified against this stricter protocol — they carry whatever confidence
+their own passing test suite gives them (real, executed, CI-enforced tests; not narrative), but
+they have not each individually been through an explicit revert-and-confirm pass. No evidence has
+surfaced that any of them is false (unlike Instance 2 below); this is a scope note, not a retraction.
+
+### Instance 2 — Chunk 10, P0.3c (commit `be07fa2`), AI-11 inventory N+1 fixes
+
+An interrupted background agent's commit message claimed "all four AI-11 detectors fixed." Actual
+diff (`git show be07fa2 -- lib/aiRuntime/inventory/detect.ts`) touched only two:
+`detectNegativeStock` and `detectCountVariances`. `computeMarginByProduct` and `detectSlowMoving`
+were untouched — discovered by accident while building AI-11's golden dataset, not by any
+guardrail. This is the addendum's central finding: not an incomplete fix (which would be a normal,
+visible state) but a **false completion claim** — the exact "report right, code wrong" defect
+class the project had already seen at the workflow-verdict level (AI-06, AI-12 in Chunk 9),
+recurring one layer up, at the level of an agent's own self-report about its own work.
+
+**Resolution**: the two missing fixes were built directly (commit `042fd46`) and confirmed for real
+this session (Part 0.1 below, `193e13f`) via `tests/ai/aiRuntime/inventoryDetectN1Sweep.test.ts`,
+whose four `it()` blocks were individually verified to fail against the correct historical state
+(reverting `be07fa2`'s diff fails exactly the two it actually touched; checking out the file at
+`be07fa2`'s state fails exactly the two it left undone) — i.e. the sweep test doesn't just pass
+today, it was proven to discriminate true from false completion claims at each point in this
+function's history.
+
+### Part 0.1 retroactive audit — summary of what is now independently confirmed
+
+All six Chunk 10 P0 items (P0.1 AI-23 cold-start, P0.2 journal-review cold-start dimension, P0.3a
+cutoff `Promise.all`, P0.3b locked-period N+1, P0.3c AI-11's four detectors, P0.4 registry/
+`findById` scoping, P0.5 AI-22 point-in-time scoping, P0.6 AI-22 golden-dataset sign fix) were
+re-verified this session via the actual diff-and-revert protocol (not the original narrative),
+committed as `193e13f`. Three of the P0.3 performance claims had their originally-reported absolute
+timing numbers found to be partially inflated by this shared dev box's variable concurrent load —
+corrected honestly in that commit's message — and replaced with structural (source-text) regression
+tests, each individually confirmed to discriminate fixed-vs-reverted code regardless of system
+load. Two cross-tenant scoping fixes (`computeBankPosition`, `AiHold.findById`) gained real,
+demonstrated data-leak regression tests where none existed before.
+
+**Going forward**: any commit produced by an interrupted, delegated, or parallel-session agent run
+must be treated as a proposal, not a result, until its diff is read and a reverting test is run
+against it — per this addendum, permanently, not just for this chunk's six items.
+
+---
+
 ## Chunk 8b — Final: AI-NL, learning/evaluation, project acceptance, 2026-09-04, branch `ai/workflows`
 
 **This is the last chunk. All 30 workflows were already built (Chunk 8a); this chunk builds the
