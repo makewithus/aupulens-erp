@@ -15,6 +15,15 @@ function getTenantFromHost(hostname: string): string | null {
     return null;
   }
 
+  try {
+    const baseHost = new URL(APP_BASE_URL).hostname;
+    if (hostname === baseHost || hostname === `www.${baseHost}`) {
+      return null;
+    }
+  } catch (e) {
+    // Ignore invalid APP_BASE_URL
+  }
+
   // Check if it's a subdomain of APP_ROOT_DOMAIN
   const rootDomainSuffix = `.${APP_ROOT_DOMAIN}`;
   if (hostname.endsWith(rootDomainSuffix)) {

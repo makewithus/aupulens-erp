@@ -36,7 +36,7 @@ async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgMo
   }
 }
 
-import { APP_ROOT_DOMAIN } from "@/lib/config";
+import { APP_ROOT_DOMAIN, APP_BASE_URL } from "@/lib/config";
 
 // Extract tenant ID from subdomain
 function getTenantFromHost(hostname: string): string | null {
@@ -47,6 +47,15 @@ function getTenantFromHost(hostname: string): string | null {
   // Exact match for the root domain or www.
   if (hostname === APP_ROOT_DOMAIN || hostname === `www.${APP_ROOT_DOMAIN}`) {
     return null;
+  }
+
+  try {
+    const baseHost = new URL(APP_BASE_URL).hostname;
+    if (hostname === baseHost || hostname === `www.${baseHost}`) {
+      return null;
+    }
+  } catch (e) {
+    // Ignore invalid APP_BASE_URL
   }
 
   // Check if it's a subdomain of APP_ROOT_DOMAIN
