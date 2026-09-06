@@ -65,7 +65,7 @@ export async function computeCloseReadiness(tenantId: string, period: string, pe
     await checkArDomain(tenantId, periodEnd, period, ctx),
     await checkApDomain(tenantId, periodEnd, period, ctx),
     await checkInventoryDomain(tenantId, periodEnd, period, ctx),
-    await checkAccrualsDomain(tenantId, ctx),
+    await checkAccrualsDomain(tenantId, periodEnd, ctx),
     await checkPrepaidsDomain(tenantId, periodEnd, period, ctx),
     await checkRevenueDomain(tenantId, periodEnd, period, ctx),
     await checkFixedAssetsDomain(tenantId, periodEnd, period, ctx),

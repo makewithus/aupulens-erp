@@ -156,15 +156,22 @@ export async function checkInventoryDomain(tenantId: string, periodEnd: Date, pe
   return blockerFromReconciliation("inventory", "inventory", ctx, r);
 }
 
-export async function checkAccrualsDomain(tenantId: string, ctx: DomainMaterialityContext): Promise<DomainResult> {
+export async function checkAccrualsDomain(tenantId: string, periodEnd: Date, ctx: DomainMaterialityContext): Promise<DomainResult> {
   await connectDB();
-  const today = new Date();
+  // Chunk 10a addendum, Part 1.2 — this domain used to compare against wall-clock `new Date()`
+  // while every sibling domain in this file (checkBankDomain, checkArDomain, checkPrepaidsDomain's
+  // own reconciliation half, etc.) is scoped to the `periodEnd` the caller passed in. That made
+  // "is this accrual stale" answer a different question depending on wall-clock timing of WHEN
+  // computeCloseReadiness() happens to run, rather than "as of the period being closed" — reachable
+  // for real via lib/aiRuntime/statements/annotateStatement.ts (AI-18/AI-21), which calls
+  // computeCloseReadiness() for a `period` that need not be "now". Now scoped to `periodEnd`,
+  // consistent with every sibling domain.
   const staleAccruals = await AiSchedule.find({
     tenantId,
     scheduleType: AI_SCHEDULE_TYPE.ACCRUAL_REVERSAL,
     status: { $in: [AI_SCHEDULE_STATUS.APPROVED] },
     "periods.status": AI_SCHEDULE_PERIOD_STATUS.PENDING,
-    "periods.dueDate": { $lt: today },
+    "periods.dueDate": { $lt: periodEnd },
   })
     .select("_id periods totalAmount")
     .lean();
@@ -176,8 +183,8 @@ export async function checkAccrualsDomain(tenantId: string, ctx: DomainMateriali
 
   const threshold = findThreshold(ctx.policy, "accrual");
   const blockers: IAiCloseBlocker[] = staleAccruals.map((s) => {
-    const pending = s.periods.find((p) => p.status === AI_SCHEDULE_PERIOD_STATUS.PENDING && p.dueDate < today);
-    const ageDays = pending ? daysBetween(pending.dueDate, today) : 0;
+    const pending = s.periods.find((p) => p.status === AI_SCHEDULE_PERIOD_STATUS.PENDING && p.dueDate < periodEnd);
+    const ageDays = pending ? daysBetween(pending.dueDate, periodEnd) : 0;
     return {
       id: `accruals-stale-${s._id}`,
       severity: classifyBlockerSeverity({ isHard: false, amount: s.totalAmount, ageDays, materialityConfigured: Boolean(threshold), materialityThreshold: threshold?.absoluteAmount }),
@@ -216,13 +223,15 @@ export async function checkPrepaidsDomain(tenantId: string, periodEnd: Date, per
   const base = blockerFromReconciliation("prepaids", "prepaid_recognition", ctx, r);
 
   await connectDB();
-  const today = new Date();
+  // Chunk 10a addendum, Part 1.2 — same fix as checkAccrualsDomain just above: this query used
+  // wall-clock `new Date()` even though `periodEnd` was already sitting right there as this
+  // function's own parameter (used correctly two lines up, for `runDefinition`). Now consistent.
   const overdue = await AiSchedule.countDocuments({
     tenantId,
     scheduleType: AI_SCHEDULE_TYPE.PREPAID,
     status: AI_SCHEDULE_STATUS.APPROVED,
     "periods.status": AI_SCHEDULE_PERIOD_STATUS.PENDING,
-    "periods.dueDate": { $lt: today },
+    "periods.dueDate": { $lt: periodEnd },
   });
   if (overdue > 0) {
     const threshold = findThreshold(ctx.policy, "prepaid_recognition");
