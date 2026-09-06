@@ -52,8 +52,38 @@ function subscribesToPeriodHorizon(source: string): boolean {
   return /period\.horizon\.reached/.test(source);
 }
 
+/**
+ * Chunk 10a addendum, Part 1.1 — retroactive audit found this function had exactly the "coverage
+ * test blind to what was never registered" flaw the addendum names: the original version did
+ * `/\bPERIOD_PATTERN\b/.test(source)` across the WHOLE FILE, so a source that still DECLARES
+ * `PERIOD_PATTERN` (or `isValidIsoInstant`) but no longer USES it inside `observe()` — e.g. AI-12's
+ * own pre-fix shape (`String(event.payload.periodEnd)`, unvalidated) with the constant left
+ * dangling elsewhere in the file — false-positive-passed. Confirmed by reverting exactly AI-12's
+ * `observe()` body while leaving its `PERIOD_PATTERN` declaration in place: the old whole-file
+ * check still returned true. Fixed by scoping the check to `observe()`'s own body (brace-matched,
+ * not a substring guess) and requiring an actual CALL (`PERIOD_PATTERN.test(` / `isValidIsoInstant(`),
+ * not just the bare identifier appearing anywhere in that body.
+ */
+function extractObserveBody(source: string): string | null {
+  const anchor = /async\s+observe\s*\(\s*event\s*\)[^{]*\{/.exec(source);
+  if (!anchor) return null;
+  const openBraceIdx = source.indexOf("{", anchor.index);
+  let depth = 0;
+  let i = openBraceIdx;
+  for (; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+  return source.slice(openBraceIdx, i + 1);
+}
+
 function hasValidatedDerivation(source: string): boolean {
-  return /\bPERIOD_PATTERN\b/.test(source) || /\bisValidIsoInstant\b/.test(source);
+  const observeBody = extractObserveBody(source);
+  if (!observeBody) return false;
+  return /\bPERIOD_PATTERN\.test\(/.test(observeBody) || /\bisValidIsoInstant\(/.test(observeBody);
 }
 
 describe("period.horizon.reached validation sweep (Chunk 10, P0.1 — the permanent AI-12-class regression net)", () => {

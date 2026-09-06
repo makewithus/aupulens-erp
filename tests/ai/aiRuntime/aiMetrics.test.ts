@@ -13,6 +13,7 @@ let bootstrapAiRuntime: typeof import("@/lib/aiRuntime/bootstrap").bootstrapAiRu
 let computeWorkflowMetrics: typeof import("@/lib/aiRuntime/metrics/computeMetrics").computeWorkflowMetrics;
 let computeAndPersistTenantMetrics: typeof import("@/lib/aiRuntime/metrics/computeMetrics").computeAndPersistTenantMetrics;
 let checkDrift: typeof import("@/lib/aiRuntime/metrics/drift").checkDrift;
+let listWorkflows: typeof import("@/lib/aiRuntime/runtime/registry").listWorkflows;
 
 const TENANT = "aimetrics-tenant";
 
@@ -38,6 +39,7 @@ describe("AI metrics — computation and drift", () => {
     ({ bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap"));
     ({ computeWorkflowMetrics, computeAndPersistTenantMetrics } = await import("@/lib/aiRuntime/metrics/computeMetrics"));
     ({ checkDrift } = await import("@/lib/aiRuntime/metrics/drift"));
+    ({ listWorkflows } = await import("@/lib/aiRuntime/runtime/registry"));
     bootstrapAiRuntime();
   });
 
@@ -100,10 +102,20 @@ describe("AI metrics — computation and drift", () => {
   });
 
   it("computeAndPersistTenantMetrics writes one AiMetricSnapshot per registered workflow", async () => {
+    // Chunk 10a addendum, Part 1.1 — retroactive sweep found this test only ever compared COUNTS
+    // (`stored === results.length`), the exact "coverage test blind to what was never registered"
+    // shape the addendum warns about: a bug that wrote a snapshot for the wrong workflowId (a typo,
+    // a stale id, a duplicate) alongside skipping a real one would leave the count unchanged and
+    // this test green. Now compares the actual SET of workflow ids, not just how many there are.
     const results = await computeAndPersistTenantMetrics(TENANT);
     expect(results.length).toBeGreaterThanOrEqual(30);
-    const stored = await AiMetricSnapshot.countDocuments({ tenantId: TENANT });
-    expect(stored).toBe(results.length);
+
+    const registeredIds = new Set(listWorkflows().map((w) => w.id));
+    const storedDocs = await AiMetricSnapshot.find({ tenantId: TENANT }).select("workflowId").lean();
+    const storedIds = storedDocs.map((d) => d.workflowId);
+
+    expect(new Set(storedIds).size, "no duplicate AiMetricSnapshot rows for the same workflow this run").toBe(storedIds.length);
+    expect(new Set(storedIds)).toEqual(registeredIds);
   });
 
   it("drift: an override-rate regression past the threshold raises a named attention item", async () => {
