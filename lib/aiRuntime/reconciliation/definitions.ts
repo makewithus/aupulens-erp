@@ -10,7 +10,8 @@ import JournalEntry from "@/models/finance/JournalEntry";
 import AiSchedule, { AI_SCHEDULE_TYPE } from "@/models/ai/AiSchedule";
 import TaxRate from "@/models/finance/TaxRate";
 import AiTaxTransaction, { AI_TAX_DIRECTION } from "@/models/ai/AiTaxTransaction";
-import { DOCUMENT_STATUS, PAYMENT_STATE, STOCK_MOVE_STATUS, PAYROLL_STATUS } from "@/lib/constants/statuses";
+import PeriodClosing from "@/models/finance/PeriodClosing";
+import { DOCUMENT_STATUS, PAYMENT_STATE, STOCK_MOVE_STATUS, PAYROLL_STATUS, PERIOD_CLOSING_STATUS } from "@/lib/constants/statuses";
 import { computeBankPosition } from "@/lib/aiRuntime/workflows/ai-03-bank-reconciliation/position";
 import { computeAssetRegisterToGl } from "@/lib/accounting/registerToGl";
 import { resolveMappedAccounts } from "@/lib/aiRuntime/accountMapping/resolve";
@@ -26,7 +27,15 @@ import type { ReconciliationDefinition, ReconciliationResult, ReconciliationDiff
  * **Scope simplifications, recorded honestly** (docs/ai/OPEN_QUESTIONS.md has the full write-up):
  * - `ap_control`/`ar_control_finance` compare *current* open balances, not a point-in-time
  *   history replay — `Invoice` carries no ledger of `amountResidual` over time to reconstruct
- *   "as of periodEnd" precisely.
+ *   "as of periodEnd" precisely. **BRIEF-10-PRE-QA.md P0.5 decision**: rather than leave this
+ *   silent (a real fix needs an `amountResidual`/payment-application history this codebase's
+ *   `Invoice` model does not carry — genuinely too large a lift to build safely in this pass),
+ *   both definitions are now explicitly scoped to the tenant's CURRENT open period only. Outside
+ *   it — any `periodEnd` whose calendar month has already ended — they return
+ *   `"not_supported_for_closed_periods"` (`lib/aiRuntime/reconciliation/types.ts`) instead of
+ *   computing a number that would silently drift further every day past close. Registered as a
+ *   capability-registry gap (`ap_control_point_in_time`/`ar_control_finance_point_in_time`,
+ *   `lib/aiRuntime/capabilities/registry.ts`) so this scoping is visible, not silent.
  * - `inventory`'s GL side uses the `asset_current` account-type bucket — no dedicated
  *   `asset_inventory` account type exists anywhere in this codebase's Chart of Accounts.
  * - `suspense_clearing` matches accounts by name (`/suspense|clearing/i`) — no dedicated
@@ -54,6 +63,45 @@ export async function glBalanceForAccount(tenantId: string, accountId: mongoose.
 function unexplainedDifference(amount: number, cause: string): ReconciliationDifference[] {
   if (Math.abs(amount) < 0.01) return [];
   return [{ type: "unexplained", amount: round2(amount), ageDays: 0, cause, owner: undefined, evidence: [] }];
+}
+
+/** BRIEF-10-PRE-QA.md P0.5 — true only once the TENANT ITSELF has formally taken this period past
+ *  `PeriodClosing.status: "open"` (locked, or further along the close pipeline). A first attempt
+ *  at this compared `periodEnd`'s calendar month against wall-clock "now" instead — which is wrong
+ *  on two counts: (1) it makes AI-22's behaviour for a FIXED period change merely because real
+ *  time passes, a moving target with no tenant action behind it, and (2) it disagrees with how
+ *  every other part of this codebase (`TransactionLock`, the close workflow itself) already
+ *  decides "is this period closed" — `PeriodClosing.status` is the one real signal, and using a
+ *  second, calendar-only proxy is exactly the kind of drift this whole verification effort exists
+ *  to catch. No `PeriodClosing` record for a period (the common case — most tenants, and every
+ *  existing fixture in this test suite, never formally close a period at all) means OPEN by
+ *  default, preserving the pre-P0.5 behaviour exactly for anyone not using the close workflow. */
+async function isClosedPeriod(tenantId: string, periodEnd: Date): Promise<boolean> {
+  await connectDB();
+  const closing = await PeriodClosing.findOne({ tenantId, fiscalYear: periodEnd.getUTCFullYear(), month: periodEnd.getUTCMonth() + 1 })
+    .select("status")
+    .lean();
+  return Boolean(closing && closing.status !== PERIOD_CLOSING_STATUS.OPEN);
+}
+
+/** The shared "we deliberately did not check this" result for a scoped-out closed period — never
+ *  a fabricated leftTotal/rightTotal, never routed through classifyReconciliationStatus (which
+ *  would turn a difference of 0 back into a confident-looking "reconciled" — engine.ts special-
+ *  cases this status the same way it already special-cases "not_applicable"). */
+function notSupportedForClosedPeriod(capabilityId: string): Omit<ReconciliationResult, "definitionId" | "name" | "period" | "tolerance" | "owner" | "materialityConfigured"> {
+  const capability = getCapability(capabilityId);
+  return {
+    leftTotal: 0,
+    rightTotal: 0,
+    difference: 0,
+    matchedCount: 0,
+    unmatchedLeft: [],
+    unmatchedRight: [],
+    differences: [],
+    oldestOpenItemDays: 0,
+    status: "not_supported_for_closed_periods",
+    notImplementedReason: capability?.reason ?? `no capability-registry entry for "${capabilityId}"`,
+  };
 }
 
 // ── bank ──────────────────────────────────────────────────────────────────
@@ -114,8 +162,13 @@ function apArDefinition(id: "ap_control" | "ar_control_finance", moveType: "in_i
     name: id === "ap_control" ? "AP subledger vs payable control" : "AR (Finance) subledger vs receivable control",
     owner: "finance",
     defaultTolerance: 0.01,
-    async run(tenantId) {
+    async run(tenantId, periodEnd) {
       await connectDB();
+      // P0.5 — scoped to the current open period only; see this file's top-of-file comment and
+      // lib/aiRuntime/reconciliation/types.ts's ReconciliationStatus doc comment for why.
+      if (await isClosedPeriod(tenantId, periodEnd)) {
+        return notSupportedForClosedPeriod(id === "ap_control" ? "ap_control_point_in_time" : "ar_control_finance_point_in_time");
+      }
       const openInvoices = await Invoice.find({
         tenantId,
         moveType,
@@ -146,8 +199,18 @@ function apArDefinition(id: "ap_control" | "ar_control_finance", moveType: "in_i
           status: "reconciled", // placeholder — overwritten by classifyReconciliationStatus in the engine
         };
       }
-      const rightTotal = await glBalanceForAccount(tenantId, controlAccount._id);
-      const difference = round2(id === "ap_control" ? rightTotal - leftTotal : leftTotal - rightTotal);
+      // Bug found while building AI-22's golden dataset (BRIEF-10-PRE-QA.md P0.6): `ap_control`'s
+      // payable control account is credit-normal (a real bill posts debit:0/credit:total to it,
+      // confirmed in app/api/finance/bills/[id]/route.ts) — its raw debit-credit balance is
+      // NEGATIVE for a real payable, while `leftTotal` (open invoices' amountResidual) is always
+      // positive. Negate it onto the same axis as leftTotal, exactly like `deferred_revenue`
+      // already does for its own credit-normal liability leg ("liability balances are
+      // credit-normal", scheduleDefinition above) — `ar_control_finance`'s receivable account is
+      // debit-normal already and needs no flip. Before this fix, a perfectly-tied-out AP subledger
+      // reported a ~2x-the-true-balance "unreconciled" difference instead of zero.
+      const rawRightTotal = await glBalanceForAccount(tenantId, controlAccount._id);
+      const rightTotal = round2(id === "ap_control" ? -rawRightTotal : rawRightTotal);
+      const difference = round2(leftTotal - rightTotal);
       const oldest = openInvoices.reduce((min, i) => Math.min(min, new Date((i as { invoiceDate?: Date }).invoiceDate ?? Date.now()).getTime()), Date.now());
       const oldestOpenItemDays = openInvoices.length > 0 ? Math.floor((Date.now() - oldest) / (24 * 60 * 60 * 1000)) : 0;
 

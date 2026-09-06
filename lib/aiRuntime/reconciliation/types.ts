@@ -6,7 +6,21 @@
  * unexplained item in scope, tested directly (not just relied on via a caller's own check).
  */
 
-export type ReconciliationStatus = "reconciled" | "reconciled_with_exceptions" | "unreconciled" | "not_implemented" | "not_applicable";
+export type ReconciliationStatus =
+  | "reconciled"
+  | "reconciled_with_exceptions"
+  | "unreconciled"
+  | "not_implemented"
+  | "not_applicable"
+  /** BRIEF-10-PRE-QA.md P0.5 — `ap_control`/`ar_control_finance` compare the subledger's CURRENT
+   *  open balance against the CURRENT control-account balance, which is only correct for the
+   *  tenant's current, still-open accounting period (nothing has moved since `periodEnd` because
+   *  `periodEnd` effectively IS "now"). For any period whose calendar month has already ended,
+   *  the current balance has kept moving and no longer represents the balance AS OF `periodEnd`
+   *  — `Invoice` carries no `amountResidual` history to reconstruct that point-in-time balance
+   *  (see `definitions.ts`'s top-of-file comment). Rather than publish a confidently-wrong number
+   *  for a closed period, both definitions return this status instead of computing anything. */
+  | "not_supported_for_closed_periods";
 
 export type ReconciliationDifferenceType = "timing" | "error" | "missing_left" | "missing_right" | "fx" | "rounding" | "duplicate" | "unexplained";
 

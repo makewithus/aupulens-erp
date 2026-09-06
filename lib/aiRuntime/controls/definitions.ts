@@ -6,7 +6,6 @@ import PeriodClosing from "@/models/finance/PeriodClosing";
 import User from "@/models/auth/User";
 import ExtractedDocument from "@/models/ai/ExtractedDocument";
 import { DOCUMENT_STATUS, TRANSACTION_LOCK_MODULE, PERIOD_CLOSING_STATUS } from "@/lib/constants/statuses";
-import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
 import { checkSod } from "@/lib/aiRuntime/journalPatterns/sod";
 import { getCapability } from "@/lib/aiRuntime/capabilities/registry";
 import type { ControlDefinition } from "@/lib/aiRuntime/controls/types";
@@ -158,12 +157,32 @@ const sodPreparerApproverDefinition: ControlDefinition<SodItem> = {
 const sodPermissionConflictDefinition = notImplemented("sod_permission_conflict", "No user holds a conflicting permission combination", "medium");
 
 // ── no_posting_into_locked_period ────────────────────────────────────────────
+// Chunk 10 (P0.3, docs/ai/BRIEF-10-PRE-QA.md / docs/ai/verification/AI-29.md §8): this control
+// dominated AI-29's 10k-journal sweep at 12.3-21.3s because `test()` called
+// `assertTransactionNotLocked()` — one `TransactionLock.find()` round trip — ONCE PER ITEM, i.e.
+// 10,000 sequential round trips for a lookup whose result is IDENTICAL for every item in the
+// population (same `tenantId`, same `module: "accountant"` check, every single time — a journal
+// entry's own date is the only thing that varies, and that comparison is pure in-memory work).
+// Root-cause fix: `population()` now fetches the tenant's relevant locks (module "accountant" or
+// "all") exactly ONCE for the whole sweep and carries that small, shared array (0-2 real lock
+// documents per tenant, `TransactionLockSchema` has a `{tenantId, module}` unique index) on every
+// item; `test()` no longer touches the database at all — it just compares each item's own date
+// against the pre-fetched locks in memory. Message text/shape is preserved exactly (mirrors
+// `lib/accounting/transactionLock.ts::assertTransactionNotLocked`'s own logic) so this is a pure
+// performance fix, not a behavior change.
+
+const LOCK_CHECK_MODULE = TRANSACTION_LOCK_MODULE.ACCOUNTANT;
+
+interface LockedPeriodLock {
+  module: string;
+  lockedUpToDate: Date | null;
+}
 
 interface LockedPeriodItem {
   id: string;
   name: string;
   date: Date;
-  tenantId: string;
+  locks: LockedPeriodLock[];
 }
 
 const noPostingIntoLockedPeriodDefinition: ControlDefinition<LockedPeriodItem> = {
@@ -175,19 +194,34 @@ const noPostingIntoLockedPeriodDefinition: ControlDefinition<LockedPeriodItem> =
   frequency: "continuous",
   population: async (tenantId, periodStart, periodEnd) => {
     await connectDB();
-    const entries = await JournalEntry.find({ tenantId, status: DOCUMENT_STATUS.POSTED, "header.date": { $gte: periodStart, $lte: periodEnd } })
-      .select("header")
-      .lean();
-    return entries.map((e) => ({ id: String(e._id), name: e.header?.name ?? "", date: new Date(e.header?.date ?? Date.now()), tenantId }));
+    const [entries, locks] = await Promise.all([
+      JournalEntry.find({ tenantId, status: DOCUMENT_STATUS.POSTED, "header.date": { $gte: periodStart, $lte: periodEnd } })
+        .select("header")
+        .lean(),
+      // Fetched once for the whole population instead of once per item — same query
+      // `assertTransactionNotLocked()` would have run per-item, scoped identically.
+      TransactionLock.find({ tenantId, isLocked: true, module: { $in: [LOCK_CHECK_MODULE, TRANSACTION_LOCK_MODULE.ALL] }, lockedUpToDate: { $ne: null } })
+        .select("module lockedUpToDate")
+        .lean(),
+    ]);
+    // Every item in this population shares the exact same tenant/lock context, so the same
+    // (tiny) locks array reference is handed to each item rather than re-fetched or re-copied.
+    const sharedLocks: LockedPeriodLock[] = locks.map((l) => ({ module: l.module, lockedUpToDate: l.lockedUpToDate ?? null }));
+    return entries.map((e) => ({ id: String(e._id), name: e.header?.name ?? "", date: new Date(e.header?.date ?? Date.now()), locks: sharedLocks }));
   },
-  test: async (item) => {
-    try {
-      await assertTransactionNotLocked(item.tenantId, TRANSACTION_LOCK_MODULE.ACCOUNTANT, item.date);
-      return { passed: true, detail: "not within a locked period", evidence: [] };
-    } catch (err) {
-      if (err instanceof TransactionLockError) return { passed: false, detail: err.message, evidence: [] };
-      throw err;
+  test: (item) => {
+    const txTime = item.date.getTime();
+    for (const lock of item.locks) {
+      if (lock.lockedUpToDate && txTime <= new Date(lock.lockedUpToDate).getTime()) {
+        const label = lock.module === TRANSACTION_LOCK_MODULE.ALL ? "All transactions" : `${LOCK_CHECK_MODULE[0].toUpperCase()}${LOCK_CHECK_MODULE.slice(1)} transactions`;
+        return {
+          passed: false,
+          detail: `${label} are locked up to ${new Date(lock.lockedUpToDate).toLocaleDateString()}. This transaction date falls within the locked period and cannot be created, edited, or deleted.`,
+          evidence: [],
+        };
+      }
     }
+    return { passed: true, detail: "not within a locked period", evidence: [] };
   },
   refOf: (item) => item.id,
   labelOf: (item) => item.name,

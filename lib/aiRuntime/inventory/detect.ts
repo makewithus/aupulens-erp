@@ -35,31 +35,60 @@ export interface NegativeStockFinding {
   causingSequence: { stockId: string; reference: string; type: string; quantity: number; runningBalance: number; date: Date }[];
 }
 
+// Chunk 10 (P0.3, docs/ai/BRIEF-10-PRE-QA.md / docs/ai/verification/AI-11.md §4/§9): this used to
+// issue one `Stock.find()` per distinct product, plus one `Product.findOne()` per FLAGGED
+// product — O(products) round trips for a computation that only needs the tenant's entire `Stock`
+// ledger once. Root-cause fix: fetch every `Stock` row for the tenant in a single query, sorted
+// by `(product, createdAt)` so each product's own entries arrive already grouped and in
+// chronological order, then replay the running-balance logic in memory per product exactly as
+// before. The one remaining query fetches all FLAGGED products' names in a single `$in` lookup
+// instead of one `findOne` per flagged product.
 export async function detectNegativeStock(tenantId: string): Promise<NegativeStockFinding[]> {
   await connectDB();
-  const productIds: mongoose.Types.ObjectId[] = await Stock.distinct("product", { tenantId });
-  const findings: NegativeStockFinding[] = [];
+  const entries = await Stock.find({ tenantId }).sort({ product: 1, createdAt: 1 }).lean();
 
-  for (const productId of productIds) {
-    const entries = await Stock.find({ tenantId, product: productId }).sort({ createdAt: 1 }).lean();
-    let running = 0;
-    let wentNegativeAt = -1;
-    const sequence: NegativeStockFinding["causingSequence"] = [];
-    for (let i = 0; i < entries.length; i++) {
-      running += entries[i].quantity;
-      sequence.push({ stockId: String(entries[i]._id), reference: entries[i].reference, type: entries[i].type, quantity: entries[i].quantity, runningBalance: round2(running), date: new Date((entries[i] as unknown as StockLeanWithTimestamps).createdAt) });
-      if (running < -0.0001 && wentNegativeAt === -1) wentNegativeAt = i;
+  const perProduct = new Map<string, { location: string; qty: number; causingSequence: NegativeStockFinding["causingSequence"] }>();
+  let currentProductId: string | null = null;
+  let running = 0;
+  let wentNegativeAt = -1;
+  let sequence: NegativeStockFinding["causingSequence"] = [];
+  let currentEntries: typeof entries = [];
+
+  const flush = () => {
+    if (currentProductId !== null && wentNegativeAt !== -1) {
+      perProduct.set(currentProductId, {
+        location: currentEntries[wentNegativeAt]?.warehouse ?? "",
+        qty: round2(running),
+        causingSequence: sequence.slice(0, wentNegativeAt + 1),
+      });
     }
-    if (wentNegativeAt === -1) continue;
+  };
 
-    const product = await Product.findOne({ _id: productId, tenantId }).select("header").lean();
-    findings.push({
-      productId: String(productId),
-      productName: product?.header?.name ?? "",
-      location: entries[wentNegativeAt]?.warehouse ?? "",
-      qty: round2(running),
-      causingSequence: sequence.slice(0, wentNegativeAt + 1),
-    });
+  for (const entry of entries) {
+    const pid = String(entry.product);
+    if (pid !== currentProductId) {
+      flush();
+      currentProductId = pid;
+      running = 0;
+      wentNegativeAt = -1;
+      sequence = [];
+      currentEntries = [];
+    }
+    currentEntries.push(entry);
+    running += entry.quantity;
+    sequence.push({ stockId: String(entry._id), reference: entry.reference, type: entry.type, quantity: entry.quantity, runningBalance: round2(running), date: new Date((entry as unknown as StockLeanWithTimestamps).createdAt) });
+    if (running < -0.0001 && wentNegativeAt === -1) wentNegativeAt = sequence.length - 1;
+  }
+  flush();
+
+  const findings: NegativeStockFinding[] = [];
+  if (perProduct.size > 0) {
+    const flaggedIds = Array.from(perProduct.keys()).map((id) => new mongoose.Types.ObjectId(id));
+    const products = await Product.find({ tenantId, _id: { $in: flaggedIds } }).select("header").lean();
+    const productById = new Map(products.map((p) => [String(p._id), p]));
+    for (const [productId, result] of perProduct) {
+      findings.push({ productId, productName: productById.get(productId)?.header?.name ?? "", location: result.location, qty: result.qty, causingSequence: result.causingSequence });
+    }
   }
   return findings;
 }
@@ -81,10 +110,35 @@ export interface WeightedAverageCost {
 
 const COST_SWING_TOLERANCE = 0.25; // 25% — a documented heuristic, no tenant-specific tolerance policy exists
 
+interface WacStep {
+  moveType: string;
+  lineQty: number;
+  unitCost: number;
+}
+
+/** Pure replay of the WAC recurrence over one product's already-extracted, already-chronological
+ *  steps — shared by both the single-product and bulk paths below so the two can never drift. */
+function replayWeightedAverageCost(productId: string, steps: WacStep[]): WeightedAverageCost {
+  let qty = 0;
+  let avgCost = 0;
+  for (const step of steps) {
+    if (step.moveType === "incoming") {
+      const newQty = qty + step.lineQty;
+      avgCost = newQty > 0 ? (qty * avgCost + step.lineQty * step.unitCost) / newQty : step.unitCost;
+      qty = newQty;
+    } else if (step.moveType === "outgoing") {
+      qty = Math.max(0, qty - step.lineQty);
+    }
+  }
+  return { productId, weightedAverageCost: round2(avgCost), onHandQty: round2(qty) };
+}
+
 /** Real WAC computation — replays a product's StockMove receipt/issue history in date order.
  *  On a receipt: newAvg = (oldQty*oldAvg + receiptQty*receiptCost) / (oldQty+receiptQty). On an
  *  issue: average is unchanged, only quantity drops. This is genuinely new logic — confirmed
- *  (docs/ai/SYSTEM_INVENTORY.md) nothing else in this codebase computes a weighted-average cost. */
+ *  (docs/ai/SYSTEM_INVENTORY.md) nothing else in this codebase computes a weighted-average cost.
+ *  Public single-product API, unchanged in shape/behavior — used directly by other callers
+ *  (e.g. `tests/ai/aiRuntime/ai11InventoryCogs.test.ts`) that only need one product's figure. */
 export async function computeWeightedAverageCost(tenantId: string, productId: string): Promise<WeightedAverageCost> {
   await connectDB();
   const moves = await StockMove.find({ tenantId, moveStatus: { $ne: "cancelled" }, "lines.productId": productId })
@@ -92,33 +146,70 @@ export async function computeWeightedAverageCost(tenantId: string, productId: st
     .sort({ effectiveDate: 1, createdAt: 1 })
     .lean();
 
-  let qty = 0;
-  let avgCost = 0;
+  const steps: WacStep[] = [];
   for (const move of moves) {
     for (const line of move.lines ?? []) {
       if (String((line as { productId?: unknown }).productId) !== productId) continue;
-      const lineQty = (line as { done?: number; demand?: number }).done || (line as { demand?: number }).demand || 0;
-      const unitCost = (line as { unitCost?: number }).unitCost ?? 0;
-      if (move.moveType === "incoming") {
-        const newQty = qty + lineQty;
-        avgCost = newQty > 0 ? (qty * avgCost + lineQty * unitCost) / newQty : unitCost;
-        qty = newQty;
-      } else if (move.moveType === "outgoing") {
-        qty = Math.max(0, qty - lineQty);
-      }
+      steps.push({
+        moveType: move.moveType,
+        lineQty: (line as { done?: number; demand?: number }).done || (line as { demand?: number }).demand || 0,
+        unitCost: (line as { unitCost?: number }).unitCost ?? 0,
+      });
     }
   }
-  return { productId, weightedAverageCost: round2(avgCost), onHandQty: round2(qty) };
+  return replayWeightedAverageCost(productId, steps);
 }
+
+// Chunk 10 (P0.3): the tenant-wide equivalent of the function above — fetches EVERY non-cancelled
+// StockMove for the tenant exactly ONCE (instead of once per product), groups each move's lines by
+// productId in a single pass (already in chronological order, since the query itself is sorted),
+// then replays the same WAC recurrence per product purely in memory. Used by every detector below
+// that previously called `computeWeightedAverageCost()` inside a per-product loop.
+async function computeWeightedAverageCostBulk(tenantId: string): Promise<Map<string, WeightedAverageCost>> {
+  await connectDB();
+  const moves = await StockMove.find({ tenantId, moveStatus: { $ne: "cancelled" } })
+    .select("moveType effectiveDate createdAt lines")
+    .sort({ effectiveDate: 1, createdAt: 1 })
+    .lean();
+
+  const stepsByProduct = new Map<string, WacStep[]>();
+  for (const move of moves) {
+    for (const line of move.lines ?? []) {
+      const rawProductId = (line as { productId?: unknown }).productId;
+      if (!rawProductId) continue;
+      const pid = String(rawProductId);
+      const step: WacStep = {
+        moveType: move.moveType,
+        lineQty: (line as { done?: number; demand?: number }).done || (line as { demand?: number }).demand || 0,
+        unitCost: (line as { unitCost?: number }).unitCost ?? 0,
+      };
+      const existing = stepsByProduct.get(pid);
+      if (existing) existing.push(step);
+      else stepsByProduct.set(pid, [step]);
+    }
+  }
+
+  const result = new Map<string, WeightedAverageCost>();
+  for (const [productId, steps] of stepsByProduct) {
+    result.set(productId, replayWeightedAverageCost(productId, steps));
+  }
+  return result;
+}
+
+const ZERO_WAC = (productId: string): WeightedAverageCost => ({ productId, weightedAverageCost: 0, onHandQty: 0 });
 
 export async function detectValuationAnomalies(tenantId: string): Promise<ValuationAnomaly[]> {
   await connectDB();
   const findings: ValuationAnomaly[] = [];
-  const products = await Product.find({ tenantId }).select("header tab_general_information").lean();
+  const [products, wacByProduct] = await Promise.all([
+    Product.find({ tenantId }).select("header tab_general_information").lean(),
+    computeWeightedAverageCostBulk(tenantId),
+  ]);
 
   for (const p of products) {
+    const productId = String(p._id);
     const cost = p.tab_general_information?.standard_price ?? 0;
-    const wac = await computeWeightedAverageCost(tenantId, String(p._id));
+    const wac = wacByProduct.get(productId) ?? ZERO_WAC(productId);
     if (wac.onHandQty > 0 && cost === 0) {
       findings.push({ productId: String(p._id), productName: p.header?.name ?? "", what: "zero_cost_with_quantity", detail: `${wac.onHandQty} unit(s) on hand with zero standard_price` });
     }
@@ -148,27 +239,45 @@ export interface CountVariance {
   countedAt: Date;
 }
 
+// Chunk 10 (P0.3): used to run a `Stock.aggregate()`, a `computeWeightedAverageCost()` (itself a
+// full StockMove query), AND a `Product.findOne()` — THREE round trips — per counted product.
+// Root-cause fix: resolve the (small) set of most-recently-counted products first, then fetch
+// system quantities, weighted-average costs, and product names each with exactly ONE bulk
+// query/computation for the whole set, regardless of how many products were counted.
 export async function detectCountVariances(tenantId: string): Promise<CountVariance[]> {
   await connectDB();
   const counts = await AiInventoryCount.find({ tenantId }).sort({ countedAt: -1 }).lean();
   const seenProducts = new Set<string>();
-  const findings: CountVariance[] = [];
-
+  const latestCounts: typeof counts = [];
   for (const count of counts) {
     const productId = String(count.productId);
     if (seenProducts.has(productId)) continue; // only the most recent count per product
     seenProducts.add(productId);
+    latestCounts.push(count);
+  }
+  if (latestCounts.length === 0) return [];
 
-    const rows = await Stock.aggregate([
-      { $match: { tenantId, product: new mongoose.Types.ObjectId(productId) } },
-      { $group: { _id: null, total: { $sum: "$quantity" } } },
-    ]);
-    const systemQty = rows[0]?.total ?? 0;
+  const productObjectIds = latestCounts.map((c) => new mongoose.Types.ObjectId(String(c.productId)));
+  const [systemQtyRows, wacByProduct, products] = await Promise.all([
+    Stock.aggregate([
+      { $match: { tenantId, product: { $in: productObjectIds } } },
+      { $group: { _id: "$product", total: { $sum: "$quantity" } } },
+    ]),
+    computeWeightedAverageCostBulk(tenantId),
+    Product.find({ tenantId, _id: { $in: productObjectIds } }).select("header").lean(),
+  ]);
+  const systemQtyByProduct = new Map(systemQtyRows.map((r) => [String(r._id), r.total as number]));
+  const productById = new Map(products.map((p) => [String(p._id), p]));
+
+  const findings: CountVariance[] = [];
+  for (const count of latestCounts) {
+    const productId = String(count.productId);
+    const systemQty = systemQtyByProduct.get(productId) ?? 0;
     const variance = round2(count.countedQty - systemQty);
     if (Math.abs(variance) < 0.0001) continue;
 
-    const wac = await computeWeightedAverageCost(tenantId, productId);
-    const product = await Product.findOne({ _id: productId, tenantId }).select("header").lean();
+    const wac = wacByProduct.get(productId) ?? ZERO_WAC(productId);
+    const product = productById.get(productId);
     findings.push({ productId, productName: product?.header?.name ?? "", countedQty: count.countedQty, systemQty: round2(systemQty), variance, valuedAt: round2(variance * wac.weightedAverageCost), countedAt: new Date(count.countedAt) });
   }
   return findings;

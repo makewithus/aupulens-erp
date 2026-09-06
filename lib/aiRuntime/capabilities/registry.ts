@@ -57,6 +57,33 @@ export const CAPABILITY_REGISTRY: CapabilityDeclaration[] = [
     resolvedBy: null,
     resolvedAt: null,
   },
+  {
+    // Chunk 10 (P0.5, BRIEF-10-PRE-QA.md) — ap_control compares the AP subledger's CURRENT open
+    // balance against the CURRENT payable-control-account balance. Correct for the tenant's
+    // current, still-open period; wrong for a closed one, since the current balance keeps moving
+    // after periodEnd while a closed period's reported number should not. A real fix needs a
+    // point-in-time payment-application history Invoice does not carry (see
+    // lib/aiRuntime/reconciliation/definitions.ts's top-of-file comment) — too large a lift for
+    // this pass, so the definition now refuses to run outside the current period
+    // ("not_supported_for_closed_periods") instead of silently drifting.
+    capabilityId: "ap_control_point_in_time",
+    declaredBy: ["AI-22"],
+    reason: "Invoice carries no amountResidual/payment-application history to reconstruct the AP subledger's balance as of a past periodEnd — only the current balance is available, so ap_control is scoped to the tenant's current open period",
+    blockingDependency: "a point-in-time amountResidual/payment-application history on Invoice",
+    status: "partial",
+    resolvedBy: null,
+    resolvedAt: null,
+  },
+  {
+    // Same reasoning as ap_control_point_in_time immediately above, for the AR (Finance) leg.
+    capabilityId: "ar_control_finance_point_in_time",
+    declaredBy: ["AI-22"],
+    reason: "Invoice carries no amountResidual/payment-application history to reconstruct the AR subledger's balance as of a past periodEnd — only the current balance is available, so ar_control_finance is scoped to the tenant's current open period",
+    blockingDependency: "a point-in-time amountResidual/payment-application history on Invoice",
+    status: "partial",
+    resolvedBy: null,
+    resolvedAt: null,
+  },
 
   // ── AI-29 controls ────────────────────────────────────────────────────────
   {

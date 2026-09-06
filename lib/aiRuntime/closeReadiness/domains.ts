@@ -53,6 +53,11 @@ function daysBetween(a: Date, b: Date): number {
 
 function blockerFromReconciliation(domain: string, appliesTo: string, ctx: DomainMaterialityContext, r: Awaited<ReturnType<typeof runReconciliationDefinition>>): DomainResult {
   if (r.status === "not_implemented") return { domain, status: AI_CLOSE_DOMAIN_STATUS.NOT_CHECKED, reasonIfNotChecked: r.notImplementedReason, blockers: [] };
+  // P0.5 (BRIEF-10-PRE-QA.md) — ap_control/ar_control_finance refuse to compute a number for a
+  // closed period rather than silently drift. NOT_CHECKED (never READY, never a fabricated
+  // blocker) is the only honest status here: AI-13 got no authoritative answer for this domain,
+  // so it must say so plainly rather than imply either "clean" or "a real problem."
+  if (r.status === "not_supported_for_closed_periods") return { domain, status: AI_CLOSE_DOMAIN_STATUS.NOT_CHECKED, reasonIfNotChecked: r.notImplementedReason ?? `${r.name} is not supported for a closed period`, blockers: [] };
   if (r.status === "not_applicable") return { domain, status: AI_CLOSE_DOMAIN_STATUS.NOT_APPLICABLE, blockers: [] };
   if (r.status === "reconciled") return { domain, status: AI_CLOSE_DOMAIN_STATUS.READY, blockers: [] };
 

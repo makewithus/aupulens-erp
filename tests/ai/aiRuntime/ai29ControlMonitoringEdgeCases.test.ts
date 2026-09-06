@@ -212,9 +212,20 @@ describe("AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     const lockResult = await AiControlResult.findOne({ tenantId: TENANT, controlId: "no_posting_into_locked_period", period: PERIOD }).lean();
     expect(lockResult!.populationSize).toBe(10000);
     expect(lockResult!.exceptions).toEqual([]); // false-positive check: no TransactionLock exists, nothing trips
-    // Generous ceiling per docs/ai/BRIEF-09-VERIFICATION.md Part E.3 / UI_REGRESSION.md — this is
-    // a shared dev machine; the point is "doesn't hang", not a tight SLA.
-    expect(elapsedMs).toBeLessThan(35000);
+    // Chunk 10 (P0.3, docs/ai/BRIEF-10-PRE-QA.md / docs/ai/verification/AI-29.md §8): this control
+    // used to be THE dominant cost of this whole sweep — `test()` called
+    // `assertTransactionNotLocked()` (one `TransactionLock.find()`) once per item, 10,000
+    // sequential round trips for a lookup whose result never varies across the population (same
+    // tenant, same module). Measured BEFORE the fix, this session, this dev box: 2.6-3.1s for the
+    // full 10,000-entry sweep (this box was measured 12.3-21.3s in an earlier, more heavily loaded
+    // session — see AI-29.md §8; both numbers are real, dev-box variance per
+    // docs/ai/UI_REGRESSION.md, not a discrepancy). Root-cause fix: `population()` now fetches the
+    // tenant's relevant locks ONCE for the whole sweep and every item carries that shared,
+    // pre-fetched array; `test()` does zero DB round trips, just an in-memory date comparison.
+    // Measured AFTER the fix, same session: 280-330ms for the full sweep — no longer the
+    // dominant cost. Ceiling kept generous (shared dev machine, docs/ai/UI_REGRESSION.md) but
+    // tightened from the pre-fix 35s to reflect the real, order-of-magnitude improvement.
+    expect(elapsedMs).toBeLessThan(10000);
   }, 40000);
 
   // ── C.6 Adversarial pass ────────────────────────────────────────────────────────────────────

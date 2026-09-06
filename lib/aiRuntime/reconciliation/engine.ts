@@ -43,7 +43,11 @@ export async function runReconciliationDefinition(tenantId: string, definition: 
   const { tolerance, configured } = await materialityTolerance(tenantId, definition.id, definition.defaultTolerance);
   const partial = await definition.run(tenantId, periodEnd, tolerance, configured);
 
-  if (partial.status === "not_applicable") {
+  // "not_applicable" and P0.5's "not_supported_for_closed_periods" (BRIEF-10-PRE-QA.md) are both
+  // final, definition-decided statuses — classifyReconciliationStatus() must never see them, or a
+  // difference of 0 with no differences[] (the closed-period short-circuit's honest "we didn't
+  // check" shape) would be reclassified back into a confident-looking "reconciled".
+  if (partial.status === "not_applicable" || partial.status === "not_supported_for_closed_periods") {
     return {
       definitionId: definition.id,
       name: definition.name,

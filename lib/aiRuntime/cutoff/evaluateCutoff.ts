@@ -42,16 +42,28 @@ function periodOf(date: Date): string {
 export async function evaluateCutoff(tenantId: string, invoiceId: string, periodBoundary: Date): Promise<CutoffEvaluation> {
   await connectDB();
 
-  const bill = await Invoice.findOne({ _id: invoiceId, tenantId, moveType: "in_invoice", state: { $ne: DOCUMENT_STATUS.CANCELLED } })
-    .select("_id name invoiceDate amountTotal")
-    .lean();
+  // Root-cause fix (docs/ai/BRIEF-10-PRE-QA.md P0.3, docs/ai/verification/AI-28.md §9): this used
+  // to be 3 STRICTLY sequential round trips (Invoice, then PurchaseOrder, then StockMove) even
+  // though the PurchaseOrder lookup never actually needed anything the Invoice fetch produced —
+  // it only needs `invoiceId`, which the caller already passed in. Firing the Invoice and
+  // PurchaseOrder queries concurrently collapses the dependency chain from 3 round trips to 2
+  // (the second — StockMove — genuinely does depend on the PurchaseOrder's own `stockMoveIds` and
+  // stays conditional/sequential). Every candidate bill still gets its own call — this is a
+  // latency-chain fix, not a batching-across-candidates fix; AI-28's own call site already batches
+  // candidates in concurrency-50 groups (Chunk 9), and this collapses the per-call floor each of
+  // those concurrent calls pays.
+  const [bill, po] = await Promise.all([
+    Invoice.findOne({ _id: invoiceId, tenantId, moveType: "in_invoice", state: { $ne: DOCUMENT_STATUS.CANCELLED } })
+      .select("_id name invoiceDate amountTotal")
+      .lean(),
+    PurchaseOrder.findOne({ tenantId, invoiceIds: invoiceId }).select("dateOrder stockMoveIds").lean(),
+  ]);
   if (!bill) {
     return { determinable: false, isTimingDifference: false, postedDate: null, governingDate: null, governingDateType: null, reason: "not a vendor bill, or not found" };
   }
 
   const postedDate = (bill as { invoiceDate?: Date }).invoiceDate ?? null;
 
-  const po = await PurchaseOrder.findOne({ tenantId, invoiceIds: bill._id }).select("dateOrder stockMoveIds").lean();
   let governingDate: Date | null = null;
   let governingDateType: CutoffGoverningDateType | null = null;
   let evidenceRef: string | undefined;
