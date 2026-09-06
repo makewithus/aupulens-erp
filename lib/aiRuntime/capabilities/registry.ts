@@ -77,6 +77,24 @@ export const CAPABILITY_REGISTRY: CapabilityDeclaration[] = [
     resolvedBy: null,
     resolvedAt: null,
   },
+  {
+    // Chunk 10 (P0.4) — was hand-coded directly in controls/definitions.ts's
+    // approverAuthorityDefinition (status: "partial", its own inline reasonIfLimited string) and
+    // never mirrored here, unlike every other controls-file gap. The 0.2 drift test only walks
+    // this registry array plus getWorkflowGaps() — it structurally cannot discover a declaration
+    // that was never registered in the first place, because approverAuthorityDefinition is a
+    // full, real ControlDefinition (real population()/test() functions), not one built through
+    // the notImplemented() helper that already reads from here. Mirrored now, and
+    // approverAuthorityDefinition's own reasonIfLimited now reads getCapability(...)?.reason
+    // instead of carrying a second copy, so the two cannot drift apart again.
+    capabilityId: "approver_authority",
+    declaredBy: ["AI-29"],
+    reason: "lib/org/rbac.ts has no permission-tier/authority-level concept — this only checks the approver's User.role is in a plausible set (finance/admin/master-admin), never a real authority-level verification",
+    blockingDependency: "a real permission-tier/authority-level concept in lib/org/rbac.ts",
+    status: "partial",
+    resolvedBy: null,
+    resolvedAt: null,
+  },
 
   // ── Vendor bank-detail field — cited by both AI-06 and AI-19 ─────────────
   {

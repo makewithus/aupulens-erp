@@ -68,6 +68,18 @@ function currentPeriod(): { period: string; periodEnd: Date } {
   return { period, periodEnd };
 }
 
+// Chunk 10 (P0.1) — hardening, not a live bug fix: `extracted.periodEnd` is only ever passed
+// through to `runReconciliationDefinition()`, whose one consumer here (`inventoryDefinition.run`)
+// takes just `tenantId` and ignores it — confirmed by reading both, not assumed — so today's
+// plain truthy-check could never actually crash. But it's the exact defect SHAPE already fixed in
+// 12 sibling workflows (docs/ai/BRIEF-09-VERIFICATION.md consolidated finding), one refactor of
+// the reconciliation engine away from reactivating, so it gets the same permanent, structural
+// fix rather than staying "safe by accident."
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+function isValidIsoInstant(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && !Number.isNaN(new Date(value).getTime());
+}
+
 const MARGIN_DROP_ALERT_POINTS = 10; // percentage points — a documented heuristic
 
 export const ai11InventoryCogs: WorkflowDefinition<Ai11Raw, Ai11Extracted, Ai11Proposal> = {
@@ -83,8 +95,9 @@ export const ai11InventoryCogs: WorkflowDefinition<Ai11Raw, Ai11Extracted, Ai11P
 
   async observe(event): Promise<ObservedResult<Ai11Raw>> {
     const fallback = currentPeriod();
-    const period = event.payload.period ? String(event.payload.period) : fallback.period;
-    const periodEnd = event.payload.periodEnd ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
+    const rawPeriod = event.payload.period;
+    const period = typeof rawPeriod === "string" && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : fallback.period;
+    const periodEnd = isValidIsoInstant(event.payload.periodEnd) ? String(event.payload.periodEnd) : fallback.periodEnd.toISOString();
     return { entityId: event.tenantId, raw: { period, periodEnd } };
   },
 

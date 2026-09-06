@@ -96,7 +96,10 @@ const approverAuthorityDefinition: ControlDefinition<ApproverAuthorityItem> = {
   id: "approver_authority",
   description: "The approver held sufficient authority to approve",
   status: "partial",
-  reasonIfLimited: "lib/org/rbac.ts has no permission-tier/authority-level concept — this only checks the approver's User.role is in a plausible set (finance/admin/master-admin), never a real authority-level verification",
+  // Chunk 10 (P0.4) — reads from the shared capability registry instead of carrying its own copy
+  // of this reason, so it cannot silently drift from the registry entry the way it did before
+  // (this control's "partial" status was never mirrored there at all until this pass).
+  reasonIfLimited: getCapability("approver_authority")?.reason ?? "lib/org/rbac.ts has no permission-tier/authority-level concept",
   severity: "medium",
   remediationOwner: "finance",
   frequency: "continuous",
@@ -316,6 +319,7 @@ const masterDataVerificationDefinition: ControlDefinition<MasterDataVerification
 };
 
 interface BankDetailChangeItem {
+  tenantId: string;
   entityModel: string;
   recordId: string;
   field: string;
@@ -345,7 +349,7 @@ const bankDetailChangeProcessDefinition: ControlDefinition<BankDetailChangeItem>
     for (const p of profiles) {
       for (const alert of p.bankChangeAlerts ?? []) {
         if (alert.changedAt && (alert.changedAt < periodStart || alert.changedAt > periodEnd)) continue;
-        items.push({ entityModel: p.entityModel, recordId: p.recordId, field: alert.field, holdPlaced: Boolean(alert.holdPlaced), holdRef: alert.holdRef ?? null });
+        items.push({ tenantId, entityModel: p.entityModel, recordId: p.recordId, field: alert.field, holdPlaced: Boolean(alert.holdPlaced), holdRef: alert.holdRef ?? null });
       }
     }
     return items;
@@ -356,7 +360,12 @@ const bankDetailChangeProcessDefinition: ControlDefinition<BankDetailChangeItem>
     }
     await connectDB();
     const { default: AiHold } = await import("@/models/ai/AiHold");
-    const hold = await AiHold.findById(item.holdRef).lean();
+    // Chunk 10 (P0.4) — scoped to item.tenantId (carried from population(), itself already
+    // tenant-scoped), matching the same treatment applied to computeBankPosition() in this pass.
+    // Not exploitable today (holdRef always comes from this tenant's own AiMasterDataProfile),
+    // but the exact shape of the cross-tenant defect class found in 8 workflows before it was
+    // reachable — permanent, one-line, structural rather than "safe by accident."
+    const hold = await AiHold.findOne({ _id: item.holdRef, tenantId: item.tenantId }).lean();
     return { passed: Boolean(hold), detail: hold ? `${item.entityModel} ${item.recordId}'s ${item.field} change correctly triggered a hold that still exists` : `${item.entityModel} ${item.recordId}'s ${item.field} change references a hold that no longer exists`, evidence: [] };
   },
   refOf: (item) => `${item.entityModel}:${item.recordId}:${item.field}`,

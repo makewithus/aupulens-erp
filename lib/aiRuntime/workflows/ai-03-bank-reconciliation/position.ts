@@ -28,7 +28,13 @@ function roundCurrency(value: number): number {
 }
 
 export async function computeBankPosition(tenantId: string, bankStatementId: string): Promise<BankPosition | null> {
-  const statement = await BankStatement.findById(bankStatementId).lean();
+  // Chunk 10 (P0.4) — scoped to tenantId even though this function already takes it as a
+  // parameter: an unscoped findById() is the exact shape of the cross-tenant defect class found
+  // in 8 workflows during Chunk 9 verification, before it was reachable from an attacker-
+  // controlled id. Not exploitable today (every current caller passes its own tenant's real
+  // bankStatementId), but permanent, one-line, structural — the same reasoning applied to
+  // AiHold.findById() in lib/aiRuntime/controls/definitions.ts in this same pass.
+  const statement = await BankStatement.findOne({ _id: bankStatementId, tenantId }).lean();
   if (!statement) return null;
 
   const bankAccountId = statement.header.journalId;
