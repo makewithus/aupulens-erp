@@ -243,14 +243,16 @@ describe("AI-23 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
   // What input makes AI-23 produce a confidently-wrong "auto_ok" a human would accept? Both the
   // "unusual_account_combination" and "rare_poster" dimensions (scoreJournalRisk.ts) are gated
   // behind `input.baseline.totalPostedJournals >= 10` — deliberately, to avoid flagging every
-  // single journal a brand-new tenant posts as "unusual" purely for lack of history. But that
-  // same guard means a tenant with FEWER than 10 total historical journals gets a complete pass
+  // single journal a brand-new tenant posts as "unusual" purely for lack of history. That same
+  // guard used to mean a tenant with FEWER than 10 total historical journals got a complete pass
   // on BOTH detectors for its very first large, first-time-combination, first-time-poster entry —
-  // regardless of how anomalous it actually is. A weekday, business-hours, described entry with no
-  // SoD conflict and no threshold proximity sails through as auto_ok. This is a genuine, verified
-  // limitation (not fixed in this pass — the threshold trades sensitivity for specificity on thin
-  // tenants, and raising it isn't a decision this pass should make unilaterally), not a coding bug.
-  it("C.6 adversarial: a thin-history tenant's first large, first-time-combination journal by a first-time poster scores auto_ok", async () => {
+  // a real, found adversarial gap (docs/ai/BRIEF-10-PRE-QA.md P0.2). Fixed with a cold-start rule:
+  // below the same 10-journal threshold, `baseline_available` is reported false, an
+  // absolute-signal fallback fires for any entry touching cash/revenue/equity regardless of
+  // journalType (`cold_start_sensitive_account_touch` — not gated on history at all), and the
+  // final recommendation is never allowed to stay `auto_ok` when the baseline was unavailable —
+  // it's upgraded to at least `review`, with the reason stated.
+  it("C.6 adversarial (regression, was previously auto_ok — see docs/ai/BRIEF-10-PRE-QA.md P0.2): a thin-history tenant's first large, first-time-combination journal by a first-time poster is never auto_ok", async () => {
     const cash = await makeAccount(TENANT, "asset_cash", "asset", "Cash");
     const revenue = await makeAccount(TENANT, "income", "income", "Sales Revenue");
     const newUser = new mongoose.Types.ObjectId();
@@ -260,7 +262,8 @@ describe("AI-23 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
       await postJournal(TENANT, { name: `JE-thin-${i}`, date: new Date(`2025-12-0${i + 1}T12:00:00Z`), createdAt: new Date(`2025-12-0${i + 1}T12:00:00Z`), journalType: "sale", lines: [{ accountId: cash, debit: 100, credit: 0, label: "Cash sale" }, { accountId: revenue, debit: 0, credit: 100, label: "Cash sale" }] });
     }
     // A brand-new, non-sensitive account combination the tenant has never used, by a brand-new
-    // poster, for a large amount — weekday, business hours, has a description, no SoD conflict.
+    // poster, for a large amount — weekday, business hours, has a description, no SoD conflict —
+    // but it DOES touch cash, which the cold-start fallback checks regardless of history.
     const newExpenseAccount = await makeAccount(TENANT, "expense", "expense", "Consulting Fees");
     const target = await postJournal(TENANT, {
       name: "JE-thin-history-large", date: new Date("2026-01-14T12:00:00Z"), createdAt: new Date("2026-01-14T12:00:00Z"), journalType: "purchase", createdBy: newUser,
@@ -269,11 +272,37 @@ describe("AI-23 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
 
     const { buildAndScoreJournalRisk } = await import("@/lib/aiRuntime/journalReview/buildRiskInput");
     const result = await buildAndScoreJournalRisk(TENANT, String(target._id));
-    // Documents CURRENT, confirmed behaviour: auto_ok despite a never-before-seen account
-    // combination, a first-time poster, and an amount 2,500x this tenant's own baseline —
-    // exactly the adversarial case this test proves exists, not asserts as correct.
-    expect(result!.recommendation).toBe("auto_ok");
+    // The tenant-baseline detectors are still correctly unavailable — the fix doesn't fake having
+    // a baseline, it adds a fallback for when there isn't one.
+    expect(result!.baseline_available).toBe(false);
     expect(result!.flags.some((f) => f.dimension === "unusual_account_combination")).toBe(false);
     expect(result!.flags.some((f) => f.dimension === "rare_poster")).toBe(false);
+    // But it's no longer a silent pass: the cash-touching absolute signal fires, and the
+    // recommendation is never auto_ok while the baseline is unavailable.
+    expect(result!.flags.some((f) => f.dimension === "cold_start_sensitive_account_touch")).toBe(true);
+    expect(result!.recommendation).not.toBe("auto_ok");
+  });
+
+  it("C.6 cold-start fallback stays quiet when genuinely nothing is risky: a thin-history tenant's ordinary, non-sensitive, small entry still needs a review-tier nudge (never auto_ok) but raises no false 'sensitive account' flag", async () => {
+    const supplies = await makeAccount(TENANT, "expense", "expense", "Office Supplies");
+    const payable = await makeAccount(TENANT, "liability_current", "liability", "Accounts Payable");
+    for (let i = 0; i < 3; i++) {
+      await postJournal(TENANT, { name: `JE-quiet-${i}`, date: new Date(`2025-12-0${i + 1}T12:00:00Z`), createdAt: new Date(`2025-12-0${i + 1}T12:00:00Z`), journalType: "purchase", lines: [{ accountId: supplies, debit: 500, credit: 0, label: "Office supplies" }, { accountId: payable, debit: 0, credit: 500, label: "Office supplies" }] });
+    }
+    const target = await postJournal(TENANT, {
+      // A Tuesday, business hours — must not accidentally trip weekend_or_after_hours_posting,
+      // which would make "review" happen for a different reason than the one under test.
+      name: "JE-quiet-target", date: new Date("2026-01-13T12:00:00Z"), createdAt: new Date("2026-01-13T12:00:00Z"), journalType: "purchase",
+      lines: [{ accountId: supplies, debit: 480, credit: 0, label: "Office supplies" }, { accountId: payable, debit: 0, credit: 480, label: "Office supplies" }],
+    });
+    const { buildAndScoreJournalRisk } = await import("@/lib/aiRuntime/journalReview/buildRiskInput");
+    const result = await buildAndScoreJournalRisk(TENANT, String(target._id));
+    expect(result!.baseline_available).toBe(false);
+    expect(result!.flags.some((f) => f.dimension === "cold_start_sensitive_account_touch")).toBe(false); // no cash/revenue/equity line
+    // Still not auto_ok, purely because the baseline itself is unavailable — the rule is
+    // unconditional ("never auto_ok on amount alone when the baseline is unavailable"), not
+    // contingent on finding some other flag.
+    expect(result!.recommendation).toBe("review");
+    expect(result!.reasons.some((r) => r.includes("baseline unavailable"))).toBe(true);
   });
 });

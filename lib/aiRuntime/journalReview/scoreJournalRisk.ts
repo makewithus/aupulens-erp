@@ -67,9 +67,18 @@ export interface JournalRiskResult {
   flags: JournalRiskFlag[];
   recommendation: JournalRiskRecommendation;
   reasons: string[];
+  /** Chunk 10 (P0.2) — false whenever `baseline.totalPostedJournals` is below the same 10-journal
+   *  threshold `rare_poster`/`unusual_account_combination` already require. A new tenant's first
+   *  month has no tenant-baseline detectors to lean on at all, which used to mean a first-time,
+   *  large, brand-new-account-pair entry by a brand-new poster could score zero flags and
+   *  `auto_ok` — precisely the month a mistake is most likely and least likely to be caught by
+   *  anyone. Surfaced explicitly so a reviewer knows WHY a review-tier recommendation carries no
+   *  baseline-comparison detail. */
+  baseline_available: boolean;
 }
 
 const SEVERITY_WEIGHT: Record<JournalRiskSeverity, number> = { low: 0.1, medium: 0.25, high: 0.45 };
+const BASELINE_MIN_JOURNALS = 10;
 
 function accountCombinationKey(accountIds: string[]): string {
   return [...new Set(accountIds)].sort().join("|");
@@ -78,6 +87,7 @@ function accountCombinationKey(accountIds: string[]): string {
 export function scoreJournalRisk(input: JournalRiskInput): JournalRiskResult {
   const flags: JournalRiskFlag[] = [];
   const scoreComponents: Record<string, number> = {};
+  const baselineAvailable = input.baseline.totalPostedJournals >= BASELINE_MIN_JOURNALS;
 
   const addFlag = (f: JournalRiskFlag) => {
     flags.push(f);
@@ -124,15 +134,29 @@ export function scoreJournalRisk(input: JournalRiskInput): JournalRiskResult {
 
   if (input.createdBy) {
     const posterCount = input.baseline.posterJournalCounts.get(input.createdBy) ?? 0;
-    if (input.baseline.totalPostedJournals >= 10 && posterCount <= 1) {
+    if (baselineAvailable && posterCount <= 1) {
       addFlag({ dimension: "rare_poster", detail: `This user has posted ${posterCount} other journal(s) in the trailing history`, severity: "medium", baselineComparison: `tenant posts ${input.baseline.totalPostedJournals} journal(s) historically` });
     }
   }
 
   const combinationKey = accountCombinationKey(input.lines.map((l) => l.accountId));
   const combinationCount = input.baseline.accountCombinationCounts.get(combinationKey) ?? 0;
-  if (input.baseline.totalPostedJournals >= 10 && combinationCount === 0) {
+  if (baselineAvailable && combinationCount === 0) {
     addFlag({ dimension: "unusual_account_combination", detail: "This exact set of accounts has not been combined in a journal before", severity: "medium", baselineComparison: `0 of ${input.baseline.totalPostedJournals} historical journal(s)` });
+  }
+
+  // Chunk 10 (P0.2) cold-start rule: below BASELINE_MIN_JOURNALS, rare_poster and
+  // unusual_account_combination above are structurally unavailable (nothing to compare against),
+  // so fall back to an absolute signal that needs no history at all — does this entry touch cash,
+  // revenue, or equity, regardless of journalType. Deliberately NOT gated to journalType ===
+  // "general" the way isManualJournalToSensitiveAccount() is: a new tenant's first month can
+  // include auto-posted documents that still deserve scrutiny when there is no baseline to judge
+  // them against.
+  if (!baselineAvailable) {
+    const touchesSensitive = input.lines.some((l) => SENSITIVE_ACCOUNT_TYPES.has(l.accountType) || SENSITIVE_GROUPS.has(l.internalGroup));
+    if (touchesSensitive) {
+      addFlag({ dimension: "cold_start_sensitive_account_touch", detail: "This entry touches a cash, revenue, or equity account and this tenant has too little history to compare it against", severity: "medium", baselineComparison: `only ${input.baseline.totalPostedJournals} journal(s) posted historically — below the ${BASELINE_MIN_JOURNALS}-journal baseline threshold` });
+    }
   }
 
   for (const line of input.lines) {
@@ -156,8 +180,17 @@ export function scoreJournalRisk(input: JournalRiskInput): JournalRiskResult {
 
   const riskScore = Math.min(1, Object.values(scoreComponents).reduce((s, v) => s + v, 0));
   const hasHigh = flags.some((f) => f.severity === "high");
-  const recommendation: JournalRiskRecommendation = hasHigh || riskScore >= 0.6 ? "escalate" : flags.length > 0 ? "review" : "auto_ok";
+  let recommendation: JournalRiskRecommendation = hasHigh || riskScore >= 0.6 ? "escalate" : flags.length > 0 ? "review" : "auto_ok";
   const reasons = flags.map((f) => f.detail);
 
-  return { riskScore: Math.round(riskScore * 100) / 100, scoreComponents, flags, recommendation, reasons };
+  // Chunk 10 (P0.2): never auto_ok on amount/absolute-signal silence alone when the
+  // tenant-baseline detectors that would normally justify high confidence are unavailable — a
+  // clean-looking entry with too little history to compare against gets AT LEAST a review, never
+  // the strongest confidence tier.
+  if (!baselineAvailable && recommendation === "auto_ok") {
+    recommendation = "review";
+    reasons.push(`baseline unavailable — only ${input.baseline.totalPostedJournals} journal(s) posted historically (below the ${BASELINE_MIN_JOURNALS}-journal threshold), so this cannot be confirmed against tenant history`);
+  }
+
+  return { riskScore: Math.round(riskScore * 100) / 100, scoreComponents, flags, recommendation, reasons, baseline_available: baselineAvailable };
 }
