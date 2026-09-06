@@ -344,4 +344,26 @@ describe("AI-28 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     expect(finding).toBeDefined();
     expect(finding!.detail).toContain("2026-01"); // the EARLY shipment's period, wrongly cited
   });
+
+  // ── Chunk 10a addendum, Part 0.1: the timing claim, verified structurally not just narrated ──
+  // The P0.3 fix to evaluateCutoff() (lib/aiRuntime/cutoff/evaluateCutoff.ts) collapsed its
+  // Invoice and PurchaseOrder lookups from two sequential awaits to one Promise.all — real 10k
+  // scale showed 45-60s -> 24.7-26.7s, a one-time manual measurement, not backed by a repeatable
+  // automated test: the C.1 large-volume test above only seeds 2,000 bills, and at that scale the
+  // difference is within this shared dev box's own run-to-run noise (measured directly during
+  // this addendum's retroactive audit: 3.3s pre-fix vs 3.9s post-fix on two consecutive runs —
+  // NOT a reliable discriminator). A source-level check is the honest, deterministic regression
+  // guard for this specific fix: it fails immediately if a future edit reintroduces the sequential
+  // shape, regardless of what any dev box's timing noise happens to show that day.
+  it("regression (Chunk 10a, P0.3): evaluateCutoff() issues its Invoice and PurchaseOrder lookups inside one Promise.all, never sequential awaits", () => {
+    const source = require("node:fs").readFileSync(require("node:path").join(process.cwd(), "lib/aiRuntime/cutoff/evaluateCutoff.ts"), "utf-8");
+    const fnStart = source.indexOf("export async function evaluateCutoff");
+    expect(fnStart, "evaluateCutoff() must still exist under this exact name").toBeGreaterThan(-1);
+    const fnBody = source.slice(fnStart, fnStart + 1500); // comfortably covers the Invoice/PO lookup, well short of the function's end
+    const promiseAllIdx = fnBody.indexOf("Promise.all([");
+    expect(promiseAllIdx, "evaluateCutoff() must issue its Invoice/PurchaseOrder lookups via Promise.all, not two sequential awaits (the exact P0.3 regression)").toBeGreaterThan(-1);
+    const promiseAllBlock = fnBody.slice(promiseAllIdx, promiseAllIdx + 400);
+    expect(promiseAllBlock).toContain("Invoice.findOne");
+    expect(promiseAllBlock).toContain("PurchaseOrder.findOne");
+  });
 });

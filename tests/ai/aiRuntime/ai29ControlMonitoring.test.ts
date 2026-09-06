@@ -208,6 +208,28 @@ describe("AI-29 — Audit / control monitoring", () => {
     expect(control.exceptions[0].detail).toContain("emp-bad");
   });
 
+  // Chunk 10a addendum, Part 0.1: P0.4 scoped AiHold.findById() to {_id, tenantId: item.tenantId}
+  // — not exploitable through any current caller (holdRef always comes from this tenant's own
+  // AiMasterDataProfile), but this is the first test that actually proves the scoping holds
+  // rather than asserting it by inspection alone: a holdRef value that happens to reference a
+  // REAL hold belonging to a different tenant must never be treated as "the hold exists."
+  it("bank_detail_change_process: a holdRef pointing at another tenant's real AiHold is treated as if the hold doesn't exist (Chunk 10a, P0.4 regression)", async () => {
+    const OTHER_TENANT = "ai29-other-tenant-p04";
+    const otherTenantsRealHold = await AiHold.create({ tenantId: OTHER_TENANT, subjectRef: { model: "Employee", id: "other-tenant-emp" }, reason: "Bank detail changed: accountNumber", placedByWorkflow: "AI-19", placedAt: new Date("2026-01-05"), status: "open" });
+    await AiMasterDataProfile.create({
+      tenantId: TENANT, entityModel: "Employee", recordId: "emp-cross-tenant-holdref", missingFields: [], duplicateCandidates: [], employeeCollisions: [], expiringDocuments: [], lastEvaluatedAt: new Date(),
+      bankChangeAlerts: [{ field: "accountNumber", oldMasked: "****5555", newMasked: "****6666", changedAt: new Date("2026-01-06"), riskFactors: [], holdPlaced: true, holdRef: String(otherTenantsRealHold._id) }],
+    });
+
+    const results = await runAllControlDefinitions(TENANT, CONTROL_DEFINITIONS, PERIOD_START, PERIOD_END);
+    const control = results.find((r) => r.controlId === "bank_detail_change_process")!;
+    const exception = control.exceptions.find((e) => e.detail.includes("emp-cross-tenant-holdref"));
+    expect(exception, "a holdRef that only resolves under a DIFFERENT tenant must be treated as 'no hold' — the exact P0.4 cross-tenant regression").toBeDefined();
+    expect(exception!.detail).toContain("no longer exists");
+
+    await AiHold.deleteMany({ tenantId: OTHER_TENANT });
+  });
+
   it("not_implemented controls appear with reasons and are excluded from overall_control_health", async () => {
     const envelope = await run();
     const trace = await AiDecisionTrace.findOne({ runId: envelope.runId }).lean();

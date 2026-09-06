@@ -98,6 +98,27 @@ describe("AI-22 — Continuous reconciliation controller", () => {
     expect(bankResult.rightTotal).toBe(directPosition!.glBalance);
   });
 
+  // Chunk 10a addendum, Part 0.1: P0.4 scoped computeBankPosition()'s BankStatement.findById() to
+  // {_id, tenantId} — not exploitable through any current caller (every real caller already
+  // passes its own tenant's real bankStatementId), but this is the first test that actually
+  // proves the scoping holds rather than asserting it by inspection alone.
+  it("computeBankPosition() never returns another tenant's bank statement, even when asked for its real id under a different tenant (Chunk 10a, P0.4 regression)", async () => {
+    const OTHER_TENANT = "ai22-other-tenant-p04";
+    const otherAccount = await Account.create({ tenantId: OTHER_TENANT, name: "Other Tenant Cash", code: `ACC-${Math.random().toString(36).slice(2, 8)}`, account_type: "asset_cash", isActive: true, isLocked: false, status: "active" });
+    const otherStatement = await BankStatement.create({
+      tenantId: OTHER_TENANT,
+      header: { name: "OTHER-TENANT-STMT", journalId: otherAccount._id, date: new Date(), balance_start: 0, balance_end_real: 999999 },
+      lineIds: [{ date: new Date(), payment_ref: "other-tenant-line", amount: 999999, isReconciled: false }],
+      status: "draft",
+    });
+
+    const crossTenantResult = await computeBankPosition(TENANT, String(otherStatement._id));
+    expect(crossTenantResult, "a real bankStatementId belonging to a different tenant must resolve to nothing, never that tenant's real position").toBeNull();
+
+    await BankStatement.deleteMany({ tenantId: OTHER_TENANT });
+    await Account.deleteMany({ tenantId: OTHER_TENANT });
+  });
+
   it("not_implemented definitions (intercompany, processor_settlement) appear with their reason and never count as reconciled — tax flipped to implemented in Chunk 6", async () => {
     const results = await runAllReconciliationDefinitions(TENANT, new Date(), "2026-01");
     const notImplemented = results.filter((r) => r.status === "not_implemented");

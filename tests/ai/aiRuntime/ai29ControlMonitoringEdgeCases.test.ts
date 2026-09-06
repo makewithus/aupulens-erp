@@ -303,4 +303,30 @@ describe("AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C
     const items = await AiAttentionItem.find({ tenantId: TENANT, workflowId: "AI-29" }).lean();
     expect(items.some((i) => i.dedupeKey.includes("sod_preparer_approver"))).toBe(true);
   });
+
+  // ── Chunk 10a addendum, Part 0.1: the timing claim, verified structurally not just narrated ──
+  // The P0.3 fix to no_posting_into_locked_period moved its TransactionLock lookup from once PER
+  // ITEM (test()) to once for the whole population. Re-measured during this addendum's
+  // retroactive audit on a quiet system: reverted code ran the 10k-entry sweep in ~3.1s (NOT the
+  // originally-reported 12.3-21.3s, which was measured under this shared dev box's own documented
+  // concurrent-load variance, docs/ai/UI_REGRESSION.md — not reproducible on demand); the current,
+  // fixed code ran the same sweep in ~380ms, a genuine ~8x improvement even under quiet
+  // conditions. Because the existing 10s ceiling is generous enough that even the REVERTED code
+  // passes it on a quiet run, timing alone would not reliably fail if this fix were reverted — a
+  // structural check is the honest, deterministic regression guard.
+  it("regression (Chunk 10a, P0.3): no_posting_into_locked_period's test() makes no per-item DB call, and population() fetches TransactionLock exactly once via Promise.all", () => {
+    const source = require("node:fs").readFileSync(require("node:path").join(process.cwd(), "lib/aiRuntime/controls/definitions.ts"), "utf-8");
+    const defStart = source.indexOf("const noPostingIntoLockedPeriodDefinition");
+    expect(defStart, "noPostingIntoLockedPeriodDefinition must still exist under this exact name").toBeGreaterThan(-1);
+    const defBody = source.slice(defStart, defStart + 2500);
+
+    const populationMatch = defBody.match(/population:\s*async[^{]*\{([\s\S]*?)\n  \},/);
+    expect(populationMatch, "population() must still exist").not.toBeNull();
+    expect(populationMatch![1]).toContain("Promise.all([");
+    expect(populationMatch![1]).toContain("TransactionLock.find");
+
+    const testMatch = defBody.match(/test:\s*(\([^)]*\))\s*=>/);
+    expect(testMatch, "test() must still exist").not.toBeNull();
+    expect(testMatch![0], "test() must be synchronous (no 'async') — a per-item DB call is exactly the P0.3 regression").not.toContain("async");
+  });
 });
