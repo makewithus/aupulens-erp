@@ -36,32 +36,46 @@ async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgMo
   }
 }
 
+import { APP_ROOT_DOMAIN } from "@/lib/config";
+
 // Extract tenant ID from subdomain
 function getTenantFromHost(hostname: string): string | null {
   if (hostname.endsWith(".vercel.app")) {
     return null;
   }
 
-  const hostParts = hostname.split(".");
+  // Exact match for the root domain or www.
+  if (hostname === APP_ROOT_DOMAIN || hostname === `www.${APP_ROOT_DOMAIN}`) {
+    return null;
+  }
 
-  // For companyx.aupulens.online, extract 'companyx'
-  if (hostParts.length >= 3) {
-    if (
-      hostParts[0] !== "www" &&
-      hostParts[0] !== "localhost" &&
-      hostParts[0] !== "aupulens-erp"
-    ) {
-      return hostParts[0];
+  // Check if it's a subdomain of APP_ROOT_DOMAIN
+  const rootDomainSuffix = `.${APP_ROOT_DOMAIN}`;
+  if (hostname.endsWith(rootDomainSuffix)) {
+    const subdomain = hostname.slice(0, -rootDomainSuffix.length);
+    if (subdomain !== "www") {
+      return subdomain;
+    }
+  }
+
+  // For localhost testing: tenant.localhost
+  if (hostname.endsWith(".localhost")) {
+    const subdomain = hostname.replace(".localhost", "");
+    if (subdomain && subdomain !== "www") {
+      return subdomain;
     }
   }
 
   // Handle localhost:3000
+  const hostParts = hostname.split(".");
   if (hostname.includes("localhost") && hostParts.length >= 2) {
     if (hostParts[0] !== "localhost") {
       return hostParts[0];
     }
   }
 
+  // If it's a completely different custom domain (like erp.aupulens.com when root is aupulens.online),
+  // treat it as the root domain (default-tenant) to avoid breaking deployments.
   return null;
 }
 
