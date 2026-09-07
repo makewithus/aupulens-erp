@@ -1,0 +1,1 @@
+bash: line 1: vitest: command not found

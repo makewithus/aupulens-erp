@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
+import { APP_ROOT_DOMAIN } from "@/lib/config";
 
 interface OrganizationStepProps {
   form: {
@@ -57,17 +58,19 @@ export function OrganizationStep({
               }
               className="h-10 px-0 bg-transparent rounded-none border-0 focus-visible:ring-0 focus-visible:border-0 flex-1 font-mono text-sm shadow-none"
             />
-            <span className="font-mono text-xs text-muted-foreground/40 pr-1">
-              .aupulens.online
-            </span>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-end">
+              <span className="text-sm font-mono text-muted-foreground/40">
+                .{APP_ROOT_DOMAIN}
+              </span>
+            </div>
           </div>
           {errors.subdomain && (
             <p className="text-[11px] font-mono text-destructive mt-1">{errors.subdomain}</p>
           )}
           <p className="text-[11px] text-muted-foreground/60 mt-1.5">
-            Your team will access ERP at{" "}
+            Your team will sign in at{" "}
             <span className="font-semibold text-foreground">
-              {form.subdomain || "yourcompany"}.aupulens.online
+              {form.subdomain || "yourcompany"}.{APP_ROOT_DOMAIN}
             </span>
           </p>
         </div>

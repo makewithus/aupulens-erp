@@ -8,13 +8,13 @@
  * needs no entry here.
  */
 
-/** Root marketing/tenant domain, e.g. "aupulens.online". Tenants live at `${subdomain}.${APP_ROOT_DOMAIN}`. */
+/** Root marketing/tenant domain, e.g. "aupulens.com". Tenants live at `${subdomain}.${APP_ROOT_DOMAIN}`. */
 export const APP_ROOT_DOMAIN =
-  process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "aupulens.online";
+  process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "aupulens.com";
 
 /** Base URL of the marketing/default-tenant site, for redirects and links. */
 export const APP_BASE_URL =
-  process.env.NEXT_PUBLIC_APP_BASE_URL || `https://${APP_ROOT_DOMAIN}`;
+  process.env.NEXT_PUBLIC_APP_BASE_URL || `https://erp.${APP_ROOT_DOMAIN}`;
 
 /** Support inbox shown in suspended/error states. */
 export const SUPPORT_EMAIL =
@@ -27,7 +27,11 @@ export const SUPPORT_EMAIL =
  */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
-/** Builds the public URL for a tenant's workspace, e.g. buildTenantUrl("acme") -> "https://acme.aupulens.online". */
+/** Builds the public URL for a tenant's workspace, e.g. buildTenantUrl("acme") -> "https://acme.aupulens.com". */
 export function buildTenantUrl(subdomain: string): string {
-  return `https://${subdomain}.${APP_ROOT_DOMAIN}`;
+  // On Vercel free plan or single domain setups (e.g. erp.aupulens.com), 
+  // generating a subdomain URL will result in a DNS 404 (site not found) 
+  // because wildcard domains are not supported. We return APP_BASE_URL
+  // to ensure all redirects and AI generated links remain accessible.
+  return APP_BASE_URL;
 }

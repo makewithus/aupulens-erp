@@ -97,7 +97,7 @@ const nextConfig: NextConfig = {
         has: [
           {
             type: "host",
-            value: "(?<subdomain>.+).aupulens.(in|online)",
+            value: "(?<subdomain>.+).aupulens.(in|online|com)",
           },
         ],
       },

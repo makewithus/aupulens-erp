@@ -1,0 +1,2356 @@
+
+> aupulens-erp@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.8 /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main
+
+ ✓ tests/sales/documentNote.test.ts (4 tests) 144ms
+stderr | tests/sales/productPublish500.route.test.ts > Sales Products routes — no 500 on unset optional account fields (Issue #5) > PATCH: a genuinely invalid (non-empty, malformed) ObjectId still returns a clear 400, not a bare 500
+Error updating product: CastError: Cast to ObjectId failed for value "not-a-valid-id" (type string) at path "tab_accounting.cost_and_revenue.property_account_income_id" because of "BSONError"
+    at SchemaObjectId.cast (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schema/objectId.js:253:11)
+    at SchemaObjectId.SchemaType.applySetters (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1288:12)
+    at SchemaObjectId.SchemaType.castForQuery (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1718:17)
+    at castUpdateVal (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:633:19)
+    at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:438:24)
+    at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:378:20)
+    at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:378:20)
+    at castUpdate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:144:7)
+    at model.Query._castUpdate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/query.js:4874:10)
+    at model.Query._findOneAndUpdate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/query.js:3497:23) {
+  stringValue: '"not-a-valid-id"',
+  messageFormat: undefined,
+  kind: 'ObjectId',
+  value: 'not-a-valid-id',
+  path: 'tab_accounting.cost_and_revenue.property_account_income_id',
+  reason: BSONError: input must be a 24 character hex string, 12 byte Uint8Array, or an integer
+      at new ObjectId (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/bson/lib/bson.cjs:2538:23)
+      at castObjectId (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/cast/objectid.js:25:12)
+      at SchemaObjectId.cast (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schema/objectId.js:251:12)
+      at SchemaObjectId.SchemaType.applySetters (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1288:12)
+      at SchemaObjectId.SchemaType.castForQuery (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1718:17)
+      at castUpdateVal (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:633:19)
+      at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:438:24)
+      at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:378:20)
+      at walkUpdatePath (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:378:20)
+      at castUpdate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/helpers/query/castUpdate.js:144:7),
+  valueType: 'string'
+}
+
+ ✓ tests/sales/productPublish500.route.test.ts (4 tests) 1380ms
+     ✓ POST: publishing with an empty-string Income Account succeeds instead of 500ing  721ms
+ ✓ tests/sales/documentPrefix.test.ts (11 tests) 1600ms
+ ✓ tests/sales/invoiceTemplates.test.ts (45 tests) 1800ms
+ ✓ tests/inventory/orderNumbering.test.ts (3 tests) 905ms
+stderr | tests/inventory/orders.route.test.ts > Inventory Orders route (Issue #5) > returns a clear 400 (not a bare 500) with the real validation message when required fields are missing
+Error creating order: Error: InventoryOrder validation failed: totalAmount: Path `totalAmount` is required., expectedDeliveryDate: Path `expectedDeliveryDate` is required., items.0.totalPrice: Path `totalPrice` is required., items.0.unitPrice: Path `unitPrice` is required.
+    at ValidationError.inspect (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/error/validation.js:52:26)
+    at formatValue (node:internal/util/inspect:897:19)
+    at inspect (node:internal/util/inspect:409:10)
+    at formatWithOptionsInternal (node:internal/util/inspect:2645:40)
+    at formatWithOptions (node:internal/util/inspect:2507:10)
+    at Console.value (node:internal/console/constructor:377:14)
+    at Console.error (node:internal/console/constructor:444:61)
+    at POST (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/app/api/inventory/orders/route.ts:98:13)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/tests/inventory/orders.route.test.ts:121:17 {
+  errors: {
+    totalAmount: ValidatorError: Path `totalAmount` is required.
+        at validate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1440:13)
+        at SchemaNumber.SchemaType.doValidate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1424:7)
+        at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/document.js:3134:18
+        at processTicksAndRejections (node:internal/process/task_queues:84:11) {
+      properties: [Object],
+      kind: 'required',
+      path: 'totalAmount',
+      value: undefined,
+      reason: undefined,
+      Symbol(mongoose#validatorError): true
+    },
+    expectedDeliveryDate: ValidatorError: Path `expectedDeliveryDate` is required.
+        at validate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1440:13)
+        at SchemaDate.SchemaType.doValidate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1424:7)
+        at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/document.js:3134:18
+        at processTicksAndRejections (node:internal/process/task_queues:84:11) {
+      properties: [Object],
+      kind: 'required',
+      path: 'expectedDeliveryDate',
+      value: undefined,
+      reason: undefined,
+      Symbol(mongoose#validatorError): true
+    },
+    'items.0.totalPrice': ValidatorError: Path `totalPrice` is required.
+        at validate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1440:13)
+        at SchemaNumber.SchemaType.doValidate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1424:7)
+        at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/document.js:3134:18
+        at processTicksAndRejections (node:internal/process/task_queues:84:11) {
+      properties: [Object],
+      kind: 'required',
+      path: 'totalPrice',
+      value: undefined,
+      reason: undefined,
+      Symbol(mongoose#validatorError): true
+    },
+    'items.0.unitPrice': ValidatorError: Path `unitPrice` is required.
+        at validate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1440:13)
+        at SchemaNumber.SchemaType.doValidate (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/schemaType.js:1424:7)
+        at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/document.js:3134:18
+        at processTicksAndRejections (node:internal/process/task_queues:84:11) {
+      properties: [Object],
+      kind: 'required',
+      path: 'unitPrice',
+      value: undefined,
+      reason: undefined,
+      Symbol(mongoose#validatorError): true
+    }
+  },
+  _message: 'InventoryOrder validation failed'
+}
+
+ ✓ tests/inventory/orders.route.test.ts (5 tests) 2978ms
+ ✓ tests/sales/einvoices.route.test.ts (6 tests) 4461ms
+ ✓ tests/sales/invoiceNumbering.test.ts (7 tests) 2028ms
+ ❯ tests/sales/q2cSync.test.ts (4 tests | 4 skipped) 20013ms
+     ↓ converting a quote to an invoice creates a SaleOrder pipeline card at Invoice Posted
+     ↓ fully paying that invoice advances the linked pipeline card to Revenue Recognized
+     ↓ advanceSaleOrderOnInvoicePaid is a safe no-op when no SaleOrder is linked to the invoice
+     ↓ syncSaleOrderOnQuoteConverted is idempotent (re-running for the same quote doesn't create a duplicate card)
+ ❯ tests/golden/ai09.golden.test.ts (1 test | 1 skipped) 20013ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai01.golden.test.ts (1 test | 1 skipped) 20013ms
+     ↓ reports a pass rate >= 100% across 7 golden case(s)
+ ❯ tests/golden/ai05.golden.test.ts (1 test | 1 skipped) 20012ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai06.golden.test.ts (1 test | 1 skipped) 21225ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai29.golden.test.ts (1 test | 1 skipped) 21269ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai28.golden.test.ts (1 test | 1 skipped) 19363ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai03.golden.test.ts (1 test | 1 skipped) 21250ms
+     ↓ reports a pass rate >= 100% across 6 golden case(s)
+ ❯ tests/golden/ai04.golden.test.ts (1 test | 1 skipped) 21712ms
+     ↓ reports a pass rate >= 100% across 5 golden case(s)
+ ❯ tests/golden/ai08.golden.test.ts (1 test | 1 skipped) 21889ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai27.golden.test.ts (1 test | 1 skipped) 20164ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai23.golden.test.ts (1 test | 1 skipped) 17520ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/sales/salesInvoice.test.ts (7 tests | 7 skipped) 19320ms
+     ↓ creates a valid invoice with default status draft
+     ↓ enforces a compound unique index on (tenantId, number)
+     ↓ allows the same invoice number across different tenants
+     ↓ isolates queries by tenantId
+     ↓ stores line item discount mode and computed totals as provided
+     ↓ rejects an invalid status enum value
+     ↓ defaults extraDiscountMode to amount and persists percent when set
+stderr | tests/sales/quotes.route.test.ts > quotes routes
+Quote convert-to-invoice error: MongoClientClosedError: Operation interrupted because client was closed
+    at ConnectionPool.closeCheckedOutConnections (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/node_modules/mongodb/lib/cmap/connection_pool.js:260:26)
+    at Server.closeCheckedOutConnections (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/node_modules/mongodb/lib/sdam/server.js:111:26)
+    at Topology.closeCheckedOutConnections (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/node_modules/mongodb/lib/sdam/topology.js:222:27)
+    at MongoClient._close (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/node_modules/mongodb/lib/mongo_client.js:348:24)
+    at MongoClient.close (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/node_modules/mongodb/lib/mongo_client.js:331:35)
+    at NativeConnection.doClose (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/drivers/node-mongodb-native/connection.js:208:21)
+    at NativeConnection._close (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/connection.js:1264:18)
+    at NativeConnection.close (/home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/node_modules/mongoose/lib/connection.js:1229:15)
+    at /home/krrish/Desktop/Aupulens-ERP/Aupulens-ERP-main/tests/sales/quotes.route.test.ts:40:31
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  errorLabelSet: Set(0) {}
+}
+
+ ❯ tests/sales/quotes.route.test.ts (5 tests | 1 failed) 24090ms
+     ✓ GET returns 401 without a session 18ms
+     ✓ POST requires a customer and at least one line item 6ms
+     ✓ POST computes totals server-side and auto-generates a quote number 41ms
+     ✓ GET only returns the requesting tenant's quotes 40ms
+     × convert-to-invoice creates a SalesInvoice and marks the quote invoiced 19279ms
+ ❯ tests/golden/ai16.golden.test.ts (1 test | 1 skipped) 12807ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/golden/ai30.golden.test.ts (1 test | 1 skipped) 10028ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/sales/paymentAllocation.test.ts (17 tests | 5 skipped) 10044ms
+     ✓ sums allocation amounts, ignoring non-numeric input 4ms
+     ✓ returns unusedAmount as the leftover after allocations, bank charges, and TDS 1ms
+     ✓ throws when total applied exceeds the net available amount 2ms
+     ✓ accounts for bank charges and TDS reducing the net available amount 0ms
+     ✓ throws on a negative allocation amount 0ms
+     ✓ throws when an allocation row has no invoiceId 0ms
+     ✓ allows an allocation that exactly matches the net available amount 0ms
+     ✓ allows an allocation that exactly covers the outstanding balance 1ms
+     ✓ allows an allocation that covers only the remaining balance after a prior payment 1ms
+     ✓ rejects a payment applied to an invoice that's already fully paid (the duplicate-payment scenario) 1ms
+     ✓ rejects an allocation that overshoots the remaining balance even partially 1ms
+     ✓ ignores allocations for invoices not present in the provided list (handled separately by the caller) 0ms
+     ↓ marks an invoice fully paid and tags the payment entry with paymentId
+     ↓ marks an invoice partially_paid when the allocation is less than the total
+     ↓ reverses a payment's allocations and restores the invoice's prior status
+     ↓ only reverses the entries tagged with the given paymentId, leaving other payments intact
+     ↓ skips an allocation row with a zero amount without error
+ ❯ tests/golden/ai19.golden.test.ts (1 test | 1 skipped) 10036ms
+     ↓ reports a pass rate >= 100% across 10 golden case(s)
+ ❯ tests/golden/ai07.golden.test.ts (1 test | 1 skipped) 10064ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai22.golden.test.ts (3 tests | 3 skipped) 10039ms
+     ↓ reports a pass rate >= 100% across 24 golden case(s)
+     ↓ P0.5 regression: the SAME open AP/AR balances still compute a real number for the tenant's current open period (only a CLOSED period is scoped out)
+     ↓ P0.5 regression: AI-13's closeReadiness domain reports NOT_CHECKED (never ready, never a fabricated blocker) for a closed-period ap_control/ar_control_finance
+ ❯ tests/golden/ai14.golden.test.ts (1 test | 1 skipped) 10045ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/golden/ai17.golden.test.ts (1 test | 1 skipped) 10041ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/sales/product.test.ts (4 tests | 4 skipped) 10023ms
+     ↓ defaults to draft
+     ↓ accepts published as a real status
+     ↓ rejects a DOCUMENT_STATUS-style value that isn't a real product status
+     ↓ allows publishing a draft product via update
+ ❯ tests/golden/ai15.golden.test.ts (1 test | 1 skipped) 10037ms
+     ↓ reports a pass rate >= 100% across 12 golden case(s)
+ ❯ tests/sales/paymentPostingAtomicity.route.test.ts (3 tests | 3 skipped) 10036ms
+     ↓ rolls back the Payment and its journal entry when applying the allocation fails validation (create)
+     ↓ succeeds normally and posts exactly once when nothing fails (control case)
+     ↓ rolls back a newly-posted journal entry (not the invoice's prior state) when applying the allocation fails validation on edit
+ ❯ tests/sales/customerViews.route.test.ts (3 tests | 3 skipped) 10027ms
+     ↓ GET seeds the 9 system views on first call and is idempotent on the second
+     ↓ plain GET /customers with no params stays backward compatible ({ items } array of everything)
+     ↓ a custom view's criteria actually filters the customers list
+ ❯ tests/golden/ai11.golden.test.ts (1 test | 1 skipped) 10114ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai10.golden.test.ts (1 test | 1 skipped) 11035ms
+     ↓ reports a pass rate >= 100% across 4 golden case(s)
+ ❯ tests/golden/ai02.golden.test.ts (1 test | 1 skipped) 12993ms
+     ↓ reports a pass rate >= 100% across 5 golden case(s)
+ ❯ tests/golden/ai18.golden.test.ts (1 test | 1 skipped) 17467ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/ai/aiRuntime/aiLearningLoop.test.ts (10 tests | 10 skipped) 10596ms
+     ↓ AiLearningRecord.runId is uniquely indexed — a genuine second record for the same run is rejected at the database layer
+     ↓ every registered workflow is registered in the runtime — parameterised smoke check that the registry itself is complete (30 + smoke)
+     ↓ a run that produces a proposal produces exactly one AiLearningRecord (via the real executor, not a direct write)
+     ↓ registry-driven sweep: every workflow reachable via a tenant-wide sweep trigger produces exactly one AiLearningRecord on an ordinary empty tenant
+     ↓ AI-07's own accuracy-check resolves its learning record immediately via ActResult.learningOutcome — still exactly one record, not two
+     ↓ resolution sweep: a subjectRef whose record reached POSTED resolves the pending record to accepted
+     ↓ resolution sweep: a subjectRef whose record was deleted resolves to rejected
+     ↓ a record with no resolution signal ages to outcome_unknown after the window — never accepted (silence is not agreement)
+     ↓ a record still within its resolution window and with no signal stays pending — not aged prematurely
+     ↓ resolveLearningRecordForRun is a no-op (not an error) when the run never produced a pending record
+ ❯ tests/ai/aiRuntime/ai30ErpOperationsEdgeCases.test.ts (5 tests | 5 skipped) 10995ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow()) fires AI-30 and it detects a dead-lettered event
+     ↓ cross-tenant hostile: a payload naming another tenant's real record ids is ignored — extract() never reads observed.raw
+     ↓ one repair throwing (repair-gate outage) does not block the other repair or the sweep's own findings record
+     ↓ large volume: 10,000 dead-lettered events grouped and reported correctly within budget
+     ↓ null/missing fields and malformed data never crash the sweep and never fabricate an issue
+ ❯ tests/golden/ai26.golden.test.ts (1 test | 1 skipped) 10977ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/golden/ai12.golden.test.ts (1 test | 1 skipped) 11026ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/ai/aiRuntime/ai12WorkflowEdgeCases.test.ts (6 tests | 6 skipped) 10907ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow()) fires AI-12 and rebuilds the tax projection
+     ↓ large volume: 3,000 invoices rebuilt and reconciled correctly within the performance budget (C.1 Large)
+     ↓ malformed tax activity (zero tax, negative amount credit note, absurd date, unicode/HTML vendor name) never crashes the rebuild
+     ↓ cross-tenant isolation: tenant A's period rebuild never includes tenant B's tax transactions, even for the identical period
+     ↓ adversarial: the three-way ties exactly (looks perfectly reconciled) while one transaction's tax rate is a clear outlier — a naive 'ledger matches, all clear' read would miss it, AI-12 still surfaces it
+     ↓ malformed/missing period.horizon.reached payload degrades to the current period instead of throwing (regression)
+ ❯ tests/ai/aiRuntime/ai21StatementIntelligence.test.ts (7 tests | 7 skipped) 10674ms
+     ↓ statement totals equal the trial balance exactly — never a second, disagreeing figure
+     ↓ a real balance sheet balances — assets equal liabilities plus equity
+     ↓ an unreconciled, material AP control line is flagged unsupportedMaterial — and raises a HIGH finding when the workflow runs
+     ↓ a fully reconciled, immaterial line raises no flags (false positive check)
+     ↓ the drill-down chain reaches real journal entries and transaction lines
+     ↓ annotateStatement() called for a genuinely historical period never leaks the next month's activity into the balance sheet (Chunk 10a, Part 1.1/COVERAGE_GAPS.md)
+     ↓ no path in AI-21's own code ever writes a ledger value (source-grep, same pattern as AI-09/AI-13)
+ ❯ tests/ai/aiRuntime/ai28CutoffIntelligenceEdgeCases.test.ts (11 tests | 11 skipped) 10910ms
+     ↓ trigger proof: the real cron sweep route fires AI-28 and raises a real cut-off exception
+     ↓ bug regression: a missing or malformed periodEnd degrades to the current period-end instead of crashing
+     ↓ C.4 cross-tenant: tenant A's run never sees tenant B's bills, even with a hostile tenantId embedded in the payload
+     ↓ C.1 empty: zero bills in the cut-off window → clean no_action, never an error
+     ↓ C.1 malformed: unicode/RTL/HTML vendor names, negative and absurd-date bills never crash the run
+     ↓ C.2 fiscal-year-end: goods received Dec 30, bill posted Jan 2 the following year → still correctly flagged
+     ↓ C.2 materiality/confidence edge: not applicable — AI-28 has no materiality gate and a fixed confidence, by design
+     ↓ C.3 duplicate event (documented, unfixed executor race): concurrent identical events — one settles, one currently throws
+     ↓ C.1 large volume: 2,000 fully-evidenced bills resolve correctly and measurably faster after the batching fix (real 10k numbers in the comment above)
+     ↓ C.6 adversarial: a PO with two partial shipments makes the LATER bill inherit the EARLIER shipment's receipt date (documented shared-service limitation, not fixed here)
+     ↓ regression (Chunk 10a, P0.3): evaluateCutoff() issues its Invoice and PurchaseOrder lookups inside one Promise.all, never sequential awaits
+ ❯ tests/ai/aiRuntime/ai05ReceivablesOperationsEdgeCases.test.ts (11 tests | 11 skipped) 10745ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow()) fires AI-05 and drafts a collection-worklist communication
+     ↓ the real unattended sweep (no actingUserId) reports the allocation candidate but never writes draft_receipt_allocation
+     ↓ cross-tenant hostile: a payload naming another tenant's real record ids never leaks into this tenant's run
+     ↓ nothing configured: no materiality policy row → reasonChain states which setting is missing, worklist still produced
+     ↓ materiality edge: a worklist entry exactly at the threshold escalates, one unit under does not
+     ↓ short-payment heuristic edge: 80.00% is a dispute, 79.99% is an ordinary partial
+     ↓ kill switch off: no allocation, no dispute, no draft communication — clean no_action, reason stated
+     ↓ concurrent duplicate ai.sweep.hourly dispatch → exactly one allocation on the same draft payment, not two
+     ↓ large volume: 3,000 open invoices across many customers, correct worklist within budget
+     ↓ malformed data (unicode/HTML customer name, 500-char description, absurd dates, zero/negative amounts) never crashes and never fabricates a false allocation
+     ↓ adversarial: a customer who always pays 5 days EARLY is never added to the collection worklist merely for being close to due
+ ❯ tests/ai/aiRuntime/ai15AnomalyDetectionEdgeCases.test.ts (12 tests | 12 skipped) 10348ms
+     ↓ trigger proof: the real cron sweep route fires AI-15 and writes real AiAnomaly/AiWorkflowRun rows
+     ↓ C.3 duplicate event: the same in-window anomaly re-evaluated across two sequential sweeps produces exactly ONE AiAnomaly row (regression)
+     ↓ C.3 concurrent runs: the same in-window anomaly hit by two truly simultaneous sweeps produces exactly ONE AiAnomaly row
+     ↓ C.3 same duplicate-event fix holds for a detector keyed by entryId with no natural suppressionKey collision risk (amount_outlier)
+     ↓ C.3 two DIFFERENT instances sharing the same coarser suppressionKey (two distinct postings to the same rare account) each still get their own AiAnomaly row (fix does not over-collapse)
+     ↓ C.4 cross-tenant: tenant A's sweep never reads tenant B's journal entries or upstream traces, even with a hostile actingUserId from tenant B
+     ↓ C.1 large volume: 10,000 historical lines + a real recent outlier resolve correctly within the performance budget
+     ↓ C.1 malformed data: unicode/RTL/HTML vendor name, absurd dates, zero and negative amounts never crash the sweep
+     ↓ C.1 null/missing fields: a line with no partnerId and an account with no name never crashes the sweep
+     ↓ C.5 sibling workflow nonsense: a malformed AI-14 trace (missing fields, NaN-shaped variance) is validated, never crashes or blindly propagates
+     ↓ C.5 sibling workflow unavailable: no AI-14/AI-11/AI-19 trace exists yet for this tenant — the ratio/trend and collision detector families simply produce nothing, never an error
+     ↓ C.6 adversarial: a near-zero-variance vendor's legitimate, modest rent increase produces a 'critical' z-score anomaly — and repeated reviewer dismissal correctly auto-disables the detector for it
+ ❯ tests/ai/aiRuntime/ai14FluxAnalysisEdgeCases.test.ts (7 tests | 7 skipped) 10740ms
+     ↓ trigger proof: the real cron sweep route fires AI-14 and writes a real material-movement finding
+     ↓ bug regression: the real 'explain_margin' chat path (empty parameters) resolves to the current period instead of crashing
+     ↓ bug regression: a malformed period string ('undefined', 'not-a-period', '2026-13') also degrades to the current period instead of crashing
+     ↓ C.4 cross-tenant: tenant A's flux never includes tenant B's accounts, budget, or materiality policy, even with a hostile actingUserId from tenant B
+     ↓ C.1 large volume: 10,000 current-period lines across many counterparties resolve correctly within budget
+     ↓ C.1 malformed: unicode/HTML vendor names, negative (credit-note-shaped) amounts, absurd dates never crash the flux run
+     ↓ C.6 adversarial: a large bill mostly offset by a same-period credit note nets to a small, easily-dismissed variance — verify the reported variance is the genuine net, not a fabricated partial figure
+ ❯ tests/ai/aiRuntime/postJournalRecovery.test.ts (6 tests | 6 skipped) 10876ms
+     ↓ a normal post_journal call still posts cleanly (baseline, unchanged behavior)
+     ↓ a period stuck at DRAFTED (simulated crash, no journal entry) throws on retry — never silently double-posts
+     ↓ findStuckSchedulePeriods() detects a period stuck past the grace window, and not one still genuinely in flight
+     ↓ recover_stuck_schedule_period resets to PENDING when no journal entry was ever created, and a fresh post still only creates exactly one
+     ↓ recover_stuck_schedule_period links the journal entry that was already created before the crash, without creating a second one
+     ↓ recover_stuck_schedule_period is a no-op, not an error, when the period is not actually stuck
+ ❯ tests/ai/aiRuntime/ai29ControlMonitoringEdgeCases.test.ts (8 tests | 8 skipped) 10840ms
+     ↓ trigger proof: the real cron sweep route fires AI-29 and records a real control result
+     ↓ bug regression: a missing or malformed period.horizon.reached payload degrades to the current period instead of crashing
+     ↓ C.4 cross-tenant: tenant A's control results never include tenant B's exceptions, even though B has real violations
+     ↓ concurrent duplicate period.horizon.reached dispatch → exactly one AiControlResult and one AiAttentionItem per control, not two
+     ↓ C.1 large volume: 10,000 posted journal entries across the period's controls resolve correctly within budget
+     ↓ C.6 adversarial: a placeholder override reason ('na') passes override_logged exactly like a genuine justification (documented limitation, not a silent gap)
+     ↓ C.4 kill switch off: OBSERVE-ceiling AI-29 still writes its internal AiControlResult/AiAttentionItem monitoring records — the kill switch gates autonomy elevation beyond OBSERVE/RECOMMEND, not internal_state writes (confirmed against autonomyGate.ts, eventBus.ts and autonomyGate.test.ts)
+     ↓ regression (Chunk 10a, P0.3): no_posting_into_locked_period's test() makes no per-item DB call, and population() fetches TransactionLock exactly once via Promise.all
+ ❯ tests/ai/aiRuntime/ai07AccrualIntelligenceEdgeCases.test.ts (9 tests | 1 failed | 8 skipped) 13296ms
+     ↓ cross-tenant hostile input: a scheduleId belonging to tenant B, referenced from a tenant A schedule.due event, must fail closed
+     ↓ large volume: 10,000 PurchaseOrders (one with a real GRNI gap) → the sweep finds the real candidate and completes within budget
+     ↓ kill switch off → GRNI candidate still surfaced but never auto-drafted, no journal written
+     ↓ materiality edge: exactly at threshold → RECOMMEND (not draftable); one unit under → draftable; one unit over → RECOMMEND
+     ↓ materiality edge: one unit under the threshold → draftable and drafted
+     ↓ month-length boundary: an accrual drafted on Jan 31 reverses in February, not March
+     ↓ malformed data: absurd receivedQty/priceUnit precision and a 500-char unicode/RTL product name → no crash, amount rounds to the cent
+     ↓ adversarial: PO amended after the accrual was drafted (invoice arrives at a materially different amount) → learning outcome is 'edited', not a confidently-wrong 'accepted'
+     × createDraftBill() (the real service function app/api/document-intelligence/[id]/confirm/route.ts calls) fires AI-07's accuracy_check branch as a real side effect 56ms
+ ❯ tests/ai/aiRuntime/ai22ContinuousReconciliationEdgeCases.test.ts (9 tests | 9 skipped) 10143ms
+     ↓ trigger proof: the real cron sweep route fires AI-22 and raises a real unreconciled-bank exception
+     ↓ bug regression: a missing or malformed periodEnd degrades to the current period-end instead of crashing
+     ↓ bug regression: a missing period label degrades to the current month's label, not literal 'undefined'
+     ↓ C.4 cross-tenant: tenant A's run never sees tenant B's bank/GL data, even with a hostile tenantId embedded in the payload
+     ↓ C.1 empty: a fresh tenant with zero data across all 12 definitions → clean no_action, never a vacuous reconciled
+     ↓ C.2 period boundary: 23:59:59.999 on the last day of the month vs. the first instant of the next month resolve to different periodKeys
+     ↓ C.1 large volume: 10,000 GL lines against a control account resolve correctly within budget
+     ↓ C.3 duplicate event (documented, unfixed executor race, same class as AI-28's verification record): concurrent identical events — no duplicate effect
+     ↓ C.6 adversarial: a January bill paid off in February makes a January-dated AI-22 run report today's (not January's) AP position
+ ❯ tests/ai/aiRuntime/ai25WorkingCapitalIntelligenceEdgeCases.test.ts (6 tests | 6 skipped) 10225ms
+     ↓ trigger proof: the real cron sweep route fires AI-25 and produces real DSO/DPO metrics
+     ↓ bug regression: a missing or malformed period degrades to the current period instead of crashing
+     ↓ C.4 cross-tenant: tenant A's DSO/DPO never includes tenant B's AR/AP balances or inventory mapping, even with a hostile actingUserId from tenant B
+     ↓ C.1 large volume: 10,000 AR postings across many customers resolve correctly within budget
+     ↓ C.1 malformed: unicode/HTML customer names and zero-amount postings never crash the run
+     ↓ C.6 adversarial: a customer's balance paid off and immediately re-booked nets to a small AR movement — verify the reported movement is the genuine net
+ ❯ tests/ai/aiRuntime/ai21StatementIntelligenceEdgeCases.test.ts (6 tests | 6 skipped) 10370ms
+     ↓ trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-21 and annotates the current period's balance sheet
+     ↓ malformed event.payload.period ('garbage', not YYYY-MM) never reaches monthBounds() as NaN — no uncaught Mongoose CastError on JournalEntry.find (regression, this workflow's own §9 bug)
+     ↓ no externally-supplied id from the event payload is ever resolved via an unscoped DB read — AI-21 takes no subject id at all, only a period string (structural, source-grep)
+     ↓ the same triggerEventId fired concurrently twice still produces exactly one AiWorkflowRun (the executor's own duplicate-key race on the losing caller is a known, reported executor-level gap — see this record's §9)
+     ↓ large volume: 10,000 posted journal entries across 50 accounts annotate correctly within a generous dev-box budget (C.1 Large; shared-machine timing per docs/ai/UI_REGRESSION.md)
+     ↓ adversarial: balance sheet balances in total (a confidently-reassuring aggregate) while a material control line is unsupported underneath — still flagged, never hidden by the aggregate check
+ ❯ tests/ai/aiRuntime/ai24CloseEvidenceEdgeCases.test.ts (7 tests | 7 skipped) 10997ms
+     ↓ trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-24 and records a close assertion for the current period
+     ↓ malformed event.payload.period ('garbage') and a malformed event.payload.periodEnd both never reach Date.UTC as NaN — no uncaught Mongoose CastError (regression, this workflow's own §9 bug)
+     ↓ no externally-supplied id from the event payload is ever resolved via an unscoped DB read — AI-24 takes no subject id at all, only a period string (structural, source-grep)
+     ↓ the same triggerEventId fired concurrently twice still produces exactly one AiWorkflowRun and no duplicate AiAttentionItem (persistent dedupeKey holds; the executor's own duplicate-key race on the losing caller is a known, reported executor-level gap — see this record's §9)
+     ↓ large volume: 10,000 posted journal entries evaluate correctly within a generous dev-box budget (C.1 Large; shared-machine timing per docs/ai/UI_REGRESSION.md)
+     ↓ adversarial: a matching-amount JOURNAL ENTRY that is still DRAFT (never posted) does not falsely verify the assertion
+     ↓ documents (not a bug): a posted GL entry dated in a LATER period still clears an EARLIER period's bank assertion — the check is continuous-balance, not period-fenced, by design
+ ❯ tests/ai/aiRuntime/ai26WorkflowEdgeCases.test.ts (7 tests | 7 skipped) 11080ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow() directly) fires AI-26 via ai.sweep.hourly for every active org
+     ↓ cross-tenant: an inconsistency and threshold configured for one tenant never appears in another tenant's run
+     ↓ concurrent runs: two genuinely simultaneous sweeps do not create two AiAccountingPolicy documents for the same policyKey
+     ↓ materiality edge: a bill exactly AT the capitalisation threshold is included (inclusive boundary), one unit under is not
+     ↓ malformed data: a bill line with no accountId, and a 500-char unicode/HTML vendor name, do not crash the sweep
+     ↓ adversarial: a resolved inherited gap still reports itself as open — a 'confidently wrong' headline a human would accept without reading the evidence
+     ↓ large volume: 2,000 bills (plain range query + account lookup, no O(n^2)) completes correctly and within budget
+ ❯ tests/ai/aiRuntime/ai23JournalReviewEdgeCases.test.ts (10 tests | 10 skipped) 10880ms
+     ↓ trigger proof: the real cron sweep route fires AI-23 and raises a real escalation finding
+     ↓ bug regression: missing/malformed period, periodStart, periodEnd all degrade to the current month instead of crashing
+     ↓ C.4 cross-tenant: tenant A's run never scores tenant B's journals, even with a hostile tenantId embedded in the payload
+     ↓ C.1 empty: zero posted journals in the period → clean no_action, never an error
+     ↓ C.2 period boundary: a journal at 23:59:59.999 on the last day is included; the first instant of the next period is excluded
+     ↓ C.1 large volume: 350 posted journals in one period are correctly detected as truncated at the 300-cap boundary, within budget
+     ↓ C.3 duplicate event (documented, unfixed executor race, same class as AI-28's verification record): concurrent identical events — no duplicate effect
+     ↓ C.5 tool failure: score_journal_risk throwing mid-run fails the run cleanly, with no partial findings persisted
+     ↓ C.6 adversarial (regression, was previously auto_ok — see docs/ai/BRIEF-10-PRE-QA.md P0.2): a thin-history tenant's first large, first-time-combination journal by a first-time poster is never auto_ok
+     ↓ C.6 cold-start fallback stays quiet when genuinely nothing is risky: a thin-history tenant's ordinary, non-sensitive, small entry still needs a review-tier nudge (never auto_ok) but raises no false 'sensitive account' flag
+ ❯ tests/ai/aiRuntime/ai09WorkflowEdgeCases.test.ts (7 tests | 7 skipped) 10911ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow()) fires AI-09 and produces a revenue-leakage finding
+     ↓ concurrent duplicate schedule.due dispatch → exactly one drafted journal, not two (persistent idempotency actually holds)
+     ↓ large volume: 2,000 sale orders scanned correctly within a reasonable time (C.1 Large)
+     ↓ null/missing fields and malformed data (no partnerId, no orderLines, unicode/HTML name, negative amount) never crash and never auto-recognise
+     ↓ cross-tenant hostile: a schedule.due event carrying another tenant's real scheduleId is refused, not processed under this tenant (regression for extract()'s tenant re-check)
+     ↓ adversarial: a stated point_in_time order whose NAME contains a subscription keyword must NOT be reclassified over_time (human intent beats the keyword heuristic)
+     ↓ month-length boundary: a subscription schedule created on Feb 29 (leap day) gets an endDate of Feb 28 next year, not Mar 1/2
+ ❯ tests/ai/aiRuntime/ai17ComplianceReadinessEdgeCases.test.ts (12 tests | 12 skipped) 10959ms
+     ↓ trigger proof: the real cron sweep route fires AI-17 and raises a real registration-gap finding
+     ↓ bug regression: a missing or malformed period.horizon.reached payload degrades to the current period instead of throwing a RangeError on Invalid Date.toISOString()
+     ↓ bug regression (direct reproduction): computeComplianceReadiness itself does not throw on a garbage period string when an obligation is configured
+     ↓ C.4 cross-tenant: tenant A's obligations/registration-gaps never include tenant B's profile or tax data, even with hostile data on both sides
+     ↓ C.3 concurrent duplicate period.horizon.reached dispatch → exactly one AiAttentionItem per registration gap, not two
+     ↓ C.4 kill switch off: OBSERVE-ceiling AI-17 still computes and escalates registration gaps — the kill switch gates autonomy elevation beyond OBSERVE/RECOMMEND, not read-only observation
+     ↓ C.1 large volume: 10,000 projected tax transactions for the period resolve correctly within budget
+     ↓ C.1 null/missing fields: an obligation with no warningWindowDays defaults sensibly; a tax row with null jurisdiction is a real missing-evidence gap, not a crash
+     ↓ C.1 malformed: unicode jurisdiction/taxType names and a negative (credit-note-shaped) taxable amount never crash the readiness computation
+     ↓ C.2 materiality edge: turnover exactly at the threshold is not a gap; one unit over is
+     ↓ C.2 fiscal year end: a quarterly obligation is due only in Mar/Jun/Sep/Dec; an annual one only in December
+     ↓ C.6 adversarial: a registration for IN-KA/gst does not silently cover an obligation configured for IN-KA/tds — taxType is checked, not just jurisdiction
+ ❯ tests/ai/aiRuntime/ai20RelatedPartyDetectionEdgeCases.test.ts (22 tests | 22 skipped) 11224ms
+     ↓ trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-20 and raises a certain-match finding
+     ↓ no externally-supplied id from the event payload is ever resolved via an unscoped DB read — AI-20 takes no subject id at all, only an unused, optional period string (structural, source-grep)
+     ↓ cross-tenant hostile: an event carrying another tenant's real Customer id in an unexpected payload field never leaks that tenant's data into this run's findings
+     ↓ the same triggerEventId fired concurrently twice still produces exactly one AiWorkflowRun (executor-level idempotency; AI-20 itself makes no writes to duplicate)
+     ↓ a candidate deleted between id-gathering and record-load is skipped cleanly, never a crash (superseded subject)
+     ↓ documents (not forced as a live race — no injection point exists without mocking Mongoose internals): detectRelatedParties() makes its candidate-id reads and its balance reads as separate queries; a population change in the gap defaults the orphaned side to zero exposure via the `?? { total: 0, refs: [] }` fallback (source-grep), never a crash — and this output is advisory-only (never persisted as an accounting fact, unlike AI-22's reconciliation), so a momentary read-order mismatch self-corrects on the next hourly sweep
+     ↓ C.1 Empty: zero customers and zero invoices → clean no_action, never an error or a vacuous finding
+     ↓ C.1 Single: exactly one customer-role and one vendor-role candidate — no off-by-one in the pairwise loop
+     ↓ C.1 Large: 10,000 invoices across 500 distinct partners resolve correctly within a generous dev-box budget (shared-machine timing per docs/ai/UI_REGRESSION.md)
+     ↓ C.1 Null/missing fields: customers with no gstin/pan/address/email at all never crash and never falsely match on absence
+     ↓ C.1 Malformed: unicode/RTL 500-char names with HTML/script, negative and zero invoice amounts, absurd dates — no crash, no false match
+     ↓ C.1 Precision: fractional-paise residuals sum and round to the cent, never a float-drift artifact
+     ↓ C.2 Period boundary / timezone / month lengths / fiscal year end: not applicable — AI-20's period field is accepted but never read downstream (detectRelatedParties(tenantId) takes no date at all; related-party detection is a structural identity match, not a period-bounded computation)
+     ↓ C.2 Materiality edge: not applicable — no AiMaterialityPolicy or any amount threshold is read anywhere in this workflow's path (structural, source-grep)
+     ↓ C.2 Confidence edge: name similarity exactly at MIN_NAME_SIMILARITY (0.6) classifies possible; a lower ratio with no shared identifier matches nothing
+     ↓ C.3 Mid-pipeline failure / retry-after-partial / locked-period-mid-run: not applicable, with reason — AI-20's act() makes zero tool calls (no write of any kind exists to partially apply or retry)
+     ↓ C.4 Nothing/partially configured: not applicable, with reason — this workflow reads no configurable policy object at all (materiality/mapping/compliance), confirmed by the source-grep above; every check is a structural field comparison, not an amount or policy evaluation
+     ↓ C.5 Model unavailable/nonsense, tool failure, sibling workflow unavailable, integration down: not applicable, with reason — no LLM call anywhere (deterministic string/number comparison only), no tool calls in act(), no dependency on any other workflow's output, and no external feed/integration in this workflow's data path (Customer/Invoice only)
+     ↓ C.6 Adversarial: two genuinely unrelated companies that both left GSTIN as the placeholder "NA" must NOT be flagged a certain related-party match (regression for the bug found in this pass)
+     ↓ C.6 Adversarial (same class, PAN side): a shared placeholder PAN ("PENDING") is also excluded from a certain match
+     ↓ C.6 Adversarial (root-cause proof, not just symptom): a real, valid-format PAN shared between two differently-named companies is still correctly flagged certain — the fix is format validation, not a denylist that could miss a new placeholder string
+     ↓ the workflow never writes a ledger value or proposes a merge/elimination (source-grep, same pattern as AI-09/AI-13/AI-21)
+ ❯ tests/ai/aiRuntime/ai06PayablesOperationsEdgeCases.test.ts (9 tests | 9 skipped) 10116ms
+     ↓ trigger proof: the real createDraftBill() service (not runWorkflow()) fires AI-06's bill_match and detects a PO mismatch
+     ↓ cross-tenant hostile: a bill whose partnerId points at another tenant's Customer never leaks that vendor's name
+     ↓ cross-tenant hostile: the sweep's due-schedule vendor-name cache never resolves another tenant's Customer either
+     ↓ adversarial: a bill referencing a DIFFERENT vendor's real PO, with agreeing line amounts, is an exception — never a confident match
+     ↓ nothing configured: no materiality policy row → reasonChain states which setting is missing
+     ↓ kill switch off: no annotation, no attention item — clean no_action
+     ↓ concurrent duplicate bill.created dispatch → exactly one match annotation write, not two
+     ↓ large volume: 3,000 open bills across 50 vendors, correct payment-run proposal within budget
+     ↓ malformed data (unicode/HTML vendor name, absurd dates, zero/negative amounts) never crashes and never fabricates a match
+ ✓ tests/sales/invoiceLineTotal.route.test.ts (7 tests) 12098ms
+     ✓ POST creates successfully and computes lineTotal even though the client never sends it (matches the real InvoiceForm payload shape)  4466ms
+     ✓ POST: auto-creates a real, allocated Payment when markedFullyPaid has no real payments backing it  2364ms
+ ✓ tests/ai/aiRuntime/ai04ExpenseIntelligenceEdgeCases.test.ts (5 tests) 12057ms
+     ✓ cross-tenant hostile input: an expenseId belonging to tenant B, referenced from a tenant A event, must not leak tenant B's data  2475ms
+     ✓ missing optional field (no expenseDate, category not covered by any policy rule) → no crash, no violation invented  1856ms
+     ✓ malformed data: negative total, HTML/script in description → evaluated without crashing, no script executed/stored unescaped in a way that breaks the pipeline  318ms
+     ✓ adversarial: two legitimate same-amount same-day claims by the same employee are flagged for review, not silently rejected or silently accepted  419ms
+ ❯ tests/ai/aiRuntime/ai11WorkflowEdgeCases.test.ts (6 tests | 6 skipped) 10056ms
+     ↓ trigger proof: the real cron sweep route (not runWorkflow()) fires AI-11 and detects a seeded negative-stock item
+     ↓ large volume: 1,500 products scanned correctly within the performance budget (C.1 Large)
+     ↓ large volume: computeMarginByProduct resolves 2,000 products against 4,000 real invoices via bulk aggregation, not a per-product scan (C.1 Large; regression for the N+1 fixed in this pass)
+     ↓ null/missing fields and malformed data (no warehouse, HTML/unicode product name, zero standard_price) never crash the scan
+     ↓ cross-tenant isolation: tenant A's sweep never sees or flags tenant B's negative stock
+     ↓ adversarial: a product priced consistently at a stale standard_price (no real cost signal) is flagged as a valuation anomaly, not silently reported as a healthy stable margin
+ ✓ tests/ai/aiRuntime/ai24CloseEvidence.test.ts (5 tests) 17275ms
+     ✓ zero writes to PeriodClosing from AI-24's folder (source-grep, A.2 / Hard Rule 4)  1905ms
+     ✓ a manually-advanced PeriodClosing status whose assertion fails → verified:false and a contradiction finding  4611ms
+     ✓ a missing document generates exactly one evidence request across repeated sweeps (dedupe)  362ms
+     ✓ when the document arrives, the assertion passes and the request auto-resolves  378ms
+ ❯ tests/ai/aiRuntime/runtimeSweepRoute.test.ts (2 tests | 2 skipped) 10027ms
+     ↓ the sweep completes and dispatches both due schedules, not just one, and not a crash
+     ↓ a second sweep for the same tenant does not crash on the first sweep's own ai.sweep.hourly/period.horizon.reached events (Chunk 10a — found live on the real database)
+ ❯ tests/ai/aiRuntime/ai18AuditEvidenceEdgeCases.test.ts (8 tests | 8 skipped) 10054ms
+     ↓ trigger proof: the real cron sweep route fires AI-18 and persists a real evidence pack
+     ↓ bug regression: a missing or malformed period.horizon.reached payload degrades to the current period instead of crashing
+     ↓ bug regression (direct reproduction): a malformed period never reaches annotateStatement()'s Date logic as an Invalid Date
+     ↓ C.4 cross-tenant: tenant A's evidence pack and findings never include tenant B's accounts, even with a hostile actingUserId from tenant B
+     ↓ C.4 kill switch off: OBSERVE-ceiling AI-18 still sweeps and persists its internal evidence pack — the kill switch gates autonomy elevation beyond OBSERVE/RECOMMEND, not internal_state writes
+     ↓ bug regression: with more swept accounts than MAX_ACCOUNTS_PER_SWEEP (20), completenessScore counts every unchecked account as incomplete and states how many were skipped
+     ↓ false-positive check: exactly MAX_ACCOUNTS_PER_SWEEP (20) swept accounts — nothing is skipped, no false 'not yet evidenced' finding
+     ↓ C.1 empty: zero unsupported-material accounts this period → a clean sweep, completenessScore 1, never a vacuous exception
+ ❯ tests/golden/ai25.golden.test.ts (1 test | 1 skipped) 10041ms
+     ↓ reports a pass rate >= 100% across 3 golden case(s)
+ ❯ tests/ai/aiRuntime/ai29ControlMonitoring.test.ts (14 tests | 14 skipped) 10137ms
+     ↓ a transaction above threshold with no approval is an exception
+     ↓ preparer = approver is an SoD exception
+     ↓ a posting dated inside a TransactionLock is an exception
+     ↓ a PeriodClosing marked closed with no corresponding lock is a design-relevant exception — the two are not wired together (0.5)
+     ↓ an allowNonStandard override with no stated reason appears as an override_logged exception; one with a reason passes
+     ↓ payment_against_approved_bill: a payment tracing to a real, non-flagged bill passes; one to a manualReviewRequired bill is an exception
+     ↓ master_data_verification: a cleared hold passes; an open hold past the 48h grace window is an exception
+     ↓ bank_detail_change_process: a bank-field change with a real hold on record passes; one with none is an exception
+     ↓ bank_detail_change_process: a holdRef pointing at another tenant's real AiHold is treated as if the hold doesn't exist (Chunk 10a, P0.4 regression)
+     ↓ not_implemented controls appear with reasons and are excluded from overall_control_health
+     ↓ no path in AI-29's own code ever writes outside internal_state (source-grep, same pattern as AI-09/AI-13/AI-18/AI-21/AI-23)
+     ↓ the same control failing across five consecutive runs raises design_concern once, not five times
+     ↓ remediation cannot be self-closed by the AI — re-running with unchanged data leaves the exception task open
+     ↓ a fully clean period — approvals present, no lock violations, no SoD conflicts — produces zero exceptions on the implemented controls that apply (false positive check)
+ ❯ tests/ai/aiRuntime/ai07AccrualIntelligence.test.ts (6 tests | 6 skipped) 10285ms
+     ↓ receivedQty=10, billedQty=4 → accrual for 6 units at PO price, PO line as evidence, no LLM call
+     ↓ false positive (the most important test): fully billed PO line → nothing
+     ↓ over-billed line (billedQty > receivedQty) → not an accrual, raised as an exception
+     ↓ no accrual materiality policy configured → RECOMMEND, never drafted (new-vendor-equivalent conservatism)
+     ↓ reversal creates exactly one AiSchedule and exactly one reversing entry when due
+     ↓ accuracy tracking: a matching bill updates the learning store with the delta
+ ❯ tests/ai/aiRuntime/ai22ContinuousReconciliation.test.ts (9 tests | 9 skipped) 10308ms
+     ↓ the bank definition produces the same numbers as AI-03's existing position function on the same fixture
+     ↓ computeBankPosition() never returns another tenant's bank statement, even when asked for its real id under a different tenant (Chunk 10a, P0.4 regression)
+     ↓ not_implemented definitions (intercompany, processor_settlement) appear with their reason and never count as reconciled — tax flipped to implemented in Chunk 6
+     ↓ all 12 definitions are always present in the output (10 registered + 2 not_implemented, since tax flipped in Chunk 6)
+     ↓ a zero-balance suspense/clearing scan with no matching accounts → not_applicable, not silently omitted
+     ↓ an explicitly configured AiAccountMapping overrides the suspense/clearing name-regex heuristic (Chunk 8b 0.2)
+     ↓ workflow run: an unreconciled bank definition raises an exception finding
+     ↓ tax: no TaxRate.accountId configured -> not_applicable, never a guessed control account
+     ↓ tax: a real 1-unit difference between the GL control account and the projected transactions is detected and traced
+ ❯ tests/ai/aiRuntime/ai30ErpOperations.test.ts (8 tests | 8 skipped) 10342ms
+     ↓ a healthy tenant produces zero issues (false positive, mandatory)
+     ↓ a broken tenant's issues are all detected: stuck draft, dead-lettered event, stale tax projection
+     ↓ a dead-lettered event is requeued back to pending, audited before/after
+     ↓ a stuck schedule period (Chunk 10a — post_journal crash recovery) is detected and auto-repaired end to end: no journal entry existed, so it resets to pending
+     ↓ a repair that fails twice escalates and is never retried again (retry cap + backoff)
+     ↓ kill switch off → no repairs attempted despite a repairable issue existing
+     ↓ only real, permitted repair types are ever named; the 2 still unwired (relink_orphan, retry_integration_connection) are declared honestly, not faked
+     ↓ no repair path ever writes to a financial record (source-grep)
+ ❯ tests/ai/aiRuntime/ai17ComplianceReadiness.test.ts (11 tests | 11 skipped) 10245ms
+     ↓ no compliance profile → not_configured, zero obligations, never an assumed default
+     ↓ a configured obligation with no tax data yet for the period → not_started
+     ↓ reconciled, fully-registered, well before the deadline → ready (false positive check)
+     ↓ a deadline inside the (generous, default) warning window → at_risk, never a surprise
+     ↓ an input credit missing its counterparty registration number → blocked, not merely at_risk
+     ↓ an obligation configured for a jurisdiction with no matching registration → registration gap
+     ↓ year-to-date turnover crosses a configured threshold with no registration on file → registration gap
+     ↓ a registration gap is a real HIGH finding when the workflow runs
+     ↓ AI-13's close state gets a compliance domain fed from the same computation — never a second, disagreeing engine
+     ↓ no profile configured → compliance domain is not_applicable, never an invented blocker
+     ↓ submission_capability is always not_implemented — no submit_filing tool exists (A.3, asserted directly)
+ ❯ tests/ai/aiRuntime/eventBus.test.ts (7 tests | 7 skipped) 10249ms
+     ↓ persists an outbox row and dispatches inline to a registered workflow
+     ↓ an eventKey with no registered workflow is marked processed with no dispatches, not left pending
+     ↓ duplicate emission with the same dedupeKey is a no-op — returns the original event
+     ↓ emitEvent never throws back to the caller even if dispatch fails internally
+     ↓ sweepPendingEvents drains anything left pending (simulated by resetting status)
+       ↓ a shared eventKey with no subscriptionFilter declared → that workflow is skipped (default-reject)
+       ↓ real ownership: schedule.due for an AI-08-owned schedule reaches only AI-08, not AI-07/09/10
+ ❯ tests/ai/aiRuntime/ai13DayZeroClose.test.ts (8 tests | 8 skipped) 10310ms
+     ↓ zero writes to PeriodClosing from AI-13's folder (source-grep, A.2 / Hard Rule 4)
+     ↓ a material unreconciled bank difference (materiality configured) → blocked
+     ↓ resolving the gap in the data clears the blocker on the next recomputation
+     ↓ re-running with unchanged data does not clear the blocker
+     ↓ PeriodClosing.status = reconciled while AI-22 reports unreconciled → CRITICAL contradiction, PeriodClosing itself untouched
+     ↓ no materiality policy configured → indeterminate, never ready
+     ↓ not_applicable is distinct from ready — intercompany (no consolidation model exists) is neither
+     ↓ evidence domain is wired to AI-24 (docs/ai/BRIEF-05-BATCH-D.md Part 0.4) — not_checked only for tax; and tax is wired to AI-22 now too (docs/ai/BRIEF-06-BATCH-E.md A.1) — permanent not_checked domains are ZERO
+ ❯ tests/ai/aiRuntime/ai03BankReconciliationEdgeCases.test.ts (6 tests | 6 skipped) 10222ms
+     ↓ TRIGGER PROOF: POST /api/finance/bank/import (the real statement-import route) fires AI-03 as a side effect and auto-reconciles an exact match — no code here calls runWorkflow() or the workflow module directly
+     ↓ C.4 cross-tenant hostile input: a bankStatementId belonging to tenant B, referenced from a tenant-A event, is never read or actioned (regression for the unscoped-findById cross-tenant bug)
+     ↓ C.1 large volume: 250 irrelevant OLD posted journal entries on the bank account do not crowd out a genuine same-day exact match (regression for the unbounded/unsorted findExactMatches bug)
+     ↓ C.6 adversarial — confidently wrong answer: a Customer-linked receipt that coincidentally matches an unrelated internal-transfer-shaped line is escalated as unknown_ar_side, never mis-explained as an internal transfer (regression for the ordering bug)
+     ↓ C.3 concurrent duplicate event: the SAME bank.transaction.imported event fired simultaneously reconciles exactly once
+     ↓ C.1 precision: an amount with sub-paisa floating point drift (0.1 + 0.2 shape) still matches within AMOUNT_TOLERANCE
+ ❯ tests/ai/aiRuntime/ai16CashIntelligenceEdgeCases.test.ts (6 tests | 6 skipped) 10461ms
+     ↓ trigger proof: the real cron sweep route fires AI-16 and produces a real 30-day forecast
+     ↓ C.3 concurrent runs: two truly simultaneous sweeps on the same tenant both complete cleanly with consistent, correct forecasts
+     ↓ C.4 cross-tenant: tenant A's forecast never includes tenant B's bank balance, AI-05/AI-06 traces, or payroll, even with a hostile actingUserId from tenant B
+     ↓ C.1 large volume: 10,000 deferred-revenue schedule periods and payroll runs resolve within budget
+     ↓ C.1 malformed: a bank account with no glAccountId, a payroll run with an absurd date, never crash the forecast
+     ↓ C.6 adversarial: a predicted receivable landing on the exact last day of the 30-day horizon is neither dropped nor double-counted
+ ❯ tests/ai/aiRuntime/ai08PrepaidScheduleEdgeCases.test.ts (9 tests | 8 skipped) 15574ms
+     ↓ cross-tenant hostile input: an invoiceId belonging to tenant B, referenced from a tenant A bill.created event, must fail closed
+     ↓ cross-tenant hostile input: a scheduleId belonging to tenant B, referenced from a tenant A schedule.due event, must fail closed
+     ↓ malformed data: absurd date (2099), 500-char unicode description, zero amount → no crash, no schedule fabricated from a zero balance
+     ↓ adversarial: 'Annual Leave Payout' (keyword coincidence, not a real multi-period service) never silently auto-drafts a schedule, even at a near-zero confidence threshold
+     ↓ kill switch off → a stated (high-confidence) candidate is still found but never auto-drafted; no journal, no schedule write
+     ↓ confidence edge: threshold set to exactly 0.95 (the stated-basis confidence) → passes (>=), schedule drafted
+     ↓ confidence edge: threshold set to 0.96 (one hundredth over the stated-basis confidence) → fails, RECOMMEND only
+     ↓ large volume: N/A by design — AI-08 is per-record triggered (one Invoice on detect, one AiSchedule's own bounded periods list on execute), never a full-tenant scan; there is no analogue to AI-07's ai.sweep.hourly bulk query in this workflow's code
+     ✓ createDraftBill() (the real service function app/api/document-intelligence/[id]/confirm/route.ts calls) fires AI-08's detect branch and drafts a schedule as a real side effect  1723ms
+ ❯ tests/ai/aiRuntime/ai13DayZeroCloseEdgeCases.test.ts (7 tests | 1 failed) 27298ms
+     × trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-13 and produces a blocked AiCloseState for the current period 5035ms
+     ✓ malformed event.payload.period ('garbage', not YYYY-MM) never reaches Date.UTC as NaN — no uncaught Mongoose CastError (regression, this workflow's own §9 bug) 135ms
+     ✓ empty-string and missing period both default safely too (not just falsy vs malformed-truthy)  3142ms
+     ✓ no externally-supplied id from the event payload is ever resolved via an unscoped DB read — AI-13 takes no subject id at all, only a period string (structural, source-grep) 56ms
+     ✓ the same triggerEventId fired concurrently twice still produces exactly one AiWorkflowRun and one AiCloseState (persistent idempotency holds; the executor's own duplicate-key race on the losing caller is a known, reported executor-level gap — see this record's §9) 209ms
+     ✓ large volume: 10,000 posted journal entries recompute correctly within a generous dev-box budget (C.1 Large; shared-machine timing per docs/ai/UI_REGRESSION.md)  7460ms
+     ✓ adversarial: PeriodClosing signed off as reconciled, then a new material gap appears afterward — still flagged as a contradiction on the next recompute, not accepted as final  4084ms
+ ❯ tests/ai/aiRuntime/ai12TaxIntelligence.test.ts (13 tests | 13 skipped) 10086ms
+     ↓ rebuild is idempotent — running it twice on the same source data produces identical rows
+     ↓ rebuild is self-healing — a corrupted row is replaced, not patched, by the next rebuild
+     ↓ box values equal the sum of their supporting transactions exactly
+     ↓ a seeded 1-unit control-account difference between the ledger and the projection is detected and traced
+     ↓ an input credit with no counterparty tax registration number is flagged as missing evidence
+     ↓ a clean, fully-registered, reconciled period produces zero three-way findings (false positive check)
+     ↓ real tax activity with no TaxRate.accountId configured is a blocker, never not_applicable (docs/ai/BRIEF-07-BATCH-F.md 0.3)
+     ↓ no TaxRate.accountId configured AND no tax activity this period → genuinely not_applicable, empty population
+     ↓ no compliance profile → not_configured everywhere, never an assumed default
+     ↓ a configured profile drives a real workpaper with the profile's own returnType, never a hard-coded one
+     ↓ cannot mutate TaxRate at any confidence (source-grep, no ORM write-method call to TaxRate anywhere in AI-12's own folder or its tools)
+     ↓ no registered tool anywhere can write TaxRate or AiComplianceProfile — both are structurally read-only to the AI
+     ↓ submit_filing does not exist — no tool anywhere has an external-submission side effect
+ ❯ tests/ai/aiRuntime/ai27WorkflowEdgeCases.test.ts (6 tests | 6 skipped) 10101ms
+     ↓ trigger proof: POST /api/finance/invoices (the real business action, not runWorkflow() directly) fires AI-27 via invoice.created
+     ↓ cross-tenant hostile: two tenants with an identical duplicate-shaped bill pattern never see each other's candidates
+     ↓ concurrent duplicate event: two genuinely simultaneous sweeps finding the same duplicate bill place exactly one hold
+     ↓ malformed data: negative amount, zero amount, missing sourceDocument, and a 500-char unicode/HTML vendor name do not crash detection
+     ↓ adversarial: two genuinely independent, coincidentally identical bills (same vendor/amount/date) are held for human review, never silently trusted or auto-paid
+     ↓ large volume: 400 bills across many vendors (O(n^2) cross-source scoring) completes correctly and within budget, extrapolated honestly for 10k+
+ ❯ tests/ai/aiRuntime/ai08PrepaidSchedule.test.ts (8 tests | 8 skipped) 10083ms
+     ↓ false positive (the most important test): a one-month rent bill with no cross-period span → no schedule created
+     ↓ stated 12-month span with an acting user and killSwitch on → schedule drafted, periods sum to totalAmount
+     ↓ non-INR document → fx_unsupported escalation, no schedule created
+     ↓ no prepaid/deferred account configured → escalation, no schedule created
+     ↓ an inferred (keyword-only) candidate never auto-drafts regardless of confidence threshold
+     ↓ schedule.due execute: drafts a journal for the due period and links it (autoPostSchedules=false)
+     ↓ schedule.due run twice → the period only drafts once (compare-and-swap idempotency)
+     ↓ cancelled source document → schedule not run, escalation raised
+ ❯ tests/ai/aiRuntime/ai23JournalReview.test.ts (8 tests | 8 skipped) 10085ms
+     ↓ a routine recurring journal, similar to this tenant's own history, scores low and recommends auto_ok
+     ↓ a weekend manual journal to revenue with no description scores high and recommends escalate, with all reasons named
+     ↓ preparer = approver triggers an SoD flag through the real check_sod
+     ↓ an amount just under the approval threshold is flagged; the same tenant's amount well under it is not
+     ↓ an AI-created journal returns its decision trace in ai_origin (via AI-18's shared decision-trace lookup)
+     ↓ the workflow cannot post, approve, or alter voucherStatus at any confidence — no such tool exists anywhere
+     ↓ a month of ordinary, well-formed journals produces near-zero flags (false positive check)
+     ↓ the workflow run persists risk-scored journals and raises findings only for non-auto_ok recommendations
+ ❯ tests/ai/aiRuntime/ai01DocumentIngestion.test.ts (9 tests | 9 skipped) 10035ms
+     ↓ clean known-vendor bill → draft Invoice created (state: draft), evidence linked
+     ↓ same bill submitted twice → second run creates no second Invoice, raises a duplicate finding
+     ↓ lines don't sum to total → escalated, no draft created
+     ↓ non-INR document → escalated, no conversion attempted
+     ↓ unknown vendor → escalated with a proposed vendor; no Vendor record is created
+     ↓ a DOC_INTEL_TYPE other than vendor_bill is out of scope this batch and escalates
+     ↓ no acting user (autonomous trigger) → drops to propose-only, sets nothing
+     ↓ replay of the same document.received event → exactly one Invoice
+     ↓ the existing manual upload → confirm flow is untouched (draft_bill still callable directly, byte-identical Invoice shape)
+ ❯ tests/ai/aiRuntime/aiNl.test.ts (10 tests | 10 skipped) 10071ms
+     ↓ all twelve canonical utterances resolve to the correct workflow without an LLM call
+     ↓ an explicit workflow-id mention resolves via the workflow_id layer, not keyword
+     ↓ an ambiguous utterance matching two intents returns alternatives (one clarifying question, not a guess)
+     ↓ an unmatched utterance resolves to nothing and offers the nearest capabilities, never an improvised action
+     ↓ a factual question with no supporting data answers 'I don't have that', never from the model's own knowledge
+     ↓ an OBSERVE-level workflow runs immediately from chat and explains — no proposal, no confirmation needed
+     ↓ a workflow above OBSERVE previews with real counts/amounts and requires confirmation before executing
+     ↓ A.1: a chat-triggered run is refused identically to an event-triggered run when policy forbids it, and succeeds identically when policy allows it
+     ↓ an unregistered workflow id returns 'unknown', never an improvised action
+     ↓ if AI-NL were deleted, event-triggered workflow runs still complete — no core runtime file imports lib/aiRuntime/nl/**
+ ❯ tests/ai/aiRuntime/ai26AccountingPolicy.test.ts (6 tests | 6 skipped) 10113ms
+     ↓ a purchase above the configured capitalisation threshold that was expensed raises an inconsistency with both examples cited
+     ↓ a transaction type with no policy configured raises a policy gap
+     ↓ all six A.3 inherited gaps appear as policy_gaps with their sources
+     ↓ cannot write to AccountingSettings or lib/accounting/smart-rules.ts at any confidence (source-grep)
+     ↓ a tenant with consistent treatment produces zero inconsistencies (false positive, mandatory)
+     ↓ no path in AI-26's own code ever writes to Invoice/Account/JournalEntry (source-grep)
+ ❯ tests/ai/aiRuntime/ai05ReceivablesOperations.test.ts (10 tests | 10 skipped) 10161ms
+     ↓ source-grep: AI-05's folder and receivablesTools.ts never write SalesInvoice.payments[] directly
+     ↓ no credit note, write-off, or credit-limit mutation is possible at any confidence (source-grep)
+     ↓ one receipt across many invoices — batched allocation completes on the existing draft Payment
+     ↓ short payment creates a dispute, not a false allocation
+     ↓ overpayment becomes credit on account, not a forced match
+     ↓ a paid invoice is never in the collection worklist
+     ↓ a disputed invoice stops its reminder sequence
+     ↓ predicted date beats naive terms on a consistently-late customer
+     ↓ false positive: a customer within terms with no history of lateness produces no worklist entry
+     ↓ Sales-vs-Finance payment-state divergence is detected and reported, never repaired (A.2)
+ ❯ tests/accounting/bank-accounts.route.test.ts (4 tests | 4 skipped) 10029ms
+     ↓ GET returns 401 without a session
+     ↓ POST returns 401 without a session
+     ↓ POST requires Chart of Accounts to be seeded first (400 when 'Bank' AccountType is missing)
+     ↓ POST creates a tenant-scoped bank account + linked GL account; GET only returns that tenant's accounts
+ ❯ tests/ai/aiRuntime/ai09RevenueRecognition.test.ts (8 tests | 8 skipped) 10385ms
+     ↓ structural test: zero mutating ORM calls against models/sales/** from AI-09's folder
+     ↓ delivered but never billed → a revenue-leakage finding with the customer named
+     ↓ false positive: a fully delivered, fully billed, fully recognised order produces no findings at all
+     ↓ point-in-time: delivered, billed, not yet recognised → drafts a recognition journal
+     ↓ milestone basis never auto-recognises, even fully delivered and billed
+     ↓ billed exceeds recognised → deferred revenue finding
+     ↓ subscription-keyword order (inferred over_time basis) → a deferred_revenue AiSchedule is created
+     ↓ schedule.due on an owned deferred_revenue schedule → drafts a journal, never posts (docs/ai/BRIEF-04-BATCH-C.md Part 0.3 override visible on the envelope)
+ ❯ tests/ai/aiRuntime/ai20RelatedPartyDetection.test.ts (5 tests | 5 skipped) 10391ms
+     ↓ a shared tax registration number is a certain match
+     ↓ name similarity alone is possible — never certain (the explicit false-positive guard)
+     ↓ genuinely different similar-named companies with no shared identifiers are not matched at all
+     ↓ no cross-tenant read is possible — a tenant-B match never appears in tenant-A's results, structurally, not just by filter
+     ↓ the workflow raises a HIGH finding for a certain match, never proposes a merge or elimination
+ ❯ tests/ai/aiRuntime/ai01DocumentIngestionEdgeCases.test.ts (7 tests | 7 skipped) 10518ms
+     ↓ TRIGGER PROOF: POST /api/document-intelligence/extract (the real upload route) fires AI-01 as a side effect and drafts an Invoice — no code here calls runWorkflow() or the workflow module directly
+     ↓ C.1 malformed: a vendor name containing regex metacharacters does not throw and does not false-match an unrelated vendor (regression for the unescaped-$regex bug)
+     ↓ C.1 malformed: an unbalanced-paren vendor name (invalid raw regex) does not crash the run — escalates cleanly instead of throwing
+     ↓ C.6 adversarial — confidently wrong answer: a vendor name matching TWO real Vendor records escalates as ambiguous instead of silently binding to one (regression for the arbitrary-pick bug)
+     ↓ C.1 null/missing fields: an extraction with no line items at all (subtotal/total only) is still arithmetic-checked correctly, not a false pass
+     ↓ C.3 concurrent duplicate event: the SAME document.received event fired simultaneously produces exactly one Invoice
+     ↓ C.4 cross-tenant hostile input: an extractedDocumentId belonging to tenant B, referenced from a tenant-A event, is never read or actioned (regression for the unscoped-findById cross-tenant bug)
+ ❯ tests/ai/aiRuntime/safety.test.ts (7 tests | 7 skipped) 10055ms
+     ↓ ✗ AI writes directly to the database → no ORM write-method imports in lib/aiRuntime/workflows/**
+     ↓ ✗ an `internal_state`-category tool writes outside models/ai/** (docs/ai/BRIEF-05-BATCH-D.md Part 0.3) → every write call inside its handler targets a model whose name starts with "Ai"
+     ↓ ✗ AI releases payments / changes vendor bank details / etc. → NEVER_AUTONOMOUS action classes never reach act()
+     ↓ ✗ AiWorkflowPolicy.maxAutonomyLevel: RECOMMEND caps a workflow that declared EXECUTE → act() never reaches EXECUTE-level behaviour (docs/ai/BRIEF-04-BATCH-C.md Part 0.1)
+     ↓ ✓ every AI action is fully audited → a run that fails mid-pipeline still writes a finalized AiDecisionTrace
+     ↓ ✓ every autonomous workflow has a kill switch → AiWorkflowPolicy default is killSwitchEnabled: false
+     ↓ ✗ a dedupeKey is hand-rolled outside buildDedupeKey() → no `dedupeKey:` template-literal construction exists anywhere in lib/aiRuntime/** or app/api/cron/** except inside lib/aiRuntime/attention/dedupeKey.ts itself (Chunk 10a addendum, Part 3)
+ ❯ tests/ai/aiRuntime/ai04ExpenseIntelligence.test.ts (6 tests | 6 skipped) 10057ms
+     ↓ false positive (the most important test): no policy configured → pass, no violation invented
+     ↓ over-limit claim with a configured policy → violation, with the rule named
+     ↓ prohibited category → violation named
+     ↓ a within-limit claim with a policy configured → no violation, policy_configured true
+     ↓ duplicate claim by the same employee (same amount, within a day) → detected regardless of policy configuration
+     ↓ idempotency: the same trigger event twice produces exactly one run
+ ❯ tests/ai/aiRuntime/aiMetrics.test.ts (8 tests | 8 skipped) 10031ms
+     ↓ override_rate is computed from real AiLearningRecord outcomes, never invented
+     ↓ a workflow with zero AiLearningRecord activity reports override_rate as not computable, not zero
+     ↓ automation_coverage is computed from real AiWorkflowRun.metrics, and policy_overrides is folded in unchanged
+     ↓ exception_resolution_time is computed from real AiAttentionItem timestamps
+     ↓ false_match_rate folds in AI-15's real detector_health precision, never recomputed a second way
+     ↓ computeAndPersistTenantMetrics writes one AiMetricSnapshot per registered workflow
+     ↓ drift: an override-rate regression past the threshold raises a named attention item
+     ↓ drift: a small, below-threshold sample never raises (avoids noisy false alarms on thin data)
+ ❯ tests/ai/aiRuntime/ai18AuditEvidence.test.ts (9 tests | 9 skipped) 10287ms
+     ↓ an uncited claim cannot be constructed — makeClaim throws on an empty citations array
+     ↓ 'no evidence found' cites the query performed, never a bare narrative
+     ↓ a balance with a missing source document reports the gap, not a plausible substitute
+     ↓ the trace from an account reaches real document records when they exist
+     ↓ the decision trace for an AI-touched record returns workflow, version, autonomy, reasoning and tool calls
+     ↓ the same sample parameters and seed produce an identical sample twice
+     ↓ a fully evidenced, fully approved, fully reconciled balance produces zero missing_evidence entries (false positive check)
+     ↓ the workflow sweep persists an evidence pack and raises HIGH findings for unsupported material lines
+     ↓ no path in AI-18's own code ever writes outside internal_state (source-grep, same pattern as AI-09/AI-13/AI-21)
+ ❯ tests/ai/aiRuntime/ai11InventoryCogs.test.ts (9 tests | 9 skipped) 10088ms
+     ↓ a sale posted before its receipt → negative stock detected with the causing sequence
+     ↓ count variance is valued correctly at the weighted-average cost in use
+     ↓ weighted-average cost recomputes correctly after a receipt
+     ↓ a seeded inventory subledger-to-GL difference is detected to the smallest unit
+     ↓ answers which accounts constitute inventory, reusing lib/accounting/inventory.ts's own resolution
+     ↓ an explicitly configured AiAccountMapping overrides the code heuristic (Chunk 8b 0.2)
+     ↓ a well-managed inventory — positive stock, valuation matching GL and standard cost, stable margins — produces zero findings (false positive check)
+     ↓ no path in AI-11's own code ever writes to Product/InventoryItem/Stock/StockMove/Batch (source-grep)
+     ↓ detectSlowMoving: a product with no movement in 180+ days is flagged; one with recent movement is not
+ ❯ tests/ai/aiRuntime/ai19MasterData.test.ts (7 tests | 7 skipped) 10400ms
+     ↓ two vendors differing by Ltd/Limited with the same tax ID → duplicate raised, no merge performed
+     ↓ a bank-detail change on an Employee raises CRITICAL and places a hold; the AI cannot lift it at any autonomy level
+     ↓ bank details are masked everywhere including the decision trace
+     ↓ a vendor record matching an employee's name/email raises an employee collision
+     ↓ expiring-document detection is honestly declared not_implemented, not guessed
+     ↓ a clean, complete, stable vendor master produces zero findings (false positive check)
+     ↓ no path in AI-19's own code ever writes to Vendor/Customer/Employee/Product/InventoryItem (source-grep)
+ ✓ tests/ai/aiCommandRouteConversationalMemory.test.ts (3 tests) 3486ms
+     ✓ turn 1: a citation-bearing workflow response is remembered as a result set, and a conversationId is minted and returned  541ms
+     ✓ turn 2: 'the second one', with the SAME conversationId, resolves against turn 1's remembered result set — never a fresh guess  405ms
+ ❯ tests/ai/aiRuntime/ai19WorkflowEdgeCases.test.ts (7 tests | 7 skipped) 10092ms
+     ↓ trigger proof: POST /api/admin/vendors (the real business action, not runWorkflow() directly) fires AI-19 via master_data.changed
+     ↓ cross-tenant hostile: a master_data.changed event carrying another tenant's real Employee id is refused, not read or held
+     ↓ concurrent duplicate event: two genuinely simultaneous master_data.changed runs for the same bank change place exactly one hold
+     ↓ bug regression: a duplicate InventoryItem finding's subjectRefs cite InventoryItem, not Customer
+     ↓ bug regression / adversarial: a bank account number changed to a DIFFERENT number sharing the same length and last 4 digits is still detected (masked-string collision)
+     ↓ malformed data: a vendor with no GSTIN and a 500-char unicode/HTML name, plus a zero-amount bill, does not crash the sweep
+     ↓ large volume: 200 vendors (O(n^2) pairwise matching) completes correctly and within budget, extrapolated honestly for 10k+
+ ❯ tests/ai/aiRuntime/ai04ExpenseIntelligenceTriggerProof.test.ts (1 test | 1 skipped) 10231ms
+     ↓ POST /api/finance/expenses (the ordinary business action, not runWorkflow() called directly) creates the Expense and AI-04 fires as a real side effect
+ ❯ tests/ai/aiRuntime/ai10WorkflowEdgeCases.test.ts (9 tests | 9 skipped) 10102ms
+     ↓ trigger proof: createDraftBill() (the real vendor-bill-confirm action) fires AI-10's capital-check without calling runWorkflow() directly
+     ↓ trigger proof: the real POST /api/finance/assets route (not runWorkflow()) fires AI-10's schedule-init
+     ↓ concurrent duplicate schedule.due dispatch → exactly one drafted depreciation journal
+     ↓ concurrent duplicate asset.created dispatch → exactly one depreciation schedule
+     ↓ malformed bill data (zero amount, absurd date, unicode/HTML description) never crashes and stays below any threshold decision safely
+     ↓ cross-tenant hostile: bill.created carrying another tenant's real invoiceId is refused, not processed under this tenant
+     ↓ cross-tenant hostile: asset.created carrying another tenant's real assetId is refused, not processed under this tenant
+     ↓ cross-tenant hostile: schedule.due carrying another tenant's real scheduleId is refused, not processed under this tenant
+     ↓ adversarial: a large repair/maintenance bill that merely MENTIONS an asset keyword is still surfaced only as a RECOMMEND-level candidate, never auto-capitalised
+ ❯ tests/ai/aiRuntime/ai10FixedAsset.test.ts (8 tests | 8 skipped) 10110ms
+     ↓ below-threshold purchase → not flagged as a capital candidate
+     ↓ above-threshold asset-like purchase → candidate raised
+     ↓ non-INR bill → fx_unsupported escalation, not evaluated as a capital candidate
+     ↓ no capitalisation threshold configured → RECOMMEND, threshold_configured false, never an invented figure
+     ↓ asset.created for a POSTED asset with no schedule yet → depreciation schedule created
+     ↓ asset.created run twice → exactly one depreciation schedule (idempotent)
+     ↓ schedule.due depreciation run → drafts a journal for the due period
+     ↓ register-to-GL tie-out: a seeded 1-unit difference is detected and reported
+ ❯ tests/ai/aiRuntime/ai27DuplicateDetection.test.ts (10 tests | 10 skipped) 10125ms
+     ↓ the same invoice number formatted differently is detected (certain, hold placed)
+     ↓ the same bill paid twice via two posted payment postings is detected directly from sourceId — certain, hold placed (Chunk 8b 0.1)
+     ↓ two legitimate instalments summing exactly to the bill total do NOT flag as a duplicate payment
+     ↓ the same bill entered under two vendor records is detected via AI-19's duplicate-vendor matching
+     ↓ twelve monthly subscription invoices — same vendor, same amount, consecutive months — raise zero flags (false positive, mandatory)
+     ↓ a legitimate second instalment on the same PO (different amount) does not flag
+     ↓ a hold cannot be released by the AI at any autonomy level
+     ↓ lib/docIntel/duplicateCheck.ts's existing findDuplicates() behaves identically (unchanged by this workflow)
+     ↓ retrospective sweep finds an already-paid duplicate and quantifies the recoverable amount
+     ↓ no path in AI-27's own code ever writes to Invoice/Expense/BankStatement/Customer (source-grep)
+ ❯ tests/ai/aiRuntime/ai28CutoffIntelligence.test.ts (5 tests | 5 skipped) 10107ms
+     ↓ goods received on the 30th, invoiced on the 3rd → belongs to the earlier period
+     ↓ a locked prior period → proposes a current-period adjustment, never a back-dated post
+     ↓ false positive: a transaction posted in the same period as its governing date → no finding
+     ↓ a bill with no linked PO/StockMove evidence → evidence_unavailable, not a silent pass
+     ↓ RECOMMEND only — act() never calls a tool, drafts nothing
+ ✓ tests/ai/aiRuntime/capabilityRegistryDrift.test.ts (6 tests) 2010ms
+ ❯ tests/ai/aiRuntime/executor.test.ts (7 tests | 7 skipped) 10074ms
+     ↓ runs all 10 stages end-to-end and produces a valid Part 2.9 envelope
+     ↓ writes a complete AiDecisionTrace for the run
+     ↓ records a learning-loop proposal for the run
+     ↓ idempotency: running the same trigger event twice produces exactly one run
+     ↓ replay(runId) is safe and produces no duplicate side effects
+     ↓ a workflow with no registered trigger event (direct invocation) still runs and audits fully
+     ↓ regression: two separate direct invocations (both with no trigger event id) do not collide on the sparse unique index
+ ❯ tests/ai/aiRuntime/ai25WorkingCapitalIntelligence.test.ts (5 tests | 5 skipped) 10117ms
+     ↓ inventory days reports not_computable while the account-mapping question is open
+     ↓ inventory days becomes computable once AI-11's inventory-account mapping resolves (Chunk 8a unblock)
+     ↓ formulas produce known values on a fixture set (DSO)
+     ↓ a single large late customer is identified as the dominant driver, and driver cash impacts sum to the total AR movement
+     ↓ false positive: stable AR/AP period-over-period produces no drivers and no recommended actions
+ ❯ tests/ai/aiRuntime/ai03BankReconciliation.test.ts (9 tests | 9 skipped) 10129ms
+     ↓ one-to-one exact match → auto-reconciled (EXECUTE) with a real acting user
+     ↓ without an acting user, exact matches are found but nothing is auto-reconciled
+     ↓ false positive: right amount but a different tenant's journal entry must NOT match
+     ↓ multiple candidates (fuzzy) → proposed only, never auto-applied this batch
+     ↓ internal transfer between own bank accounts is classified, not treated as two unrelated payments
+     ↓ a bank line with a Customer partnerId and no Finance-side match is classified unknown_ar_side, not guessed
+     ↓ bank fee is classified and drafted as a journal, never posted
+     ↓ a locked period refuses reconcile_transaction via the real TransactionLock
+     ↓ re-running the sweep never double-reconciles an already-matched line
+ ✓ tests/accounting/account-types.route.test.ts (4 tests) 1459ms
+ ❯ tests/ai/aiRuntime/ai06PayablesOperations.test.ts (11 tests | 11 skipped) 10097ms
+       ↓ identifies a quantity variance and its amount
+       ↓ identifies a price variance and its amount
+       ↓ identifies a missing-receipt exception on the receipt leg (3-way)
+       ↓ identifies an over-receipt exception (billed far below received) on the receipt leg (3-way)
+       ↓ false positive: a bill matching its PO and receipt within tolerance produces no exception
+       ↓ matching.ts's existing runPOMatching callers behave identically — see tests/accounting/matching.test.ts (unmodified, still green)
+     ↓ the payment run cannot be released by the AI at any confidence, with any policy, with the kill switch on — no such tool exists
+     ↓ early_payment_discount and cross_source_duplicate_search are no longer declared not_implemented here — Chunk 8a's AI-19/AI-27 close them (Chunk 8b D.3 staleness fix)
+     ↓ vendor_bank_change_detection is still honestly declared not_implemented — Vendor/Customer genuinely carry no bank-detail field (Chunk 9 0.2: read from the shared capability registry, same id AI-19 declares)
+     ↓ duplicate bill detected raises an attention item
+     ↓ a payment-run proposal is recorded with included/excluded/totals, grouped by vendor and currency
+ ✓ tests/ai/aiRuntime/aiNlConversationalMemory.test.ts (23 tests) 1463ms
+ ✓ tests/accounting/accountants.route.test.ts (3 tests) 2244ms
+     ✓ auto-seeds and lists the shared accountant directory, unfiltered by tenant  311ms
+ ❯ tests/ai/aiRuntime/ai02LedgerClassificationEdgeCases.test.ts (6 tests | 6 skipped) 10075ms
+     ↓ TRIGGER PROOF: POST /api/finance/expenses (the real expense-submission route) fires AI-02 as a side effect and sets the classified account — no code here calls runWorkflow() or the workflow module directly
+     ↓ C.4 cross-tenant hostile input: an invoiceId belonging to tenant B, referenced from a tenant-A event, is never read or actioned (regression for the unscoped-findById cross-tenant bug)
+     ↓ C.1 large volume: 500 prior invoices for one vendor, correctly tallied by lookupHistory's bounded query — top account still wins, no unbounded scan needed
+     ↓ C.1 null/missing fields: an Invoice whose invoiceLines[0] is present but has no name/priceSubtotal (a malformed line, not an empty array) does not throw — degrades to a clean no-classification, never a crash
+     ↓ C.3 concurrent duplicate event: the SAME bill.created event fired simultaneously sets the account exactly once
+     ↓ C.6 adversarial — confidently wrong answer: an 'all'-match rule whose vendor criterion superficially matches must not be applied when a non-vendor criterion fails, even though the vendor name alone looks conclusive
+ ✓ tests/ai/aiRuntime/closeReadinessAccrualsPeriodScoping.test.ts (2 tests) 4075ms
+ ✓ tests/accounting/banking-rule.test.ts (5 tests) 2530ms
+ ❯ tests/ai/aiRuntime/ai15AnomalyDetection.test.ts (10 tests | 10 skipped) 10606ms
+     ↓ no detector can propose a correction or reversal at any confidence — no write tool touches a financial document (source-grep)
+     ↓ a year of normal, consistent activity produces ZERO anomalies — the single most important test
+     ↓ a 10x invoice fires the amount_outlier detector
+     ↓ an after-hours journal to revenue fires HIGH severity
+     ↓ suppression persists across runs and scopes correctly to the same detector+key only
+     ↓ a detector below the precision floor over the minimum sample auto-disables and raises a single INFO item
+     ↓ an auto-disabled detector raises nothing further on the next sweep
+     ↓ vendor_shares_bank_or_address_with_employee reads AI-19's own employee-collision output (docs/ai/BRIEF-08a-BATCH-G.md item 4) rather than a second matching implementation
+     ↓ record_anomaly_review('expected') dismisses the anomaly AND writes its suppression key, atomically (docs/ai/BRIEF-06-BATCH-E.md Part 0.3)
+     ↓ record_anomaly_review('confirmed') behaves like confirm_anomaly — no suppression written
+ ❯ tests/ai/aiRuntime/ai14FluxAnalysis.test.ts (6 tests | 6 skipped) 10601ms
+     ↓ read-only by construction: no write path exists in this workflow (source-grep)
+     ↓ a single vendor-bill transaction whose posted date and receipt evidence disagree is labelled 'timing' via AI-28's evaluateCutoff() (docs/ai/BRIEF-06-BATCH-E.md Part 0.4)
+     ↓ drivers + unexplained = total variance, to the cent, on a material movement with mixed drivers
+     ↓ a one-off large invoice is identified as its own driver, not attributed to the whole account
+     ↓ an immaterial movement is reported but not decomposed or escalated as a finding
+     ↓ no materiality policy configured -> movement reported unclassified, not filtered out
+ ✓ tests/ai/aiRuntime/capabilityRegistryCoverage.test.ts (3 tests) 638ms
+ ❯ tests/ai/aiRuntime/ai02LedgerClassification.test.ts (8 tests | 8 skipped) 10390ms
+     ↓ a matching BankingRule wins over the model — and the model is never called
+     ↓ criteria any/all semantics: an 'all' rule does not match when only one criterion is satisfied
+     ↓ a control account is never auto-selected, even at high model confidence
+     ↓ an inactive account is never proposed as a candidate
+     ↓ false positive: an ambiguous new vendor with no history and a gated model proposes nothing and sets nothing (raised for review, not silently ignored)
+     ↓ EXECUTE path: with a real acting user, a validated (killSwitchEnabled) policy, and a matching BankingRule, the draft account is actually set
+     ↓ without an acting user, autonomy drops to RECOMMEND and no account is set even with a matching rule
+     ↓ idempotency: the same trigger event twice produces exactly one run and sets the account once
+ ✓ tests/accounting/accounts.route.test.ts (4 tests) 5331ms
+     ✓ POST creates a tenant-scoped account; GET only returns that tenant's accounts  1871ms
+ ✓ tests/accounting/reportsToDateEnd.test.ts (1 test) 5545ms
+ ✓ tests/accounting/salesInvoicePosting.test.ts (6 tests) 6534ms
+     ✓ edits (a value change) post a clean reclass delta, not a duplicate full entry  798ms
+ ✓ tests/accounting/customerPaymentPosting.test.ts (10 tests) 6852ms
+     ✓ posts a standard receipt: Dr Bank / Cr AR for the allocated total  616ms
+     ✓ void posts a mirror-image reversal without touching the original entry  579ms
+     ✓ is idempotent: posting the same current snapshot twice creates no second entry  310ms
+ ✓ tests/accounting/ai-actions.route.test.ts (3 tests) 3912ms
+ ✓ tests/accounting/currency-adjustments.route.test.ts (4 tests) 3155ms
+ ✓ tests/ai/aiRuntime/toolRegistry.test.ts (11 tests) 5923ms
+ ✓ tests/ai/aiRuntime/aiPromotion.test.ts (5 tests) 4196ms
+ ✓ tests/ai/aiRuntime/ai16CashIntelligence.test.ts (6 tests) 7721ms
+     ✓ a predicted shortfall raises a risk  551ms
+ ✓ tests/accounting/custom-fields.route.test.ts (4 tests) 2621ms
+ ✓ tests/accounting/bank-feed-providers.route.test.ts (2 tests) 1363ms
+ ✓ tests/accounting/settings.route.test.ts (4 tests) 1472ms
+ ✓ tests/accounting/smart-rules.test.ts (9 tests) 5802ms
+ ✓ tests/accounting/banking-rules.route.test.ts (4 tests) 2992ms
+ ✓ tests/ai/aiRuntime/rbacRouter.test.ts (11 tests) 6505ms
+ ✓ tests/accounting/settings.test.ts (6 tests) 1726ms
+ ✓ tests/accounting/journal-templates.route.test.ts (4 tests) 1763ms
+ ✓ tests/accounting/budgets.route.test.ts (4 tests) 3711ms
+ ✓ tests/accounting/transaction-locks.route.test.ts (4 tests) 1812ms
+ ✓ tests/accounting/budget.test.ts (4 tests) 1608ms
+ ✓ tests/ai/aiRuntime/learningStore.test.ts (3 tests) 1842ms
+ ✓ tests/accounting/tax-rates.route.test.ts (5 tests) 1889ms
+ ✓ tests/ai/aiRuntime/attentionEngine.test.ts (5 tests) 1431ms
+ ✓ tests/accounting/legacy-accounts.route.test.ts (4 tests) 2721ms
+ ✓ tests/accounting/coa.test.ts (2 tests) 711ms
+ ✓ tests/ai/claude.test.ts (12 tests) 376ms
+     ✓ returns the text from the first choice's message content  314ms
+ ✓ tests/saas/orgCreate.test.ts (16 tests) 1101ms
+     ✓ returns 401 when not authenticated  993ms
+ ✓ tests/crm/leadAiScoring.test.ts (5 tests) 109ms
+ ✓ tests/accounting/bank-account.test.ts (5 tests) 685ms
+ ✓ tests/saas/billingHistory.test.ts (11 tests) 125ms
+ ✓ tests/accounting/transaction-lock.test.ts (3 tests) 524ms
+ ✓ tests/accounting/journal-template.test.ts (4 tests) 936ms
+ ✓ tests/accounting/accountant.test.ts (4 tests) 795ms
+ ✓ tests/projects/projectsApi.test.ts (5 tests) 93ms
+ ✓ tests/saas/orgInvite.test.ts (32 tests) 289ms
+ ✓ tests/accounting/bank-feed-provider.test.ts (4 tests) 549ms
+ ✓ tests/accounting/currency-adjustment.test.ts (5 tests) 935ms
+ ✓ tests/accounting/custom-field.test.ts (4 tests) 619ms
+ ✓ tests/accounting/tax-rate.test.ts (4 tests) 590ms
+ ✓ tests/ai/commandActions.test.ts (30 tests) 156ms
+ ✓ tests/migration/pipeline.test.ts (17 tests) 45ms
+ ✓ tests/crm/llmInsight.test.ts (9 tests) 19ms
+ ✓ tests/ai/adminDataFetcher.test.ts (10 tests) 92ms
+ ✓ tests/studio/engine.test.ts (12 tests) 25ms
+ ✓ tests/integrations/webhookVerify.test.ts (16 tests) 40ms
+ ✓ tests/auth/requireAdmin.test.ts (4 tests) 34ms
+ ✓ tests/crm/workflowGraph.test.ts (7 tests) 29ms
+ ✓ tests/finance/financeAiCopilot.test.ts (9 tests) 37ms
+ ✓ tests/saas/organization-schema.test.ts (15 tests) 60ms
+ ✓ tests/accounting/transaction-lock-enforcement.test.ts (6 tests) 86ms
+ ✓ tests/crm/nlToRule.test.ts (6 tests) 41ms
+ ✓ tests/ai/aiMemory.test.ts (17 tests) 116ms
+ ✓ tests/twin/cashflow.test.ts (6 tests) 41ms
+ ✓ tests/accounting/ai-actions.test.ts (6 tests) 85ms
+ ✓ tests/saas/myWorkspaces.test.ts (3 tests) 51ms
+ ✓ tests/crm/followUpMessage.test.ts (4 tests) 24ms
+ ✓ tests/saas/moduleGate.test.ts (110 tests) 133ms
+ ✓ tests/sales/publicLinks.test.ts (7 tests) 43ms
+ ✓ tests/crm/rbac.test.ts (11 tests) 47ms
+ ✓ tests/saas/aiLimits.test.ts (42 tests) 182ms
+ ✓ tests/calendar/detectConflicts.test.ts (6 tests) 23ms
+ ✓ tests/auth/requireTenantId.test.ts (6 tests) 40ms
+ ✓ tests/ai/salesAiRouteGating.test.ts (5 tests) 51ms
+ ✓ tests/ai/financeAiRoute.test.ts (21 tests) 95ms
+ ✓ tests/marketplace/packages.test.ts (7 tests) 20ms
+ ✓ tests/ai/manufacturingChatHistory.test.ts (7 tests) 45ms
+ ✓ tests/saas/tiers.test.ts (30 tests) 65ms
+ ✓ tests/ai/inventoryAiRouteGating.test.ts (5 tests) 41ms
+ ✓ tests/ai/manufacturingAiRouteGating.test.ts (6 tests) 48ms
+ ✓ tests/docIntel/extraction.test.ts (9 tests) 29ms
+ ✓ tests/crm/workflow.test.ts (4 tests) 24ms
+ ✓ tests/saas/oauth.test.ts (28 tests) 101ms
+ ✓ tests/crm/nativeAiFallbacks.test.ts (8 tests) 65ms
+ ✓ tests/search/universalSearch.test.ts (5 tests) 76ms
+ ✓ tests/ai/hrAiRouteGating.test.ts (5 tests) 54ms
+ ✓ tests/search/semanticSearch.test.ts (6 tests) 31ms
+ ✓ tests/auth/safeCallbackUrl.test.ts (7 tests) 23ms
+ ✓ tests/ai/aiSafetyGuards.test.ts (6 tests) 44ms
+ ✓ tests/ai/chatHistory.test.ts (8 tests) 68ms
+ ✓ tests/ai/aiRuntime/periodHorizonValidationSweep.test.ts (33 tests) 31ms
+ ✓ tests/ai/adminAiRouteGating.test.ts (5 tests) 63ms
+ ✓ tests/accounting/ai-intent.test.ts (8 tests) 33ms
+ ✓ tests/ai/rag.test.ts (3 tests) 41ms
+ ✓ tests/ai/aiRuntime/autonomyGate.test.ts (13 tests) 36ms
+ ✓ tests/ai/chatHistoryIsolation.test.ts (3 tests) 53ms
+ ✓ tests/ai/navRoutes.test.ts (7 tests) 23ms
+ ✓ tests/crm/approvalPolicy.test.ts (6 tests) 24ms
+ ✓ tests/sales/invoiceMath.test.ts (21 tests) 42ms
+ ✓ tests/sales/invoiceStatus.test.ts (6 tests) 34ms
+ ✓ tests/org/hierarchy.test.ts (8 tests) 24ms
+ ✓ tests/ai/aiPrefill.test.ts (5 tests) 25ms
+ ✓ tests/ai/sanitizeContext.test.ts (5 tests) 21ms
+ ✓ tests/ai/aiRuntime/inventoryDetectN1Sweep.test.ts (4 tests) 20ms
+ ✓ tests/ai/aiRuntime/reconciliationClassify.test.ts (5 tests) 16ms
+ ✓ tests/accounting/payments.test.ts (6 tests) 25ms
+ ✓ tests/ai/modelHealth.test.ts (6 tests) 19ms
+ ✓ tests/db/sanitizeEnums.test.ts (5 tests) 14ms
+ ✓ tests/ai/aiRuntime/closeReadinessClassify.test.ts (12 tests) 15ms
+ ✓ tests/ai/aiRuntime/scheduleMath.test.ts (4 tests) 11ms
+ ✓ tests/accounting/matching.test.ts (3 tests) 10ms
+ ✓ tests/accounting/journal-validation.test.ts (3 tests) 10ms
+ ✓ tests/crm/dataCompletion.test.ts (4 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 98 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/accounting/bank-accounts.route.test.ts > bank-accounts CRUD route
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/accounting/bank-accounts.route.test.ts:21:3
+     19|
+     20| describe("bank-accounts CRUD route", () => {
+     21|   beforeAll(async () => {
+       |   ^
+     22|     await mongoose.connect(process.env.MONGODB_URI!);
+     23|     await BankAccount.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/107]⎯
+
+ FAIL  tests/golden/ai01.golden.test.ts > AI-01 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai01.golden.test.ts:117:3
+    115|
+    116| describe("AI-01 golden dataset", () => {
+    117|   beforeAll(async () => {
+       |   ^
+    118|     await mongoose.connect(process.env.MONGODB_URI!);
+    119|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/107]⎯
+
+ FAIL  tests/golden/ai01.golden.test.ts > AI-01 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai01.golden.test.ts:138:3
+    136|   });
+    137|
+    138|   afterAll(async () => {
+       |   ^
+    139|     await mongoose.connection.dropDatabase();
+    140|     await mongoose.connection.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/107]⎯
+
+ FAIL  tests/golden/ai02.golden.test.ts > AI-02 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai02.golden.test.ts:191:3
+    189|
+    190| describe("AI-02 golden dataset", () => {
+    191|   beforeAll(async () => {
+       |   ^
+    192|     await mongoose.connect(process.env.MONGODB_URI!);
+    193|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/107]⎯
+
+ FAIL  tests/golden/ai03.golden.test.ts > AI-03 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai03.golden.test.ts:114:3
+    112|
+    113| describe("AI-03 golden dataset", () => {
+    114|   beforeAll(async () => {
+       |   ^
+    115|     await mongoose.connect(process.env.MONGODB_URI!);
+    116|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/107]⎯
+
+ FAIL  tests/golden/ai04.golden.test.ts > AI-04 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai04.golden.test.ts:77:3
+     75|
+     76| describe("AI-04 golden dataset", () => {
+     77|   beforeAll(async () => {
+       |   ^
+     78|     await mongoose.connect(process.env.MONGODB_URI!);
+     79|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/107]⎯
+
+ FAIL  tests/golden/ai05.golden.test.ts > AI-05 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai05.golden.test.ts:86:3
+     84|
+     85| describe("AI-05 golden dataset", () => {
+     86|   beforeAll(async () => {
+       |   ^
+     87|     await mongoose.connect(process.env.MONGODB_URI!);
+     88|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/107]⎯
+
+ FAIL  tests/golden/ai05.golden.test.ts > AI-05 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai05.golden.test.ts:99:3
+     97|   });
+     98|
+     99|   afterAll(async () => {
+       |   ^
+    100|     await mongoose.connection.dropDatabase();
+    101|     await mongoose.connection.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/107]⎯
+
+ FAIL  tests/golden/ai06.golden.test.ts > AI-06 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai06.golden.test.ts:91:3
+     89|
+     90| describe("AI-06 golden dataset", () => {
+     91|   beforeAll(async () => {
+       |   ^
+     92|     await mongoose.connect(process.env.MONGODB_URI!);
+     93|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/107]⎯
+
+ FAIL  tests/golden/ai07.golden.test.ts > AI-07 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai07.golden.test.ts:101:3
+     99|
+    100| describe("AI-07 golden dataset", () => {
+    101|   beforeAll(async () => {
+       |   ^
+    102|     await mongoose.connect(process.env.MONGODB_URI!);
+    103|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/107]⎯
+
+ FAIL  tests/golden/ai08.golden.test.ts > AI-08 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai08.golden.test.ts:70:3
+     68|
+     69| describe("AI-08 golden dataset", () => {
+     70|   beforeAll(async () => {
+       |   ^
+     71|     await mongoose.connect(process.env.MONGODB_URI!);
+     72|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/107]⎯
+
+ FAIL  tests/golden/ai08.golden.test.ts > AI-08 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai08.golden.test.ts:82:3
+     80|   });
+     81|
+     82|   afterAll(async () => {
+       |   ^
+     83|     await mongoose.connection.dropDatabase();
+     84|     await mongoose.connection.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/107]⎯
+
+ FAIL  tests/golden/ai09.golden.test.ts > AI-09 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai09.golden.test.ts:92:3
+     90|
+     91| describe("AI-09 golden dataset", () => {
+     92|   beforeAll(async () => {
+       |   ^
+     93|     await mongoose.connect(process.env.MONGODB_URI!);
+     94|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/107]⎯
+
+ FAIL  tests/golden/ai09.golden.test.ts > AI-09 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai09.golden.test.ts:104:3
+    102|   });
+    103|
+    104|   afterAll(async () => {
+       |   ^
+    105|     await mongoose.connection.dropDatabase();
+    106|     await mongoose.connection.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/107]⎯
+
+ FAIL  tests/golden/ai10.golden.test.ts > AI-10 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai10.golden.test.ts:100:3
+     98|
+     99| describe("AI-10 golden dataset", () => {
+    100|   beforeAll(async () => {
+       |   ^
+    101|     await mongoose.connect(process.env.MONGODB_URI!);
+    102|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/107]⎯
+
+ FAIL  tests/golden/ai11.golden.test.ts > AI-11 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai11.golden.test.ts:118:3
+    116|
+    117| describe("AI-11 golden dataset", () => {
+    118|   beforeAll(async () => {
+       |   ^
+    119|     await mongoose.connect(process.env.MONGODB_URI!);
+    120|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/107]⎯
+
+ FAIL  tests/golden/ai12.golden.test.ts > AI-12 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai12.golden.test.ts:90:3
+     88|
+     89| describe("AI-12 golden dataset", () => {
+     90|   beforeAll(async () => {
+       |   ^
+     91|     await mongoose.connect(process.env.MONGODB_URI!);
+     92|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/107]⎯
+
+ FAIL  tests/golden/ai14.golden.test.ts > AI-14 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai14.golden.test.ts:82:3
+     80|
+     81| describe("AI-14 golden dataset", () => {
+     82|   beforeAll(async () => {
+       |   ^
+     83|     await mongoose.connect(process.env.MONGODB_URI!);
+     84|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/107]⎯
+
+ FAIL  tests/golden/ai15.golden.test.ts > AI-15 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai15.golden.test.ts:142:3
+    140|
+    141| describe("AI-15 golden dataset", () => {
+    142|   beforeAll(async () => {
+       |   ^
+    143|     await mongoose.connect(process.env.MONGODB_URI!);
+    144|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/107]⎯
+
+ FAIL  tests/golden/ai16.golden.test.ts > AI-16 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai16.golden.test.ts:84:3
+     82|
+     83| describe("AI-16 golden dataset", () => {
+     84|   beforeAll(async () => {
+       |   ^
+     85|     await mongoose.connect(process.env.MONGODB_URI!);
+     86|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/107]⎯
+
+ FAIL  tests/golden/ai17.golden.test.ts > AI-17 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai17.golden.test.ts:105:3
+    103|
+    104| describe("AI-17 golden dataset", () => {
+    105|   beforeAll(async () => {
+       |   ^
+    106|     await mongoose.connect(process.env.MONGODB_URI!);
+    107|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/107]⎯
+
+ FAIL  tests/golden/ai18.golden.test.ts > AI-18 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai18.golden.test.ts:108:3
+    106|
+    107| describe("AI-18 golden dataset", () => {
+    108|   beforeAll(async () => {
+       |   ^
+    109|     await mongoose.connect(process.env.MONGODB_URI!);
+    110|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/107]⎯
+
+ FAIL  tests/golden/ai19.golden.test.ts > AI-19 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai19.golden.test.ts:146:3
+    144|
+    145| describe("AI-19 golden dataset", () => {
+    146|   beforeAll(async () => {
+       |   ^
+    147|     await mongoose.connect(process.env.MONGODB_URI!);
+    148|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/107]⎯
+
+ FAIL  tests/golden/ai22.golden.test.ts > AI-22 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai22.golden.test.ts:42:3
+     40|
+     41| describe("AI-22 golden dataset", () => {
+     42|   beforeAll(async () => {
+       |   ^
+     43|     await mongoose.connect(process.env.MONGODB_URI!);
+     44|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/107]⎯
+
+ FAIL  tests/golden/ai23.golden.test.ts > AI-23 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai23.golden.test.ts:73:3
+     71|
+     72| describe("AI-23 golden dataset", () => {
+     73|   beforeAll(async () => {
+       |   ^
+     74|     await mongoose.connect(process.env.MONGODB_URI!);
+     75|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/107]⎯
+
+ FAIL  tests/golden/ai25.golden.test.ts > AI-25 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai25.golden.test.ts:64:3
+     62|
+     63| describe("AI-25 golden dataset", () => {
+     64|   beforeAll(async () => {
+       |   ^
+     65|     await mongoose.connect(process.env.MONGODB_URI!);
+     66|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/107]⎯
+
+ FAIL  tests/golden/ai26.golden.test.ts > AI-26 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai26.golden.test.ts:78:3
+     76|
+     77| describe("AI-26 golden dataset", () => {
+     78|   beforeAll(async () => {
+       |   ^
+     79|     await mongoose.connect(process.env.MONGODB_URI!);
+     80|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/107]⎯
+
+ FAIL  tests/golden/ai27.golden.test.ts > AI-27 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai27.golden.test.ts:59:3
+     57|
+     58| describe("AI-27 golden dataset", () => {
+     59|   beforeAll(async () => {
+       |   ^
+     60|     await mongoose.connect(process.env.MONGODB_URI!);
+     61|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/107]⎯
+
+ FAIL  tests/golden/ai28.golden.test.ts > AI-28 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai28.golden.test.ts:85:3
+     83|
+     84| describe("AI-28 golden dataset", () => {
+     85|   beforeAll(async () => {
+       |   ^
+     86|     await mongoose.connect(process.env.MONGODB_URI!);
+     87|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/107]⎯
+
+ FAIL  tests/golden/ai29.golden.test.ts > AI-29 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai29.golden.test.ts:75:3
+     73|
+     74| describe("AI-29 golden dataset", () => {
+     75|   beforeAll(async () => {
+       |   ^
+     76|     await mongoose.connect(process.env.MONGODB_URI!);
+     77|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/107]⎯
+
+ FAIL  tests/golden/ai30.golden.test.ts > AI-30 golden dataset
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/golden/ai30.golden.test.ts:90:3
+     88|
+     89| describe("AI-30 golden dataset", () => {
+     90|   beforeAll(async () => {
+       |   ^
+     91|     await mongoose.connect(process.env.MONGODB_URI!);
+     92|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/107]⎯
+
+ FAIL  tests/sales/customerViews.route.test.ts > customer views + filtered list
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/customerViews.route.test.ts:21:3
+     19|
+     20| describe("customer views + filtered list", () => {
+     21|   beforeAll(async () => {
+       |   ^
+     22|     await mongoose.connect(process.env.MONGODB_URI!);
+     23|     await SalesView.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/107]⎯
+
+ FAIL  tests/sales/paymentAllocation.test.ts > applyAllocationsToInvoices / reverseAllocationsOnInvoices (DB-backed)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/paymentAllocation.test.ts:107:3
+    105|   const customerId = new mongoose.Types.ObjectId();
+    106|
+    107|   beforeAll(async () => {
+       |   ^
+    108|     await mongoose.connect("mongodb://localhost:27017/aupulens_test_pa…
+    109|     await SalesInvoice.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/107]⎯
+
+ FAIL  tests/sales/paymentPostingAtomicity.route.test.ts > Sales Payments route — posting atomicity (Issue #9)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/paymentPostingAtomicity.route.test.ts:58:3
+     56| // real posted JournalEntry, but the invoice itself never updated.
+     57| describe("Sales Payments route — posting atomicity (Issue #9)", () => {
+     58|   beforeAll(async () => {
+       |   ^
+     59|     await mongoose.connect(process.env.MONGODB_URI!);
+     60|     await Customer.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/107]⎯
+
+ FAIL  tests/sales/product.test.ts > Product model status
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/product.test.ts:10:3
+      8| // "published" value, so every publish attempt failed Mongoose validat…
+      9| describe("Product model status", () => {
+     10|   beforeAll(async () => {
+       |   ^
+     11|     await mongoose.connect("mongodb://localhost:27017/aupulens_test_pr…
+     12|     await (Product as any).init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/107]⎯
+
+ FAIL  tests/sales/q2cSync.test.ts > Q2C pipeline sync
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/q2cSync.test.ts:38:3
+     36| // appeared on the board at all.
+     37| describe("Q2C pipeline sync", () => {
+     38|   beforeAll(async () => {
+       |   ^
+     39|     await mongoose.connect(process.env.MONGODB_URI!);
+     40|     await Customer.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/107]⎯
+
+ FAIL  tests/sales/q2cSync.test.ts > Q2C pipeline sync
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/q2cSync.test.ts:50:3
+     48|   });
+     49|
+     50|   afterAll(async () => {
+       |   ^
+     51|     await mongoose.connection.dropDatabase();
+     52|     await mongoose.connection.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/107]⎯
+
+ FAIL  tests/sales/salesInvoice.test.ts > SalesInvoice model
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/salesInvoice.test.ts:10:3
+      8|   const customerId = new mongoose.Types.ObjectId();
+      9|
+     10|   beforeAll(async () => {
+       |   ^
+     11|     await mongoose.connect("mongodb://localhost:27017/aupulens_test_sa…
+     12|     await SalesInvoice.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai01DocumentIngestion.test.ts > AI-01 — Document ingestion & accounting extraction
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai01DocumentIngestion.test.ts:72:3
+     70|
+     71| describe("AI-01 — Document ingestion & accounting extraction", () => {
+     72|   beforeAll(async () => {
+       |   ^
+     73|     await mongoose.connect(process.env.MONGODB_URI!);
+     74|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai01DocumentIngestionEdgeCases.test.ts > AI-01 — trigger proof and edge-case matrix (Chunk 9 verification)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai01DocumentIngestionEdgeCases.test.ts:87:3
+     85|
+     86| describe("AI-01 — trigger proof and edge-case matrix (Chunk 9 verifica…
+     87|   beforeAll(async () => {
+       |   ^
+     88|     await mongoose.connect(process.env.MONGODB_URI!);
+     89|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai02LedgerClassification.test.ts > AI-02 — Ledger classification
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai02LedgerClassification.test.ts:81:3
+     79|
+     80| describe("AI-02 — Ledger classification", () => {
+     81|   beforeAll(async () => {
+       |   ^
+     82|     await mongoose.connect(process.env.MONGODB_URI!);
+     83|     await Promise.all([Account.init(), Invoice.init(), Customer.init()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai02LedgerClassificationEdgeCases.test.ts > AI-02 — trigger proof and edge-case matrix (Chunk 9 verification)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai02LedgerClassificationEdgeCases.test.ts:81:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai03BankReconciliation.test.ts > AI-03 — Bank reconciliation
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai03BankReconciliation.test.ts:74:3
+     72|
+     73| describe("AI-03 — Bank reconciliation", () => {
+     74|   beforeAll(async () => {
+       |   ^
+     75|     await mongoose.connect(process.env.MONGODB_URI!);
+     76|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai03BankReconciliationEdgeCases.test.ts > AI-03 — trigger proof and edge-case matrix (Chunk 9 verification)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai03BankReconciliationEdgeCases.test.ts:72:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai04ExpenseIntelligence.test.ts > AI-04 — Expense intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai04ExpenseIntelligence.test.ts:38:3
+     36|
+     37| describe("AI-04 — Expense intelligence", () => {
+     38|   beforeAll(async () => {
+       |   ^
+     39|     await mongoose.connect(process.env.MONGODB_URI!);
+     40|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai04ExpenseIntelligenceTriggerProof.test.ts > AI-04 — trigger proof: fires from the REAL /api/finance/expenses POST route (docs/ai/BRIEF-09-VERIFICATION.md Part B.1)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai04ExpenseIntelligenceTriggerProof.test.ts:27:3
+     25|
+     26| describe("AI-04 — trigger proof: fires from the REAL /api/finance/expe…
+     27|   beforeAll(async () => {
+       |   ^
+     28|     await mongoose.connect(process.env.MONGODB_URI!);
+     29|     await Promise.all([Expense.init(), Account.init(), AiWorkflowRun.i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai05ReceivablesOperations.test.ts > AI-05 — Receivables operations
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai05ReceivablesOperations.test.ts:93:3
+     91|
+     92| describe("AI-05 — Receivables operations", () => {
+     93|   beforeAll(async () => {
+       |   ^
+     94|     await mongoose.connect(process.env.MONGODB_URI!);
+     95|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai05ReceivablesOperationsEdgeCases.test.ts > AI-05 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai05ReceivablesOperationsEdgeCases.test.ts:78:3
+     76|
+     77| describe("AI-05 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     78|   beforeAll(async () => {
+       |   ^
+     79|     await mongoose.connect(process.env.MONGODB_URI!);
+     80|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai06PayablesOperations.test.ts > AI-06 — Payables operations
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai06PayablesOperations.test.ts:79:3
+     77|
+     78| describe("AI-06 — Payables operations", () => {
+     79|   beforeAll(async () => {
+       |   ^
+     80|     await mongoose.connect(process.env.MONGODB_URI!);
+     81|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai06PayablesOperationsEdgeCases.test.ts > AI-06 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai06PayablesOperationsEdgeCases.test.ts:72:3
+     70|
+     71| describe("AI-06 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     72|   beforeAll(async () => {
+       |   ^
+     73|     await mongoose.connect(process.env.MONGODB_URI!);
+     74|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai07AccrualIntelligence.test.ts > AI-07 — Accrual intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai07AccrualIntelligence.test.ts:66:3
+     64|
+     65| describe("AI-07 — Accrual intelligence", () => {
+     66|   beforeAll(async () => {
+       |   ^
+     67|     await mongoose.connect(process.env.MONGODB_URI!);
+     68|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai07AccrualIntelligenceEdgeCases.test.ts > AI-07 — Accrual intelligence: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai07AccrualIntelligenceEdgeCases.test.ts:59:3
+     57|
+     58| describe("AI-07 — Accrual intelligence: verification edge cases (docs/…
+     59|   beforeAll(async () => {
+       |   ^
+     60|     await mongoose.connect(process.env.MONGODB_URI!);
+     61|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[52/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai08PrepaidSchedule.test.ts > AI-08 — Prepaid/deferred schedule intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai08PrepaidSchedule.test.ts:73:3
+     71|
+     72| describe("AI-08 — Prepaid/deferred schedule intelligence", () => {
+     73|   beforeAll(async () => {
+       |   ^
+     74|     await mongoose.connect(process.env.MONGODB_URI!);
+     75|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[53/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai08PrepaidScheduleEdgeCases.test.ts > AI-08 — Prepaid/deferred schedule intelligence: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai08PrepaidScheduleEdgeCases.test.ts:51:3
+     49|
+     50| describe("AI-08 — Prepaid/deferred schedule intelligence: verification…
+     51|   beforeAll(async () => {
+       |   ^
+     52|     await mongoose.connect(process.env.MONGODB_URI!);
+     53|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[54/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai09RevenueRecognition.test.ts > AI-09 — Revenue recognition intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai09RevenueRecognition.test.ts:83:3
+     81|
+     82| describe("AI-09 — Revenue recognition intelligence", () => {
+     83|   beforeAll(async () => {
+       |   ^
+     84|     await mongoose.connect(process.env.MONGODB_URI!);
+     85|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[55/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai09WorkflowEdgeCases.test.ts > AI-09 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai09WorkflowEdgeCases.test.ts:86:3
+     84|
+     85| describe("AI-09 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     86|   beforeAll(async () => {
+       |   ^
+     87|     await mongoose.connect(process.env.MONGODB_URI!);
+     88|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[56/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai10FixedAsset.test.ts > AI-10 — Fixed asset intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai10FixedAsset.test.ts:59:3
+     57|
+     58| describe("AI-10 — Fixed asset intelligence", () => {
+     59|   beforeAll(async () => {
+       |   ^
+     60|     await mongoose.connect(process.env.MONGODB_URI!);
+     61|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[57/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai10WorkflowEdgeCases.test.ts > AI-10 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai10WorkflowEdgeCases.test.ts:64:3
+     62|
+     63| describe("AI-10 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     64|   beforeAll(async () => {
+       |   ^
+     65|     await mongoose.connect(process.env.MONGODB_URI!);
+     66|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[58/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai11InventoryCogs.test.ts > AI-11 — Inventory / COGS intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai11InventoryCogs.test.ts:92:3
+     90|
+     91| describe("AI-11 — Inventory / COGS intelligence", () => {
+     92|   beforeAll(async () => {
+       |   ^
+     93|     await mongoose.connect(process.env.MONGODB_URI!);
+     94|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[59/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai11WorkflowEdgeCases.test.ts > AI-11 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai11WorkflowEdgeCases.test.ts:50:3
+     48|
+     49| describe("AI-11 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     50|   beforeAll(async () => {
+       |   ^
+     51|     await mongoose.connect(process.env.MONGODB_URI!);
+     52|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[60/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai12TaxIntelligence.test.ts > AI-12 — Tax intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai12TaxIntelligence.test.ts:64:3
+     62|
+     63| describe("AI-12 — Tax intelligence", () => {
+     64|   beforeAll(async () => {
+       |   ^
+     65|     await mongoose.connect(process.env.MONGODB_URI!);
+     66|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[61/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai12WorkflowEdgeCases.test.ts > AI-12 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai12WorkflowEdgeCases.test.ts:58:3
+     56|
+     57| describe("AI-12 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     58|   beforeAll(async () => {
+       |   ^
+     59|     await mongoose.connect(process.env.MONGODB_URI!);
+     60|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[62/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai13DayZeroClose.test.ts > AI-13 — Day Zero Close
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai13DayZeroClose.test.ts:55:3
+     53|
+     54| describe("AI-13 — Day Zero Close", () => {
+     55|   beforeAll(async () => {
+       |   ^
+     56|     await mongoose.connect(process.env.MONGODB_URI!);
+     57|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[63/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai14FluxAnalysis.test.ts > AI-14 — Flux analysis
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai14FluxAnalysis.test.ts:65:3
+     63|
+     64| describe("AI-14 — Flux analysis", () => {
+     65|   beforeAll(async () => {
+       |   ^
+     66|     await mongoose.connect(process.env.MONGODB_URI!);
+     67|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[64/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai14FluxAnalysisEdgeCases.test.ts > AI-14 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai14FluxAnalysisEdgeCases.test.ts:62:3
+     60|
+     61| describe("AI-14 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     62|   beforeAll(async () => {
+       |   ^
+     63|     await mongoose.connect(process.env.MONGODB_URI!);
+     64|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[65/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai15AnomalyDetection.test.ts > AI-15 — Anomaly detection
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai15AnomalyDetection.test.ts:67:3
+     65|
+     66| describe("AI-15 — Anomaly detection", () => {
+     67|   beforeAll(async () => {
+       |   ^
+     68|     await mongoose.connect(process.env.MONGODB_URI!);
+     69|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[66/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai15AnomalyDetectionEdgeCases.test.ts > AI-15 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai15AnomalyDetectionEdgeCases.test.ts:73:3
+     71|
+     72| describe("AI-15 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     73|   beforeAll(async () => {
+       |   ^
+     74|     await mongoose.connect(process.env.MONGODB_URI!);
+     75|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[67/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai16CashIntelligenceEdgeCases.test.ts > AI-16 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai16CashIntelligenceEdgeCases.test.ts:53:3
+     51|
+     52| describe("AI-16 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     53|   beforeAll(async () => {
+       |   ^
+     54|     await mongoose.connect(process.env.MONGODB_URI!);
+     55|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[68/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai17ComplianceReadiness.test.ts > AI-17 — Compliance readiness
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai17ComplianceReadiness.test.ts:101:3
+     99|
+    100| describe("AI-17 — Compliance readiness", () => {
+    101|   beforeAll(async () => {
+       |   ^
+    102|     await mongoose.connect(process.env.MONGODB_URI!);
+    103|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[69/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai17ComplianceReadinessEdgeCases.test.ts > AI-17 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai17ComplianceReadinessEdgeCases.test.ts:66:3
+     64|
+     65| describe("AI-17 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     66|   beforeAll(async () => {
+       |   ^
+     67|     await mongoose.connect(process.env.MONGODB_URI!);
+     68|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[70/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai18AuditEvidence.test.ts > AI-18 — Audit / evidence intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai18AuditEvidence.test.ts:60:3
+     58|
+     59| describe("AI-18 — Audit / evidence intelligence", () => {
+     60|   beforeAll(async () => {
+       |   ^
+     61|     await mongoose.connect(process.env.MONGODB_URI!);
+     62|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[71/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai18AuditEvidenceEdgeCases.test.ts > AI-18 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai18AuditEvidenceEdgeCases.test.ts:97:3
+     95|
+     96| describe("AI-18 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     97|   beforeAll(async () => {
+       |   ^
+     98|     await mongoose.connect(process.env.MONGODB_URI!);
+     99|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[72/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai19MasterData.test.ts > AI-19 — Master-data intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai19MasterData.test.ts:49:3
+     47|
+     48| describe("AI-19 — Master-data intelligence", () => {
+     49|   beforeAll(async () => {
+       |   ^
+     50|     await mongoose.connect(process.env.MONGODB_URI!);
+     51|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[73/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai19WorkflowEdgeCases.test.ts > AI-19 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai19WorkflowEdgeCases.test.ts:56:3
+     54|
+     55| describe("AI-19 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md P…
+     56|   beforeAll(async () => {
+       |   ^
+     57|     await mongoose.connect(process.env.MONGODB_URI!);
+     58|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[74/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai20RelatedPartyDetection.test.ts > AI-20 — Related-party detection
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai20RelatedPartyDetection.test.ts:55:3
+     53|
+     54| describe("AI-20 — Related-party detection", () => {
+     55|   beforeAll(async () => {
+       |   ^
+     56|     await mongoose.connect(process.env.MONGODB_URI!);
+     57|     await Promise.all([Customer.init(), Invoice.init(), AiWorkflowRun.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[75/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai20RelatedPartyDetectionEdgeCases.test.ts > AI-20 — Related-party detection: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai20RelatedPartyDetectionEdgeCases.test.ts:61:3
+     59|
+     60| describe("AI-20 — Related-party detection: verification edge cases (do…
+     61|   beforeAll(async () => {
+       |   ^
+     62|     await mongoose.connect(process.env.MONGODB_URI!);
+     63|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[76/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai21StatementIntelligence.test.ts > AI-21 — Financial statement intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai21StatementIntelligence.test.ts:82:3
+     80|
+     81| describe("AI-21 — Financial statement intelligence", () => {
+     82|   beforeAll(async () => {
+       |   ^
+     83|     await mongoose.connect(process.env.MONGODB_URI!);
+     84|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[77/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai21StatementIntelligenceEdgeCases.test.ts > AI-21 — Financial statement intelligence: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai21StatementIntelligenceEdgeCases.test.ts:39:3
+     37|
+     38| describe("AI-21 — Financial statement intelligence: verification edge …
+     39|   beforeAll(async () => {
+       |   ^
+     40|     await mongoose.connect(process.env.MONGODB_URI!);
+     41|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[78/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai22ContinuousReconciliation.test.ts > AI-22 — Continuous reconciliation controller
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai22ContinuousReconciliation.test.ts:43:3
+     41|
+     42| describe("AI-22 — Continuous reconciliation controller", () => {
+     43|   beforeAll(async () => {
+       |   ^
+     44|     await mongoose.connect(process.env.MONGODB_URI!);
+     45|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[79/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai22ContinuousReconciliationEdgeCases.test.ts > AI-22 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai22ContinuousReconciliationEdgeCases.test.ts:56:3
+     54|
+     55| describe("AI-22 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     56|   beforeAll(async () => {
+       |   ^
+     57|     await mongoose.connect(process.env.MONGODB_URI!);
+     58|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[80/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai23JournalReview.test.ts > AI-23 — Journal review intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai23JournalReview.test.ts:62:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[81/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai23JournalReviewEdgeCases.test.ts > AI-23 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai23JournalReviewEdgeCases.test.ts:58:3
+     56|
+     57| describe("AI-23 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     58|   beforeAll(async () => {
+       |   ^
+     59|     await mongoose.connect(process.env.MONGODB_URI!);
+     60|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[82/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai24CloseEvidenceEdgeCases.test.ts > AI-24 — Close evidence controller: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai24CloseEvidenceEdgeCases.test.ts:39:3
+     37|
+     38| describe("AI-24 — Close evidence controller: verification edge cases (…
+     39|   beforeAll(async () => {
+       |   ^
+     40|     await mongoose.connect(process.env.MONGODB_URI!);
+     41|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[83/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai25WorkingCapitalIntelligence.test.ts > AI-25 — Working-capital intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai25WorkingCapitalIntelligence.test.ts:57:3
+     55|
+     56| describe("AI-25 — Working-capital intelligence", () => {
+     57|   beforeAll(async () => {
+       |   ^
+     58|     await mongoose.connect(process.env.MONGODB_URI!);
+     59|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[84/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai25WorkingCapitalIntelligenceEdgeCases.test.ts > AI-25 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai25WorkingCapitalIntelligenceEdgeCases.test.ts:59:3
+     57|
+     58| describe("AI-25 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     59|   beforeAll(async () => {
+       |   ^
+     60|     await mongoose.connect(process.env.MONGODB_URI!);
+     61|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[85/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai26AccountingPolicy.test.ts > AI-26 — Accounting policy intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai26AccountingPolicy.test.ts:57:3
+     55|
+     56| describe("AI-26 — Accounting policy intelligence", () => {
+     57|   beforeAll(async () => {
+       |   ^
+     58|     await mongoose.connect(process.env.MONGODB_URI!);
+     59|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[86/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai26WorkflowEdgeCases.test.ts > AI-26 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai26WorkflowEdgeCases.test.ts:49:3
+     47|
+     48| describe("AI-26 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md P…
+     49|   beforeAll(async () => {
+       |   ^
+     50|     await mongoose.connect(process.env.MONGODB_URI!);
+     51|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[87/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai27DuplicateDetection.test.ts > AI-27 — Duplicate & duplicate-payment intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai27DuplicateDetection.test.ts:78:3
+     76|
+     77| describe("AI-27 — Duplicate & duplicate-payment intelligence", () => {
+     78|   beforeAll(async () => {
+       |   ^
+     79|     await mongoose.connect(process.env.MONGODB_URI!);
+     80|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[88/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai27WorkflowEdgeCases.test.ts > AI-27 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai27WorkflowEdgeCases.test.ts:57:3
+     55|
+     56| describe("AI-27 — edge-case matrix (docs/ai/BRIEF-09-VERIFICATION.md P…
+     57|   beforeAll(async () => {
+       |   ^
+     58|     await mongoose.connect(process.env.MONGODB_URI!);
+     59|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[89/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai28CutoffIntelligence.test.ts > AI-28 — Cut-off intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai28CutoffIntelligence.test.ts:74:3
+     72|
+     73| describe("AI-28 — Cut-off intelligence", () => {
+     74|   beforeAll(async () => {
+       |   ^
+     75|     await mongoose.connect(process.env.MONGODB_URI!);
+     76|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[90/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai28CutoffIntelligenceEdgeCases.test.ts > AI-28 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai28CutoffIntelligenceEdgeCases.test.ts:75:3
+     73|
+     74| describe("AI-28 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     75|   beforeAll(async () => {
+       |   ^
+     76|     await mongoose.connect(process.env.MONGODB_URI!);
+     77|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[91/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai29ControlMonitoring.test.ts > AI-29 — Audit / control monitoring
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai29ControlMonitoring.test.ts:72:3
+     70|
+     71| describe("AI-29 — Audit / control monitoring", () => {
+     72|   beforeAll(async () => {
+       |   ^
+     73|     await mongoose.connect(process.env.MONGODB_URI!);
+     74|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[92/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai29ControlMonitoringEdgeCases.test.ts > AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai29ControlMonitoringEdgeCases.test.ts:48:3
+     46|
+     47| describe("AI-29 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     48|   beforeAll(async () => {
+       |   ^
+     49|     await mongoose.connect(process.env.MONGODB_URI!);
+     50|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[93/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai30ErpOperations.test.ts > AI-30 — ERP operations intelligence
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai30ErpOperations.test.ts:36:3
+     34|
+     35| describe("AI-30 — ERP operations intelligence", () => {
+     36|   beforeAll(async () => {
+       |   ^
+     37|     await mongoose.connect(process.env.MONGODB_URI!);
+     38|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[94/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai30ErpOperationsEdgeCases.test.ts > AI-30 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.md Part C)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/ai30ErpOperationsEdgeCases.test.ts:48:3
+     46|
+     47| describe("AI-30 — edge-case hardening (docs/ai/BRIEF-09-VERIFICATION.m…
+     48|   beforeAll(async () => {
+       |   ^
+     49|     await mongoose.connect(process.env.MONGODB_URI!);
+     50|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[95/107]⎯
+
+ FAIL  tests/ai/aiRuntime/aiLearningLoop.test.ts > AI learning loop — instrumentation, resolution, aging (Chunk 9 0.1)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/aiLearningLoop.test.ts:35:3
+     33|
+     34| describe("AI learning loop — instrumentation, resolution, aging (Chunk…
+     35|   beforeAll(async () => {
+       |   ^
+     36|     await mongoose.connect(process.env.MONGODB_URI!);
+     37|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[96/107]⎯
+
+ FAIL  tests/ai/aiRuntime/aiMetrics.test.ts > AI metrics — computation and drift
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/aiMetrics.test.ts:36:3
+     34|
+     35| describe("AI metrics — computation and drift", () => {
+     36|   beforeAll(async () => {
+       |   ^
+     37|     await mongoose.connect(process.env.MONGODB_URI!);
+     38|     await Promise.all([AiLearningRecord.init(), AiWorkflowRun.init(), …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[97/107]⎯
+
+ FAIL  tests/ai/aiRuntime/aiNl.test.ts > AI-NL — natural-language control layer
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/aiNl.test.ts:48:3
+     46|
+     47| describe("AI-NL — natural-language control layer", () => {
+     48|   beforeAll(async () => {
+       |   ^
+     49|     await mongoose.connect(process.env.MONGODB_URI!);
+     50|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[98/107]⎯
+
+ FAIL  tests/ai/aiRuntime/eventBus.test.ts > emitEvent — the AI runtime's event bus (outbox + inline dispatch)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/eventBus.test.ts:22:3
+     20|
+     21| describe("emitEvent — the AI runtime's event bus (outbox + inline disp…
+     22|   beforeAll(async () => {
+       |   ^
+     23|     await mongoose.connect(process.env.MONGODB_URI!);
+     24|     await AiEvent.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[99/107]⎯
+
+ FAIL  tests/ai/aiRuntime/executor.test.ts > runWorkflow — the 10-stage executor (AI-00-SMOKE)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/executor.test.ts:20:3
+     18|
+     19| describe("runWorkflow — the 10-stage executor (AI-00-SMOKE)", () => {
+     20|   beforeAll(async () => {
+       |   ^
+     21|     await mongoose.connect(process.env.MONGODB_URI!);
+     22|     await AiWorkflowRun.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[100/107]⎯
+
+ FAIL  tests/ai/aiRuntime/postJournalRecovery.test.ts > post_journal recovery — a period stuck at DRAFTED after a simulated crash (Chunk 10a)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/postJournalRecovery.test.ts:32:3
+     30|  */
+     31| describe("post_journal recovery — a period stuck at DRAFTED after a si…
+     32|   beforeAll(async () => {
+       |   ^
+     33|     await mongoose.connect(process.env.MONGODB_URI!);
+     34|     await Promise.all([Account.init(), JournalEntry.init(), AiSchedule…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[101/107]⎯
+
+ FAIL  tests/ai/aiRuntime/runtimeSweepRoute.test.ts > app/api/cron/ai/runtime-sweep/route.ts — two schedules due for the same tenant in one sweep (Chunk 10a)
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/runtimeSweepRoute.test.ts:26:3
+     24|  */
+     25| describe("app/api/cron/ai/runtime-sweep/route.ts — two schedules due f…
+     26|   beforeAll(async () => {
+       |   ^
+     27|     await mongoose.connect(process.env.MONGODB_URI!);
+     28|     await Promise.all([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[102/107]⎯
+
+ FAIL  tests/ai/aiRuntime/safety.test.ts > Part 4.5 safety assertions
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/ai/aiRuntime/safety.test.ts:22:3
+     20| // Part 4.5's assertion list, as literal tests — not prose.
+     21| describe("Part 4.5 safety assertions", () => {
+     22|   beforeAll(async () => {
+       |   ^
+     23|     await mongoose.connect(process.env.MONGODB_URI!);
+     24|     await AiWorkflowRun.init();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[103/107]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/sales/quotes.route.test.ts > quotes routes > convert-to-invoice creates a SalesInvoice and marks the quote invoiced
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/sales/quotes.route.test.ts:113:3
+    111|   });
+    112|
+    113|   it("convert-to-invoice creates a SalesInvoice and marks the quote in…
+       |   ^
+    114|     vi.mocked(auth).mockResolvedValue(mockSession("route-t1"));
+    115|     const customer = await makeCustomer("route-t1");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[104/107]⎯
+
+ FAIL  tests/sales/quotes.route.test.ts > quotes routes > convert-to-invoice creates a SalesInvoice and marks the quote invoiced
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/sales/quotes.route.test.ts:43:3
+     41|   });
+     42|
+     43|   afterEach(async () => {
+       |   ^
+     44|     await SalesQuotation.deleteMany({});
+     45|     await (SalesInvoice as any).deleteMany({});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[105/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai07AccrualIntelligenceEdgeCases.test.ts > AI-07 — trigger proof: fires from the REAL vendor-bill creation path (docIntel createDraftBill), not runWorkflow() directly > createDraftBill() (the real service function app/api/document-intelligence/[id]/confirm/route.ts calls) fires AI-07's accuracy_check branch as a real side effect
+TypeError: Cannot read properties of undefined (reading 'observe')
+ ❯ runWorkflow lib/aiRuntime/runtime/executor.ts:60:35
+     58|   // observe — Idempotent on event_id (Part 2.1). Runs before the run …
+     59|   // exists because we need entityId to create it.
+     60|   const observed = await workflow.observe(event);
+       |                                   ^
+     61|
+     62|   // event.id must be genuinely OMITTED (not set to undefined/null) wh…
+ ❯ tests/ai/aiRuntime/ai07AccrualIntelligenceEdgeCases.test.ts:341:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[106/107]⎯
+
+ FAIL  tests/ai/aiRuntime/ai13DayZeroCloseEdgeCases.test.ts > AI-13 — Day Zero Close: verification edge cases (docs/ai/BRIEF-09-VERIFICATION.md) > trigger proof: the real cron sweep route (app/api/cron/ai/runtime-sweep) fires AI-13 and produces a blocked AiCloseState for the current period
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/ai/aiRuntime/ai13DayZeroCloseEdgeCases.test.ts:65:3
+     63|
+     64|   // ── Trigger proof: the real cron sweep route, not runWorkflow() di…
+     65|   it("trigger proof: the real cron sweep route (app/api/cron/ai/runtim…
+       |   ^
+     66|     await Organization.create({ name: "AI13 Edge Co", subdomain: TENAN…
+     67|     const bankAccountId = await makeAccount(TENANT, "asset_cash");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[107/107]⎯
+
+
+ Test Files  100 failed | 121 passed (221)
+      Tests  3 failed | 1114 passed | 581 skipped (1698)
+   Start at  00:39:53
+   Duration  107.56s (transform 56.45s, setup 0ms, import 134.53s, tests 1388.38s, environment 56ms)
+
