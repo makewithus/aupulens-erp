@@ -14,6 +14,9 @@ import AiWorkflowRun from "@/models/ai/AiWorkflowRun";
 import AiDecisionTrace from "@/models/ai/AiDecisionTrace";
 import AiToolCall from "@/models/ai/AiToolCall";
 import AiWorkflowPolicy from "@/models/ai/AiWorkflowPolicy";
+import AiSchedule from "@/models/ai/AiSchedule";
+import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
 
 let runWorkflow: typeof import("@/lib/aiRuntime/runtime/executor").runWorkflow;
 let bootstrapAiRuntime: typeof import("@/lib/aiRuntime/bootstrap").bootstrapAiRuntime;
@@ -34,7 +37,7 @@ describe("AI-30 — ERP operations intelligence", () => {
     await mongoose.connect(process.env.MONGODB_URI!);
     await Promise.all([
       Customer.init(), Invoice.init(), AiEvent.init(), AiTaxTransaction.init(), AiOperationsRepairLog.init(), AiOperationsFinding.init(),
-      AiWorkflowRun.init(), AiDecisionTrace.init(), AiToolCall.init(), AiWorkflowPolicy.init(),
+      AiWorkflowRun.init(), AiDecisionTrace.init(), AiToolCall.init(), AiWorkflowPolicy.init(), AiSchedule.init(), Account.init(), JournalEntry.init(),
     ]);
     ({ runWorkflow } = await import("@/lib/aiRuntime/runtime/executor"));
     ({ bootstrapAiRuntime } = await import("@/lib/aiRuntime/bootstrap"));
@@ -52,7 +55,7 @@ describe("AI-30 — ERP operations intelligence", () => {
   afterEach(async () => {
     await Promise.all([
       Customer.deleteMany({}), Invoice.deleteMany({}), AiEvent.deleteMany({}), AiTaxTransaction.deleteMany({}), AiOperationsRepairLog.deleteMany({}), AiOperationsFinding.deleteMany({}),
-      AiWorkflowRun.deleteMany({}), AiDecisionTrace.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}),
+      AiWorkflowRun.deleteMany({}), AiDecisionTrace.deleteMany({}), AiToolCall.deleteMany({}), AiWorkflowPolicy.deleteMany({}), AiSchedule.deleteMany({}), Account.deleteMany({}), JournalEntry.deleteMany({}),
     ]);
   });
 
@@ -115,6 +118,42 @@ describe("AI-30 — ERP operations intelligence", () => {
     expect((log!.afterState as { status: string }).status).toBe("pending");
   });
 
+  it("a stuck schedule period (Chunk 10a — post_journal crash recovery) is detected and auto-repaired end to end: no journal entry existed, so it resets to pending", async () => {
+    const debit = await Account.create({ tenantId: TENANT, name: "Expense", code: `ACC-${Math.random().toString(36).slice(2, 8)}`, account_type: "expense", isActive: true, isLocked: false, status: "active" });
+    const credit = await Account.create({ tenantId: TENANT, name: "Prepaid", code: `ACC-${Math.random().toString(36).slice(2, 8)}`, account_type: "asset_prepayments", isActive: true, isLocked: false, status: "active" });
+    const schedule = await AiSchedule.create({
+      tenantId: TENANT,
+      scheduleType: "prepaid",
+      sourceRef: { model: "Invoice", id: new mongoose.Types.ObjectId().toString() },
+      status: "approved",
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-12-31"),
+      frequency: "monthly",
+      totalAmount: 1000,
+      currency: "INR",
+      debitAccountId: debit._id,
+      creditAccountId: credit._id,
+      basis: "stated",
+      periods: [{ periodKey: "2026-01", dueDate: new Date("2026-01-31"), amount: 1000, status: "drafted", draftedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) }],
+      recognisedToDate: 0,
+      remaining: 1000,
+      createdByWorkflow: "AI-08",
+    });
+    await policy();
+
+    const envelope = await runWorkflow(ai30ErpOperations, { tenantId: TENANT, eventKey: "ai.sweep.hourly", payload: {} });
+    const trace = await AiDecisionTrace.findOne({ runId: envelope.runId }).lean();
+    const proposal = trace!.rawProposal as unknown as { issues: { type: string }[]; repairsAttempted: { repairType: string; outcome: string }[] };
+
+    expect(proposal.issues.some((i) => i.type === "stuck_schedule_period")).toBe(true);
+    expect(proposal.repairsAttempted.some((r) => r.repairType === "recover_stuck_schedule_period" && r.outcome === "success")).toBe(true);
+
+    const after = await AiSchedule.findById(schedule._id).lean();
+    expect(after!.periods[0].status).toBe("pending");
+    const log = await AiOperationsRepairLog.findOne({ tenantId: TENANT, issueKey: `AiSchedule:${schedule._id}:2026-01` }).lean();
+    expect(log!.outcome).toBe("success");
+  });
+
   it("a repair that fails twice escalates and is never retried again (retry cap + backoff)", async () => {
     const issueKey = "AiEvent:synthetic-failing-issue";
     let gate = await checkRepairGate(TENANT, issueKey);
@@ -154,7 +193,7 @@ describe("AI-30 — ERP operations intelligence", () => {
     expect(logs).toEqual([]); // no repair was ever attempted, so nothing to log
   });
 
-  it("only the 4 A.5-permitted repair types are ever named; the 2 unwired this chunk are declared honestly, not faked", async () => {
+  it("only real, permitted repair types are ever named; the 2 still unwired (relink_orphan, retry_integration_connection) are declared honestly, not faked", async () => {
     await policy();
     const envelope = await runWorkflow(ai30ErpOperations, { tenantId: TENANT, eventKey: "ai.sweep.hourly", payload: {} });
     const trace = await AiDecisionTrace.findOne({ runId: envelope.runId }).lean();
@@ -177,7 +216,9 @@ describe("AI-30 — ERP operations intelligence", () => {
     const forbiddenWrites = output
       .split("\n")
       .filter((line) => line.trim())
-      .filter((line) => !/AiOperationsRepairLog|AiOperationsFinding|AiEvent\.updateOne/.test(line));
+      // AiSchedule.findOneAndUpdate() (Chunk 10a addendum — recover_stuck_schedule_period) writes
+      // only AiSchedule, the same Ai*-only pattern every other allowed write here already follows.
+      .filter((line) => !/AiOperationsRepairLog|AiOperationsFinding|AiEvent\.updateOne|AiSchedule\.findOneAndUpdate/.test(line));
     expect(forbiddenWrites).toEqual([]);
   });
 });

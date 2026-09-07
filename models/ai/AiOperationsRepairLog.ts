@@ -9,7 +9,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
  */
 
 export type OpsRepairOutcome = "success" | "failed" | "escalated";
-export type OpsRepairType = "requeue_dead_letter" | "retry_integration_connection" | "refresh_tax_projection" | "relink_orphan";
+export type OpsRepairType = "requeue_dead_letter" | "retry_integration_connection" | "refresh_tax_projection" | "relink_orphan" | "recover_stuck_schedule_period";
 
 export interface IAiOperationsRepairLog extends Document {
   tenantId: string;
@@ -27,7 +27,7 @@ const AiOperationsRepairLogSchema: Schema<IAiOperationsRepairLog> = new Schema(
   {
     tenantId: { type: String, required: true, index: true },
     issueKey: { type: String, required: true, index: true },
-    repairType: { type: String, enum: ["requeue_dead_letter", "retry_integration_connection", "refresh_tax_projection", "relink_orphan"], required: true },
+    repairType: { type: String, enum: ["requeue_dead_letter", "retry_integration_connection", "refresh_tax_projection", "relink_orphan", "recover_stuck_schedule_period"], required: true },
     attempt: { type: Number, required: true },
     beforeState: { type: Schema.Types.Mixed, default: {} },
     afterState: { type: Schema.Types.Mixed, default: null },

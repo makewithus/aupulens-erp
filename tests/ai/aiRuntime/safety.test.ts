@@ -105,6 +105,7 @@ describe("Part 4.5 safety assertions", () => {
       refresh_tax_projection: { file: "lib/aiRuntime/tax/rebuildTaxProjection.ts", fn: "rebuildTaxProjection" },
       record_operations_findings: { file: "lib/aiRuntime/tools/opsHealthTools.ts", fn: "recordOperationsFindingsHandler" },
       record_account_mapping: { file: "lib/aiRuntime/tools/accountMappingTools.ts", fn: "recordAccountMappingHandler" },
+      recover_stuck_schedule_period: { file: "lib/aiRuntime/tools/opsHealthTools.ts", fn: "recoverStuckSchedulePeriodHandler" },
     };
 
     function extractFunctionBody(source: string, fnName: string): string {

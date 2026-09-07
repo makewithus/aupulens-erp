@@ -54,6 +54,14 @@ export interface IAiSchedulePeriod {
   status: AiSchedulePeriodStatus;
   journalEntryId?: mongoose.Types.ObjectId;
   runId?: mongoose.Types.ObjectId;
+  /** Set the instant post_journal's compare-and-swap claims this period (PENDING -> DRAFTED),
+   *  before the JournalEntry is created (Chunk 10a addendum — docs/ai/audits/FAILURE_MODES.md's
+   *  post_journal finding). A period stuck at DRAFTED well past this timestamp is the signal
+   *  findStuckSchedulePeriods() (lib/aiRuntime/opsHealth/detect.ts) uses to flag it — the
+   *  schedule document's own `updatedAt` is not reliable for this on a multi-period schedule,
+   *  since posting one period touches the whole document and would mask a DIFFERENT, genuinely
+   *  stuck period. */
+  draftedAt?: Date;
 }
 
 export interface IAiSchedule extends Document {
@@ -88,6 +96,7 @@ const AiSchedulePeriodSchema = new Schema<IAiSchedulePeriod>(
     status: { type: String, enum: Object.values(AI_SCHEDULE_PERIOD_STATUS), default: AI_SCHEDULE_PERIOD_STATUS.PENDING },
     journalEntryId: { type: Schema.Types.ObjectId, ref: "JournalEntry" },
     runId: { type: Schema.Types.ObjectId, ref: "AiWorkflowRun" },
+    draftedAt: { type: Date },
   },
   { _id: false },
 );

@@ -267,12 +267,26 @@ async function postJournalHandler(args: PostJournalArgs) {
     throw err;
   }
 
-  // Atomic compare-and-swap: only succeeds if the period is not already posted. This is the
-  // real "exactly once" guarantee at the schedule level, on top of AiToolCall's own
+  // Atomic compare-and-swap: only succeeds if the period is genuinely still PENDING. This is
+  // the real "exactly once" guarantee at the schedule level, on top of AiToolCall's own
   // {tenantId, toolName, idempotencyKey} unique index at the callTool() layer.
+  //
+  // Chunk 10a addendum (docs/ai/BRIEF-10a-ADDENDUM.md, following docs/ai/audits/FAILURE_MODES.md's
+  // own finding): this used to accept any status `!== POSTED`, which includes DRAFTED — the exact
+  // state this same CAS sets one line below, before the JournalEntry is ever created. A process
+  // crash between this CAS and the final `claimed.save()` further down left the period stuck at
+  // DRAFTED with NO journal entry — and a blind retry of post_journal (the framework's own
+  // AiToolCall idempotency lock eventually reclaims and re-attempts a stale IN_FLIGHT call after
+  // its timeout) would pass THIS SAME CAS again, silently creating a SECOND JournalEntry for the
+  // same period. Requiring exactly PENDING closes that hole: a period already claimed (DRAFTED)
+  // can never be re-claimed by another call, ever — it can only be resolved by
+  // `recover_stuck_schedule_period` (lib/aiRuntime/tools/opsHealthTools.ts), which inspects
+  // whether the crash happened before or after the JournalEntry was actually created (traced via
+  // the deterministic `header.ref` set below) and either completes the linkage or resets the
+  // period to PENDING for a clean retry — never re-runs posting logic blindly.
   const claimed = await AiSchedule.findOneAndUpdate(
-    { _id: args.scheduleId, tenantId: args.tenantId, "periods.periodKey": args.periodKey, "periods.status": { $ne: AI_SCHEDULE_PERIOD_STATUS.POSTED } },
-    { $set: { "periods.$.status": AI_SCHEDULE_PERIOD_STATUS.DRAFTED } },
+    { _id: args.scheduleId, tenantId: args.tenantId, "periods.periodKey": args.periodKey, "periods.status": AI_SCHEDULE_PERIOD_STATUS.PENDING },
+    { $set: { "periods.$.status": AI_SCHEDULE_PERIOD_STATUS.DRAFTED, "periods.$.draftedAt": new Date() } },
     { new: true },
   );
   if (!claimed) throw new PeriodAlreadyPostedError(args.scheduleId, args.periodKey);
@@ -281,9 +295,15 @@ async function postJournalHandler(args: PostJournalArgs) {
     throw new Error("post_journal refuses an unbalanced journal — Dr must equal Cr");
   }
 
+  // Deterministic trace back to the exact (scheduleId, periodKey) this posting belongs to — the
+  // only way recover_stuck_schedule_period can reliably find "the journal entry this call
+  // created, if any" after a crash. No current caller sets header.ref for a schedule posting
+  // (confirmed by reading AI-07/08/10's own post_journal call sites), so this always wins.
+  const header = { ...args.header, ref: `ai-schedule:${args.scheduleId}:${args.periodKey}` };
+
   const body = {
     tenantId: args.tenantId,
-    header: args.header,
+    header,
     lineIds: args.lineIds,
     status: DOCUMENT_STATUS.POSTED,
     voucherStatus: "posted",

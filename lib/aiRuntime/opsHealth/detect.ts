@@ -5,7 +5,7 @@ import AiWorkflowRun from "@/models/ai/AiWorkflowRun";
 import AiDecisionTrace from "@/models/ai/AiDecisionTrace";
 import AiToolCall, { AI_TOOL_CALL_STATUS } from "@/models/ai/AiToolCall";
 import AiEvent from "@/models/ai/AiEvent";
-import AiSchedule, { AI_SCHEDULE_STATUS } from "@/models/ai/AiSchedule";
+import AiSchedule, { AI_SCHEDULE_STATUS, AI_SCHEDULE_PERIOD_STATUS } from "@/models/ai/AiSchedule";
 import AiTaxTransaction from "@/models/ai/AiTaxTransaction";
 import FxRate from "@/models/finance/FxRate";
 import Integration, { INTEGRATION_STATUS } from "@/models/shared/Integration";
@@ -24,6 +24,10 @@ const TOOL_CALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const SCHEDULE_OVERDUE_GRACE_DAYS = 1;
 const FX_RATE_STALE_DAYS = 7;
 const DUPLICATE_RUN_WINDOW_MS = 60 * 1000; // 1 minute
+// A period should transition DRAFTED -> POSTED synchronously, inside one post_journal call —
+// normally milliseconds. Anything still DRAFTED past this grace window is not "in flight", it is
+// stuck (Chunk 10a addendum — docs/ai/audits/FAILURE_MODES.md's post_journal finding).
+const STUCK_SCHEDULE_PERIOD_GRACE_MS = 60 * 60 * 1000; // 1 hour
 
 export interface StuckRecordIssue {
   model: string;
@@ -143,6 +147,41 @@ export async function findOverdueSchedules(tenantId: string, now = new Date()): 
   const cutoff = new Date(now.getTime() - SCHEDULE_OVERDUE_GRACE_DAYS * DAY_MS);
   const rows = await AiSchedule.find({ tenantId, status: AI_SCHEDULE_STATUS.APPROVED, nextRunDate: { $lt: cutoff, $exists: true } }).select("createdByWorkflow nextRunDate").lean();
   return rows.map((r) => ({ scheduleId: String(r._id), createdByWorkflow: r.createdByWorkflow, nextRunDate: r.nextRunDate!, overdueDays: Math.floor((now.getTime() - new Date(r.nextRunDate!).getTime()) / DAY_MS) }));
+}
+
+export interface StuckSchedulePeriodIssue {
+  scheduleId: string;
+  periodKey: string;
+  createdByWorkflow: string;
+  draftedAt: Date;
+  stuckMinutes: number;
+}
+
+/** Chunk 10a addendum (docs/ai/audits/FAILURE_MODES.md's post_journal finding) — a period
+ *  post_journal claimed (PENDING -> DRAFTED) but never completed, most likely because the
+ *  process died between that compare-and-swap and the final JournalEntry save. This is never a
+ *  normal, transient state: the real handler completes it synchronously, in one call. Repaired
+ *  via `recover_stuck_schedule_period` (lib/aiRuntime/tools/opsHealthTools.ts). */
+export async function findStuckSchedulePeriods(tenantId: string, now = new Date()): Promise<StuckSchedulePeriodIssue[]> {
+  await connectDB();
+  const cutoff = new Date(now.getTime() - STUCK_SCHEDULE_PERIOD_GRACE_MS);
+  const rows = await AiSchedule.find({ tenantId, "periods.status": AI_SCHEDULE_PERIOD_STATUS.DRAFTED, "periods.draftedAt": { $lt: cutoff } })
+    .select("createdByWorkflow periods")
+    .lean();
+  const issues: StuckSchedulePeriodIssue[] = [];
+  for (const s of rows) {
+    for (const p of s.periods) {
+      if (p.status !== AI_SCHEDULE_PERIOD_STATUS.DRAFTED || !p.draftedAt || new Date(p.draftedAt).getTime() >= cutoff.getTime()) continue;
+      issues.push({
+        scheduleId: String(s._id),
+        periodKey: p.periodKey,
+        createdByWorkflow: s.createdByWorkflow,
+        draftedAt: p.draftedAt,
+        stuckMinutes: Math.floor((now.getTime() - new Date(p.draftedAt).getTime()) / (60 * 1000)),
+      });
+    }
+  }
+  return issues;
 }
 
 export interface OrphanRunIssue {

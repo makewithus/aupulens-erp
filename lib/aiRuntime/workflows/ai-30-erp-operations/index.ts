@@ -10,6 +10,7 @@ import {
   findOverdueSchedules,
   findOrphanWorkflowRuns,
   findDuplicateRunExecutions,
+  findStuckSchedulePeriods,
 } from "@/lib/aiRuntime/opsHealth/detect";
 import { getWorkflowGaps } from "@/lib/aiRuntime/capabilities/registry";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
@@ -21,19 +22,24 @@ import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, Verif
  * and, where safe, fixed, before a user notices.
  *
  * **The only workflow in this batch gaining real autonomous repair** (A.4: `CONTROLLED_AUTONOMOUS`
- * for idempotent reversible repairs only), and tightly bound to A.5's exactly 4 permitted repair
- * types. This chunk wires **2 of the 4 live** (re-queue a dead-lettered `AiEvent`, refresh a stale
- * tax projection) — the other 2 are declared honestly in `checksNotImplemented`, not faked: orphan
- * relink has no real case in this schema (`lib/aiRuntime/opsHealth/relinkOrphan.ts`'s own doc
- * comment), and integration-sync retry has no safe write path at all for an autonomous action —
- * see `lib/aiRuntime/tools/opsHealthTools.ts`'s own doc comment for exactly why (`testConnection()`
+ * for idempotent reversible repairs only). A.5 originally named exactly 4 permitted repair types;
+ * this chunk wires **2 of the original 4 live** (re-queue a dead-lettered `AiEvent`, refresh a
+ * stale tax projection) — the other 2 are declared honestly in `checksNotImplemented`, not faked:
+ * orphan relink has no real case in this schema (`lib/aiRuntime/opsHealth/relinkOrphan.ts`'s own
+ * doc comment), and integration-sync retry has no safe write path at all for an autonomous action
+ * — see `lib/aiRuntime/tools/opsHealthTools.ts`'s own doc comment for exactly why (`testConnection()`
  * mutates a non-`Ai*` model, and the normal RBAC write path requires a human `userId` AI-30's
- * hourly sweep doesn't have). **Every repair goes through `lib/aiRuntime/opsHealth/repairGate.ts`
- * first** — retry cap, exponential backoff, and "fails twice escalates, never retried again" are
- * enforced there, once, not per repair type. **No repair path here ever writes to a financial
- * record** (`Invoice`/`JournalEntry`/`Account`/etc.) — asserted directly via source-grep in this
- * workflow's own tests. Failed integrations are still detected and reported (`healthByIntegration`,
- * `issues[]`) — just not auto-repaired.
+ * hourly sweep doesn't have). **A 5th repair type, `recover_stuck_schedule_period`, was added by
+ * the Chunk 10a addendum** once `docs/ai/audits/FAILURE_MODES.md`'s sweep found a real recovery
+ * gap in the shared `post_journal` tool (used by AI-07/08/10) — a crash between its compare-and-
+ * swap and its journal save left an `AiSchedule` period permanently stuck with no path back. Fits
+ * the same architecture cleanly: it only ever writes `AiSchedule` (an `internal_state` model), and
+ * its one `JournalEntry` touch is a lookup, never a write. **Every repair goes through
+ * `lib/aiRuntime/opsHealth/repairGate.ts` first** — retry cap, exponential backoff, and "fails
+ * twice escalates, never retried again" are enforced there, once, not per repair type. **No repair
+ * path here ever writes to a financial record** (`Invoice`/`JournalEntry`/`Account`/etc.) —
+ * asserted directly via source-grep in this workflow's own tests. Failed integrations are still
+ * detected and reported (`healthByIntegration`, `issues[]`) — just not auto-repaired.
  */
 
 // Chunk 9 (0.2): read live from the shared capability registry (lib/aiRuntime/capabilities/registry.ts).
@@ -55,6 +61,7 @@ interface Ai30Extracted {
   overdueSchedules: Awaited<ReturnType<typeof findOverdueSchedules>>;
   orphanRuns: Awaited<ReturnType<typeof findOrphanWorkflowRuns>>;
   duplicateExecutions: Awaited<ReturnType<typeof findDuplicateRunExecutions>>;
+  stuckSchedulePeriods: Awaited<ReturnType<typeof findStuckSchedulePeriods>>;
 }
 
 interface Ai30Issue {
@@ -63,7 +70,7 @@ interface Ai30Issue {
   subjectRef: { model: string; id: string };
   detail: string;
   repairable: boolean;
-  repairType?: "requeue_dead_letter" | "refresh_tax_projection";
+  repairType?: "requeue_dead_letter" | "refresh_tax_projection" | "recover_stuck_schedule_period";
   repairArgs?: Record<string, unknown>;
 }
 
@@ -93,7 +100,7 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
   async extract(observed, ctx): Promise<Ai30Extracted> {
     void observed;
     const tenantId = ctx.tenantId;
-    const [stuckDrafts, stuckApprovals, stuckRuns, stuckToolCalls, deadLetters, failedIntegrations, staleTaxProjections, staleFxRates, overdueSchedules, orphanRuns, duplicateExecutions] = await Promise.all([
+    const [stuckDrafts, stuckApprovals, stuckRuns, stuckToolCalls, deadLetters, failedIntegrations, staleTaxProjections, staleFxRates, overdueSchedules, orphanRuns, duplicateExecutions, stuckSchedulePeriods] = await Promise.all([
       findStuckDrafts(tenantId),
       findStuckPendingApprovalJournals(tenantId),
       findStuckWorkflowRuns(tenantId),
@@ -105,8 +112,9 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
       findOverdueSchedules(tenantId),
       findOrphanWorkflowRuns(tenantId),
       findDuplicateRunExecutions(tenantId),
+      findStuckSchedulePeriods(tenantId),
     ]);
-    return { stuckDrafts, stuckApprovals, stuckRuns, stuckToolCalls, deadLetters, failedIntegrations, staleTaxProjections, staleFxRates, overdueSchedules, orphanRuns, duplicateExecutions };
+    return { stuckDrafts, stuckApprovals, stuckRuns, stuckToolCalls, deadLetters, failedIntegrations, staleTaxProjections, staleFxRates, overdueSchedules, orphanRuns, duplicateExecutions, stuckSchedulePeriods };
   },
 
   async reason(extracted): Promise<ReasonResult<Ai30Proposal>> {
@@ -132,6 +140,17 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
     for (const s of extracted.overdueSchedules) issues.push({ type: "overdue_schedule", severity: "medium", subjectRef: { model: "AiSchedule", id: s.scheduleId }, detail: `${s.createdByWorkflow} schedule overdue by ${s.overdueDays}d`, repairable: false });
     for (const o of extracted.orphanRuns) issues.push({ type: "orphan_workflow_run", severity: "low", subjectRef: { model: "AiWorkflowRun", id: o.runId }, detail: `${o.workflowId} run (${o.status}) has no matching AiDecisionTrace`, repairable: false });
     for (const dup of extracted.duplicateExecutions) issues.push({ type: "duplicate_run_execution", severity: "medium", subjectRef: { model: "AiWorkflowRun", id: dup.runIds[1] }, detail: `${dup.workflowId} ran twice within a minute for the same entity (${dup.runIds.join(", ")})`, repairable: false });
+    for (const sp of extracted.stuckSchedulePeriods) {
+      issues.push({
+        type: "stuck_schedule_period",
+        severity: "high",
+        subjectRef: { model: "AiSchedule", id: `${sp.scheduleId}:${sp.periodKey}` },
+        detail: `${sp.createdByWorkflow} schedule ${sp.scheduleId} period ${sp.periodKey} stuck at drafted for ${sp.stuckMinutes}m — post_journal likely crashed mid-posting`,
+        repairable: true,
+        repairType: "recover_stuck_schedule_period",
+        repairArgs: { scheduleId: sp.scheduleId, periodKey: sp.periodKey },
+      });
+    }
 
     const byModule = new Map<string, number>();
     for (const i of issues) byModule.set(i.subjectRef.model, (byModule.get(i.subjectRef.model) ?? 0) + 1);
@@ -188,7 +207,12 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
         repairsAttempted.push({ issueKey: `${issue.subjectRef.model}:${issue.subjectRef.id}`, repairType: issue.repairType, outcome: `skipped — autonomy dropped to ${decision.autonomyApplied} (${decision.reasons.join("; ")})` });
         continue;
       }
-      const toolName = issue.repairType === "requeue_dead_letter" ? "requeue_dead_lettered_event" : "refresh_tax_projection";
+      const toolName =
+        issue.repairType === "requeue_dead_letter"
+          ? "requeue_dead_lettered_event"
+          : issue.repairType === "recover_stuck_schedule_period"
+            ? "recover_stuck_schedule_period"
+            : "refresh_tax_projection";
       const issueKey = `${issue.subjectRef.model}:${issue.subjectRef.id}`;
       // Chunk 9 verification fix (docs/ai/BRIEF-09-VERIFICATION.md Part A.2): this call was
       // previously unguarded. Every handler behind it already catches its OWN internal failures
