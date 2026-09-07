@@ -17,14 +17,20 @@ natural key). Where neither is true, a workflow re-run after a mid-`act()` crash
 duplicate a document — every such case is named explicitly below, not glossed over.
 
 **Cross-cutting structural finding (AI-07, AI-08, AI-10 — `post_journal`,
-`lib/aiRuntime/tools/scheduleWriteTools.ts`)**: `post_journal`'s handler does an atomic
+`lib/aiRuntime/tools/scheduleWriteTools.ts`) — CLOSED.** `post_journal`'s handler does an atomic
 `findOneAndUpdate` compare-and-swap flipping an `AiSchedule` period from `pending` → `drafted`
 *before* creating the real `JournalEntry` and saving `posted`/`recognisedToDate`. A crash between
-that CAS and the final save leaves the period permanently stuck at `drafted` with no journal entry
-ever created — and no retry recovers it (`PeriodAlreadyPostedError` fires on any subsequent attempt,
-since the guard only accepts `periods.status: { $ne: POSTED }`, and this period is now stuck at
-`drafted`, neither `pending` nor `posted`). This is a genuine, undetected, manual-intervention-only
-stuck state. **No test in AI-07, AI-08, or AI-10's suites exercises this exact window.**
+that CAS and the final save left the period stuck at `drafted` with no journal entry ever created —
+and, worse than originally characterized here, the old CAS guard (`periods.status: { $ne: POSTED }`)
+still matched a `drafted` period, so a genuine retry (e.g. `executor.ts`'s `replay()` re-issuing the
+same `rt.callTool("post_journal", ..., {idempotencyKey})` for a run that died mid-`act()`) would
+silently **create a second journal entry** rather than erroring — a real double-post risk, not
+merely a frozen state. Fixed: the CAS now requires exactly `pending`, closing the silent-reclaim
+hole; a new `recover_stuck_schedule_period` repair (AI-30's 5th repair type,
+`lib/aiRuntime/tools/opsHealthTools.ts`) either links the orphaned `JournalEntry` (traced via a new
+deterministic `header.ref`) if the crash happened after it was created, or resets the period to
+`pending` for a clean retry if it wasn't. New `tests/ai/aiRuntime/postJournalRecovery.test.ts` (6
+cases) verified via revert. See `docs/ai/IMPLEMENTATION_LOG.md` for the full change.
 
 ## Per-workflow table
 
@@ -36,10 +42,10 @@ stuck state. **No test in AI-07, AI-08, or AI-10's suites exercises this exact w
 | AI-04 (expense-intelligence) | Zero | n/a | n/a | "idempotency: the same trigger event twice produces exactly one run" (`ai04ExpenseIntelligence.test.ts`) — run-level only, correctly, since there is no per-write state |
 | AI-05 (receivables-operations) | Multiple, independent per candidate/entry: `open_dispute`/`draft_receipt_allocation` per allocation, `draft_communication`+optional `create_task` per worklist entry | Independent | Mostly yes; `draft_receipt_allocation`'s handler has **no natural guard of its own** (appends to an array / decrements a balance) — safety is 100% the `idempotencyKey` lock | "concurrent duplicate `ai.sweep.hourly` dispatch → exactly one allocation on the same draft payment" (`ai05ReceivablesOperationsEdgeCases.test.ts`) |
 | AI-06 (payables-operations) | Multiple: `create_task`/`draft_match_annotation` per bill (match mode), `record_payment_run_proposal` once per sweep | Independent | `draft_match_annotation` doubly safe (key + handler just overwrites one field); **`record_payment_run_proposal`'s handler is a plain `create()` with no natural guard — safety is entirely its date-scoped `idempotencyKey`** | "concurrent duplicate `bill.created` dispatch → exactly one match annotation write" (`ai06PayablesOperationsEdgeCases.test.ts`) — covers `draft_match_annotation` only; `record_payment_run_proposal`'s own retry behavior is untested |
-| AI-07 (accrual-intelligence) | Multiple across 3 modes: `post_journal`/`draft_journal`+`link_schedule_draft` per period (reversal), `draft_accrual` per PO line, zero in `accuracy_check` mode | Independent per period/line | Yes via per-call `idempotencyKey`s, subject to the cross-cutting `post_journal` finding above | **None found** — no `ai07*.test.ts` file contains an idempotency/C.3/retry/double-write test |
-| AI-08 (prepaid-schedule) | Multiple: `post_journal`/`draft_journal`+`link_schedule_draft` per period (execute mode), one `draft_prepaid_schedule` (detect mode) | Independent per period | Yes, subject to the cross-cutting `post_journal` finding | **"schedule.due run twice → the period only drafts once (compare-and-swap idempotency)"** (`ai08PrepaidSchedule.test.ts`) — the clearest explicit retry-safety test in the suite |
+| AI-07 (accrual-intelligence) | Multiple across 3 modes: `post_journal`/`draft_journal`+`link_schedule_draft` per period (reversal), `draft_accrual` per PO line, zero in `accuracy_check` mode | Independent per period/line | Yes via per-call `idempotencyKey`s, now closed via `recover_stuck_schedule_period` (cross-cutting finding above) | **None found** — no `ai07*.test.ts` file contains an idempotency/C.3/retry/double-write test |
+| AI-08 (prepaid-schedule) | Multiple: `post_journal`/`draft_journal`+`link_schedule_draft` per period (execute mode), one `draft_prepaid_schedule` (detect mode) | Independent per period | Yes, now closed via `recover_stuck_schedule_period` (cross-cutting finding above) | **"schedule.due run twice → the period only drafts once (compare-and-swap idempotency)"** (`ai08PrepaidSchedule.test.ts`) — the clearest explicit retry-safety test in the suite |
 | AI-09 (revenue-recognition) | Multiple: `draft_journal`+`link_schedule_draft` per due period, `draft_prepaid_schedule` per new schedule | Independent per order/period | Yes via `idempotencyKey`s | "concurrent duplicate `schedule.due` dispatch → exactly one drafted journal" (`ai09WorkflowEdgeCases.test.ts`) |
-| AI-10 (fixed-asset) | Multiple: one `draft_depreciation_schedule` (init), `post_journal`/`draft_journal`+`link_schedule_draft` per period (depreciation run) | Independent per period | Yes, subject to the cross-cutting `post_journal` finding | "asset.created run twice → exactly one depreciation schedule" (`ai10FixedAsset.test.ts`) + C.3 |
+| AI-10 (fixed-asset) | Multiple: one `draft_depreciation_schedule` (init), `post_journal`/`draft_journal`+`link_schedule_draft` per period (depreciation run) | Independent per period | Yes, now closed via `recover_stuck_schedule_period` (cross-cutting finding above) | "asset.created run twice → exactly one depreciation schedule" (`ai10FixedAsset.test.ts`) + C.3 |
 | AI-11 (inventory-cogs) | One: `record_inventory_findings` | n/a | Yes, naturally — `findOneAndUpdate` upsert on `{tenantId, period}`, no key needed | **None found** |
 | AI-12 (tax-intelligence) | One: `rebuild_tax_projection` | n/a | Yes, naturally — full `deleteMany`+`insertMany` replace; a crash mid-rebuild self-heals on the next call since source data is untouched | "rebuild is idempotent — running it twice on the same source data produces identical rows" (`ai12TaxIntelligence.test.ts`) |
 | AI-13 (day-zero-close) | Zero — any auto-resolution triggers the *owning* workflow's own event, never a direct AI-13 write | n/a | n/a | Run-count-only: "the same triggerEventId fired concurrently twice still produces exactly one AiWorkflowRun and one AiCloseState" (`ai13DayZeroCloseEdgeCases.test.ts`) |
@@ -75,11 +81,11 @@ covered by a retry/re-run test today. Named here, not fixed under this pass's sc
 bounded next-chunk item (each needs only a stable `idempotencyKey` at its one call site, following
 the exact pattern already used everywhere else in this codebase).
 
-**Structural risk found by reading the tool handler, not any one workflow** (AI-07, AI-08, AI-10 via
-shared `post_journal`): a crash between the period-status compare-and-swap and the final journal
-save leaves an `AiSchedule` period permanently stuck at `drafted` with no journal entry and no
-retry path — see the cross-cutting finding above. No test in any of the three workflows exercises
-this exact window.
+**Structural risk found by reading the tool handler, not any one workflow, and closed the same day**
+(AI-07, AI-08, AI-10 via shared `post_journal`): a crash between the period-status compare-and-swap
+and the final journal save used to leave an `AiSchedule` period stuck at `drafted` with no journal
+entry and — worse — no safe retry (a genuine retry could silently double-post). See the
+cross-cutting finding above for the fix and its test.
 
 **Best example of a true "no partial state" test**: AI-23's "`score_journal_risk` throwing mid-run
 fails the run cleanly, with no partial findings persisted."
