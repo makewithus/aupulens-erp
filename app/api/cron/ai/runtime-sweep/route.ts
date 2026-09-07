@@ -4,6 +4,7 @@ import Organization from "@/models/admin/Organization";
 import AiSchedule, { AI_SCHEDULE_STATUS } from "@/models/ai/AiSchedule";
 import { bootstrapAiRuntime } from "@/lib/aiRuntime/bootstrap";
 import { emitEvent, sweepPendingEvents } from "@/lib/aiRuntime/runtime/eventBus";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 
 // Same CRON_SECRET bearer-check shape as every other cron route (see
 // app/api/cron/business-health/route.ts). Scheduled hourly via vercel.json.
@@ -42,7 +43,7 @@ async function handler(req: NextRequest) {
   const sweepHour = new Date().toISOString().slice(0, 13);
   for (const org of orgs) {
     const subdomain = (org as { subdomain: string }).subdomain;
-    await emitEvent(subdomain, "ai.sweep.hourly", {}, { dedupeKey: `${subdomain}:${sweepHour}` });
+    await emitEvent(subdomain, "ai.sweep.hourly", {}, { dedupeKey: buildDedupeKey(subdomain, sweepHour) });
   }
 
   // `period.horizon.reached` (docs/ai/BRIEF-04-BATCH-C.md) — AI-13/22/24/28's continuous-
@@ -58,7 +59,7 @@ async function handler(req: NextRequest) {
   const currentPeriodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString();
   for (const org of orgs) {
     const subdomain = (org as { subdomain: string }).subdomain;
-    await emitEvent(subdomain, "period.horizon.reached", { period: currentPeriod, periodEnd: currentPeriodEnd }, { dedupeKey: `${subdomain}:${currentPeriod}:${sweepHour}` });
+    await emitEvent(subdomain, "period.horizon.reached", { period: currentPeriod, periodEnd: currentPeriodEnd }, { dedupeKey: buildDedupeKey(subdomain, currentPeriod, sweepHour) });
   }
 
   // The recurring schedule engine's runner (docs/ai/BRIEF-03-BATCH-B.md B.2) — extends this
@@ -84,7 +85,7 @@ async function handler(req: NextRequest) {
   // collision between DIFFERENT schedules, not suppress legitimate retries of the same one.
   const dueEventHour = new Date().toISOString().slice(0, 13);
   for (const schedule of dueSchedules) {
-    await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) }, { dedupeKey: `${schedule._id}:${dueEventHour}` });
+    await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) }, { dedupeKey: buildDedupeKey(String(schedule._id), dueEventHour) });
   }
 
   return NextResponse.json({ success: true, ...result, tenantsSwept: orgs.length, schedulesDue: dueSchedules.length });

@@ -130,19 +130,24 @@ export async function annotateStatement(tenantId: string, period: string, statem
   await connectDB();
   const { start: periodStart, end: periodEnd } = monthBounds(period);
 
-  const report =
-    statementType === "balance_sheet"
-      ? await buildPostedJournalReport({ tenantId, endDate: periodEnd })
-      : await buildPostedJournalReport({ tenantId, startDate: periodStart, endDate: periodEnd });
-
   const groupsToInclude: ReportGroup[] = statementType === "balance_sheet" ? ["asset", "liability", "equity"] : ["income", "expense"];
 
-  const coverage = await buildAccountCoverage(tenantId);
-  const reconciliationResults = await runAllReconciliationDefinitions(tenantId, periodEnd, period);
+  // Chunk 10a (docs/ai/BRIEF-10-PRE-QA.md B.3) — these 5 lookups were previously run strictly
+  // sequentially, even though none reads another's result; only the loop below combines them.
+  // Measured ~14s on the AI demo tenant against annotateStatement()'s own <5s budget before this
+  // and the two fixes it depends on (closeReadiness/compute.ts's domain checks,
+  // reconciliation/engine.ts's definitions, both also parallelized this pass).
+  const [report, coverage, reconciliationResults, closeState, ai14Comparisons] = await Promise.all([
+    statementType === "balance_sheet"
+      ? buildPostedJournalReport({ tenantId, endDate: periodEnd })
+      : buildPostedJournalReport({ tenantId, startDate: periodStart, endDate: periodEnd }),
+    buildAccountCoverage(tenantId),
+    runAllReconciliationDefinitions(tenantId, periodEnd, period),
+    computeCloseReadiness(tenantId, period, periodEnd),
+    loadLatestAi14Comparisons(tenantId),
+  ]);
   const reconciliationByDefinition = new Map(reconciliationResults.map((r) => [r.definitionId, r]));
-  const closeState = await computeCloseReadiness(tenantId, period, periodEnd);
   const domainByName = new Map(closeState.domains.map((d) => [d.domain, d]));
-  const ai14Comparisons = await loadLatestAi14Comparisons(tenantId);
 
   const groups: Partial<Record<ReportGroup, AnnotatedGroup>> = {};
   let unsupportedMaterialCount = 0;

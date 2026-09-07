@@ -310,14 +310,17 @@ describe("Part 4.5 safety assertions", () => {
     await AiWorkflowPolicy.deleteMany({ tenantId: TENANT });
   });
 
-  it("✗ a dedupeKey is hand-rolled outside buildDedupeKey() → no `dedupeKey:` template-literal construction exists anywhere in lib/aiRuntime/** except inside lib/aiRuntime/attention/dedupeKey.ts itself (Chunk 10a addendum, Part 3)", () => {
+  it("✗ a dedupeKey is hand-rolled outside buildDedupeKey() → no `dedupeKey:` template-literal construction exists anywhere in lib/aiRuntime/** or app/api/cron/** except inside lib/aiRuntime/attention/dedupeKey.ts itself (Chunk 10a addendum, Part 3)", () => {
     // The exact AI-29/AI-05 duplicate-attention-item bug (two call sites building the same
     // logical key inconsistently) was a CONVENTION, not a guarantee — nothing stopped a new call
     // site from hand-rolling its own template string. buildDedupeKey() is now the only place a
     // dedupeKey is assembled; this grep makes it structurally impossible to bypass, the same
-    // "grep the real source" spirit as this file's other checks.
+    // "grep the real source" spirit as this file's other checks. Covers app/api/cron/** too, not
+    // just lib/aiRuntime/** — the real live production bug this pass found and fixed
+    // (app/api/cron/ai/runtime-sweep/route.ts's own three emitEvent() calls) lived there, outside
+    // this check's original scope, and would have gone uncaught by it.
     const output = execSync(
-      "grep -rn \"dedupeKey: \\`\" lib/aiRuntime --include=*.ts | grep -v \"lib/aiRuntime/attention/dedupeKey.ts\" || true",
+      "grep -rn \"dedupeKey: \\`\" lib/aiRuntime app/api/cron --include=*.ts | grep -v \"lib/aiRuntime/attention/dedupeKey.ts\" || true",
       { cwd: process.cwd(), encoding: "utf-8" },
     );
     expect(output.trim(), `found hand-rolled dedupeKey template literal(s) outside buildDedupeKey():\n${output}`).toBe("");

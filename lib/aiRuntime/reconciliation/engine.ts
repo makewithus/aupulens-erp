@@ -73,12 +73,13 @@ export async function runReconciliationDefinition(tenantId: string, definition: 
   };
 }
 
+// Chunk 10a (docs/ai/BRIEF-10-PRE-QA.md B.3) — the same sequential-to-concurrent fix as
+// closeReadiness/compute.ts's own domain checks: each definition here is an independent
+// reconciliation over its own account type, none reads another definition's result, so running
+// them one at a time only ever pays for it in added wall-clock latency, never in correctness.
+// Contributed ~3s of annotateStatement()'s ~14s total on the AI demo tenant (<5s budget).
 export async function runAllReconciliationDefinitions(tenantId: string, periodEnd: Date, period: string): Promise<ReconciliationResult[]> {
-  const results: ReconciliationResult[] = [];
-  for (const definition of RECONCILIATION_DEFINITIONS) {
-    results.push(await runReconciliationDefinition(tenantId, definition, periodEnd, period));
-  }
-  return results;
+  return Promise.all(RECONCILIATION_DEFINITIONS.map((definition) => runReconciliationDefinition(tenantId, definition, periodEnd, period)));
 }
 
 export { RECONCILIATION_DEFINITIONS };

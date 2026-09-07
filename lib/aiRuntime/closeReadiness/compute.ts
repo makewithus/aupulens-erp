@@ -3,6 +3,7 @@ import PeriodClosing from "@/models/finance/PeriodClosing";
 import AiCloseState, { type IAiCloseDomain, type IAiCloseContradiction } from "@/models/ai/AiCloseState";
 import { PERIOD_CLOSING_STATUS } from "@/lib/constants/statuses";
 import { emitEvent } from "@/lib/aiRuntime/runtime/eventBus";
+import { buildDedupeKey } from "@/lib/aiRuntime/attention/dedupeKey";
 import { classifyReadiness } from "@/lib/aiRuntime/closeReadiness/classify";
 import {
   loadMaterialityContext,
@@ -59,23 +60,33 @@ export async function computeCloseReadiness(tenantId: string, period: string, pe
   // already built — never by calling back into AI-24's own entry point, which itself calls this
   // function; see lib/aiRuntime/evidence/deriveAssertions.ts's doc comment for why that would
   // recurse forever.
-  const otherDomains: IAiCloseDomain[] = [
-    await checkTransactionsDomain(tenantId, ctx),
-    await checkBankDomain(tenantId, periodEnd, period, ctx),
-    await checkArDomain(tenantId, periodEnd, period, ctx),
-    await checkApDomain(tenantId, periodEnd, period, ctx),
-    await checkInventoryDomain(tenantId, periodEnd, period, ctx),
-    await checkAccrualsDomain(tenantId, periodEnd, ctx),
-    await checkPrepaidsDomain(tenantId, periodEnd, period, ctx),
-    await checkRevenueDomain(tenantId, periodEnd, period, ctx),
-    await checkFixedAssetsDomain(tenantId, periodEnd, period, ctx),
-    await checkFxDomain(tenantId, periodEnd, ctx),
-    await checkTaxDomain(tenantId, periodEnd, period, ctx),
-    await checkPayrollDomain(tenantId, periodEnd, period, ctx),
-    await checkComplianceDomain(tenantId, period),
-    checkIntercompanyDomain(),
-    await checkControlsDomain(tenantId, ctx),
-  ];
+  //
+  // Chunk 10a (docs/ai/BRIEF-10-PRE-QA.md B.3) — these 14 domain checks were previously run
+  // strictly sequentially (one `await` per array element, each blocking the next), even though
+  // none of them depends on any other's output — every one takes only {tenantId, periodEnd,
+  // period, ctx}, none reads another domain's result. On the AI demo tenant this made
+  // annotateStatement() (which calls this function once per statement view) take ~14s against a
+  // <5s budget; this function alone measured ~5.3s of that. Running them concurrently collapses
+  // the wall-clock cost from "sum of all 14 domains' own round trips" to "the slowest one," the
+  // same sequential-to-concurrent class of fix already applied elsewhere in this codebase (e.g.
+  // AI-28's own candidate-batching, Chunk 9).
+  const otherDomains: IAiCloseDomain[] = await Promise.all([
+    checkTransactionsDomain(tenantId, ctx),
+    checkBankDomain(tenantId, periodEnd, period, ctx),
+    checkArDomain(tenantId, periodEnd, period, ctx),
+    checkApDomain(tenantId, periodEnd, period, ctx),
+    checkInventoryDomain(tenantId, periodEnd, period, ctx),
+    checkAccrualsDomain(tenantId, periodEnd, ctx),
+    checkPrepaidsDomain(tenantId, periodEnd, period, ctx),
+    checkRevenueDomain(tenantId, periodEnd, period, ctx),
+    checkFixedAssetsDomain(tenantId, periodEnd, period, ctx),
+    checkFxDomain(tenantId, periodEnd, ctx),
+    checkTaxDomain(tenantId, periodEnd, period, ctx),
+    checkPayrollDomain(tenantId, periodEnd, period, ctx),
+    checkComplianceDomain(tenantId, period),
+    Promise.resolve(checkIntercompanyDomain()),
+    checkControlsDomain(tenantId, ctx),
+  ]);
   const domains: IAiCloseDomain[] = [...otherDomains, checkEvidenceDomain(otherDomains, periodClosing?.status)];
 
   const readiness = classifyReadiness(domains);
@@ -101,9 +112,9 @@ export async function computeCloseReadiness(tenantId: string, period: string, pe
         // blocker is still re-triggered on a later recompute.
         const dedupeHour = new Date().toISOString().slice(0, 13);
         if (scheduleRef) {
-          await emitEvent(tenantId, "schedule.due", { scheduleId: scheduleRef }, { dedupeKey: `${scheduleRef}:${dedupeHour}` });
+          await emitEvent(tenantId, "schedule.due", { scheduleId: scheduleRef }, { dedupeKey: buildDedupeKey(scheduleRef, dedupeHour) });
         } else {
-          await emitEvent(tenantId, "ai.sweep.hourly", {}, { dedupeKey: `${tenantId}:auto-resolve:${dedupeHour}` });
+          await emitEvent(tenantId, "ai.sweep.hourly", {}, { dedupeKey: buildDedupeKey(tenantId, "auto-resolve", dedupeHour) });
         }
         autoResolvedThisRun.push({ domain: domain.domain, blockerId: blocker.id, sourceWorkflow: blocker.sourceWorkflow });
       } catch {
