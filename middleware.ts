@@ -114,7 +114,11 @@ export default auth(async (req) => {
   // enforces its own x-middleware-secret check. Without this exemption the
   // blanket session check below would reject middleware's own internal call,
   // silently fail-opening module gating.
+  
+  
   const isInternalApi = pathname.startsWith("/api/internal/");
+
+
   // /api/public/* is intentionally session-less — access is gated by a
   // per-resource HMAC-signed token the route verifies itself (see
   // lib/publicLinks.ts + app/api/public/invoice/[id]). Used for
