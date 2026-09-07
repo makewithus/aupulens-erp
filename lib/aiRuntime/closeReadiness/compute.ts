@@ -89,10 +89,21 @@ export async function computeCloseReadiness(tenantId: string, period: string, pe
       if (!blocker.autoResolvable || !blocker.sourceWorkflow) continue;
       const scheduleRef = blocker.evidence.find((e) => e.label === "AiSchedule")?.ref;
       try {
+        // Chunk 10a — the same fix as app/api/cron/ai/runtime-sweep/route.ts's own schedule.due
+        // loop, for the identical reason: AiEvent's unique index on {tenantId, eventKey,
+        // dedupeKey} is sparse, but sparse only exempts a document when EVERY indexed field is
+        // absent, not when just one is. Two auto-resolvable blockers in the SAME
+        // computeCloseReadiness() call, both referencing a schedule, both emitting with no
+        // dedupeKey, would collide on the second call — silently here (this whole call is
+        // try/caught per blocker), meaning the second blocker's real auto-resolution trigger
+        // would quietly never fire. Found via the AI demo tenant's own planted-findings
+        // verification. Scoped per schedule/tenant AND per hour so a genuinely still-open
+        // blocker is still re-triggered on a later recompute.
+        const dedupeHour = new Date().toISOString().slice(0, 13);
         if (scheduleRef) {
-          await emitEvent(tenantId, "schedule.due", { scheduleId: scheduleRef });
+          await emitEvent(tenantId, "schedule.due", { scheduleId: scheduleRef }, { dedupeKey: `${scheduleRef}:${dedupeHour}` });
         } else {
-          await emitEvent(tenantId, "ai.sweep.hourly", {});
+          await emitEvent(tenantId, "ai.sweep.hourly", {}, { dedupeKey: `${tenantId}:auto-resolve:${dedupeHour}` });
         }
         autoResolvedThisRun.push({ domain: domain.domain, blockerId: blocker.id, sourceWorkflow: blocker.sourceWorkflow });
       } catch {

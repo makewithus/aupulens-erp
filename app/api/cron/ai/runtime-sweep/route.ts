@@ -58,8 +58,19 @@ async function handler(req: NextRequest) {
   })
     .select("_id tenantId")
     .lean();
+  // Chunk 10a — found via the AI demo tenant's own planted-findings verification (two real
+  // schedules genuinely due in the same tenant on the same sweep): AiEvent's unique index is
+  // {tenantId, eventKey, dedupeKey}, sparse — but sparse only exempts a document when EVERY
+  // indexed field is absent, not when just one is. Two schedules both due in the same tick, both
+  // emitting with no dedupeKey at all, collide on that index and throw E11000, uncaught — this
+  // loop has no try/catch, so one tenant with two simultaneously-due schedules could abort the
+  // rest of this cron run for every other tenant/schedule after it. Scoped per schedule AND per
+  // hour (not just per schedule) so a genuinely still-due schedule is still re-emitted on a later
+  // sweep if the prior event never got processed — this only needs to prevent a same-tick
+  // collision between DIFFERENT schedules, not suppress legitimate retries of the same one.
+  const dueEventHour = new Date().toISOString().slice(0, 13);
   for (const schedule of dueSchedules) {
-    await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) });
+    await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) }, { dedupeKey: `${schedule._id}:${dueEventHour}` });
   }
 
   return NextResponse.json({ success: true, ...result, tenantsSwept: orgs.length, schedulesDue: dueSchedules.length });
