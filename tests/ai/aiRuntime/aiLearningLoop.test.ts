@@ -79,6 +79,59 @@ describe("AI learning loop — instrumentation, resolution, aging (Chunk 9 0.1)"
     expect(count).toBe(1);
   });
 
+  // Chunk 10a addendum (docs/ai/audits/COVERAGE_GAPS.md's named gap): the two tests above prove
+  // the shape holds for AI-00-SMOKE and AI-07 individually — neither is a registry-driven walk
+  // across all 30. `learn()` (lib/aiRuntime/runtime/executor.ts) is a fully generic stage every
+  // workflow's real run passes through unconditionally, so this is less "does each workflow wire
+  // it up" (nothing to wire — there is exactly one call site, shared) and more "does every real
+  // workflow's own observe/extract/reason path actually REACH that shared stage cleanly on an
+  // ordinary empty tenant" — a genuine per-workflow risk, since that code is unique per workflow.
+  // Sweeps every workflow whose own `eventKeys` includes a tenant-wide trigger (`ai.sweep.hourly`
+  // or `period.horizon.reached`) that needs no entity-specific fixture — derived from the real
+  // registry, not a hand-maintained id list, so a future workflow is swept automatically the
+  // moment it declares one of these event keys, and a workflow requiring a real fixture (a bill,
+  // an invoice, a document) is excluded by the same real property, not silently forgotten.
+  it("registry-driven sweep: every workflow reachable via a tenant-wide sweep trigger produces exactly one AiLearningRecord on an ordinary empty tenant", async () => {
+    const SWEEP_TENANT = "ailearning-sweep-tenant";
+    const excluded: { id: string; eventKeys: string[] }[] = [];
+    const results: { id: string; recordCount: number }[] = [];
+
+    for (const workflow of listWorkflows()) {
+      if (workflow.id === "AI-00-SMOKE") continue; // covered by its own dedicated test above
+      const eventKey = workflow.eventKeys.includes("ai.sweep.hourly")
+        ? "ai.sweep.hourly"
+        : workflow.eventKeys.includes("period.horizon.reached")
+          ? "period.horizon.reached"
+          : null;
+      if (!eventKey) {
+        // Needs a real entity-specific fixture (a bill, an invoice, a document, a schedule) to
+        // trigger meaningfully — each such workflow already has its own dedicated test proving
+        // this shape (e.g. AI-02's "idempotency: the same trigger event twice... sets the account
+        // once", AI-08's compare-and-swap test) rather than being force-fit into an empty-tenant
+        // sweep it was never designed to answer cleanly on.
+        excluded.push({ id: workflow.id, eventKeys: [...workflow.eventKeys] });
+        continue;
+      }
+
+      await AiWorkflowPolicy.create({ tenantId: SWEEP_TENANT, workflowId: workflow.id, killSwitchEnabled: false, maxAutonomyLevel: "observe" });
+      const payload =
+        eventKey === "period.horizon.reached"
+          ? { period: "2026-01", periodEnd: new Date(Date.UTC(2026, 0, 31, 23, 59, 59, 999)).toISOString() }
+          : {};
+      const envelope = await runWorkflow(workflow, { tenantId: SWEEP_TENANT, eventKey, payload });
+      const recordCount = await AiLearningRecord.countDocuments({ runId: envelope.runId });
+      results.push({ id: workflow.id, recordCount });
+    }
+
+    // Sanity: the sweep must not have accidentally excluded everything (a real registry-shape
+    // change worth noticing) or produced zero results.
+    expect(results.length, "the sweep must actually cover a real majority of the registry").toBeGreaterThanOrEqual(20);
+    expect(excluded.length, "every excluded workflow must be excluded for the documented reason (no tenant-wide trigger), not silently").toBeLessThanOrEqual(9);
+
+    const failures = results.filter((r) => r.recordCount !== 1);
+    expect(failures, `every swept workflow must produce exactly one AiLearningRecord per run: ${JSON.stringify(failures)}`).toEqual([]);
+  });
+
   it("AI-07's own accuracy-check resolves its learning record immediately via ActResult.learningOutcome — still exactly one record, not two", async () => {
     const ai07 = getWorkflow("AI-07")!;
     const vendor = await Customer.create({ tenantId: TENANT, header: { name: "Learning Loop Vendor", is_company: true }, createdBy: CREATOR });

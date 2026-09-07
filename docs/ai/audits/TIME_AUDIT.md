@@ -52,7 +52,7 @@ makes this decision plus the shared services underneath it.
 | `isClosedPeriod()` (`lib/aiRuntime/reconciliation/definitions.ts`) | Whether a period is closed, for AI-22's `ap_control`/`ar_control_finance` | **Was wall-clock (fixed Chunk 10 P0.5)** — now queries `PeriodClosing.status` for the tenant/fiscalYear/month | n/a (no date comparison left, a status lookup) | `ai22ContinuousReconciliation.test.ts` (P0.5 regression, retroactively re-verified Chunk 10a Part 0.1) |
 | `computeCloseReadiness()` → `checkAccrualsDomain()`/`checkPrepaidsDomain()` (`lib/aiRuntime/closeReadiness/domains.ts`) | Whether an AiSchedule reversal/recognition is "stale" for the period being closed | **Was wall-clock `new Date()` — fixed this pass (Chunk 10a Part 1.2)**, now scoped to the caller's `periodEnd` | Yes (comparison is against a `Date.UTC`-built `periodEnd`, TZ-irrelevant) | `closeReadinessAccrualsPeriodScoping.test.ts` (new, verified via revert) |
 | `toDateEnd()` (`lib/accounting/reports.ts`), used by `buildPostedJournalReport()`/`getAccountTransactionDetail()`/`buildAgedPartnerReport()` | Upper bound of a report's date-range query, called by AI-05/14/21/25 and `annotateStatement()` (AI-18/21) | Not a wall-clock issue (both bounds are period-scoped, passed in by the caller) | **Was wrong — `setHours` (local) on a `Date.UTC`-built value silently widened the upper bound by up to the server's UTC offset. Fixed this pass (`setUTCHours`).** | `reportsToDateEnd.test.ts` (new, verified via revert); indirectly, AI-14's own trigger-proof test caught the live symptom |
-| `annotateStatement()` (`lib/aiRuntime/statements/annotateStatement.ts`) | Calls `computeCloseReadiness()` and `buildPostedJournalReport()`-family functions for a given `period`, which is **not always "now"** — the exact path that made the `toDateEnd()` bug and the `checkAccrualsDomain()` bug both live, not theoretical | Period-scoped by design (takes `period` as a parameter, never reads wall-clock itself) | Yes, given the two fixes above | Exercised by `ai18AuditEvidence.test.ts`/`ai21StatementIntelligence.test.ts`; no test yet calls it for a genuinely historical period distinct from "now" — see `COVERAGE_GAPS.md` |
+| `annotateStatement()` (`lib/aiRuntime/statements/annotateStatement.ts`) | Calls `computeCloseReadiness()` and `buildPostedJournalReport()`-family functions for a given `period`, which is **not always "now"** — the exact path that made the `toDateEnd()` bug and the `checkAccrualsDomain()` bug both live, not theoretical | Period-scoped by design (takes `period` as a parameter, never reads wall-clock itself) | Yes, given the two fixes above | `ai21StatementIntelligence.test.ts`'s new boundary test (posts an entry at the next month's first UTC instant, calls `annotateStatement()` for the historical period, asserts it doesn't leak in) — verified via revert; closes the gap `COVERAGE_GAPS.md` named |
 
 **Finding T-1 (named, not fixed this pass — a minor, pre-existing labeling gap, not a boundary bug).**
 AI-22 and AI-23 validate their `periodEnd`/`periodStart` (the values actually used for every DB
@@ -90,9 +90,12 @@ required a fix under this audit's own test (Part 1 above).
   tests verified via revert (docs/ai/IMPLEMENTATION_LOG.md, Chunk 10a Part 1.2 entry).
 - **1 pre-existing gap named, not fixed**: AI-22/AI-23's `period` label validation (Finding T-1) —
   cosmetic only, no boundary or crash risk.
-- **1 open coverage gap named, not fixed**: no test calls `annotateStatement()` for a period
+- **1 coverage gap named, then closed**: no test called `annotateStatement()` for a period
   distinct from "now" (see `COVERAGE_GAPS.md`) — the exact shape that made both real bugs
   reachable in production but invisible to the existing test suite until the three-pinned-date run.
+  Closed for the `toDateEnd()` half (directly observable in `annotateStatement()`'s own output);
+  the `checkAccrualsDomain()` half stays covered at `computeCloseReadiness()`'s own level, since
+  accruals isn't a domain `annotateStatement()`'s per-line output maps to any account.
 - Every one of the 15 `period.horizon.reached` workflows' own boundary derivation is UTC-consistent
   and validated; the full suite passes at all three pinned dates (1st of a month, 31st of a 31-day
   month, 29 February of a leap year) with these fixes in place.

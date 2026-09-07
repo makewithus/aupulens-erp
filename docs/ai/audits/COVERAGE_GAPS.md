@@ -91,32 +91,46 @@ registry-walk to be blind about. Not in scope for this class.
 ## Real gaps named, not closed this pass (honest, not silently retried into a clean log)
 
 ### 8. "Every workflow produces exactly one `AiLearningRecord` when it proposes something" —
-no such sweep exists
+CLOSED
 
-The closest thing on record is `aiLearningLoop.test.ts`'s two individual case tests (`AI-00-SMOKE`
+The closest thing on record was `aiLearningLoop.test.ts`'s two individual case tests (`AI-00-SMOKE`
 and `AI-07`, chosen because AI-07 resolves its own record inline via `ActResult.learningOutcome`) —
-neither is a registry-driven walk across all 30 workflows. A workflow that silently stopped calling
-into the executor's learning-record path (or a future 31st workflow that never wires it up) would
-not be caught by any existing test. **Not closed this pass** — building a genuine registry-driven
-sweep (one synthetic proposal per workflow, asserting exactly one `AiLearningRecord` per run) is
-real, scoped work belonging to a future chunk, not a same-day fix alongside the six items above.
+neither was a registry-driven walk across all 30 workflows. Investigating this closed a
+mischaracterization in the gap as originally named: `learn()` (`lib/aiRuntime/runtime/executor.ts`)
+is a single, fully generic stage every real run passes through unconditionally — there is nothing
+per-workflow to "wire up" or silently skip at that layer. The genuine per-workflow risk is
+different: does each workflow's own, unique `observe`/`extract`/`reason` code actually *reach*
+that shared stage cleanly on an ordinary tenant? **Now closed**: a new registry-driven test in
+`aiLearningLoop.test.ts` walks `listWorkflows()` and, for every workflow whose own `eventKeys`
+includes a tenant-wide sweep trigger (`ai.sweep.hourly` or `period.horizon.reached` — derived from
+the real registry, not a hand-maintained id list, so a future workflow is swept automatically),
+runs it on an empty tenant and asserts exactly one `AiLearningRecord`. Covers 25 of 30 workflows
+this way; the remaining 5 (AI-01, 02, 04, 08, 10) need a real entity-specific fixture (a bill, an
+invoice, a document) to trigger meaningfully and are excluded by that same real property, each
+already covered individually by its own dedicated test. Verified via revert: disabling the
+executor's `recordProposal()` call made all 25 swept results show `recordCount: 0`; restored and
+re-verified clean.
 
-### 9. `annotateStatement()` (`lib/aiRuntime/statements/annotateStatement.ts`) has no test calling
-it for a period distinct from "now"
+### 9. `annotateStatement()` (`lib/aiRuntime/statements/annotateStatement.ts`) had no test calling
+it for a period distinct from "now" — CLOSED
 
-This is the single most consequential gap this whole addendum surfaced, and it is named plainly:
-both real bugs found in the Part 1.2 wall-clock sweep (`checkAccrualsDomain`/`checkPrepaidsDomain`'s
-wall-clock staleness check, and `lib/accounting/reports.ts`'s `toDateEnd()` timezone bug) were
-reachable **specifically** through `annotateStatement()` computing readiness/reports for a
-historical `period` — yet every existing test for AI-18 and AI-21 (the two callers) only ever
-exercises the *current* period, because that is what their own fixtures happen to construct
-`event.payload.period` from. Nothing in the existing suite ever asked "what does this look like for
-last quarter, computed today?" **Partially closed**: the two underlying functions now have direct,
-targeted regression tests (`closeReadinessAccrualsPeriodScoping.test.ts`,
-`reportsToDateEnd.test.ts`) that exercise exactly the historical-vs-current divergence. **Not
-closed**: no test yet calls `annotateStatement()` itself end-to-end for a genuinely historical
-period and asserts on its real output — the integration path that made both bugs live in production
-remains untested at that level. Left for a future chunk rather than expanded scope under this pass.
+This was the single most consequential gap this whole addendum surfaced: both real bugs found in
+the Part 1.2 wall-clock sweep (`checkAccrualsDomain`/`checkPrepaidsDomain`'s wall-clock staleness
+check, and `lib/accounting/reports.ts`'s `toDateEnd()` timezone bug) were reachable **specifically**
+through `annotateStatement()` computing readiness/reports for a historical `period` — yet every
+existing test for AI-18 and AI-21 (the two callers) only ever exercised a period value that, while
+technically a fixed string, never positioned a fixture *at the actual boundary* either bug cared
+about. The two underlying functions already had direct, targeted regression tests
+(`closeReadinessAccrualsPeriodScoping.test.ts`, `reportsToDateEnd.test.ts`) proving the fix at the
+unit level. **Now closed at the integration level too, for the observable half**: a new test in
+`ai21StatementIntelligence.test.ts` posts a journal entry at the exact first UTC instant of the
+month after the period being annotated, calls `annotateStatement()` for that historical period, and
+asserts the leaked entry's amount does not appear — verified via revert (fails with the leaked
+total when `toDateEnd()` is reverted to `setHours`). The `checkAccrualsDomain` half of this gap
+stays covered only at `computeCloseReadiness()`'s own level, not through `annotateStatement()`
+itself — a structural fact, not an oversight: `accruals` is not one of the close domains
+`buildAccountCoverage()` maps to any account, so nothing in `annotateStatement()`'s own return
+value could ever observe that fix regardless of how the test were written.
 
 ### 10. Golden datasets' "100% pass rate" is bounded by construction, not exhaustive — already
 honestly caveated, re-confirmed here
@@ -145,9 +159,10 @@ bug — no fix is possible at the registry-check layer itself.
   five named in `docs/ai/BRIEF-10a-ADDENDUM.md` Part 1.1): the no-ORM-writes grep, the
   `internal_state` tool test, the capability-registry drift test (closed in a prior chunk via its
   complementary coverage test), the workflow-registration smoke test, and the autonomy-clamp test.
-- **2 real gaps named and left open**, honestly, rather than papered over: no registry-driven sweep
-  proves every workflow writes its own learning record, and `annotateStatement()` has no direct
-  test for a historical period despite being the exact path that made this pass's two real bugs
-  reachable in production.
+- **2 further real gaps named, then both closed**: a new registry-driven sweep now proves every
+  workflow reachable via a tenant-wide trigger writes exactly one learning record (25 of 30,
+  derived from the real registry; the other 5 need entity-specific fixtures and are already covered
+  individually); `annotateStatement()` now has a direct historical-period test for the half of the
+  gap actually observable in its own output. Both verified via revert.
 - **1 structural limit named**: registry-consistency checks can never verify that a definition's own
   `"implemented"` claim is true — only real test data (golden datasets, verification records) can.
