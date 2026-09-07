@@ -227,6 +227,27 @@ describe("AI-21 — Financial statement intelligence", () => {
     expect(drill.transactions[0].signedAmount).toBe(750);
   });
 
+  it("annotateStatement() called for a genuinely historical period never leaks the next month's activity into the balance sheet (Chunk 10a, Part 1.1/COVERAGE_GAPS.md)", async () => {
+    // docs/ai/audits/COVERAGE_GAPS.md named this exact gap: neither real bug this addendum's
+    // pinned-date sweep found (reports.ts::toDateEnd()'s timezone bug, checkAccrualsDomain's
+    // wall-clock bug) was caught by any existing test calling annotateStatement() end to end —
+    // only by isolated unit tests of the two lower-level functions it calls. This closes that gap
+    // for the reports.ts half (the half whose result is directly observable in this function's
+    // own output — the closeReadiness half is already covered directly by
+    // closeReadinessAccrualsPeriodScoping.test.ts, since accruals isn't one of the close domains
+    // annotateStatement's own per-line coverage maps to an account at all).
+    const cash = await makeAccount("asset_cash", "asset");
+    const equity = await makeAccount("equity", "equity");
+    await postJournal([{ accountId: cash, debit: 1000, credit: 0 }, { accountId: equity, debit: 0, credit: 1000 }], new Date(Date.UTC(2026, 0, 15))); // genuinely inside January
+    await postJournal([{ accountId: cash, debit: 5000, credit: 0 }, { accountId: equity, debit: 0, credit: 5000 }], new Date(Date.UTC(2026, 1, 1, 0, 0, 0, 0))); // the first UTC instant of February — must not leak into January's balance sheet
+
+    const statement = await annotateStatement(TENANT, PERIOD, "balance_sheet"); // PERIOD = "2026-01", genuinely historical relative to this session's real wall-clock (2026-09)
+    const cashLine = statement.groups.asset!.lines.find((l) => l.accountId === String(cash));
+
+    expect(cashLine, "the cash account must appear in January's balance sheet").toBeDefined();
+    expect(cashLine!.amount, "only the January-dated 1000 must be included — the February-dated 5000 must not leak in, regardless of server timezone").toBe(1000);
+  });
+
   it("no path in AI-21's own code ever writes a ledger value (source-grep, same pattern as AI-09/AI-13)", () => {
     const output = execSync(
       String.raw`grep -rnE '\.(save|create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findByIdAndUpdate|findOneAndDelete|insertMany)\(' lib/aiRuntime/workflows/ai-21-statement-intelligence lib/aiRuntime/statements lib/aiRuntime/tools/statementTools.ts || true`,
