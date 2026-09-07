@@ -101,4 +101,29 @@ describe("app/api/cron/ai/runtime-sweep/route.ts — two schedules due for the s
     const scheduleIds = events.map((e) => (e.payload as { scheduleId?: string }).scheduleId).sort();
     expect(scheduleIds).toEqual([String(scheduleA._id), String(scheduleB._id)].sort());
   }, 20000);
+
+  it("a second sweep for the same tenant does not crash on the first sweep's own ai.sweep.hourly/period.horizon.reached events (Chunk 10a — found live on the real database)", async () => {
+    // The real bug: with no dedupeKey at all, the FIRST ai.sweep.hourly event ever created for a
+    // tenant permanently occupies the {tenantId, eventKey, dedupeKey: null} slot in AiEvent's
+    // unique index — every LATER hourly cron tick for that tenant then throws E11000 on this
+    // exact insert forever after, uncaught, aborting the whole route. Confirmed live against the
+    // real database: default-tenant's own first successful ai.sweep.hourly event had silently
+    // broken every hourly cron run since. Two full route invocations (simulating two real hourly
+    // ticks) must both succeed.
+    await Organization.create({ name: "Sweep Route Test Co", subdomain: TENANT, ownerUserId: new mongoose.Types.ObjectId(), isActive: true });
+
+    const { POST } = await import("@/app/api/cron/ai/runtime-sweep/route");
+    const req = { headers: { get: (h: string) => (h.toLowerCase() === "authorization" ? `Bearer ${process.env.CRON_SECRET}` : null) } } as unknown as Request;
+
+    const res1 = await POST(req as never);
+    expect(res1.status, "the first sweep must succeed").toBe(200);
+
+    const res2 = await POST(req as never);
+    expect(res2.status, "a second sweep for the same tenant, later, must not crash on the first sweep's own events").toBe(200);
+    const body2 = await (res2 as Response).json();
+    expect(body2.success).toBe(true);
+
+    const sweepEvents = await AiEvent.find({ tenantId: TENANT, eventKey: "ai.sweep.hourly" }).lean();
+    expect(sweepEvents.length, "both sweeps' ai.sweep.hourly events must exist").toBeGreaterThanOrEqual(1);
+  }, 30000);
 });
