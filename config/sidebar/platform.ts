@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboard } from "lucide-react";
+import { Building2, CreditCard, LayoutDashboard } from "lucide-react";
 
 export interface PlatformSidebarItem {
   title: string;
@@ -26,5 +26,9 @@ export const platformSidebarConfig: PlatformSidebarSection[] = [
   {
     title: "Organisations",
     items: [{ title: "Organisations", href: "/platform/organizations", icon: Building2 }],
+  },
+  {
+    title: "Billing",
+    items: [{ title: "Plans", href: "/platform/plans", icon: CreditCard }],
   },
 ];

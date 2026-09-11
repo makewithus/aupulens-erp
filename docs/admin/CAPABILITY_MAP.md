@@ -32,15 +32,15 @@
 | Create organisation (admin-initiated) | **BUILT — the fourth path.** `lib/platform/organizations/create.ts`, reuses the existing COA seeders + `appendSubscriptionEvent` directly. Verified end-to-end: the created tenant's owner account can actually log in. |
 | Organisation detail panel (§7 tabs) | **PARTIAL — 7 of 11 tabs real.** Overview, Users, Subscription, Activity, Audit Logs are real data through the gateway; AI Usage and Billing are honest empty states (Phase 4/6); Modules/Configuration/Security have no dedicated tab yet (Modules visible via Overview's `enabledModules`). |
 
-## Phase 3a/3b — Plans, entitlements
+## Phase 3a — Plans, entitlements, resolver — ✅ DONE (2026-09-11) / Phase 3b — enforcement — deferred
 
 | Capability | Status | Evidence |
 |---|---|---|
-| `Plan`/`PlanFeature` models | **MISSING.** Only `Organization.tier` (enum label) + hardcoded `lib/constants/tiers.ts` limits exist — no configurable plan record. |
-| `OrganizationSubscription`/`OrganizationEntitlement` | **MISSING.** |
-| Entitlement resolver | **MISSING.** No `resolveEntitlements()`-shaped function anywhere; `getTierLimits(tier)` in `tenantAi.ts` is the closest analogue and is exactly the hardcoded-by-tier pattern Hard Rule 6 says the new resolver must not perpetuate for anything the control plane touches. |
-| Plan assignment history | **MISSING** as its own record, but `models/admin/SubscriptionEvent.ts` (append-only, `{tenantId, type, tier, occurredAt, meta}`) is a real, working precedent for exactly this shape — `upgraded`/`downgraded` events already fire from the one existing manual master-admin tier-change action. Strongly consider extending this model (additively) rather than building a parallel history table. |
-| Entitlement enforcement on tenant routes | **MISSING** (Phase 3b, deliberately deferred per the brief). |
+| `Plan`/`PlanFeature` models | **BUILT.** `models/platform/Plan.ts`, 7 plans seeded via `scripts/seed-platform-plans.ts`. |
+| `OrganizationEntitlement` | **BUILT.** `models/platform/OrganizationEntitlement.ts` — assignment record + override layer, one document per tenant. |
+| Entitlement resolver | **BUILT.** `lib/platform/entitlements/resolve.ts::resolveEntitlements()` — permissive-on-error (audited at `SECURITY` severity), tier-fallback bridge for pre-existing tenants, override layering proven correct. |
+| Plan assignment history | **BUILT — extended the existing precedent, not a parallel table**, exactly as anticipated: `SubscriptionEvent.type: "plan_assigned"` (additive), via `lib/platform/entitlements/assignPlan.ts`. |
+| Entitlement enforcement on tenant routes | **MISSING — Phase 3b, deliberately deferred**, per the brief's own explicit split ("the single most dangerous change in this project"). |
 
 ## Phase 4 — AI metering
 

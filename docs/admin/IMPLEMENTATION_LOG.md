@@ -197,3 +197,54 @@ surface itself was manually verified end-to-end instead.
 planned and verified correct.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 3a — Plans, entitlements, resolver (2026-09-11)
+
+**What existed before**: a thin `Organization.tier` (3 values) + `lib/constants/tiers.ts`'s
+hardcoded `getTierLimits()` — the exact "entitlements as code" anti-pattern Hard Rule 6 forbids
+perpetuating, left untouched for existing tenant-facing reads (Phase 3b's concern).
+`SubscriptionEvent` as a proven, reusable append-only history model (Phase 2's own precedent).
+
+**What was built**:
+- `lib/constants/statuses.ts`: `PLAN_KEY` (7 plans, source doc §8 — deliberately a new, richer
+  enum, not a repurposing of the old 3-value `ORGANIZATION_TIER`), `SUPPORT_LEVEL`,
+  `BILLING_CYCLE`, `SUBSCRIPTION_EVENT_TYPE.PLAN_ASSIGNED` (additive).
+- `models/platform/Plan.ts` + `models/platform/OrganizationEntitlement.ts` +
+  `scripts/seed-platform-plans.ts`.
+- `lib/platform/entitlements/resolve.ts`: the single source-of-truth resolver. Bridges the
+  pre-existing `Organization.tier` to a `PLAN_KEY` for tenants with no entitlement row (a
+  documented mapping, not a guess); layers `OrganizationEntitlement.overrides` on a base plan
+  (§11); **defaults to permissive and audits at `SECURITY` severity when it errors** (Part 2.4's
+  explicit instruction) rather than locking a tenant out; in-process cached.
+- `lib/platform/entitlements/assignPlan.ts`: full history via `SubscriptionEvent`, capability-
+  gated, reason-required, audited. Touches only `OrganizationEntitlement` and `SubscriptionEvent`
+  by construction — no code path in this function can reach a tenant business-data collection.
+- `app/api/platform/plans/`, `app/api/platform/organizations/[id]/plan/`,
+  `app/platform/(app)/plans/page.tsx`, an "Assign plan" control added to the organisation detail
+  page's Subscription tab, `config/sidebar/platform.ts` (new "Billing" section).
+
+**Tests added**: 2 new files, 17 tests (`resolveEntitlements.test.ts`, `assignPlan.test.ts`) — all
+passing. `assignPlan.test.ts`'s downgrade test is a real document-count assertion across `User`
+and `Account` collections, not a mock.
+
+**Manual verification over real HTTP**: seeded all 7 plans, created a real organisation (resolved
+to `starter` via the tier-fallback bridge before any explicit assignment), assigned `pro` through
+the real API, and confirmed the resolved entitlements changed to `pro`'s actual feature set.
+
+**Results**: full suite `3 failed | 168 passed` files (166 Phase-2 baseline + 2 new, all new
+passing; same 3 pre-existing unrelated failures — one run in this phase showed a 4th transient
+failure that did not reproduce on two immediate re-runs, consistent with the mongod-contention
+flakiness `docs/ai/BASELINE_FAILURES.md` already documents on this shared machine, not a real
+regression), `tsc --noEmit` clean, `eslint` clean on every file touched.
+
+**Verification record**: `docs/admin/verification/entitlements.md`.
+
+**Could not do / deferred**: Phase 3b (enforcement on tenant-facing routes) is deliberately not
+started — the brief itself splits this out as "the single most dangerous change in this project."
+No UI exists yet to configure a `Plan`'s own features (only to view the catalogue and assign a
+plan to an org) — not required by this phase's exit gate, which only asks for a working resolver
+and non-destructive assignment.
+
+**Commit**: local only, branch `global/admin`, no push.

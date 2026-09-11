@@ -1325,6 +1325,8 @@ export const SUBSCRIPTION_EVENT_TYPE = {
   // an organisation-status transition (INVITED..ARCHIVED), distinct from a
   // tier/billing change. meta carries { fromStatus, toStatus, reason, actorId }.
   STATUS_CHANGED: "status_changed",
+  // meta carries { fromPlanKey, toPlanKey, effective, reason, actorId }
+  PLAN_ASSIGNED: "plan_assigned",
 } as const;
 export const SUBSCRIPTION_EVENT_TYPE_VALUES = Object.values(
   SUBSCRIPTION_EVENT_TYPE,
@@ -2189,6 +2191,50 @@ export const ORGANIZATION_TYPE_LABELS: Record<OrganizationTypeKey, string> = {
   [ORGANIZATION_TYPE.EDUCATIONAL]: "Educational",
   [ORGANIZATION_TYPE.CUSTOM]: "Custom",
 };
+
+/** Global Admin plan catalogue (source doc §8). Deliberately a NEW, richer
+ *  enum, not a repurposing of the pre-existing ORGANIZATION_TIER (only
+ *  3 values: starter/professional/enterprise, still authoritative for every
+ *  existing tenant-facing read via lib/constants/tiers.ts::getTierLimits()
+ *  until Phase 3b migrates a given route). lib/platform/entitlements/resolve.ts
+ *  bridges old tier → new plan key for tenants with no Plan assigned yet. */
+export const PLAN_KEY = {
+  FREE: "free",
+  STARTER: "starter",
+  GROWTH: "growth",
+  PRO: "pro",
+  BUSINESS: "business",
+  ENTERPRISE: "enterprise",
+  CUSTOM: "custom",
+} as const;
+export const PLAN_KEY_VALUES = Object.values(PLAN_KEY);
+export type PlanKeyType = (typeof PLAN_KEY)[keyof typeof PLAN_KEY];
+
+export const PLAN_KEY_LABELS: Record<PlanKeyType, string> = {
+  [PLAN_KEY.FREE]: "Free",
+  [PLAN_KEY.STARTER]: "Starter",
+  [PLAN_KEY.GROWTH]: "Growth",
+  [PLAN_KEY.PRO]: "Pro",
+  [PLAN_KEY.BUSINESS]: "Business",
+  [PLAN_KEY.ENTERPRISE]: "Enterprise",
+  [PLAN_KEY.CUSTOM]: "Custom",
+};
+
+export const SUPPORT_LEVEL = {
+  COMMUNITY: "community",
+  EMAIL: "email",
+  PRIORITY: "priority",
+  DEDICATED: "dedicated",
+} as const;
+export const SUPPORT_LEVEL_VALUES = Object.values(SUPPORT_LEVEL);
+export type SupportLevel = (typeof SUPPORT_LEVEL)[keyof typeof SUPPORT_LEVEL];
+
+export const BILLING_CYCLE = {
+  MONTHLY: "monthly",
+  YEARLY: "yearly",
+} as const;
+export const BILLING_CYCLE_VALUES = Object.values(BILLING_CYCLE);
+export type BillingCycle = (typeof BILLING_CYCLE)[keyof typeof BILLING_CYCLE];
 
 /** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
  *  emitter accepts only these; never free text (contrast with the

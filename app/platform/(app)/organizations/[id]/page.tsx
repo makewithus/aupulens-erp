@@ -27,6 +27,8 @@ import {
   ORGANIZATION_STATUS_TRANSITIONS,
   ORGANIZATION_TYPE_LABELS,
   OrganizationStatus,
+  PLAN_KEY_LABELS,
+  PLAN_KEY_VALUES,
 } from "@/lib/constants/statuses";
 
 const TABS = ["overview", "users", "subscription", "activity", "audit", "ai-usage", "billing"] as const;
@@ -45,6 +47,10 @@ export default function OrganizationDetailPage() {
   const [targetStatus, setTargetStatus] = useState<string>("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [entitlements, setEntitlements] = useState<any>(null);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [targetPlan, setTargetPlan] = useState<string>("");
+  const [planReason, setPlanReason] = useState("");
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -71,7 +77,35 @@ export default function OrganizationDetailPage() {
 
   useEffect(() => {
     if (!tabData[tab]) loadTab(tab);
+    if (tab === "subscription") loadEntitlements();
   }, [tab]);
+
+  async function loadEntitlements() {
+    const res = await fetch(`/api/platform/organizations/${subdomain}/plan`);
+    const body = await res.json();
+    if (body.success) setEntitlements(body.data);
+  }
+
+  async function handleAssignPlan() {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/platform/organizations/${subdomain}/plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey: targetPlan, reason: planReason, effective: "immediately" }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Plan assignment failed.");
+        return;
+      }
+      setPlanDialogOpen(false);
+      setPlanReason("");
+      await loadEntitlements();
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleStatusChange() {
     setSubmitting(true);
@@ -160,12 +194,36 @@ export default function OrganizationDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="subscription">
-          <SimpleTable
-            rows={(tabData.subscription as any[]) ?? []}
-            columns={["type", "tier", "occurredAt"]}
-            loading={loading && tab === "subscription"}
-          />
+        <TabsContent value="subscription" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Current plan</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setPlanDialogOpen(true)}>
+                Assign plan
+              </Button>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {entitlements ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Plan" value={PLAN_KEY_LABELS[entitlements.planKey as keyof typeof PLAN_KEY_LABELS]} />
+                  <Field label="Source" value={entitlements.source} />
+                  <Field label="Max users" value={entitlements.limits.maxUsers} />
+                  <Field label="AI credits / month" value={entitlements.limits.aiCreditsPerMonth} />
+                  <Field label="Modules" value={entitlements.modules.join(", ")} />
+                </div>
+              ) : (
+                <p className="text-neutral-500">Loading…</p>
+              )}
+            </CardContent>
+          </Card>
+          <div>
+            <p className="text-sm font-medium mb-2">History</p>
+            <SimpleTable
+              rows={(tabData.subscription as any[]) ?? []}
+              columns={["type", "tier", "occurredAt"]}
+              loading={loading && tab === "subscription"}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="activity">
@@ -231,6 +289,43 @@ export default function OrganizationDetailPage() {
               Cancel
             </Button>
             <Button disabled={!targetStatus || !reason.trim() || submitting} onClick={handleStatusChange}>
+              {submitting ? "Saving…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign plan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>New plan</Label>
+              <Select value={targetPlan} onValueChange={setTargetPlan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLAN_KEY_VALUES.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {PLAN_KEY_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={planReason} onChange={(e) => setPlanReason(e.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!targetPlan || !planReason.trim() || submitting} onClick={handleAssignPlan}>
               {submitting ? "Saving…" : "Confirm"}
             </Button>
           </DialogFooter>
