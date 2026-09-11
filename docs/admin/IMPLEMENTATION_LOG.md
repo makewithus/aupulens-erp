@@ -498,3 +498,82 @@ existing tenant-data view (`OPEN_QUESTIONS.md` #10) — deliberate, not required
 exit gate, which asks only for a provable lifecycle.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 8 — Hardening and handover (2026-09-12)
+
+**What was built this phase**:
+- `tests/platform/noStaticData.test.ts` (Hard Rule 3, made structural rather than a one-time
+  manual review): walks every `app/platform/**/page.tsx`, fails if a page renders a
+  dynamic-looking value without a real `fetch("/api/platform/...")` call, and separately bans
+  hardcoded sample-record arrays and hardcoded MRR/ARR figures. 15 tests, all passing.
+- `lib/platform/auth/roleMatrix.ts`: extracted the §30 permission matrix (previously inlined only
+  in `scripts/seed-platform-roles.ts`) into its own module, so the seeded database and a new test
+  can never silently drift apart.
+- `tests/platform/permissionMatrix.test.ts`: the full matrix test the brief's Part 5.2 calls out
+  by name — one generated case per role × capability cell (7×24=168), driven directly from
+  `roleMatrix.ts`, plus structural guarantees (only `GLOBAL_SUPER_ADMIN` holds all 3 destructive
+  capabilities together; `READ_ONLY_ADMIN` has no mutating capability; `IMPERSONATE_WRITE` never
+  reachable by `SUPPORT_ADMIN`/`READ_ONLY_ADMIN`). 179 tests, all passing.
+- `lib/platform/entitlements/planCatalog.ts`: extracted the plan catalogue (previously inlined
+  only in `scripts/seed-platform-plans.ts`) for the same reason — one definition, two consumers.
+- `scripts/seed-platform-demo.ts` / `scripts/reset-platform-demo.ts` (Part 5.4): deterministic
+  demo data built by calling the same real functions the admin UI calls
+  (`createOrganization`, `assignPlan`, `changeOrganizationStatus`, `rollupAiUsageForDay`) rather
+  than inserting fixture documents directly — 5 organisations spanning every status/type/plan
+  combination the QA document exercises, plus a bootstrap `GLOBAL_SUPER_ADMIN`. Reset removes only
+  `demo-`-prefixed data; the audit log is deliberately left untouched (append-only by design).
+- `docs/admin/GLOBAL_ADMIN_Test.md` (Part 5.3): the full QA document for a non-technical tester —
+  10 feature areas, numbered test-case tables with exact steps/expected results/how-to-check,
+  must-not-happen sections, known limits, and a closing SELFRUN log recording that every case was
+  executed (via UI-equivalent HTTP steps or a cited automated test).
+- `docs/admin/verification/PART-5.2-CHECKLIST.md`: a consolidated pass over the brief's own
+  Part 5.2 checklist, one line per item pointing at the actual proof rather than re-asserting it,
+  including one honestly-flagged gap (pagination proven server-side but not empirically
+  load-tested at 10,000 organisations in this sandbox).
+
+**Two pre-existing scripts refactored (no behaviour change)**: `scripts/seed-platform-roles.ts`
+and `scripts/seed-platform-plans.ts` now import from the two new shared modules above instead of
+carrying their own inline copies — confirmed via diff to be pure extraction, byte-identical
+resulting seed data.
+
+**Full regression verification, this phase's own exit gate**:
+- Production build (`npm run build:local`, `NODE_ENV=production`): **0 compile errors**, all 531
+  routes processed, 448 API routes + 252 pages present in the final manifest, including all 36
+  `/platform/*` routes compiling and generating cleanly.
+- Tenant-route canary over real HTTP against that production build: root, `/finance`,
+  `/sales/orders`, `/hr`, `/crm` unauthenticated → 307 (unchanged); tenant API unauthenticated →
+  401 (unchanged); `/api/debug/*` → 404 (still permanently blocked, per `CLAUDE.md` #5); new
+  `/platform` surface: unauthenticated → 307 to `/platform/login`, login page itself → 200,
+  unauthenticated `/api/platform/organizations` → 401. Zero regression in existing behaviour,
+  correct gating on new behaviour.
+- Full suite (`npx vitest run --maxWorkers=3`): **3 failed | 179 passed** files (182 total; same 3
+  pre-existing `ai07AccrualIntelligence`/`ai21StatementIntelligenceEdgeCases`/
+  `ai29ControlMonitoringEdgeCases` failures already on record since `OPEN_QUESTIONS.md` #5,
+  confirmed still deterministic and still unrelated to this brief's scope). One run during this
+  phase additionally showed `tests/accounting/customerPaymentPosting.test.ts` and
+  `tests/accounting/salesInvoicePosting.test.ts` (neither touched by this branch) failing —
+  diagnosed, not assumed: both hardcode their own `mongoose.connect()` target database and had a
+  stale, un-dropped leftover from an earlier abruptly-terminated run in this same session (their
+  own `afterAll`'s `dropDatabase()` never got to run). Dropping the two stale databases and
+  re-running both in isolation gave a clean 16/16 pass; a subsequent full-suite run came back at
+  the expected `3 failed | 179 passed` with no trace of either file. Recorded as an environment
+  artifact from this session's own process management, same category as the Phase 7 `mongod`
+  crash, not a code regression.
+- `npx tsc --noEmit`: clean (exit 0).
+- `npx eslint .`: 2 errors + 7 warnings, all in files this branch never touched (`app/admin/
+  activity-logs/page.tsx`, three `app/crm/**/page.tsx` files, `app/finance/accounting/vouchers/
+  page.tsx`, and two `tests/ai/aiRuntime/*.test.ts` files — confirmed via `git diff --stat
+  main...global/admin` returning empty for every one of them). Zero new lint issues introduced by
+  this branch's ~127 touched files.
+
+**Verification record**: `docs/admin/verification/PART-5.2-CHECKLIST.md`.
+
+**Could not do / deferred**: nothing new — Phase 8's own scope was hardening and handover of what
+Phases 0–7 already built, not new product surface. The one honestly-recorded gap
+(10,000-organisation pagination load test) is carried in the Part 5.2 checklist above rather than
+silently assumed to be fine.
+
+**Commit**: local only, branch `global/admin`, no push. This is the final phase in the brief's
+own 8-phase build order — all phases now complete.
