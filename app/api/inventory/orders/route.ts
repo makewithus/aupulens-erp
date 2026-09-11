@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import InventoryOrder from '@/models/inventory/InventoryOrder';
 import { generateInventoryOrderNumber } from '@/lib/inventory/orderNumbering';
+import { requireModuleEnabled } from '@/lib/platform/entitlements/enforce';
 
 export async function GET(req: NextRequest) {
   try {
@@ -77,6 +78,12 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
+
+    // Phase 3b entitlement enforcement proof of concept (docs/admin/PHASE-3b-plan.md)
+    // — fails open on the resolver's own permissive-default failure mode.
+    const entitlementBlock = await requireModuleEnabled(tenantId, "inventory", { legacyErrorShape: true });
+    if (entitlementBlock) return entitlementBlock;
+
     await connectDB();
     const body = await req.json();
 

@@ -40,7 +40,7 @@
 | `OrganizationEntitlement` | **BUILT.** `models/platform/OrganizationEntitlement.ts` — assignment record + override layer, one document per tenant. |
 | Entitlement resolver | **BUILT.** `lib/platform/entitlements/resolve.ts::resolveEntitlements()` — permissive-on-error (audited at `SECURITY` severity), tier-fallback bridge for pre-existing tenants, override layering proven correct. |
 | Plan assignment history | **BUILT — extended the existing precedent, not a parallel table**, exactly as anticipated: `SubscriptionEvent.type: "plan_assigned"` (additive), via `lib/platform/entitlements/assignPlan.ts`. |
-| Entitlement enforcement on tenant routes | **MISSING — Phase 3b, deliberately deferred**, per the brief's own explicit split ("the single most dangerous change in this project"). |
+| Entitlement enforcement on tenant routes | **PARTIAL BY DESIGN — Phase 3b done, 1 of 424 routes wired.** `lib/platform/entitlements/enforce.ts` built and proven on `app/api/inventory/orders/route.ts` POST (pre-existing test file extended, 0 regressions). The other 423 are explicitly tracked as not-yet-enforced in `OPEN_QUESTIONS.md` #8, with the exact repeatable pattern documented — never a silent gap. |
 
 ## Phase 4 — AI metering
 

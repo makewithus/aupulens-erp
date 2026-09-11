@@ -7,6 +7,10 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/auth";
 import InventoryOrder from "@/models/inventory/InventoryOrder";
+import Organization from "@/models/admin/Organization";
+import Plan from "@/models/platform/Plan";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import { PLAN_KEY, SUPPORT_LEVEL } from "@/lib/constants/statuses";
 import { makeRequest, mockSession } from "../accounting/_helpers/routeTestUtils";
 
 const URL = "http://localhost/api/inventory/orders";
@@ -29,6 +33,9 @@ describe("Inventory Orders route (Issue #5)", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
     await InventoryOrder.init();
+    await Organization.init();
+    await Plan.init();
+    await OrganizationEntitlement.init();
     ({ POST } = await import("@/app/api/inventory/orders/route"));
   });
 
@@ -129,4 +136,47 @@ describe("Inventory Orders route (Issue #5)", () => {
     expect(body.error).toMatch(/required/i);
   });
 
+  // Phase 3b entitlement enforcement (docs/admin/PHASE-3b-plan.md): a tenant
+  // whose resolved plan does not include the "inventory" module is blocked
+  // with a clear message, not a bare 500 — proven against a REAL Plan +
+  // OrganizationEntitlement, not a mock of the resolver. Every test above
+  // this one has no Organization/Plan data at all in this isolated test DB,
+  // so the resolver's own permissive-default failure mode already proved
+  // wiring this in changes nothing for a tenant with no plan configured.
+  it("blocks order creation when the tenant's resolved plan does not include the inventory module", async () => {
+    const tenantId = "route-t4-no-inventory-plan";
+    await Organization.create({ name: "Finance Only Co", subdomain: tenantId, ownerUserId: new mongoose.Types.ObjectId() });
+    await Plan.findOneAndUpdate(
+      { key: PLAN_KEY.STARTER },
+      {
+        $setOnInsert: {
+          key: PLAN_KEY.STARTER,
+          name: "Starter",
+          features: {
+            modules: ["admin", "finance"], // deliberately no "inventory"
+            maxUsers: 5,
+            maxCompanies: 1,
+            storageGb: 5,
+            apiRequestsPerMonth: 1000,
+            aiCreditsPerMonth: 100,
+            aiRequestsPerMonth: 100,
+            automationRunsPerMonth: 20,
+            documentLimitPerMonth: 100,
+            supportLevel: SUPPORT_LEVEL.EMAIL,
+            featureFlags: {},
+          },
+        },
+      },
+      { upsert: true },
+    );
+    await OrganizationEntitlement.create({ tenantId, planKey: PLAN_KEY.STARTER });
+
+    vi.mocked(auth).mockResolvedValue(inventorySession(tenantId) as any);
+    const res = await POST(makeRequest(URL, { method: "POST", body: JSON.stringify(validBody()) }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain("inventory");
+
+    expect(await InventoryOrder.countDocuments({ tenantId })).toBe(0);
+  });
 });

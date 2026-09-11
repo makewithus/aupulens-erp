@@ -102,3 +102,21 @@ still reports 200. No sensitive data is exposed either way — see
 soft-redirect fallback has nothing sensitive to leak). Not a blocking issue; recorded because a
 future automated security scanner may flag "`/platform` returns 200 for an unauthenticated GET" —
 the answer, if that's ever raised, is this entry, not a fresh investigation.
+
+## Phase 3b
+
+### 8. Entitlement enforcement is wired into exactly one route on purpose
+
+`lib/platform/entitlements/enforce.ts` is built, tested in isolation, and proven on
+`app/api/inventory/orders/route.ts` POST (a real route with pre-existing test coverage, extended
+rather than replaced). Per the brief's own framing of this as "the single most dangerous change in
+this project," the other ~423 API routes are **deliberately not yet enforced** — every one of them
+currently behaves exactly as it did before Phase 3b, regardless of what plan a tenant resolves to.
+**This is not an oversight; it is the plan.** Extending enforcement to another route means: add one
+`requireModuleEnabled(tenantId, "<module>")` call at the same point every route already resolves
+`tenantId` (right after the existing tenant guard, before the route's business logic), then run
+that route's existing test file to confirm nothing regresses — exactly the pattern this phase
+proved once. No new mechanism needs to be invented; the remaining work is pure repetition, route by
+route, each one an independent, low-risk, reviewable change (never a bulk edit across many routes
+at once). Recorded here so a future session doesn't have to re-derive the approach, and so "is
+route X enforced yet" has one place to check.

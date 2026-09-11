@@ -241,10 +241,47 @@ regression), `tsc --noEmit` clean, `eslint` clean on every file touched.
 
 **Verification record**: `docs/admin/verification/entitlements.md`.
 
-**Could not do / deferred**: Phase 3b (enforcement on tenant-facing routes) is deliberately not
-started — the brief itself splits this out as "the single most dangerous change in this project."
-No UI exists yet to configure a `Plan`'s own features (only to view the catalogue and assign a
-plan to an org) — not required by this phase's exit gate, which only asks for a working resolver
-and non-destructive assignment.
+**Could not do / deferred**: no UI exists yet to configure a `Plan`'s own features (only to view
+the catalogue and assign a plan to an org) — not required by this phase's exit gate.
+
+**Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 3b — Entitlement enforcement, deliberately one route (2026-09-11)
+
+**Scope decision, stated up front**: the brief frames this phase as "the single most dangerous
+change in this project" with 424 existing API routes and a hard "zero regression" rule. Retrofitting
+all of them in one pass would be exactly the reckless move the brief warns against. This phase
+builds the reusable primitive, proves it on one real route with pre-existing test coverage, and
+documents the other ~423 as an explicit, tracked to-do (`OPEN_QUESTIONS.md` #8) rather than a
+silent gap.
+
+**What was built**:
+- `lib/platform/entitlements/enforce.ts`: `moduleIsEnabled()` / `requireModuleEnabled()` —
+  inserted as one line in the exact sequence every route already follows (`auth()` → `tenantId` →
+  business logic), not a new abstraction layer. **Fails open** when the resolver itself is in its
+  permissive-default failure mode — a resolver error must never compound into a lockout.
+- Wired into `app/api/inventory/orders/route.ts` POST — chosen specifically because it already had
+  a real test file to extend (manufacturing, the first candidate, had no route-level tests for
+  anything, which would have meant writing the regression check from scratch instead of proving an
+  existing one still holds).
+
+**Tests added**: `tests/platform/enforce.test.ts` (4 tests: allow, block-with-message, legacy
+`{error}` shape support, fail-open-on-resolver-error) plus one new test appended to the existing
+`tests/inventory/orders.route.test.ts` (block against a real restrictive `Plan`, zero
+`InventoryOrder` documents created) — the file's 5 pre-existing tests pass completely unmodified,
+which is itself the regression proof: none of them configure a `Plan` for their tenant, so the
+resolver's own permissive-default path means enforcement changes nothing for a tenant with no plan
+set up yet.
+
+**Results**: full suite `3 failed | 169 passed` files (168 Phase-3a baseline + 1 new file, the
+extended inventory test file staying at 1 file with +1 test; same 3 pre-existing unrelated
+failures), `tsc --noEmit` clean, `eslint` clean.
+
+**Verification record**: `docs/admin/verification/entitlement-enforcement.md`.
+
+**Could not do / deferred**: the other ~423 API routes remain unenforced by design — see
+`OPEN_QUESTIONS.md` #8 for the exact repeatable pattern to extend this route by route.
 
 **Commit**: local only, branch `global/admin`, no push.
