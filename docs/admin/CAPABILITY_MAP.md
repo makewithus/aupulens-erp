@@ -42,17 +42,17 @@
 | Plan assignment history | **BUILT — extended the existing precedent, not a parallel table**, exactly as anticipated: `SubscriptionEvent.type: "plan_assigned"` (additive), via `lib/platform/entitlements/assignPlan.ts`. |
 | Entitlement enforcement on tenant routes | **PARTIAL BY DESIGN — Phase 3b done, 1 of 424 routes wired.** `lib/platform/entitlements/enforce.ts` built and proven on `app/api/inventory/orders/route.ts` POST (pre-existing test file extended, 0 regressions). The other 423 are explicitly tracked as not-yet-enforced in `OPEN_QUESTIONS.md` #8, with the exact repeatable pattern documented — never a silent gap. |
 
-## Phase 4 — AI metering
+## Phase 4 — AI metering — ✅ DONE (2026-09-11)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Per-request AI usage records (tokens/model/latency/cost) | **MISSING.** `models/admin/AiUsage.ts` is a coarse `{tenantId, period, count}` monthly counter only — success-only, no token/cost/latency/model detail. |
-| Single instrumentation point to extend | **EXISTS.** `lib/ai/tenantAi.ts::callClaudeForTenant()` (and its streaming counterpart) is the one real chokepoint every tenant-facing AI call already goes through — confirmed kill-switch + monthly-cap enforcement lives here today. New `AiUsageRecord` writes are additive calls at the end of this function (after `incrementAiUsage`/`incrementGlobalAiUsage`), never a parallel instrumentation path. |
-| Rollups (`AiUsageDaily`/`AiUsageMonthly`) | **MISSING.** |
-| Cost rates (`AiCostRate`) | **MISSING.** No cost-per-token concept anywhere; `lib/ai/featureLimits.ts` only caps `max_tokens` per feature, never computes a currency cost. |
-| Per-org AI limits + 4 at-limit behaviors | **PARTIAL.** `tenantAi.ts` already has `AI_LIMIT_REACHED`/`AI_GLOBAL_LIMIT_REACHED` — currently only implements `BLOCK`. The other 3 behaviors (`THROTTLE`/`ALLOW_WITH_OVERAGE`/`ALLOW_AND_LOG`) are new branches inside the existing check, gated by a new per-org config field, `BLOCK` remaining the default so no existing tenant's behavior changes. |
-| AI workflow-run metering (automation usage) | **PARTIAL — real, rich data already exists**, just not yet aggregated as "usage." `models/ai/AiWorkflowRun.ts` (per-run: `tenantId, workflowId, metrics{scanned,matched,exceptions,autoActioned,policy_overrides}, startedAt, finishedAt`) and `models/ai/AiDecisionTrace.ts` (per-run reasoning/tool-call detail) are written today by the AI runtime's 10-stage executor for every real workflow run. The Phase 4 rollup job should read these directly for the "AI Automation"/"AI Agents" feature buckets in source-doc §14, not invent a second recording mechanism. |
-| Feature-bucket mapping (chat vs. document processing vs. automation vs. reports vs. agents) | **MISSING** as an explicit mapping — must be authored in Phase 4 and recorded in `docs/admin/AI_FEATURE_MAP.md` per the brief's own instruction, based on which call sites use which `AiFeature` key in `lib/ai/featureLimits.ts` plus which `AiWorkflowRun.workflowId`s exist. |
+| Per-request AI usage records (tokens/model/latency/cost) | **BUILT.** `models/platform/AiUsageRecord.ts`. Required fixing a real gap first: `lib/ai/claude.ts::callClaude()` discarded Azure OpenAI's `usage` object — new additive `*WithUsage` sibling functions capture it. |
+| Single instrumentation point to extend | **USED, as anticipated.** `lib/ai/tenantAi.ts::callClaudeForTenant()`/`callClaudeForTenantStream()` now call `recordAiUsage()` on both success and error paths. |
+| Rollups (`AiUsageDaily`/`AiUsageMonthly`) | **BUILT.** `lib/platform/ai/rollup.ts`, idempotent, cron-driven (`app/api/cron/platform/ai-usage-rollup`). |
+| Cost rates (`AiCostRate`) | **BUILT.** Cost computed server-side only, proven never client-influenced. |
+| Per-org AI limits + 4 at-limit behaviors | **BUILT.** `models/platform/AiLimit.ts` + `lib/platform/ai/limitBehavior.ts` — all 4 behaviors implemented; `BLOCK` proven byte-identical to pre-Phase-4 for an unconfigured tenant (all 48 tests in the two pre-existing tenantAi test files still pass unmodified). |
+| AI workflow-run metering (automation usage) | **PARTIAL, as anticipated** — `lib/platform/ai/rollup.ts` folds `AiWorkflowRun` into the `ai_automation` bucket at request-count-only (no per-workflow token/cost data exists to aggregate, reported as honest 0, not estimated). |
+| Feature-bucket mapping | **BUILT.** `lib/platform/ai/featureMap.ts` + `docs/admin/AI_FEATURE_MAP.md`, source-grep-checked so an unmapped `AiFeature` key fails a test. |
 
 ## Phase 5 — Logging, audit, retention
 

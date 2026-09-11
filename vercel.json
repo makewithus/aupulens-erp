@@ -1,1 +1,8 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/cron/platform/ai-usage-rollup",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}

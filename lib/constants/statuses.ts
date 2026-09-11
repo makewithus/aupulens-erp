@@ -2236,6 +2236,40 @@ export const BILLING_CYCLE = {
 export const BILLING_CYCLE_VALUES = Object.values(BILLING_CYCLE);
 export type BillingCycle = (typeof BILLING_CYCLE)[keyof typeof BILLING_CYCLE];
 
+/** Source doc §14's AI feature buckets — the vocabulary for the per-org AI
+ *  usage breakdown, mapped from real call sites in docs/admin/AI_FEATURE_MAP.md. */
+export const AI_USAGE_FEATURE_BUCKET = {
+  AI_ASSISTANT: "ai_assistant",
+  DOCUMENT_PROCESSING: "document_processing",
+  AI_AUTOMATION: "ai_automation",
+  AI_REPORTS: "ai_reports",
+  AI_AGENTS: "ai_agents",
+} as const;
+export const AI_USAGE_FEATURE_BUCKET_VALUES = Object.values(AI_USAGE_FEATURE_BUCKET);
+export type AiUsageFeatureBucket =
+  (typeof AI_USAGE_FEATURE_BUCKET)[keyof typeof AI_USAGE_FEATURE_BUCKET];
+
+export const AI_USAGE_REQUEST_STATUS = {
+  SUCCESS: "success",
+  ERROR: "error",
+} as const;
+export const AI_USAGE_REQUEST_STATUS_VALUES = Object.values(AI_USAGE_REQUEST_STATUS);
+export type AiUsageRequestStatus =
+  (typeof AI_USAGE_REQUEST_STATUS)[keyof typeof AI_USAGE_REQUEST_STATUS];
+
+/** Source doc §15's four at-limit behaviours. BLOCK is the default and the
+ *  ONLY behaviour that existed before Phase 4 — an AiLimit-less tenant sees
+ *  byte-identical behaviour to pre-Phase-4 (Hard Rule). */
+export const AI_AT_LIMIT_BEHAVIOR = {
+  BLOCK: "BLOCK",
+  THROTTLE: "THROTTLE",
+  ALLOW_WITH_OVERAGE: "ALLOW_WITH_OVERAGE",
+  ALLOW_AND_LOG: "ALLOW_AND_LOG",
+} as const;
+export const AI_AT_LIMIT_BEHAVIOR_VALUES = Object.values(AI_AT_LIMIT_BEHAVIOR);
+export type AiAtLimitBehavior =
+  (typeof AI_AT_LIMIT_BEHAVIOR)[keyof typeof AI_AT_LIMIT_BEHAVIOR];
+
 /** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
  *  emitter accepts only these; never free text (contrast with the
  *  pre-existing models/admin/ActivityLog.ts, which is free text by design

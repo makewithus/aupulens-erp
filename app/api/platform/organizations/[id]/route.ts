@@ -3,7 +3,7 @@ import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
 import { AdminForbiddenError } from "@/lib/platform/auth/adminRbac";
 import {
   getOrganizationActivity,
-  getOrganizationAiUsageEmptyState,
+  getOrganizationAiUsage,
   getOrganizationAuditLogs,
   getOrganizationBillingEmptyState,
   getOrganizationOverview,
@@ -55,7 +55,7 @@ export async function GET(
         data = await getOrganizationAuditLogs(actor, reason, subdomain);
         break;
       case "ai-usage":
-        data = getOrganizationAiUsageEmptyState();
+        data = await getOrganizationAiUsage(actor, reason, subdomain);
         break;
       case "billing":
         data = getOrganizationBillingEmptyState();

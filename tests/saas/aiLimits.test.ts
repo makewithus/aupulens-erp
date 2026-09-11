@@ -19,29 +19,51 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
+// Global Admin control plane (Phase 4) note: tenantAi.ts now internally calls
+// callClaudeWithUsage/callClaudeWithHistoryAndUsage (usage-capturing siblings
+// of callClaude/callClaudeWithHistory, added additively to lib/ai/claude.ts —
+// see that file) instead of the plain versions, and also calls
+// lib/platform/ai/instrumentation.ts::recordAiUsage() and
+// lib/platform/ai/limitBehavior.ts::resolveAtLimitDecision(). None of that
+// changes callClaudeForTenant()'s own public contract (still returns
+// {gated:false, text} on success) — only what this suite must mock to keep
+// exercising tenantAi.ts's own gating/preference logic in isolation, with no
+// real Mongoose models touched.
 const {
   mockConnectDB,
-  mockCallClaude,
-  mockCallClaudeWithHistory,
+  mockCallClaudeWithUsage,
+  mockCallClaudeWithHistoryAndUsage,
   mockOrgFindOne,
   mockAiUsageFindOne,
   mockAiUsageFindOneAndUpdate,
+  mockRecordAiUsage,
+  mockResolveAtLimitDecision,
 } = vi.hoisted(() => ({
   mockConnectDB:                vi.fn(),
-  mockCallClaude:               vi.fn(),
-  mockCallClaudeWithHistory:    vi.fn(),
+  mockCallClaudeWithUsage:               vi.fn(),
+  mockCallClaudeWithHistoryAndUsage:    vi.fn(),
   mockOrgFindOne:               vi.fn(),
   mockAiUsageFindOne:           vi.fn(),
   mockAiUsageFindOneAndUpdate:  vi.fn(),
+  mockRecordAiUsage:            vi.fn(),
+  mockResolveAtLimitDecision:   vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 
 vi.mock("@/lib/ai/claude", () => ({
-  CLAUDE_DEFAULT_MODEL:      "gpt-4o-default-deployment",
-  CLAUDE_DEFAULT_MAX_TOKENS: 1024,
-  callClaude:                mockCallClaude,
-  callClaudeWithHistory:     mockCallClaudeWithHistory,
+  CLAUDE_DEFAULT_MODEL:            "gpt-4o-default-deployment",
+  CLAUDE_DEFAULT_MAX_TOKENS:       1024,
+  callClaudeWithUsage:             mockCallClaudeWithUsage,
+  callClaudeWithHistoryAndUsage:   mockCallClaudeWithHistoryAndUsage,
+}));
+
+vi.mock("@/lib/platform/ai/instrumentation", () => ({
+  recordAiUsage: mockRecordAiUsage,
+}));
+
+vi.mock("@/lib/platform/ai/limitBehavior", () => ({
+  resolveAtLimitDecision: mockResolveAtLimitDecision,
 }));
 
 vi.mock("@/models/admin/Organization", () => {
@@ -65,14 +87,18 @@ import { getAiPeriod } from "@/lib/ai/usage";
 const TENANT_A = "acme";
 const TENANT_B = "globex";
 
+const usageOf = (text: string) => ({ text, usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } });
+
 // ── Per-test reset ────────────────────────────────────────────────────────────
 beforeEach(() => {
   vi.resetAllMocks();
   mockConnectDB.mockResolvedValue(undefined);
-  mockCallClaude.mockResolvedValue("Claude says hello");
-  mockCallClaudeWithHistory.mockResolvedValue("Claude says hello (history)");
+  mockCallClaudeWithUsage.mockResolvedValue(usageOf("Claude says hello"));
+  mockCallClaudeWithHistoryAndUsage.mockResolvedValue(usageOf("Claude says hello (history)"));
   mockAiUsageFindOne.mockResolvedValue(null);          // 0 calls by default
   mockAiUsageFindOneAndUpdate.mockResolvedValue({});   // upsert succeeds
+  mockRecordAiUsage.mockResolvedValue(undefined);
+  mockResolveAtLimitDecision.mockResolvedValue({ action: "block" }); // pre-Phase-4 default
 });
 
 // ── getAiPeriod ───────────────────────────────────────────────────────────────
@@ -170,8 +196,8 @@ describe("callClaudeForTenant — AI_DISABLED", () => {
 
   it("does NOT call the Anthropic API when disabled", async () => {
     await callClaudeForTenant(TENANT_A, "starter", disabledSettings, "hello");
-    expect(mockCallClaude).not.toHaveBeenCalled();
-    expect(mockCallClaudeWithHistory).not.toHaveBeenCalled();
+    expect(mockCallClaudeWithUsage).not.toHaveBeenCalled();
+    expect(mockCallClaudeWithHistoryAndUsage).not.toHaveBeenCalled();
   });
 
   it("does NOT increment usage when disabled", async () => {
@@ -203,7 +229,7 @@ describe("callClaudeForTenant — AI_LIMIT_REACHED", () => {
   it("does NOT call the Anthropic API when at cap", async () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 100 });
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
-    expect(mockCallClaude).not.toHaveBeenCalled();
+    expect(mockCallClaudeWithUsage).not.toHaveBeenCalled();
   });
 
   it("does NOT increment usage when gated at cap", async () => {
@@ -216,7 +242,7 @@ describe("callClaudeForTenant — AI_LIMIT_REACHED", () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 999 }); // one call remaining
     const result = await callClaudeForTenant(TENANT_A, "professional", {}, "hello");
     expect(result.gated).toBe(false);
-    expect(mockCallClaude).toHaveBeenCalledTimes(1);
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledTimes(1);
   });
 
   it("professional tier gates at 1000 calls", async () => {
@@ -277,7 +303,7 @@ describe("callClaudeForTenant — under cap", () => {
 describe("callClaudeForTenant — failed API call", () => {
   it("does NOT increment usage when callClaude throws", async () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 5 });
-    mockCallClaude.mockRejectedValue(new Error("API error"));
+    mockCallClaudeWithUsage.mockRejectedValue(new Error("API error"));
 
     await expect(
       callClaudeForTenant(TENANT_A, "starter", {}, "hello")
@@ -288,7 +314,7 @@ describe("callClaudeForTenant — failed API call", () => {
 
   it("propagates the original error so the route's fallback can handle it", async () => {
     mockAiUsageFindOne.mockResolvedValue({ count: 0 });
-    mockCallClaude.mockRejectedValue(new Error("Network timeout"));
+    mockCallClaudeWithUsage.mockRejectedValue(new Error("Network timeout"));
 
     await expect(
       callClaudeForTenant(TENANT_A, "starter", {}, "hello")
@@ -305,7 +331,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
 
   it("passes tenant's model preference to callClaude", async () => {
     await callClaudeForTenant(TENANT_A, "starter", { model: "claude-opus-4-8" }, "hello");
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ model: "claude-opus-4-8" })
     );
@@ -313,7 +339,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
 
   it("passes tenant's maxTokensPerCall to callClaude", async () => {
     await callClaudeForTenant(TENANT_A, "starter", { maxTokensPerCall: 2048 }, "hello");
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ maxTokens: 2048 })
     );
@@ -324,7 +350,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
       TENANT_A, "starter", { model: "claude-opus-4-8" }, "hello",
       { model: "claude-haiku-4-5-20251001" }
     );
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ model: "claude-opus-4-8" }) // tenant wins
     );
@@ -335,7 +361,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
       TENANT_A, "starter", { maxTokensPerCall: 512 }, "hello",
       { maxTokens: 2048 }
     );
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ maxTokens: 512 }) // tenant wins
     );
@@ -346,7 +372,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
       TENANT_A, "starter", {}, "hello",
       { model: "claude-haiku-4-5-20251001" }
     );
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
     );
@@ -354,7 +380,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
 
   it("falls back to CLAUDE_DEFAULT_MODEL when neither tenant nor caller specifies model", async () => {
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello");
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ model: "gpt-4o-default-deployment" })
     );
@@ -365,7 +391,7 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
       TENANT_A, "starter", { model: "claude-opus-4-8" }, "hello",
       { systemPrompt: "Be precise." }
     );
-    expect(mockCallClaude).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledWith(
       "hello",
       expect.objectContaining({ systemPrompt: "Be precise." })
     );
@@ -374,18 +400,18 @@ describe("callClaudeForTenant — model + maxTokensPerCall preferences", () => {
   it("uses callClaudeWithHistory when history is provided", async () => {
     const history = [{ role: "user" as const, content: "Hi" }, { role: "assistant" as const, content: "Hello" }];
     await callClaudeForTenant(TENANT_A, "starter", {}, "follow-up", { history });
-    expect(mockCallClaudeWithHistory).toHaveBeenCalledWith(
+    expect(mockCallClaudeWithHistoryAndUsage).toHaveBeenCalledWith(
       history,
       "follow-up",
       expect.any(Object)
     );
-    expect(mockCallClaude).not.toHaveBeenCalled();
+    expect(mockCallClaudeWithUsage).not.toHaveBeenCalled();
   });
 
   it("uses callClaude (not callClaudeWithHistory) when history is empty", async () => {
     await callClaudeForTenant(TENANT_A, "starter", {}, "hello", { history: [] });
-    expect(mockCallClaude).toHaveBeenCalledTimes(1);
-    expect(mockCallClaudeWithHistory).not.toHaveBeenCalled();
+    expect(mockCallClaudeWithUsage).toHaveBeenCalledTimes(1);
+    expect(mockCallClaudeWithHistoryAndUsage).not.toHaveBeenCalled();
   });
 });
 
@@ -441,7 +467,7 @@ describe("callClaudeForTenant — tenant isolation", () => {
 
     vi.resetAllMocks();
     mockConnectDB.mockResolvedValue(undefined);
-    mockCallClaude.mockResolvedValue("response");
+    mockCallClaudeWithUsage.mockResolvedValue(usageOf("response"));
     mockAiUsageFindOneAndUpdate.mockResolvedValue({});
     mockAiUsageFindOne.mockResolvedValue({ count: 0 });
 

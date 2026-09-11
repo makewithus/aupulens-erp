@@ -249,8 +249,28 @@ export default function OrganizationDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="ai-usage">
-          <EmptyStateCard data={tabData["ai-usage"] as any} />
+        <TabsContent value="ai-usage" className="space-y-4">
+          {loading && tab === "ai-usage" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {tabData["ai-usage"] && (
+            <>
+              <Card>
+                <CardContent className="pt-6 grid grid-cols-2 gap-4 text-sm">
+                  <Field label="Plan" value={(tabData["ai-usage"] as any).planKey} />
+                  <Field label="Monthly allocation" value={(tabData["ai-usage"] as any).allocation} />
+                  <Field label="Used" value={(tabData["ai-usage"] as any).used} />
+                  <Field label="Remaining" value={(tabData["ai-usage"] as any).remaining} />
+                </CardContent>
+              </Card>
+              <div>
+                <p className="text-sm font-medium mb-2">Feature breakdown (this month)</p>
+                <SimpleTable
+                  rows={(tabData["ai-usage"] as any).featureBreakdown}
+                  columns={["feature", "requestCount", "inputTokens", "outputTokens", "estimatedCostUsd", "errorCount"]}
+                  loading={false}
+                />
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="billing">

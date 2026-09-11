@@ -3,8 +3,12 @@ import User from "@/models/auth/User";
 import ActivityLog from "@/models/admin/ActivityLog";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
+import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
+import { getAiPeriod } from "@/lib/ai/usage";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import {
   ADMIN_CAPABILITY,
+  AI_USAGE_FEATURE_BUCKET_VALUES,
   ENTITY_STATUS,
   ORGANIZATION_STATUS,
   PLATFORM_EVENT_TYPE,
@@ -166,9 +170,56 @@ export async function getOrganizationAuditLogs(actor: AdminActor, reason: string
   });
 }
 
-/** AI Usage and Billing tabs — honest empty states, not placeholders. */
-export function getOrganizationAiUsageEmptyState() {
-  return { available: false, reason: "AI usage metering ships in Phase 4." } as const;
+/**
+ * AI Usage tab (source doc §14) — real data from the AiUsageMonthly rollup
+ * plus the resolved plan's AI credit allocation. A tenant with no usage
+ * rows yet gets real zeros for every feature bucket, not an omitted row.
+ */
+export async function getOrganizationAiUsage(actor: AdminActor, reason: string, subdomain: string) {
+  return withCrossTenantRead({
+    actor,
+    capability: ADMIN_CAPABILITY.VIEW_AI_USAGE,
+    reason,
+    eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_VIEWED,
+    entityType: "Organization",
+    entityId: subdomain,
+    tenantId: subdomain,
+    run: async () => {
+      const period = getAiPeriod();
+      const [rows, entitlements] = await Promise.all([
+        AiUsageMonthly.find({ tenantId: subdomain, period }).lean(),
+        resolveEntitlements(subdomain),
+      ]);
+
+      const used = rows.reduce((sum, r) => sum + r.requestCount, 0);
+      const allocation = entitlements.limits.aiRequestsPerMonth;
+      const byFeature = new Map(rows.map((r) => [r.feature, r]));
+
+      // Every bucket is listed explicitly, even at zero (docs/admin/AI_FEATURE_MAP.md's
+      // own design: "Document Processing: 0" honestly, never an omitted row).
+      const featureBreakdown = AI_USAGE_FEATURE_BUCKET_VALUES.map((feature) => {
+        const row = byFeature.get(feature);
+        return {
+          feature,
+          requestCount: row?.requestCount ?? 0,
+          inputTokens: row?.inputTokens ?? 0,
+          outputTokens: row?.outputTokens ?? 0,
+          estimatedCostUsd: row?.estimatedCostUsd ?? 0,
+          errorCount: row?.errorCount ?? 0,
+        };
+      });
+
+      return {
+        available: true as const,
+        planKey: entitlements.planKey,
+        allocation,
+        used,
+        remaining: Math.max(0, allocation - used),
+        usagePercent: allocation > 0 ? Math.round((used / allocation) * 100) : 0,
+        featureBreakdown,
+      };
+    },
+  });
 }
 export function getOrganizationBillingEmptyState() {
   return {

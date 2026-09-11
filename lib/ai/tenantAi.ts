@@ -25,9 +25,9 @@ import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import { getTierLimits } from "@/lib/constants/tiers";
 import {
-  callClaude,
-  callClaudeWithHistory,
-  callClaudeStream,
+  callClaudeWithUsage,
+  callClaudeWithHistoryAndUsage,
+  callClaudeStreamWithUsage,
   CLAUDE_DEFAULT_MODEL,
   CLAUDE_DEFAULT_MAX_TOKENS,
   type ClaudeCallOptions,
@@ -41,6 +41,13 @@ import {
   getGlobalAiUsageCount,
   incrementGlobalAiUsage,
 } from "@/lib/ai/usage";
+// Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 4) — AI
+// usage metering and the 4 at-limit behaviours. Both fail toward the
+// pre-Phase-4 behaviour on their own error (never blocks, never throws back
+// into this function) so a metering/limit-config bug can never break an AI
+// call that would otherwise have succeeded.
+import { recordAiUsage } from "@/lib/platform/ai/instrumentation";
+import { resolveAtLimitDecision } from "@/lib/platform/ai/limitBehavior";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -127,7 +134,11 @@ export async function callClaudeForTenant(
   tier: string,
   aiSettings: TenantAiSettings,
   userMessage: string,
-  opts: ClaudeCallOptions & { history?: ChatTurn[] } = {}
+  // `feature` is additive and optional (Global Admin AI metering, Phase 4) —
+  // an AiFeature key (lib/ai/featureLimits.ts) identifying which usage
+  // bucket this call meters against. Every existing call site that omits it
+  // keeps working unchanged; it defaults to "chat" for metering purposes.
+  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string } = {}
 ): Promise<TenantAiResult> {
   // (a) Workspace AI kill-switch
   if (aiSettings.disabled === true) {
@@ -159,19 +170,30 @@ export async function callClaudeForTenant(
   // (b) Monthly cap — cap value comes from tier, never hard-coded
   const { aiCallsPerMonth: cap } = getTierLimits(tier);
   const currentCount = await getAiUsageCount(tenantId, period);
+  let throttleDelayMs: number | undefined;
   if (currentCount >= cap) {
-    return {
-      gated: true,
-      code: "AI_LIMIT_REACHED",
-      error: `Monthly AI call limit reached (${currentCount} / ${cap} calls used this month).`,
-      currentTier: tier,
-      requiredAction: "upgrade",
-    };
+    // Global Admin control plane (Phase 4, source doc §15): the 4 at-limit
+    // behaviours. resolveAtLimitDecision defaults to "block" when no AiLimit
+    // row exists for this tenant — byte-identical to pre-Phase-4 behaviour.
+    const decision = await resolveAtLimitDecision(tenantId);
+    if (decision.action === "block") {
+      return {
+        gated: true,
+        code: "AI_LIMIT_REACHED",
+        error: `Monthly AI call limit reached (${currentCount} / ${cap} calls used this month).`,
+        currentTier: tier,
+        requiredAction: "upgrade",
+      };
+    }
+    throttleDelayMs = decision.delayMs;
+  }
+  if (throttleDelayMs) {
+    await new Promise((resolve) => setTimeout(resolve, throttleDelayMs));
   }
 
   // (c)+(d) Resolve model and token limit.
   // Tenant settings take priority; caller opts are the fallback; defaults are last resort.
-  const { history, ...restOpts } = opts;
+  const { history, feature, ...restOpts } = opts;
   const resolvedOpts: ClaudeCallOptions = {
     model:        aiSettings.model           ?? restOpts.model     ?? CLAUDE_DEFAULT_MODEL,
     maxTokens:    aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -180,18 +202,44 @@ export async function callClaudeForTenant(
     imageDataUrls: restOpts.imageDataUrls,  // multiple vision attachments
   };
 
-  // Call Azure OpenAI — throws on API failure so increment is skipped on error.
+  // Call Azure OpenAI — throws on API failure so increment is skipped on
+  // error (usage metering still records the failed attempt, at 0 tokens,
+  // for the platform dashboard's "failed requests" figure — Phase 4).
+  const startedAt = Date.now();
   let text: string;
-  if (history && history.length > 0) {
-    text = await callClaudeWithHistory(history, userMessage, resolvedOpts);
-  } else {
-    text = await callClaude(userMessage, resolvedOpts);
+  let usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  try {
+    if (history && history.length > 0) {
+      ({ text, usage } = await callClaudeWithHistoryAndUsage(history, userMessage, resolvedOpts));
+    } else {
+      ({ text, usage } = await callClaudeWithUsage(userMessage, resolvedOpts));
+    }
+  } catch (err) {
+    await recordAiUsage({
+      tenantId,
+      feature: feature ?? "chat",
+      model: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+      inputTokens: 0,
+      outputTokens: 0,
+      latencyMs: Date.now() - startedAt,
+      status: "error",
+    });
+    throw err;
   }
 
   // (e) Increment ONLY after a successful response — both the per-tenant
   // counter and the platform-wide counter that backs the global ceiling.
   await incrementAiUsage(tenantId, period);
   await incrementGlobalAiUsage(period);
+  await recordAiUsage({
+    tenantId,
+    feature: feature ?? "chat",
+    model: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+    inputTokens: usage.promptTokens,
+    outputTokens: usage.completionTokens,
+    latencyMs: Date.now() - startedAt,
+    status: "success",
+  });
 
   return { gated: false, text };
 }
@@ -212,7 +260,7 @@ export async function callClaudeForTenantStream(
   tier: string,
   aiSettings: TenantAiSettings,
   userMessage: string,
-  opts: ClaudeCallOptions & { history?: ChatTurn[] } = {}
+  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string } = {}
 ): Promise<TenantAiStreamResult> {
   if (aiSettings.disabled === true) {
     return { gated: true, code: "AI_DISABLED", error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them." };
@@ -228,11 +276,19 @@ export async function callClaudeForTenantStream(
 
   const { aiCallsPerMonth: cap } = getTierLimits(tier);
   const currentCount = await getAiUsageCount(tenantId, period);
+  let throttleDelayMs: number | undefined;
   if (currentCount >= cap) {
-    return { gated: true, code: "AI_LIMIT_REACHED", error: `Monthly AI call limit reached (${currentCount} / ${cap} calls used this month).`, currentTier: tier, requiredAction: "upgrade" };
+    const decision = await resolveAtLimitDecision(tenantId);
+    if (decision.action === "block") {
+      return { gated: true, code: "AI_LIMIT_REACHED", error: `Monthly AI call limit reached (${currentCount} / ${cap} calls used this month).`, currentTier: tier, requiredAction: "upgrade" };
+    }
+    throttleDelayMs = decision.delayMs;
+  }
+  if (throttleDelayMs) {
+    await new Promise((resolve) => setTimeout(resolve, throttleDelayMs));
   }
 
-  const { history, ...restOpts } = opts;
+  const { history, feature, ...restOpts } = opts;
   const resolvedOpts: ClaudeCallOptions = {
     model: aiSettings.model ?? restOpts.model ?? CLAUDE_DEFAULT_MODEL,
     maxTokens: aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -241,11 +297,23 @@ export async function callClaudeForTenantStream(
     imageDataUrls: restOpts.imageDataUrls,
   };
 
-  // Wrap the raw stream so usage is incremented exactly once, after a clean finish.
+  // Wrap the raw stream so usage is incremented exactly once, after a clean
+  // finish, and the run is metered (Phase 4) with the usage totals the inner
+  // generator's own return value carries.
+  const startedAt = Date.now();
   async function* gatedStream(): AsyncGenerator<string, void, unknown> {
-    yield* callClaudeStream(history ?? [], userMessage, resolvedOpts);
+    const usage = yield* callClaudeStreamWithUsage(history ?? [], userMessage, resolvedOpts);
     await incrementAiUsage(tenantId, period);
     await incrementGlobalAiUsage(period);
+    await recordAiUsage({
+      tenantId,
+      feature: feature ?? "chat",
+      model: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+      inputTokens: usage.promptTokens,
+      outputTokens: usage.completionTokens,
+      latencyMs: Date.now() - startedAt,
+      status: "success",
+    });
   }
 
   return { gated: false, stream: gatedStream() };

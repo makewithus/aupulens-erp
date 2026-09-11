@@ -134,6 +134,54 @@ export async function callClaude(
 }
 
 /**
+ * Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 4) needs
+ * real per-request token counts for AI usage metering — Azure OpenAI's chat
+ * completions response already carries a `usage` object, but callClaude()
+ * discards it, returning only the text. Additive only (Hard Rule 1): these
+ * are NEW functions with the same call shape plus a usage object, never a
+ * change to callClaude()'s existing signature or behaviour — every one of
+ * its other call sites is completely unaffected. lib/ai/tenantAi.ts is the
+ * only caller of these *WithUsage variants.
+ */
+export interface ClaudeUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+function toClaudeUsage(usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }): ClaudeUsage {
+  return {
+    promptTokens: usage?.prompt_tokens ?? 0,
+    completionTokens: usage?.completion_tokens ?? 0,
+    totalTokens: usage?.total_tokens ?? 0,
+  };
+}
+
+export async function callClaudeWithUsage(
+  userMessage: string,
+  opts: ClaudeCallOptions = {}
+): Promise<{ text: string; usage: ClaudeUsage }> {
+  const client = getClient();
+
+  const response = await client.chat.completions.create({
+    model: opts.model ?? CLAUDE_DEFAULT_MODEL,
+    max_completion_tokens: opts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+    messages: [
+      ...(opts.systemPrompt
+        ? [{ role: "system" as const, content: opts.systemPrompt }]
+        : []),
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl, opts.imageDataUrls) },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content;
+  if (!text) {
+    throw new Error("Azure OpenAI returned no text content");
+  }
+  return { text, usage: toClaudeUsage(response.usage) };
+}
+
+/**
  * Build a multi-turn messages array from a flat history array plus a new
  * user message. Used by routes that restore prior conversation turns.
  */
@@ -170,6 +218,35 @@ export async function callClaudeWithHistory(
   return text;
 }
 
+/** Usage-capturing sibling of callClaudeWithHistory — see callClaudeWithUsage's note. */
+export async function callClaudeWithHistoryAndUsage(
+  history: ChatTurn[],
+  newUserMessage: string,
+  opts: ClaudeCallOptions = {}
+): Promise<{ text: string; usage: ClaudeUsage }> {
+  const client = getClient();
+
+  const messages = [
+    ...(opts.systemPrompt
+      ? [{ role: "system" as const, content: opts.systemPrompt }]
+      : []),
+    ...history.map((t) => ({ role: t.role, content: t.content })),
+    { role: "user" as const, content: buildUserContent(newUserMessage, opts.imageDataUrl, opts.imageDataUrls) },
+  ];
+
+  const response = await client.chat.completions.create({
+    model: opts.model ?? CLAUDE_DEFAULT_MODEL,
+    max_completion_tokens: opts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+    messages,
+  });
+
+  const text = response.choices[0]?.message?.content;
+  if (!text) {
+    throw new Error("Azure OpenAI returned no text content");
+  }
+  return { text, usage: toClaudeUsage(response.usage) };
+}
+
 /**
  * Streaming variant — yields text deltas as the model generates them, so the UI
  * can render token-by-token (the ChatGPT-style experience). The endpoint is slow
@@ -198,6 +275,42 @@ export async function* callClaudeStream(
     const delta = chunk.choices[0]?.delta?.content;
     if (delta) yield delta;
   }
+}
+
+/**
+ * Usage-capturing sibling of callClaudeStream. Azure OpenAI only includes a
+ * `usage` object in a streaming response when `stream_options.include_usage`
+ * is requested — that final chunk carries no text delta, only usage. The
+ * generator's own return value carries the totals (accessible via
+ * `yield* callClaudeStreamWithUsage(...)`'s expression value, which
+ * lib/ai/tenantAi.ts's own gated wrapper generator captures).
+ */
+export async function* callClaudeStreamWithUsage(
+  history: ChatTurn[],
+  userMessage: string,
+  opts: ClaudeCallOptions = {}
+): AsyncGenerator<string, ClaudeUsage, unknown> {
+  const client = getClient();
+
+  const stream = await client.chat.completions.create({
+    model: opts.model ?? CLAUDE_DEFAULT_MODEL,
+    max_completion_tokens: opts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+    stream: true,
+    stream_options: { include_usage: true },
+    messages: [
+      ...(opts.systemPrompt ? [{ role: "system" as const, content: opts.systemPrompt }] : []),
+      ...history.map((t) => ({ role: t.role, content: t.content })),
+      { role: "user" as const, content: buildUserContent(userMessage, opts.imageDataUrl, opts.imageDataUrls) },
+    ],
+  });
+
+  let usage: ClaudeUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) yield delta;
+    if (chunk.usage) usage = toClaudeUsage(chunk.usage);
+  }
+  return usage;
 }
 
 /** Default Azure OpenAI *embedding* deployment (semantic search, RAG). */

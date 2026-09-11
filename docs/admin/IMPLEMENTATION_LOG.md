@@ -285,3 +285,66 @@ failures), `tsc --noEmit` clean, `eslint` clean.
 `OPEN_QUESTIONS.md` #8 for the exact repeatable pattern to extend this route by route.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 4 — AI usage metering (2026-09-11)
+
+**What existed before**: `models/admin/AiUsage.ts` (coarse per-tenant-per-month call counter,
+success-only, no token/cost/latency/model detail — left completely untouched, still the source of
+truth for the pre-existing monthly-cap check), `lib/ai/tenantAi.ts::callClaudeForTenant()` as the
+one real chokepoint, `models/ai/AiWorkflowRun.ts` as real per-run workflow data.
+
+**A real gap found**: `lib/ai/claude.ts::callClaude()` discarded Azure OpenAI's `usage` object
+entirely — no real per-request token count existed anywhere in this codebase before this phase.
+
+**What was built**:
+- `lib/ai/claude.ts`: `callClaudeWithUsage`, `callClaudeWithHistoryAndUsage`,
+  `callClaudeStreamWithUsage` — additive siblings returning `{text, usage}`; the originals are
+  completely untouched, every other call site of `callClaude`/`callClaudeWithHistory`/
+  `callClaudeStream` is unaffected.
+- `lib/ai/tenantAi.ts`: internally switched to the `*WithUsage` variants; added an optional
+  `feature` opt (additive) for metering bucket attribution; wired
+  `lib/platform/ai/instrumentation.ts::recordAiUsage()` (success and error paths) and
+  `lib/platform/ai/limitBehavior.ts::resolveAtLimitDecision()` in place of the old unconditional
+  block at the monthly cap. `callClaudeForTenant`'s own public contract is unchanged.
+- `models/platform/`: `AiUsageRecord` (per-request, no prompt/response text — Hard Rule 9),
+  `AiUsageDaily`/`AiUsageMonthly` (rollups), `AiCostRate` (server-side cost source), `AiLimit`
+  (per-tenant at-limit behavior, absent row = `BLOCK`, byte-identical to pre-Phase-4),
+  `AiOverageConfig`.
+- `lib/platform/ai/`: `instrumentation.ts`, `limitBehavior.ts` (all 4 §15 behaviors), `rollup.ts`
+  (idempotent, also folds `AiWorkflowRun` into `ai_automation` at request-count-only), `featureMap.ts`
+  + `docs/admin/AI_FEATURE_MAP.md` (every real `AiFeature` key mapped, gaps stated honestly —
+  Document Processing and AI Agents aren't instrumented yet, reported as real zeros not omitted).
+- `app/api/cron/platform/ai-usage-rollup/` + `vercel.json` (found empty at repo root despite the
+  Phase 0 inventory's claim that other crons were registered there — added only this phase's own
+  entry, didn't touch/fix the apparent pre-existing gap, out of scope).
+- Dashboard (`/platform`) and the organisation AI Usage tab now show real rollup-backed numbers,
+  replacing Phase 1/2's honest empty states now that real data exists.
+
+**A real regression caught and fixed**: switching `tenantAi.ts`'s internal calls broke two
+pre-existing test files that mocked `lib/ai/claude.ts` by name
+(`tests/saas/aiLimits.test.ts` — 42 tests, `tests/ai/aiSafetyGuards.test.ts` — 6 tests). Both fixed
+by updating their mocks to the new function names and resolved-value shape, plus mocking the two
+new `lib/platform/ai/*` calls; every original assertion passes unmodified. Full writeup in
+`docs/admin/verification/ai-metering.md`.
+
+**Tests added**: 4 new files, 21 tests, all passing.
+
+**Manual verification over real HTTP**: seeded synthetic `AiUsageRecord` rows (no live Azure
+OpenAI credentials in this sandbox), ran the real rollup, then confirmed the dashboard summary and
+per-org AI Usage tab both reflected the seeded numbers exactly through the real API routes. Cron
+endpoint's `CRON_SECRET` check verified (401 without/with-wrong secret).
+
+**Results**: full suite `3 failed | 173 passed` files (169 Phase-3b baseline + 4 new, all new
+passing plus the 2 fixed pre-existing files; same 3 pre-existing unrelated failures), `tsc
+--noEmit` clean, `eslint` clean.
+
+**Verification record**: `docs/admin/verification/ai-metering.md`.
+
+**Could not do / deferred**: `lib/docIntel/` (vendor-bill OCR) isn't instrumented through
+`tenantAi.ts` yet, so Document Processing usage is a real, honest zero, not actual absence of
+usage — see `AI_FEATURE_MAP.md`. No admin UI to edit `AiLimit`/`AiOverageConfig`/`AiCostRate`
+rows yet (seed scripts only) — not required by this phase's exit gate.
+
+**Commit**: local only, branch `global/admin`, no push.

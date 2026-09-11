@@ -11,7 +11,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // ── Part 1: a deliberately tight cap (3/month) blocks the 4th call, and this
 // is feature-agnostic (every AI route goes through callClaudeForTenant). ──────
 
-const { mockConnectDB, mockCallClaude, mockOrgFindOne, mockAiUsageFindOne, mockGlobalFindOne, mockAiUsageUpsert, mockGetTierLimits } =
+// Global Admin control plane (Phase 4): tenantAi.ts now calls
+// callClaudeWithUsage (usage-capturing sibling of callClaude, additive in
+// lib/ai/claude.ts) plus lib/platform/ai/instrumentation.ts::recordAiUsage()
+// and lib/platform/ai/limitBehavior.ts::resolveAtLimitDecision() — mocked
+// here so this suite still exercises tenantAi.ts's own cap logic in
+// isolation, with no real Mongoose models touched.
+const { mockConnectDB, mockCallClaude, mockOrgFindOne, mockAiUsageFindOne, mockGlobalFindOne, mockAiUsageUpsert, mockGetTierLimits, mockRecordAiUsage, mockResolveAtLimitDecision } =
   vi.hoisted(() => ({
     mockConnectDB: vi.fn(),
     mockCallClaude: vi.fn(),
@@ -20,15 +26,19 @@ const { mockConnectDB, mockCallClaude, mockOrgFindOne, mockAiUsageFindOne, mockG
     mockGlobalFindOne: vi.fn(),
     mockAiUsageUpsert: vi.fn(),
     mockGetTierLimits: vi.fn(),
+    mockRecordAiUsage: vi.fn(),
+    mockResolveAtLimitDecision: vi.fn(),
   }));
 
 vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
 vi.mock("@/lib/ai/claude", () => ({
   CLAUDE_DEFAULT_MODEL: "gpt-4o",
   CLAUDE_DEFAULT_MAX_TOKENS: 1024,
-  callClaude: mockCallClaude,
-  callClaudeWithHistory: vi.fn(),
+  callClaudeWithUsage: mockCallClaude,
+  callClaudeWithHistoryAndUsage: vi.fn(),
 }));
+vi.mock("@/lib/platform/ai/instrumentation", () => ({ recordAiUsage: mockRecordAiUsage }));
+vi.mock("@/lib/platform/ai/limitBehavior", () => ({ resolveAtLimitDecision: mockResolveAtLimitDecision }));
 vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   (Organization as any).findOne = (...a: any[]) => ({ lean: () => mockOrgFindOne(...a) });
@@ -55,11 +65,13 @@ import { callClaudeForTenant } from "@/lib/ai/tenantAi";
 beforeEach(() => {
   vi.clearAllMocks();
   mockConnectDB.mockResolvedValue(undefined);
-  mockCallClaude.mockResolvedValue("ok");
+  mockCallClaude.mockResolvedValue({ text: "ok", usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } });
   mockAiUsageUpsert.mockResolvedValue({});
   // Global ceiling well below its default (17000) unless a test overrides it.
   mockGlobalFindOne.mockResolvedValue({ count: 0 });
   mockGetTierLimits.mockReturnValue({ aiCallsPerMonth: 3, maxUsers: 5, enabledModules: [] });
+  mockRecordAiUsage.mockResolvedValue(undefined);
+  mockResolveAtLimitDecision.mockResolvedValue({ action: "block" }); // pre-Phase-4 default
 });
 
 describe("tight monthly cap (3) blocks the 4th call — feature-agnostic", () => {
