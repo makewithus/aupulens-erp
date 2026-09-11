@@ -1321,6 +1321,10 @@ export const SUBSCRIPTION_EVENT_TYPE = {
   PAYMENT_SUCCEEDED: "payment_succeeded",
   PAYMENT_FAILED: "payment_failed",
   CANCELED: "canceled",
+  // Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 2) —
+  // an organisation-status transition (INVITED..ARCHIVED), distinct from a
+  // tier/billing change. meta carries { fromStatus, toStatus, reason, actorId }.
+  STATUS_CHANGED: "status_changed",
 } as const;
 export const SUBSCRIPTION_EVENT_TYPE_VALUES = Object.values(
   SUBSCRIPTION_EVENT_TYPE,
@@ -2085,6 +2089,106 @@ export const ADMIN_CAPABILITY = {
 export const ADMIN_CAPABILITY_VALUES = Object.values(ADMIN_CAPABILITY);
 export type AdminCapability =
   (typeof ADMIN_CAPABILITY)[keyof typeof ADMIN_CAPABILITY];
+
+/** Organisation lifecycle status (source doc §3), tracked on
+ *  models/admin/Organization.ts additively alongside the pre-existing
+ *  `subscriptionStatus`/`isActive` fields — see docs/admin/OPEN_QUESTIONS.md
+ *  #2 for why this is a new field rather than a repurposing of either. */
+export const ORGANIZATION_STATUS = {
+  INVITED: "invited",
+  ONBOARDING: "onboarding",
+  TRIAL: "trial",
+  ACTIVE: "active",
+  SUSPENDED: "suspended",
+  PAYMENT_HOLD: "payment_hold",
+  CANCELLED: "cancelled",
+  ARCHIVED: "archived",
+} as const;
+export const ORGANIZATION_STATUS_VALUES = Object.values(ORGANIZATION_STATUS);
+export type OrganizationStatus =
+  (typeof ORGANIZATION_STATUS)[keyof typeof ORGANIZATION_STATUS];
+
+export const ORGANIZATION_STATUS_TRANSITIONS: Record<
+  OrganizationStatus,
+  OrganizationStatus[]
+> = {
+  [ORGANIZATION_STATUS.INVITED]: [
+    ORGANIZATION_STATUS.ONBOARDING,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.ONBOARDING]: [
+    ORGANIZATION_STATUS.TRIAL,
+    ORGANIZATION_STATUS.ACTIVE,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.TRIAL]: [
+    ORGANIZATION_STATUS.ACTIVE,
+    ORGANIZATION_STATUS.SUSPENDED,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.ACTIVE]: [
+    ORGANIZATION_STATUS.SUSPENDED,
+    ORGANIZATION_STATUS.PAYMENT_HOLD,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.SUSPENDED]: [
+    ORGANIZATION_STATUS.ACTIVE,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.PAYMENT_HOLD]: [
+    ORGANIZATION_STATUS.ACTIVE,
+    ORGANIZATION_STATUS.SUSPENDED,
+    ORGANIZATION_STATUS.CANCELLED,
+  ],
+  [ORGANIZATION_STATUS.CANCELLED]: [ORGANIZATION_STATUS.ARCHIVED],
+  [ORGANIZATION_STATUS.ARCHIVED]: [], // terminal
+};
+
+export function isValidOrganizationStatusTransition(
+  current: OrganizationStatus,
+  next: OrganizationStatus,
+): boolean {
+  return (ORGANIZATION_STATUS_TRANSITIONS[current] ?? []).includes(next);
+}
+
+export const ORGANIZATION_STATUS_LABELS: Record<OrganizationStatus, string> = {
+  [ORGANIZATION_STATUS.INVITED]: "Invited",
+  [ORGANIZATION_STATUS.ONBOARDING]: "Onboarding",
+  [ORGANIZATION_STATUS.TRIAL]: "Trial",
+  [ORGANIZATION_STATUS.ACTIVE]: "Active",
+  [ORGANIZATION_STATUS.SUSPENDED]: "Suspended",
+  [ORGANIZATION_STATUS.PAYMENT_HOLD]: "Payment Hold",
+  [ORGANIZATION_STATUS.CANCELLED]: "Cancelled",
+  [ORGANIZATION_STATUS.ARCHIVED]: "Archived",
+};
+
+/** Organisation type (source doc §4) — implemented as a configurable record
+ *  (models/platform/OrganizationType.ts), this enum is only the fixed set of
+ *  type keys a record can be seeded under, not the behaviour itself. */
+export const ORGANIZATION_TYPE = {
+  SME: "sme",
+  ENTERPRISE: "enterprise",
+  STARTUP: "startup",
+  ACCOUNTANT_CA_FIRM: "accountant_ca_firm",
+  MULTI_COMPANY_GROUP: "multi_company_group",
+  NON_PROFIT: "non_profit",
+  EDUCATIONAL: "educational",
+  CUSTOM: "custom",
+} as const;
+export const ORGANIZATION_TYPE_VALUES = Object.values(ORGANIZATION_TYPE);
+export type OrganizationTypeKey =
+  (typeof ORGANIZATION_TYPE)[keyof typeof ORGANIZATION_TYPE];
+
+export const ORGANIZATION_TYPE_LABELS: Record<OrganizationTypeKey, string> = {
+  [ORGANIZATION_TYPE.SME]: "SME",
+  [ORGANIZATION_TYPE.ENTERPRISE]: "Enterprise",
+  [ORGANIZATION_TYPE.STARTUP]: "Startup",
+  [ORGANIZATION_TYPE.ACCOUNTANT_CA_FIRM]: "Accountant / CA Firm",
+  [ORGANIZATION_TYPE.MULTI_COMPANY_GROUP]: "Multi-Company Group",
+  [ORGANIZATION_TYPE.NON_PROFIT]: "Non-Profit",
+  [ORGANIZATION_TYPE.EDUCATIONAL]: "Educational",
+  [ORGANIZATION_TYPE.CUSTOM]: "Custom",
+};
 
 /** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
  *  emitter accepts only these; never free text (contrast with the

@@ -21,16 +21,16 @@
 | Platform shell UI + sidebar | **BUILT.** `app/platform/login/**`, `app/platform/(app)/**`, `components/platform/PlatformShell.tsx`, `config/sidebar/platform.ts`. Not built on `app/master-admin/**` (wrong identity domain, per §2.2) — used only as a layout-shape reference. |
 | Elevated/impersonation session model | **MISSING — Phase 7, as planned.** No `AdminAccessRequest`-shaped model or flow exists yet. |
 
-## Phase 2 — Organisation management
+## Phase 2 — Organisation management — ✅ DONE (2026-09-11)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Organisation list w/ server-side pagination/filter | **MISSING** as an admin UI. `app/api/master-admin/tenants/route.ts` GET lists tenants today but is tenant-count-small and not built for the §3 column set (AI usage %, last-meaningful-activity, etc.) — new admin API needed. |
-| Organisation status model (`INVITED..ARCHIVED`) | **MISSING.** `Organization.subscriptionStatus` (TRIAL/ACTIVE/etc., see `lib/constants/tiers.ts`-adjacent enum) and `isActive: boolean` exist but do not match source-doc §3's status set or have transition tracking. New enum + transitions in `lib/constants/statuses.ts`, additive alongside the existing fields — do not repurpose `subscriptionStatus`, it means something narrower (billing state) and existing code reads it. |
-| Suspension that actually blocks something | **MISSING.** `Organization.isActive` is read at login (`auth.ts`'s `authorize()` rejects if `!org.isActive`) — this is a real, working enforcement point already, but it's binary (active/not) and doesn't match the richer status model. New admin-driven suspension must decide whether it maps onto `isActive` (reuses working enforcement, but loses granularity) or needs its own enforcement point — flagged for the Phase 2 plan, not decided here. |
-| Organisation types (`SME`, `Enterprise`, etc.) | **MISSING.** No `OrganizationType` model or field. |
-| Create organisation (admin-initiated) | **PARTIAL.** Three existing divergent paths (`SYSTEM_INVENTORY_DELTA.md` §2) are a real precedent for what steps a creation flow needs (COA seeding, `appendSubscriptionEvent`, settings shape) but none is the admin-actor-aware, audited flow this phase needs — a new one, calling the same underlying seeders. |
-| Organisation detail panel (§7 tabs) | **MISSING.** No such UI exists in `app/master-admin/**` today (single dashboard page only). |
+| Organisation list w/ server-side pagination/filter | **BUILT.** `lib/platform/organizations/list.ts` + `app/api/platform/organizations/route.ts` — `.skip()/.limit()` at the query layer, proven with 30 seeded rows across 2 pages. |
+| Organisation status model (`INVITED..ARCHIVED`) | **BUILT.** `ORGANIZATION_STATUS` + transitions in `lib/constants/statuses.ts`, additive `Organization.status` field. |
+| Suspension that actually blocks something | **BUILT AND VERIFIED OVER REAL HTTP.** `SUSPENDED` flips the pre-existing `Organization.isActive` (`OPEN_QUESTIONS.md` #2's decision) — manually confirmed a suspended tenant's owner cannot log in (`/auth?error=Configuration`) where an active tenant's owner could. |
+| Organisation types (`SME`, `Enterprise`, etc.) | **BUILT.** `models/platform/OrganizationType.ts`, configurable records, seeded via `scripts/seed-platform-org-types.ts`. |
+| Create organisation (admin-initiated) | **BUILT — the fourth path.** `lib/platform/organizations/create.ts`, reuses the existing COA seeders + `appendSubscriptionEvent` directly. Verified end-to-end: the created tenant's owner account can actually log in. |
+| Organisation detail panel (§7 tabs) | **PARTIAL — 7 of 11 tabs real.** Overview, Users, Subscription, Activity, Audit Logs are real data through the gateway; AI Usage and Billing are honest empty states (Phase 4/6); Modules/Configuration/Security have no dedicated tab yet (Modules visible via Overview's `enabledModules`). |
 
 ## Phase 3a/3b — Plans, entitlements
 

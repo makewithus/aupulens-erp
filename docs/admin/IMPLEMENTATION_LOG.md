@@ -136,3 +136,64 @@ routes" would have silently 401'd every `/api/platform/**` request — not menti
 brief, found only by tracing the existing middleware's control flow before writing the new block.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 2 — Organisation management (2026-09-11)
+
+**What existed before**: three divergent `Organization.create()` paths (none admin-actor-aware),
+a thin `Organization.tier`/`isActive`/`subscriptionStatus` surface, working COA seeders and
+`appendSubscriptionEvent`, `SubscriptionEvent` as a real append-only history model with only
+`created`/`upgraded`/`downgraded` ever fired — all documented in Phase 0.
+
+**What was built**:
+- `lib/constants/statuses.ts`: `ORGANIZATION_STATUS` (+transitions+labels),
+  `ORGANIZATION_TYPE` (+labels), `SUBSCRIPTION_EVENT_TYPE.STATUS_CHANGED` (additive to the
+  pre-existing enum).
+- `models/admin/Organization.ts`: additive `status?`, `organizationType?`, `region?` fields — every
+  pre-existing field, index, and reader untouched.
+- `models/platform/OrganizationType.ts` + `scripts/seed-platform-org-types.ts`: the 8 types as
+  configurable records (default modules/limits), not hardcoded behaviour.
+- `lib/platform/organizations/`: `list.ts` (server-paginated, real derived fields — active user
+  count, last-meaningful-activity, AI usage % — batched per page, not N+1), `create.ts` (the
+  fourth, admin-actor-aware creation path: Organization + owner User + seeded COA +
+  `SubscriptionEvent` + audit, reusing the existing seeders directly rather than calling the public
+  registration route), `statusTransition.ts` (validated transitions, `SUSPENDED` flips the
+  pre-existing `isActive` flag that `auth.ts` already enforces), `detail.ts` (7 of 11 §7 tabs with
+  real data; AI Usage/Billing are honest empty states pending Phase 4/6), `types.ts` (client-safe
+  shared types/constants — kept separate from the Mongoose-importing files after catching that a
+  client component was about to pull server-only code into the browser bundle).
+- `app/api/platform/organizations/**`, `app/platform/(app)/organizations/**`,
+  `config/sidebar/platform.ts` (new "Organisations" section).
+
+**Tests added**: 3 new files, 20 tests (`organizationStatus.test.ts`, `organizationList.test.ts`,
+`organizationCreate.test.ts`) — all passing.
+
+**Manual verification over real HTTP** (dev server, local MongoDB, seeded roles/org-types/bootstrap
+admin): listed (empty→populated), created a real organisation via the API and confirmed
+`OrganizationType`-derived defaults landed correctly, then — the load-bearing check —
+**confirmed the created tenant's owner account could actually log in** to the real tenant app, then
+**confirmed suspension genuinely blocks that same login** (`redirect to /auth?error=Configuration`
+vs. a clean redirect before suspension). This is the exact "suspension must do something real"
+requirement (source doc §33 rule 8), verified end-to-end, not just asserted in a unit test. Also
+caught, mid-verification, that the state machine correctly rejects `onboarding → suspended`
+(only `active`/`trial` can be suspended) — a state-machine correctness confirmation, not a bug.
+
+**Results**: full suite `3 failed | 166 passed` files (163 Phase-1 baseline + 3 new, all new
+passing; same 3 pre-existing unrelated failures), `tsc --noEmit` clean, `eslint` clean on every
+file this phase touched or added (two stale `eslint-disable` comments removed during cleanup).
+
+**Verification record**: `docs/admin/verification/organizations.md`.
+
+**Could not do / deferred**: 4 of the §7 tabs (Modules editing, Configuration, Security, full
+Billing) are read-only or empty-state this phase — Modules is visible via the Overview tab's
+`enabledModules` list but has no dedicated edit UI yet (out of this phase's scope, no source-doc
+requirement demanded it be editable in Phase 2 specifically). A full 240+-route UI regression
+sweep was not run (no existing tenant route's behavior changed); the new `/platform/organizations/**`
+surface itself was manually verified end-to-end instead.
+
+**Assumptions that turned out wrong or needed correction**: none new this phase — Phase 0/1's
+`OPEN_QUESTIONS.md` #2 decision (status changes also flip `isActive`) was implemented exactly as
+planned and verified correct.
+
+**Commit**: local only, branch `global/admin`, no push.

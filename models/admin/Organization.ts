@@ -6,6 +6,11 @@ import {
   ORGANIZATION_TIER,
   ORGANIZATION_TIER_VALUES,
   type OrganizationTier,
+  ORGANIZATION_STATUS,
+  ORGANIZATION_STATUS_VALUES,
+  type OrganizationStatus,
+  ORGANIZATION_TYPE_VALUES,
+  type OrganizationTypeKey,
 } from "@/lib/constants/statuses";
 
 export interface IOrganization extends Document {
@@ -21,6 +26,15 @@ export interface IOrganization extends Document {
   // Per-tier usage caps (synced from TIER_LIMITS at create time, overridable)
   maxUsers: number;
   aiCallsPerMonth: number;
+  // Global Admin control plane (docs/admin/BRIEF-GLOBAL-ADMIN.md Phase 2) —
+  // additive, distinct from `subscriptionStatus` (billing-cycle state) and
+  // `isActive` (a pre-existing binary login gate `SUSPENDED` also flips, see
+  // docs/admin/OPEN_QUESTIONS.md #2). Optional so every pre-existing
+  // Organization document (created before this field existed) remains valid;
+  // read as ACTIVE when absent (lib/platform/organizations/list.ts).
+  status?: OrganizationStatus;
+  organizationType?: OrganizationTypeKey;
+  region?: string;
   settings: {
     logo?: string;
     themeColor?: string;
@@ -86,6 +100,10 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
     },
     maxUsers: { type: Number, default: 5 },
     aiCallsPerMonth: { type: Number, default: 100 },
+    // ── Global Admin control plane additions (Phase 2) ──────────────────────
+    status: { type: String, enum: ORGANIZATION_STATUS_VALUES },
+    organizationType: { type: String, enum: ORGANIZATION_TYPE_VALUES },
+    region: { type: String, trim: true },
     settings: {
       logo: { type: String },
       themeColor: { type: String, default: "#3b82f6" },
@@ -124,6 +142,8 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
 
 OrganizationSchema.index({ isActive: 1 });
 OrganizationSchema.index({ tier: 1 });
+OrganizationSchema.index({ status: 1 });
+OrganizationSchema.index({ organizationType: 1 });
 
 const Organization: Model<IOrganization> =
   (mongoose.models.Organization as Model<IOrganization>) ||
