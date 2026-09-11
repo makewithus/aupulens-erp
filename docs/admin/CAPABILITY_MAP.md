@@ -63,15 +63,15 @@
 | Org-type log profiles | **BUILT.** `OrganizationType.defaultConfig.logProfile.eventCategories`, seeded per type. |
 | Retention policy + job | **BUILT.** `models/platform/RetentionPolicy.ts` + `lib/platform/audit/retention.ts`, most-specific-match resolution, self-audited deletion, cron-driven. |
 
-## Phase 6 — Dashboard, search, alerts, API monitoring
+## Phase 6 — Dashboard, search, alerts, API monitoring — ✅ DONE (2026-09-11)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Platform KPI dashboard | **MISSING.** `app/master-admin/page.tsx` exists as a shell but (per the incomplete sidebar stub) has no built-out KPI surface confirmed in this session — needs a direct read in Phase 6's own discovery step before assuming it's empty vs. partially built. |
-| MRR/ARR | **NOT COMPUTABLE from real data today** — no payment-gateway-backed revenue event exists anywhere in the platform-billing sense (see `SYSTEM_INVENTORY_DELTA.md` §3). Must render as an honest "unavailable" tile per source-doc §24 + Hard Rule 3, not a fabricated number. Recorded in `OPEN_QUESTIONS.md` #4. |
-| Global search across control-plane entity types | **MISSING.** `lib/search/universalSearch.ts` exists for tenant-scoped search (treats `master-admin` as full-visibility) but is not a cross-tenant control-plane search — a new implementation behind the cross-tenant gateway is needed, not an extension of this file. |
-| Alerts (in-app/email/webhook) | **MISSING** for platform-level alerting. Tenant-level `models/crm/Notification.ts` and the inbound `lib/integrations/` webhook gateway are unrelated, wrong-direction precedents (inbound only, per `SYSTEM_INVENTORY.md`'s "message bus" finding — no outbound internal event/notify mechanism exists in this codebase at all, confirmed by the prior project's exhaustive grep). This is new infrastructure, matching the "new stored outbox + cron sweep" verdict the prior project already reached for the AI runtime's own event bus — the same pattern applies here. |
-| `ApiKey`/`ApiUsage` (external API monitoring) | **MISSING entirely — no external API exists yet.** No API-key model, no external-facing API surface distinct from the browser-session-authenticated `/api/**` routes found anywhere. Per source-doc §29's own fallback instruction: build the models and monitoring UI with honest empty states, record as pending in `OPEN_QUESTIONS.md`, do not fabricate traffic. |
+| Platform KPI dashboard | **BUILT in Phase 1/4**, unchanged here (org count, admin count, audit events, full AI usage summary). |
+| MRR/ARR | **Still an honest "unavailable" tile** (`OPEN_QUESTIONS.md` #4) — no platform-billing data exists. |
+| Global search across control-plane entity types | **BUILT.** `lib/platform/search/globalSearch.ts`, cross-tenant via the gateway, audited on every call. |
+| Alerts (in-app/email/webhook) | **PARTIAL, as anticipated.** `models/platform/PlatformAlert.ts` + `lib/platform/alerts/emit.ts` — in-app delivery real (AI usage threshold crossings, organisation suspension both wired); email/webhook structurally never sent (`OPEN_QUESTIONS.md` #9), source-grep-enforced. |
+| `ApiKey`/`ApiUsage` (external API monitoring) | **BUILT, honest empty state confirmed.** No external API exists — models built, monitoring UI shows real zero counts and an honest explanation, never fabricated traffic. |
 
 ## Phase 7 — Impersonation / organisation access
 

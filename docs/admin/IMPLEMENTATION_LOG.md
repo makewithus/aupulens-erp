@@ -392,3 +392,56 @@ pre-existing unrelated failures), `tsc --noEmit` clean, `eslint` clean.
 asks for provable resolution + sweep + self-audit.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 6 — Dashboard, global search, alerts, API monitoring (2026-09-11)
+
+**What existed before**: dashboard KPIs (org count, admin count, audit events, full AI usage
+summary from Phase 4) already live on `/platform`; MRR/ARR already an honest empty state
+(`OPEN_QUESTIONS.md` #4). This phase's real scope was global search, alerting, and API monitoring.
+
+**What was built**:
+- `lib/platform/search/globalSearch.ts` + `app/api/platform/search/` + `/platform/search`:
+  cross-tenant, through the gateway, audited on every call including zero-result ones. Searches
+  organisations, tenant users, admin users, audit events (`entityId`), subscription events, AI
+  usage records (`requestId`), API keys.
+- `models/platform/PlatformAlert.ts` + `lib/platform/alerts/emit.ts`: in-app delivery is real
+  (the alert row, surfaced on `/platform`'s new Alerts panel); `emailSent`/`webhookSent` are
+  structurally never set `true` anywhere — no platform-level send infrastructure exists
+  (`OPEN_QUESTIONS.md` #9) — enforced by a source-grep test, not just a passing unit test.
+- `lib/platform/ai/limitBehavior.ts::checkAiUsageThresholdCrossing()`: fires an alert exactly once
+  per 50/75/90/100% boundary actually crossed (not once per call above it), wired into both of
+  `tenantAi.ts`'s success paths.
+- `lib/platform/organizations/statusTransition.ts`: a `SUSPENDED` transition now also raises a
+  real `PlatformAlert`.
+- `models/platform/ApiKey.ts`/`ApiUsage.ts` + `app/api/platform/api-monitoring/` +
+  `/platform/api-monitoring`: confirmed (again) no external API/key concept exists in this
+  codebase — built the models and an honest "no API keys have ever been issued" empty state
+  against real (zero) counts, never fabricated traffic.
+
+**A real regression caught and fixed, second occurrence of the same failure mode**: the new
+`checkAiUsageThresholdCrossing` export broke the same two pre-existing test files Phase 4 had
+already fixed once (`aiLimits.test.ts` — 42 tests, `aiSafetyGuards.test.ts` — 6 tests), because
+their `vi.mock("@/lib/platform/ai/limitBehavior", ...)` factories didn't include the new export.
+Fixed with a no-op mock in both; all 48 original assertions pass unmodified.
+
+**Tests added**: 2 new files, 18 tests (`globalSearch.test.ts` — 8, `alerts.test.ts` — 10,
+including the source-grep delivery-honesty check), all passing.
+
+**Manual verification over real HTTP**: created a real organisation, found it (plus its owner
+user and its subscription-created event) via global search in one response; suspended it through
+the real status-transition API and confirmed a real `PlatformAlert` row appeared with the exact
+suspension reason; confirmed API monitoring's honest empty state against real zero counts.
+
+**Results**: full suite `3 failed | 176 passed` files (174 Phase-5 baseline + 2 new; same 3
+pre-existing unrelated failures), `tsc --noEmit` clean, `eslint` clean.
+
+**Verification record**: `docs/admin/verification/dashboard-search-alerts.md`.
+
+**Could not do / deferred**: email/webhook alert delivery (`OPEN_QUESTIONS.md` #9) — no sending
+infrastructure exists or was in scope to build; "invoice ID"/"transaction ID" search from source
+doc §23 map to nothing real in this codebase (no platform-level invoice/transaction concept) and
+were not faked.
+
+**Commit**: local only, branch `global/admin`, no push.

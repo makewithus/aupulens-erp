@@ -120,3 +120,20 @@ proved once. No new mechanism needs to be invented; the remaining work is pure r
 route, each one an independent, low-risk, reviewable change (never a bulk edit across many routes
 at once). Recorded here so a future session doesn't have to re-derive the approach, and so "is
 route X enforced yet" has one place to check.
+
+## Phase 6
+
+### 9. Alert delivery: in-app only. Email/webhook are recorded as requested, never sent
+
+Source doc §28 asks for alerts "delivered in-app, by email, and by webhook." This codebase has no
+platform-level email or webhook-sending infrastructure at all today (`lib/integrations/` is an
+*inbound* third-party webhook gateway, unrelated) — building a real email/webhook sender was out
+of this phase's scope and out of what this sandbox can verify (no SMTP/webhook target available).
+`models/platform/PlatformAlert.ts` records `deliveryChannels` (what was requested) separately from
+`emailSent`/`webhookSent` (what actually happened) — both booleans stay `false` structurally
+forever until real sending infrastructure is built and wired in; `tests/platform/alerts.test.ts`
+has a source-grep check enforcing that no code path ever sets either to `true`. **Confirm**: is a
+real email/webhook sender in scope for a future phase, and if so, which provider (the existing
+tenant-level `lib/integrations/` connectors are inbound-only and not reusable for this)? Until
+answered, in-app delivery (the alert row itself, surfaced in the `/platform` dashboard's Alerts
+panel) is the only real delivery channel.

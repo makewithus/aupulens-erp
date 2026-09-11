@@ -38,7 +38,12 @@ vi.mock("@/lib/ai/claude", () => ({
   callClaudeWithHistoryAndUsage: vi.fn(),
 }));
 vi.mock("@/lib/platform/ai/instrumentation", () => ({ recordAiUsage: mockRecordAiUsage }));
-vi.mock("@/lib/platform/ai/limitBehavior", () => ({ resolveAtLimitDecision: mockResolveAtLimitDecision }));
+vi.mock("@/lib/platform/ai/limitBehavior", () => ({
+  resolveAtLimitDecision: mockResolveAtLimitDecision,
+  // Phase 6: fires §28 threshold alerts — a no-op here, this suite only
+  // exercises tenantAi.ts's own gating logic.
+  checkAiUsageThresholdCrossing: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   (Organization as any).findOne = (...a: any[]) => ({ lean: () => mockOrgFindOne(...a) });

@@ -2270,6 +2270,23 @@ export const AI_AT_LIMIT_BEHAVIOR_VALUES = Object.values(AI_AT_LIMIT_BEHAVIOR);
 export type AiAtLimitBehavior =
   (typeof AI_AT_LIMIT_BEHAVIOR)[keyof typeof AI_AT_LIMIT_BEHAVIOR];
 
+/** Source doc §28's alert conditions this phase wires for real. */
+export const PLATFORM_ALERT_TYPE = {
+  AI_USAGE_THRESHOLD: "ai_usage_threshold",
+  ORGANIZATION_SUSPENDED: "organization_suspended",
+} as const;
+export const PLATFORM_ALERT_TYPE_VALUES = Object.values(PLATFORM_ALERT_TYPE);
+export type PlatformAlertType = (typeof PLATFORM_ALERT_TYPE)[keyof typeof PLATFORM_ALERT_TYPE];
+
+export const PLATFORM_ALERT_DELIVERY_CHANNEL = {
+  IN_APP: "in_app",
+  EMAIL: "email",
+  WEBHOOK: "webhook",
+} as const;
+export const PLATFORM_ALERT_DELIVERY_CHANNEL_VALUES = Object.values(PLATFORM_ALERT_DELIVERY_CHANNEL);
+export type PlatformAlertDeliveryChannel =
+  (typeof PLATFORM_ALERT_DELIVERY_CHANNEL)[keyof typeof PLATFORM_ALERT_DELIVERY_CHANNEL];
+
 /** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
  *  emitter accepts only these; never free text (contrast with the
  *  pre-existing models/admin/ActivityLog.ts, which is free text by design

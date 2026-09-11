@@ -1,7 +1,39 @@
 import connectDB from "@/lib/db";
 import AiLimit from "@/models/platform/AiLimit";
-import { AI_AT_LIMIT_BEHAVIOR, AiAtLimitBehavior, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
+import { AI_AT_LIMIT_BEHAVIOR, AiAtLimitBehavior, PLATFORM_ALERT_TYPE, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { emitPlatformAlert } from "@/lib/platform/alerts/emit";
+
+const ALERT_THRESHOLDS = [50, 75, 90, 100];
+
+/**
+ * Source doc §15/§28: fires an alert exactly once per threshold crossing
+ * (never once per call above the threshold) — compares the percentage
+ * BEFORE and AFTER this call's increment, and alerts only for a threshold
+ * strictly between the two, i.e. the boundary this specific call crossed.
+ */
+export async function checkAiUsageThresholdCrossing(
+  tenantId: string,
+  previousCount: number,
+  newCount: number,
+  cap: number,
+): Promise<void> {
+  if (cap <= 0) return;
+  const prevPercent = (previousCount / cap) * 100;
+  const newPercent = (newCount / cap) * 100;
+
+  for (const threshold of ALERT_THRESHOLDS) {
+    if (prevPercent < threshold && newPercent >= threshold) {
+      await emitPlatformAlert({
+        tenantId,
+        alertType: PLATFORM_ALERT_TYPE.AI_USAGE_THRESHOLD,
+        severity: threshold >= 100 ? PLATFORM_SEVERITY.WARNING : PLATFORM_SEVERITY.INFO,
+        message: `AI usage reached ${threshold}% of the monthly cap (${newCount}/${cap} calls).`,
+        metadata: { threshold, newCount, cap },
+      });
+    }
+  }
+}
 
 export type AtLimitDecision =
   | { action: "block" }

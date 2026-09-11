@@ -4,6 +4,7 @@ import { appendSubscriptionEvent } from "@/lib/billing/appendSubscriptionEvent";
 import {
   ADMIN_CAPABILITY,
   ORGANIZATION_STATUS,
+  PLATFORM_ALERT_TYPE,
   PLATFORM_EVENT_CATEGORY,
   PLATFORM_EVENT_TYPE,
   PLATFORM_SEVERITY,
@@ -14,6 +15,7 @@ import {
 import { AdminActor } from "@/lib/platform/auth/types";
 import { requireCapability } from "@/lib/platform/auth/adminRbac";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { emitPlatformAlert } from "@/lib/platform/alerts/emit";
 
 export class OrganizationStatusError extends Error {
   constructor(
@@ -90,4 +92,14 @@ export async function changeOrganizationStatus(
     userAgent: actor.userAgent,
     metadata: { reason },
   });
+
+  if (toStatus === ORGANIZATION_STATUS.SUSPENDED) {
+    await emitPlatformAlert({
+      tenantId: subdomain,
+      alertType: PLATFORM_ALERT_TYPE.ORGANIZATION_SUSPENDED,
+      severity: PLATFORM_SEVERITY.WARNING,
+      message: `Organisation "${organization.name}" (${subdomain}) was suspended: ${reason}`,
+      metadata: { reason, actorId: actor.id },
+    });
+  }
 }

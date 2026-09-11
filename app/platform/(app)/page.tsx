@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+interface AlertRow {
+  id: string;
+  tenantId?: string;
+  alertType: string;
+  severity: string;
+  message: string;
+  createdAt: string;
+}
 
 interface AiUsageSummary {
   available: true;
@@ -23,6 +33,7 @@ interface DashboardSummary {
 
 export default function PlatformDashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +44,12 @@ export default function PlatformDashboardPage() {
         else setError(body.message ?? "Failed to load dashboard.");
       })
       .catch(() => setError("Failed to load dashboard."));
+
+    fetch("/api/platform/alerts?unresolvedOnly=true")
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success) setAlerts(body.data);
+      });
   }, []);
 
   return (
@@ -63,6 +80,30 @@ export default function PlatformDashboardPage() {
           prefix="$"
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Alerts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {alerts.length === 0 && (
+            <p className="text-sm text-neutral-400 italic">No unresolved alerts.</p>
+          )}
+          <div className="space-y-2">
+            {alerts.map((a) => (
+              <div key={a.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                <div>
+                  <p>{a.message}</p>
+                  <p className="text-xs text-neutral-400">{new Date(a.createdAt).toLocaleString()}</p>
+                </div>
+                <Badge variant={a.severity === "critical" || a.severity === "security" ? "destructive" : "secondary"}>
+                  {a.severity}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

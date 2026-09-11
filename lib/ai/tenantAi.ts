@@ -47,7 +47,7 @@ import {
 // into this function) so a metering/limit-config bug can never break an AI
 // call that would otherwise have succeeded.
 import { recordAiUsage } from "@/lib/platform/ai/instrumentation";
-import { resolveAtLimitDecision } from "@/lib/platform/ai/limitBehavior";
+import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/platform/ai/limitBehavior";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -231,6 +231,7 @@ export async function callClaudeForTenant(
   // counter and the platform-wide counter that backs the global ceiling.
   await incrementAiUsage(tenantId, period);
   await incrementGlobalAiUsage(period);
+  await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
   await recordAiUsage({
     tenantId,
     feature: feature ?? "chat",
@@ -305,6 +306,7 @@ export async function callClaudeForTenantStream(
     const usage = yield* callClaudeStreamWithUsage(history ?? [], userMessage, resolvedOpts);
     await incrementAiUsage(tenantId, period);
     await incrementGlobalAiUsage(period);
+    await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
     await recordAiUsage({
       tenantId,
       feature: feature ?? "chat",
