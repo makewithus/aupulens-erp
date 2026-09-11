@@ -66,5 +66,39 @@ pre-existing broken UI routes already on record. Not fixed here (Hard Rule 1 / o
 
 ---
 
-*(Phase 1+ entries will be appended here as later phases' own discovery/build steps surface
-questions, per the working protocol.)*
+## Phase 1
+
+### 6. The §30 permission matrix's exact cell contents were inferred, not quoted
+
+The implementation brief describes the source doc's §30 permission matrix as "the specification"
+but does not quote its literal contents anywhere in the text handed to this session — only the
+seven role names (§25) and the category list (§21) are given verbatim. `scripts/seed-platform-roles.ts`
+therefore defines a principled default matrix from the roles' own names and Part 2.2's stated
+exceptions (destructive actions need `GLOBAL_SUPER_ADMIN`): `GLOBAL_SUPER_ADMIN` gets everything;
+`GLOBAL_ADMIN` gets everything except delete-organisation/manage-admin-users/manage-security-config;
+`BILLING_ADMIN`/`AI_ADMIN` get platform-wide read plus their own domain's writes;
+`SUPPORT_ADMIN` gets platform-wide read plus read-only impersonation request rights;
+`SECURITY_ADMIN` gets platform-wide read plus security config/retention/alerts/access-approval;
+`READ_ONLY_ADMIN` gets only read capabilities.
+
+**Confirm**: does this match the actual source-doc matrix? Implemented entirely as data
+(`models/platform/AdminRole.ts` rows, seeded by the script above) specifically so a correction is a
+one-file re-run of the seed script, never a code change — per Hard Rule 6 and the brief's own Part
+1.2 guidance for exactly this situation (unsure → implement the safe default, flag it, don't guess
+silently).
+
+### 7. A real Next.js framework behavior found during manual Phase 1 verification (not a defect in this brief's code, but worth knowing)
+
+Manually driving the login/MFA/logout flow with `curl` against both `next dev` and a real
+production build (`build:local`/`start:local`) found that `redirect()` thrown from
+`app/platform/(app)/layout.tsx` (an async Server Component, gating every `/platform` page) does not
+always produce a clean HTTP 307 — Next.js's own documented behavior for a redirect thrown after SSR
+streaming has begun falls back to a client-side redirect (an injected script, near-instant in any
+real browser, plus a 1-second meta-refresh belt-and-braces), while the initial HTTP response itself
+still reports 200. No sensitive data is exposed either way — see
+`docs/admin/verification/admin-identity.md` for the full writeup and the hardening applied
+(`components/platform/PlatformShell.tsx` fetches its own identity client-side via
+`/api/platform/me` rather than receiving it as a server-rendered prop, so even the framework's
+soft-redirect fallback has nothing sensitive to leak). Not a blocking issue; recorded because a
+future automated security scanner may flag "`/platform` returns 200 for an unauthenticated GET" —
+the answer, if that's ever raised, is this entry, not a fresh investigation.

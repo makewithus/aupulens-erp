@@ -7,19 +7,19 @@
 
 ---
 
-## Phase 1 — Control-plane foundation
+## Phase 1 — Control-plane foundation — ✅ DONE (2026-09-11)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Admin identity (`AdminUser`, own collection, no `tenantId`) | **MISSING** | No such model. `master-admin` is a `User.role` value, not a separate identity domain (see `SYSTEM_INVENTORY_DELTA.md` §1) — not a foundation to extend, per Hard Rule 1 + brief §2.2. |
-| Admin session (`AdminSession`, separate from tenant session) | **MISSING** | `auth.ts`/`auth.config.ts` define one session/JWT shape for all tenant users; no second NextAuth instance exists. |
-| MFA | **MISSING** | No TOTP/MFA library or model found anywhere in the repo (`grep -ri "totp\|speakeasy\|otplib\|mfa"` → zero hits outside brief text). |
-| Admin RBAC (7-role matrix, §30) | **MISSING** as a matrix. **PARTIAL** as precedent: `lib/org/rbac.ts` and `lib/crm/rbac.ts` show the repo's established shape for a small, explicit capability-check module — follow that shape for `lib/platform/auth/adminRbac.ts`, don't invent a new one. |
-| Cross-tenant read gateway | **MISSING.** Nothing in the repo queries tenant-scoped models without a `tenantId` filter today (Golden Rule #1 is followed everywhere else) — this is genuinely new infrastructure, and also a genuinely new *kind* of code for this repo (an intentional, audited exception to the rule everything else follows). |
-| Structured, immutable audit store | **PARTIAL.** `models/crm/CrmAuditLog.ts` already has the two things `PlatformAuditLog` needs (enum-constrained action field, Mongoose-middleware immutability guards) — reuse the pattern, not the model (CRM-scoped, wrong shape for cross-module platform events). `models/admin/ActivityLog.ts` is the "what happened" counterpart, already exists, free-text, single writer (`lib/logger.ts`), left alone. |
-| Event taxonomy enums | **MISSING.** `lib/constants/statuses.ts` has no `PLATFORM_EVENT_CATEGORY`/`PLATFORM_EVENT_TYPE` — new additive exports, following its existing `*_VALUES`/`*_LABELS` shape. |
-| Platform shell UI + sidebar | **PARTIAL.** `app/master-admin/**` + `config/sidebar/master-admin.ts` is a real but minimal, stub precedent (one nav item, unused icon imports) for the *tenant-resident* `master-admin` role — not reusable as-is per §2.2 (wrong identity domain), but useful as a literal layout/shell reference for `app/platform/**` + `config/sidebar/platform.ts`. |
-| Elevated/impersonation session model | **MISSING.** No `AdminAccessRequest`-shaped model or flow exists. |
+| Admin identity (`AdminUser`, own collection, no `tenantId`) | **BUILT** | `models/platform/AdminUser.ts` — no `tenantId` field, bcrypt password, MFA fields, fully separate from `master-admin` (left untouched, `OPEN_QUESTIONS.md` #1). |
+| Admin session (`AdminSession`, separate from tenant session) | **BUILT** | `models/platform/AdminSession.ts` + `lib/platform/auth/adminSession(Edge).ts` — own cookie (`aupulens_admin_session`), own secret (`ADMIN_SESSION_SECRET`), own claim shape. Hostile-case tested: forged token rejected, revoked-but-unexpired token rejected. |
+| MFA | **BUILT** | `lib/platform/auth/totp.ts` (RFC 6238, hand-rolled, no new dependency), mandatory on every account (bootstrap admin is `mfaEnabled:false`, forced through enrollment on first login), backup codes. |
+| Admin RBAC (7-role matrix, §30) | **BUILT as data.** `models/platform/AdminRole.ts` + `lib/platform/auth/adminRbac.ts`, seeded by `scripts/seed-platform-roles.ts`. Exact matrix cells are an inferred default — `OPEN_QUESTIONS.md` #6. |
+| Cross-tenant read gateway | **BUILT.** `lib/platform/tenancy/crossTenant.ts`, structurally enforced as the only path via `tests/platform/sourceGrep.test.ts`. |
+| Structured, immutable audit store | **BUILT.** `models/platform/PlatformAuditLog.ts`, 7 Mongoose guards (including the `.save()` re-save case `CrmAuditLog`'s pattern alone would have missed), single writer `lib/platform/audit/emit.ts`. |
+| Event taxonomy enums | **BUILT.** `PLATFORM_EVENT_CATEGORY`/`PLATFORM_EVENT_TYPE`/`PLATFORM_SEVERITY` in `lib/constants/statuses.ts`. |
+| Platform shell UI + sidebar | **BUILT.** `app/platform/login/**`, `app/platform/(app)/**`, `components/platform/PlatformShell.tsx`, `config/sidebar/platform.ts`. Not built on `app/master-admin/**` (wrong identity domain, per §2.2) — used only as a layout-shape reference. |
+| Elevated/impersonation session model | **MISSING — Phase 7, as planned.** No `AdminAccessRequest`-shaped model or flow exists yet. |
 
 ## Phase 2 — Organisation management
 

@@ -8,6 +8,10 @@ import {
   type OrgModuleInfo,
 } from "@/lib/middleware/moduleGate";
 import { checkRateLimit } from "@/lib/middleware/rateLimit";
+import {
+  extractAdminSessionCookie,
+  verifyAdminSessionTokenEdge,
+} from "@/lib/platform/auth/adminSessionEdge";
 
 const { auth } = NextAuth(authConfig);
 
@@ -125,7 +129,13 @@ export default auth(async (req) => {
   // externally-shareable links (e.g. a WhatsApp-shared invoice a recipient
   // with no ERP login must be able to open).
   const isPublicSignedApi = pathname.startsWith("/api/public/");
-  const isPublicApi = pathname === "/api/tenant/status" || isCronApi || isInternalApi || isPublicSignedApi;
+  // /api/platform/* carries no tenant session at all by design (a separate
+  // admin session domain, see lib/platform/auth/adminSessionEdge.ts) — the
+  // blanket tenant-session check below must not 401 it. Auth is enforced
+  // for it separately, right after this block.
+  const isPlatformApi = pathname.startsWith("/api/platform");
+  const isPublicApi =
+    pathname === "/api/tenant/status" || isCronApi || isInternalApi || isPublicSignedApi || isPlatformApi;
 
   // Enforce strict tenant isolation
   if (user && tenantId) {
@@ -234,6 +244,37 @@ export default auth(async (req) => {
     if (!user || user.role !== "master-admin") {
       return handleUnauthorized(isApiRoute, "/auth/master");
     }
+  }
+
+  // Global Admin control plane — a physically separate system from every
+  // tenant-facing route above (brief Part 2.1/2.2). Deliberately does NOT
+  // read `user`/`req.auth` (the TENANT session) at all — a tenant session
+  // must never grant access here, and an admin session must never be usable
+  // as a tenant session, by construction (different cookie, different
+  // signing secret, different claim shape). This is only a fast-path guard
+  // (Edge-safe: JWT signature/expiry only, no DB) — the authoritative check,
+  // including DB-tracked session revocation and admin-account status, runs
+  // in app/platform/(app)/layout.tsx and every app/api/platform/** route
+  // handler (Node runtime), matching this repo's existing convention that
+  // every protected surface self-checks auth rather than trusting
+  // middleware alone.
+  if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
+    // The login/MFA pages and their APIs must stay reachable while signed out.
+    const isPlatformAuthPath =
+      pathname.startsWith("/platform/login") || pathname.startsWith("/api/platform/auth");
+    if (isPlatformAuthPath) {
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+
+    const adminToken = extractAdminSessionCookie(req.headers.get("cookie"));
+    const adminPayload = adminToken ? await verifyAdminSessionTokenEdge(adminToken) : null;
+    if (!adminPayload) {
+      if (isApiRoute) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/platform/login", req.url));
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Check if user is accessing finance routes / APIs
@@ -405,6 +446,7 @@ export const config = {
     "/manufacturing/:path*",
     "/hr/:path*",
     "/master-admin/:path*",
+    "/platform/:path*",
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

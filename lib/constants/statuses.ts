@@ -2010,3 +2010,182 @@ export const AI_TOOL_SIDE_EFFECT_VALUES = Object.values(AI_TOOL_SIDE_EFFECT);
 export type AiToolSideEffect =
   (typeof AI_TOOL_SIDE_EFFECT)[keyof typeof AI_TOOL_SIDE_EFFECT];
 
+// ============================================================================
+// GLOBAL ADMIN CONTROL PLANE — Phase 1 (docs/admin/BRIEF-GLOBAL-ADMIN.md)
+// These enums govern models/platform/** and lib/platform/** only. Never used
+// by tenant-facing code — the control plane is a physically separate system
+// that happens to share a database (see docs/admin/SYSTEM_INVENTORY_DELTA.md).
+// ============================================================================
+
+/** Global Admin roles (source doc §25). A completely separate domain from
+ *  models/auth/User.ts's `role` field — see docs/admin/OPEN_QUESTIONS.md #1. */
+export const ADMIN_ROLE = {
+  GLOBAL_SUPER_ADMIN: "global_super_admin",
+  GLOBAL_ADMIN: "global_admin",
+  BILLING_ADMIN: "billing_admin",
+  AI_ADMIN: "ai_admin",
+  SUPPORT_ADMIN: "support_admin",
+  SECURITY_ADMIN: "security_admin",
+  READ_ONLY_ADMIN: "read_only_admin",
+} as const;
+export const ADMIN_ROLE_VALUES = Object.values(ADMIN_ROLE);
+export type AdminRoleType = (typeof ADMIN_ROLE)[keyof typeof ADMIN_ROLE];
+
+export const ADMIN_ROLE_LABELS: Record<AdminRoleType, string> = {
+  [ADMIN_ROLE.GLOBAL_SUPER_ADMIN]: "Global Super Admin",
+  [ADMIN_ROLE.GLOBAL_ADMIN]: "Global Admin",
+  [ADMIN_ROLE.BILLING_ADMIN]: "Billing Admin",
+  [ADMIN_ROLE.AI_ADMIN]: "AI Admin",
+  [ADMIN_ROLE.SUPPORT_ADMIN]: "Support Admin",
+  [ADMIN_ROLE.SECURITY_ADMIN]: "Security Admin",
+  [ADMIN_ROLE.READ_ONLY_ADMIN]: "Read-Only Admin",
+};
+
+/** Status of an AdminUser account itself (not the tenant Organisation). */
+export const ADMIN_USER_STATUS = {
+  ACTIVE: "active",
+  SUSPENDED: "suspended",
+} as const;
+export const ADMIN_USER_STATUS_VALUES = Object.values(ADMIN_USER_STATUS);
+export type AdminUserStatus =
+  (typeof ADMIN_USER_STATUS)[keyof typeof ADMIN_USER_STATUS];
+
+/** Granular capabilities gated by lib/platform/auth/adminRbac.ts. Implemented
+ *  as data (AdminRole.capabilities[]) per source doc §30 — never a scattered
+ *  `if (role === ...)` conditional. The role→capability matrix itself is
+ *  seeded by scripts/seed-platform-roles.ts; see docs/admin/OPEN_QUESTIONS.md
+ *  #6 for why that matrix is an inferred default, not a quoted source table. */
+export const ADMIN_CAPABILITY = {
+  VIEW_DASHBOARD: "view_dashboard",
+  VIEW_ORGANIZATIONS: "view_organizations",
+  MANAGE_ORGANIZATIONS: "manage_organizations",
+  SUSPEND_ORGANIZATION: "suspend_organization",
+  DELETE_ORGANIZATION: "delete_organization",
+  VIEW_PLANS: "view_plans",
+  MANAGE_PLANS: "manage_plans",
+  ASSIGN_PLAN: "assign_plan",
+  VIEW_AI_USAGE: "view_ai_usage",
+  MANAGE_AI_LIMITS: "manage_ai_limits",
+  VIEW_AUDIT_LOGS: "view_audit_logs",
+  VIEW_SECURITY_LOGS: "view_security_logs",
+  MANAGE_SECURITY_CONFIG: "manage_security_config",
+  MANAGE_RETENTION_POLICY: "manage_retention_policy",
+  VIEW_BILLING: "view_billing",
+  MANAGE_BILLING: "manage_billing",
+  VIEW_ADMIN_USERS: "view_admin_users",
+  MANAGE_ADMIN_USERS: "manage_admin_users",
+  GLOBAL_SEARCH: "global_search",
+  MANAGE_ALERTS: "manage_alerts",
+  VIEW_API_MONITORING: "view_api_monitoring",
+  REQUEST_ORG_ACCESS: "request_org_access",
+  APPROVE_ORG_ACCESS: "approve_org_access",
+  IMPERSONATE_READONLY: "impersonate_readonly",
+  IMPERSONATE_WRITE: "impersonate_write",
+} as const;
+export const ADMIN_CAPABILITY_VALUES = Object.values(ADMIN_CAPABILITY);
+export type AdminCapability =
+  (typeof ADMIN_CAPABILITY)[keyof typeof ADMIN_CAPABILITY];
+
+/** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
+ *  emitter accepts only these; never free text (contrast with the
+ *  pre-existing models/admin/ActivityLog.ts, which is free text by design
+ *  and is left exactly as-is). */
+export const PLATFORM_EVENT_CATEGORY = {
+  AUTH: "auth",
+  USER: "user",
+  ORGANISATION: "organisation",
+  SUBSCRIPTION: "subscription",
+  AI: "ai",
+  SECURITY: "security",
+} as const;
+export const PLATFORM_EVENT_CATEGORY_VALUES = Object.values(
+  PLATFORM_EVENT_CATEGORY,
+);
+export type PlatformEventCategory =
+  (typeof PLATFORM_EVENT_CATEGORY)[keyof typeof PLATFORM_EVENT_CATEGORY];
+
+export const PLATFORM_EVENT_TYPE = {
+  // AUTH
+  LOGIN_SUCCESS: "login_success",
+  LOGIN_FAILED: "login_failed",
+  MFA_CHALLENGE_SENT: "mfa_challenge_sent",
+  MFA_CHALLENGE_FAILED: "mfa_challenge_failed",
+  MFA_ENROLLED: "mfa_enrolled",
+  LOGOUT: "logout",
+  SESSION_REVOKED: "session_revoked",
+  SESSION_EXPIRED_REJECTED: "session_expired_rejected",
+  // USER (admin users)
+  ADMIN_USER_CREATED: "admin_user_created",
+  ADMIN_USER_ROLE_CHANGED: "admin_user_role_changed",
+  ADMIN_USER_SUSPENDED: "admin_user_suspended",
+  ADMIN_USER_REACTIVATED: "admin_user_reactivated",
+  // ORGANISATION
+  ORGANIZATION_VIEWED: "organization_viewed",
+  ORGANIZATION_CREATED: "organization_created",
+  ORGANIZATION_STATUS_CHANGED: "organization_status_changed",
+  ORGANIZATION_UPDATED: "organization_updated",
+  CROSS_TENANT_READ: "cross_tenant_read",
+  CROSS_TENANT_READ_DENIED: "cross_tenant_read_denied",
+  // SUBSCRIPTION / PLAN
+  PLAN_CREATED: "plan_created",
+  PLAN_UPDATED: "plan_updated",
+  PLAN_ASSIGNED: "plan_assigned",
+  PLAN_CHANGED: "plan_changed",
+  ENTITLEMENT_OVERRIDDEN: "entitlement_overridden",
+  // AI
+  AI_LIMIT_CHANGED: "ai_limit_changed",
+  AI_COST_RATE_CHANGED: "ai_cost_rate_changed",
+  AI_USAGE_THRESHOLD_CROSSED: "ai_usage_threshold_crossed",
+  // SECURITY
+  RETENTION_POLICY_APPLIED: "retention_policy_applied",
+  RETENTION_DELETION_EXECUTED: "retention_deletion_executed",
+  ORG_ACCESS_REQUESTED: "org_access_requested",
+  ORG_ACCESS_APPROVED: "org_access_approved",
+  ORG_ACCESS_DENIED: "org_access_denied",
+  ORG_ACCESS_SESSION_STARTED: "org_access_session_started",
+  ORG_ACCESS_SESSION_ENDED: "org_access_session_ended",
+  ORG_ACCESS_ACTION_PERFORMED: "org_access_action_performed",
+  SECURITY_ALERT_RAISED: "security_alert_raised",
+} as const;
+export const PLATFORM_EVENT_TYPE_VALUES = Object.values(PLATFORM_EVENT_TYPE);
+export type PlatformEventType =
+  (typeof PLATFORM_EVENT_TYPE)[keyof typeof PLATFORM_EVENT_TYPE];
+
+/** Severity (source doc §22). */
+export const PLATFORM_SEVERITY = {
+  INFO: "info",
+  WARNING: "warning",
+  ERROR: "error",
+  CRITICAL: "critical",
+  SECURITY: "security",
+} as const;
+export const PLATFORM_SEVERITY_VALUES = Object.values(PLATFORM_SEVERITY);
+export type PlatformSeverity =
+  (typeof PLATFORM_SEVERITY)[keyof typeof PLATFORM_SEVERITY];
+
+export const PLATFORM_SEVERITY_COLORS: Record<
+  PlatformSeverity,
+  { bg: string; text: string }
+> = {
+  [PLATFORM_SEVERITY.INFO]: {
+    bg: "bg-blue-100 dark:bg-blue-900",
+    text: "text-blue-700 dark:text-blue-300",
+  },
+  [PLATFORM_SEVERITY.WARNING]: {
+    bg: "bg-amber-100 dark:bg-amber-900",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  [PLATFORM_SEVERITY.ERROR]: {
+    bg: "bg-orange-100 dark:bg-orange-900",
+    text: "text-orange-700 dark:text-orange-300",
+  },
+  [PLATFORM_SEVERITY.CRITICAL]: {
+    bg: "bg-red-100 dark:bg-red-900",
+    text: "text-red-700 dark:text-red-300",
+  },
+  [PLATFORM_SEVERITY.SECURITY]: {
+    bg: "bg-purple-100 dark:bg-purple-900",
+    text: "text-purple-700 dark:text-purple-300",
+  },
+};
+
