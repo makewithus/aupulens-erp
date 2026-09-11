@@ -348,3 +348,47 @@ usage — see `AI_FEATURE_MAP.md`. No admin UI to edit `AiLimit`/`AiOverageConfi
 rows yet (seed scripts only) — not required by this phase's exit gate.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 5 — Logging, audit, retention (2026-09-11)
+
+**What existed before**: Phase 1 already built the structured, immutable `PlatformAuditLog` and
+event taxonomy — this phase's real scope was narrower than Part 2.6 initially reads: retention
+policy + job, and org-type log profiles.
+
+**What was built**:
+- `models/platform/RetentionPolicy.ts` + `lib/platform/audit/retention.ts`: most-specific-match
+  resolution (org-type + country + category + type, most filters set wins), hardcoded 30-day
+  fallback when nothing is configured at all, `runRetentionSweep()` (per-group cutoff, deletion is
+  itself an audited `RETENTION_DELETION_EXECUTED` event written before the delete).
+- `app/api/cron/platform/retention-sweep/` + `vercel.json` entry.
+- `models/platform/OrganizationType.ts`: additive `defaultConfig.logProfile.eventCategories`
+  (source doc §20) — a display filter only, never a restriction on what's logged.
+- `lib/platform/audit/search.ts` + `app/api/platform/audit-logs/`: the global cross-tenant audit
+  viewer, through the gateway, itself audited.
+- `app/api/platform/retention-policies/` + `/platform/audit-logs`, `/platform/settings/retention` UI.
+- `tests/platform/sourceGrep.test.ts` extended: `allowRetentionDelete` (Phase 1's own escape
+  hatch, unused until now) appears only in `retention.ts`.
+
+**Tests added**: 1 new file (`retention.test.ts`, 9 tests) + 1 test appended to the existing
+source-grep suite — all passing. Caught and fixed one test-authoring mistake mid-development (an
+assertion didn't account for the sweep's own audit event also matching the query filter it was
+checking) — a real "verify your test's assumptions against actual behavior" catch, not a product
+bug.
+
+**Manual verification over real HTTP**: seeded the platform default policy, confirmed the audit
+log viewer returns real events, the retention policy list returns the real seeded row, and the
+cron sweep runs cleanly (`CRON_SECRET`-gated, 401 without it — implied by the existing pattern,
+not re-verified since Phase 4 already proved this exact gate shape).
+
+**Results**: full suite `3 failed | 174 passed` files (173 Phase-4 baseline + 1 new; same 3
+pre-existing unrelated failures), `tsc --noEmit` clean, `eslint` clean.
+
+**Verification record**: `docs/admin/verification/audit-retention.md`.
+
+**Could not do / deferred**: no per-tenant retention-policy admin UI beyond a flat global list
+(no organisation-specific override editor) — not required by this phase's exit gate, which only
+asks for provable resolution + sweep + self-audit.
+
+**Commit**: local only, branch `global/admin`, no push.

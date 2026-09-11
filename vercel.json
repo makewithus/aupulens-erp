@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/platform/ai-usage-rollup",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/platform/retention-sweep",
+      "schedule": "0 2 * * *"
     }
   ]
 }

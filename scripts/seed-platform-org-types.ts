@@ -9,59 +9,78 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../lib/db";
 import OrganizationType from "../models/platform/OrganizationType";
-import { ORGANIZATION_TYPE, ORGANIZATION_TYPE_LABELS } from "../lib/constants/statuses";
+import { ORGANIZATION_TYPE, ORGANIZATION_TYPE_LABELS, PLATFORM_EVENT_CATEGORY } from "../lib/constants/statuses";
+
+const STANDARD_LOG_CATEGORIES = [
+  PLATFORM_EVENT_CATEGORY.AUTH,
+  PLATFORM_EVENT_CATEGORY.USER,
+  PLATFORM_EVENT_CATEGORY.ORGANISATION,
+  PLATFORM_EVENT_CATEGORY.SUBSCRIPTION,
+];
+// Accountant/CA Firm and Multi-Company Group see the AI category by default
+// too (source doc §20) — heavier automation use makes AI activity routinely
+// relevant to their own audit review, not just an edge case.
+const AI_HEAVY_LOG_CATEGORIES = [...STANDARD_LOG_CATEGORIES, PLATFORM_EVENT_CATEGORY.AI];
 
 const DEFAULTS: Record<
   string,
-  { description: string; enabledModules: string[]; maxUsers: number; aiCallsPerMonth: number }
+  { description: string; enabledModules: string[]; maxUsers: number; aiCallsPerMonth: number; logCategories: string[] }
 > = {
   [ORGANIZATION_TYPE.SME]: {
     description: "Small/medium business — core finance and sales modules.",
     enabledModules: ["finance", "sales", "inventory"],
     maxUsers: 10,
     aiCallsPerMonth: 200,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.ENTERPRISE]: {
     description: "Large organisation — full module set, higher limits.",
     enabledModules: ["finance", "sales", "inventory", "hr", "manufacturing", "crm"],
     maxUsers: 200,
     aiCallsPerMonth: 5000,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.STARTUP]: {
     description: "Early-stage company — lean module set.",
     enabledModules: ["finance", "sales", "crm"],
     maxUsers: 15,
     aiCallsPerMonth: 300,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.ACCOUNTANT_CA_FIRM]: {
     description: "Accounting/CA firm managing multiple clients.",
     enabledModules: ["finance"],
     maxUsers: 25,
     aiCallsPerMonth: 500,
+    logCategories: AI_HEAVY_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.MULTI_COMPANY_GROUP]: {
     description: "Group of related companies (each provisioned as its own tenant).",
     enabledModules: ["finance", "sales", "inventory", "hr", "manufacturing", "crm"],
     maxUsers: 100,
     aiCallsPerMonth: 2000,
+    logCategories: AI_HEAVY_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.NON_PROFIT]: {
     description: "Non-profit organisation.",
     enabledModules: ["finance", "hr"],
     maxUsers: 15,
     aiCallsPerMonth: 200,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.EDUCATIONAL]: {
     description: "Educational institution.",
     enabledModules: ["finance", "hr"],
     maxUsers: 50,
     aiCallsPerMonth: 300,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
   [ORGANIZATION_TYPE.CUSTOM]: {
     description: "Custom configuration set individually by a Global Admin.",
     enabledModules: [],
     maxUsers: 5,
     aiCallsPerMonth: 100,
+    logCategories: STANDARD_LOG_CATEGORIES,
   },
 };
 
@@ -79,6 +98,7 @@ async function main() {
             enabledModules: defaults.enabledModules,
             maxUsers: defaults.maxUsers,
             aiCallsPerMonth: defaults.aiCallsPerMonth,
+            logProfile: { eventCategories: defaults.logCategories },
           },
         },
       },

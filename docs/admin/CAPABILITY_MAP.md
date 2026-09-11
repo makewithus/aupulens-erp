@@ -54,14 +54,14 @@
 | AI workflow-run metering (automation usage) | **PARTIAL, as anticipated** — `lib/platform/ai/rollup.ts` folds `AiWorkflowRun` into the `ai_automation` bucket at request-count-only (no per-workflow token/cost data exists to aggregate, reported as honest 0, not estimated). |
 | Feature-bucket mapping | **BUILT.** `lib/platform/ai/featureMap.ts` + `docs/admin/AI_FEATURE_MAP.md`, source-grep-checked so an unmapped `AiFeature` key fails a test. |
 
-## Phase 5 — Logging, audit, retention
+## Phase 5 — Logging, audit, retention — ✅ DONE (2026-09-11)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| `PlatformAuditLog` (§31 shape) | **MISSING** — see Phase 1 row above (same model, listed here too since §5's scope references it directly). |
-| Event taxonomy | **MISSING** (see Phase 1 row). |
-| Org-type log profiles | **MISSING** — depends on `OrganizationType` (Phase 2) existing first. |
-| Retention policy + job | **MISSING.** No retention/TTL-by-policy concept exists for any log model today (Mongoose TTL indexes exist elsewhere in the codebase for narrow cases like `AiActionProposal.expiresAt`, but nothing configurable per org-type/event-type/compliance-requirement). |
+| `PlatformAuditLog` (§31 shape) | **BUILT in Phase 1**, unchanged here. |
+| Event taxonomy | **BUILT in Phase 1**, unchanged here. |
+| Org-type log profiles | **BUILT.** `OrganizationType.defaultConfig.logProfile.eventCategories`, seeded per type. |
+| Retention policy + job | **BUILT.** `models/platform/RetentionPolicy.ts` + `lib/platform/audit/retention.ts`, most-specific-match resolution, self-audited deletion, cron-driven. |
 
 ## Phase 6 — Dashboard, search, alerts, API monitoring
 

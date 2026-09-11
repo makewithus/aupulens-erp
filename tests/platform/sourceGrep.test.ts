@@ -77,7 +77,14 @@ describe("source-grep: PlatformAuditLog is never mutated outside its own model g
       ...walk(path.join(ROOT, "lib"), [".ts", ".tsx"]),
     ].filter((f) => {
       const rel = relative(f);
-      return rel !== "models/platform/PlatformAuditLog.ts" && rel !== "lib/platform/audit/emit.ts";
+      // lib/platform/audit/retention.ts (Phase 5) is the one sanctioned
+      // caller of PlatformAuditLog.deleteMany — via the allowRetentionDelete
+      // escape hatch, checked separately below.
+      return (
+        rel !== "models/platform/PlatformAuditLog.ts" &&
+        rel !== "lib/platform/audit/emit.ts" &&
+        rel !== "lib/platform/audit/retention.ts"
+      );
     });
 
     const mutatingCallPattern =
@@ -95,6 +102,19 @@ describe("source-grep: PlatformAuditLog is never mutated outside its own model g
     for (const hook of ["updateOne", "findOneAndUpdate", "updateMany", "deleteOne", "findOneAndDelete", "deleteMany", "save"]) {
       expect(content).toContain(`pre("${hook}"`);
     }
+  });
+
+  it("allowRetentionDelete (the one sanctioned deletion escape hatch) appears only in lib/platform/audit/retention.ts and its own test", () => {
+    const allSourceFiles = [
+      ...walk(path.join(ROOT, "app"), [".ts", ".tsx"]),
+      ...walk(path.join(ROOT, "lib"), [".ts", ".tsx"]),
+    ].filter((f) => {
+      const rel = relative(f);
+      return rel !== "lib/platform/audit/retention.ts";
+    });
+
+    const violations = allSourceFiles.filter((file) => readFileSync(file, "utf8").includes("allowRetentionDelete"));
+    expect(violations.map(relative)).toEqual([]);
   });
 });
 
