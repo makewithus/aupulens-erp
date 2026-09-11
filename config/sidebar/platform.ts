@@ -1,4 +1,4 @@
-import { Activity, Building2, CreditCard, LayoutDashboard, ScrollText, Search, Settings } from "lucide-react";
+import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, ScrollText, Search, Settings } from "lucide-react";
 
 export interface PlatformSidebarItem {
   title: string;
@@ -39,6 +39,7 @@ export const platformSidebarConfig: PlatformSidebarSection[] = [
     items: [
       { title: "Audit Logs", href: "/platform/audit-logs", icon: ScrollText },
       { title: "Retention", href: "/platform/settings/retention", icon: Settings },
+      { title: "Access Requests", href: "/platform/access-requests", icon: KeyRound },
     ],
   },
   {

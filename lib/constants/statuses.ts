@@ -2287,6 +2287,26 @@ export const PLATFORM_ALERT_DELIVERY_CHANNEL_VALUES = Object.values(PLATFORM_ALE
 export type PlatformAlertDeliveryChannel =
   (typeof PLATFORM_ALERT_DELIVERY_CHANNEL)[keyof typeof PLATFORM_ALERT_DELIVERY_CHANNEL];
 
+/** Source doc §26 — organisation access ("impersonation as supported
+ *  access"). Request/approval status, never open-ended. */
+export const ADMIN_ACCESS_REQUEST_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  DENIED: "denied",
+  EXPIRED: "expired",
+  ENDED: "ended",
+} as const;
+export const ADMIN_ACCESS_REQUEST_STATUS_VALUES = Object.values(ADMIN_ACCESS_REQUEST_STATUS);
+export type AdminAccessRequestStatus =
+  (typeof ADMIN_ACCESS_REQUEST_STATUS)[keyof typeof ADMIN_ACCESS_REQUEST_STATUS];
+
+export const ADMIN_ACCESS_SCOPE = {
+  READ: "read",
+  WRITE: "write",
+} as const;
+export const ADMIN_ACCESS_SCOPE_VALUES = Object.values(ADMIN_ACCESS_SCOPE);
+export type AdminAccessScope = (typeof ADMIN_ACCESS_SCOPE)[keyof typeof ADMIN_ACCESS_SCOPE];
+
 /** Structured audit event taxonomy (source doc §21) — PlatformAuditLog's
  *  emitter accepts only these; never free text (contrast with the
  *  pre-existing models/admin/ActivityLog.ts, which is free text by design

@@ -51,6 +51,7 @@ export default function OrganizationDetailPage() {
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<string>("");
   const [planReason, setPlanReason] = useState("");
+  const [accessGrant, setAccessGrant] = useState<{ active: boolean; adminName?: string; reason?: string; expiresAt?: string } | null>(null);
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -73,6 +74,11 @@ export default function OrganizationDetailPage() {
 
   useEffect(() => {
     loadTab("overview");
+    fetch(`/api/platform/organizations/${subdomain}/access-status`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success) setAccessGrant(body.data);
+      });
   }, [subdomain]);
 
   useEffect(() => {
@@ -157,6 +163,17 @@ export default function OrganizationDetailPage() {
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {accessGrant?.active && (
+        <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm">
+          <p className="font-medium text-amber-800 dark:text-amber-200">
+            Elevated access session active — {accessGrant.adminName} ({accessGrant.reason})
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            Expires {accessGrant.expiresAt ? new Date(accessGrant.expiresAt).toLocaleString() : "—"}
+          </p>
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof TABS)[number])}>
         <TabsList>

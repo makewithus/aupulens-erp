@@ -73,12 +73,12 @@
 | Alerts (in-app/email/webhook) | **PARTIAL, as anticipated.** `models/platform/PlatformAlert.ts` + `lib/platform/alerts/emit.ts` — in-app delivery real (AI usage threshold crossings, organisation suspension both wired); email/webhook structurally never sent (`OPEN_QUESTIONS.md` #9), source-grep-enforced. |
 | `ApiKey`/`ApiUsage` (external API monitoring) | **BUILT, honest empty state confirmed.** No external API exists — models built, monitoring UI shows real zero counts and an honest explanation, never fabricated traffic. |
 
-## Phase 7 — Impersonation / organisation access
+## Phase 7 — Impersonation / organisation access — ✅ DONE (2026-09-12)
 
 | Capability | Status | Evidence |
 |---|---|---|
-| `AdminAccessRequest` (reason → approval → time-boxed session) | **MISSING.** `master-admin`'s tenant-mismatch bypass in `middleware.ts` is the closest existing analogue and is exactly the "invisible login-as-user" anti-pattern source-doc §26 forbids (Part 7 item 7) — not a foundation to build on, a cautionary example of what not to repeat. |
-| Visible elevated-session banner | **MISSING.** No such UI component exists. |
+| `AdminAccessRequest` (reason → approval → time-boxed session) | **BUILT.** `models/platform/AdminAccessRequest.ts` + `lib/platform/access/`, full lifecycle proven (request → approve/deny → active grant → expiry/end), never open-ended (fixed 4h, checked live at read time). `master-admin`'s tenant-mismatch bypass remains untouched, still the cautionary example this was built to avoid repeating. |
+| Visible elevated-session banner | **BUILT.** Real banner on the Organisation detail page, backed by `GET /api/platform/organizations/[id]/access-status`. Deliberately not wired as a hard gate on the existing detail tabs — `OPEN_QUESTIONS.md` #10. |
 
 ---
 

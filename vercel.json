@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/platform/retention-sweep",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/platform/access-session-expiry",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -445,3 +445,56 @@ doc §23 map to nothing real in this codebase (no platform-level invoice/transac
 were not faked.
 
 **Commit**: local only, branch `global/admin`, no push.
+
+---
+
+## Phase 7 — Organisation access / impersonation (2026-09-11/12)
+
+**Scope decision, stated up front**: source doc §26 describes browsing the tenant's actual
+application; this control plane never does that (Part 2.1). Rather than force-fit a gate onto
+Phase 2's already-tested Organisation detail tabs (real regression risk, no proven need — every
+role that can read them today does so via a plain capability), this phase built the complete,
+real request → approve/deny → time-boxed session → auto-expire → full-audit-trail workflow as
+standalone infrastructure, following the exact "build the primitive, prove it, extend only where
+needed" pattern Phase 3b already established. Recorded as a deliberate choice, not a shortfall
+(`OPEN_QUESTIONS.md` #10).
+
+**What was built**:
+- `models/platform/AdminAccessRequest.ts` + `lib/platform/access/request.ts`: full lifecycle.
+  `write` scope is rejected at request time (not just left to the approver) for any actor without
+  `IMPERSONATE_WRITE` — `SUPPORT_ADMIN`/`READ_ONLY_ADMIN` can never even file one. Approval always
+  sets a fixed 4-hour `expiresAt` — never open-ended.
+- `lib/platform/access/status.ts::getActiveAccessGrant()`: the one function a banner reads.
+  Expiry is checked LIVE (`expiresAt < now`), so correctness never depends on the cron having run.
+- `app/api/cron/platform/access-session-expiry/`: tidies stale rows' `status` field for reporting
+  only — not what enforces the boundary.
+- `app/api/platform/access-requests/**`, `/platform/access-requests` (request + approve/deny
+  queue), and a real elevated-session banner wired into the Organisation detail page, backed by
+  `GET /api/platform/organizations/[id]/access-status`.
+
+**Tests added**: 1 new file, 12 tests, all passing — including a time-boxing proof that sets a
+real past `expiresAt` directly rather than sleeping the test suite.
+
+**An environment incident correctly diagnosed during verification**: mid-testing, the shared
+machine's `mongod` crashed (core-dump) under memory pressure — the same failure mode
+`docs/ai/BASELINE_FAILURES.md` already documented once. Diagnosed via `systemctl status mongod`
+rather than assumed to be a code regression from the shifting, unrelated set of test failures it
+produced; no `sudo` available, so a fresh user-owned `mongod` instance was started (working around
+a stale Unix socket and an `AF_UNIX` path-length limit). A full suite re-run against the healthy
+instance came back byte-identical to the expected baseline. Full writeup:
+`docs/admin/verification/organization-access.md`.
+
+**Manual verification over real HTTP**: drove the complete lifecycle — requested access, confirmed
+`active: false` before approval, approved, confirmed `active: true` with the correct reason/admin
+name/expiry, ended the session, confirmed `active: false` again.
+
+**Results**: full suite `3 failed | 177 passed` files (176 Phase-6 baseline + 1 new; same 3
+pre-existing unrelated failures), `tsc --noEmit` clean, `eslint` clean.
+
+**Verification record**: `docs/admin/verification/organization-access.md`.
+
+**Could not do / deferred**: the access-request flow is not wired as an enforced gate on any
+existing tenant-data view (`OPEN_QUESTIONS.md` #10) — deliberate, not required by this phase's
+exit gate, which asks only for a provable lifecycle.
+
+**Commit**: local only, branch `global/admin`, no push.

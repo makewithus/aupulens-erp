@@ -137,3 +137,32 @@ real email/webhook sender in scope for a future phase, and if so, which provider
 tenant-level `lib/integrations/` connectors are inbound-only and not reusable for this)? Until
 answered, in-app delivery (the alert row itself, surfaced in the `/platform` dashboard's Alerts
 panel) is the only real delivery channel.
+
+## Phase 7
+
+### 10. The access-request workflow does not gate the existing Organisation detail tabs
+
+Built as complete, real, tested infrastructure (request → approve/deny → time-boxed session →
+auto-expire → full audit trail — `docs/admin/verification/organization-access.md`), but
+deliberately **not** wired as a hard gate on Phase 2's already-shipped Organisation detail tabs,
+which every role with `VIEW_ORGANIZATIONS` (including `SUPPORT_ADMIN` and `READ_ONLY_ADMIN` in the
+current inferred matrix, `OPEN_QUESTIONS.md` #6) can already read without requesting anything.
+Retrofitting a hard gate onto tested, working reads was judged a real regression risk for no
+proven need, following the same "build the primitive, prove it, extend only where needed" pattern
+Phase 3b already established. **Confirm**: should `SUPPORT_ADMIN`'s blanket `VIEW_ORGANIZATIONS`
+be removed so the access-request flow becomes the *only* way that role can view a tenant's detail
+tabs (the reading of Part 2.7 that most matches "impersonation as supported access, not standing
+access")? If so, this is a one-file change to `scripts/seed-platform-roles.ts` plus a
+capability-or-active-grant check added to `lib/platform/organizations/detail.ts`'s existing
+functions — not a new mechanism, just wiring the one already built.
+
+### 11. A `mongod` crash mid-verification (environment, not code)
+
+During this phase's own test-suite verification, the shared machine's systemd-managed `mongod`
+crashed (core-dump) under memory pressure — the same failure mode `docs/ai/BASELINE_FAILURES.md`
+already recorded once before on this machine. No `sudo` available to restart the systemd unit; a
+user-owned instance was started against a fresh data directory instead (all test/smoke-test data
+in it is ephemeral and was not needed afterward). Full suite re-run clean once healthy. Recorded
+so a future session sees "why did the baseline look different for one run" answered here rather
+than re-investigated: check `systemctl status mongod` first if the suite shows a wide, shifting
+set of unrelated failures, before suspecting a code regression.
