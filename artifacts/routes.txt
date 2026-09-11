@@ -1,4 +1,4 @@
-/
+
 /accept-invite
 /admin
 /admin/activity-logs
@@ -112,6 +112,7 @@
 /finance/accounting/vouchers
 /finance/ai-assistant
 /finance/ai-copilot
+/finance/ai-operations
 /finance/assets
 /finance/bills
 /finance/dashboard
