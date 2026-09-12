@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { OrganizationListRow, LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "./types";
 
 export type { OrganizationListRow };
@@ -83,7 +84,7 @@ export async function listOrganizations(
       const subdomains = orgs.map((o) => o.subdomain);
       const period = getAiPeriod();
 
-      const [userCounts, lastActivityByTenant, aiUsageByTenant] = await Promise.all([
+      const [userCounts, lastActivityByTenant, aiUsageByTenant, entitlementsByTenant] = await Promise.all([
         User.aggregate([
           { $match: { tenantId: { $in: subdomains }, status: ENTITY_STATUS.ACTIVE } },
           { $group: { _id: "$tenantId", count: { $sum: 1 } } },
@@ -96,6 +97,16 @@ export async function listOrganizations(
           { $match: { tenantId: { $in: subdomains }, period } },
           { $group: { _id: "$tenantId", count: { $sum: "$count" } } },
         ]),
+        // Same fix as the Subscription tab (Phase 9 Part 2.1 finding, closed
+        // here): the list must resolve through resolveEntitlements(), never
+        // the raw legacy Organization.tier, or the two surfaces silently
+        // disagree for any organisation with an assigned plan/override.
+        // Parallelised across the page (bounded to MAX_PAGE_SIZE, not the
+        // full collection) rather than a sequential loop; resolveEntitlements()
+        // itself carries a 60s in-process cache so a re-rendered page is
+        // effectively free. See docs/admin/verification/PERFORMANCE.md for
+        // the measured cost at scale.
+        Promise.all(subdomains.map((tenantId) => resolveEntitlements(tenantId))),
       ]);
 
       const userCountMap = new Map(userCounts.map((r) => [r._id, r.count as number]));
@@ -103,6 +114,7 @@ export async function listOrganizations(
         lastActivityByTenant.map((r) => [r._id, r.lastActivity as Date]),
       );
       const aiUsageMap = new Map(aiUsageByTenant.map((r) => [r._id, r.count as number]));
+      const entitlementsMap = new Map(subdomains.map((tenantId, i) => [tenantId, entitlementsByTenant[i]]));
 
       const rows: OrganizationListRow[] = orgs.map((org) => {
         const lastActivity = lastActivityMap.get(org.subdomain);
@@ -115,7 +127,8 @@ export async function listOrganizations(
           organizationType: org.organizationType,
           country: org.settings?.country,
           region: org.region,
-          tier: org.tier,
+          timezone: org.settings?.timezone,
+          planKey: entitlementsMap.get(org.subdomain)?.planKey ?? org.tier,
           status: (org.status as OrganizationStatus) ?? ORGANIZATION_STATUS.ACTIVE,
           activeUserCount: userCountMap.get(org.subdomain) ?? 0,
           currentPeriodAiUsage: aiUsage,

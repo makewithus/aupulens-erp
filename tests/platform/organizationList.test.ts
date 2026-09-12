@@ -9,11 +9,28 @@ import ActivityLog from "@/models/admin/ActivityLog";
 import AiUsage from "@/models/admin/AiUsage";
 import AdminRole from "@/models/platform/AdminRole";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
-import { ADMIN_CAPABILITY, ADMIN_ROLE, ENTITY_STATUS } from "@/lib/constants/statuses";
+import Plan from "@/models/platform/Plan";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import { ADMIN_CAPABILITY, ADMIN_ROLE, ENTITY_STATUS, ORGANIZATION_TIER, PLAN_KEY, SUPPORT_LEVEL } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 
 let listOrganizations: typeof import("@/lib/platform/organizations/list").listOrganizations;
 let invalidateAdminRoleCache: typeof import("@/lib/platform/auth/adminRbac").invalidateAdminRoleCache;
+let invalidateEntitlementsCache: typeof import("@/lib/platform/entitlements/resolve").invalidateEntitlementsCache;
+
+const PLAN_FEATURES = {
+  modules: ["admin", "finance"],
+  maxUsers: 5,
+  maxCompanies: 1,
+  storageGb: 5,
+  apiRequestsPerMonth: 1000,
+  aiCreditsPerMonth: 100,
+  aiRequestsPerMonth: 100,
+  automationRunsPerMonth: 20,
+  documentLimitPerMonth: 100,
+  supportLevel: SUPPORT_LEVEL.EMAIL,
+  featureFlags: {},
+};
 
 function makeActor(): AdminActor {
   return {
@@ -34,8 +51,13 @@ describe("listOrganizations — server-side pagination, filtering, and derived f
     await AiUsage.init();
     await AdminRole.init();
     await PlatformAuditLog.init();
+    await Plan.init();
+    await OrganizationEntitlement.init();
     ({ listOrganizations } = await import("@/lib/platform/organizations/list"));
     ({ invalidateAdminRoleCache } = await import("@/lib/platform/auth/adminRbac"));
+    ({ invalidateEntitlementsCache } = await import("@/lib/platform/entitlements/resolve"));
+    await Plan.create({ key: PLAN_KEY.STARTER, name: "Starter", features: PLAN_FEATURES });
+    await Plan.create({ key: PLAN_KEY.ENTERPRISE, name: "Enterprise", features: PLAN_FEATURES });
   });
 
   afterAll(async () => {
@@ -49,8 +71,10 @@ describe("listOrganizations — server-side pagination, filtering, and derived f
     await ActivityLog.deleteMany({});
     await AiUsage.deleteMany({});
     await AdminRole.deleteMany({});
+    await OrganizationEntitlement.deleteMany({});
     await PlatformAuditLog.deleteMany({}).setOptions({ allowRetentionDelete: true });
     invalidateAdminRoleCache();
+    invalidateEntitlementsCache();
   });
 
   async function seedGrantedRole() {
@@ -163,6 +187,64 @@ describe("listOrganizations — server-side pagination, filtering, and derived f
     const result = await listOrganizations(makeActor(), "test", {});
     expect(result.rows[0].currentPeriodAiUsage).toBe(40);
     expect(result.rows[0].aiUsagePercent).toBe(40);
+  });
+
+  it("Phase 11 Part 1.1: aiUsagePercent is null (never NaN/Infinity/a fabricated 0%) when the org has no AI call cap configured", async () => {
+    await seedGrantedRole();
+    await Organization.create({
+      name: "No Cap Org",
+      subdomain: "no-cap-org",
+      ownerUserId: new mongoose.Types.ObjectId(),
+      aiCallsPerMonth: 0,
+    });
+    const { getAiPeriod } = await import("@/lib/ai/usage");
+    await AiUsage.create({ tenantId: "no-cap-org", period: getAiPeriod(), count: 5 });
+
+    const result = await listOrganizations(makeActor(), "test", {});
+    expect(result.rows[0].aiUsagePercent).toBeNull();
+    expect(result.rows[0].currentPeriodAiUsage).toBe(5); // the raw count is still shown
+  });
+
+  it("Phase 11 Part 1.1: planKey resolves through resolveEntitlements() — an assigned plan overrides the raw legacy tier, matching the Subscription tab (Hard Rule: the two surfaces must never disagree)", async () => {
+    await seedGrantedRole();
+    await Organization.create({
+      name: "Resolved Plan Org",
+      subdomain: "resolved-plan-org",
+      ownerUserId: new mongoose.Types.ObjectId(),
+      tier: ORGANIZATION_TIER.STARTER, // the raw legacy field — deliberately the WRONG answer here
+    });
+    await OrganizationEntitlement.create({ tenantId: "resolved-plan-org", planKey: PLAN_KEY.ENTERPRISE });
+
+    const result = await listOrganizations(makeActor(), "test", {});
+    expect(result.rows[0].planKey).toBe(PLAN_KEY.ENTERPRISE); // not "starter" — the list must not show the raw tier once a plan is assigned
+  });
+
+  it("Phase 11 Part 1.1: planKey falls back to the tier-bridged plan when no OrganizationEntitlement row exists — same fallback the Subscription tab uses", async () => {
+    await seedGrantedRole();
+    await Organization.create({
+      name: "Unassigned Org",
+      subdomain: "unassigned-org",
+      ownerUserId: new mongoose.Types.ObjectId(),
+      tier: ORGANIZATION_TIER.STARTER,
+    });
+
+    const result = await listOrganizations(makeActor(), "test", {});
+    expect(result.rows[0].planKey).toBe(PLAN_KEY.STARTER);
+  });
+
+  it("Phase 11 Part 1.1: region and timezone pass through for per-organisation display (Hard Rule 12)", async () => {
+    await seedGrantedRole();
+    await Organization.create({
+      name: "Regional Org",
+      subdomain: "regional-org",
+      ownerUserId: new mongoose.Types.ObjectId(),
+      region: "APAC",
+      settings: { timezone: "Asia/Kolkata" },
+    });
+
+    const result = await listOrganizations(makeActor(), "test", {});
+    expect(result.rows[0].region).toBe("APAC");
+    expect(result.rows[0].timezone).toBe("Asia/Kolkata");
   });
 
   it("denies without VIEW_ORGANIZATIONS and never touches the database", async () => {

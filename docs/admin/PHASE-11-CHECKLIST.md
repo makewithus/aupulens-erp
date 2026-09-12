@@ -5,9 +5,13 @@
 
 ```
 SUPPLIED TEXT (Part 0)
-[ ] §7's four missing tabs identified: Modules, Configuration, Security, Usage
-[ ] HARD_RULES.md: all 15 rules, proof + test each; rule 12 checked hardest
-[ ] ORGANIZATION_STATUS confirmed as exactly the 8 values; PAYMENT_HOLD does something real
+[x] §7's four missing tabs identified: Modules, Configuration, Security, Usage
+[x] HARD_RULES.md: all 15 rules, proof + test each; rule 12 checked hardest — found genuinely
+    broken (every timestamp display used the browser's local zone, unlabeled), fixed with a
+    shared formatInOrgTimezone()/formatPlatformTimestamp() utility, new test suite
+[x] ORGANIZATION_STATUS confirmed as exactly the 8 values, all reachable through the UI;
+    PAYMENT_HOLD was a label that lied (reachable, persisted, zero effect) — now blocks login
+    the same way SUSPENDED does
 
 CLOSE THE PARTIALS (Part 1)
 [ ] §3 list: Organisation ID, Region, Usage % (null-safe), resolved plan not legacy tier

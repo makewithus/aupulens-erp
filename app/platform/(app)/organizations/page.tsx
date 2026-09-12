@@ -22,9 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ORGANIZATION_STATUS_LABELS, ORGANIZATION_TYPE_LABELS } from "@/lib/constants/statuses";
-import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
+import { ORGANIZATION_STATUS_LABELS, ORGANIZATION_TYPE_LABELS, PLAN_KEY_LABELS } from "@/lib/constants/statuses";
+import { formatInOrgTimezone } from "@/lib/platform/formatting/orgTimezone";
 import { OrganizationListRow, LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "@/lib/platform/organizations/types";
+import { CopyableId } from "@/components/platform/CopyableId";
 
 const PAGE_SIZE = 25;
 
@@ -110,17 +111,22 @@ export default function OrganizationsListPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Org ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Country</TableHead>
-                <TableHead>Tier</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Active users</TableHead>
+                <TableHead>Users</TableHead>
                 <TableHead>AI usage</TableHead>
+                <TableHead title="Current-period AI consumption ÷ plan allocation. Shown as “—” when the organisation has no AI call cap configured — never a fabricated 0%.">
+                  Usage %
+                </TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead title={LAST_MEANINGFUL_ACTIVITY_DEFINITION}>Last activity</TableHead>
               </TableRow>
@@ -128,14 +134,14 @@ export default function OrganizationsListPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-sm text-neutral-500 py-8">
+                  <TableCell colSpan={12} className="text-center text-sm text-neutral-500 py-8">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-sm text-neutral-500 py-8">
+                  <TableCell colSpan={12} className="text-center text-sm text-neutral-500 py-8">
                     No organisations found.
                   </TableCell>
                 </TableRow>
@@ -146,6 +152,9 @@ export default function OrganizationsListPage() {
                   className="cursor-pointer"
                   onClick={() => router.push(`/platform/organizations/${row.subdomain}`)}
                 >
+                  <TableCell>
+                    <CopyableId value={row.id} label="Organisation ID" />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link href={`/platform/organizations/${row.subdomain}`} onClick={(e) => e.stopPropagation()}>
                       {row.name}
@@ -158,22 +167,28 @@ export default function OrganizationsListPage() {
                       : "—"}
                   </TableCell>
                   <TableCell>{row.country ?? "—"}</TableCell>
-                  <TableCell className="uppercase text-xs">{row.tier}</TableCell>
+                  <TableCell>{row.region ?? "—"}</TableCell>
+                  <TableCell className="uppercase text-xs" title="Entitlement-resolved plan — matches the Subscription tab, never the raw legacy tier field.">
+                    {PLAN_KEY_LABELS[row.planKey as keyof typeof PLAN_KEY_LABELS] ?? row.planKey}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={row.status === "suspended" || row.status === "payment_hold" ? "destructive" : "secondary"}>
                       {ORGANIZATION_STATUS_LABELS[row.status]}
                     </Badge>
                   </TableCell>
                   <TableCell>{row.activeUserCount}</TableCell>
+                  <TableCell>{row.currentPeriodAiUsage}</TableCell>
                   <TableCell>
-                    {row.aiUsagePercent !== null
-                      ? `${row.currentPeriodAiUsage} (${row.aiUsagePercent}%)`
-                      : row.currentPeriodAiUsage}
+                    {row.aiUsagePercent !== null ? (
+                      `${row.aiUsagePercent}%`
+                    ) : (
+                      <span title="No AI call cap is configured for this organisation, so a percentage cannot be computed.">—</span>
+                    )}
                   </TableCell>
-                  <TableCell>{formatPlatformTimestamp(row.createdAt, { dateOnly: true })}</TableCell>
+                  <TableCell>{formatInOrgTimezone(row.createdAt, row.timezone, { dateOnly: true })}</TableCell>
                   <TableCell>
                     {row.lastMeaningfulActivityAt
-                      ? formatPlatformTimestamp(row.lastMeaningfulActivityAt, { dateOnly: true })
+                      ? formatInOrgTimezone(row.lastMeaningfulActivityAt, row.timezone, { dateOnly: true })
                       : "—"}
                   </TableCell>
                 </TableRow>

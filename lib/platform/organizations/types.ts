@@ -14,7 +14,16 @@ export interface OrganizationListRow {
   organizationType?: string;
   country?: string;
   region?: string;
-  tier: string;
+  timezone?: string;
+  /**
+   * Phase 11 Part 1.1: this used to be the raw, legacy `Organization.tier`
+   * field — which silently diverges from what the Subscription tab shows
+   * for any organisation with an assigned plan or override, since that tab
+   * resolves through `resolveEntitlements()` and this one didn't. Now the
+   * same entitlement-resolved plan key, so the list and the detail tab can
+   * never show two different plans for the same organisation again.
+   */
+  planKey: string;
   status: OrganizationStatus;
   activeUserCount: number;
   currentPeriodAiUsage: number;
