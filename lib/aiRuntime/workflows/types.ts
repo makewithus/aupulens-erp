@@ -106,6 +106,28 @@ export interface WorkflowDefinition<TRaw = unknown, TExtracted = unknown, TPropo
   defaultAutonomy: AiAutonomyLevel;
 
   /**
+   * Phase 10 Addendum A Part 0: declares whether this workflow's act() can
+   * reach a write-capable tool (sideEffect "draft" or "execute" — e.g.
+   * internal_state writes like AiControlResult/AiAttentionItem, not just a
+   * financial-document write). Optional, defaults to `false`/absent —
+   * genuinely read-only workflows never need to set it.
+   *
+   * WHY THIS EXISTS: `lib/aiRuntime/runtime/eventBus.ts`'s dispatch gate
+   * used to exempt every workflow at OBSERVE/RECOMMEND autonomy from the
+   * per-workflow kill switch, on the assumption those levels never have
+   * side effects (Hard Rule 6 requires every workflow that CAN write to
+   * have a working kill switch). A registry-wide audit
+   * (docs/ai/audits/KILLSWITCH_AUDIT.md) found that assumption false for 9
+   * of 30 workflows, all OBSERVE/RECOMMEND-level, all performing real
+   * internal_state writes — turning their kill switch off did not stop
+   * them. This field is what the gate now checks instead of autonomy
+   * level; `tests/ai/aiRuntime/killSwitchCoverage.test.ts` structurally
+   * asserts that every workflow calling a write-capable tool has this set,
+   * so a future workflow cannot reintroduce the same silent bypass.
+   */
+  performsWrites?: boolean;
+
+  /**
    * Ownership predicate for a shared event key (docs/ai/BRIEF-04-BATCH-C.md Part 0.2) —
    * generalises the ad-hoc `schedule.due` ownership checks Batch B hand-wrote per workflow.
    * `lib/aiRuntime/runtime/eventBus.ts::dispatchEvent()` only enforces this when an eventKey has

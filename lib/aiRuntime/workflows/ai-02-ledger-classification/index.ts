@@ -117,6 +117,12 @@ export const ai02LedgerClassification: WorkflowDefinition<Ai02Raw, Ai02Extracted
   eventKeys: ["bill.created", "invoice.created", "expense.submitted"],
   actionClass: "ledger_classification",
   defaultAutonomy: AI_AUTONOMY_LEVEL.EXECUTE,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // All three keys are genuine fan-out, not entity ownership — every bill/invoice/expense is a
   // valid classification candidate for AI-02 regardless of who else is also subscribed to that

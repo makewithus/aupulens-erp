@@ -78,6 +78,12 @@ export const ai01DocumentIngestion: WorkflowDefinition<Ai01Raw, Ai01Extracted, A
   eventKeys: ["document.received"],
   actionClass: "document_ingestion",
   defaultAutonomy: AI_AUTONOMY_LEVEL.DRAFT,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   async observe(event): Promise<ObservedResult<Ai01Raw>> {
     const extractedDocumentId = String(event.payload.extractedDocumentId);

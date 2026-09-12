@@ -67,6 +67,10 @@ export const ai12TaxIntelligence: WorkflowDefinition<Ai12Raw, Ai12Extracted, Ai1
   eventKeys: ["period.horizon.reached"],
   actionClass: "tax_intelligence",
   defaultAutonomy: AI_AUTONOMY_LEVEL.RECOMMEND,
+  // Phase 10 Addendum A Part 0: this workflow writes real internal_state
+  // records at OBSERVE/RECOMMEND autonomy (docs/ai/audits/KILLSWITCH_AUDIT.md)
+  // — must not be exempt from the per-workflow kill switch.
+  performsWrites: true,
 
   async subscriptionFilter(): Promise<boolean> {
     return true; // fan-out, shared with AI-13/14/22/24/25/28

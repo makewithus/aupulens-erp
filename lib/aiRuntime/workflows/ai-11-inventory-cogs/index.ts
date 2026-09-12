@@ -76,6 +76,10 @@ export const ai11InventoryCogs: WorkflowDefinition<Ai11Raw, Ai11Extracted, Ai11P
   eventKeys: ["period.horizon.reached", "ai.sweep.hourly"],
   actionClass: "inventory_intelligence",
   defaultAutonomy: AI_AUTONOMY_LEVEL.RECOMMEND,
+  // Phase 10 Addendum A Part 0: this workflow writes real internal_state
+  // records at OBSERVE/RECOMMEND autonomy (docs/ai/audits/KILLSWITCH_AUDIT.md)
+  // — must not be exempt from the per-workflow kill switch.
+  performsWrites: true,
 
   subscriptionFilter(): boolean {
     return true;

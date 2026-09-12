@@ -128,6 +128,12 @@ export const ai06PayablesOperations: WorkflowDefinition<Ai06Raw, Ai06Extracted, 
   eventKeys: ["ai.sweep.hourly", "bill.created"],
   actionClass: "payables",
   defaultAutonomy: AI_AUTONOMY_LEVEL.DRAFT,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // Both keys are shared/fan-out — always accepted (bill.created has no single "owner", every
   // workflow watching it answers its own independent question about the same bill).

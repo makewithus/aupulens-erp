@@ -72,6 +72,10 @@ export const ai19MasterData: WorkflowDefinition<Ai19Raw, Ai19Extracted, Ai19Prop
   eventKeys: ["master_data.changed", "period.horizon.reached", "ai.sweep.hourly"],
   actionClass: "master_data_intelligence",
   defaultAutonomy: AI_AUTONOMY_LEVEL.RECOMMEND,
+  // Phase 10 Addendum A Part 0: this workflow writes real internal_state
+  // records at OBSERVE/RECOMMEND autonomy (docs/ai/audits/KILLSWITCH_AUDIT.md)
+  // — must not be exempt from the per-workflow kill switch.
+  performsWrites: true,
 
   subscriptionFilter(): boolean {
     return true;

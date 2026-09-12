@@ -102,6 +102,12 @@ export const ai09RevenueRecognition: WorkflowDefinition<Ai09Raw, Ai09Extracted, 
   eventKeys: ["ai.sweep.hourly", "schedule.due"],
   actionClass: "revenue_recognition",
   defaultAutonomy: AI_AUTONOMY_LEVEL.DRAFT,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // `ai.sweep.hourly` is fan-out (shared with AI-03/AI-07) — always accepted. `schedule.due` is
   // real ownership: AI-09's deferred_revenue schedules are sourced from SaleOrder, distinct from

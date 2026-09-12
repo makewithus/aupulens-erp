@@ -104,6 +104,12 @@ export const ai08PrepaidSchedule: WorkflowDefinition<Ai08Raw, Ai08Extracted, Ai0
   eventKeys: ["bill.created", "invoice.created", "schedule.due"],
   actionClass: "prepaid_schedule",
   defaultAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // `bill.created`/`invoice.created` are fan-out (shared with AI-02/07/10) — always accepted.
   // `schedule.due` is real ownership: AI-08 creates both "prepaid" and "deferred_revenue"

@@ -92,6 +92,12 @@ export const ai10FixedAsset: WorkflowDefinition<Ai10Raw, Ai10Extracted, Ai10Prop
   eventKeys: ["bill.created", "asset.created", "schedule.due"],
   actionClass: "capitalisation",
   defaultAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // `bill.created` is fan-out (shared with AI-02/07/08) — always accepted. `asset.created` is
   // solo (no filter consulted). `schedule.due` is real ownership: only AI-10's own "depreciation"

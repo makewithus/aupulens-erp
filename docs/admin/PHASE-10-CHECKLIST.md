@@ -1,8 +1,36 @@
 # Phase 10 working checklist
 
-> Source: `docs/admin/BRIEF-PHASE-10-FINAL.md` Part 9. Updated as work proceeds.
+> Source: `docs/admin/BRIEF-PHASE-10-FINAL.md` Part 9, plus `docs/admin/BRIEF-PHASE-10a-ADDENDUM.md`
+> Part 0's "add it now, at the top" instruction. Updated as work proceeds.
 
 ```
+ADDENDUM A — PART 0: KILL-SWITCH BYPASS CLASS-DEFECT (done before everything below)
+[x] Enumerate all 30 workflows from the live registry (not hand-written) into
+    docs/ai/audits/KILLSWITCH_AUDIT.md with autonomy/writes/exempt/verdict columns
+[x] Fix structurally: dispatch gate now keys off a declared `performsWrites` field, not
+    declared autonomy level (lib/aiRuntime/runtime/eventBus.ts)
+[x] All 19 real-writer workflows declare performsWrites: true (9 originally-bypassed +
+    10 already-correctly-gated-by-autonomy that the field-only gate would have newly
+    exempted — caught by the structural test before commit, see KILLSWITCH_AUDIT.md)
+[x] Structural test tests/ai/aiRuntime/killSwitchCoverage.test.ts: asserts over the
+    registry that no workflow reaching a write tool is undeclared, and vice versa
+[x] Part 0.3: checked whether the same short-circuit defeats decideAutonomy()'s
+    policy.maxAutonomyLevel clamp — real gap for RECOMMEND-declared writers, but
+    currently inert (no act() consumes decision.autonomyApplied); recorded as
+    OPEN_QUESTIONS.md #37, not fixed speculatively
+[x] Reported separately, own [AI-runtime] commit, cherry-pickable
+[ ] Golden-dataset suite run across every workflow that has one (Addendum A Part 1) —
+    "one command and a report," pass rate to be reported
+[ ] docs/ai/README.md or DECISIONS.md: "four documented claim failures" section
+    (Addendum A Part 3) plus the two checks that now prevent them
+
+ADDENDUM A — PART 2: CRM SLA-BREACH ITEM (do not fix; mitigate + record)
+[x] SCHEDULED_WORK.md already records the precise incorrect behaviour (not merely stale)
+[ ] Confirm the Scheduled Jobs panel surfaces crm/sla-check staleness clearly — it is
+    already covered generically by getJobStatuses()/the panel, verify explicitly rather
+    than assume
+[ ] Add to the final report's open list as a recommended CRM-owner follow-up
+
 CRON RESOLUTION
 [x] Close 792a06f without applying; update CRON_INCIDENT.md with the plan-driven resolution
 [x] Document what still works (inline event dispatch) vs what stopped

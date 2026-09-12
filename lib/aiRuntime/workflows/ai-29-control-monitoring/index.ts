@@ -78,6 +78,10 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
   eventKeys: ["period.horizon.reached", "ai.sweep.hourly"],
   actionClass: "read_only",
   defaultAutonomy: AI_AUTONOMY_LEVEL.OBSERVE,
+  // Phase 10 Addendum A Part 0: this workflow writes real internal_state
+  // records at OBSERVE/RECOMMEND autonomy (docs/ai/audits/KILLSWITCH_AUDIT.md)
+  // — must not be exempt from the per-workflow kill switch.
+  performsWrites: true,
 
   subscriptionFilter(): boolean {
     return true; // fan-out, same as AI-13/17/18/20/21/22/23

@@ -99,6 +99,12 @@ export const ai03BankReconciliation: WorkflowDefinition<Ai03Raw, Ai03Extracted, 
   eventKeys: ["bank.transaction.imported", "ai.sweep.hourly"],
   actionClass: "bank_reconciliation",
   defaultAutonomy: AI_AUTONOMY_LEVEL.EXECUTE,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   // `bank.transaction.imported` is solo-subscribed (no filter consulted for it — see
   // eventBus.ts::dispatchEvent). `ai.sweep.hourly` is shared with AI-07/AI-09, each doing its

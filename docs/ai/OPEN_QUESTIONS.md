@@ -664,4 +664,24 @@ to assert the current, correct state rather than the stale one. **The pattern wo
 downstream workflow (AI-19/AI-27) closing a gap doesn't automatically update the upstream
 workflow's own stale declaration of that gap — a report saying "X is closed" and the code still
 saying "X is not_implemented" can both be true at once unless someone deliberately reconciles them.
+
+## Phase 10 Addendum A, Part 0 — kill-switch bypass sweep
+
+### 37. `decideAutonomy()`'s OBSERVE/RECOMMEND short-circuit also skips the `policy.maxAutonomyLevel` clamp — real gap, but currently inert
+
+Full writeup in `docs/ai/audits/KILLSWITCH_AUDIT.md`'s "Part 0.3" section. Short version:
+`lib/aiRuntime/policy/autonomyGate.ts::decideAutonomy()` returns early for any workflow declaring
+`OBSERVE` or `RECOMMEND`, before `policy.maxAutonomyLevel` is ever consulted. For `RECOMMEND`
+workflows this is a genuine gap symmetrically — `OBSERVE` sits below `RECOMMEND`, so a
+`maxAutonomyLevel: observe` policy row is a real, currently-unreachable clamp for the 4
+`RECOMMEND`-declared writers (AI-11, AI-12, AI-19, AI-27). Checked directly (not assumed) whether
+this has live effect: none of the 9 kill-switch-bypass workflows' `act()` implementations read
+`decision.autonomyApplied`/`decision.allowed` to gate their write tool calls, so today the clamp
+value is computed but never consumed for these workflows — the kill switch fix
+(`performsWrites`) is what actually stops them. Not fixed in this pass: doing so would touch
+`escalate`/`autonomyApplied` recording for all 21 `RECOMMEND`-level workflows (not just the 4
+writers) for no present behavioral change, since no `act()` consumes the corrected value yet.
+Revisit if/when `policy.maxAutonomyLevel` is meant to be a real lever for a `RECOMMEND`-level
+writer independent of the kill switch — that would require both the gate fix and every such
+`act()` to branch on `decision.autonomyApplied`.
 Worth a repo-wide grep for `checksNotImplemented`/`NOT_IMPLEMENTED` staleness on a future chunk.

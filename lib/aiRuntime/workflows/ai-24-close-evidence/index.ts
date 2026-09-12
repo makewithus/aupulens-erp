@@ -65,6 +65,10 @@ export const ai24CloseEvidence: WorkflowDefinition<Ai24Raw, Ai24Extracted, Ai24P
   eventKeys: ["period.horizon.reached", "ai.sweep.hourly"],
   actionClass: "read_only",
   defaultAutonomy: AI_AUTONOMY_LEVEL.OBSERVE,
+  // Phase 10 Addendum A Part 0: this workflow writes real internal_state
+  // records at OBSERVE/RECOMMEND autonomy (docs/ai/audits/KILLSWITCH_AUDIT.md)
+  // — must not be exempt from the per-workflow kill switch.
+  performsWrites: true,
 
   subscriptionFilter(): boolean {
     return true;

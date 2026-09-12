@@ -1,6 +1,6 @@
 import connectDB from "@/lib/db";
 import AiEvent from "@/models/ai/AiEvent";
-import { AI_EVENT_STATUS, AI_AUTONOMY_LEVEL } from "@/lib/constants/statuses";
+import { AI_EVENT_STATUS } from "@/lib/constants/statuses";
 import { getWorkflowsForEventKey } from "@/lib/aiRuntime/runtime/registry";
 import { isWorkflowEnabled } from "@/lib/aiRuntime/runtime/killSwitch";
 import { runWorkflow } from "@/lib/aiRuntime/runtime/executor";
@@ -91,11 +91,21 @@ export async function dispatchEvent(eventId: string): Promise<void> {
     }
 
     const enabled = await isWorkflowEnabled(event.tenantId, workflow.id).catch(() => false);
-    const requiresValidation =
-      workflow.defaultAutonomy !== AI_AUTONOMY_LEVEL.OBSERVE &&
-      workflow.defaultAutonomy !== AI_AUTONOMY_LEVEL.RECOMMEND;
-    if (!enabled && requiresValidation) {
-      // Above RECOMMEND, a disabled workflow must not run at all — fail closed (Hard Rule 6).
+    // Phase 10 Addendum A Part 0: the exemption used to be based on
+    // declared AUTONOMY LEVEL (OBSERVE/RECOMMEND exempt, everything above
+    // gated) on the assumption those levels never have side effects. A
+    // registry-wide audit (docs/ai/audits/KILLSWITCH_AUDIT.md) found 9 of 30
+    // workflows — all OBSERVE/RECOMMEND — writing real internal_state
+    // records while exempt: turning their kill switch off did not stop
+    // them. The exemption is now based on whether the workflow CAN WRITE AT
+    // ALL (`performsWrites`, a workflow-declared field —
+    // tests/ai/aiRuntime/killSwitchCoverage.test.ts structurally asserts no
+    // workflow calling a write-capable tool omits it), never on autonomy
+    // level. A workflow that never declares performsWrites is unaffected —
+    // this changes behaviour for exactly the 9 audited workflows, not for
+    // every OBSERVE/RECOMMEND-level one.
+    if (!enabled && workflow.performsWrites) {
+      // A disabled workflow that can write must not run at all — fail closed (Hard Rule 6).
       continue;
     }
     try {

@@ -88,6 +88,12 @@ export const ai30ErpOperations: WorkflowDefinition<Ai30Raw, Ai30Extracted, Ai30P
   eventKeys: ["ai.sweep.hourly"],
   actionClass: "erp_operations",
   defaultAutonomy: AI_AUTONOMY_LEVEL.CONTROLLED_AUTONOMOUS,
+  // Phase 10 Addendum A Part 0.2: this workflow's own autonomy level was
+  // already above RECOMMEND (so the OLD eventBus.ts gate correctly did not
+  // exempt it), but the new gate stopped consulting autonomy level entirely
+  // in favour of this declared field (docs/ai/audits/KILLSWITCH_AUDIT.md) —
+  // must be set explicitly or this workflow would become wrongly exempt.
+  performsWrites: true,
 
   subscriptionFilter(): boolean {
     return true;
