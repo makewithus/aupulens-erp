@@ -1,6 +1,7 @@
 import connectDB from "@/lib/db";
 import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
+import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import Organization from "@/models/admin/Organization";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { ADMIN_CAPABILITY, PLATFORM_EVENT_TYPE } from "@/lib/constants/statuses";
@@ -33,7 +34,14 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
       const lastMonth = previousMonthPeriod(thisMonth);
       const today = new Date().toISOString().slice(0, 10);
 
-      const [thisMonthRows, lastMonthRows, todayRows, byOrg, byModel] = await Promise.all([
+      // "This month" begin, UTC — used only for the topModels query below,
+      // which reads AiUsageRecord directly (see that query's own comment
+      // for why, unlike every other figure here which reads the rollups).
+      const monthStart = new Date(
+        Date.UTC(Number(thisMonth.slice(0, 4)), Number(thisMonth.slice(4, 6)) - 1, 1),
+      );
+
+      const [thisMonthRows, allTimeRows, lastMonthRows, todayRows, byOrg, byFeature, byModel] = await Promise.all([
         AiUsageMonthly.aggregate([
           { $match: { period: thisMonth } },
           {
@@ -47,6 +55,9 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
             },
           },
         ]),
+        // §13's "Total AI Requests" — distinct from "This Month" below, an
+        // all-time figure across every period this rollup has ever recorded.
+        AiUsageMonthly.aggregate([{ $group: { _id: null, requestCount: { $sum: "$requestCount" } } }]),
         AiUsageMonthly.aggregate([
           { $match: { period: lastMonth } },
           { $group: { _id: null, requestCount: { $sum: "$requestCount" } } },
@@ -66,6 +77,25 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
           { $group: { _id: "$feature", requestCount: { $sum: "$requestCount" } } },
           { $sort: { requestCount: -1 } },
         ]),
+        // §13's "Top Models" — a genuinely separate metric from "Top
+        // Features" above (model name, e.g. gpt-4o, vs. feature bucket, e.g.
+        // ai_assistant). The AiUsageMonthly/AiUsageDaily rollups deliberately
+        // don't carry a modelName field (this dashboard's own long-standing
+        // rule is to read the rollups, never AiUsageRecord, at load time) —
+        // adding one would mean widening the rollup's unique index
+        // (tenantId+period+feature) to include modelName, a real schema
+        // migration affecting Phase 4's tested aggregation logic and every
+        // existing rollup row, for one dashboard tile. Reading AiUsageRecord
+        // directly, bounded to "this month" (the same window every other
+        // figure here already uses) and backed by the pre-existing
+        // `{ createdAt: -1 }` index, is the smaller, safer change — this is
+        // an admin dashboard read, not a per-tenant-request hot path.
+        AiUsageRecord.aggregate([
+          { $match: { createdAt: { $gte: monthStart } } },
+          { $group: { _id: "$modelName", requestCount: { $sum: 1 } } },
+          { $sort: { requestCount: -1 } },
+          { $limit: 5 },
+        ]),
       ]);
 
       const orgSubdomains = byOrg.map((o) => o._id as string);
@@ -81,11 +111,13 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
       };
 
       return {
+        totalRequestsAllTime: allTimeRows[0]?.requestCount ?? 0,
         totalRequestsThisMonth: totals.requestCount,
         totalRequestsToday: todayRows[0]?.requestCount ?? 0,
         totalRequestsPreviousMonth: lastMonthRows[0]?.requestCount ?? 0,
         totalInputTokens: totals.inputTokens,
         totalOutputTokens: totals.outputTokens,
+        totalTokens: totals.inputTokens + totals.outputTokens,
         estimatedCostUsd: totals.estimatedCostUsd,
         failedRequests: totals.errorCount,
         averageRequestCostUsd: totals.requestCount > 0 ? totals.estimatedCostUsd / totals.requestCount : 0,
@@ -95,7 +127,8 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
           requestCount: o.requestCount,
           estimatedCostUsd: o.estimatedCostUsd,
         })),
-        topFeatures: byModel.map((f) => ({ feature: f._id as string, requestCount: f.requestCount })),
+        topFeatures: byFeature.map((f) => ({ feature: f._id as string, requestCount: f.requestCount })),
+        topModels: byModel.map((m) => ({ modelName: m._id as string, requestCount: m.requestCount })),
       };
     },
   });

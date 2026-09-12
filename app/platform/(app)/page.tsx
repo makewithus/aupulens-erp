@@ -15,12 +15,16 @@ interface AlertRow {
 
 interface AiUsageSummary {
   available: true;
+  totalRequestsAllTime: number;
   totalRequestsThisMonth: number;
   totalRequestsToday: number;
   totalRequestsPreviousMonth: number;
+  totalTokens: number;
   estimatedCostUsd: number;
   failedRequests: number;
+  averageRequestCostUsd: number;
   topOrganisations: { tenantId: string; name: string; requestCount: number; estimatedCostUsd: number }[];
+  topModels: { modelName: string; requestCount: number }[];
 }
 
 interface DashboardSummary {
@@ -73,12 +77,22 @@ export default function PlatformDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="AI requests today" value={summary?.aiUsage.totalRequestsToday} />
         <StatCard label="AI requests last month" value={summary?.aiUsage.totalRequestsPreviousMonth} />
+        <StatCard label="AI requests, all time" value={summary?.aiUsage.totalRequestsAllTime} />
         <StatCard label="Failed AI requests" value={summary?.aiUsage.failedRequests} />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Estimated AI cost this month"
           value={summary ? Number(summary.aiUsage.estimatedCostUsd.toFixed(2)) : undefined}
           prefix="$"
         />
+        <StatCard
+          label="Average AI request cost"
+          value={summary ? Number(summary.aiUsage.averageRequestCostUsd.toFixed(4)) : undefined}
+          prefix="$"
+        />
+        <StatCard label="Total AI tokens this month" value={summary?.aiUsage.totalTokens} />
       </div>
 
       <Card>
@@ -120,6 +134,25 @@ export default function PlatformDashboardPage() {
                 <span className="text-neutral-500">
                   {org.requestCount} requests · ${org.estimatedCostUsd.toFixed(2)}
                 </span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Top AI models this month</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {summary && summary.aiUsage.topModels.length === 0 && (
+            <p className="text-sm text-neutral-400 italic">No AI usage recorded yet this month.</p>
+          )}
+          <div className="space-y-2">
+            {summary?.aiUsage.topModels.map((m) => (
+              <div key={m.modelName} className="flex items-center justify-between text-sm">
+                <span>{m.modelName}</span>
+                <span className="text-neutral-500">{m.requestCount} requests</span>
               </div>
             ))}
           </div>

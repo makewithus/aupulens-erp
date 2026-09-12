@@ -45,6 +45,12 @@ export default function PlansPage() {
           The plan catalogue, read live from the database. Assign a plan from an organisation&apos;s
           Subscription tab.
         </p>
+        <p className="text-xs text-neutral-400 mt-1">
+          These 7 slots are fixed — plan keys are not free-form. Per-customer variation (source doc
+          §11&apos;s &quot;custom enterprise plan&quot;) is done by assigning <strong>Custom</strong> as
+          the base plan, then layering a per-organisation override on top from that organisation&apos;s
+          Subscription tab, not by creating a new plan key.
+        </p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

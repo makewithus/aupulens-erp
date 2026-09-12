@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,6 +60,39 @@ export default function OrganizationDetailPage() {
   const [overrideAiCredits, setOverrideAiCredits] = useState("");
   const [overrideModules, setOverrideModules] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [aiLimits, setAiLimits] = useState<{
+    limit: {
+      monthlyCreditsUsd: number | null;
+      dailyCreditsUsd: number | null;
+      maxRequestsPerMonth: number | null;
+      maxTokensPerMonth: number | null;
+      maxCostUsdPerMonth: number | null;
+      atLimitBehavior: string;
+    } | null;
+    overage: {
+      enabled: boolean;
+      ratePerCreditUsd: number;
+      softLimitUsd: number;
+      hardLimitUsd: number;
+      alertThresholds: number[];
+    } | null;
+  } | null>(null);
+  const [aiLimitDialogOpen, setAiLimitDialogOpen] = useState(false);
+  const [aiLimitForm, setAiLimitForm] = useState({
+    monthlyCreditsUsd: "",
+    dailyCreditsUsd: "",
+    maxRequestsPerMonth: "",
+    maxTokensPerMonth: "",
+    maxCostUsdPerMonth: "",
+    atLimitBehavior: "block",
+  });
+  const [overageForm, setOverageForm] = useState({
+    enabled: false,
+    ratePerCreditUsd: "",
+    softLimitUsd: "",
+    hardLimitUsd: "",
+  });
+  const [aiLimitReason, setAiLimitReason] = useState("");
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -91,7 +125,72 @@ export default function OrganizationDetailPage() {
   useEffect(() => {
     if (!tabData[tab]) loadTab(tab);
     if (tab === "subscription") loadEntitlements();
+    if (tab === "ai-usage") loadAiLimits();
   }, [tab]);
+
+  async function loadAiLimits() {
+    const res = await fetch(`/api/platform/organizations/${subdomain}/ai-limits`);
+    const body = await res.json();
+    if (body.success) setAiLimits(body.data);
+  }
+
+  function openAiLimitDialog() {
+    const l = aiLimits?.limit;
+    setAiLimitForm({
+      monthlyCreditsUsd: l?.monthlyCreditsUsd != null ? String(l.monthlyCreditsUsd) : "",
+      dailyCreditsUsd: l?.dailyCreditsUsd != null ? String(l.dailyCreditsUsd) : "",
+      maxRequestsPerMonth: l?.maxRequestsPerMonth != null ? String(l.maxRequestsPerMonth) : "",
+      maxTokensPerMonth: l?.maxTokensPerMonth != null ? String(l.maxTokensPerMonth) : "",
+      maxCostUsdPerMonth: l?.maxCostUsdPerMonth != null ? String(l.maxCostUsdPerMonth) : "",
+      atLimitBehavior: l?.atLimitBehavior ?? "block",
+    });
+    const o = aiLimits?.overage;
+    setOverageForm({
+      enabled: o?.enabled ?? false,
+      ratePerCreditUsd: o?.ratePerCreditUsd != null ? String(o.ratePerCreditUsd) : "",
+      softLimitUsd: o?.softLimitUsd != null ? String(o.softLimitUsd) : "",
+      hardLimitUsd: o?.hardLimitUsd != null ? String(o.hardLimitUsd) : "",
+    });
+    setAiLimitReason("");
+    setAiLimitDialogOpen(true);
+  }
+
+  async function handleSaveAiLimits() {
+    setSubmitting(true);
+    try {
+      const num = (v: string) => (v.trim() ? Number(v) : null);
+      const res = await fetch(`/api/platform/organizations/${subdomain}/ai-limits`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: aiLimitReason,
+          limit: {
+            monthlyCreditsUsd: num(aiLimitForm.monthlyCreditsUsd),
+            dailyCreditsUsd: num(aiLimitForm.dailyCreditsUsd),
+            maxRequestsPerMonth: num(aiLimitForm.maxRequestsPerMonth),
+            maxTokensPerMonth: num(aiLimitForm.maxTokensPerMonth),
+            maxCostUsdPerMonth: num(aiLimitForm.maxCostUsdPerMonth),
+            atLimitBehavior: aiLimitForm.atLimitBehavior,
+          },
+          overage: {
+            enabled: overageForm.enabled,
+            ratePerCreditUsd: overageForm.ratePerCreditUsd.trim() ? Number(overageForm.ratePerCreditUsd) : 0,
+            softLimitUsd: overageForm.softLimitUsd.trim() ? Number(overageForm.softLimitUsd) : 0,
+            hardLimitUsd: overageForm.hardLimitUsd.trim() ? Number(overageForm.hardLimitUsd) : 0,
+          },
+        }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Failed to save AI limits.");
+        return;
+      }
+      setAiLimitDialogOpen(false);
+      await loadAiLimits();
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function loadEntitlements() {
     const res = await fetch(`/api/platform/organizations/${subdomain}/plan`);
@@ -393,6 +492,54 @@ export default function OrganizationDetailPage() {
               </div>
             </>
           )}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">AI limits &amp; overage (source doc §15/§16)</CardTitle>
+              <Button size="sm" variant="outline" onClick={openAiLimitDialog}>
+                Configure
+              </Button>
+            </CardHeader>
+            <CardContent className="text-sm space-y-4">
+              {aiLimits?.limit ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {aiLimits.limit.monthlyCreditsUsd != null && (
+                    <Field label="Monthly credits (₹)" value={aiLimits.limit.monthlyCreditsUsd} />
+                  )}
+                  {aiLimits.limit.dailyCreditsUsd != null && (
+                    <Field label="Daily credits (₹)" value={aiLimits.limit.dailyCreditsUsd} />
+                  )}
+                  {aiLimits.limit.maxRequestsPerMonth != null && (
+                    <Field label="Max requests/mo" value={aiLimits.limit.maxRequestsPerMonth} />
+                  )}
+                  {aiLimits.limit.maxTokensPerMonth != null && (
+                    <Field label="Max tokens/mo" value={aiLimits.limit.maxTokensPerMonth} />
+                  )}
+                  {aiLimits.limit.maxCostUsdPerMonth != null && (
+                    <Field label="Max cost/mo (₹)" value={aiLimits.limit.maxCostUsdPerMonth} />
+                  )}
+                  <Field label="At-limit behaviour" value={aiLimits.limit.atLimitBehavior} />
+                </div>
+              ) : (
+                <p className="text-neutral-500">
+                  No custom limit row — this organisation is governed only by its plan&apos;s tier cap
+                  (default behaviour: BLOCK once exhausted).
+                </p>
+              )}
+              <div className="border-t pt-3">
+                {aiLimits?.overage?.enabled ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Overage" value="Enabled" />
+                    <Field label="Rate / credit (₹)" value={aiLimits.overage.ratePerCreditUsd} />
+                    <Field label="Soft limit (₹)" value={aiLimits.overage.softLimitUsd} />
+                    <Field label="Hard limit (₹)" value={aiLimits.overage.hardLimitUsd} />
+                  </div>
+                ) : (
+                  <p className="text-neutral-500">Overage is not enabled for this organisation.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="billing">
@@ -513,6 +660,87 @@ export default function OrganizationDetailPage() {
             </Button>
             <Button disabled={!overrideReason.trim() || submitting} onClick={handleSetOverride}>
               {submitting ? "Saving…" : "Save override"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={aiLimitDialogOpen} onOpenChange={setAiLimitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI limits &amp; overage</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            <p className="text-xs text-neutral-500">Leave a field blank to leave it un-set (governed by the plan&apos;s tier cap).</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Monthly credits (₹)</Label>
+                <Input value={aiLimitForm.monthlyCreditsUsd} onChange={(e) => setAiLimitForm((f) => ({ ...f, monthlyCreditsUsd: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Daily credits (₹)</Label>
+                <Input value={aiLimitForm.dailyCreditsUsd} onChange={(e) => setAiLimitForm((f) => ({ ...f, dailyCreditsUsd: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Max requests / month</Label>
+                <Input value={aiLimitForm.maxRequestsPerMonth} onChange={(e) => setAiLimitForm((f) => ({ ...f, maxRequestsPerMonth: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Max tokens / month</Label>
+                <Input value={aiLimitForm.maxTokensPerMonth} onChange={(e) => setAiLimitForm((f) => ({ ...f, maxTokensPerMonth: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Max cost / month (₹)</Label>
+                <Input value={aiLimitForm.maxCostUsdPerMonth} onChange={(e) => setAiLimitForm((f) => ({ ...f, maxCostUsdPerMonth: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>At-limit behaviour</Label>
+                <Select value={aiLimitForm.atLimitBehavior} onValueChange={(v) => setAiLimitForm((f) => ({ ...f, atLimitBehavior: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="block">Block</SelectItem>
+                    <SelectItem value="throttle">Throttle</SelectItem>
+                    <SelectItem value="allow_with_overage">Allow with overage</SelectItem>
+                    <SelectItem value="allow_and_log">Allow and log</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border-t pt-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox checked={overageForm.enabled} onCheckedChange={(v) => setOverageForm((f) => ({ ...f, enabled: Boolean(v) }))} />
+                <Label className="font-normal">Overage enabled</Label>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>Rate / credit (₹)</Label>
+                  <Input value={overageForm.ratePerCreditUsd} onChange={(e) => setOverageForm((f) => ({ ...f, ratePerCreditUsd: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Soft limit (₹)</Label>
+                  <Input value={overageForm.softLimitUsd} onChange={(e) => setOverageForm((f) => ({ ...f, softLimitUsd: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Hard limit (₹)</Label>
+                  <Input value={overageForm.hardLimitUsd} onChange={(e) => setOverageForm((f) => ({ ...f, hardLimitUsd: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={aiLimitReason} onChange={(e) => setAiLimitReason(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiLimitDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!aiLimitReason.trim() || submitting} onClick={handleSaveAiLimits}>
+              {submitting ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

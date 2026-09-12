@@ -10,6 +10,7 @@
  */
 
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { AI_USAGE_FEATURE_BUCKET } from "@/lib/constants/statuses";
 import {
   buildExtractionPrompt,
   parseExtraction,
@@ -43,6 +44,11 @@ export async function extractDocument(
       systemPrompt: SYSTEM,
       maxTokens: 1200,
       imageDataUrl: content.kind === "image" ? content.imageDataUrl : undefined,
+      // Source doc §14, Phase 9 Group B: without this, usage here defaulted
+      // to the "chat" AiFeature key and was recorded under AI_ASSISTANT,
+      // silently indistinguishable from an actual chat request — this is
+      // document extraction, not chat.
+      feature: AI_USAGE_FEATURE_BUCKET.DOCUMENT_PROCESSING,
     });
 
     if (!("text" in result)) {

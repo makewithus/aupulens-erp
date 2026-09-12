@@ -48,6 +48,26 @@ function bridgeTierToPlanKey(tier: string | undefined): PlanKeyType {
   }
 }
 
+/** The reverse of `bridgeTierToPlanKey` — which legacy `Organization.tier`
+ *  value (if any) resolves to a given plan key for a tenant with no
+ *  `OrganizationEntitlement` row. Used only to show an admin how many
+ *  *implicitly* bridged tenants a plan edit would affect, in addition to
+ *  tenants explicitly assigned that plan (docs/admin/BRIEF-PHASE-9a-ADDENDUM.md
+ *  Part 2, Group A item 2's "show how many organisations are on this plan
+ *  before saving" requirement). */
+export function getLegacyTierForPlanKey(planKey: PlanKeyType): string | null {
+  switch (planKey) {
+    case PLAN_KEY.STARTER:
+      return ORGANIZATION_TIER.STARTER;
+    case PLAN_KEY.PRO:
+      return ORGANIZATION_TIER.PROFESSIONAL;
+    case PLAN_KEY.ENTERPRISE:
+      return ORGANIZATION_TIER.ENTERPRISE;
+    default:
+      return null;
+  }
+}
+
 /** Hard-coded, minimal permissive default used ONLY when the resolver
  *  itself errors (Part 2.4: "default to permissive when the resolver
  *  errors, and log it") — never used as a normal code path, and always

@@ -18,16 +18,25 @@
 | `suggestion` | Lead scoring, deal risk, churn, win-probability, next-best-action | **AI Reports** | Analytical scoring/insight output, consumed as a report/badge, not a chat turn. |
 | `anomaly` | Anomaly detection explanations | **AI Reports** | Same reasoning as `suggestion` — an analytical finding, not an interaction. |
 
-## `lib/docIntel/` (vendor-bill extraction) → **Document Processing**
+## `lib/docIntel/` (vendor-bill extraction) → **Document Processing** — ✅ FIXED (Phase 9, Group B)
 
-Not gated by an `AiFeature` key today (it calls GPT-4o vision directly for OCR+extraction, per
-`docs/ai/SYSTEM_INVENTORY.md`'s finding) — its usage is not yet instrumented through
-`lib/ai/tenantAi.ts` at all (it doesn't go through `callClaudeForTenant`), so **no Document
-Processing usage is metered yet**. Recorded here as a known gap, not silently absent: the per-org
-AI Usage tab shows `Document Processing: 0` honestly rather than omitting the row, and
-`docs/admin/OPEN_QUESTIONS.md` should be checked before treating that `0` as "no usage occurred"
-versus "not instrumented yet" — it means the latter until `lib/docIntel/` is wired through
-`tenantAi.ts` or given its own metering call, which this phase does not do.
+**Correction to this document's own earlier claim.** This row previously said `lib/docIntel/`
+"doesn't go through `callClaudeForTenant`" and was therefore unmetered — that was checked directly
+against the code during Phase 9 and found **incorrect**: `lib/docIntel/extractor.ts` has always
+called `callClaudeForTenant` (confirmed by its own top-of-file comment, "Goes through
+callClaudeForTenant so it respects the tenant AI kill-switch..."). The real gap was narrower and
+genuinely small: no `feature` option was passed on that call, so every extraction defaulted to the
+`"chat"` `AiFeature` key and was silently recorded under **AI Assistant**, indistinguishable from
+an actual chat message.
+
+Fixed by two small, additive changes: `lib/platform/ai/featureMap.ts::mapFeatureToBucket()` now
+accepts a literal bucket name directly (not only a 7-key `AiFeature`), and
+`lib/docIntel/extractor.ts` passes `feature: AI_USAGE_FEATURE_BUCKET.DOCUMENT_PROCESSING`
+explicitly. Document Processing usage is metered from this point forward — historical extractions
+made before this fix are permanently miscounted under AI Assistant (no backfill was attempted; the
+underlying `AiUsageRecord` rows don't carry enough information to distinguish which ones were
+really document extractions after the fact, and guessing would be worse than leaving history as it
+genuinely was recorded).
 
 ## `models/ai/AiWorkflowRun.ts` (the AI runtime's 10-stage workflow executor) → **AI Automation** / **AI Agents**
 
@@ -47,7 +56,8 @@ distinguished from AI Automation" note, rather than guessing a split.
 
 ## What this means for the platform dashboard (§13)
 
-"Top features" and the per-org feature breakdown are real for AI Assistant and AI Reports
-(complete token/cost data), partial for AI Automation (request counts only, real), and honest
-zeros for Document Processing and AI Agents (not yet instrumented) — never a fabricated
-distribution across all 5 buckets to make the pie chart look complete.
+"Top features" and the per-org feature breakdown are real for AI Assistant, AI Reports, and (as of
+Phase 9) Document Processing (complete token/cost data for all three), partial for AI Automation
+(request counts only, real — no token/cost tracked in the AI runtime), and an honest zero for AI
+Agents (no distinct signal from AI Automation in this codebase) — never a fabricated distribution
+across all 5 buckets to make the pie chart look complete.
