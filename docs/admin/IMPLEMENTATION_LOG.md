@@ -577,3 +577,95 @@ silently assumed to be fine.
 
 **Commit**: local only, branch `global/admin`, no push. This is the final phase in the brief's
 own 8-phase build order — all phases now complete.
+
+---
+
+## Phase 9 — Coverage audit, integration hardening, pre-QA (2026-09-12, spans 3 addenda)
+
+**Trigger**: `docs/admin/BRIEF-PHASE-9-COVERAGE.md` — "all 8 phases complete" is not the same as
+"every requirement in the CTO's document is implemented." A structured coverage audit against the
+source specification, plus integration seam proofs, before anything reaches the test team.
+
+**A process gap found and closed**: the original CTO specification (`docs/admin/SOURCE-SPEC.md`)
+was never actually committed to this repo despite being named as its destination on day one — the
+coverage matrix was built from quoted fragments across nine phases until Addendum B supplied the
+full text. Closed permanently: every brief from here on is committed before work starts on it (all
+of `BRIEF-PHASE-9-COVERAGE.md`, `BRIEF-PHASE-9a/9b/9c-ADDENDUM.md`, and `SOURCE-SPEC.md` are now in
+git history).
+
+**A commit-hygiene gap found and closed** (Addendum C Part 0.1): a file written for Group A's
+plan-impact-count feature was tested but never staged in that commit — meaning a fresh checkout of
+that commit would not have built. Two checks now run at every phase gate: `git status --porcelain`
+must be empty before reporting a phase complete, and a fresh `git worktree` checkout is built and
+tested independently (not just the working directory) before that report. First run of both,
+recorded below, at commit `61b1f28`.
+
+**A documentation-accuracy audit** (Addendum C Part 0.2, prompted by the `docIntel` finding in
+Group B — a documented gap whose *stated reason* was wrong, which is worse than an undocumented gap
+because it stops anyone looking again): checked every DECLARED_NOT_POSSIBLE claim in
+`COVERAGE_MATRIX.md` against the code directly rather than trusting the prior phase's wording. 2 of
+4 held exactly; 1 (payment failure) held in conclusion but was imprecisely worded (a real gateway
+integration exists, deliberately stubbed); 1 (mass data export) was wrong — a real export feature
+exists (`lib/crm/exportEngine.ts`), reclassified from impossible to missing.
+
+**Work across the phase** (full detail in `docs/admin/COVERAGE_MATRIX.md` and its own per-addendum
+update sections, and `docs/admin/verification/tier-entitlement-bridge.md`,
+`docs/admin/verification/INTEGRATION.md`):
+- The tier/entitlement bridge: `moduleGate` (covering ~346/448 API routes) now resolves through
+  `resolveEntitlements()` for any tenant with an explicit `OrganizationEntitlement` row, built
+  non-breaking by construction (an untouched tenant never calls the resolver at all). Found and
+  fixed a real, pre-existing mismatch between the Phase 3a Plan catalogue and the legacy
+  `tiers.ts` definitions in the process — corrected the catalogue to match byte-for-byte, which
+  incidentally fixed a latent bug (a STARTER tenant would have been wrongly blocked from the
+  "inventory" module on any route wired to `enforce.ts`).
+- §8/§11: plan management UI (create/edit a plan's configuration, with an org-impact count and
+  explicit confirmation before saving) and a custom-override editor on the Subscription tab.
+  `PLAN_KEY` stays a fixed enum — "custom plan" is satisfied by `CUSTOM` + overrides, not free-form
+  plan-key creation.
+- §15/§16: AI limit and overage editor, gated `MANAGE_AI_LIMITS` (`AI_ADMIN`+`GLOBAL_SUPER_ADMIN`
+  only — a `GLOBAL_ADMIN`-refused test is the live proof the corrected §30 matrix is enforced).
+- §13: all 13 named AI dashboard metrics now present (added all-time requests, combined tokens,
+  and Top Models — a genuinely separate metric from Top Features that was entirely absent).
+- §14: found and fixed a real bug — `lib/docIntel/` always called the real AI chokepoint (an
+  earlier project doc claimed otherwise) but never tagged its `feature`, so usage was silently
+  miscounted under AI Assistant instead of Document Processing.
+- §5: Tax Jurisdiction and at-creation plan selection, both closed — the latter through the same
+  tested `assignPlan()` path, with a `planAssignmentPending` flag (never a silent half-state) if
+  the attempt fails.
+- §20: recorded as two separate, correctly-distinguished axes — the platform audit-category filter
+  (real) and the spec's literal tenant-module-name axis (verified not possible — `ActivityLog` has
+  no structured module field, and inferring one from free text would be exactly the prose-guessing
+  heuristic this project has declined everywhere else).
+- §28: 4 new alert conditions (failed logins, large downgrades, repeated permission failures, AI
+  cost spikes), sharing one configurable-threshold model and one dedupe mechanism. Building
+  "repeated permission failures" surfaced that the assumed data source didn't fully exist —
+  `requireCapability()` now audits every capability denial platform-wide (`CAPABILITY_DENIED`), not
+  only the cross-tenant gateway's own denials, making the claim true rather than approximated.
+- **A live production concern found and flagged, not fixed**: `git log` on `vercel.json` shows a
+  commit titled "Cron is removed" (2026-09-05, predating this project) that deregistered 8
+  pre-existing tenant-facing cron jobs (CRM automations, contract/SLA checks, sales reminders,
+  subscription billing, business-health, both AI-runtime jobs). The route handlers still exist;
+  only their schedules were removed. Out of this phase's mandate to restore — flagged for the
+  user's direct attention in `docs/admin/verification/INTEGRATION.md`, since if this file is what's
+  deployed, real scheduled work has silently not run since that date.
+
+**Verification**: full platform+saas+internal+inventory+docIntel suite — 734 tests passing in the
+working tree AND independently in a fresh `git worktree` checkout of commit `61b1f28` (Part 0.1's
+new standing check; a symlinked `node_modules` and copied `.env` were used since dependencies
+themselves haven't changed — the check proves the committed *source* builds and passes, not that
+`npm install` works, which is unrelated to this session's own commit-hygiene finding).
+`noStaticData.test.ts` clean. `tsc --noEmit` clean in both locations. `eslint` clean on every
+touched file.
+
+**Still outstanding** (carried across all three addenda, release gates, not build work): the 3
+pre-existing AI-runtime test failures (diagnosis + fix, separately reported); the full targeted UI
+regression scan (never yet run in this project); the remaining Part 3.2 integration seam proofs
+(one seam — the `vercel.json` finding above — already done); the browser-driven SELFRUN pass over
+the full QA document. Groups C (§3/§7/§24/§18 surfaces) and D (§25/§31 security/logs) of the build
+plan are also still outstanding.
+
+**Commit**: local only, branch `global/admin`, no push. Commits `b4e0e5f`, `1c0cc61`, `6f3205c`,
+`bd320ce`, `d241f87`, `2968000`, `61b1f28` (Phase 9 spans multiple commits across the 8-phase
+brief's original single-phase-per-commit convention, since Phase 9 itself was scoped by the CTO's
+own addenda into named Parts/Groups rather than a single unit — each Part/Group is its own commit,
+matching the spirit of the convention at a finer grain).
