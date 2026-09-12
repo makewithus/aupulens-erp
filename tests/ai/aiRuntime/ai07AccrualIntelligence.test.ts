@@ -221,7 +221,15 @@ describe("AI-07 — Accrual intelligence", () => {
 
     await runWorkflow(ai07AccrualIntelligence, { tenantId: TENANT, eventKey: "bill.created", payload: { invoiceId: String(bill._id) } });
 
-    const record = await AiLearningRecord.findOne({ tenantId: TENANT, workflowId: "AI-07", "proposal.basis": "accrual_accuracy" }).lean();
+    // Test bug fix (Phase 10 Part 1): AI-07's accuracy-check detail lives at
+    // reasoned.proposal.accrualAccuracy.basis (lib/aiRuntime/workflows/ai-07-
+    // accrual-intelligence/index.ts), not the flat proposal.basis this query
+    // used to look for — the exact class of query-path bug commit b8843ed
+    // ("fix(ai-07): update learning-record query for the nested
+    // accrualAccuracy shape") already fixed once for a different test case in
+    // this same file; this one carried the same stale flat-path query and was
+    // never updated when the nested shape was introduced.
+    const record = await AiLearningRecord.findOne({ tenantId: TENANT, workflowId: "AI-07", "proposal.accrualAccuracy.basis": "accrual_accuracy" }).lean();
     expect(record).not.toBeNull();
     expect(record!.outcome).toBe("accepted"); // 1000 accrual vs 1000 invoice — exact match
   });
