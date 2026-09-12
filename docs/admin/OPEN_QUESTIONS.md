@@ -68,7 +68,20 @@ pre-existing broken UI routes already on record. Not fixed here (Hard Rule 1 / o
 
 ## Phase 1
 
-### 6. The §30 permission matrix's exact cell contents were inferred, not quoted
+### 6. The §30 permission matrix's exact cell contents were inferred, not quoted — ✅ ANSWERED (Phase 9)
+
+**Resolved 2026-09-12.** `docs/admin/BRIEF-PHASE-9-COVERAGE.md` Part 0.1 quotes the literal 5-role ×
+10-capability table. `lib/platform/auth/roleMatrix.ts` corrected: `GLOBAL_ADMIN` no longer has
+`MANAGE_AI_LIMITS` ("Configure AI Limits" = No for that role in the literal table); `BILLING_ADMIN`
+already had `ASSIGN_PLAN` ("Change Plan" = Yes), confirmed still correct, no change needed there.
+`SUPPORT_ADMIN`/`SECURITY_ADMIN` are not in the literal table (only named in §25's role list) —
+their cells remain this project's own inferred default, now explicitly marked as such in-file and
+in this document. `tests/platform/permissionMatrix.test.ts` (179 tests) re-run clean against the
+corrected matrix.
+
+<details><summary>Original entry, preserved for history</summary>
+
+
 
 The implementation brief describes the source doc's §30 permission matrix as "the specification"
 but does not quote its literal contents anywhere in the text handed to this session — only the
@@ -86,6 +99,8 @@ exceptions (destructive actions need `GLOBAL_SUPER_ADMIN`): `GLOBAL_SUPER_ADMIN`
 one-file re-run of the seed script, never a code change — per Hard Rule 6 and the brief's own Part
 1.2 guidance for exactly this situation (unsure → implement the safe default, flag it, don't guess
 silently).
+
+</details>
 
 ### 7. A real Next.js framework behavior found during manual Phase 1 verification (not a defect in this brief's code, but worth knowing)
 
@@ -140,7 +155,21 @@ panel) is the only real delivery channel.
 
 ## Phase 7
 
-### 10. The access-request workflow does not gate the existing Organisation detail tabs
+### 10. The access-request workflow does not gate the existing Organisation detail tabs — ✅ ANSWERED (Phase 9)
+
+**Resolved 2026-09-12.** `docs/admin/BRIEF-PHASE-9-COVERAGE.md` Part 0.2 answers this exactly as
+proposed below: `SUPPORT_ADMIN` and `SECURITY_ADMIN` keep the organisation *list* (`VIEW_ORGANIZATIONS`
+unchanged) but now require an active, approved, unexpired access grant to open an organisation's
+*detail* tabs. All other roles (`GLOBAL_SUPER_ADMIN`, `GLOBAL_ADMIN`, `AI_ADMIN`, `BILLING_ADMIN`,
+`READ_ONLY_ADMIN`) keep standing detail access per the literal §30 table. Implemented as
+`lib/platform/access/status.ts::assertOrganizationDetailAccess()`, called once at the top of
+`app/api/platform/organizations/[id]/route.ts` (every tab), not as a per-function capability
+change — so a denial never depends on which tab was requested. 7 new tests in
+`tests/platform/organizationDetailAccess.test.ts`, all passing; the pre-existing
+`accessRequest.test.ts` (Phase 7) re-run clean, unmodified. Not yet re-verified over real HTTP with
+a live `SUPPORT_ADMIN` account (unit-tested only as of this entry) — see `COVERAGE_MATRIX.md` §26.
+
+<details><summary>Original entry, preserved for history</summary>
 
 Built as complete, real, tested infrastructure (request → approve/deny → time-boxed session →
 auto-expire → full audit trail — `docs/admin/verification/organization-access.md`), but
@@ -155,6 +184,8 @@ tabs (the reading of Part 2.7 that most matches "impersonation as supported acce
 access")? If so, this is a one-file change to `scripts/seed-platform-roles.ts` plus a
 capability-or-active-grant check added to `lib/platform/organizations/detail.ts`'s existing
 functions — not a new mechanism, just wiring the one already built.
+
+</details>
 
 ### 11. A `mongod` crash mid-verification (environment, not code)
 

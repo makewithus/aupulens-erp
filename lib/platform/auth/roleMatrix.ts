@@ -5,9 +5,20 @@ import { ADMIN_CAPABILITY, ADMIN_ROLE, AdminCapability } from "@/lib/constants/s
  * (Hard Rule 6), by both `scripts/seed-platform-roles.ts` (writes it to
  * `models/platform/AdminRole.ts`) and `tests/platform/permissionMatrix.test.ts`
  * (checks every role × every capability cell against it). Correcting a
- * cell is a one-file change here — see docs/admin/OPEN_QUESTIONS.md #6 for
- * why the exact cell contents are this project's own inferred default, not
- * a quoted source-doc table.
+ * cell is a one-file change here.
+ *
+ * GLOBAL_SUPER_ADMIN, GLOBAL_ADMIN, AI_ADMIN, BILLING_ADMIN and
+ * READ_ONLY_ADMIN are the five roles the source doc's §30 table names
+ * explicitly (docs/admin/BRIEF-PHASE-9-COVERAGE.md Part 0.1) — every cell
+ * for these five is the literal table, not an inference. The corrected
+ * cell vs. this project's original inferred default: GLOBAL_ADMIN does
+ * NOT have MANAGE_AI_LIMITS ("Configure AI Limits" = No in the literal
+ * table), even though it holds every other non-destructive capability.
+ *
+ * SUPPORT_ADMIN and SECURITY_ADMIN do not appear in the §30 table at all
+ * (only in §25's role list) — their capability sets below remain this
+ * project's own INFERRED DEFAULT, not source-doc text. Do not treat them
+ * as equally authoritative when reconciling against the source document.
  */
 export const ALL_CAPABILITIES: AdminCapability[] = Object.values(ADMIN_CAPABILITY);
 
@@ -35,10 +46,11 @@ export const ROLE_MATRIX: Record<string, { capabilities: AdminCapability[]; desc
       (c) =>
         c !== ADMIN_CAPABILITY.DELETE_ORGANIZATION &&
         c !== ADMIN_CAPABILITY.MANAGE_ADMIN_USERS &&
-        c !== ADMIN_CAPABILITY.MANAGE_SECURITY_CONFIG,
+        c !== ADMIN_CAPABILITY.MANAGE_SECURITY_CONFIG &&
+        c !== ADMIN_CAPABILITY.MANAGE_AI_LIMITS,
     ),
     description:
-      "Full operational control of organisations, plans, AI limits, billing and alerts, excluding the three GLOBAL_SUPER_ADMIN-only destructive/security-config/admin-user-management actions.",
+      "Full operational control of organisations, plans, billing and alerts, excluding the three GLOBAL_SUPER_ADMIN-only destructive/security-config/admin-user-management actions and AI limit configuration (source-doc §30: 'Configure AI Limits' = No for this role — AI_ADMIN owns that).",
   },
   [ADMIN_ROLE.BILLING_ADMIN]: {
     capabilities: [
@@ -47,12 +59,21 @@ export const ROLE_MATRIX: Record<string, { capabilities: AdminCapability[]; desc
       ADMIN_CAPABILITY.ASSIGN_PLAN,
       ADMIN_CAPABILITY.MANAGE_BILLING,
     ],
-    description: "Plans, subscriptions and billing only, plus platform-wide read access.",
+    description:
+      "Plans, subscriptions and billing only, plus platform-wide read access. Matches the literal §30 table: 'Change Plan' = Yes for this role (ASSIGN_PLAN), 'Configure AI Limits' = No (no MANAGE_AI_LIMITS).",
   },
   [ADMIN_ROLE.AI_ADMIN]: {
     capabilities: [...READ_ONLY_CAPS, ADMIN_CAPABILITY.MANAGE_AI_LIMITS],
-    description: "AI usage, limits and cost configuration only, plus platform-wide read access.",
+    description:
+      "AI usage, limits and cost configuration only, plus platform-wide read access. Matches the literal §30 table: 'Configure AI Limits' = Yes, 'Change Plan' = No.",
   },
+  // INFERRED, NOT SPECIFIED — SUPPORT_ADMIN does not appear in the §30 table
+  // (only in §25's role list). Also gated by Part 0.2: this role keeps the
+  // organisation LIST but requires an active access grant
+  // (lib/platform/access/status.ts::getActiveAccessGrant()) to open an
+  // organisation's DETAIL tabs — enforced in the detail-fetch function
+  // itself, not by withholding a capability, since VIEW_ORGANIZATIONS
+  // must remain true for the list to render at all.
   [ADMIN_ROLE.SUPPORT_ADMIN]: {
     capabilities: [
       ...READ_ONLY_CAPS,
@@ -60,8 +81,10 @@ export const ROLE_MATRIX: Record<string, { capabilities: AdminCapability[]; desc
       ADMIN_CAPABILITY.IMPERSONATE_READONLY,
     ],
     description:
-      "Platform-wide read access plus the ability to request time-boxed, read-only organisation access (source doc §26). Never write access during an elevated session (Part 2.7).",
+      "INFERRED, NOT SPECIFIED (source doc §30 does not name this role). Platform-wide read access, organisation LIST only — opening an organisation's DETAIL tabs requires an active, approved access grant (source doc §26, Part 0.2). Can request time-boxed, read-only organisation access. Never write access during an elevated session (Part 2.7).",
   },
+  // INFERRED, NOT SPECIFIED — SECURITY_ADMIN does not appear in the §30
+  // table either. Also gated by Part 0.2, same as SUPPORT_ADMIN.
   [ADMIN_ROLE.SECURITY_ADMIN]: {
     capabilities: [
       ...READ_ONLY_CAPS,
@@ -71,7 +94,7 @@ export const ROLE_MATRIX: Record<string, { capabilities: AdminCapability[]; desc
       ADMIN_CAPABILITY.MANAGE_ALERTS,
     ],
     description:
-      "Security configuration, retention policy, alerting and organisation-access approval, plus platform-wide read access. Not organisation/plan management.",
+      "INFERRED, NOT SPECIFIED (source doc §30 does not name this role). Security configuration, retention policy, alerting and organisation-access approval, plus platform-wide read access; organisation LIST only, same detail-access gate as SUPPORT_ADMIN (Part 0.2). Not organisation/plan management.",
   },
   [ADMIN_ROLE.READ_ONLY_ADMIN]: {
     capabilities: READ_ONLY_CAPS,

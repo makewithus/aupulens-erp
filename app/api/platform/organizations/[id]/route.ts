@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
 import { AdminForbiddenError } from "@/lib/platform/auth/adminRbac";
+import { assertOrganizationDetailAccess, AdminAccessGrantRequiredError } from "@/lib/platform/access/status";
 import {
   getOrganizationActivity,
   getOrganizationAiUsage,
@@ -34,6 +35,7 @@ export async function GET(
 
   const reason = `platform organisation detail view (${tab})`;
   try {
+    await assertOrganizationDetailAccess(actor, subdomain);
     let data: unknown;
     switch (tab) {
       case "overview":
@@ -63,7 +65,7 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data });
   } catch (err) {
-    if (err instanceof AdminForbiddenError) {
+    if (err instanceof AdminForbiddenError || err instanceof AdminAccessGrantRequiredError) {
       return NextResponse.json({ success: false, message: err.message }, { status: 403 });
     }
     throw err;
