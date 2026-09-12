@@ -120,7 +120,23 @@ the answer, if that's ever raised, is this entry, not a fresh investigation.
 
 ## Phase 3b
 
-### 8. Entitlement enforcement is wired into exactly one route on purpose
+### 8. Entitlement enforcement is wired into exactly one route on purpose — ⚠️ SUPERSEDED (Phase 9)
+
+**Updated 2026-09-12.** The "remaining ~423 routes" framing below is now largely moot:
+`lib/middleware/moduleGate.ts` — a separate, pre-existing enforcement point this project discovered
+in Phase 9 (`SYSTEM_INVENTORY_DELTA.md` §1) — already covers ~346 of those 448 API routes (77%)
+plus their page-route counterparts, wired once into `middleware.ts`. `docs/admin/
+BRIEF-PHASE-9a-ADDENDUM.md` Part 1 bridges it to `resolveEntitlements()` for any tenant with an
+explicit `OrganizationEntitlement` row (an untouched tenant still reads `lib/constants/tiers.ts`
+directly — zero new code path, zero risk), which makes §10 genuinely true across that 77% in one
+integration point, not route-by-route. `lib/platform/entitlements/enforce.ts` (this section's
+subject) is reconciled, not retired: it remains the correct primitive for the ~102 routes outside
+moduleGate's 7 covered prefixes (see `enforce.ts`'s own doc comment for the full reconciliation),
+and `tests/platform/tierEntitlementBridge.test.ts` proves the two enforcement paths cannot diverge
+for a legacy tier. The original entry below (about extending `enforce.ts` route-by-route) still
+applies **only** to routes outside moduleGate's prefixes.
+
+<details><summary>Original entry, preserved for history</summary>
 
 `lib/platform/entitlements/enforce.ts` is built, tested in isolation, and proven on
 `app/api/inventory/orders/route.ts` POST (a real route with pre-existing test coverage, extended
@@ -135,6 +151,8 @@ proved once. No new mechanism needs to be invented; the remaining work is pure r
 route, each one an independent, low-risk, reviewable change (never a bulk edit across many routes
 at once). Recorded here so a future session doesn't have to re-derive the approach, and so "is
 route X enforced yet" has one place to check.
+
+</details>
 
 ## Phase 6
 

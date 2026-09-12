@@ -7,6 +7,16 @@ export interface OrgModuleInfo {
   enabledModules: string[];
   subscriptionStatus?: string;
   trialEndDate?: string | null;
+  // Present ONLY when an OrganizationEntitlement row exists for this tenant
+  // and resolveEntitlements() resolved it cleanly (source doc §10 / Hard
+  // Rule 6 — docs/admin/BRIEF-PHASE-9a-ADDENDUM.md Part 1.2). An admin's
+  // deliberate, audited plan assignment then becomes the tier ceiling
+  // instead of the legacy hardcoded tiers.ts lookup. Absent for every
+  // tenant that has never been touched by the entitlements system — those
+  // keep resolving through getTierLimits(tier) exactly as before this
+  // field existed. Populated by app/api/internal/org-tier/route.ts, which
+  // is the only place with a live Mongoose connection to check for the row.
+  resolvedModules?: string[];
 }
 
 // Maps route path prefixes to the module name used in TIER_LIMITS.enabledModules.
@@ -79,11 +89,17 @@ export function isModuleAccessible(
   moduleName: string,
   tier: OrganizationTier | string | undefined | null,
   orgEnabledModules: string[],
-  subscriptionStatus?: string
+  subscriptionStatus?: string,
+  resolvedModules?: string[]
 ): boolean {
   const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   if (subscriptionStatus === "trial") return inOrg;
-  const { enabledModules: tierModules } = getTierLimits(tier);
+  // resolvedModules, when present, is an admin's deliberate, audited
+  // entitlement assignment and takes over as the ceiling in place of the
+  // legacy tier lookup (Part 1.2). Omitting it (the default for every
+  // untouched tenant) reproduces today's exact behaviour with no new code
+  // path executed at all.
+  const tierModules = resolvedModules ?? getTierLimits(tier).enabledModules;
   const inTier = (tierModules as readonly string[]).includes(moduleName);
   return inTier && inOrg;
 }
@@ -147,7 +163,15 @@ export async function applyModuleGating(
   // Org lookup failed → fail open; the route handler or DB layer will surface the error.
   if (!orgData) return null;
 
-  if (!isModuleAccessible(moduleName, orgData.tier, orgData.enabledModules, orgData.subscriptionStatus)) {
+  if (
+    !isModuleAccessible(
+      moduleName,
+      orgData.tier,
+      orgData.enabledModules,
+      orgData.subscriptionStatus,
+      orgData.resolvedModules,
+    )
+  ) {
     return NextResponse.json(
       buildGateDeniedResponse(moduleName, orgData.tier ?? "starter"),
       { status: 403 }

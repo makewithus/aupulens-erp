@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 
 // Called by middleware (via fetch) to resolve a tenant's tier + enabledModules
 // without holding a Mongoose connection inside the Edge-runtime middleware layer.
@@ -37,10 +39,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // docs/admin/BRIEF-PHASE-9a-ADDENDUM.md Part 1.2's resolution order: an
+  // untouched tenant (no OrganizationEntitlement row) never calls
+  // resolveEntitlements() at all — zero new code path, zero risk. Only a
+  // tenant an admin has deliberately assigned a plan to resolves through
+  // entitlements, and even then a resolver error (source: "permissive_default")
+  // is NOT trusted as a real module list here — it would otherwise grant
+  // every module regardless of tier, which is exactly the kind of silent
+  // widening this bridge must never produce. That case falls through to
+  // resolvedModules staying undefined, i.e. the legacy tiers.ts ceiling —
+  // resolveEntitlements() has already audited its own error at SECURITY
+  // severity by the time it returns that fallback value.
+  let resolvedModules: string[] | undefined;
+  const hasEntitlement = await OrganizationEntitlement.exists({ tenantId });
+  if (hasEntitlement) {
+    const resolved = await resolveEntitlements(tenantId);
+    if (resolved.source !== "permissive_default") {
+      resolvedModules = resolved.modules;
+    }
+  }
+
   return NextResponse.json({
     tier: org.tier ?? "starter",
     enabledModules: org.settings?.enabledModules ?? [],
     subscriptionStatus: org.subscriptionStatus ?? "trial",
     trialEndDate: org.trialEndDate ?? null,
+    resolvedModules,
   });
 }
