@@ -32,6 +32,7 @@ import {
   PLAN_KEY_LABELS,
   PLAN_KEY_VALUES,
 } from "@/lib/constants/statuses";
+import { formatInOrgTimezone, formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 
 const TABS = ["overview", "users", "subscription", "activity", "audit", "ai-usage", "billing"] as const;
 
@@ -354,7 +355,7 @@ export default function OrganizationDetailPage() {
             Elevated access session active — {accessGrant.adminName} ({accessGrant.reason})
           </p>
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            Expires {accessGrant.expiresAt ? new Date(accessGrant.expiresAt).toLocaleString() : "—"}
+            Expires {accessGrant.expiresAt ? formatPlatformTimestamp(accessGrant.expiresAt) : "—"}
           </p>
         </div>
       )}
@@ -382,7 +383,7 @@ export default function OrganizationDetailPage() {
                 <Field label="Currency" value={overview.settings?.currency ?? "—"} />
                 <Field label="Tax jurisdiction" value={overview.settings?.taxJurisdiction ?? "—"} />
                 <Field label="Enabled modules" value={(overview.settings?.enabledModules ?? []).join(", ") || "—"} />
-                <Field label="Created" value={new Date(overview.createdAt).toLocaleString()} />
+                <Field label="Created" value={formatInOrgTimezone(overview.createdAt, overview.settings?.timezone)} />
               </CardContent>
             </Card>
           )}

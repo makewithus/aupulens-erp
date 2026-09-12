@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ORGANIZATION_STATUS_LABELS, ORGANIZATION_TYPE_LABELS } from "@/lib/constants/statuses";
+import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import { OrganizationListRow, LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "@/lib/platform/organizations/types";
 
 const PAGE_SIZE = 25;
@@ -169,10 +170,10 @@ export default function OrganizationsListPage() {
                       ? `${row.currentPeriodAiUsage} (${row.aiUsagePercent}%)`
                       : row.currentPeriodAiUsage}
                   </TableCell>
-                  <TableCell>{new Date(row.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatPlatformTimestamp(row.createdAt, { dateOnly: true })}</TableCell>
                   <TableCell>
                     {row.lastMeaningfulActivityAt
-                      ? new Date(row.lastMeaningfulActivityAt).toLocaleDateString()
+                      ? formatPlatformTimestamp(row.lastMeaningfulActivityAt, { dateOnly: true })
                       : "—"}
                   </TableCell>
                 </TableRow>

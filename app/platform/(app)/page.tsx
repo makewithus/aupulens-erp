@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 
 interface JobStatus {
   jobId: string;
@@ -163,7 +164,7 @@ export default function PlatformDashboardPage() {
                       {j.jobId} <span className="text-xs text-neutral-400 font-normal">({j.scheduleLabel})</span>
                     </p>
                     <p className="text-xs text-neutral-500">
-                      Last run: {j.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : "never"}
+                      Last run: {j.lastRunAt ? formatPlatformTimestamp(j.lastRunAt) : "never"}
                       {j.lastRunStatus === "error" && <span className="text-red-600"> — failed: {j.lastError}</span>}
                     </p>
                   </div>
@@ -194,7 +195,7 @@ export default function PlatformDashboardPage() {
               <div key={a.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
                 <div>
                   <p>{a.message}</p>
-                  <p className="text-xs text-neutral-400">{new Date(a.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-neutral-400">{formatPlatformTimestamp(a.createdAt)}</p>
                 </div>
                 <Badge variant={a.severity === "critical" || a.severity === "security" ? "destructive" : "secondary"}>
                   {a.severity}

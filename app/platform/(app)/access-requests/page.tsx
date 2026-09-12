@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import {
   Select,
   SelectContent,
@@ -141,7 +142,7 @@ export default function AccessRequestsPage() {
                 </Badge>
               </div>
               <p className="text-neutral-500">{r.reason}</p>
-              {r.expiresAt && <p className="text-xs text-neutral-400">Expires: {new Date(r.expiresAt).toLocaleString()}</p>}
+              {r.expiresAt && <p className="text-xs text-neutral-400">Expires: {formatPlatformTimestamp(r.expiresAt)}</p>}
               <div className="flex gap-2 pt-1">
                 {r.status === "pending" && (
                   <>

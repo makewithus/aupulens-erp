@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PLATFORM_EVENT_CATEGORY_VALUES, PLATFORM_SEVERITY_VALUES } from "@/lib/constants/statuses";
+import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 
 interface AuditLogRow {
   id: string;
@@ -145,7 +146,7 @@ export default function PlatformAuditLogsPage() {
               )}
               {rows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="text-xs">{new Date(row.createdAt).toLocaleString()}</TableCell>
+                  <TableCell className="text-xs">{formatPlatformTimestamp(row.createdAt)}</TableCell>
                   <TableCell className="text-xs">{row.tenantId ?? "—"}</TableCell>
                   <TableCell className="text-xs">{row.actorRole}</TableCell>
                   <TableCell className="text-xs">{row.eventCategory}</TableCell>

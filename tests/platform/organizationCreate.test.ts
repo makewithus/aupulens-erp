@@ -143,6 +143,23 @@ describe("createOrganization — the fourth, admin-actor-aware creation path", (
     ).rejects.toThrow(OrganizationCreateError);
   });
 
+  it("Hard Rule 1: the database's own unique index on subdomain rejects a duplicate even below the application-level check — the real backstop for a race between two concurrent creates", async () => {
+    await Organization.create({
+      name: "Acme Corp",
+      subdomain: "acme-corp",
+      ownerUserId: new mongoose.Types.ObjectId(),
+      status: ORGANIZATION_STATUS.ACTIVE,
+    });
+    await expect(
+      Organization.create({
+        name: "Acme Corp Duplicate",
+        subdomain: "acme-corp",
+        ownerUserId: new mongoose.Types.ObjectId(),
+        status: ORGANIZATION_STATUS.ACTIVE,
+      }),
+    ).rejects.toThrow(/duplicate key|E11000/i);
+  });
+
   it("rejects an invalid subdomain slug", async () => {
     await expect(
       createOrganization(makeActor(), { ...VALID_INPUT, subdomain: "Not Valid!" }),

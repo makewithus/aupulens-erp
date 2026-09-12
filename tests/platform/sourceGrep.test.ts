@@ -129,3 +129,100 @@ describe("source-grep: lib/platform/auth/adminSessionEdge.ts stays Mongoose-free
     expect(content).not.toMatch(/from ["']@\/lib\/db["']/);
   });
 });
+
+describe("source-grep: Hard Rule 14 — no sensitive field name is passed into an audit write's structured payload", () => {
+  // lib/platform/audit/emit.ts's own doc comment states the rule ("never pass
+  // prompt/response bodies, credentials, or full financial records") but does
+  // not enforce it — "callers are responsible." This test is the enforcement:
+  // every real call site's argument object, scanned for a literal object key
+  // whose name matches a known-sensitive field. A false positive (a
+  // legitimately-named, non-sensitive field that happens to match) is fixed
+  // by narrowing the pattern, not by weakening what it checks — narrowing
+  // must stay specific to the offending key, not to the call site.
+  const SENSITIVE_KEY_PATTERN =
+    /\b(password|passwordHash|secret|mfaSecret|totpSecret|otpCode|apiKey|token|prompt|response|creditCard|cardNumber|cvv|bankAccount|accountNumber|ssn|aadhaar|panNumber)\s*:/i;
+
+  function extractBalancedCall(source: string, callAnchor: string): string[] {
+    const calls: string[] = [];
+    let searchFrom = 0;
+    while (true) {
+      const idx = source.indexOf(callAnchor, searchFrom);
+      if (idx === -1) break;
+      const openParenIdx = idx + callAnchor.length - 1;
+      let depth = 0;
+      let i = openParenIdx;
+      for (; i < source.length; i++) {
+        if (source[i] === "(") depth++;
+        else if (source[i] === ")") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      calls.push(source.slice(openParenIdx, i + 1));
+      searchFrom = i + 1;
+    }
+    return calls;
+  }
+
+  it("no emitPlatformAuditEvent(...) call site's argument object contains a sensitive key", () => {
+    const allSourceFiles = [
+      ...walk(path.join(ROOT, "app"), [".ts", ".tsx"]),
+      ...walk(path.join(ROOT, "lib"), [".ts", ".tsx"]),
+    ];
+
+    const violations: string[] = [];
+    for (const file of allSourceFiles) {
+      const content = readFileSync(file, "utf8");
+      if (!content.includes("emitPlatformAuditEvent(")) continue;
+      for (const call of extractBalancedCall(content, "emitPlatformAuditEvent(")) {
+        const match = SENSITIVE_KEY_PATTERN.exec(call);
+        if (match) violations.push(`${relative(file)}: key "${match[1]}"`);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("no AiUsageRecord.create(...) call site's argument object contains a sensitive key (Hard Rule 14, source doc §17)", () => {
+    const allSourceFiles = [...walk(path.join(ROOT, "lib"), [".ts", ".tsx"])];
+
+    const violations: string[] = [];
+    for (const file of allSourceFiles) {
+      const content = readFileSync(file, "utf8");
+      if (!content.includes("AiUsageRecord.create(")) continue;
+      for (const call of extractBalancedCall(content, "AiUsageRecord.create(")) {
+        const match = SENSITIVE_KEY_PATTERN.exec(call);
+        if (match) violations.push(`${relative(file)}: key "${match[1]}"`);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("this test itself would catch a real violation — proven with a synthetic positive case", () => {
+    const synthetic = 'emitPlatformAuditEvent({ actor, metadata: { password: userPassword } })';
+    const calls = extractBalancedCall(synthetic, "emitPlatformAuditEvent(");
+    expect(calls).toHaveLength(1);
+    expect(SENSITIVE_KEY_PATTERN.test(calls[0])).toBe(true);
+  });
+});
+
+describe("source-grep: Hard Rule 6 — a plan change never reaches a delete-family call", () => {
+  // lib/platform/entitlements/assignPlan.ts's own doc comment states this by
+  // construction ("only ever writes to Organization, OrganizationEntitlement,
+  // SubscriptionEvent"), but nothing previously guarded against a future edit
+  // reintroducing a delete call into this directory. This is that guard.
+  const DELETE_CALL_PATTERN = /\.(deleteOne|deleteMany|remove|findOneAndDelete)\s*\(/;
+
+  it("lib/platform/entitlements/** contains no delete-family call", () => {
+    const files = walk(path.join(ROOT, "lib/platform/entitlements"), [".ts"]);
+    expect(files.length).toBeGreaterThan(0);
+    const violations = files.filter((f) => DELETE_CALL_PATTERN.test(readFileSync(f, "utf8")));
+    expect(violations.map(relative)).toEqual([]);
+  });
+
+  it("lib/billing/** contains no delete-family call", () => {
+    const files = walk(path.join(ROOT, "lib/billing"), [".ts"]);
+    expect(files.length).toBeGreaterThan(0);
+    const violations = files.filter((f) => DELETE_CALL_PATTERN.test(readFileSync(f, "utf8")));
+    expect(violations.map(relative)).toEqual([]);
+  });
+});
