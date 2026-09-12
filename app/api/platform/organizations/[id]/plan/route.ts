@@ -5,6 +5,7 @@ import { assignPlan, AssignPlanError } from "@/lib/platform/entitlements/assignP
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
 import { ADMIN_CAPABILITY, PLATFORM_EVENT_TYPE } from "@/lib/constants/statuses";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 
 export async function GET(
   request: Request,
@@ -24,7 +25,17 @@ export async function GET(
       entityType: "Organization",
       entityId: subdomain,
       tenantId: subdomain,
-      run: () => resolveEntitlements(subdomain),
+      run: async () => {
+        const resolved = await resolveEntitlements(subdomain);
+        // §11: the RAW overrides layer (as distinct from the fully-resolved
+        // limits above) — what an editor needs to show "what this
+        // organisation's override is," not "what it resolves to once merged
+        // with the base plan." Additive field, existing consumers unaffected.
+        const entitlementDoc = await OrganizationEntitlement.findOne({ tenantId: subdomain })
+          .select("overrides")
+          .lean();
+        return { ...resolved, overrides: entitlementDoc?.overrides ?? null };
+      },
     });
     return NextResponse.json({ success: true, data: entitlements });
   } catch (err) {

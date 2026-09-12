@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -52,6 +53,12 @@ export default function OrganizationDetailPage() {
   const [targetPlan, setTargetPlan] = useState<string>("");
   const [planReason, setPlanReason] = useState("");
   const [accessGrant, setAccessGrant] = useState<{ active: boolean; adminName?: string; reason?: string; expiresAt?: string } | null>(null);
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const [overrideMaxUsers, setOverrideMaxUsers] = useState("");
+  const [overrideMaxCompanies, setOverrideMaxCompanies] = useState("");
+  const [overrideAiCredits, setOverrideAiCredits] = useState("");
+  const [overrideModules, setOverrideModules] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -107,6 +114,66 @@ export default function OrganizationDetailPage() {
       }
       setPlanDialogOpen(false);
       setPlanReason("");
+      await loadEntitlements();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openOverrideDialog() {
+    setOverrideMaxUsers(entitlements?.overrides?.maxUsers != null ? String(entitlements.overrides.maxUsers) : "");
+    setOverrideMaxCompanies(
+      entitlements?.overrides?.maxCompanies != null ? String(entitlements.overrides.maxCompanies) : "",
+    );
+    setOverrideAiCredits(
+      entitlements?.overrides?.aiCreditsPerMonth != null ? String(entitlements.overrides.aiCreditsPerMonth) : "",
+    );
+    setOverrideModules((entitlements?.overrides?.modules ?? []).join(", "));
+    setOverrideReason("");
+    setOverrideDialogOpen(true);
+  }
+
+  async function handleSetOverride() {
+    setSubmitting(true);
+    try {
+      const overrides: Record<string, unknown> = {};
+      if (overrideMaxUsers.trim()) overrides.maxUsers = Number(overrideMaxUsers);
+      if (overrideMaxCompanies.trim()) overrides.maxCompanies = Number(overrideMaxCompanies);
+      if (overrideAiCredits.trim()) overrides.aiCreditsPerMonth = Number(overrideAiCredits);
+      if (overrideModules.trim()) {
+        overrides.modules = overrideModules.split(",").map((m) => m.trim()).filter(Boolean);
+      }
+      const res = await fetch(`/api/platform/organizations/${subdomain}/entitlement-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides, reason: overrideReason }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Failed to set override.");
+        return;
+      }
+      setOverrideDialogOpen(false);
+      await loadEntitlements();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleClearOverride() {
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/platform/organizations/${subdomain}/entitlement-override?reason=${encodeURIComponent(
+          "cleared from Subscription tab",
+        )}`,
+        { method: "DELETE" },
+      );
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Failed to clear override.");
+        return;
+      }
       await loadEntitlements();
     } finally {
       setSubmitting(false);
@@ -230,6 +297,44 @@ export default function OrganizationDetailPage() {
                 </div>
               ) : (
                 <p className="text-neutral-500">Loading…</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Custom override (source doc §11)</CardTitle>
+              <div className="flex gap-2">
+                {entitlements?.overrides && (
+                  <Button size="sm" variant="ghost" disabled={submitting} onClick={handleClearOverride}>
+                    Clear override
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={openOverrideDialog} disabled={!entitlements}>
+                  {entitlements?.overrides ? "Edit override" : "Add override"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {entitlements?.overrides ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {entitlements.overrides.maxUsers != null && (
+                    <Field label="Max users (override)" value={entitlements.overrides.maxUsers} />
+                  )}
+                  {entitlements.overrides.maxCompanies != null && (
+                    <Field label="Max companies (override)" value={entitlements.overrides.maxCompanies} />
+                  )}
+                  {entitlements.overrides.aiCreditsPerMonth != null && (
+                    <Field label="AI credits/mo (override)" value={entitlements.overrides.aiCreditsPerMonth} />
+                  )}
+                  {entitlements.overrides.modules && (
+                    <Field label="Modules (override)" value={entitlements.overrides.modules.join(", ")} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-neutral-500">
+                  No custom override — this organisation resolves entirely from its base plan
+                  ({entitlements ? PLAN_KEY_LABELS[entitlements.planKey as keyof typeof PLAN_KEY_LABELS] : "—"}).
+                </p>
               )}
             </CardContent>
           </Card>
@@ -364,6 +469,50 @@ export default function OrganizationDetailPage() {
             </Button>
             <Button disabled={!targetPlan || !planReason.trim() || submitting} onClick={handleAssignPlan}>
               {submitting ? "Saving…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Custom entitlement override</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-neutral-500">
+              Leave a field blank to leave it un-overridden — it will keep resolving from the base
+              plan ({entitlements ? PLAN_KEY_LABELS[entitlements.planKey as keyof typeof PLAN_KEY_LABELS] : "—"}).
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Max users</Label>
+                <Input value={overrideMaxUsers} onChange={(e) => setOverrideMaxUsers(e.target.value)} placeholder="e.g. 999999 for unlimited" />
+              </div>
+              <div className="space-y-1">
+                <Label>Max companies</Label>
+                <Input value={overrideMaxCompanies} onChange={(e) => setOverrideMaxCompanies(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>AI credits / month</Label>
+                <Input value={overrideAiCredits} onChange={(e) => setOverrideAiCredits(e.target.value)} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label>Modules (comma-separated, replaces the base plan&apos;s list)</Label>
+                <Input value={overrideModules} onChange={(e) => setOverrideModules(e.target.value)} placeholder="admin, finance, sales" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!overrideReason.trim() || submitting} onClick={handleSetOverride}>
+              {submitting ? "Saving…" : "Save override"}
             </Button>
           </DialogFooter>
         </DialogContent>

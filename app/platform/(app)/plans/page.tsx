@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface PlanRow {
   key: string;
@@ -68,6 +70,11 @@ export default function PlansPage() {
               <p className="text-xs text-neutral-400 pt-2">
                 {plan.features.modules.join(", ") || "No modules"}
               </p>
+              <Link href={`/platform/plans/${plan.key}/edit`}>
+                <Button size="sm" variant="outline" className="mt-3 w-full">
+                  Edit
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         ))}
