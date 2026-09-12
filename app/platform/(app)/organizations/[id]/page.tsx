@@ -330,6 +330,18 @@ export default function OrganizationDetailPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      {overview?.planAssignmentPending && (
+        <div className="rounded-md border border-red-400 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm">
+          <p className="font-medium text-red-800 dark:text-red-200">
+            Plan not assigned — the initial plan assignment attempted at creation failed.
+          </p>
+          <p className="text-xs text-red-700 dark:text-red-300">
+            This organisation resolves entitlements via the legacy tier fallback in the meantime.
+            Assign a plan from the Subscription tab to resolve this.
+          </p>
+        </div>
+      )}
+
       {accessGrant?.active && (
         <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm">
           <p className="font-medium text-amber-800 dark:text-amber-200">
@@ -362,6 +374,7 @@ export default function OrganizationDetailPage() {
                 <Field label="AI calls / month" value={overview.aiCallsPerMonth} />
                 <Field label="Country" value={overview.settings?.country ?? "—"} />
                 <Field label="Currency" value={overview.settings?.currency ?? "—"} />
+                <Field label="Tax jurisdiction" value={overview.settings?.taxJurisdiction ?? "—"} />
                 <Field label="Enabled modules" value={(overview.settings?.enabledModules ?? []).join(", ") || "—"} />
                 <Field label="Created" value={new Date(overview.createdAt).toLocaleString()} />
               </CardContent>
@@ -452,6 +465,9 @@ export default function OrganizationDetailPage() {
             <CardContent className="pt-6 space-y-2">
               <p className="text-xs text-neutral-400 italic">
                 {(tabData.activity as any)?.definitionNote}
+              </p>
+              <p className="text-xs text-neutral-400 italic">
+                {(tabData.activity as any)?.moduleFilterNote}
               </p>
               <SimpleTable
                 rows={(tabData.activity as any)?.entries ?? []}

@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_platform_rbac";
 
 import AdminRole from "@/models/platform/AdminRole";
+import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
+import PlatformAlert from "@/models/platform/PlatformAlert";
 import {
   ADMIN_CAPABILITY,
   ADMIN_ROLE,
@@ -26,6 +28,8 @@ describe("adminRbac — §30 permission matrix, read as data", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
     await AdminRole.init();
+    await PlatformAuditLog.init();
+    await PlatformAlert.init();
     ({ hasCapability, invalidateAdminRoleCache, requireCapability, AdminForbiddenError } =
       await import("@/lib/platform/auth/adminRbac"));
   });
@@ -37,6 +41,8 @@ describe("adminRbac — §30 permission matrix, read as data", () => {
 
   afterEach(async () => {
     await AdminRole.deleteMany({});
+    await PlatformAuditLog.deleteMany({}).setOptions({ allowRetentionDelete: true });
+    await PlatformAlert.deleteMany({});
     invalidateAdminRoleCache();
   });
 
@@ -109,6 +115,38 @@ describe("adminRbac — §30 permission matrix, read as data", () => {
     expect(await hasCapability({ role }, ADMIN_CAPABILITY.MANAGE_SECURITY_CONFIG)).toBe(false);
     await AdminRole.deleteMany({});
     invalidateAdminRoleCache();
+  });
+
+  it("requireCapability audits every denial as CAPABILITY_DENIED (Phase 9 Addendum C Part 3 — the source for the 'repeated permission failures' §28 alert)", async () => {
+    const actorId = new mongoose.Types.ObjectId().toString();
+    await expect(
+      requireCapability({ role: ADMIN_ROLE.READ_ONLY_ADMIN, id: actorId }, ADMIN_CAPABILITY.DELETE_ORGANIZATION),
+    ).rejects.toThrow(AdminForbiddenError);
+
+    const audits = await PlatformAuditLog.find({ actorId, eventType: "capability_denied" });
+    expect(audits).toHaveLength(1);
+    expect(audits[0].severity).toBe("security");
+    expect(audits[0].metadata?.capability).toBe(ADMIN_CAPABILITY.DELETE_ORGANIZATION);
+  });
+
+  it("a denial with no actor id at all is still audited, attributed to 'unknown' rather than skipped", async () => {
+    await expect(
+      requireCapability({ role: ADMIN_ROLE.READ_ONLY_ADMIN }, ADMIN_CAPABILITY.DELETE_ORGANIZATION),
+    ).rejects.toThrow(AdminForbiddenError);
+
+    const audits = await PlatformAuditLog.find({ actorId: "unknown", eventType: "capability_denied" });
+    expect(audits.length).toBeGreaterThan(0);
+  });
+
+  it("enough repeated denials from the same actor raise a permission_failure_spike alert", async () => {
+    const actorId = new mongoose.Types.ObjectId().toString();
+    for (let i = 0; i < 10; i++) {
+      await expect(
+        requireCapability({ role: ADMIN_ROLE.READ_ONLY_ADMIN, id: actorId }, ADMIN_CAPABILITY.DELETE_ORGANIZATION),
+      ).rejects.toThrow(AdminForbiddenError);
+    }
+    const alerts = await PlatformAlert.find({ alertType: "permission_failure_spike" });
+    expect(alerts.length).toBeGreaterThan(0);
   });
 
   it("rejects an unknown capability string at the schema level", async () => {

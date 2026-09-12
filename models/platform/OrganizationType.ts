@@ -4,6 +4,8 @@ import {
   OrganizationTypeKey,
   PLATFORM_EVENT_CATEGORY_VALUES,
   PlatformEventCategory,
+  PLAN_KEY_VALUES,
+  PlanKeyType,
 } from "@/lib/constants/statuses";
 
 /**
@@ -28,6 +30,12 @@ export interface IOrganizationType extends Document {
     // 5 requires every privileged action audited regardless of org type) —
     // an operator can always switch to "show all categories."
     logProfile?: { eventCategories: PlatformEventCategory[] };
+    // Source doc §5, Phase 9 Addendum C Part 1: "default the plan selector
+    // to the organisation type's own default where OrganizationType defines
+    // one, so the two configuration systems agree rather than compete."
+    // Optional — an org type with no default leaves the create form's plan
+    // selector unset rather than guessing.
+    defaultPlanKey?: PlanKeyType;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +53,7 @@ const OrganizationTypeSchema = new Schema<IOrganizationType>(
       logProfile: {
         eventCategories: { type: [String], enum: PLATFORM_EVENT_CATEGORY_VALUES, default: [] },
       },
+      defaultPlanKey: { type: String, enum: PLAN_KEY_VALUES },
     },
   },
   { timestamps: true },

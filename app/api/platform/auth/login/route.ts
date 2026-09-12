@@ -5,6 +5,7 @@ import AdminUser from "@/models/platform/AdminUser";
 import { ADMIN_USER_STATUS, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
 import { signLoginChallenge } from "@/lib/platform/auth/adminSession";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { checkFailedLoginSpike } from "@/lib/platform/alerts/conditions";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -65,12 +66,14 @@ export async function POST(request: Request) {
     }
     await admin.save();
     await auditFailure("bad_password");
+    await checkFailedLoginSpike(email, admin.failedLoginCount);
     return NextResponse.json({ success: false, message: "Invalid credentials." }, { status: 401 });
   }
 
   admin.failedLoginCount = 0;
   admin.lockedUntil = undefined;
   await admin.save();
+  await checkFailedLoginSpike(email, 0);
 
   // MFA is mandatory (source doc §25) — every path from here requires it,
   // either completing a challenge (already enrolled) or enrolling now.

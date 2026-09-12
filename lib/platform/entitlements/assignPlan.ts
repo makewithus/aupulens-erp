@@ -14,6 +14,7 @@ import {
 import { AdminActor } from "@/lib/platform/auth/types";
 import { requireCapability } from "@/lib/platform/auth/adminRbac";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { checkLargeDowngrade } from "@/lib/platform/alerts/conditions";
 import { invalidateEntitlementsCache } from "./resolve";
 
 export class AssignPlanError extends Error {
@@ -82,12 +83,23 @@ export async function assignPlan(
 
   invalidateEntitlementsCache(tenantId);
 
+  // Clears the "a plan assignment was attempted at creation and failed"
+  // indicator (Phase 9 Addendum C Part 1) on ANY successful assignment,
+  // from any source — a no-op write for the vast majority of organisations
+  // that never had it set.
+  if (organization.planAssignmentPending) {
+    organization.planAssignmentPending = false;
+    await organization.save();
+  }
+
   await appendSubscriptionEvent({
     tenantId,
     type: SUBSCRIPTION_EVENT_TYPE.PLAN_ASSIGNED,
     tier: organization.tier,
     meta: { fromPlanKey, toPlanKey, effective, reason, actorId: actor.id },
   });
+
+  await checkLargeDowngrade(tenantId, fromPlanKey, toPlanKey);
 
   await emitPlatformAuditEvent({
     actor,

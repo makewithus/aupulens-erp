@@ -1,7 +1,14 @@
 import connectDB from "@/lib/db";
 import AdminRole from "@/models/platform/AdminRole";
-import { AdminCapability } from "@/lib/constants/statuses";
+import {
+  AdminCapability,
+  PLATFORM_EVENT_CATEGORY,
+  PLATFORM_EVENT_TYPE,
+  PLATFORM_SEVERITY,
+} from "@/lib/constants/statuses";
 import { AdminActor } from "./types";
+import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { checkPermissionFailureSpike } from "@/lib/platform/alerts/conditions";
 
 /**
  * The §30 permission matrix, read as data (models/platform/AdminRole.ts),
@@ -52,10 +59,30 @@ export class AdminForbiddenError extends Error {
 }
 
 export async function requireCapability(
-  actor: Pick<AdminActor, "role">,
+  actor: Pick<AdminActor, "role"> & Partial<Pick<AdminActor, "id" | "ip" | "userAgent">>,
   capability: AdminCapability,
 ): Promise<void> {
   if (!(await hasCapability(actor, capability))) {
+    // Phase 9 Addendum C Part 3: every capability denial across the admin
+    // surface is now real, captured data — not only the cross-tenant
+    // gateway's own CROSS_TENANT_READ_DENIED — the source for the
+    // "repeated permission failures" §28 alert. `actor.id` is optional on
+    // this function's signature (some call sites only have a role at hand);
+    // recorded as "unknown" rather than skipping the audit entirely when
+    // absent, since a denial with no attributable actor is still a real
+    // security-relevant event.
+    await emitPlatformAuditEvent({
+      actor: { id: actor.id ?? "unknown", role: actor.role },
+      eventCategory: PLATFORM_EVENT_CATEGORY.SECURITY,
+      eventType: PLATFORM_EVENT_TYPE.CAPABILITY_DENIED,
+      severity: PLATFORM_SEVERITY.SECURITY,
+      metadata: { capability },
+      ipAddress: actor.ip,
+      userAgent: actor.userAgent,
+    });
+    if (actor.id) {
+      await checkPermissionFailureSpike(actor.id);
+    }
     throw new AdminForbiddenError(capability);
   }
 }

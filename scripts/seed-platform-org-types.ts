@@ -9,7 +9,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "../lib/db";
 import OrganizationType from "../models/platform/OrganizationType";
-import { ORGANIZATION_TYPE, ORGANIZATION_TYPE_LABELS, PLATFORM_EVENT_CATEGORY } from "../lib/constants/statuses";
+import { ORGANIZATION_TYPE, ORGANIZATION_TYPE_LABELS, PLATFORM_EVENT_CATEGORY, PLAN_KEY } from "../lib/constants/statuses";
 
 const STANDARD_LOG_CATEGORIES = [
   PLATFORM_EVENT_CATEGORY.AUTH,
@@ -24,7 +24,14 @@ const AI_HEAVY_LOG_CATEGORIES = [...STANDARD_LOG_CATEGORIES, PLATFORM_EVENT_CATE
 
 const DEFAULTS: Record<
   string,
-  { description: string; enabledModules: string[]; maxUsers: number; aiCallsPerMonth: number; logCategories: string[] }
+  {
+    description: string;
+    enabledModules: string[];
+    maxUsers: number;
+    aiCallsPerMonth: number;
+    logCategories: string[];
+    defaultPlanKey: string;
+  }
 > = {
   [ORGANIZATION_TYPE.SME]: {
     description: "Small/medium business — core finance and sales modules.",
@@ -32,6 +39,7 @@ const DEFAULTS: Record<
     maxUsers: 10,
     aiCallsPerMonth: 200,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.STARTER,
   },
   [ORGANIZATION_TYPE.ENTERPRISE]: {
     description: "Large organisation — full module set, higher limits.",
@@ -39,6 +47,7 @@ const DEFAULTS: Record<
     maxUsers: 200,
     aiCallsPerMonth: 5000,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.ENTERPRISE,
   },
   [ORGANIZATION_TYPE.STARTUP]: {
     description: "Early-stage company — lean module set.",
@@ -46,6 +55,7 @@ const DEFAULTS: Record<
     maxUsers: 15,
     aiCallsPerMonth: 300,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.STARTER,
   },
   [ORGANIZATION_TYPE.ACCOUNTANT_CA_FIRM]: {
     description: "Accounting/CA firm managing multiple clients.",
@@ -53,6 +63,7 @@ const DEFAULTS: Record<
     maxUsers: 25,
     aiCallsPerMonth: 500,
     logCategories: AI_HEAVY_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.PRO,
   },
   [ORGANIZATION_TYPE.MULTI_COMPANY_GROUP]: {
     description: "Group of related companies (each provisioned as its own tenant).",
@@ -60,6 +71,7 @@ const DEFAULTS: Record<
     maxUsers: 100,
     aiCallsPerMonth: 2000,
     logCategories: AI_HEAVY_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.BUSINESS,
   },
   [ORGANIZATION_TYPE.NON_PROFIT]: {
     description: "Non-profit organisation.",
@@ -67,6 +79,7 @@ const DEFAULTS: Record<
     maxUsers: 15,
     aiCallsPerMonth: 200,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.STARTER,
   },
   [ORGANIZATION_TYPE.EDUCATIONAL]: {
     description: "Educational institution.",
@@ -74,6 +87,7 @@ const DEFAULTS: Record<
     maxUsers: 50,
     aiCallsPerMonth: 300,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.STARTER,
   },
   [ORGANIZATION_TYPE.CUSTOM]: {
     description: "Custom configuration set individually by a Global Admin.",
@@ -81,6 +95,7 @@ const DEFAULTS: Record<
     maxUsers: 5,
     aiCallsPerMonth: 100,
     logCategories: STANDARD_LOG_CATEGORIES,
+    defaultPlanKey: PLAN_KEY.CUSTOM,
   },
 };
 
@@ -99,6 +114,7 @@ async function main() {
             maxUsers: defaults.maxUsers,
             aiCallsPerMonth: defaults.aiCallsPerMonth,
             logProfile: { eventCategories: defaults.logCategories },
+            defaultPlanKey: defaults.defaultPlanKey,
           },
         },
       },

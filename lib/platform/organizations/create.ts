@@ -15,10 +15,12 @@ import {
   PLATFORM_SEVERITY,
   SUBSCRIPTION_EVENT_TYPE,
   type OrganizationTypeKey,
+  type PlanKeyType,
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { requireCapability } from "@/lib/platform/auth/adminRbac";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { assignPlan } from "@/lib/platform/entitlements/assignPlan";
 
 export interface CreateOrganizationInput {
   name: string;
@@ -32,6 +34,11 @@ export interface CreateOrganizationInput {
   state?: string;
   region?: string;
   industry?: string;
+  // Source doc §5, Phase 9 Addendum C Part 1 — both additive and optional so
+  // every pre-existing caller (including any that predate this pair of
+  // fields) keeps working unchanged.
+  taxJurisdiction?: string;
+  planKey?: PlanKeyType;
 }
 
 export class OrganizationCreateError extends Error {
@@ -97,6 +104,7 @@ export async function createOrganization(
       state: input.state || "",
       industry: input.industry || "",
       enabledModules: orgType?.defaultConfig.enabledModules ?? [],
+      taxJurisdiction: input.taxJurisdiction || countryInfo.taxJurisdictionLabel,
     },
   });
 
@@ -135,6 +143,31 @@ export async function createOrganization(
     tier: organization.tier,
   });
 
+  // Source doc §5, Phase 9 Addendum C Part 1: assign the initial plan
+  // WITHIN the same creation flow, through the same tested assignPlan()
+  // path every later plan change also goes through — so the
+  // SubscriptionEvent, the audit record and the OrganizationEntitlement row
+  // are all produced identically regardless of whether the plan was picked
+  // at creation or later. Falls back to the organisation type's own
+  // default when the admin didn't pick one explicitly, so the two
+  // configuration systems agree rather than compete. Skipped entirely (not
+  // an error) when neither is set — an organisation created with no plan
+  // opinion behaves exactly as it always has, via the tier fallback.
+  const planKeyToAssign = input.planKey || orgType?.defaultConfig.defaultPlanKey;
+  if (planKeyToAssign) {
+    try {
+      await assignPlan(actor, subdomain, planKeyToAssign, "immediately", "initial plan at organisation creation");
+    } catch (err) {
+      // A failed plan assignment must never silently leave the tenant in an
+      // unmarked half-state (source doc §33: honest failure over a
+      // fabricated success, same principle as the COA-seed failure above) —
+      // flagged on the organisation itself so it's visible on the list/
+      // detail views, not just in a server log.
+      await Organization.updateOne({ subdomain }, { $set: { planAssignmentPending: true } });
+      console.error("[platform organizations] initial plan assignment failed for", subdomain, err);
+    }
+  }
+
   await emitPlatformAuditEvent({
     actor,
     tenantId: subdomain,
@@ -151,7 +184,11 @@ export async function createOrganization(
     },
     ipAddress: actor.ip,
     userAgent: actor.userAgent,
-    metadata: { coaSeeded },
+    metadata: {
+      coaSeeded,
+      planKeyRequested: planKeyToAssign ?? null,
+      planAssigned: Boolean(planKeyToAssign) && !(await Organization.exists({ subdomain, planAssignmentPending: true })),
+    },
   });
 
   return { organizationId: String(organization._id), subdomain };

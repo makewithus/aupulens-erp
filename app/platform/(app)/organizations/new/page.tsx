@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,13 +24,30 @@ const initialState = {
   ownerPhone: "",
   ownerPassword: "",
   country: "India",
+  taxJurisdiction: "",
+  planKey: "",
 };
+
+interface PlanOption {
+  key: string;
+  name: string;
+  active: boolean;
+}
 
 export default function NewOrganizationPage() {
   const router = useRouter();
   const [form, setForm] = useState(initialState);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+
+  useEffect(() => {
+    fetch("/api/platform/plans")
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success) setPlans(body.data.filter((p: PlanOption) => p.active));
+      });
+  }, []);
 
   function update<K extends keyof typeof initialState>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -44,7 +61,11 @@ export default function NewOrganizationPage() {
       const res = await fetch("/api/platform/organizations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          taxJurisdiction: form.taxJurisdiction.trim() || undefined,
+          planKey: form.planKey || undefined,
+        }),
       });
       const body = await res.json();
       if (!body.success) {
@@ -108,9 +129,40 @@ export default function NewOrganizationPage() {
               </Select>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="country">Country</Label>
+                <Input id="country" value={form.country} onChange={(e) => update("country", e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="taxJurisdiction">Tax jurisdiction</Label>
+                <Input
+                  id="taxJurisdiction"
+                  placeholder="Defaults from country if left blank"
+                  value={form.taxJurisdiction}
+                  onChange={(e) => update("taxJurisdiction", e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-1">
-              <Label htmlFor="country">Country</Label>
-              <Input id="country" value={form.country} onChange={(e) => update("country", e.target.value)} />
+              <Label>Initial plan (optional)</Label>
+              <Select value={form.planKey} onValueChange={(v) => update("planKey", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No plan opinion — leave unassigned for now" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((p) => (
+                    <SelectItem key={p.key} value={p.key}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-neutral-400">
+                Leaving this unset uses the organisation type&apos;s own default plan, if one is
+                configured — otherwise the organisation is created with no plan assigned yet.
+              </p>
             </div>
 
             <div className="border-t pt-4 space-y-4">

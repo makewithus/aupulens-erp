@@ -15,7 +15,7 @@ import {
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
-import { LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "./types";
+import { LAST_MEANINGFUL_ACTIVITY_DEFINITION, ACTIVITY_MODULE_FILTER_NOTE } from "./types";
 
 /**
  * One function per source-doc §7 tab that has real data today. Every tab
@@ -46,6 +46,7 @@ export async function getOrganizationOverview(actor: AdminActor, reason: string,
         organizationType: org.organizationType,
         status: org.status ?? ORGANIZATION_STATUS.ACTIVE,
         isActive: org.isActive,
+        planAssignmentPending: org.planAssignmentPending ?? false,
         tier: org.tier,
         subscriptionStatus: org.subscriptionStatus,
         maxUsers: org.maxUsers,
@@ -129,6 +130,7 @@ export async function getOrganizationActivity(actor: AdminActor, reason: string,
         .lean();
       return {
         definitionNote: LAST_MEANINGFUL_ACTIVITY_DEFINITION,
+        moduleFilterNote: ACTIVITY_MODULE_FILTER_NOTE,
         entries: logs.map((l) => ({
           activity: l.activity,
           details: l.details,

@@ -11,6 +11,7 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import User from "@/models/auth/User";
 import Account from "@/models/finance/Account";
+import PlatformAlert from "@/models/platform/PlatformAlert";
 import { ADMIN_CAPABILITY, ADMIN_ROLE, ENTITY_STATUS, PLAN_KEY, SUPPORT_LEVEL } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 
@@ -53,6 +54,7 @@ describe("assignPlan — full history, zero data deletion on downgrade (Hard Rul
     await SubscriptionEvent.init();
     await User.init();
     await Account.init();
+    await PlatformAlert.init();
     ({ assignPlan, AssignPlanError } = await import("@/lib/platform/entitlements/assignPlan"));
     ({ invalidateAdminRoleCache } = await import("@/lib/platform/auth/adminRbac"));
     await AdminRole.create({
@@ -76,6 +78,7 @@ describe("assignPlan — full history, zero data deletion on downgrade (Hard Rul
     await SubscriptionEvent.deleteMany({});
     await User.deleteMany({});
     await Account.deleteMany({});
+    await PlatformAlert.deleteMany({});
   });
 
   it("records a full history entry with previous/new plan, reason, and actor", async () => {
@@ -162,5 +165,15 @@ describe("assignPlan — full history, zero data deletion on downgrade (Hard Rul
     ).rejects.toThrow();
 
     expect(await OrganizationEntitlement.findOne({ tenantId: "org-e" })).toBeNull();
+  });
+
+  it("a 2-tier downgrade (PRO -> STARTER) through the real assignPlan() path raises a large_subscription_downgrade alert (Phase 9 Addendum C Part 3)", async () => {
+    await Organization.create({ name: "Org", subdomain: "org-f", ownerUserId: new mongoose.Types.ObjectId() });
+    const actor = makeActor();
+    await assignPlan(actor, "org-f", PLAN_KEY.PRO, "immediately", "initial");
+    await assignPlan(actor, "org-f", PLAN_KEY.STARTER, "immediately", "non-payment");
+
+    const alerts = await PlatformAlert.find({ tenantId: "org-f", alertType: "large_subscription_downgrade" });
+    expect(alerts).toHaveLength(1);
   });
 });

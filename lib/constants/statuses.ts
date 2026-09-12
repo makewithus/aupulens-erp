@@ -2274,6 +2274,12 @@ export type AiAtLimitBehavior =
 export const PLATFORM_ALERT_TYPE = {
   AI_USAGE_THRESHOLD: "ai_usage_threshold",
   ORGANIZATION_SUSPENDED: "organization_suspended",
+  // Phase 9 Addendum C Part 3 — the 4 §28 conditions buildable from data
+  // this project already captures.
+  FAILED_LOGIN_SPIKE: "failed_login_spike",
+  LARGE_SUBSCRIPTION_DOWNGRADE: "large_subscription_downgrade",
+  PERMISSION_FAILURE_SPIKE: "permission_failure_spike",
+  AI_COST_SPIKE: "ai_cost_spike",
 } as const;
 export const PLATFORM_ALERT_TYPE_VALUES = Object.values(PLATFORM_ALERT_TYPE);
 export type PlatformAlertType = (typeof PLATFORM_ALERT_TYPE)[keyof typeof PLATFORM_ALERT_TYPE];
@@ -2367,6 +2373,10 @@ export const PLATFORM_EVENT_TYPE = {
   ORG_ACCESS_SESSION_ENDED: "org_access_session_ended",
   ORG_ACCESS_ACTION_PERFORMED: "org_access_action_performed",
   SECURITY_ALERT_RAISED: "security_alert_raised",
+  // Phase 9 Addendum C Part 3: every capability denial across the admin
+  // surface, not only the cross-tenant gateway's own CROSS_TENANT_READ_DENIED
+  // — the data source for the "repeated permission failures" §28 alert.
+  CAPABILITY_DENIED: "capability_denied",
 } as const;
 export const PLATFORM_EVENT_TYPE_VALUES = Object.values(PLATFORM_EVENT_TYPE);
 export type PlatformEventType =

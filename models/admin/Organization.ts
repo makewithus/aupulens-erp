@@ -35,6 +35,16 @@ export interface IOrganization extends Document {
   status?: OrganizationStatus;
   organizationType?: OrganizationTypeKey;
   region?: string;
+  // Source doc §5, Phase 9 Addendum C Part 1: set to `true` only when
+  // admin-initiated creation (lib/platform/organizations/create.ts) tried
+  // to assign an initial plan in the same flow and that specific attempt
+  // failed — never set for the many pre-existing organisations created
+  // before plan-at-creation existed, so it means "a plan assignment was
+  // attempted and failed," not "no plan is assigned" (those are different
+  // things — the latter is the normal, common tier-fallback state
+  // lib/platform/entitlements/resolve.ts already handles). Cleared by the
+  // next successful assignPlan() call, from any source.
+  planAssignmentPending?: boolean;
   settings: {
     logo?: string;
     themeColor?: string;
@@ -45,6 +55,12 @@ export interface IOrganization extends Document {
     industry?: string;
     isGstRegistered?: boolean;
     gstin?: string; // Additive — Sales invoice seller block
+    // Additive — source doc §5's "Tax Jurisdiction" required-information
+    // field (Phase 9 Addendum C Part 1). Defaults from country at creation
+    // time (lib/constants/countries.ts::taxJurisdictionLabel), admin-
+    // overridable — a label, not a real tax-calculation jurisdiction code,
+    // since no tax engine exists in this codebase to key off of one.
+    taxJurisdiction?: string;
     addressLine1?: string;
     addressLine2?: string;
     city?: string;
@@ -104,6 +120,7 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
     status: { type: String, enum: ORGANIZATION_STATUS_VALUES },
     organizationType: { type: String, enum: ORGANIZATION_TYPE_VALUES },
     region: { type: String, trim: true },
+    planAssignmentPending: { type: Boolean, default: false },
     settings: {
       logo: { type: String },
       themeColor: { type: String, default: "#3b82f6" },
@@ -114,6 +131,7 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
       industry: { type: String },
       isGstRegistered: { type: Boolean, default: false },
       gstin: { type: String, trim: true, uppercase: true },
+      taxJurisdiction: { type: String, trim: true },
       addressLine1: { type: String },
       addressLine2: { type: String },
       city: { type: String },
