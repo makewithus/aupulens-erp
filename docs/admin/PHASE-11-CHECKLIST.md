@@ -1,0 +1,52 @@
+# Phase 11 working checklist
+
+> Source: `docs/admin/BRIEF-PHASE-11-CLOSEOUT.md` Part 8, built as the first action per the
+> brief's instruction, worked in order. Updated as work proceeds.
+
+```
+SUPPLIED TEXT (Part 0)
+[ ] §7's four missing tabs identified: Modules, Configuration, Security, Usage
+[ ] HARD_RULES.md: all 15 rules, proof + test each; rule 12 checked hardest
+[ ] ORGANIZATION_STATUS confirmed as exactly the 8 values; PAYMENT_HOLD does something real
+
+CLOSE THE PARTIALS (Part 1)
+[ ] §3 list: Organisation ID, Region, Usage % (null-safe), resolved plan not legacy tier
+[ ] §7: Modules tab
+[ ] §7: Configuration tab
+[ ] §7: Security tab
+[ ] §7: Usage tab
+[ ] §7: Overview gains Storage + Monthly Revenue as explained empty states
+[ ] §18: Date filter minimum; unavailable filters disabled with a reason
+[ ] §21/§31: security log view decided, built, recorded in DECISIONS.md
+[ ] §24: 14 real KPIs built; 4 as explained empty tiles
+[ ] §24: all six operational panels
+[ ] §25: Admin Sessions view with IP/device and new-IP flag
+[ ] §25: privileged-action confirmation on the three named actions
+[ ] §28: export audit signal + alert (7 of 10)
+[ ] §26: SUPPORT_ADMIN gate verified over real HTTP
+[ ] §19: ActivityLog isolation proven by source-grep
+
+QUALITY (Parts 2-4)
+[ ] Theme matched to existing modules; no parallel styling
+[ ] Every screen: loading, empty, error, populated
+[ ] Usability checklist 2.3 applied to every new surface
+[ ] Sidebar reorganised to the §2 hierarchy
+[ ] Performance measured at 500+ orgs / 100k+ audit rows; every budget met or fixed
+[ ] Full edge-case matrix per surface, including the adversarial question
+[ ] All seven roles against every new screen
+
+VERIFY & RELEASE (Parts 5-7)
+[ ] Matrix gains a separate "Verified working" column; every row filled
+[ ] Phase 10 Part 3 sweep complete; every failure fixed
+[ ] Nine cross-phase integration checks
+[ ] All release gates in Part 6
+[ ] QA document extended; every case re-run in a browser
+[ ] Known limits in plain English
+[ ] Final readiness statement
+```
+
+## Report gates (per the brief)
+- [ ] Part 1 complete
+- [ ] Parts 2-4 complete
+- [ ] Part 5 complete
+- [ ] Final
