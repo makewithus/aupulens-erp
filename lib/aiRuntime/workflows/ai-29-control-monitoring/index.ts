@@ -3,6 +3,7 @@ import { runAllControlDefinitions } from "@/lib/aiRuntime/controls/engine";
 import type { ControlRunResult } from "@/lib/aiRuntime/controls/types";
 import { AI_AUTONOMY_LEVEL, AI_FINDING_TYPE, AI_FINDING_SEVERITY } from "@/lib/constants/statuses";
 import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, VerifyResult } from "@/lib/aiRuntime/workflows/types";
+import { isWorkflowEnabled } from "@/lib/aiRuntime/runtime/killSwitch";
 
 /**
  * AI-29 — Audit / control monitoring (docs/ai/BRIEF-07-BATCH-F.md). Internal controls tested
@@ -26,7 +27,6 @@ import type { WorkflowDefinition, ObservedResult, ReasonResult, ActResult, Verif
 
 const DESIGN_CONCERN_FAILURE_RATE = 0.2;
 const DESIGN_CONCERN_MIN_SAMPLE = 5;
-const MAX_EXCEPTION_TASKS_PER_CONTROL = 10;
 
 // Same defect class fixed in AI-14/AI-25 (docs/ai/BRIEF-09-VERIFICATION.md Part B, "known defect
 // class 2"): an unvalidated event.payload.period/periodStart/periodEnd on `period.horizon.reached`
@@ -95,13 +95,24 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
     return { period: observed.raw.period, results };
   },
 
-  async reason(extracted): Promise<ReasonResult<Ai29Proposal>> {
+  async reason(extracted, ctx): Promise<ReasonResult<Ai29Proposal>> {
+    // Same kill-switch check as act() below, and for the same reason: the
+    // executor's own shared escalation step (lib/aiRuntime/runtime/executor.ts)
+    // creates an AiAttentionItem for every EXCEPTION-type finding in
+    // reasoned.findings regardless of what act() does — gating only act()
+    // stops the tool-call writes but not this shared step, since it reads
+    // straight from reason()'s output. Findings must never be raised for a
+    // disabled workflow, not just never acted on.
+    const enabled = await isWorkflowEnabled(ctx.tenantId, "AI-29");
+
     const findings: ReasonResult<Ai29Proposal>["findings"] = [];
     const controls: Ai29ControlOutput[] = [];
 
     for (const r of extracted.results) {
       const designConcern = r.status === "implemented" && r.tested >= DESIGN_CONCERN_MIN_SAMPLE && r.failureRate >= DESIGN_CONCERN_FAILURE_RATE;
       controls.push({ ...r, designConcern });
+
+      if (!enabled) continue; // detection (controls[]) still runs; findings (which drive both act()'s tool calls AND the executor's own shared attention-item escalation) do not, when disabled.
 
       for (const exc of r.exceptions) {
         findings.push({
@@ -150,6 +161,21 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
   async act(reasoned, ctx, decision, rt, extracted): Promise<ActResult> {
     const tenantId = ctx.tenantId;
 
+    // Bug fix (Phase 10 Part 1, root-caused against docs/admin/CRON_INCIDENT.md's
+    // AI-runtime lead): this workflow's own file-header comment documents that its
+    // OBSERVE-level act() still performs real internal_state writes
+    // (record_control_result, create_task) — unlike the "OBSERVE means no side
+    // effects at all" assumption lib/aiRuntime/runtime/eventBus.ts's dispatch gate
+    // makes for autonomy levels at or below RECOMMEND (its `requiresValidation`
+    // check exempts them from the kill switch entirely). That assumption doesn't
+    // hold for THIS workflow, so it checks the kill switch itself rather than
+    // relying on a gate that was never designed for a write-performing OBSERVE
+    // workflow. Scoped to this one file rather than changing eventBus.ts's shared
+    // gate for all ~30 workflows, most of which the exemption is correct for.
+    if (!(await isWorkflowEnabled(tenantId, "AI-29"))) {
+      return { findings: [], actionsTaken: [] };
+    }
+
     for (const c of reasoned.proposal.controls) {
       await rt.callTool(
         "record_control_result",
@@ -170,23 +196,18 @@ export const ai29ControlMonitoring: WorkflowDefinition<Ai29Raw, Ai29Extracted, A
         { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
       );
 
-      for (const exc of c.exceptions.slice(0, MAX_EXCEPTION_TASKS_PER_CONTROL)) {
-        if (exc.severity !== "critical" && exc.severity !== "high") continue;
-        await rt.callTool(
-          "create_task",
-          {
-            tenantId,
-            workflowId: "AI-29",
-            runId: rt.runId,
-            priority: exc.severity === "critical" ? "critical" : "high",
-            what: `Control exception: ${c.controlId} — ${exc.detail}`,
-            why: c.description,
-            dedupeKey: `ai29-exception-${c.controlId}-${exc.ref}`,
-            evidence: exc.evidence,
-          },
-          { requestedAutonomy: AI_AUTONOMY_LEVEL.EXECUTE },
-        );
-      }
+      // Bug fix (Phase 10 Part 1): this loop used to also call create_task for
+      // every critical/high exception here — but lib/aiRuntime/runtime/
+      // executor.ts's own generic escalation step ALREADY creates exactly one
+      // AiAttentionItem for every EXCEPTION-type finding this workflow's
+      // reason() returns (dedupeKey `${workflow.id}:${finding.id}`), for
+      // every severity, not just critical/high. This explicit call used a
+      // DIFFERENT dedupeKey format (no "AI-29:" prefix) for the SAME logical
+      // exception, so the two never deduped against each other — a real
+      // double-write, caught by a concurrent-dispatch test expecting exactly
+      // one attention item per exception. Removed; the generic mechanism
+      // already covers this (and covers medium/low severity too, which this
+      // manual path silently never had).
 
       if (c.designConcern) {
         await rt.callTool(

@@ -45,8 +45,24 @@ interface ApprovalPresentItem {
   name: string;
   approvedBy: string | null;
   amount: number;
+  threshold: number;
 }
 
+// Bug fix (Phase 10 Part 1, root-caused against a real test failure, not
+// assumed): `population()` used to pre-filter to only transactions ALREADY
+// above the threshold, conflating "the population this control examines"
+// with "the subset that requires approval." That means `populationSize`
+// silently meant something narrower than every other control's
+// `populationSize` (which is genuinely "everything examined this period")
+// — a real inconsistency a large-volume test caught (10,000 real posted
+// entries, all below a deliberately high threshold, reported
+// `populationSize: 0` instead of 10,000). The control's own description
+// ("Every transaction above its approval threshold has an approval
+// record") is about the PASS/FAIL RULE per transaction, not about what
+// counts as "examined" — population is now every posted transaction in the
+// period; test() applies the threshold rule per item, so anything below
+// threshold auto-passes (the rule doesn't apply to it) rather than being
+// excluded from the population entirely.
 const approvalPresentDefinition: ControlDefinition<ApprovalPresentItem> = {
   id: "approval_present",
   description: "Every transaction above its approval threshold has an approval record",
@@ -62,15 +78,26 @@ const approvalPresentDefinition: ControlDefinition<ApprovalPresentItem> = {
     const entries = await JournalEntry.find({ tenantId, status: DOCUMENT_STATUS.POSTED, "header.date": { $gte: periodStart, $lte: periodEnd } })
       .select("header approvalDetails totals")
       .lean();
-    return entries
-      .filter((e) => Math.abs(e.totals?.amountTotal ?? 0) >= threshold)
-      .map((e) => ({ id: String(e._id), name: e.header?.name ?? "", approvedBy: e.approvalDetails?.approvedBy ? String(e.approvalDetails.approvedBy) : null, amount: e.totals?.amountTotal ?? 0 }));
+    return entries.map((e) => ({
+      id: String(e._id),
+      name: e.header?.name ?? "",
+      approvedBy: e.approvalDetails?.approvedBy ? String(e.approvalDetails.approvedBy) : null,
+      amount: e.totals?.amountTotal ?? 0,
+      threshold,
+    }));
   },
-  test: (item) => ({
-    passed: Boolean(item.approvedBy),
-    detail: item.approvedBy ? "approved" : `${item.name} (${item.amount}) has no approval record`,
-    evidence: [],
-  }),
+  test: (item) => {
+    const requiresApproval = Math.abs(item.amount) >= item.threshold;
+    return {
+      passed: !requiresApproval || Boolean(item.approvedBy),
+      detail: !requiresApproval
+        ? `${item.name} (${item.amount}) is below the approval threshold — no approval required`
+        : item.approvedBy
+          ? "approved"
+          : `${item.name} (${item.amount}) has no approval record`,
+      evidence: [],
+    };
+  },
   refOf: (item) => item.id,
   labelOf: (item) => item.name,
 };
