@@ -106,10 +106,20 @@ async function resolveActorFromToken(
 export async function getAdminActorFromRequest(request: Request): Promise<AdminActor | null> {
   const token = extractAdminSessionCookie(request.headers.get("cookie"));
   const forwardedFor = request.headers.get("x-forwarded-for");
-  return resolveActorFromToken(token, {
+  const actor = await resolveActorFromToken(token, {
     ip: forwardedFor?.split(",")[0]?.trim(),
     userAgent: request.headers.get("user-agent") ?? undefined,
   });
+  // Phase 10 Part 0.3 item 3: fire-and-forget only, on the platform surface
+  // only — every /api/platform/** route calls this function, and no
+  // tenant-facing route does. Never awaited, so it can never add latency to
+  // (or fail) this request. See lib/platform/scheduler/opportunistic.ts.
+  if (actor) {
+    import("@/lib/platform/scheduler/opportunistic")
+      .then((m) => m.maybeTriggerOpportunisticRun())
+      .catch(() => {});
+  }
+  return actor;
 }
 
 /** Server Component variant — same authoritative checks, reading the cookie

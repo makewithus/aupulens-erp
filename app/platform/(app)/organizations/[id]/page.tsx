@@ -497,6 +497,14 @@ export default function OrganizationDetailPage() {
                   <Field label="Used" value={(tabData["ai-usage"] as any).used} />
                   <Field label="Remaining" value={(tabData["ai-usage"] as any).remaining} />
                 </CardContent>
+                {(tabData["ai-usage"] as any).dataSource === "live" && (
+                  <CardContent className="pt-0">
+                    <p className="text-xs text-amber-600">
+                      Computed live from raw usage records — the scheduled rollup hasn&apos;t run
+                      recently (see the Scheduled Jobs panel on the main dashboard).
+                    </p>
+                  </CardContent>
+                )}
               </Card>
               <div>
                 <p className="text-sm font-medium mb-2">Feature breakdown (this month)</p>

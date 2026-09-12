@@ -1,0 +1,17 @@
+{
+  "_comment": "Not a live config file — Vercel only reads vercel.json. This is kept ready for a Vercel plan upgrade (Phase 10 Part 0.5, docs/admin/CRON_INCIDENT.md). Restoring real Vercel Cron is a one-file change: copy the 'crons' array below into vercel.json and deploy. NOTE: this is 12 entries — check the target plan's cron-COUNT limit (not just whether cron is supported at all) before restoring all of them at once; Vercel's lower tiers cap both the number of cron jobs and the minimum interval (e.g. daily-only, no hourly/15-minute schedules) as well as whether cron is available at all. Until this is restored, every one of these 12 jobs is served by lib/platform/scheduler/ instead — see docs/admin/SCHEDULED_WORK.md.",
+  "crons": [
+    { "path": "/api/cron/crm/automations", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/crm/contract-check", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/crm/sla-check", "schedule": "0 * * * *" },
+    { "path": "/api/cron/sales/reminders-evaluation", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/sales/subscriptions-billing", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/business-health", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/ai/runtime-sweep", "schedule": "0 * * * *" },
+    { "path": "/api/cron/ai/metrics-snapshot", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/platform/ai-usage-rollup", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/platform/retention-sweep", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/platform/access-session-expiry", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/platform/ai-cost-spike-check", "schedule": "30 0 * * *" }
+  ]
+}

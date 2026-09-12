@@ -3,6 +3,20 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+interface JobStatus {
+  jobId: string;
+  description: string;
+  owner: string;
+  scheduleLabel: string;
+  lastRunAt: string | null;
+  lastRunStatus: "success" | "error" | null;
+  lastError: string | null;
+  nextDueAt: string;
+  isDue: boolean;
+  isStale: boolean;
+}
 
 interface AlertRow {
   id: string;
@@ -15,6 +29,7 @@ interface AlertRow {
 
 interface AiUsageSummary {
   available: true;
+  thisMonthDataSource: "rollup" | "live";
   totalRequestsAllTime: number;
   totalRequestsThisMonth: number;
   totalRequestsToday: number;
@@ -39,6 +54,29 @@ export default function PlatformDashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<JobStatus[] | null>(null);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [runningJobId, setRunningJobId] = useState<string | null>(null);
+
+  function loadJobs() {
+    fetch("/api/platform/scheduler/jobs")
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success) setJobs(body.data);
+        else setJobsError(body.message ?? "Failed to load scheduled jobs.");
+      })
+      .catch(() => setJobsError("Failed to load scheduled jobs."));
+  }
+
+  async function handleRunNow(jobId: string) {
+    setRunningJobId(jobId);
+    try {
+      await fetch(`/api/platform/scheduler/jobs/${jobId}/run`, { method: "POST" });
+      loadJobs();
+    } finally {
+      setRunningJobId(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/platform/dashboard/summary")
@@ -48,6 +86,8 @@ export default function PlatformDashboardPage() {
         else setError(body.message ?? "Failed to load dashboard.");
       })
       .catch(() => setError("Failed to load dashboard."));
+
+    loadJobs();
 
     fetch("/api/platform/alerts?unresolvedOnly=true")
       .then((res) => res.json())
@@ -66,6 +106,13 @@ export default function PlatformDashboardPage() {
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {summary?.aiUsage.thisMonthDataSource === "live" && (
+        <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
+          &quot;This month&quot; AI figures below are computed live — the scheduled rollup job
+          hasn&apos;t run recently. See the Scheduled Jobs panel for details.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Organisations" value={summary?.organizationCount} />
@@ -94,6 +141,45 @@ export default function PlatformDashboardPage() {
         />
         <StatCard label="Total AI tokens this month" value={summary?.aiUsage.totalTokens} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Scheduled jobs</CardTitle>
+          <p className="text-xs text-neutral-500">
+            This project&apos;s Vercel plan does not support the cron schedules these jobs used to
+            run on (docs/admin/CRON_INCIDENT.md) — they now run via this scheduler instead. A
+            job overdue past 3× its own interval is flagged stale here and raises an alert.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {jobsError && <p className="text-sm text-red-600">{jobsError}</p>}
+          {jobs === null && !jobsError && <p className="text-sm text-neutral-500">Loading…</p>}
+          {jobs && (
+            <div className="space-y-2">
+              {jobs.map((j) => (
+                <div key={j.jobId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0 gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">
+                      {j.jobId} <span className="text-xs text-neutral-400 font-normal">({j.scheduleLabel})</span>
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      Last run: {j.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : "never"}
+                      {j.lastRunStatus === "error" && <span className="text-red-600"> — failed: {j.lastError}</span>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {j.isStale && <Badge variant="destructive">Stale</Badge>}
+                    {!j.isStale && j.isDue && <Badge variant="secondary">Due</Badge>}
+                    <Button size="sm" variant="outline" disabled={runningJobId === j.jobId} onClick={() => handleRunNow(j.jobId)}>
+                      {runningJobId === j.jobId ? "Running…" : "Run now"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

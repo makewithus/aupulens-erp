@@ -1,0 +1,34 @@
+# Phase 10 Part 0.3 — the recommended external trigger for the scheduled
+# jobs that used to run on Vercel Cron before this project's plan stopped
+# supporting the schedule it had (docs/admin/CRON_INCIDENT.md). Free,
+# needs no plan upgrade, and is not tied to Vercel in any way — any
+# scheduler that can make one authenticated HTTPS request on a timer would
+# do the same job.
+#
+# Setup: add two repository secrets in GitHub (Settings > Secrets and
+# variables > Actions):
+#   DEPLOYMENT_URL  — e.g. https://your-app.vercel.app
+#   CRON_SECRET     — must match the CRON_SECRET env var set in Vercel
+#
+# This calls the single run-due endpoint (lib/platform/scheduler/), which
+# runs whichever of the 12 registered jobs are currently due — it does not
+# need to know the individual schedules itself, only how often to check.
+# Every 15 minutes covers the shortest real interval among the 12 jobs
+# (platform-access-session-expiry).
+
+name: Aupulens scheduled jobs
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-due:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the scheduler's run-due endpoint
+        run: |
+          curl -sS -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.DEPLOYMENT_URL }}/api/platform/scheduler/run-due"

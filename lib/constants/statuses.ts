@@ -2087,6 +2087,10 @@ export const ADMIN_CAPABILITY = {
   APPROVE_ORG_ACCESS: "approve_org_access",
   IMPERSONATE_READONLY: "impersonate_readonly",
   IMPERSONATE_WRITE: "impersonate_write",
+  // Phase 10 Part 0.3 — view/manually-run the scheduled-work registry that
+  // replaces the Vercel Cron schedules this project's plan no longer
+  // supports.
+  MANAGE_SCHEDULED_JOBS: "manage_scheduled_jobs",
 } as const;
 export const ADMIN_CAPABILITY_VALUES = Object.values(ADMIN_CAPABILITY);
 export type AdminCapability =
@@ -2280,6 +2284,12 @@ export const PLATFORM_ALERT_TYPE = {
   LARGE_SUBSCRIPTION_DOWNGRADE: "large_subscription_downgrade",
   PERMISSION_FAILURE_SPIKE: "permission_failure_spike",
   AI_COST_SPIKE: "ai_cost_spike",
+  // Phase 10 Part 0.3: visibility for the scheduled-work runner that
+  // replaces the Vercel Cron schedules this project's plan no longer
+  // supports (docs/admin/CRON_INCIDENT.md) — "had this existed, the six
+  // days would have been six minutes."
+  SCHEDULER_JOB_STALE: "scheduler_job_stale",
+  SCHEDULER_JOB_FAILED: "scheduler_job_failed",
 } as const;
 export const PLATFORM_ALERT_TYPE_VALUES = Object.values(PLATFORM_ALERT_TYPE);
 export type PlatformAlertType = (typeof PLATFORM_ALERT_TYPE)[keyof typeof PLATFORM_ALERT_TYPE];
@@ -2324,6 +2334,10 @@ export const PLATFORM_EVENT_CATEGORY = {
   SUBSCRIPTION: "subscription",
   AI: "ai",
   SECURITY: "security",
+  // Phase 10 Part 0.3 — platform-operational events (the scheduled-work
+  // runner's manual "run now") that don't fit any of the six categories
+  // above.
+  PLATFORM: "platform",
 } as const;
 export const PLATFORM_EVENT_CATEGORY_VALUES = Object.values(
   PLATFORM_EVENT_CATEGORY,
@@ -2377,6 +2391,8 @@ export const PLATFORM_EVENT_TYPE = {
   // surface, not only the cross-tenant gateway's own CROSS_TENANT_READ_DENIED
   // — the data source for the "repeated permission failures" §28 alert.
   CAPABILITY_DENIED: "capability_denied",
+  // Phase 10 Part 0.3.
+  SCHEDULER_JOB_RUN_MANUAL: "scheduler_job_run_manual",
 } as const;
 export const PLATFORM_EVENT_TYPE_VALUES = Object.values(PLATFORM_EVENT_TYPE);
 export type PlatformEventType =

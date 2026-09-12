@@ -1,7 +1,28 @@
 # CRON_INCIDENT.md — the 2026-09-05 `vercel.json` deregistration
 
-> Facts, not a recommendation, per `docs/admin/BRIEF-PHASE-9d-ADDENDUM.md` Part 0.1. The decision
-> of whether/when to restore these schedules belongs to the user, not this session.
+> **RESOLVED (Phase 10 Part 0.1).** The removal was deliberate and correct: the platform moved
+> from Vercel Pro to the free plan, which does not support the cron configuration this project
+> had. Commit `b7fcdee` ("Cron is removed") **must not be reverted**. The prepared-but-undecided
+> restore commit `792a06f` (Phase 9 Addendum D) is closed without being applied — kept in branch
+> history as a record, not merged into the working set. `vercel.json` now correctly reflects the
+> free-plan reality (`{}`, no crons); the 12 entries (8 legacy + this project's own 4) are kept
+> ready in `vercel.cron.example.json` for a future plan upgrade.
+>
+> **What this incident actually revealed** was not a mistaken removal — it was that six days
+> passed with no surface anywhere that could show 8 jobs had stopped running. That is what Phase 10
+> fixed: `lib/platform/scheduler/` (registry, distributed-lock runner, a `POST
+> /api/platform/scheduler/run-due` endpoint any external scheduler can call — a ready-to-use
+> `.github/workflows/scheduled-jobs.yml` is included — an opportunistic in-process runner on
+> platform-admin traffic only, a manual "Run now" per job, and a Scheduled Jobs panel on the main
+> dashboard with a stale indicator and alert). See `docs/admin/SCHEDULED_WORK.md` for the
+> per-job correctness analysis this fix was built against, and the rest of this document below for
+> the original incident investigation, preserved for the record.
+
+---
+
+*(Everything below this line is the original Phase 9 Addendum D Part 0.1 investigation, preserved
+as written at the time — facts, not a recommendation, since at that point the decision of whether
+to restore these schedules had not yet been made.)*
 
 ## The commit
 

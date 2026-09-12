@@ -5,6 +5,8 @@ import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import { getAiPeriod } from "@/lib/ai/usage";
+import { isAiUsageRollupStale } from "@/lib/platform/ai/rollupFreshness";
+import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 import {
   ADMIN_CAPABILITY,
@@ -188,14 +190,40 @@ export async function getOrganizationAiUsage(actor: AdminActor, reason: string, 
     tenantId: subdomain,
     run: async () => {
       const period = getAiPeriod();
-      const [rows, entitlements] = await Promise.all([
-        AiUsageMonthly.find({ tenantId: subdomain, period }).lean(),
+      const [rollupStale, entitlements] = await Promise.all([
+        isAiUsageRollupStale(),
         resolveEntitlements(subdomain),
       ]);
 
-      const used = rows.reduce((sum, r) => sum + r.requestCount, 0);
+      // Phase 10 Part 0.4: the daily rollup job no longer runs on a Vercel
+      // Cron schedule (docs/admin/CRON_INCIDENT.md) — if it's gone stale,
+      // reading AiUsageMonthly would silently show an old number as if
+      // current. Compute the same shape live from AiUsageRecord instead,
+      // and say which source was used so the distinction is never hidden.
+      let byFeature: Map<string, { requestCount: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; errorCount: number }>;
+      if (rollupStale) {
+        const monthStart = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(4, 6)) - 1, 1));
+        const liveRows = await AiUsageRecord.aggregate([
+          { $match: { tenantId: subdomain, createdAt: { $gte: monthStart } } },
+          {
+            $group: {
+              _id: "$feature",
+              requestCount: { $sum: 1 },
+              inputTokens: { $sum: "$inputTokens" },
+              outputTokens: { $sum: "$outputTokens" },
+              estimatedCostUsd: { $sum: "$estimatedCostUsd" },
+              errorCount: { $sum: { $cond: [{ $eq: ["$status", "error"] }, 1, 0] } },
+            },
+          },
+        ]);
+        byFeature = new Map(liveRows.map((r) => [r._id as string, r]));
+      } else {
+        const rows = await AiUsageMonthly.find({ tenantId: subdomain, period }).lean();
+        byFeature = new Map(rows.map((r) => [r.feature, r]));
+      }
+
+      const used = Array.from(byFeature.values()).reduce((sum, r) => sum + r.requestCount, 0);
       const allocation = entitlements.limits.aiRequestsPerMonth;
-      const byFeature = new Map(rows.map((r) => [r.feature, r]));
 
       // Every bucket is listed explicitly, even at zero (docs/admin/AI_FEATURE_MAP.md's
       // own design: "Document Processing: 0" honestly, never an omitted row).
@@ -219,6 +247,7 @@ export async function getOrganizationAiUsage(actor: AdminActor, reason: string, 
         remaining: Math.max(0, allocation - used),
         usagePercent: allocation > 0 ? Math.round((used / allocation) * 100) : 0,
         featureBreakdown,
+        dataSource: rollupStale ? ("live" as const) : ("rollup" as const),
       };
     },
   });

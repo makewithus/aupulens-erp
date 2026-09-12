@@ -3,6 +3,7 @@ import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import Organization from "@/models/admin/Organization";
+import { isAiUsageRollupStale } from "./rollupFreshness";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { ADMIN_CAPABILITY, PLATFORM_EVENT_TYPE } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
@@ -33,6 +34,7 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
       const thisMonth = getAiPeriod();
       const lastMonth = previousMonthPeriod(thisMonth);
       const today = new Date().toISOString().slice(0, 10);
+      const rollupStale = await isAiUsageRollupStale();
 
       // "This month" begin, UTC — used only for the topModels query below,
       // which reads AiUsageRecord directly (see that query's own comment
@@ -102,7 +104,7 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
       const orgs = await Organization.find({ subdomain: { $in: orgSubdomains } }, "subdomain name").lean();
       const orgNameMap = new Map(orgs.map((o) => [o.subdomain, o.name]));
 
-      const totals = thisMonthRows[0] ?? {
+      let totals = thisMonthRows[0] ?? {
         requestCount: 0,
         inputTokens: 0,
         outputTokens: 0,
@@ -110,7 +112,30 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
         errorCount: 0,
       };
 
+      // Phase 10 Part 0.4: this month's TOTAL figures (not the top-N
+      // breakdowns below, which stay on the rollup — see
+      // docs/admin/SCHEDULED_WORK.md for the scope boundary) fall back to a
+      // live AiUsageRecord computation when the rollup job hasn't run
+      // recently, rather than silently showing an old number as current.
+      if (rollupStale) {
+        const liveRows = await AiUsageRecord.aggregate([
+          { $match: { createdAt: { $gte: monthStart } } },
+          {
+            $group: {
+              _id: null,
+              requestCount: { $sum: 1 },
+              inputTokens: { $sum: "$inputTokens" },
+              outputTokens: { $sum: "$outputTokens" },
+              estimatedCostUsd: { $sum: "$estimatedCostUsd" },
+              errorCount: { $sum: { $cond: [{ $eq: ["$status", "error"] }, 1, 0] } },
+            },
+          },
+        ]);
+        totals = liveRows[0] ?? { requestCount: 0, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, errorCount: 0 };
+      }
+
       return {
+        thisMonthDataSource: rollupStale ? ("live" as const) : ("rollup" as const),
         totalRequestsAllTime: allTimeRows[0]?.requestCount ?? 0,
         totalRequestsThisMonth: totals.requestCount,
         totalRequestsToday: todayRows[0]?.requestCount ?? 0,
