@@ -16,10 +16,10 @@ CRON RESOLUTION
 [x] vercel.cron.example.json kept ready for a plan upgrade
 
 AI-RUNTIME FIXES
-[ ] ai-29: confirm single root cause, fix, all three clear
-[ ] ai-21: diagnose against b7fcdee, fix
-[ ] ai-07: fix, and state whether the 2026-09-04 "all green" claim was wrong when made
-[ ] Each in its own clearly-labelled commit with a regression test
+[x] ai-29: NOT a single root cause — 3 separate bugs, all fixed and re-verified together
+[x] ai-21: diagnosed against b7fcdee — a test bug, fixed
+[x] ai-07: fixed; the 2026-09-04 "all green" claim most likely did not hold at the time
+[x] Each in its own clearly-labelled [AI-runtime] commit with a regression test
 
 BUILD
 [ ] §3 list columns incl. resolved plan
