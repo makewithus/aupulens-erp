@@ -34,7 +34,28 @@ export class OrganizationStatusError extends Error {
  * and rejects on (`!org.isActive` → sign-in refused). This reuses the one
  * real, working enforcement point in the codebase rather than inventing a
  * second one. See docs/admin/OPEN_QUESTIONS.md #2.
+ *
+ * Phase 11 Part 0.3 finding: PAYMENT_HOLD was reachable in
+ * ORGANIZATION_STATUS_TRANSITIONS and persisted to `Organization.status`
+ * exactly like every other status, but until this fix it was a label that
+ * lied — nothing anywhere in the codebase read it, so an organisation moved
+ * to PAYMENT_HOLD kept `isActive: true` and its users could log in and
+ * transact exactly as before. This codebase has no in-app tenant billing/
+ * payment flow (§24's MRR/ARR are DECLARED_NOT_POSSIBLE — nothing charges a
+ * tenant for platform access, so there is no "let them log in to pay"
+ * scenario to preserve). Given that, and that `isActive` is the only real
+ * enforcement point this project has, PAYMENT_HOLD now blocks login the same
+ * way SUSPENDED does — Hard Rule 8's "authentication and/or transaction
+ * access" is satisfied via the authentication half, consistent with the only
+ * existing precedent. Reactivating from EITHER SUSPENDED or PAYMENT_HOLD
+ * restores `isActive`. See docs/ai/audits/HARD_RULES.md rule 8 for the proof
+ * and OPEN_QUESTIONS.md for the adjacent, out-of-scope finding this
+ * surfaced (CANCELLED/ARCHIVED also never flip `isActive`).
  */
+const STATUSES_THAT_BLOCK_LOGIN: OrganizationStatus[] = [
+  ORGANIZATION_STATUS.SUSPENDED,
+  ORGANIZATION_STATUS.PAYMENT_HOLD,
+];
 export async function changeOrganizationStatus(
   actor: AdminActor,
   subdomain: string,
@@ -61,9 +82,9 @@ export async function changeOrganizationStatus(
   }
 
   organization.status = toStatus;
-  if (toStatus === ORGANIZATION_STATUS.SUSPENDED) {
+  if (STATUSES_THAT_BLOCK_LOGIN.includes(toStatus)) {
     organization.isActive = false;
-  } else if (fromStatus === ORGANIZATION_STATUS.SUSPENDED && toStatus === ORGANIZATION_STATUS.ACTIVE) {
+  } else if (STATUSES_THAT_BLOCK_LOGIN.includes(fromStatus) && toStatus === ORGANIZATION_STATUS.ACTIVE) {
     organization.isActive = true;
   }
   await organization.save();
@@ -80,10 +101,9 @@ export async function changeOrganizationStatus(
     tenantId: subdomain,
     eventCategory: PLATFORM_EVENT_CATEGORY.ORGANISATION,
     eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_STATUS_CHANGED,
-    severity:
-      toStatus === ORGANIZATION_STATUS.SUSPENDED
-        ? PLATFORM_SEVERITY.WARNING
-        : PLATFORM_SEVERITY.INFO,
+    severity: STATUSES_THAT_BLOCK_LOGIN.includes(toStatus)
+      ? PLATFORM_SEVERITY.WARNING
+      : PLATFORM_SEVERITY.INFO,
     entityType: "Organization",
     entityId: String(organization._id),
     oldValue: { status: fromStatus },

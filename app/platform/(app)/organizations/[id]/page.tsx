@@ -314,7 +314,13 @@ export default function OrganizationDetailPage() {
           <h1 className="text-2xl font-semibold mt-1">{overview?.name ?? subdomain}</h1>
           {overview && (
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant={overview.status === "suspended" ? "destructive" : "secondary"}>
+              <Badge
+                variant={
+                  overview.status === "suspended" || overview.status === "payment_hold"
+                    ? "destructive"
+                    : "secondary"
+                }
+              >
                 {ORGANIZATION_STATUS_LABELS[overview.status as OrganizationStatus]}
               </Badge>
               <span className="text-sm text-neutral-500">{overview.subdomain}</span>

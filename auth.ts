@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Organization from "@/models/admin/Organization";
+import { ORGANIZATION_STATUS } from "@/lib/constants/statuses";
 import { authConfig } from "./auth.config";
 import { resolveOAuthSignIn } from "@/lib/auth/oauthSignIn";
 
@@ -131,9 +132,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               subdomain: user.tenantId,
             });
             if (org && !org.isActive) {
-              throw new Error(
-                "This organization's workspace is suspended. Please contact support.",
-              );
+              // Phase 11 Part 0.3: this gate now also fires for PAYMENT_HOLD
+              // (lib/platform/organizations/statusTransition.ts), which
+              // wasn't true before — the message must not tell a
+              // payment-hold tenant they were "suspended" when they weren't.
+              const message =
+                org.status === ORGANIZATION_STATUS.PAYMENT_HOLD
+                  ? "This organization's workspace is on payment hold. Please contact support."
+                  : "This organization's workspace is suspended. Please contact support.";
+              throw new Error(message);
             }
           }
 

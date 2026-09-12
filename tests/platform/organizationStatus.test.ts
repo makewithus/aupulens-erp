@@ -113,6 +113,42 @@ describe("changeOrganizationStatus — suspension actually blocks something (Har
     expect(audits[0].severity).toBe("warning");
   });
 
+  it("Phase 11 Part 0.3: moving to PAYMENT_HOLD blocks login too — it must not be a status that changes nothing", async () => {
+    await AdminRole.create({
+      role: ADMIN_ROLE.GLOBAL_ADMIN,
+      capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
+      description: "",
+    });
+    await seedOrg();
+    const actor = makeActor();
+
+    await changeOrganizationStatus(actor, "test-org", ORGANIZATION_STATUS.PAYMENT_HOLD, "invoice overdue");
+
+    const org = await Organization.findOne({ subdomain: "test-org" });
+    expect(org!.status).toBe(ORGANIZATION_STATUS.PAYMENT_HOLD);
+    expect(org!.isActive).toBe(false); // same real login gate SUSPENDED uses — not a label that lies
+
+    const audits = await PlatformAuditLog.find({ tenantId: "test-org" });
+    expect(audits).toHaveLength(1);
+    expect(audits[0].severity).toBe("warning");
+  });
+
+  it("reactivating from PAYMENT_HOLD restores isActive=true", async () => {
+    await AdminRole.create({
+      role: ADMIN_ROLE.GLOBAL_ADMIN,
+      capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
+      description: "",
+    });
+    await seedOrg(ORGANIZATION_STATUS.PAYMENT_HOLD);
+    await Organization.updateOne({ subdomain: "test-org" }, { isActive: false });
+    const actor = makeActor();
+
+    await changeOrganizationStatus(actor, "test-org", ORGANIZATION_STATUS.ACTIVE, "payment received");
+
+    const org = await Organization.findOne({ subdomain: "test-org" });
+    expect(org!.isActive).toBe(true);
+  });
+
   it("reactivating restores isActive=true", async () => {
     await AdminRole.create({
       role: ADMIN_ROLE.GLOBAL_ADMIN,

@@ -159,7 +159,7 @@ export default function OrganizationsListPage() {
                   <TableCell>{row.country ?? "—"}</TableCell>
                   <TableCell className="uppercase text-xs">{row.tier}</TableCell>
                   <TableCell>
-                    <Badge variant={row.status === "suspended" ? "destructive" : "secondary"}>
+                    <Badge variant={row.status === "suspended" || row.status === "payment_hold" ? "destructive" : "secondary"}>
                       {ORGANIZATION_STATUS_LABELS[row.status]}
                     </Badge>
                   </TableCell>
