@@ -125,8 +125,26 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
     const controlAcc = await makeAccount("liability_payable", "liability", "AP Control");
     const equity = await makeAccount("equity", "equity");
     // Two entries that keep the WHOLE balance sheet balanced (debits==credits overall) while the
-    // AP control account itself nets to zero GL activity — the exact "aggregate looks fine"
-    // shape a human skimming only the balance check would accept.
+    // AP control account itself carries a real, unexplained credit balance with no open invoice
+    // behind it — the exact "aggregate looks fine" shape a human skimming only the balance check
+    // would accept.
+    //
+    // Test bug fix (Phase 10 Part 1): this originally posted debit=500/credit=500 on the SAME
+    // control account, which nets that account's own GL balance to exactly zero. With zero open
+    // invoices (no Invoice model used in this test) and a zero control-account balance, AI-22's
+    // real ap_control reconciliation (lib/aiRuntime/reconciliation/definitions.ts::apArDefinition)
+    // correctly computes `difference = rightTotal(0) - leftTotal(0) = 0` and classifies the
+    // account RECONCILED — a real, honest tie-out (0 owed, 0 recorded), not a hidden defect.
+    // annotateStatement.ts's `unsupportedMaterial` is documented as deliberately requiring BOTH
+    // `materiality === "material"` AND `reconciliationStatus === "unreconciled"` (never raised
+    // for `not_covered` or genuinely-reconciled accounts — "no real signal behind the
+    // accusation"), so the original setup could never have produced this finding no matter what
+    // AI-14 said: the scenario as written wasn't actually adversarial, it was internally
+    // contradictory. Crediting the control account against `cash` instead of against itself
+    // gives it a real, non-zero GL balance (-500) with zero open invoices to explain it — a
+    // genuine ap_control break — while the ledger as a whole still balances (same total
+    // debits/credits, just posted to different accounts), which is what this test is actually
+    // named to verify.
     await JournalEntry.create({
       tenantId: TENANT,
       header: { name: "JE-A", date: new Date("2026-01-10"), journalType: "general" },
@@ -138,7 +156,7 @@ describe("AI-21 — Financial statement intelligence: verification edge cases (d
       tenantId: TENANT,
       header: { name: "JE-B", date: new Date("2026-01-11"), journalType: "general" },
       status: "posted", voucherStatus: "posted",
-      lineIds: [{ accountId: controlAcc, label: "x", debit: 500, credit: 0 }, { accountId: controlAcc, label: "x", debit: 0, credit: 500 }],
+      lineIds: [{ accountId: cash, label: "x", debit: 500, credit: 0 }, { accountId: controlAcc, label: "x", debit: 0, credit: 500 }],
       totals: { amountUntaxed: 500, amountTax: 0, amountTotal: 500 },
     });
     // Seed an AI-14 comparison marking the control account as a material, unreconciled variance.
