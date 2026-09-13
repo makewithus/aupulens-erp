@@ -2367,6 +2367,8 @@ export const PLATFORM_EVENT_TYPE = {
   // Phase 11 Part 1.6 — an admin's MFA enrollment cleared by another admin (Manage Global Admins),
   // forcing them through first-login enrollment again. Distinct from MFA_ENROLLED itself.
   MFA_RESET: "mfa_reset",
+  // Phase 11 Part 1.6 — Security Configuration (alert thresholds, session timeout).
+  SECURITY_CONFIG_UPDATED: "security_config_updated",
   LOGOUT: "logout",
   SESSION_REVOKED: "session_revoked",
   SESSION_EXPIRED_REJECTED: "session_expired_rejected",

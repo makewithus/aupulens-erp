@@ -2,6 +2,7 @@ import crypto from "crypto";
 import connectDB from "@/lib/db";
 import AdminUser from "@/models/platform/AdminUser";
 import AdminSession from "@/models/platform/AdminSession";
+import PlatformSecurityConfig from "@/models/platform/PlatformSecurityConfig";
 import { ADMIN_USER_STATUS, AdminRoleType } from "@/lib/constants/statuses";
 import { AdminActor } from "./types";
 import {
@@ -41,7 +42,17 @@ export async function createAdminSession(
 ): Promise<{ token: string; expiresAt: Date; sessionId: string }> {
   await connectDB();
   const jti = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + ADMIN_SESSION_MAX_AGE_SECONDS * 1000);
+  // Phase 11 Part 1.6: was a hardcoded constant — now configurable via
+  // Security Configuration (/platform/security-config), falling back to the
+  // same 8h default when unconfigured. A missing/invalid config row must
+  // never fail login, hence `.catch()` rather than letting a lookup error
+  // propagate — same permissive-default philosophy as
+  // lib/platform/entitlements/resolve.ts.
+  const securityConfig = await PlatformSecurityConfig.findOne({ singleton: true })
+    .lean()
+    .catch(() => null);
+  const sessionTimeoutSeconds = securityConfig ? securityConfig.sessionTimeoutHours * 60 * 60 : ADMIN_SESSION_MAX_AGE_SECONDS;
+  const expiresAt = new Date(Date.now() + sessionTimeoutSeconds * 1000);
 
   const session = await AdminSession.create({
     adminUserId: adminUser.id,

@@ -215,3 +215,40 @@ in it is ephemeral and was not needed afterward). Full suite re-run clean once h
 so a future session sees "why did the baseline look different for one run" answered here rather
 than re-investigated: check `systemctl status mongod` first if the suite shows a wide, shifting
 set of unrelated failures, before suspecting a code regression.
+
+## Phase 11
+
+### 12. "Delete organisation" — a product decision, not an engineering gap. Deliberately unimplemented.
+
+`BRIEF-PHASE-11-CLOSEOUT.md` Part 1.6 asked for a privileged-action confirmation step on "delete
+organisation." Checked directly: no delete-organisation function, route, or UI exists anywhere in
+this codebase — `DELETE_ORGANIZATION` is a real capability in the §30 permission matrix
+(`lib/constants/statuses.ts::ADMIN_CAPABILITY`, granted to `GLOBAL_SUPER_ADMIN` in
+`roleMatrix.ts`), but nothing has ever consumed it. This surfaced as a "whole feature does not
+work" finding during the verification sweep, not a bug in an existing one — flagged to the user
+rather than built silently, per this project's own standing rule for exactly this situation.
+
+**Decision (user, this session): do not build it.** Instead:
+
+- Archiving (`ORGANIZATION_STATUS.ARCHIVED`) is now the documented, supported way to retire an
+  organisation. It was not a safe substitute before this phase — it was a genuine dead end (no
+  transition back out) and did not block login the way "retired" implies. Both are fixed
+  (`lib/constants/statuses.ts::ORGANIZATION_STATUS_TRANSITIONS`, `lib/platform/organizations/
+  statusTransition.ts`): archiving now blocks login exactly like suspension, and restoring to
+  ACTIVE is a valid, tested transition. The Change Status UI requires typing the organisation's
+  subdomain to confirm an archive action specifically (`TypeToConfirm`).
+- **What "delete" would still need, if ever built** — this is the open product decision, not an
+  engineering task list to execute unprompted:
+  - **What deletion means**: a hard delete of every tenant-scoped collection, an anonymisation
+    pass, or an export-then-delete flow. These have very different implementations and very
+    different legal/support postures — this is not a technical choice.
+  - **Retention/legal obligations**: whether any regulatory or contractual retention period
+    applies to a departing tenant's data before it can be destroyed.
+  - **Sign-off owner**: who authorises an irreversible action of this kind — likely not the same
+    approval bar as every other admin action in this system, all of which are reversible or at
+    least leave the underlying tenant data intact (Hard Rule 6: "plan changes must never silently
+    delete tenant data" — this would be the first admin action that does, by design, if built).
+- `COVERAGE_MATRIX.md` §30's row notes that `DELETE_ORGANIZATION` exists in the permission matrix
+  but the action is deliberately unimplemented pending this decision — not a gap to close, a
+  decision to make. `GLOBAL_ADMIN_Test.md`'s known-limits section says the same, so a tester
+  doesn't file it as a bug.

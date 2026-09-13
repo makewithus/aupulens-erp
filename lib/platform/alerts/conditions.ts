@@ -23,7 +23,7 @@ import { getAiPeriod } from "@/lib/ai/usage";
  * these are all about admin-actor or platform-wide behaviour, not a
  * tenant's own usage), reused across all 4 conditions here.
  */
-async function getConfig(): Promise<IPlatformAlertConfig> {
+export async function getAlertConfig(): Promise<IPlatformAlertConfig> {
   await connectDB();
   const existing = await PlatformAlertConfig.findOne({ singleton: true }).lean();
   if (existing) return existing as unknown as IPlatformAlertConfig;
@@ -67,7 +67,7 @@ export async function resolveAlertsForKey(alertType: string, dedupeKey: string):
  */
 export async function checkFailedLoginSpike(email: string, failedLoginCount: number): Promise<void> {
   await connectDB();
-  const config = await getConfig();
+  const config = await getAlertConfig();
   const dedupeKey = `failed-login:${email}`;
 
   if (failedLoginCount >= config.failedLoginThreshold) {
@@ -94,7 +94,7 @@ export async function checkFailedLoginSpike(email: string, failedLoginCount: num
 export async function checkPermissionFailureSpike(actorId: string): Promise<void> {
   if (actorId === "unknown") return; // nothing to key a per-actor alert on
   await connectDB();
-  const config = await getConfig();
+  const config = await getAlertConfig();
   const windowStart = new Date(Date.now() - config.permissionFailureWindowMinutes * 60 * 1000);
 
   const count = await PlatformAuditLog.countDocuments({
@@ -138,7 +138,7 @@ export async function checkLargeDowngrade(
 ): Promise<void> {
   if (!fromPlanKey || !(fromPlanKey in PLAN_RANK) || !(toPlanKey in PLAN_RANK)) return;
   await connectDB();
-  const config = await getConfig();
+  const config = await getAlertConfig();
   const drop = PLAN_RANK[fromPlanKey] - PLAN_RANK[toPlanKey];
   if (drop >= config.largeDowngradeTierDrop) {
     await emitPlatformAlert({
@@ -158,7 +158,7 @@ export async function checkLargeDowngrade(
  */
 export async function checkAiCostSpike(): Promise<void> {
   await connectDB();
-  const config = await getConfig();
+  const config = await getAlertConfig();
   const today = new Date().toISOString().slice(0, 10);
 
   const [todayRows, trailingRows] = await Promise.all([
@@ -224,7 +224,7 @@ export async function recordMassDataExport(input: {
 }): Promise<void> {
   try {
     await connectDB();
-    const config = await getConfig();
+    const config = await getAlertConfig();
 
     await emitPlatformAuditEvent({
       actor: { id: input.actorUserId, role: "tenant_user" },

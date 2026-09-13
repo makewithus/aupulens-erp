@@ -45,8 +45,23 @@ CLOSE THE PARTIALS (Part 1)
     by a naive {status: ACTIVE} query — now matches list.ts's own missing-means-ACTIVE convention
 [x] §24: all six operational panels — Recent Organisations, Recent Subscription Changes, AI
     Usage Alerts, Security Alerts, System Errors, Recent Global Admin Actions
-[ ] §25: Admin Sessions view with IP/device and new-IP flag
-[ ] §25: privileged-action confirmation on the three named actions
+[x] §25: Admin Sessions view with IP/device and new-IP flag (/platform/admin-sessions, revoke
+    gated + audited)
+[x] §25: privileged-action confirmation — TypeToConfirm built and wired into: archiving an
+    organisation (the supported retirement path — see below), suspend/reactivate + MFA reset on
+    Manage Global Admins, and saving Security Configuration. Delete-organisation deliberately not
+    built (user decision, docs/admin/OPEN_QUESTIONS.md #12 — no such feature existed to confirm)
+[x] Manage Global Admins built (user-requested addition beyond the brief's literal ask): create,
+    change role, suspend/reactivate, reset MFA enrollment — GLOBAL_SUPER_ADMIN only via the
+    existing MANAGE_ADMIN_USERS capability, with "last active super admin" and "can't suspend
+    yourself" safety guards that had no precedent elsewhere in this codebase
+[x] Security Configuration built (user-requested addition beyond the brief's literal ask): alert
+    thresholds + session timeout (was a hardcoded 8h constant, now configurable) editable;
+    retention policies linked to their existing page rather than duplicated; kill-switch/autonomy
+    governance reported as an explained absence (per-tenant-per-workflow, doesn't fit a global
+    singleton-config page) rather than a fabricated control
+[x] ARCHIVED made reversible + login-blocking (was a dead end that changed nothing) so it's a
+    real substitute for the delete-organisation feature that was deliberately not built
 [x] §28: export audit signal + alert (7 of 10) — recordMassDataExport() wired into
     app/api/crm/bulk/route.ts's export action, wrapped so it can never affect the export itself
 [x] §26: SUPPORT_ADMIN gate verified over real HTTP — live dev server, real seeded account, real

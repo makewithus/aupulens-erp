@@ -245,6 +245,21 @@ detail-tab viewing available to roles that already have blanket read access — 
 
 ---
 
+## Known limits
+
+*(This section is extended fully in Phase 11's Part 7 handover pass, covering every new surface.
+One entry added now, at the point the decision was made, so it isn't lost before then.)*
+
+- **There is no "delete organisation" feature, and none is planned without a separate product
+  decision.** `DELETE_ORGANIZATION` exists as a capability in the permission matrix
+  (`GLOBAL_SUPER_ADMIN`-only) but no action anywhere consumes it — this is deliberate, not a bug to
+  file. Archiving (`ORGANIZATION_STATUS.ARCHIVED`, reachable from the organisation's Change Status
+  dialog) is the supported way to retire an organisation: it blocks login the same way suspension
+  does, and is reversible by restoring to Active. See `docs/admin/OPEN_QUESTIONS.md` #12 for the
+  full reasoning and what a real delete feature would need decided first.
+
+---
+
 ## Reporting a failure, in general
 
 For any failed test case: note the section and test number, what you did, what you expected (from
