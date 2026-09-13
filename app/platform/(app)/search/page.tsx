@@ -40,7 +40,8 @@ export default function GlobalSearchPage() {
         <h1 className="text-2xl font-semibold">Global Search</h1>
         <p className="text-sm text-neutral-500">
           Searches organisations, users, admin users, audit events, subscription events, AI usage
-          records, and API keys — across every tenant. This search is itself audited.
+          records, API keys, and invoices (finance and sales) — across every tenant. This search
+          is itself audited.
         </p>
       </div>
 

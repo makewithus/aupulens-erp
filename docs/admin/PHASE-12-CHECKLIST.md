@@ -18,7 +18,10 @@ SEED & RE-TRIAGE (Part 0)
     distinct from the pre-existing per-job SCHEDULER_JOB_FAILED; a gauge threshold (N jobs
     simultaneously failing), not a rolling-window count, since SchedulerJobRun holds only current
     state; checked after every runDueJobs() pass
-[ ] Invoice/transaction search re-checked; built if possible
+[x] Invoice/transaction search re-checked; built — the earlier "no platform-level invoice
+    concept" claim was wrong, not imprecise: models/finance/Invoice.ts (name) and
+    models/sales/SalesInvoice.ts (number) are real, tenant-scoped invoice records, now searched
+    exactly like every other cross-tenant type
 [ ] Webhook alert delivery built; email left as a configurable adapter
 [ ] Demo seed extended per 0.3, including one deliberately empty organisation
 [ ] reset-platform-demo verified from a broken state

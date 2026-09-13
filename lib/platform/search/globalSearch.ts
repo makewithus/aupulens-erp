@@ -5,6 +5,8 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import ApiKey from "@/models/platform/ApiKey";
+import Invoice from "@/models/finance/Invoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { ADMIN_CAPABILITY, PLATFORM_EVENT_TYPE } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
@@ -17,7 +19,8 @@ export interface GlobalSearchResult {
     | "audit_event"
     | "subscription_event"
     | "ai_usage_record"
-    | "api_key";
+    | "api_key"
+    | "invoice";
   id: string;
   label: string;
   detail: string;
@@ -29,11 +32,18 @@ const RESULT_LIMIT_PER_TYPE = 5;
 /**
  * Source doc §23: cross-tenant, therefore through the gateway, therefore
  * audited. Searches every type the source doc lists that has a real
- * corresponding record in this codebase (docs/admin/SYSTEM_INVENTORY_DELTA.md
- * §3 — there is no platform-level invoice/transaction-ID concept, so
- * "invoice ID"/"transaction ID" search maps to nothing real and is not
- * faked here; "audit event ID" maps to PlatformAuditLog's own _id and
- * entityId).
+ * corresponding record in this codebase ("audit event ID" maps to
+ * PlatformAuditLog's own _id and entityId).
+ *
+ * Invoice/transaction search (Phase 12 Part 0.2, re-triaged from
+ * DECLARED_NOT_POSSIBLE): the original claim was "no platform-level
+ * invoice/transaction concept." Checked directly — tenant invoices are
+ * real: `models/finance/Invoice.ts` (its human-readable number is the
+ * `name` field, e.g. "INV/2026/001") and `models/sales/SalesInvoice.ts`
+ * (its own `number` field). Both are tenant-scoped, real documents this
+ * gateway can search exactly like every other cross-tenant type here — the
+ * original claim was wrong, not merely imprecise, the same shape as the
+ * docIntel and mass-export findings earlier in this project.
  */
 export async function globalSearch(actor: AdminActor, reason: string, query: string): Promise<GlobalSearchResult[]> {
   return withCrossTenantRead({
@@ -48,15 +58,18 @@ export async function globalSearch(actor: AdminActor, reason: string, query: str
       if (!trimmed) return [];
       const re = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
-      const [orgs, users, adminUsers, auditEvents, subscriptionEvents, aiUsageRecords, apiKeys] = await Promise.all([
-        Organization.find({ $or: [{ name: re }, { subdomain: re }] }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        User.find({ email: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        AdminUser.find({ $or: [{ name: re }, { email: re }] }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        PlatformAuditLog.find({ entityId: trimmed }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        SubscriptionEvent.find({ tenantId: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        AiUsageRecord.find({ requestId: trimmed }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-        ApiKey.find({ label: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
-      ]);
+      const [orgs, users, adminUsers, auditEvents, subscriptionEvents, aiUsageRecords, apiKeys, financeInvoices, salesInvoices] =
+        await Promise.all([
+          Organization.find({ $or: [{ name: re }, { subdomain: re }] }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          User.find({ email: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          AdminUser.find({ $or: [{ name: re }, { email: re }] }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          PlatformAuditLog.find({ entityId: trimmed }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          SubscriptionEvent.find({ tenantId: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          AiUsageRecord.find({ requestId: trimmed }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          ApiKey.find({ label: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          Invoice.find({ name: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+          SalesInvoice.find({ number: re }).limit(RESULT_LIMIT_PER_TYPE).lean(),
+        ]);
 
       const results: GlobalSearchResult[] = [
         ...orgs.map((o) => ({
@@ -107,6 +120,20 @@ export async function globalSearch(actor: AdminActor, reason: string, query: str
           label: k.label,
           detail: `tenant: ${k.tenantId}`,
           link: `/platform/api-monitoring`,
+        })),
+        ...financeInvoices.map((i) => ({
+          type: "invoice" as const,
+          id: String(i._id),
+          label: i.name,
+          detail: `finance invoice · tenant: ${i.tenantId ?? "—"} · ${i.amountTotal ?? 0}`,
+          link: `/platform/organizations/${i.tenantId ?? ""}`,
+        })),
+        ...salesInvoices.map((i) => ({
+          type: "invoice" as const,
+          id: String(i._id),
+          label: i.number,
+          detail: `sales invoice · tenant: ${i.tenantId} · ${i.totalAmount ?? 0}`,
+          link: `/platform/organizations/${i.tenantId}`,
         })),
       ];
 

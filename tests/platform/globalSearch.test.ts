@@ -11,6 +11,8 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import ApiKey from "@/models/platform/ApiKey";
+import Invoice from "@/models/finance/Invoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { ADMIN_CAPABILITY, ADMIN_ROLE, ENTITY_STATUS } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 
@@ -38,6 +40,8 @@ describe("globalSearch — cross-tenant, audited, real records only (source doc 
     await SubscriptionEvent.init();
     await AiUsageRecord.init();
     await ApiKey.init();
+    await Invoice.init();
+    await SalesInvoice.init();
     ({ globalSearch } = await import("@/lib/platform/search/globalSearch"));
     ({ invalidateAdminRoleCache } = await import("@/lib/platform/auth/adminRbac"));
     await AdminRole.create({
@@ -60,6 +64,8 @@ describe("globalSearch — cross-tenant, audited, real records only (source doc 
     await SubscriptionEvent.deleteMany({});
     await AiUsageRecord.deleteMany({});
     await ApiKey.deleteMany({});
+    await Invoice.deleteMany({});
+    await SalesInvoice.deleteMany({});
   });
 
   it("finds an organization by name", async () => {
@@ -111,6 +117,24 @@ describe("globalSearch — cross-tenant, audited, real records only (source doc 
     });
     const results = await globalSearch(makeActor(), "test", "req-unique-456");
     expect(results.some((r) => r.type === "ai_usage_record")).toBe(true);
+  });
+
+  it("Phase 12 Part 0.2: finds a finance invoice by its number (the 'name' field) — re-triaged from DECLARED_NOT_POSSIBLE", async () => {
+    await Invoice.create({ tenantId: "acme", name: "INV/2026/UNIQUE-001", partnerId: new mongoose.Types.ObjectId() });
+    const results = await globalSearch(makeActor(), "test", "INV/2026/UNIQUE-001");
+    expect(results.some((r) => r.type === "invoice" && r.label === "INV/2026/UNIQUE-001")).toBe(true);
+  });
+
+  it("finds a sales invoice by its number", async () => {
+    await SalesInvoice.create({
+      tenantId: "acme",
+      number: "SI-UNIQUE-002",
+      customerId: new mongoose.Types.ObjectId(),
+      taxableAmount: 100,
+      totalAmount: 118,
+    });
+    const results = await globalSearch(makeActor(), "test", "SI-UNIQUE-002");
+    expect(results.some((r) => r.type === "invoice" && r.label === "SI-UNIQUE-002")).toBe(true);
   });
 
   it("returns an empty array for an empty query, never the whole database", async () => {

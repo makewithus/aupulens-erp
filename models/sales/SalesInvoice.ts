@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 import { SalesInvoiceStatus, SALES_INVOICE_STATUS_VALUES, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 
 export interface ISalesInvoiceLineItem {
@@ -194,4 +194,4 @@ SalesInvoiceSchema.index({ tenantId: 1, status: 1 });
 SalesInvoiceSchema.index({ tenantId: 1, status: 1, invoiceDate: -1, createdAt: -1 });
 
 export const SalesInvoice =
-  mongoose.models.SalesInvoice || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);
+  (mongoose.models.SalesInvoice as Model<ISalesInvoice>) || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);
