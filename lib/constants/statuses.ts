@@ -2364,6 +2364,9 @@ export const PLATFORM_EVENT_TYPE = {
   MFA_CHALLENGE_SENT: "mfa_challenge_sent",
   MFA_CHALLENGE_FAILED: "mfa_challenge_failed",
   MFA_ENROLLED: "mfa_enrolled",
+  // Phase 11 Part 1.6 — an admin's MFA enrollment cleared by another admin (Manage Global Admins),
+  // forcing them through first-login enrollment again. Distinct from MFA_ENROLLED itself.
+  MFA_RESET: "mfa_reset",
   LOGOUT: "logout",
   SESSION_REVOKED: "session_revoked",
   SESSION_EXPIRED_REJECTED: "session_expired_rejected",
