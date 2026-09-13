@@ -920,6 +920,26 @@ export default function OrganizationDetailPage() {
               </Card>
               <Card>
                 <CardHeader>
+                  <CardTitle className="text-base">Storage used</CardTitle>
+                  <p className="text-xs text-neutral-400">Counting since {(tabData.usage as any).storage.countingSince}.</p>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-4 text-sm">
+                  <Field label="Used" value={formatBytes((tabData.usage as any).storage.usedBytes)} />
+                  <Field label="Limit" value={formatBytes((tabData.usage as any).storage.limitBytes)} />
+                  <Field
+                    label="Usage %"
+                    value={
+                      (tabData.usage as any).storage.percent !== null ? (
+                        `${(tabData.usage as any).storage.percent}%`
+                      ) : (
+                        <span title="No storage limit is configured for this organisation's plan.">—</span>
+                      )
+                    }
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-sm text-neutral-500">Not available</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -1317,6 +1337,13 @@ function SimpleTable({
       </table>
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function EmptyStateCard({ data }: { data?: { available: boolean; reason: string } }) {

@@ -3,6 +3,7 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import PlatformAlert from "@/models/platform/PlatformAlert";
 import PlatformAlertConfig, { IPlatformAlertConfig } from "@/models/platform/PlatformAlertConfig";
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
+import SchedulerJobRun from "@/models/platform/SchedulerJobRun";
 import {
   PLATFORM_ALERT_TYPE,
   PLATFORM_EVENT_CATEGORY,
@@ -251,5 +252,35 @@ export async function recordMassDataExport(input: {
       tenantId: input.tenantId,
       error: err instanceof Error ? err.message : String(err),
     });
+  }
+}
+
+/**
+ * Condition 8 (Phase 12 Part 0.2, source doc §28 re-triaged from
+ * DECLARED_NOT_POSSIBLE): a "spike" here is a gauge, not a rolling-window
+ * event count — `SchedulerJobRun` keeps one document per job holding its
+ * CURRENT state, not a history of every run, so "3 errors in the last
+ * hour" isn't a query this model can answer. What it can answer, and what
+ * this checks: how many of the registered jobs are simultaneously in a
+ * failed state right now. Called after every scheduler run-due pass
+ * (lib/platform/scheduler/runner.ts), the same point that already
+ * refreshes each job's own SCHEDULER_JOB_FAILED alert.
+ */
+export async function checkSystemErrorSpike(): Promise<void> {
+  await connectDB();
+  const config = await getAlertConfig();
+  const failingCount = await SchedulerJobRun.countDocuments({ lastRunStatus: "error" });
+  const dedupeKey = "system-error-spike";
+
+  if (failingCount >= config.systemErrorSpikeThreshold) {
+    if (await hasUnresolvedAlert(PLATFORM_ALERT_TYPE.SYSTEM_ERROR_SPIKE, dedupeKey)) return;
+    await emitPlatformAlert({
+      alertType: PLATFORM_ALERT_TYPE.SYSTEM_ERROR_SPIKE,
+      severity: PLATFORM_SEVERITY.ERROR,
+      message: `${failingCount} scheduled jobs are simultaneously in a failed state (threshold: ${config.systemErrorSpikeThreshold}).`,
+      metadata: { dedupeKey, failingCount, threshold: config.systemErrorSpikeThreshold },
+    });
+  } else {
+    await resolveAlertsForKey(PLATFORM_ALERT_TYPE.SYSTEM_ERROR_SPIKE, dedupeKey);
   }
 }

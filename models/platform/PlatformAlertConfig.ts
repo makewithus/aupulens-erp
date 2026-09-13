@@ -32,6 +32,12 @@ export interface IPlatformAlertConfig extends Document {
   // rolling window — there is no sustained-condition shape here the way
   // failed logins or permission failures have.
   massExportRecordThreshold: number;
+  // Phase 12 Part 0.2 — system error spike, re-triaged to buildable now
+  // that SchedulerJobRun's failure state feeds a real signal. This many
+  // jobs (of the ~12 registered) simultaneously in a failed state counts
+  // as a "spike" — a gauge threshold, not a rolling-window event count,
+  // since SchedulerJobRun keeps only each job's current state, not a log.
+  systemErrorSpikeThreshold: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,6 +52,7 @@ const PlatformAlertConfigSchema = new Schema<IPlatformAlertConfig>(
     aiCostSpikeMultiplier: { type: Number, required: true, default: 3 },
     aiCostSpikeTrailingDays: { type: Number, required: true, default: 7 },
     massExportRecordThreshold: { type: Number, required: true, default: 1000 },
+    systemErrorSpikeThreshold: { type: Number, required: true, default: 3 },
   },
   { timestamps: true },
 );

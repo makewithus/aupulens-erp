@@ -7,6 +7,7 @@ import PlatformAlert from "@/models/platform/PlatformAlert";
 import PlatformAlertConfig from "@/models/platform/PlatformAlertConfig";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
+import SchedulerJobRun from "@/models/platform/SchedulerJobRun";
 import { PLAN_KEY } from "@/lib/constants/statuses";
 
 let checkFailedLoginSpike: typeof import("@/lib/platform/alerts/conditions").checkFailedLoginSpike;
@@ -14,6 +15,7 @@ let checkPermissionFailureSpike: typeof import("@/lib/platform/alerts/conditions
 let checkLargeDowngrade: typeof import("@/lib/platform/alerts/conditions").checkLargeDowngrade;
 let checkAiCostSpike: typeof import("@/lib/platform/alerts/conditions").checkAiCostSpike;
 let recordMassDataExport: typeof import("@/lib/platform/alerts/conditions").recordMassDataExport;
+let checkSystemErrorSpike: typeof import("@/lib/platform/alerts/conditions").checkSystemErrorSpike;
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
@@ -21,8 +23,15 @@ beforeAll(async () => {
   await PlatformAlertConfig.init();
   await PlatformAuditLog.init();
   await AiUsageDaily.init();
-  ({ checkFailedLoginSpike, checkPermissionFailureSpike, checkLargeDowngrade, checkAiCostSpike, recordMassDataExport } =
-    await import("@/lib/platform/alerts/conditions"));
+  await SchedulerJobRun.init();
+  ({
+    checkFailedLoginSpike,
+    checkPermissionFailureSpike,
+    checkLargeDowngrade,
+    checkAiCostSpike,
+    recordMassDataExport,
+    checkSystemErrorSpike,
+  } = await import("@/lib/platform/alerts/conditions"));
 });
 
 afterAll(async () => {
@@ -35,6 +44,7 @@ afterEach(async () => {
   await PlatformAlertConfig.deleteMany({});
   await PlatformAuditLog.deleteMany({}).setOptions({ allowRetentionDelete: true });
   await AiUsageDaily.deleteMany({});
+  await SchedulerJobRun.deleteMany({});
 });
 
 describe("checkFailedLoginSpike — reuses AdminUser's own failedLoginCount, default threshold 5", () => {
@@ -216,5 +226,58 @@ describe("recordMassDataExport — Phase 11 Part 1.7 (source doc §28)", () => {
     await expect(
       recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Lead", recordCount: NaN as unknown as number, format: "csv" }),
     ).resolves.not.toThrow();
+  });
+});
+
+describe("checkSystemErrorSpike — Phase 12 Part 0.2 (source doc §28, re-triaged from DECLARED_NOT_POSSIBLE)", () => {
+  it("does not raise below the default threshold of 3 simultaneously-failing jobs", async () => {
+    await SchedulerJobRun.create({ jobId: "job-a", lastRunStatus: "error" });
+    await SchedulerJobRun.create({ jobId: "job-b", lastRunStatus: "error" });
+    await SchedulerJobRun.create({ jobId: "job-c", lastRunStatus: "success" });
+
+    await checkSystemErrorSpike();
+    expect(await PlatformAlert.countDocuments({ alertType: "system_error_spike" })).toBe(0);
+  });
+
+  it("raises once the count of currently-failing jobs reaches the threshold", async () => {
+    await SchedulerJobRun.create({ jobId: "job-a", lastRunStatus: "error" });
+    await SchedulerJobRun.create({ jobId: "job-b", lastRunStatus: "error" });
+    await SchedulerJobRun.create({ jobId: "job-c", lastRunStatus: "error" });
+
+    await checkSystemErrorSpike();
+    const alerts = await PlatformAlert.find({ alertType: "system_error_spike" });
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].severity).toBe("error");
+  });
+
+  it("respects a configured threshold, not a hardcoded one", async () => {
+    await PlatformAlertConfig.create({ singleton: true, systemErrorSpikeThreshold: 1 });
+    await SchedulerJobRun.create({ jobId: "job-a", lastRunStatus: "error" });
+
+    await checkSystemErrorSpike();
+    expect(await PlatformAlert.countDocuments({ alertType: "system_error_spike" })).toBe(1);
+  });
+
+  it("calling it twice while still spiking raises only one alert (dedupe)", async () => {
+    for (let i = 0; i < 3; i++) {
+      await SchedulerJobRun.create({ jobId: `job-${i}`, lastRunStatus: "error" });
+    }
+    await checkSystemErrorSpike();
+    await checkSystemErrorSpike();
+    expect(await PlatformAlert.countDocuments({ alertType: "system_error_spike" })).toBe(1);
+  });
+
+  it("auto-resolves once the failing count drops back below the threshold", async () => {
+    const jobs = await Promise.all([
+      SchedulerJobRun.create({ jobId: "job-a", lastRunStatus: "error" }),
+      SchedulerJobRun.create({ jobId: "job-b", lastRunStatus: "error" }),
+      SchedulerJobRun.create({ jobId: "job-c", lastRunStatus: "error" }),
+    ]);
+    await checkSystemErrorSpike();
+    expect(await PlatformAlert.countDocuments({ alertType: "system_error_spike", resolvedAt: { $exists: false } })).toBe(1);
+
+    await SchedulerJobRun.updateOne({ _id: jobs[0]._id }, { lastRunStatus: "success" });
+    await checkSystemErrorSpike();
+    expect(await PlatformAlert.countDocuments({ alertType: "system_error_spike", resolvedAt: { $exists: false } })).toBe(0);
   });
 });

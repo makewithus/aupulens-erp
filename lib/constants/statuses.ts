@@ -2298,6 +2298,12 @@ export const PLATFORM_ALERT_TYPE = {
   // days would have been six minutes."
   SCHEDULER_JOB_STALE: "scheduler_job_stale",
   SCHEDULER_JOB_FAILED: "scheduler_job_failed",
+  // Phase 12 Part 0.2 — distinct from SCHEDULER_JOB_FAILED (one alert per
+  // individual job failure, pre-existing): this fires when the COUNT of
+  // jobs simultaneously in a failed state reaches a configurable threshold
+  // — the "system error spike" §28 condition, re-triaged from
+  // DECLARED_NOT_POSSIBLE now that SchedulerJobRun's failure state exists.
+  SYSTEM_ERROR_SPIKE: "system_error_spike",
   // Phase 11 Part 1.7 — the mass-export condition reclassified from
   // DECLARED_NOT_POSSIBLE to MISSING (Addendum C Part 0.2's audit found a
   // real export feature, lib/crm/exportEngine.ts, with no audit signal).

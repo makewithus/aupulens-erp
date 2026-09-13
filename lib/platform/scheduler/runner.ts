@@ -3,6 +3,7 @@ import SchedulerJobRun from "@/models/platform/SchedulerJobRun";
 import SchedulerJobLock from "@/models/platform/SchedulerJobLock";
 import PlatformAlert from "@/models/platform/PlatformAlert";
 import { emitPlatformAlert } from "@/lib/platform/alerts/emit";
+import { checkSystemErrorSpike } from "@/lib/platform/alerts/conditions";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 import {
   PLATFORM_ALERT_TYPE,
@@ -229,6 +230,7 @@ export async function runDueJobs(
   }
 
   await raiseStaleAlerts();
+  await checkSystemErrorSpike().catch(() => undefined); // never let an alert check fail the scheduler run itself
 
   return { ran, skipped, failed };
 }

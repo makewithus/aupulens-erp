@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       adminUserCount,
       auditEventsToday,
       aiUsage: { available: true, ...aiUsage },
-      billing: { available: false, reason: "Platform billing (MRR/ARR) is not yet integrated — see docs/admin/OPEN_QUESTIONS.md #4." },
+      billing: { available: false, reason: "No payment gateway integration exists for platform access — nothing charges a tenant. MRR/ARR above are contracted plan prices, not collected revenue. See docs/admin/OPEN_QUESTIONS.md #4." },
       kpis,
       panels,
     },

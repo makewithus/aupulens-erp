@@ -7,6 +7,7 @@ import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import Plan from "@/models/platform/Plan";
 import OrganizationType from "@/models/platform/OrganizationType";
+import StorageUsage from "@/models/platform/StorageUsage";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { isAiUsageRollupStale } from "@/lib/platform/ai/rollupFreshness";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
@@ -449,11 +450,14 @@ export async function getOrganizationUsageLimits(actor: AdminActor, reason: stri
     entityId: subdomain,
     tenantId: subdomain,
     run: async () => {
-      const [entitlements, activeUserCount] = await Promise.all([
+      const [entitlements, activeUserCount, storageUsage] = await Promise.all([
         resolveEntitlements(subdomain),
         User.countDocuments({ tenantId: subdomain, status: ENTITY_STATUS.ACTIVE }),
+        StorageUsage.findOne({ tenantId: subdomain }).lean(),
       ]);
       const maxUsers = entitlements.limits.maxUsers;
+      const storageLimitBytes = entitlements.limits.storageGb * 1024 * 1024 * 1024;
+      const storageUsedBytes = storageUsage?.totalBytes ?? 0;
 
       return {
         users: {
@@ -461,8 +465,18 @@ export async function getOrganizationUsageLimits(actor: AdminActor, reason: stri
           limit: maxUsers,
           percent: maxUsers > 0 ? Math.round((activeUserCount / maxUsers) * 100) : null,
         },
+        // Phase 12 Part 0.2 — Storage Used, re-triaged to buildable.
+        // `storageUsage` is null the instant this org has never uploaded
+        // anything since instrumentation began (Sept 2026) — shown as a
+        // real zero, not an unavailable field, since the mechanism is now
+        // genuinely real for every org from this point forward.
+        storage: {
+          usedBytes: storageUsedBytes,
+          limitBytes: storageLimitBytes,
+          percent: storageLimitBytes > 0 ? Math.round((storageUsedBytes / storageLimitBytes) * 100) : null,
+          countingSince: "2026-09 (the point storage instrumentation began — no backfill of earlier uploads)",
+        },
         unavailable: [
-          { field: "Storage used", reason: "File size is known for an instant at upload time (lib/upload.ts) but never persisted or aggregated per organisation." },
           { field: "API requests", reason: "No tenant-facing route issues or checks an API key in this codebase — there is no request stream to count." },
           { field: "Document counts", reason: "Plan.documentLimitPerMonth is a configured ceiling with no corresponding counter anywhere that increments it." },
         ],

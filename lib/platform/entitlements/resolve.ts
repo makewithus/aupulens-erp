@@ -36,7 +36,7 @@ export function invalidateEntitlementsCache(tenantId?: string): void {
  *  that predate this model and have no OrganizationEntitlement row yet. Not
  *  a guess: a documented, deliberate mapping, real for every tenant created
  *  before Phase 3a shipped. */
-function bridgeTierToPlanKey(tier: string | undefined): PlanKeyType {
+export function bridgeTierToPlanKey(tier: string | undefined): PlanKeyType {
   switch (tier) {
     case ORGANIZATION_TIER.PROFESSIONAL:
       return PLAN_KEY.PRO;

@@ -58,6 +58,10 @@ interface DashboardKpis {
   aiCreditsUsedThisMonth: number;
   systemErrorsCurrentlyFailing: number;
   securityAlertsUnresolved: number;
+  contractedMrr: number;
+  contractedArr: number;
+  mrrLabel: string;
+  storageUsedBytesTotal: number;
   unavailable: { field: string; reason: string }[];
 }
 
@@ -164,9 +168,9 @@ export default function PlatformDashboardPage() {
             value={summary ? Number(summary.kpis.aiCreditsUsedThisMonth.toFixed(2)) : undefined}
             prefix="$"
           />
-          <EmptyStatTile label="MRR" reason={summary?.kpis.unavailable.find((u) => u.field === "MRR")?.reason} />
-          <EmptyStatTile label="ARR" reason={summary?.kpis.unavailable.find((u) => u.field === "ARR")?.reason} />
-          <EmptyStatTile label="Storage Used" reason={summary?.kpis.unavailable.find((u) => u.field === "Storage Used")?.reason} />
+          <StatCard label="MRR (contracted)" value={summary?.kpis.contractedMrr} prefix="$" />
+          <StatCard label="ARR (contracted)" value={summary?.kpis.contractedArr} prefix="$" />
+          <StatCard label="Storage Used" value={summary ? formatBytesNumber(summary.kpis.storageUsedBytesTotal) : undefined} />
           <EmptyStatTile label="API Usage" reason={summary?.kpis.unavailable.find((u) => u.field === "API Usage")?.reason} />
           <StatCard
             label="System Errors"
@@ -179,7 +183,9 @@ export default function PlatformDashboardPage() {
           AI credits in currency, not a separate unit (see the AI limits editor&apos;s own
           &quot;Monthly credits (₹)&quot; field). &quot;System Errors&quot; counts scheduled jobs
           currently in a failed state, not a historical error count — SchedulerJobRun keeps only
-          each job&apos;s latest run, not a log.
+          each job&apos;s latest run, not a log. <strong>{summary?.kpis.mrrLabel}</strong> Storage
+          Used counts from the point upload instrumentation began (September 2026) — no backfill
+          of earlier files.
         </p>
       </div>
 
@@ -429,7 +435,11 @@ export default function PlatformDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Platform billing (MRR / ARR)</CardTitle>
+          <CardTitle className="text-base">Payment collection</CardTitle>
+          <p className="text-xs text-neutral-500">
+            Distinct from the MRR/ARR KPIs above, which are real (contracted plan prices). This
+            card is about actually charging a tenant for platform access.
+          </p>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-neutral-500">
@@ -441,7 +451,14 @@ export default function PlatformDashboardPage() {
   );
 }
 
-function StatCard({ label, value, prefix }: { label: string; value?: number; prefix?: string }) {
+function formatBytesNumber(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function StatCard({ label, value, prefix }: { label: string; value?: number | string; prefix?: string }) {
   return (
     <Card>
       <CardHeader className="pb-2">

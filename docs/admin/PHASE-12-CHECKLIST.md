@@ -7,10 +7,17 @@
 
 ```
 SEED & RE-TRIAGE (Part 0)
-[ ] Re-triage every DECLARED item against today's code; report what moved before building
-[ ] MRR/ARR from real plan prices, labelled "contracted, not collected"
-[ ] Storage Used — persist upload byte sizes additively; KPI and Usage tab become real
-[ ] System error spike alert wired to scheduler job failures
+[x] MRR/ARR from real plan prices, labelled "contracted, not collected" — dashboard KPI, batched
+    (not resolveEntitlements() per org), reuses bridgeTierToPlanKey() so it can't disagree with
+    the Subscription tab; a real "suspended org's price excluded" test guards the active-only sum
+[x] Storage Used — lib/upload.ts::uploadToCloudinary() now fires a non-blocking POST to
+    /api/uploads/track after a real upload succeeds (server derives tenantId from its own
+    session, never trusts the client); a new StorageUsage per-tenant counter backs both the §7
+    Usage tab (against the plan's storageGb limit) and the §24 KPI (platform-wide sum)
+[x] System error spike alert wired to scheduler job failures — new SYSTEM_ERROR_SPIKE alert type,
+    distinct from the pre-existing per-job SCHEDULER_JOB_FAILED; a gauge threshold (N jobs
+    simultaneously failing), not a rolling-window count, since SchedulerJobRun holds only current
+    state; checked after every runDueJobs() pass
 [ ] Invoice/transaction search re-checked; built if possible
 [ ] Webhook alert delivery built; email left as a configurable adapter
 [ ] Demo seed extended per 0.3, including one deliberately empty organisation

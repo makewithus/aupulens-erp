@@ -48,5 +48,17 @@ export async function uploadToCloudinary(
   }
 
   const data = await response.json();
+
+  // Phase 12 Part 0.2 — Storage Used, re-triaged from DECLARED_NOT_POSSIBLE.
+  // Fire-and-forget, deliberately not awaited: the real upload has already
+  // succeeded above and its URL is already being returned below — nothing
+  // past this point may ever affect that. A network failure, a slow
+  // response, or the tracking route itself erroring all silently no-op.
+  fetch("/api/uploads/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bytes: file.size }),
+  }).catch(() => undefined);
+
   return data.secure_url;
 }

@@ -10,6 +10,7 @@ import Plan from "@/models/platform/Plan";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import OrganizationType from "@/models/platform/OrganizationType";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
+import StorageUsage from "@/models/platform/StorageUsage";
 import AdminRole from "@/models/platform/AdminRole";
 import { ADMIN_CAPABILITY, ADMIN_ROLE, ENTITY_STATUS, ORGANIZATION_TYPE, PLAN_KEY, SUPPORT_LEVEL } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
@@ -57,6 +58,7 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
     await OrganizationEntitlement.init();
     await OrganizationType.init();
     await ActivityLog.init();
+    await StorageUsage.init();
     await PlatformAuditLog.init();
     await AdminRole.init();
     ({
@@ -93,6 +95,7 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
     await OrganizationEntitlement.deleteMany({});
     await OrganizationType.deleteMany({});
     await ActivityLog.deleteMany({});
+    await StorageUsage.deleteMany({});
     await PlatformAuditLog.deleteMany({}).setOptions({ allowRetentionDelete: true });
     invalidateAdminRoleCache();
     invalidateEntitlementsCache();
@@ -267,12 +270,29 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
       expect(Number.isFinite(result.users.percent ?? 0)).toBe(true);
     });
 
-    it("names storage/API/document counts as unavailable, each with its own reason", async () => {
+    it("Phase 12 Part 0.2: only API requests and Document counts remain unavailable — Storage Used is now real", async () => {
       await Organization.create({ name: "Acme", subdomain: "acme", ownerUserId: new mongoose.Types.ObjectId() });
       const result = await getOrganizationUsageLimits(makeActor(), "test", "acme");
       const fields = result.unavailable.map((u) => u.field);
-      expect(fields).toEqual(["Storage used", "API requests", "Document counts"]);
+      expect(fields).toEqual(["API requests", "Document counts"]);
       expect(result.unavailable.every((u) => u.reason.length > 0)).toBe(true);
+    });
+
+    it("Storage Used is a real zero (not unavailable) for an org that has never uploaded anything", async () => {
+      await Organization.create({ name: "Acme", subdomain: "acme", ownerUserId: new mongoose.Types.ObjectId() });
+      const result = await getOrganizationUsageLimits(makeActor(), "test", "acme");
+      expect(result.storage.usedBytes).toBe(0);
+    });
+
+    it("Storage Used reflects a real StorageUsage row, against the plan's own storageGb limit", async () => {
+      await Organization.create({ name: "Acme", subdomain: "acme", ownerUserId: new mongoose.Types.ObjectId() });
+      await OrganizationEntitlement.create({ tenantId: "acme", planKey: PLAN_KEY.STARTER }); // storageGb: 5
+      await StorageUsage.create({ tenantId: "acme", totalBytes: 1024 * 1024 * 1024 }); // 1 GiB of 5 GiB
+
+      const result = await getOrganizationUsageLimits(makeActor(), "test", "acme");
+      expect(result.storage.usedBytes).toBe(1024 * 1024 * 1024);
+      expect(result.storage.limitBytes).toBe(5 * 1024 * 1024 * 1024);
+      expect(result.storage.percent).toBe(20);
     });
   });
 

@@ -7,9 +7,13 @@ import PlatformAlert from "@/models/platform/PlatformAlert";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import Plan from "@/models/platform/Plan";
+import StorageUsage from "@/models/platform/StorageUsage";
 import { isAiUsageRollupStale } from "@/lib/platform/ai/rollupFreshness";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { PLAN_RANK } from "@/lib/platform/alerts/conditions";
+import { bridgeTierToPlanKey } from "@/lib/platform/entitlements/resolve";
 import {
   ADMIN_CAPABILITY,
   ENTITY_STATUS,
@@ -44,6 +48,17 @@ export async function getDashboardKpis(actor: AdminActor, reason: string) {
       const period = getAiPeriod();
       const monthStart = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(4, 6)) - 1, 1));
 
+      // `status` is optional on Organization (added after many pre-existing
+      // orgs already existed) and every other reader in this codebase
+      // (list.ts, detail.ts) treats a MISSING status as ACTIVE, never as
+      // "doesn't count" — found live against real data: a plain
+      // `{status: ACTIVE}` count silently excluded every org whose status
+      // was never set, undercounting Active Organisations while still
+      // including those same orgs in Total Organisations. Reused for MRR
+      // below too, for the identical reason — "active" must mean the same
+      // thing in both places.
+      const activeOrgFilter = { $or: [{ status: ORGANIZATION_STATUS.ACTIVE }, { status: { $exists: false } }] };
+
       const [
         totalOrganisations,
         activeOrganisations,
@@ -56,16 +71,13 @@ export async function getDashboardKpis(actor: AdminActor, reason: string) {
         systemErrors,
         securityAlerts,
         rollupStale,
+        activeOrgsForMrr,
+        allEntitlements,
+        allPlans,
+        storageAgg,
       ] = await Promise.all([
         Organization.countDocuments({}),
-        // `status` is optional on Organization (added after many pre-existing
-        // orgs already existed) and every other reader in this codebase
-        // (list.ts, detail.ts) treats a MISSING status as ACTIVE, never as
-        // "doesn't count" — found live against real data: a plain
-        // `{status: ACTIVE}` count silently excluded every org whose status
-        // was never set, undercounting Active Organisations while still
-        // including those same orgs in Total Organisations.
-        Organization.countDocuments({ $or: [{ status: ORGANIZATION_STATUS.ACTIVE }, { status: { $exists: false } }] }),
+        Organization.countDocuments(activeOrgFilter),
         Organization.countDocuments({ status: ORGANIZATION_STATUS.TRIAL }),
         Organization.countDocuments({ status: ORGANIZATION_STATUS.SUSPENDED }),
         User.countDocuments({}),
@@ -92,6 +104,15 @@ export async function getDashboardKpis(actor: AdminActor, reason: string) {
         SchedulerJobRun.countDocuments({ lastRunStatus: "error" }),
         PlatformAlert.countDocuments({ severity: PLATFORM_SEVERITY.SECURITY, resolvedAt: { $exists: false } }),
         isAiUsageRollupStale(),
+        // MRR/ARR (Phase 12 Part 0.2, re-triaged from DECLARED_NOT_POSSIBLE):
+        // batched, not resolveEntitlements() per organisation — one query for
+        // the active orgs' own tier (the tier-fallback case), one for every
+        // OrganizationEntitlement row among them, one for the small, fixed
+        // Plan catalogue, then joined in memory below.
+        Organization.find(activeOrgFilter).select("subdomain tier").lean(),
+        OrganizationEntitlement.find({}).select("tenantId planKey").lean(),
+        Plan.find({}).select("key priceMonthly").lean(),
+        StorageUsage.aggregate([{ $group: { _id: null, totalBytes: { $sum: "$totalBytes" } } }]),
       ]);
 
       let upgrades = 0;
@@ -134,6 +155,23 @@ export async function getDashboardKpis(actor: AdminActor, reason: string) {
         aiCostThisMonth = rollupRows[0]?.cost ?? 0;
       }
 
+      // MRR: for every ACTIVE organisation, its assigned plan's real priceMonthly
+      // — from OrganizationEntitlement when one exists, else the same tier-
+      // fallback bridgeTierToPlanKey() resolveEntitlements() itself uses, so
+      // this can never disagree with what the Subscription tab shows for the
+      // same organisation. "Contracted", never "collected" — no payment is
+      // ever taken anywhere in this codebase (Hard Rule: never label a number
+      // as something it structurally cannot be).
+      const planPriceByKey = new Map(allPlans.map((p) => [p.key, p.priceMonthly]));
+      const entitlementByTenant = new Map(allEntitlements.map((e) => [e.tenantId, e.planKey]));
+      let contractedMrr = 0;
+      for (const org of activeOrgsForMrr) {
+        const planKey = entitlementByTenant.get(org.subdomain) ?? bridgeTierToPlanKey(org.tier);
+        contractedMrr += planPriceByKey.get(planKey) ?? 0;
+      }
+      const contractedArr = contractedMrr * 12;
+      const storageUsedBytesTotal = storageAgg[0]?.totalBytes ?? 0;
+
       return {
         totalOrganisations,
         activeOrganisations,
@@ -150,10 +188,16 @@ export async function getDashboardKpis(actor: AdminActor, reason: string) {
         systemErrorsCurrentlyFailing: systemErrors,
         securityAlertsUnresolved: securityAlerts,
         aiDataSource: rollupStale ? ("live" as const) : ("rollup" as const),
+        // Phase 12 Part 0.2 — re-triaged from DECLARED_NOT_POSSIBLE to real.
+        // Both explicitly labelled "contracted", not "collected"/"revenue" —
+        // no payment is ever taken anywhere in this codebase, and a reader
+        // mistaking one for the other is exactly the Part 5.4 adversarial
+        // case this project was asked to check for.
+        contractedMrr,
+        contractedArr,
+        mrrLabel: "Contracted MRR — the sum of assigned plan prices for active organisations. No payments are collected; this is not realised revenue.",
+        storageUsedBytesTotal,
         unavailable: [
-          { field: "MRR", reason: "No platform billing exists in this codebase — nothing charges a tenant for platform access." },
-          { field: "ARR", reason: "Same as MRR — there is no billing signal to annualise." },
-          { field: "Storage Used", reason: "File size is known for an instant at upload time (lib/upload.ts) but never persisted or aggregated." },
           { field: "API Usage", reason: "No tenant-facing route issues or checks an API key in this codebase — there is no request stream to count." },
         ],
       };
