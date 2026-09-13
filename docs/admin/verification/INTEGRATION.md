@@ -1,5 +1,21 @@
 # INTEGRATION.md — seam proofs (Phase 9 Part 3.2)
 
+## §19 — `PlatformAuditLog` and `ActivityLog` never write to each other (Phase 11 Part 1.9)
+
+Previously an inference ("`PlatformAuditLog` never writes to `ActivityLog`; `ActivityLog` is
+read-only from the platform side"), not proven. Proven now with the same source-grep technique
+`sourceGrep.test.ts` already uses for `crossTenant.ts`:
+
+- No file under `lib/platform/**` or `app/api/platform/**` calls a mutating method
+  (`save`/`create`/`updateOne`/etc.) on `ActivityLog` — the platform side only ever reads it (the
+  organisation Activity tab).
+- `lib/logger.ts` — `ActivityLog`'s one real writer (`logActivity()`) — never imports or references
+  `PlatformAuditLog` at all.
+
+Both directions checked because the original claim only stated one of them; the reverse (does the
+tenant's activity logger ever write into the platform's audit store) had never been asserted
+either way. It doesn't. Test: `tests/platform/sourceGrep.test.ts`'s "source doc §19" describe block.
+
 > Started ahead of the full Part 5 pass because one finding below (the `vercel.json` cron
 > discrepancy) needed to be captured the moment it was confirmed, not held until a later report.
 > The remaining seams in the Part 3.2 table are still to be proven — this file will grow to cover

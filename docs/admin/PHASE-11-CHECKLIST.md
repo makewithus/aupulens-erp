@@ -42,8 +42,11 @@ CLOSE THE PARTIALS (Part 1)
 [ ] §25: privileged-action confirmation on the three named actions
 [x] §28: export audit signal + alert (7 of 10) — recordMassDataExport() wired into
     app/api/crm/bulk/route.ts's export action, wrapped so it can never affect the export itself
-[ ] §26: SUPPORT_ADMIN gate verified over real HTTP
-[ ] §19: ActivityLog isolation proven by source-grep
+[x] §26: SUPPORT_ADMIN gate verified over real HTTP — live dev server, real seeded account, real
+    MFA enrollment, all 3 named cases pass; found + fixed a real local-env gap (no
+    ADMIN_SESSION_SECRET set, so admin login 500'd entirely before this)
+[x] §19: ActivityLog isolation proven by source-grep, both directions (platform never writes
+    ActivityLog; ActivityLog's writer never writes PlatformAuditLog)
 
 QUALITY (Parts 2-4)
 [ ] Theme matched to existing modules; no parallel styling

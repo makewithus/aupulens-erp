@@ -227,6 +227,32 @@ describe("source-grep: Hard Rule 6 — a plan change never reaches a delete-fami
   });
 });
 
+describe("source-grep: source doc §19 — PlatformAuditLog and ActivityLog never write to each other", () => {
+  // COVERAGE_MATRIX.md §19: "PlatformAuditLog never writes to ActivityLog" was
+  // an inference, not proven — Phase 11 Part 1.9 asks for the same source-grep
+  // technique the crossTenant.ts gateway test already uses. Checked both
+  // directions: the platform side must never write the tenant's own activity
+  // feed, and (equally real, not previously stated) the tenant's ActivityLog
+  // writer must never write to PlatformAuditLog.
+  it("no lib/platform/** or app/api/platform/** file calls a mutating method on ActivityLog", () => {
+    const allSourceFiles = [
+      ...walk(path.join(ROOT, "lib/platform"), [".ts", ".tsx"]),
+      ...walk(path.join(ROOT, "app/api/platform"), [".ts", ".tsx"]),
+    ];
+    const mutatingCallPattern = /ActivityLog\.(save|create|updateOne|updateMany|deleteOne|deleteMany|findOneAndUpdate|findByIdAndUpdate|findOneAndDelete|insertMany)\s*\(/;
+    const violations = allSourceFiles.filter((file) => {
+      const content = readFileSync(file, "utf8");
+      return content.includes("ActivityLog") && mutatingCallPattern.test(content);
+    });
+    expect(violations.map(relative)).toEqual([]);
+  });
+
+  it("lib/logger.ts (ActivityLog's one writer) never imports or writes PlatformAuditLog", () => {
+    const content = readFileSync(path.join(ROOT, "lib/logger.ts"), "utf8");
+    expect(content).not.toMatch(/PlatformAuditLog/);
+  });
+});
+
 describe("source-grep: Phase 11 Part 1.2 — ALL_TENANT_MODULES stays in sync with the real gates", () => {
   // lib/platform/organizations/types.ts::ALL_TENANT_MODULES carries its own
   // comment claiming it matches TIER_LIMITS and MODULE_PATH_MAP exactly —
