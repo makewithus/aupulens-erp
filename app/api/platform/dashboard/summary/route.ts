@@ -5,6 +5,7 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
 import { countOrganizations } from "@/lib/platform/tenancy/crossTenant";
 import { getPlatformAiUsageSummary } from "@/lib/platform/ai/dashboard";
+import { getDashboardKpis, getDashboardPanels } from "@/lib/platform/dashboard";
 
 /**
  * Every number here is either a real, live query result or an explicit
@@ -23,11 +24,13 @@ export async function GET(request: Request) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [organizationCount, adminUserCount, auditEventsToday, aiUsage] = await Promise.all([
+  const [organizationCount, adminUserCount, auditEventsToday, aiUsage, kpis, panels] = await Promise.all([
     countOrganizations(actor, "platform dashboard summary view"),
     AdminUser.countDocuments({}),
     PlatformAuditLog.countDocuments({ createdAt: { $gte: startOfToday } }),
     getPlatformAiUsageSummary(actor, "platform dashboard summary view"),
+    getDashboardKpis(actor, "platform dashboard summary view"),
+    getDashboardPanels(actor, "platform dashboard summary view"),
   ]);
 
   return NextResponse.json({
@@ -38,6 +41,8 @@ export async function GET(request: Request) {
       auditEventsToday,
       aiUsage: { available: true, ...aiUsage },
       billing: { available: false, reason: "Platform billing (MRR/ARR) is not yet integrated — see docs/admin/OPEN_QUESTIONS.md #4." },
+      kpis,
+      panels,
     },
   });
 }

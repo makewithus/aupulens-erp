@@ -43,12 +43,38 @@ interface AiUsageSummary {
   topModels: { modelName: string; requestCount: number }[];
 }
 
+interface DashboardKpis {
+  totalOrganisations: number;
+  activeOrganisations: number;
+  trialOrganisations: number;
+  suspendedOrganisations: number;
+  totalUsers: number;
+  activeUsers: number;
+  activeSubscriptions: number;
+  upgrades: number;
+  downgrades: number;
+  aiRequestsThisMonth: number;
+  aiCostThisMonth: number;
+  aiCreditsUsedThisMonth: number;
+  systemErrorsCurrentlyFailing: number;
+  securityAlertsUnresolved: number;
+  unavailable: { field: string; reason: string }[];
+}
+
+interface DashboardPanels {
+  recentOrganisations: { id: string; name: string; subdomain: string; status: string; createdAt: string }[];
+  recentSubscriptionChanges: { id: string; tenantId: string; type: string; tier?: string; occurredAt: string }[];
+  recentAdminActions: { id: string; actorRole: string; eventType: string; tenantId?: string; entityType?: string; entityId?: string; createdAt: string }[];
+}
+
 interface DashboardSummary {
   organizationCount: number;
   adminUserCount: number;
   auditEventsToday: number;
   aiUsage: AiUsageSummary;
   billing: { available: false; reason: string };
+  kpis: DashboardKpis;
+  panels: DashboardPanels;
 }
 
 export default function PlatformDashboardPage() {
@@ -97,6 +123,10 @@ export default function PlatformDashboardPage() {
       });
   }, []);
 
+  const AI_ALERT_TYPES = ["ai_usage_threshold", "ai_cost_spike"];
+  const aiAlerts = alerts.filter((a) => AI_ALERT_TYPES.includes(a.alertType));
+  const securityAlerts = alerts.filter((a) => a.severity === "security");
+
   return (
     <div className="space-y-6">
       <div>
@@ -115,11 +145,47 @@ export default function PlatformDashboardPage() {
         </div>
       )}
 
+      <div>
+        <p className="text-sm font-medium mb-2">Source doc §24 — the 18 named KPIs</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Organisations" value={summary?.kpis.totalOrganisations} />
+          <StatCard label="Active Organisations" value={summary?.kpis.activeOrganisations} />
+          <StatCard label="Trial Organisations" value={summary?.kpis.trialOrganisations} />
+          <StatCard label="Suspended Organisations" value={summary?.kpis.suspendedOrganisations} />
+          <StatCard label="Total Users" value={summary?.kpis.totalUsers} />
+          <StatCard label="Active Users" value={summary?.kpis.activeUsers} />
+          <StatCard label="Active Subscriptions" value={summary?.kpis.activeSubscriptions} />
+          <StatCard label="Upgrades (this month)" value={summary?.kpis.upgrades} />
+          <StatCard label="Downgrades (this month)" value={summary?.kpis.downgrades} />
+          <StatCard label="AI Requests (this month)" value={summary?.kpis.aiRequestsThisMonth} />
+          <StatCard label="AI Cost (this month)" value={summary ? Number(summary.kpis.aiCostThisMonth.toFixed(2)) : undefined} prefix="$" />
+          <StatCard
+            label="AI Credits Used"
+            value={summary ? Number(summary.kpis.aiCreditsUsedThisMonth.toFixed(2)) : undefined}
+            prefix="$"
+          />
+          <EmptyStatTile label="MRR" reason={summary?.kpis.unavailable.find((u) => u.field === "MRR")?.reason} />
+          <EmptyStatTile label="ARR" reason={summary?.kpis.unavailable.find((u) => u.field === "ARR")?.reason} />
+          <EmptyStatTile label="Storage Used" reason={summary?.kpis.unavailable.find((u) => u.field === "Storage Used")?.reason} />
+          <EmptyStatTile label="API Usage" reason={summary?.kpis.unavailable.find((u) => u.field === "API Usage")?.reason} />
+          <StatCard
+            label="System Errors"
+            value={summary?.kpis.systemErrorsCurrentlyFailing}
+          />
+          <StatCard label="Security Alerts" value={summary?.kpis.securityAlertsUnresolved} />
+        </div>
+        <p className="text-xs text-neutral-400 italic mt-2">
+          &quot;AI Credits Used&quot; shows the same figure as AI Cost — this codebase denominates
+          AI credits in currency, not a separate unit (see the AI limits editor&apos;s own
+          &quot;Monthly credits (₹)&quot; field). &quot;System Errors&quot; counts scheduled jobs
+          currently in a failed state, not a historical error count — SchedulerJobRun keeps only
+          each job&apos;s latest run, not a log.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Organisations" value={summary?.organizationCount} />
         <StatCard label="Admin users" value={summary?.adminUserCount} />
         <StatCard label="Audit events today" value={summary?.auditEventsToday} />
-        <StatCard label="AI requests this month" value={summary?.aiUsage.totalRequestsThisMonth} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -184,7 +250,7 @@ export default function PlatformDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Alerts</CardTitle>
+          <CardTitle className="text-base">Alerts (all)</CardTitle>
         </CardHeader>
         <CardContent>
           {alerts.length === 0 && (
@@ -205,6 +271,121 @@ export default function PlatformDashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">AI Usage Alerts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiAlerts.length === 0 && <p className="text-sm text-neutral-400 italic">No unresolved AI usage/cost alerts.</p>}
+            <div className="space-y-2">
+              {aiAlerts.map((a) => (
+                <div key={a.id} className="text-sm border-b pb-2 last:border-0">
+                  <p>{a.message}</p>
+                  <p className="text-xs text-neutral-400">{formatPlatformTimestamp(a.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Security Alerts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {securityAlerts.length === 0 && <p className="text-sm text-neutral-400 italic">No unresolved security alerts.</p>}
+            <div className="space-y-2">
+              {securityAlerts.map((a) => (
+                <div key={a.id} className="text-sm border-b pb-2 last:border-0">
+                  <p>{a.message}</p>
+                  <p className="text-xs text-neutral-400">{formatPlatformTimestamp(a.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">System Errors</CardTitle>
+          <p className="text-xs text-neutral-500">Scheduled jobs currently in a failed state — a subset of the Scheduled Jobs panel below.</p>
+        </CardHeader>
+        <CardContent>
+          {jobs && jobs.filter((j) => j.lastRunStatus === "error").length === 0 && (
+            <p className="text-sm text-neutral-400 italic">No jobs currently in a failed state.</p>
+          )}
+          <div className="space-y-2">
+            {jobs?.filter((j) => j.lastRunStatus === "error").map((j) => (
+              <div key={j.jobId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                <span>{j.jobId}</span>
+                <span className="text-xs text-red-600 truncate max-w-xs">{j.lastError}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Organisations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary && summary.panels.recentOrganisations.length === 0 && (
+              <p className="text-sm text-neutral-400 italic">No organisations yet.</p>
+            )}
+            <div className="space-y-2">
+              {summary?.panels.recentOrganisations.map((o) => (
+                <div key={o.id} className="text-sm border-b pb-2 last:border-0">
+                  <p className="truncate">{o.name}</p>
+                  <p className="text-xs text-neutral-400">{o.status} · {formatPlatformTimestamp(o.createdAt, { dateOnly: true })}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Subscription Changes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary && summary.panels.recentSubscriptionChanges.length === 0 && (
+              <p className="text-sm text-neutral-400 italic">No subscription changes recorded yet.</p>
+            )}
+            <div className="space-y-2">
+              {summary?.panels.recentSubscriptionChanges.map((e) => (
+                <div key={e.id} className="text-sm border-b pb-2 last:border-0">
+                  <p className="truncate">{e.tenantId} — {e.type}</p>
+                  <p className="text-xs text-neutral-400">{formatPlatformTimestamp(e.occurredAt, { dateOnly: true })}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Global Admin Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary && summary.panels.recentAdminActions.length === 0 && (
+              <p className="text-sm text-neutral-400 italic">No admin actions recorded yet.</p>
+            )}
+            <div className="space-y-2">
+              {summary?.panels.recentAdminActions.map((a) => (
+                <div key={a.id} className="text-sm border-b pb-2 last:border-0">
+                  <p className="truncate">{a.actorRole} — {a.eventType}</p>
+                  <p className="text-xs text-neutral-400">{a.tenantId ?? "—"} · {formatPlatformTimestamp(a.createdAt, { dateOnly: true })}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -270,6 +451,22 @@ function StatCard({ label, value, prefix }: { label: string; value?: number; pre
         <p className="text-3xl font-semibold">
           {value !== undefined ? `${prefix ?? ""}${value}` : "—"}
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Present, greyed, with a one-line reason — never a missing tile (Part 1.5: "a missing tile
+ *  reads as an oversight; an empty tile with a reason reads as honesty"). */
+function EmptyStatTile({ label, reason }: { label: string; reason?: string }) {
+  return (
+    <Card className="opacity-60" title={reason}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-neutral-500">{label}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-lg text-neutral-400 italic">Not available</p>
+        {reason && <p className="text-xs text-neutral-400 mt-1">{reason}</p>}
       </CardContent>
     </Card>
   );

@@ -39,8 +39,12 @@ CLOSE THE PARTIALS (Part 1)
 [x] §21/§31: security log view decided (one collection, a dedicated filtered view — never a
     second PlatformSecurityLog model), built at /platform/security-log, recorded in
     docs/admin/DECISIONS.md #1; gated on VIEW_SECURITY_LOGS specifically, not VIEW_AUDIT_LOGS
-[ ] §24: 14 real KPIs built; 4 as explained empty tiles
-[ ] §24: all six operational panels
+[x] §24: 14 real KPIs built (one gateway call each for KPIs/panels, all queries parallelised);
+    4 as explained empty tiles (MRR/ARR/Storage/API Usage). Found + fixed a real bug via live
+    data: missing Organization.status (unset on every pre-existing org) was silently undercounted
+    by a naive {status: ACTIVE} query — now matches list.ts's own missing-means-ACTIVE convention
+[x] §24: all six operational panels — Recent Organisations, Recent Subscription Changes, AI
+    Usage Alerts, Security Alerts, System Errors, Recent Global Admin Actions
 [ ] §25: Admin Sessions view with IP/device and new-IP flag
 [ ] §25: privileged-action confirmation on the three named actions
 [x] §28: export audit signal + alert (7 of 10) — recordMassDataExport() wired into

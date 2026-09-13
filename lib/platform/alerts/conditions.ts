@@ -115,7 +115,7 @@ export async function checkPermissionFailureSpike(actorId: string): Promise<void
   }
 }
 
-const PLAN_RANK: Record<string, number> = {
+export const PLAN_RANK: Record<string, number> = {
   [PLAN_KEY.FREE]: 0,
   [PLAN_KEY.STARTER]: 1,
   [PLAN_KEY.GROWTH]: 2,
