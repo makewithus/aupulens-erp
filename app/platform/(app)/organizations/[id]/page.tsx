@@ -824,6 +824,13 @@ export default function OrganizationDetailPage() {
               </Card>
               <div>
                 <p className="text-sm font-medium mb-2">Feature breakdown (this month)</p>
+                <p className="text-xs text-neutral-400 italic mb-2">
+                  AI Agents shows zero requests by design — it has no signal distinct from AI
+                  Automation in this codebase (both are the same underlying mechanism). AI
+                  Automation has real request counts but no token/cost figures — nothing upstream
+                  tracks per-run token usage for it. This is a documented data ceiling, not a bug
+                  — see docs/admin/AI_FEATURE_MAP.md.
+                </p>
                 <SimpleTable
                   rows={(tabData["ai-usage"] as any).featureBreakdown}
                   columns={["feature", "requestCount", "inputTokens", "outputTokens", "estimatedCostUsd", "errorCount"]}

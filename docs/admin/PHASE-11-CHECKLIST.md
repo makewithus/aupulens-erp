@@ -14,6 +14,9 @@ SUPPLIED TEXT (Part 0)
     the same way SUSPENDED does
 
 CLOSE THE PARTIALS (Part 1)
+[x] §14/§20: legibility — AI Usage tab now states the AI Agents/Automation data ceiling in the
+    UI itself (was already true in AI_FEATURE_MAP.md, just not surfaced where a tester would see
+    it); §20's module-filter note was already rendered on the Activity tab
 [x] §3 list: Organisation ID, Region, Usage % (null-safe), resolved plan not legacy tier
 [x] §7: Modules tab — reads resolveEntitlements()+the plan's own module set, shows plan vs
     override vs effective distinctly; edits route through the existing setOverride()/
