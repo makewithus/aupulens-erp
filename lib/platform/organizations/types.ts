@@ -32,6 +32,17 @@ export interface OrganizationListRow {
   lastMeaningfulActivityAt: string | null;
 }
 
+/**
+ * Phase 11 Part 1.2, Modules tab. The fixed set of tenant modules this
+ * codebase actually gates on — matches `lib/constants/tiers.ts::TIER_LIMITS`
+ * and `lib/middleware/moduleGate.ts::MODULE_PATH_MAP` exactly (both are the
+ * real enforcement points; this is a display-layer catalogue, not a third
+ * source of truth — a module absent from either of those two lists would
+ * mean something exists here that gates nothing real).
+ */
+export const ALL_TENANT_MODULES = ["admin", "finance", "sales", "inventory", "manufacturing", "hr", "crm"] as const;
+export type TenantModule = (typeof ALL_TENANT_MODULES)[number];
+
 export const LAST_MEANINGFUL_ACTIVITY_DEFINITION =
   "Most recent recorded admin-panel activity for this organisation, or its last record update if none has been logged yet. Login and AI-usage timestamps are not yet tracked at the per-event level in this codebase, so they cannot contribute to this figure — see docs/admin/SYSTEM_INVENTORY_DELTA.md.";
 

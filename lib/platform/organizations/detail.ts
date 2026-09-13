@@ -4,6 +4,9 @@ import ActivityLog from "@/models/admin/ActivityLog";
 import SubscriptionEvent from "@/models/admin/SubscriptionEvent";
 import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
+import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
+import Plan from "@/models/platform/Plan";
+import OrganizationType from "@/models/platform/OrganizationType";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { isAiUsageRollupStale } from "@/lib/platform/ai/rollupFreshness";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
@@ -17,7 +20,7 @@ import {
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
-import { LAST_MEANINGFUL_ACTIVITY_DEFINITION, ACTIVITY_MODULE_FILTER_NOTE } from "./types";
+import { LAST_MEANINGFUL_ACTIVITY_DEFINITION, ACTIVITY_MODULE_FILTER_NOTE, ALL_TENANT_MODULES } from "./types";
 
 /**
  * One function per source-doc §7 tab that has real data today. Every tab
@@ -258,4 +261,165 @@ export function getOrganizationBillingEmptyState() {
     reason:
       "Platform billing is not yet integrated — see docs/admin/OPEN_QUESTIONS.md #4.",
   } as const;
+}
+
+/**
+ * Phase 11 Part 1.2, Modules tab. "Toggling a module is an override edit, so
+ * route it through the existing setOverride() rather than a new path" — this
+ * function is read-only; the write path is the pre-existing
+ * `PATCH /api/platform/organizations/[id]/entitlement-override` (Group A
+ * item 3), unchanged. Shows the plan's own module set and, separately,
+ * whether an override has replaced it — never conflates the two, so an
+ * operator can always tell "the plan grants this" from "an override changed
+ * this."
+ */
+export async function getOrganizationModules(actor: AdminActor, reason: string, subdomain: string) {
+  return withCrossTenantRead({
+    actor,
+    capability: ADMIN_CAPABILITY.VIEW_ORGANIZATIONS,
+    reason,
+    eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_VIEWED,
+    entityType: "Organization",
+    entityId: subdomain,
+    tenantId: subdomain,
+    run: async () => {
+      const [entitlements, entitlementRow] = await Promise.all([
+        resolveEntitlements(subdomain),
+        OrganizationEntitlement.findOne({ tenantId: subdomain }).lean(),
+      ]);
+      const plan = await Plan.findOne({ key: entitlements.planKey }).lean();
+
+      return {
+        allModules: ALL_TENANT_MODULES,
+        planKey: entitlements.planKey,
+        planModules: plan?.features.modules ?? [],
+        overrideModules: entitlementRow?.overrides?.modules ?? null,
+        effectiveModules: entitlements.modules,
+        hasBasePlan: Boolean(entitlementRow),
+      };
+    },
+  });
+}
+
+/**
+ * Phase 11 Part 1.2, Configuration tab. Read side of country/currency/
+ * timezone/tax jurisdiction plus the organisation type's own defaults
+ * (for context — "these are the defaults this org type was created with,"
+ * never re-applied automatically). Write side is
+ * `updateOrganizationConfiguration()` in ./configuration.ts.
+ */
+export async function getOrganizationConfiguration(actor: AdminActor, reason: string, subdomain: string) {
+  return withCrossTenantRead({
+    actor,
+    capability: ADMIN_CAPABILITY.VIEW_ORGANIZATIONS,
+    reason,
+    eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_VIEWED,
+    entityType: "Organization",
+    entityId: subdomain,
+    tenantId: subdomain,
+    run: async () => {
+      const org = await Organization.findOne({ subdomain }).lean();
+      if (!org) return null;
+
+      const typeDoc = org.organizationType
+        ? await OrganizationType.findOne({ type: org.organizationType }).lean()
+        : null;
+
+      return {
+        country: org.settings?.country ?? null,
+        currency: org.settings?.currency ?? null,
+        timezone: org.settings?.timezone ?? null,
+        taxJurisdiction: org.settings?.taxJurisdiction ?? null,
+        organizationType: org.organizationType ?? null,
+        organizationTypeDefaults: typeDoc?.defaultConfig ?? null,
+      };
+    },
+  });
+}
+
+/**
+ * Phase 11 Part 1.2, Security tab. "To whatever depth the tenant data
+ * genuinely supports" — checked directly, not assumed: `models/auth/User.ts`
+ * has no MFA field, no last-login timestamp, and no failed-login counter for
+ * TENANT users (the failed-login counter and MFA enrollment that exist in
+ * this codebase are `AdminUser`'s own, a completely separate identity domain
+ * — Hard Rule 13). Tenant auth is JWT-strategy with no server-side session
+ * store, so "active sessions" has no backing data either. What IS real: the
+ * tenant's own user list and each one's account status — already fetched by
+ * getOrganizationUsers(), reused here rather than a second query, presented
+ * alongside four explicit, individually-named absent-data notes rather than
+ * a single vague "not available."
+ */
+export async function getOrganizationSecurity(actor: AdminActor, reason: string, subdomain: string) {
+  return withCrossTenantRead({
+    actor,
+    capability: ADMIN_CAPABILITY.VIEW_ORGANIZATIONS,
+    reason,
+    eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_VIEWED,
+    entityType: "Organization",
+    entityId: subdomain,
+    tenantId: subdomain,
+    run: async () => {
+      const users = await User.find({ tenantId: subdomain }).select("name email role status").lean();
+      return {
+        users: users.map((u) => ({
+          id: String(u._id),
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          active: u.status === ENTITY_STATUS.ACTIVE,
+        })),
+        unavailable: [
+          { field: "MFA status", reason: "Tenant users have no MFA field in this codebase — MFA (TOTP) exists only for the separate Global Admin identity domain." },
+          { field: "Recent logins", reason: "No login-event log exists for tenant users — only a free-text Activity Log with no structured event type to filter on reliably." },
+          { field: "Failed-login counts", reason: "No failed-login counter is tracked for tenant users — the one that exists (AdminUser.failedLoginCount) is Global-Admin-only." },
+          { field: "Active sessions", reason: "Tenant authentication is JWT-strategy with no server-side session store, so there is nothing to enumerate — unlike AdminSession, which backs the platform's own Admin Sessions view." },
+        ],
+      };
+    },
+  });
+}
+
+/**
+ * Phase 11 Part 1.2, Usage tab. Distinct from the AI Usage tab. Checked
+ * directly per resource, not assumed: `lib/upload.ts` knows a file's byte
+ * size for an instant at upload time but never persists or aggregates it
+ * (the same finding already recorded for the platform-wide Storage Used KPI,
+ * §24 — true per-organisation for the identical reason); no tenant-facing
+ * route issues or checks an API key, so API request counts don't exist
+ * either; `documentLimitPerMonth` is a configured ceiling on the Plan with
+ * no corresponding counter anywhere that increments it. The one real number
+ * here is user count against the plan's own limit — already computable from
+ * data this project holds everywhere else.
+ */
+export async function getOrganizationUsageLimits(actor: AdminActor, reason: string, subdomain: string) {
+  return withCrossTenantRead({
+    actor,
+    capability: ADMIN_CAPABILITY.VIEW_ORGANIZATIONS,
+    reason,
+    eventType: PLATFORM_EVENT_TYPE.ORGANIZATION_VIEWED,
+    entityType: "Organization",
+    entityId: subdomain,
+    tenantId: subdomain,
+    run: async () => {
+      const [entitlements, activeUserCount] = await Promise.all([
+        resolveEntitlements(subdomain),
+        User.countDocuments({ tenantId: subdomain, status: ENTITY_STATUS.ACTIVE }),
+      ]);
+      const maxUsers = entitlements.limits.maxUsers;
+
+      return {
+        users: {
+          used: activeUserCount,
+          limit: maxUsers,
+          percent: maxUsers > 0 ? Math.round((activeUserCount / maxUsers) * 100) : null,
+        },
+        unavailable: [
+          { field: "Storage used", reason: "File size is known for an instant at upload time (lib/upload.ts) but never persisted or aggregated per organisation." },
+          { field: "API requests", reason: "No tenant-facing route issues or checks an API key in this codebase — there is no request stream to count." },
+          { field: "Document counts", reason: "Plan.documentLimitPerMonth is a configured ceiling with no corresponding counter anywhere that increments it." },
+        ],
+      };
+    },
+  });
 }

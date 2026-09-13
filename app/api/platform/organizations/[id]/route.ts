@@ -7,12 +7,28 @@ import {
   getOrganizationAiUsage,
   getOrganizationAuditLogs,
   getOrganizationBillingEmptyState,
+  getOrganizationConfiguration,
+  getOrganizationModules,
   getOrganizationOverview,
+  getOrganizationSecurity,
   getOrganizationSubscriptionHistory,
+  getOrganizationUsageLimits,
   getOrganizationUsers,
 } from "@/lib/platform/organizations/detail";
 
-const VALID_TABS = ["overview", "users", "subscription", "activity", "audit", "ai-usage", "billing"] as const;
+const VALID_TABS = [
+  "overview",
+  "users",
+  "subscription",
+  "activity",
+  "audit",
+  "ai-usage",
+  "billing",
+  "modules",
+  "configuration",
+  "security",
+  "usage",
+] as const;
 
 // The route param is the tenant's own subdomain (tenantId), the natural
 // identifier for an organisation everywhere else in this codebase — not a
@@ -61,6 +77,18 @@ export async function GET(
         break;
       case "billing":
         data = getOrganizationBillingEmptyState();
+        break;
+      case "modules":
+        data = await getOrganizationModules(actor, reason, subdomain);
+        break;
+      case "configuration":
+        data = await getOrganizationConfiguration(actor, reason, subdomain);
+        break;
+      case "security":
+        data = await getOrganizationSecurity(actor, reason, subdomain);
+        break;
+      case "usage":
+        data = await getOrganizationUsageLimits(actor, reason, subdomain);
         break;
     }
     return NextResponse.json({ success: true, data });

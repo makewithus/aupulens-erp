@@ -226,3 +226,41 @@ describe("source-grep: Hard Rule 6 — a plan change never reaches a delete-fami
     expect(violations.map(relative)).toEqual([]);
   });
 });
+
+describe("source-grep: Phase 11 Part 1.2 — ALL_TENANT_MODULES stays in sync with the real gates", () => {
+  // lib/platform/organizations/types.ts::ALL_TENANT_MODULES carries its own
+  // comment claiming it matches TIER_LIMITS and MODULE_PATH_MAP exactly —
+  // this is what makes that claim true rather than aspirational. A module
+  // added to one list and not the others would mean the Modules tab either
+  // displays a toggle for something that gates nothing real, or is missing
+  // one that does.
+  it("every module in ALL_TENANT_MODULES appears in every TIER_LIMITS.enabledModules union and in MODULE_PATH_MAP", async () => {
+    const { ALL_TENANT_MODULES } = await import("@/lib/platform/organizations/types");
+    const { TIER_LIMITS } = await import("@/lib/constants/tiers");
+
+    const tierLimitsModules = new Set<string>();
+    for (const tier of Object.values(TIER_LIMITS)) {
+      for (const m of tier.enabledModules) tierLimitsModules.add(m);
+    }
+
+    const moduleGateSource = readFileSync(path.join(ROOT, "lib/middleware/moduleGate.ts"), "utf8");
+
+    const missingFromTierLimits = ALL_TENANT_MODULES.filter((m) => !tierLimitsModules.has(m));
+    const missingFromModuleGate = ALL_TENANT_MODULES.filter(
+      (m) => !new RegExp(`["']${m}["']`).test(moduleGateSource),
+    );
+
+    expect(missingFromTierLimits).toEqual([]);
+    expect(missingFromModuleGate).toEqual([]);
+  });
+
+  it("every module ENTERPRISE grants (the highest tier) appears in ALL_TENANT_MODULES — the catalogue is not missing a real, gated module", async () => {
+    const { ALL_TENANT_MODULES } = await import("@/lib/platform/organizations/types");
+    const { TIER_LIMITS } = await import("@/lib/constants/tiers");
+    const { ORGANIZATION_TIER } = await import("@/lib/constants/statuses");
+
+    const enterpriseModules = TIER_LIMITS[ORGANIZATION_TIER.ENTERPRISE].enabledModules;
+    const missing = enterpriseModules.filter((m) => !(ALL_TENANT_MODULES as readonly string[]).includes(m));
+    expect(missing).toEqual([]);
+  });
+});

@@ -14,12 +14,22 @@ SUPPLIED TEXT (Part 0)
     the same way SUSPENDED does
 
 CLOSE THE PARTIALS (Part 1)
-[ ] §3 list: Organisation ID, Region, Usage % (null-safe), resolved plan not legacy tier
-[ ] §7: Modules tab
-[ ] §7: Configuration tab
-[ ] §7: Security tab
-[ ] §7: Usage tab
-[ ] §7: Overview gains Storage + Monthly Revenue as explained empty states
+[x] §3 list: Organisation ID, Region, Usage % (null-safe), resolved plan not legacy tier
+[x] §7: Modules tab — reads resolveEntitlements()+the plan's own module set, shows plan vs
+    override vs effective distinctly; edits route through the existing setOverride()/
+    entitlement-override endpoint, no new write path
+[x] §7: Configuration tab — country/currency/timezone/taxJurisdiction, editable, audited;
+    changing country warns rather than silently re-deriving currency/timezone (a real Mongoose
+    bug in the first pass — wholesale settings reassignment dropped nested sub-objects — caught
+    by the new test suite before shipping, fixed with Object.assign + markModified)
+[x] §7: Security tab — real tenant user list + status; MFA/recent-logins/failed-logins/active-
+    sessions each individually named as unavailable with a specific reason (checked directly:
+    none of these fields/logs exist for tenant users in this codebase)
+[x] §7: Usage tab — real user-count-vs-plan-limit (null-safe); storage/API/document counts each
+    individually named as unavailable with a specific reason (same per-org verification as the
+    platform-wide Storage Used finding)
+[x] §7: Overview gains Storage + Monthly Revenue as explained empty states (each with its own
+    specific reason on hover, matching the per-field pattern used on the new Security/Usage tabs)
 [ ] §18: Date filter minimum; unavailable filters disabled with a reason
 [ ] §21/§31: security log view decided, built, recorded in DECISIONS.md
 [ ] §24: 14 real KPIs built; 4 as explained empty tiles

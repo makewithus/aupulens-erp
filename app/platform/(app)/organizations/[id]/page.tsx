@@ -33,8 +33,25 @@ import {
   PLAN_KEY_VALUES,
 } from "@/lib/constants/statuses";
 import { formatInOrgTimezone, formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
+import { getCountryInfo, COUNTRY_NAMES } from "@/lib/constants/countries";
 
-const TABS = ["overview", "users", "subscription", "activity", "audit", "ai-usage", "billing"] as const;
+// Order matches source doc §7 verbatim: "Overview, Users, Subscription, AI
+// Usage, Modules, Configuration, Activity, Audit Logs, Security, Billing,
+// Usage" (docs/admin/BRIEF-PHASE-11-CLOSEOUT.md Part 0.1). "audit" here
+// renders as the "Audit Logs" tab label below.
+const TABS = [
+  "overview",
+  "users",
+  "subscription",
+  "ai-usage",
+  "modules",
+  "configuration",
+  "activity",
+  "audit",
+  "security",
+  "billing",
+  "usage",
+] as const;
 
 export default function OrganizationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -94,6 +111,13 @@ export default function OrganizationDetailPage() {
     hardLimitUsd: "",
   });
   const [aiLimitReason, setAiLimitReason] = useState("");
+  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
+  const [moduleSelection, setModuleSelection] = useState<string[]>([]);
+  const [moduleReason, setModuleReason] = useState("");
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [configForm, setConfigForm] = useState({ country: "", currency: "", timezone: "", taxJurisdiction: "" });
+  const [configReason, setConfigReason] = useState("");
+  const [configCountryChanged, setConfigCountryChanged] = useState(false);
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -280,6 +304,70 @@ export default function OrganizationDetailPage() {
     }
   }
 
+  function openModuleDialog() {
+    const m = tabData.modules as any;
+    setModuleSelection(m?.effectiveModules ?? []);
+    setModuleReason("");
+    setModuleDialogOpen(true);
+  }
+
+  async function handleSaveModules() {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/platform/organizations/${subdomain}/entitlement-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides: { modules: moduleSelection }, reason: moduleReason }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Failed to update modules.");
+        return;
+      }
+      setModuleDialogOpen(false);
+      delete tabData.modules;
+      delete tabData.subscription;
+      await loadTab("modules");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openConfigDialog() {
+    const c = tabData.configuration as any;
+    setConfigForm({
+      country: c?.country ?? "",
+      currency: c?.currency ?? "",
+      timezone: c?.timezone ?? "",
+      taxJurisdiction: c?.taxJurisdiction ?? "",
+    });
+    setConfigCountryChanged(false);
+    setConfigReason("");
+    setConfigDialogOpen(true);
+  }
+
+  async function handleSaveConfiguration() {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/platform/organizations/${subdomain}/configuration`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...configForm, reason: configReason }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        setError(body.message ?? "Failed to update configuration.");
+        return;
+      }
+      setConfigDialogOpen(false);
+      delete tabData.configuration;
+      await loadTab("configuration");
+      await loadTab("overview");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleStatusChange() {
     setSubmitting(true);
     try {
@@ -361,14 +449,18 @@ export default function OrganizationDetailPage() {
       )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof TABS)[number])}>
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="ai-usage">AI Usage</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
-          <TabsTrigger value="ai-usage">AI Usage</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="usage">Usage</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -384,6 +476,22 @@ export default function OrganizationDetailPage() {
                 <Field label="Tax jurisdiction" value={overview.settings?.taxJurisdiction ?? "—"} />
                 <Field label="Enabled modules" value={(overview.settings?.enabledModules ?? []).join(", ") || "—"} />
                 <Field label="Created" value={formatInOrgTimezone(overview.createdAt, overview.settings?.timezone)} />
+                <Field
+                  label="Storage"
+                  value={
+                    <span className="text-neutral-400 italic text-xs" title="File size is known for an instant at upload time but never persisted or aggregated per organisation.">
+                      Not tracked — see Usage tab
+                    </span>
+                  }
+                />
+                <Field
+                  label="Monthly Revenue"
+                  value={
+                    <span className="text-neutral-400 italic text-xs" title="No platform billing exists in this codebase — nothing charges a tenant for platform access.">
+                      Not available — platform billing not integrated
+                    </span>
+                  }
+                />
               </CardContent>
             </Card>
           )}
@@ -467,6 +575,90 @@ export default function OrganizationDetailPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="modules" className="space-y-4">
+          {loading && tab === "modules" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {tabData.modules && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Enabled modules</CardTitle>
+                <Button size="sm" variant="outline" onClick={openModuleDialog} disabled={!(tabData.modules as any).hasBasePlan}>
+                  Edit modules
+                </Button>
+              </CardHeader>
+              <CardContent className="text-sm space-y-4">
+                {!(tabData.modules as any).hasBasePlan && (
+                  <p className="text-xs text-amber-600">
+                    This organisation has no base plan assigned yet — modules below are the tier
+                    fallback. Assign a plan on the Subscription tab before overriding modules.
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  {((tabData.modules as any).allModules as string[]).map((m) => {
+                    const fromPlan = ((tabData.modules as any).planModules as string[]).includes(m);
+                    const overrideList = (tabData.modules as any).overrideModules as string[] | null;
+                    const effective = ((tabData.modules as any).effectiveModules as string[]).includes(m);
+                    const source = overrideList ? (overrideList.includes(m) ? "override" : "removed by override") : fromPlan ? "plan" : "not granted";
+                    return (
+                      <div key={m} className="flex items-center justify-between border rounded-md px-3 py-2">
+                        <span className={effective ? "font-medium" : "text-neutral-400 line-through"}>{m}</span>
+                        <Badge variant={effective ? "secondary" : "outline"} className="text-[10px] uppercase">
+                          {source}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Plan: {PLAN_KEY_LABELS[(tabData.modules as any).planKey as keyof typeof PLAN_KEY_LABELS] ?? (tabData.modules as any).planKey}.
+                  {(tabData.modules as any).overrideModules ? " An override has replaced the plan's own module set." : " No override — modules come entirely from the plan."}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="configuration" className="space-y-4">
+          {loading && tab === "configuration" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {tabData.configuration === null && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-red-600">Organisation not found.</p>
+              </CardContent>
+            </Card>
+          )}
+          {tabData.configuration && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">Configuration</CardTitle>
+                  <Button size="sm" variant="outline" onClick={openConfigDialog}>
+                    Edit
+                  </Button>
+                </CardHeader>
+                <CardContent className="text-sm grid grid-cols-2 gap-4">
+                  <Field label="Country" value={(tabData.configuration as any).country ?? "—"} />
+                  <Field label="Currency" value={(tabData.configuration as any).currency ?? "—"} />
+                  <Field label="Timezone" value={(tabData.configuration as any).timezone ?? "—"} />
+                  <Field label="Tax jurisdiction" value={(tabData.configuration as any).taxJurisdiction ?? "—"} />
+                </CardContent>
+              </Card>
+              {(tabData.configuration as any).organizationTypeDefaults && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm text-neutral-500">
+                      Defaults for this organisation type ({(tabData.configuration as any).organizationType})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-neutral-400 space-y-1">
+                    <p>Applied at creation time only — editing the fields above never re-applies these.</p>
+                    <p>Max users: {(tabData.configuration as any).organizationTypeDefaults.maxUsers}, AI calls/month: {(tabData.configuration as any).organizationTypeDefaults.aiCallsPerMonth}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
         <TabsContent value="activity">
           <Card>
             <CardContent className="pt-6 space-y-2">
@@ -491,6 +683,35 @@ export default function OrganizationDetailPage() {
             columns={["eventType", "severity", "actorRole", "createdAt"]}
             loading={loading && tab === "audit"}
           />
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-4">
+          {loading && tab === "security" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {tabData.security && (
+            <>
+              <div>
+                <p className="text-sm font-medium mb-2">Tenant users</p>
+                <SimpleTable
+                  rows={(tabData.security as any).users ?? []}
+                  columns={["name", "email", "role", "active"]}
+                  loading={false}
+                />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm text-neutral-500">Not available for tenant users</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {((tabData.security as any).unavailable as { field: string; reason: string }[]).map((u) => (
+                    <div key={u.field}>
+                      <p className="text-sm font-medium text-neutral-600">{u.field}</p>
+                      <p className="text-xs text-neutral-400 italic">{u.reason}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="ai-usage" className="space-y-4">
@@ -575,6 +796,46 @@ export default function OrganizationDetailPage() {
 
         <TabsContent value="billing">
           <EmptyStateCard data={tabData.billing as any} />
+        </TabsContent>
+
+        <TabsContent value="usage" className="space-y-4">
+          {loading && tab === "usage" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {tabData.usage && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Users against plan limit</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-4 text-sm">
+                  <Field label="Active users" value={(tabData.usage as any).users.used} />
+                  <Field label="Limit" value={(tabData.usage as any).users.limit} />
+                  <Field
+                    label="Usage %"
+                    value={
+                      (tabData.usage as any).users.percent !== null ? (
+                        `${(tabData.usage as any).users.percent}%`
+                      ) : (
+                        <span title="No user limit is configured for this organisation.">—</span>
+                      )
+                    }
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm text-neutral-500">Not available</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {((tabData.usage as any).unavailable as { field: string; reason: string }[]).map((u) => (
+                    <div key={u.field}>
+                      <p className="text-sm font-medium text-neutral-600">{u.field}</p>
+                      <p className="text-xs text-neutral-400 italic">{u.reason}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -771,6 +1032,113 @@ export default function OrganizationDetailPage() {
               Cancel
             </Button>
             <Button disabled={!aiLimitReason.trim() || submitting} onClick={handleSaveAiLimits}>
+              {submitting ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit enabled modules</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-neutral-500">
+              This replaces the module set as an override on top of the current plan (source doc
+              §11) — it does not change the plan itself.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {((tabData.modules as any)?.allModules as string[] | undefined)?.map((m) => (
+                <div key={m} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={moduleSelection.includes(m)}
+                    onCheckedChange={(v) =>
+                      setModuleSelection((prev) => (v ? [...prev, m] : prev.filter((x) => x !== m)))
+                    }
+                  />
+                  <Label className="font-normal">{m}</Label>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={moduleReason} onChange={(e) => setModuleReason(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModuleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!moduleReason.trim() || submitting} onClick={handleSaveModules}>
+              {submitting ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit configuration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>Country</Label>
+              <Select
+                value={configForm.country}
+                onValueChange={(v) => {
+                  setConfigForm((f) => ({ ...f, country: v }));
+                  setConfigCountryChanged(true);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_NAMES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {configCountryChanged &&
+              (() => {
+                const info = getCountryInfo(configForm.country);
+                return (
+                  <p className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950 rounded-md p-2">
+                    Changing country does not automatically update currency or timezone below —
+                    review them yourself. {configForm.country}&apos;s usual defaults are{" "}
+                    {info.currencyLabel} / {info.timezoneLabel}.
+                  </p>
+                );
+              })()}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Currency</Label>
+                <Input value={configForm.currency} onChange={(e) => setConfigForm((f) => ({ ...f, currency: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Timezone</Label>
+                <Input value={configForm.timezone} onChange={(e) => setConfigForm((f) => ({ ...f, timezone: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Tax jurisdiction</Label>
+              <Input value={configForm.taxJurisdiction} onChange={(e) => setConfigForm((f) => ({ ...f, taxJurisdiction: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={configReason} onChange={(e) => setConfigReason(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!configReason.trim() || submitting} onClick={handleSaveConfiguration}>
               {submitting ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
