@@ -47,14 +47,26 @@ export class OrganizationStatusError extends Error {
  * enforcement point this project has, PAYMENT_HOLD now blocks login the same
  * way SUSPENDED does — Hard Rule 8's "authentication and/or transaction
  * access" is satisfied via the authentication half, consistent with the only
- * existing precedent. Reactivating from EITHER SUSPENDED or PAYMENT_HOLD
- * restores `isActive`. See docs/ai/audits/HARD_RULES.md rule 8 for the proof
- * and OPEN_QUESTIONS.md for the adjacent, out-of-scope finding this
- * surfaced (CANCELLED/ARCHIVED also never flip `isActive`).
+ * existing precedent. Reactivating from SUSPENDED or PAYMENT_HOLD restores
+ * `isActive`. See docs/admin/verification/HARD_RULES.md rule 8 for the proof
+ * and OPEN_QUESTIONS.md for the adjacent, then-out-of-scope finding this
+ * surfaced (CANCELLED/ARCHIVED also never flipped `isActive`).
+ *
+ * Phase 11 Part 1.6: ARCHIVED added to this same list. Since a delete-
+ * organisation feature was deliberately not built (see
+ * docs/admin/OPEN_QUESTIONS.md's "delete organisation" entry), archiving is
+ * now the documented, supported way to retire an organisation — and an
+ * organisation that's supposedly "retired" but whose users can still log in
+ * exactly as before is the identical "label that lies" shape PAYMENT_HOLD
+ * was. CANCELLED is now the one remaining status that still doesn't block
+ * login — a real, adjacent gap, deliberately left out of this pass (this
+ * user's own ask was specifically about ARCHIVED's reversibility) and
+ * recorded in OPEN_QUESTIONS.md rather than silently expanded into.
  */
 const STATUSES_THAT_BLOCK_LOGIN: OrganizationStatus[] = [
   ORGANIZATION_STATUS.SUSPENDED,
   ORGANIZATION_STATUS.PAYMENT_HOLD,
+  ORGANIZATION_STATUS.ARCHIVED,
 ];
 export async function changeOrganizationStatus(
   actor: AdminActor,

@@ -132,14 +132,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               subdomain: user.tenantId,
             });
             if (org && !org.isActive) {
-              // Phase 11 Part 0.3: this gate now also fires for PAYMENT_HOLD
-              // (lib/platform/organizations/statusTransition.ts), which
-              // wasn't true before — the message must not tell a
-              // payment-hold tenant they were "suspended" when they weren't.
+              // Phase 11 Parts 0.3 and 1.6: this gate now also fires for
+              // PAYMENT_HOLD and ARCHIVED (lib/platform/organizations/
+              // statusTransition.ts) — the message must name the real
+              // reason, never call an archived or payment-hold tenant
+              // "suspended" when it isn't.
               const message =
                 org.status === ORGANIZATION_STATUS.PAYMENT_HOLD
                   ? "This organization's workspace is on payment hold. Please contact support."
-                  : "This organization's workspace is suspended. Please contact support.";
+                  : org.status === ORGANIZATION_STATUS.ARCHIVED
+                    ? "This organization's workspace has been archived. Please contact support to restore it."
+                    : "This organization's workspace is suspended. Please contact support.";
               throw new Error(message);
             }
           }

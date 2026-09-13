@@ -1,4 +1,4 @@
-import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, ScrollText, Search, Settings, ShieldAlert } from "lucide-react";
+import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, MonitorSmartphone, ScrollText, Search, Settings, Shield, ShieldAlert, Users } from "lucide-react";
 
 export interface PlatformSidebarItem {
   title: string;
@@ -39,6 +39,9 @@ export const platformSidebarConfig: PlatformSidebarSection[] = [
     items: [
       { title: "Audit Logs", href: "/platform/audit-logs", icon: ScrollText },
       { title: "Security Log", href: "/platform/security-log", icon: ShieldAlert },
+      { title: "Admin Sessions", href: "/platform/admin-sessions", icon: MonitorSmartphone },
+      { title: "Admin Users", href: "/platform/admin-users", icon: Users },
+      { title: "Security Configuration", href: "/platform/security-config", icon: Shield },
       { title: "Retention", href: "/platform/settings/retention", icon: Settings },
       { title: "Access Requests", href: "/platform/access-requests", icon: KeyRound },
     ],

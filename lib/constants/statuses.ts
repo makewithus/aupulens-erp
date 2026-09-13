@@ -2147,7 +2147,15 @@ export const ORGANIZATION_STATUS_TRANSITIONS: Record<
     ORGANIZATION_STATUS.CANCELLED,
   ],
   [ORGANIZATION_STATUS.CANCELLED]: [ORGANIZATION_STATUS.ARCHIVED],
-  [ORGANIZATION_STATUS.ARCHIVED]: [], // terminal
+  // Phase 11 Part 1.6: ARCHIVED used to be a true dead end — no transition
+  // out at all. Per the decision to treat archival (not deletion) as the
+  // supported way to retire an organisation (docs/admin/OPEN_QUESTIONS.md,
+  // "delete organisation" entry), that only works if archiving is genuinely
+  // reversible — a status a human can get stuck behind forever is not a
+  // safe substitute for the destructive action it's replacing. Restoring
+  // goes to ACTIVE, the one state every other lifecycle re-entry point
+  // (TRIAL, SUSPENDED, PAYMENT_HOLD) already converges on.
+  [ORGANIZATION_STATUS.ARCHIVED]: [ORGANIZATION_STATUS.ACTIVE],
 };
 
 export function isValidOrganizationStatusTransition(

@@ -34,6 +34,7 @@ import {
 } from "@/lib/constants/statuses";
 import { formatInOrgTimezone, formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import { getCountryInfo, COUNTRY_NAMES } from "@/lib/constants/countries";
+import { TypeToConfirm } from "@/components/platform/TypeToConfirm";
 
 // Order matches source doc §7 verbatim: "Overview, Users, Subscription, AI
 // Usage, Modules, Configuration, Activity, Audit Logs, Security, Billing,
@@ -119,6 +120,7 @@ export default function OrganizationDetailPage() {
   const [configReason, setConfigReason] = useState("");
   const [configCountryChanged, setConfigCountryChanged] = useState(false);
   const [activityFilters, setActivityFilters] = useState({ userId: "", dateFrom: "", dateTo: "", ip: "", device: "" });
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -964,7 +966,17 @@ export default function OrganizationDetailPage() {
             <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
               Cancel
             </Button>
-            <Button disabled={!targetStatus || !reason.trim() || submitting} onClick={handleStatusChange}>
+            <Button
+              disabled={!targetStatus || !reason.trim() || submitting}
+              onClick={() => {
+                if (targetStatus === "archived") {
+                  setStatusDialogOpen(false);
+                  setArchiveConfirmOpen(true);
+                } else {
+                  handleStatusChange();
+                }
+              }}
+            >
               {submitting ? "Saving…" : "Confirm"}
             </Button>
           </DialogFooter>
@@ -1239,6 +1251,22 @@ export default function OrganizationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TypeToConfirm
+        open={archiveConfirmOpen}
+        onOpenChange={setArchiveConfirmOpen}
+        title="Archive this organisation"
+        consequence={`Archiving is this platform's supported way to retire an organisation (there is no delete-organisation feature — see docs/admin/OPEN_QUESTIONS.md). Every user at "${subdomain}" will immediately lose access, the same as suspension. This is reversible — restoring to Active from the Archived state undoes it — but treat it as a real, disruptive action, not a label change.`}
+        confirmText={subdomain}
+        reason={reason}
+        onReasonChange={setReason}
+        submitting={submitting}
+        confirmLabel="Archive organisation"
+        onConfirm={async () => {
+          await handleStatusChange();
+          setArchiveConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -40,8 +40,12 @@ describe("isValidOrganizationStatusTransition — pure state machine", () => {
   });
 
   it("rejects a nonsensical jump", () => {
-    expect(isValidOrganizationStatusTransition(ORGANIZATION_STATUS.ARCHIVED, ORGANIZATION_STATUS.ACTIVE)).toBe(false);
+    expect(isValidOrganizationStatusTransition(ORGANIZATION_STATUS.ARCHIVED, ORGANIZATION_STATUS.TRIAL)).toBe(false);
     expect(isValidOrganizationStatusTransition(ORGANIZATION_STATUS.INVITED, ORGANIZATION_STATUS.ACTIVE)).toBe(false);
+  });
+
+  it("Phase 11 Part 1.6: ARCHIVED -> ACTIVE is valid — archiving must be reversible to be a safe substitute for deletion (docs/admin/OPEN_QUESTIONS.md)", () => {
+    expect(isValidOrganizationStatusTransition(ORGANIZATION_STATUS.ARCHIVED, ORGANIZATION_STATUS.ACTIVE)).toBe(true);
   });
 
   it("every status has a defined (possibly empty) transition list", () => {
@@ -149,6 +153,38 @@ describe("changeOrganizationStatus — suspension actually blocks something (Har
     expect(org!.isActive).toBe(true);
   });
 
+  it("Phase 11 Part 1.6: archiving blocks login too — an organisation supposedly 'retired' whose users can still log in is the same label-that-lies shape as the original PAYMENT_HOLD bug", async () => {
+    await AdminRole.create({
+      role: ADMIN_ROLE.GLOBAL_ADMIN,
+      capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
+      description: "",
+    });
+    await seedOrg(ORGANIZATION_STATUS.CANCELLED);
+    const actor = makeActor();
+
+    await changeOrganizationStatus(actor, "test-org", ORGANIZATION_STATUS.ARCHIVED, "retiring this organisation");
+
+    const org = await Organization.findOne({ subdomain: "test-org" });
+    expect(org!.status).toBe(ORGANIZATION_STATUS.ARCHIVED);
+    expect(org!.isActive).toBe(false);
+  });
+
+  it("Phase 11 Part 1.6: restoring from ARCHIVED to ACTIVE re-enables login — archival is genuinely reversible, not a one-way trip that only changes a label", async () => {
+    await AdminRole.create({
+      role: ADMIN_ROLE.GLOBAL_ADMIN,
+      capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
+      description: "",
+    });
+    await seedOrg(ORGANIZATION_STATUS.ARCHIVED);
+    await Organization.updateOne({ subdomain: "test-org" }, { isActive: false });
+    const actor = makeActor();
+
+    await changeOrganizationStatus(actor, "test-org", ORGANIZATION_STATUS.ACTIVE, "restored after archival");
+
+    const org = await Organization.findOne({ subdomain: "test-org" });
+    expect(org!.isActive).toBe(true);
+  });
+
   it("reactivating restores isActive=true", async () => {
     await AdminRole.create({
       role: ADMIN_ROLE.GLOBAL_ADMIN,
@@ -171,7 +207,7 @@ describe("changeOrganizationStatus — suspension actually blocks something (Har
       capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
       description: "",
     });
-    await seedOrg(ORGANIZATION_STATUS.ARCHIVED);
+    await seedOrg(ORGANIZATION_STATUS.CANCELLED);
     const actor = makeActor();
 
     await expect(
@@ -180,6 +216,21 @@ describe("changeOrganizationStatus — suspension actually blocks something (Har
 
     const events = await SubscriptionEvent.find({ tenantId: "test-org" });
     expect(events).toHaveLength(0);
+  });
+
+  it("Phase 11 Part 1.6: restoring an archived organisation to ACTIVE succeeds — archival is reversible, not a dead end", async () => {
+    await AdminRole.create({
+      role: ADMIN_ROLE.GLOBAL_ADMIN,
+      capabilities: [ADMIN_CAPABILITY.SUSPEND_ORGANIZATION],
+      description: "",
+    });
+    await seedOrg(ORGANIZATION_STATUS.ARCHIVED);
+    const actor = makeActor();
+
+    await changeOrganizationStatus(actor, "test-org", ORGANIZATION_STATUS.ACTIVE, "restoring after archival — needed again");
+
+    const org = await Organization.findOne({ subdomain: "test-org" });
+    expect(org!.status).toBe(ORGANIZATION_STATUS.ACTIVE);
   });
 
   it("requires a reason", async () => {
