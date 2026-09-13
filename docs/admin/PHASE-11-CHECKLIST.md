@@ -33,7 +33,9 @@ CLOSE THE PARTIALS (Part 1)
 [x] §18: 4 of 7 filters real (Date, User, IP, Device — checked directly against ActivityLog's
     schema rather than assumed from its own "free text" framing: ipAddress/userAgent/userId are
     real, populated fields the matrix undersold); Action/Module/Severity disabled with a reason
-[ ] §21/§31: security log view decided, built, recorded in DECISIONS.md
+[x] §21/§31: security log view decided (one collection, a dedicated filtered view — never a
+    second PlatformSecurityLog model), built at /platform/security-log, recorded in
+    docs/admin/DECISIONS.md #1; gated on VIEW_SECURITY_LOGS specifically, not VIEW_AUDIT_LOGS
 [ ] §24: 14 real KPIs built; 4 as explained empty tiles
 [ ] §24: all six operational panels
 [ ] §25: Admin Sessions view with IP/device and new-IP flag
