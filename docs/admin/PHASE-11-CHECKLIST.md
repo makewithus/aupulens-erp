@@ -30,7 +30,9 @@ CLOSE THE PARTIALS (Part 1)
     platform-wide Storage Used finding)
 [x] §7: Overview gains Storage + Monthly Revenue as explained empty states (each with its own
     specific reason on hover, matching the per-field pattern used on the new Security/Usage tabs)
-[ ] §18: Date filter minimum; unavailable filters disabled with a reason
+[x] §18: 4 of 7 filters real (Date, User, IP, Device — checked directly against ActivityLog's
+    schema rather than assumed from its own "free text" framing: ipAddress/userAgent/userId are
+    real, populated fields the matrix undersold); Action/Module/Severity disabled with a reason
 [ ] §21/§31: security log view decided, built, recorded in DECISIONS.md
 [ ] §24: 14 real KPIs built; 4 as explained empty tiles
 [ ] §24: all six operational panels

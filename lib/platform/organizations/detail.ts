@@ -119,7 +119,43 @@ export async function getOrganizationSubscriptionHistory(
   });
 }
 
-export async function getOrganizationActivity(actor: AdminActor, reason: string, subdomain: string) {
+/**
+ * Source doc §18 names 7 filters: User, Action, Module, Date, IP, Device,
+ * Severity. Checked directly against `models/admin/ActivityLog.ts` rather
+ * than assumed from its own "free text, single writer" framing (which
+ * undersold it): `activity`/`details` are indeed free text with no
+ * structured Action, and there is no Module or Severity field at all — but
+ * `userId`, `ipAddress`, and `userAgent` are real, populated fields
+ * (`lib/logger.ts::logActivity()` writes them on every call, falling back to
+ * the literal string "unknown" only when no request context exists). Date
+ * needs no field at all — `timestamp` is indexed. So 4 of 7 are real:
+ * **User, Date, IP, Device** — "Device" here is a plain substring match on
+ * the raw `userAgent` string, not device-type classification (this
+ * codebase has no user-agent-parsing library) — documented as such rather
+ * than implied to be more than it is. Action, Module, and Severity remain
+ * genuinely unavailable and must be shown disabled with a reason, never
+ * silently absent.
+ */
+export interface OrganizationActivityFilter {
+  userId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  ip?: string;
+  device?: string;
+}
+
+export const ACTIVITY_UNAVAILABLE_FILTERS = [
+  { field: "Action", reason: "ActivityLog.activity is a free-text description, not a structured action enum — there is nothing reliable to filter on." },
+  { field: "Module", reason: "ActivityLog has no module field at all (source doc §20's own finding) — inferring one from the free-text activity string would be guessing from prose." },
+  { field: "Severity", reason: "ActivityLog has no severity field — severity exists only on the separate PlatformAuditLog (Audit Logs tab)." },
+] as const;
+
+export async function getOrganizationActivity(
+  actor: AdminActor,
+  reason: string,
+  subdomain: string,
+  filter: OrganizationActivityFilter = {},
+) {
   return withCrossTenantRead({
     actor,
     capability: ADMIN_CAPABILITY.VIEW_ORGANIZATIONS,
@@ -129,18 +165,29 @@ export async function getOrganizationActivity(actor: AdminActor, reason: string,
     entityId: subdomain,
     tenantId: subdomain,
     run: async () => {
-      const logs = await ActivityLog.find({ tenantId: subdomain })
-        .sort({ timestamp: -1 })
-        .limit(50)
-        .lean();
+      const query: Record<string, unknown> = { tenantId: subdomain };
+      if (filter.userId) query.userId = filter.userId;
+      if (filter.ip) query.ipAddress = filter.ip;
+      if (filter.device) query.userAgent = { $regex: filter.device, $options: "i" };
+      if (filter.dateFrom || filter.dateTo) {
+        const range: Record<string, Date> = {};
+        if (filter.dateFrom) range.$gte = new Date(filter.dateFrom);
+        if (filter.dateTo) range.$lte = new Date(filter.dateTo);
+        query.timestamp = range;
+      }
+
+      const logs = await ActivityLog.find(query).sort({ timestamp: -1 }).limit(50).lean();
       return {
         definitionNote: LAST_MEANINGFUL_ACTIVITY_DEFINITION,
         moduleFilterNote: ACTIVITY_MODULE_FILTER_NOTE,
+        unavailableFilters: ACTIVITY_UNAVAILABLE_FILTERS,
         entries: logs.map((l) => ({
           activity: l.activity,
           details: l.details,
+          userId: String(l.userId),
           userName: l.userName,
           userRole: l.userRole,
+          ipAddress: l.ipAddress,
           timestamp: l.timestamp.toISOString(),
         })),
       };

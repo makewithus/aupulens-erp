@@ -67,7 +67,13 @@ export async function GET(
         data = await getOrganizationSubscriptionHistory(actor, reason, subdomain);
         break;
       case "activity":
-        data = await getOrganizationActivity(actor, reason, subdomain);
+        data = await getOrganizationActivity(actor, reason, subdomain, {
+          userId: url.searchParams.get("userId") ?? undefined,
+          dateFrom: url.searchParams.get("dateFrom") ?? undefined,
+          dateTo: url.searchParams.get("dateTo") ?? undefined,
+          ip: url.searchParams.get("ip") ?? undefined,
+          device: url.searchParams.get("device") ?? undefined,
+        });
         break;
       case "audit":
         data = await getOrganizationAuditLogs(actor, reason, subdomain);

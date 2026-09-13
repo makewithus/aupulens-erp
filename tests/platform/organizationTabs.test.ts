@@ -5,6 +5,7 @@ process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_platform_orgt
 
 import Organization from "@/models/admin/Organization";
 import User from "@/models/auth/User";
+import ActivityLog from "@/models/admin/ActivityLog";
 import Plan from "@/models/platform/Plan";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import OrganizationType from "@/models/platform/OrganizationType";
@@ -17,6 +18,7 @@ let getOrganizationModules: typeof import("@/lib/platform/organizations/detail")
 let getOrganizationConfiguration: typeof import("@/lib/platform/organizations/detail").getOrganizationConfiguration;
 let getOrganizationSecurity: typeof import("@/lib/platform/organizations/detail").getOrganizationSecurity;
 let getOrganizationUsageLimits: typeof import("@/lib/platform/organizations/detail").getOrganizationUsageLimits;
+let getOrganizationActivity: typeof import("@/lib/platform/organizations/detail").getOrganizationActivity;
 let updateOrganizationConfiguration: typeof import("@/lib/platform/organizations/configuration").updateOrganizationConfiguration;
 let OrganizationConfigurationError: typeof import("@/lib/platform/organizations/configuration").OrganizationConfigurationError;
 let invalidateAdminRoleCache: typeof import("@/lib/platform/auth/adminRbac").invalidateAdminRoleCache;
@@ -54,10 +56,16 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
     await Plan.init();
     await OrganizationEntitlement.init();
     await OrganizationType.init();
+    await ActivityLog.init();
     await PlatformAuditLog.init();
     await AdminRole.init();
-    ({ getOrganizationModules, getOrganizationConfiguration, getOrganizationSecurity, getOrganizationUsageLimits } =
-      await import("@/lib/platform/organizations/detail"));
+    ({
+      getOrganizationModules,
+      getOrganizationConfiguration,
+      getOrganizationSecurity,
+      getOrganizationUsageLimits,
+      getOrganizationActivity,
+    } = await import("@/lib/platform/organizations/detail"));
     ({ updateOrganizationConfiguration, OrganizationConfigurationError } = await import(
       "@/lib/platform/organizations/configuration"
     ));
@@ -84,6 +92,7 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
     await User.deleteMany({});
     await OrganizationEntitlement.deleteMany({});
     await OrganizationType.deleteMany({});
+    await ActivityLog.deleteMany({});
     await PlatformAuditLog.deleteMany({}).setOptions({ allowRetentionDelete: true });
     invalidateAdminRoleCache();
     invalidateEntitlementsCache();
@@ -264,6 +273,79 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
       const fields = result.unavailable.map((u) => u.field);
       expect(fields).toEqual(["Storage used", "API requests", "Document counts"]);
       expect(result.unavailable.every((u) => u.reason.length > 0)).toBe(true);
+    });
+  });
+
+  describe("getOrganizationActivity — Part 1.3 filters", () => {
+    const userAId = new mongoose.Types.ObjectId();
+    const userBId = new mongoose.Types.ObjectId();
+
+    async function seedActivity() {
+      await Organization.create({ name: "Acme", subdomain: "acme", ownerUserId: new mongoose.Types.ObjectId() });
+      await ActivityLog.create({
+        tenantId: "acme",
+        userId: userAId,
+        userName: "Alice",
+        userEmail: "alice@acme.com",
+        userRole: "admin",
+        activity: "created an invoice",
+        ipAddress: "10.0.0.1",
+        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+        timestamp: new Date("2026-01-10T00:00:00Z"),
+      });
+      await ActivityLog.create({
+        tenantId: "acme",
+        userId: userBId,
+        userName: "Bob",
+        userEmail: "bob@acme.com",
+        userRole: "finance",
+        activity: "approved a payment",
+        ipAddress: "10.0.0.2",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        timestamp: new Date("2026-02-15T00:00:00Z"),
+      });
+    }
+
+    it("filters by userId", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { userId: String(userAId) });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Alice");
+    });
+
+    it("filters by date range", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { dateFrom: "2026-02-01", dateTo: "2026-02-28" });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Bob");
+    });
+
+    it("filters by IP", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { ip: "10.0.0.2" });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Bob");
+    });
+
+    it("filters by device — a substring match on the raw user-agent, case-insensitive", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { device: "iphone" });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Alice");
+    });
+
+    it("names Action, Module, and Severity as unavailable, each with its own reason — never silently absent", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme");
+      const fields = result.unavailableFilters.map((f) => f.field);
+      expect(fields).toEqual(["Action", "Module", "Severity"]);
+      expect(result.unavailableFilters.every((f) => f.reason.length > 0)).toBe(true);
+    });
+
+    it("with no filters, returns every entry", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme");
+      expect(result.entries).toHaveLength(2);
     });
   });
 });

@@ -118,6 +118,7 @@ export default function OrganizationDetailPage() {
   const [configForm, setConfigForm] = useState({ country: "", currency: "", timezone: "", taxJurisdiction: "" });
   const [configReason, setConfigReason] = useState("");
   const [configCountryChanged, setConfigCountryChanged] = useState(false);
+  const [activityFilters, setActivityFilters] = useState({ userId: "", dateFrom: "", dateTo: "", ip: "", device: "" });
 
   async function loadTab(t: string) {
     setLoading(true);
@@ -151,7 +152,24 @@ export default function OrganizationDetailPage() {
     if (!tabData[tab]) loadTab(tab);
     if (tab === "subscription") loadEntitlements();
     if (tab === "ai-usage") loadAiLimits();
+    if (tab === "activity" && !tabData.users) loadTab("users"); // populates the User filter dropdown
   }, [tab]);
+
+  async function loadActivity() {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ tab: "activity" });
+      for (const [key, value] of Object.entries(activityFilters)) {
+        if (value.trim()) params.set(key, value.trim());
+      }
+      const res = await fetch(`/api/platform/organizations/${subdomain}?${params}`);
+      const body = await res.json();
+      if (body.success) setTabData((prev) => ({ ...prev, activity: body.data }));
+      else setError(body.message ?? "Failed to load activity.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function loadAiLimits() {
     const res = await fetch(`/api/platform/organizations/${subdomain}/ai-limits`);
@@ -661,16 +679,86 @@ export default function OrganizationDetailPage() {
 
         <TabsContent value="activity">
           <Card>
-            <CardContent className="pt-6 space-y-2">
+            <CardContent className="pt-6 space-y-4">
               <p className="text-xs text-neutral-400 italic">
                 {(tabData.activity as any)?.definitionNote}
               </p>
               <p className="text-xs text-neutral-400 italic">
                 {(tabData.activity as any)?.moduleFilterNote}
               </p>
+
+              <div className="flex flex-wrap items-end gap-3 border rounded-md p-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">From</Label>
+                  <Input
+                    type="date"
+                    className="h-8 w-36"
+                    value={activityFilters.dateFrom}
+                    onChange={(e) => setActivityFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">To</Label>
+                  <Input
+                    type="date"
+                    className="h-8 w-36"
+                    value={activityFilters.dateTo}
+                    onChange={(e) => setActivityFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">User</Label>
+                  <Select
+                    value={activityFilters.userId || "all"}
+                    onValueChange={(v) => setActivityFilters((f) => ({ ...f, userId: v === "all" ? "" : v }))}
+                  >
+                    <SelectTrigger className="h-8 w-40">
+                      <SelectValue placeholder="All users" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All users</SelectItem>
+                      {((tabData.users as any[]) ?? []).map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">IP</Label>
+                  <Input
+                    className="h-8 w-32"
+                    placeholder="e.g. 10.0.0.1"
+                    value={activityFilters.ip}
+                    onChange={(e) => setActivityFilters((f) => ({ ...f, ip: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs" title="Substring match on the raw user-agent string — not device-type classification.">
+                    Device
+                  </Label>
+                  <Input
+                    className="h-8 w-32"
+                    placeholder="e.g. iPhone"
+                    value={activityFilters.device}
+                    onChange={(e) => setActivityFilters((f) => ({ ...f, device: e.target.value }))}
+                  />
+                </div>
+                {(((tabData.activity as any)?.unavailableFilters as { field: string; reason: string }[]) ?? []).map((f) => (
+                  <div key={f.field} className="space-y-1">
+                    <Label className="text-xs text-neutral-400">{f.field}</Label>
+                    <Input className="h-8 w-28" disabled placeholder="Unavailable" title={f.reason} />
+                  </div>
+                ))}
+                <Button size="sm" onClick={loadActivity} disabled={loading}>
+                  Apply
+                </Button>
+              </div>
+
               <SimpleTable
                 rows={(tabData.activity as any)?.entries ?? []}
-                columns={["activity", "userName", "timestamp"]}
+                columns={["activity", "userName", "ipAddress", "timestamp"]}
                 loading={loading && tab === "activity"}
               />
             </CardContent>
