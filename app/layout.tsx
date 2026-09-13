@@ -51,7 +51,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${roboto.variable} ${robotoMono.variable} font-mono antialiased`}>
+      <body className={`${roboto.variable} ${robotoMono.variable} font-sans antialiased`}>
         <SessionProvider session={session}>
           <ThemeProvider>
             <ToastRoot>

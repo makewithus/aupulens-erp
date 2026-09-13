@@ -15,6 +15,9 @@ export async function GET(request: Request) {
       page: Number(url.searchParams.get("page") ?? "1"),
       pageSize: Number(url.searchParams.get("pageSize") ?? "50"),
       tenantId: url.searchParams.get("tenantId") || undefined,
+      severity: url.searchParams.get("severity") || undefined,
+      eventType: url.searchParams.get("eventType") || undefined,
+      actorRole: url.searchParams.get("actorRole") || undefined,
     });
     return NextResponse.json({ success: true, data: result });
   } catch (err) {

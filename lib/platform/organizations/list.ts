@@ -23,6 +23,7 @@ export interface OrganizationListQuery {
   pageSize?: number;
   status?: OrganizationStatus;
   organizationType?: string;
+  planKey?: string;
   search?: string;
   sortBy?: "createdAt" | "name" | "status";
   sortDir?: "asc" | "desc";
@@ -60,6 +61,9 @@ export async function listOrganizations(
       const filter: Record<string, unknown> = {};
       if (query.status) filter.status = query.status;
       if (query.organizationType) filter.organizationType = query.organizationType;
+      // Note: planKey filters the raw legacy tier field on the Organization.
+      // Filtering natively on resolveEntitlements() would require a memory scan.
+      if (query.planKey) filter.tier = query.planKey;
       if (query.search) {
         filter.$or = [
           { name: { $regex: query.search, $options: "i" } },

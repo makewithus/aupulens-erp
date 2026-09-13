@@ -19,7 +19,6 @@ const PLATFORM_WIDE_TIMEZONE = "UTC";
 function isValidTimeZone(tz: string | undefined | null): tz is string {
   if (!tz) return false;
   try {
-    // eslint-disable-next-line no-new
     new Intl.DateTimeFormat(undefined, { timeZone: tz });
     return true;
   } catch {

@@ -118,7 +118,7 @@ export default function SecurityConfigPage() {
             <CardHeader>
               <CardTitle className="text-base">Session policy</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4 max-w-md">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-1">
                 <Label>Session timeout (hours)</Label>
                 <Input
@@ -128,42 +128,50 @@ export default function SecurityConfigPage() {
                   value={form.sessionTimeoutHours}
                   onChange={(e) => setForm((f) => ({ ...f, sessionTimeoutHours: num(Number(e.target.value)) }))}
                 />
+                <p className="text-xs text-neutral-500 pt-1">Maximum duration an admin can remain logged in before needing to re-authenticate.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Alert thresholds (source doc §28)</CardTitle>
+              <CardTitle className="text-base">Alert thresholds</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-1">
                 <Label>Failed login threshold</Label>
                 <Input type="number" min={1} value={form.failedLoginThreshold} onChange={(e) => setForm((f) => ({ ...f, failedLoginThreshold: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Number of failed login attempts before an alert is triggered.</p>
               </div>
               <div className="space-y-1">
                 <Label>Permission failure threshold</Label>
                 <Input type="number" min={1} value={form.permissionFailureThreshold} onChange={(e) => setForm((f) => ({ ...f, permissionFailureThreshold: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Number of permission denied events allowed within the time window before alerting.</p>
               </div>
               <div className="space-y-1">
                 <Label>Permission failure window (minutes)</Label>
                 <Input type="number" min={1} value={form.permissionFailureWindowMinutes} onChange={(e) => setForm((f) => ({ ...f, permissionFailureWindowMinutes: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Time window for evaluating permission failures.</p>
               </div>
               <div className="space-y-1">
                 <Label>Large downgrade tier drop</Label>
                 <Input type="number" min={1} value={form.largeDowngradeTierDrop} onChange={(e) => setForm((f) => ({ ...f, largeDowngradeTierDrop: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Number of tiers dropped in a single downgrade to trigger a review alert.</p>
               </div>
               <div className="space-y-1">
                 <Label>AI cost spike multiplier</Label>
                 <Input type="number" min={1} step={0.1} value={form.aiCostSpikeMultiplier} onChange={(e) => setForm((f) => ({ ...f, aiCostSpikeMultiplier: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Multiplier applied to recent usage to detect anomalous AI costs.</p>
               </div>
               <div className="space-y-1">
                 <Label>AI cost spike trailing days</Label>
                 <Input type="number" min={1} value={form.aiCostSpikeTrailingDays} onChange={(e) => setForm((f) => ({ ...f, aiCostSpikeTrailingDays: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Number of days used as the baseline for the AI cost spike multiplier.</p>
               </div>
               <div className="space-y-1">
                 <Label>Mass export record threshold</Label>
                 <Input type="number" min={1} value={form.massExportRecordThreshold} onChange={(e) => setForm((f) => ({ ...f, massExportRecordThreshold: num(Number(e.target.value)) }))} />
+                <p className="text-xs text-neutral-500 pt-1">Number of records exported in a single action that triggers a data exfiltration alert.</p>
               </div>
             </CardContent>
           </Card>

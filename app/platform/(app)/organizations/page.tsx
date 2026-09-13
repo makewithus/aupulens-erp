@@ -36,6 +36,8 @@ export default function OrganizationsListPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const [orgType, setOrgType] = useState<string>("all");
+  const [plan, setPlan] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +47,8 @@ export default function OrganizationsListPage() {
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
     if (search) params.set("search", search);
     if (status !== "all") params.set("status", status);
+    if (orgType !== "all") params.set("organizationType", orgType);
+    if (plan !== "all") params.set("planKey", plan);
     try {
       const res = await fetch(`/api/platform/organizations?${params}`);
       const body = await res.json();
@@ -59,7 +63,7 @@ export default function OrganizationsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status]);
+  }, [page, search, status, orgType, plan]);
 
   useEffect(() => {
     load();
@@ -100,6 +104,44 @@ export default function OrganizationsListPage() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {Object.entries(ORGANIZATION_STATUS_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={orgType}
+          onValueChange={(v) => {
+            setPage(1);
+            setOrgType(v);
+          }}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {Object.entries(ORGANIZATION_TYPE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={plan}
+          onValueChange={(v) => {
+            setPage(1);
+            setPlan(v);
+          }}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All plans" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All plans</SelectItem>
+            {Object.entries(PLAN_KEY_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>

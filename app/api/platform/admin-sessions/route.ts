@@ -9,8 +9,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, message: "Not authenticated." }, { status: 401 });
   }
 
+  const url = new URL(request.url);
   try {
-    const sessions = await listAdminSessions(actor, "platform admin sessions view");
+    const sessions = await listAdminSessions(actor, "platform admin sessions view", {
+      search: url.searchParams.get("search") || undefined,
+      role: url.searchParams.get("role") || undefined,
+    });
     return NextResponse.json({ success: true, data: sessions });
   } catch (err) {
     if (err instanceof AdminForbiddenError) {

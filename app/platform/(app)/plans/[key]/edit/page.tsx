@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,9 +95,10 @@ export default function EditPlanPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Save failed.");
+        toast.error(body.message ?? "Save failed.");
         return;
       }
+      toast.success("Plan saved successfully.");
       router.push("/platform/plans");
     } finally {
       setSubmitting(false);
@@ -114,8 +116,7 @@ export default function EditPlanPage() {
         </Button>
         <h1 className="text-2xl font-semibold mt-1">Edit {plan.name}</h1>
         <p className="text-sm text-neutral-500">
-          Source-doc §8: editing a plan&apos;s own configuration changes every organisation resolved to
-          it at once.
+          Editing a plan&apos;s configuration changes every organisation resolved to it at once.
         </p>
       </div>
 

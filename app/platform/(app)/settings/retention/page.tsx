@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,9 +58,10 @@ export default function RetentionSettingsPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to create policy.");
+        toast.error(body.message ?? "Failed to create policy.");
         return;
       }
+      toast.success("Policy created successfully.");
       await load();
     } finally {
       setSubmitting(false);

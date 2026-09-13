@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
 export default function PlatformMfaPage() {
   const router = useRouter();
@@ -15,7 +16,6 @@ export default function PlatformMfaPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [manualSecret, setManualSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
 
@@ -41,7 +41,7 @@ export default function PlatformMfaPage() {
             setQrDataUrl(body.data.qrDataUrl);
             setManualSecret(body.data.secret);
           } else {
-            setError(body.message ?? "Could not start MFA setup.");
+            toast.error(body.message ?? "Could not start MFA setup.");
           }
         });
     }
@@ -50,7 +50,6 @@ export default function PlatformMfaPage() {
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     if (!challengeToken) return;
-    setError(null);
     setLoading(true);
     try {
       const res = await fetch("/api/platform/auth/mfa/verify", {
@@ -60,18 +59,20 @@ export default function PlatformMfaPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Incorrect code.");
+        toast.error(body.message ?? "Incorrect code.");
         return;
       }
       sessionStorage.removeItem("platform_mfa_challenge");
       sessionStorage.removeItem("platform_mfa_mode");
       if (body.data.backupCodes) {
         setBackupCodes(body.data.backupCodes);
+        toast.success("MFA verified successfully.");
         return; // show backup codes once before continuing
       }
+      toast.success("MFA verified successfully.");
       router.push("/platform");
     } catch {
-      setError("Something went wrong. Try again.");
+      toast.error("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -135,15 +136,17 @@ export default function PlatformMfaPage() {
               <Label htmlFor="code">6-digit code</Label>
               <Input
                 id="code"
+                type="text"
+                pattern="\d{6}"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
+                minLength={6}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 required
               />
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Verifying…" : "Verify"}
             </Button>

@@ -30,13 +30,23 @@ export class AdminSessionActionError extends Error {
  * meaning strictly earlier `createdAt`, so the very first session an admin
  * ever creates is never flagged (there is nothing to compare it against).
  */
-export async function listAdminSessions(actor: AdminActor, reason: string) {
+export async function listAdminSessions(actor: AdminActor, reason: string, query?: { search?: string; role?: string }) {
   await requireCapability(actor, ADMIN_CAPABILITY.VIEW_ADMIN_USERS);
   await connectDB();
 
   const sessions = await AdminSession.find({}).sort({ createdAt: -1 }).limit(200).lean();
   const adminIds = Array.from(new Set(sessions.map((s) => String(s.adminUserId))));
-  const admins = await AdminUser.find({ _id: { $in: adminIds } }).select("name email role").lean();
+  const adminFilter: any = { _id: { $in: adminIds } };
+  if (query?.role) {
+    adminFilter.role = query.role;
+  }
+  if (query?.search) {
+    adminFilter.$or = [
+      { name: { $regex: query.search, $options: "i" } },
+      { email: { $regex: query.search, $options: "i" } },
+    ];
+  }
+  const admins = await AdminUser.find(adminFilter).select("name email role").lean();
   const adminById = new Map(admins.map((a) => [String(a._id), a]));
 
   // All sessions per admin, oldest first, so "has this IP appeared in an
@@ -72,27 +82,29 @@ export async function listAdminSessions(actor: AdminActor, reason: string) {
   });
 
   const now = Date.now();
-  return sessions.map((s) => {
-    const admin = adminById.get(String(s.adminUserId));
-    const priorIps = seenIpsBeforeIndex.get(String(s._id)) ?? new Set<string>();
-    const isNewIp = Boolean(s.ip) && !priorIps.has(s.ip!) && !isFirstSessionForAdmin.has(String(s._id));
-    return {
-      id: String(s._id),
-      adminUserId: String(s.adminUserId),
-      adminName: admin?.name ?? "(deleted admin)",
-      adminEmail: admin?.email,
-      adminRole: admin?.role,
-      ip: s.ip,
-      userAgent: s.userAgent,
-      createdAt: s.createdAt.toISOString(),
-      lastActivityAt: s.lastActivityAt.toISOString(),
-      expiresAt: s.expiresAt.toISOString(),
-      revokedAt: s.revokedAt?.toISOString(),
-      revokedReason: s.revokedReason,
-      isActive: !s.revokedAt && s.expiresAt.getTime() > now,
-      isNewIp,
-    };
-  });
+  return sessions
+    .filter((s) => adminById.has(String(s.adminUserId))) // Only return sessions where admin matches the filter
+    .map((s) => {
+      const admin = adminById.get(String(s.adminUserId));
+      const priorIps = seenIpsBeforeIndex.get(String(s._id)) ?? new Set<string>();
+      const isNewIp = Boolean(s.ip) && !priorIps.has(s.ip!) && !isFirstSessionForAdmin.has(String(s._id));
+      return {
+        id: String(s._id),
+        adminUserId: String(s.adminUserId),
+        adminName: admin?.name ?? "(deleted admin)",
+        adminEmail: admin?.email,
+        adminRole: admin?.role,
+        ip: s.ip,
+        userAgent: s.userAgent,
+        createdAt: s.createdAt.toISOString(),
+        lastActivityAt: s.lastActivityAt.toISOString(),
+        expiresAt: s.expiresAt.toISOString(),
+        revokedAt: s.revokedAt?.toISOString(),
+        revokedReason: s.revokedReason,
+        isActive: !s.revokedAt && s.expiresAt.getTime() > now,
+        isNewIp,
+      };
+    });
 }
 
 /**

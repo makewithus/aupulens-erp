@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import { CopyableId } from "@/components/platform/CopyableId";
 
@@ -43,6 +50,9 @@ export default function PlatformSecurityLogPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [tenantId, setTenantId] = useState("");
+  const [severity, setSeverity] = useState("all");
+  const [eventType, setEventType] = useState("");
+  const [actorRole, setActorRole] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +61,9 @@ export default function PlatformSecurityLogPage() {
     setError(null);
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
     if (tenantId) params.set("tenantId", tenantId);
+    if (severity !== "all") params.set("severity", severity);
+    if (eventType) params.set("eventType", eventType);
+    if (actorRole) params.set("actorRole", actorRole);
     try {
       const res = await fetch(`/api/platform/security-log?${params}`);
       const body = await res.json();
@@ -65,7 +78,7 @@ export default function PlatformSecurityLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, tenantId]);
+  }, [page, tenantId, severity, eventType, actorRole]);
 
   useEffect(() => {
     load();
@@ -79,12 +92,11 @@ export default function PlatformSecurityLogPage() {
         <h1 className="text-2xl font-semibold">Security Log</h1>
         <p className="text-sm text-neutral-500">
           Every event whose category or severity is SECURITY — failed logins, permission denials,
-          suspicious access. Drawn from the same append-only audit store as the Audit Logs page
-          (docs/admin/DECISIONS.md #1), not a separate one. {total} event(s) match.
+          suspicious access. {total} event(s) match.
         </p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Input
           placeholder="Filter by tenant ID…"
           value={tenantId}
@@ -92,7 +104,43 @@ export default function PlatformSecurityLogPage() {
             setPage(1);
             setTenantId(e.target.value);
           }}
-          className="max-w-xs"
+          className="max-w-[160px]"
+        />
+        <Select
+          value={severity}
+          onValueChange={(v) => {
+            setPage(1);
+            setSeverity(v);
+          }}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All severities" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All severities</SelectItem>
+            <SelectItem value="INFO">Info</SelectItem>
+            <SelectItem value="WARNING">Warning</SelectItem>
+            <SelectItem value="SECURITY">Security</SelectItem>
+            <SelectItem value="ERROR">Error</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="Filter by event type…"
+          value={eventType}
+          onChange={(e) => {
+            setPage(1);
+            setEventType(e.target.value);
+          }}
+          className="max-w-[200px]"
+        />
+        <Input
+          placeholder="Filter by actor role…"
+          value={actorRole}
+          onChange={(e) => {
+            setPage(1);
+            setActorRole(e.target.value);
+          }}
+          className="max-w-[180px]"
         />
       </div>
 
@@ -138,9 +186,11 @@ export default function PlatformSecurityLogPage() {
               {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="text-xs">{formatPlatformTimestamp(row.createdAt)}</TableCell>
-                  <TableCell className="text-xs">{row.tenantId ?? "—"}</TableCell>
+                  <TableCell className="text-xs">
+                    {row.tenantId ? <CopyableId value={row.tenantId} label="Tenant ID" /> : "—"}
+                  </TableCell>
                   <TableCell className="text-xs">{row.actorRole}</TableCell>
-                  <TableCell className="text-xs">{row.eventType}</TableCell>
+                  <TableCell className="text-xs">{formatEventType(row.eventType)}</TableCell>
                   <TableCell>
                     <Badge variant="destructive">{row.severity}</Badge>
                   </TableCell>
@@ -170,4 +220,12 @@ export default function PlatformSecurityLogPage() {
       </div>
     </div>
   );
+}
+
+function formatEventType(type: string): string {
+  if (!type) return "—";
+  return type
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }

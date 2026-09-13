@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       pageSize: Number(url.searchParams.get("pageSize") ?? "25"),
       status: (url.searchParams.get("status") as OrganizationStatus) || undefined,
       organizationType: (url.searchParams.get("organizationType") as OrganizationTypeKey) || undefined,
+      planKey: url.searchParams.get("planKey") || undefined,
       search: url.searchParams.get("search") || undefined,
     });
     return NextResponse.json({ success: true, data: result });

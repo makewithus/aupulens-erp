@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -37,7 +39,7 @@ interface PlanOption {
 export default function NewOrganizationPage() {
   const router = useRouter();
   const [form, setForm] = useState(initialState);
-  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<PlanOption[]>([]);
 
@@ -55,7 +57,6 @@ export default function NewOrganizationPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
     try {
       const res = await fetch("/api/platform/organizations", {
@@ -69,12 +70,13 @@ export default function NewOrganizationPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to create organisation.");
+        toast.error(body.message ?? "Failed to create organisation.");
         return;
       }
+      toast.success("Organisation created successfully.");
       router.push(`/platform/organizations/${body.data.subdomain}`);
     } catch {
-      setError("Something went wrong. Try again.");
+      toast.error("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -199,18 +201,25 @@ export default function NewOrganizationPage() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="ownerPassword">Owner password (min. 8 characters)</Label>
-                <Input
-                  id="ownerPassword"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={form.ownerPassword}
-                  onChange={(e) => update("ownerPassword", e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="ownerPassword"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={form.ownerPassword}
+                    onChange={(e) => update("ownerPassword", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => router.back()}>

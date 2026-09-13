@@ -117,7 +117,8 @@ export function buildAdminSessionCookie(token: string, expiresAt: Date): string 
     "Path=/",
     "HttpOnly",
     "SameSite=Strict",
-    `Expires=${expiresAt.toUTCString()}`,
+    // Intentionally omitting Expires/Max-Age to create a true browser session
+    // cookie that clears when the browser is closed, forcing re-authentication.
   ];
   if (isProd) parts.push("Secure");
   return parts.join("; ");

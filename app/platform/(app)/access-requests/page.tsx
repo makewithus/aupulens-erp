@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,9 +59,10 @@ export default function AccessRequestsPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to submit request.");
+        toast.error(body.message ?? "Failed to submit request.");
         return;
       }
+      toast.success("Access requested successfully.");
       setTenantId("");
       setReason("");
       await load();
@@ -70,21 +72,39 @@ export default function AccessRequestsPage() {
   }
 
   async function handleApprove(id: string) {
-    await fetch(`/api/platform/access-requests/${id}/approve`, { method: "POST" });
+    const res = await fetch(`/api/platform/access-requests/${id}/approve`, { method: "POST" });
+    const body = await res.json();
+    if (!body.success) {
+      toast.error(body.message ?? "Failed to approve request.");
+      return;
+    }
+    toast.success("Request approved.");
     await load();
   }
 
   async function handleDeny(id: string) {
-    await fetch(`/api/platform/access-requests/${id}/deny`, {
+    const res = await fetch(`/api/platform/access-requests/${id}/deny`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "Denied from admin console." }),
     });
+    const body = await res.json();
+    if (!body.success) {
+      toast.error(body.message ?? "Failed to deny request.");
+      return;
+    }
+    toast.success("Request denied.");
     await load();
   }
 
   async function handleEnd(id: string) {
-    await fetch(`/api/platform/access-requests/${id}/end`, { method: "POST" });
+    const res = await fetch(`/api/platform/access-requests/${id}/end`, { method: "POST" });
+    const body = await res.json();
+    if (!body.success) {
+      toast.error(body.message ?? "Failed to end session.");
+      return;
+    }
+    toast.success("Session ended.");
     await load();
   }
 

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
+import { formatShortId } from "@/lib/platform/formatting/idFormatter";
+import { CopyableId } from "@/components/platform/CopyableId";
 
 interface JobStatus {
   jobId: string;
@@ -88,6 +90,7 @@ export default function PlatformDashboardPage() {
   const [jobs, setJobs] = useState<JobStatus[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [runningJobId, setRunningJobId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   function loadJobs() {
     fetch("/api/platform/scheduler/jobs")
@@ -110,26 +113,42 @@ export default function PlatformDashboardPage() {
   }
 
   useEffect(() => {
-    fetch("/api/platform/dashboard/summary")
-      .then((res) => res.json())
-      .then((body) => {
-        if (body.success) setSummary(body.data);
-        else setError(body.message ?? "Failed to load dashboard.");
-      })
-      .catch(() => setError("Failed to load dashboard."));
+    setIsLoading(true);
+    Promise.all([
+      fetch("/api/platform/dashboard/summary").then((res) => res.json()).catch(() => ({ success: false })),
+      fetch("/api/platform/scheduler/jobs").then((res) => res.json()).catch(() => ({ success: false })),
+      fetch("/api/platform/alerts?unresolvedOnly=true").then((res) => res.json()).catch(() => ({ success: false, data: [] }))
+    ]).then(([summaryBody, jobsBody, alertsBody]) => {
+      if (summaryBody.success) setSummary(summaryBody.data);
+      else setError(summaryBody.message ?? "Failed to load dashboard.");
 
-    loadJobs();
+      if (jobsBody.success) setJobs(jobsBody.data);
+      else setJobsError(jobsBody.message ?? "Failed to load scheduled jobs.");
 
-    fetch("/api/platform/alerts?unresolvedOnly=true")
-      .then((res) => res.json())
-      .then((body) => {
-        if (body.success) setAlerts(body.data);
-      });
+      if (alertsBody.success) setAlerts(alertsBody.data);
+      setIsLoading(false);
+    });
   }, []);
 
   const AI_ALERT_TYPES = ["ai_usage_threshold", "ai_cost_spike"];
   const aiAlerts = alerts.filter((a) => AI_ALERT_TYPES.includes(a.alertType));
   const securityAlerts = alerts.filter((a) => a.severity === "security");
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Platform Dashboard</h1>
+          <p className="text-sm text-neutral-500">
+            Every figure below is read live from the database. Nothing here is a placeholder.
+          </p>
+        </div>
+        <div className="py-12 flex justify-center items-center">
+          <p className="text-neutral-500 animate-pulse">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -150,86 +169,72 @@ export default function PlatformDashboardPage() {
       )}
 
       <div>
-        <p className="text-sm font-medium mb-2">Source doc §24 — the 18 named KPIs</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Organisations" value={summary?.kpis.totalOrganisations} />
-          <StatCard label="Active Organisations" value={summary?.kpis.activeOrganisations} />
-          <StatCard label="Trial Organisations" value={summary?.kpis.trialOrganisations} />
-          <StatCard label="Suspended Organisations" value={summary?.kpis.suspendedOrganisations} />
-          <StatCard label="Total Users" value={summary?.kpis.totalUsers} />
-          <StatCard label="Active Users" value={summary?.kpis.activeUsers} />
-          <StatCard label="Active Subscriptions" value={summary?.kpis.activeSubscriptions} />
-          <StatCard label="Upgrades (this month)" value={summary?.kpis.upgrades} />
-          <StatCard label="Downgrades (this month)" value={summary?.kpis.downgrades} />
-          <StatCard label="AI Requests (this month)" value={summary?.kpis.aiRequestsThisMonth} />
-          <StatCard label="AI Cost (this month)" value={summary ? Number(summary.kpis.aiCostThisMonth.toFixed(2)) : undefined} prefix="$" />
+          <StatCard label="Total Organisations" value={summary?.kpis.totalOrganisations?.toLocaleString()} />
+          <StatCard label="Active Organisations" value={summary?.kpis.activeOrganisations?.toLocaleString()} />
+          <StatCard label="Trial Organisations" value={summary?.kpis.trialOrganisations?.toLocaleString()} />
+          <StatCard label="Suspended Organisations" value={summary?.kpis.suspendedOrganisations?.toLocaleString()} />
+          <StatCard label="Total Users" value={summary?.kpis.totalUsers?.toLocaleString()} />
+          <StatCard label="Active Users" value={summary?.kpis.activeUsers?.toLocaleString()} />
+          <StatCard label="Active Subscriptions" value={summary?.kpis.activeSubscriptions?.toLocaleString()} />
+          <StatCard label="Upgrades (this month)" value={summary?.kpis.upgrades?.toLocaleString()} />
+          <StatCard label="Downgrades (this month)" value={summary?.kpis.downgrades?.toLocaleString()} />
+          <StatCard label="AI Requests (this month)" value={summary?.kpis.aiRequestsThisMonth?.toLocaleString()} />
+          <StatCard label="AI Cost (this month)" value={summary ? Number(summary.kpis.aiCostThisMonth.toFixed(2)).toLocaleString("en-IN") : undefined} prefix="₹" />
           <StatCard
             label="AI Credits Used"
-            value={summary ? Number(summary.kpis.aiCreditsUsedThisMonth.toFixed(2)) : undefined}
-            prefix="$"
+            value={summary ? Number(summary.kpis.aiCreditsUsedThisMonth.toFixed(2)).toLocaleString("en-IN") : undefined}
+            prefix="₹"
           />
-          <StatCard label="MRR (contracted)" value={summary?.kpis.contractedMrr} prefix="$" />
-          <StatCard label="ARR (contracted)" value={summary?.kpis.contractedArr} prefix="$" />
+          <StatCard label="MRR (contracted)" value={summary?.kpis.contractedMrr?.toLocaleString("en-IN")} prefix="₹" />
+          <StatCard label="ARR (contracted)" value={summary?.kpis.contractedArr?.toLocaleString("en-IN")} prefix="₹" />
           <StatCard label="Storage Used" value={summary ? formatBytesNumber(summary.kpis.storageUsedBytesTotal) : undefined} />
           <EmptyStatTile label="API Usage" reason={summary?.kpis.unavailable.find((u) => u.field === "API Usage")?.reason} />
           <StatCard
             label="System Errors"
-            value={summary?.kpis.systemErrorsCurrentlyFailing}
+            value={summary?.kpis.systemErrorsCurrentlyFailing?.toLocaleString()}
           />
-          <StatCard label="Security Alerts" value={summary?.kpis.securityAlertsUnresolved} />
+          <StatCard label="Security Alerts" value={summary?.kpis.securityAlertsUnresolved?.toLocaleString()} />
         </div>
-        <p className="text-xs text-neutral-400 italic mt-2">
-          &quot;AI Credits Used&quot; shows the same figure as AI Cost — this codebase denominates
-          AI credits in currency, not a separate unit (see the AI limits editor&apos;s own
-          &quot;Monthly credits (₹)&quot; field). &quot;System Errors&quot; counts scheduled jobs
-          currently in a failed state, not a historical error count — SchedulerJobRun keeps only
-          each job&apos;s latest run, not a log. <strong>{summary?.kpis.mrrLabel}</strong> Storage
-          Used counts from the point upload instrumentation began (September 2026) — no backfill
-          of earlier files.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Admin users" value={summary?.adminUserCount} />
-        <StatCard label="Audit events today" value={summary?.auditEventsToday} />
+        <StatCard label="Admin users" value={summary?.adminUserCount?.toLocaleString()} />
+        <StatCard label="Audit events today" value={summary?.auditEventsToday?.toLocaleString()} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="AI requests today" value={summary?.aiUsage.totalRequestsToday} />
-        <StatCard label="AI requests last month" value={summary?.aiUsage.totalRequestsPreviousMonth} />
-        <StatCard label="AI requests, all time" value={summary?.aiUsage.totalRequestsAllTime} />
-        <StatCard label="Failed AI requests" value={summary?.aiUsage.failedRequests} />
+        <StatCard label="AI requests today" value={summary?.aiUsage.totalRequestsToday?.toLocaleString()} />
+        <StatCard label="AI requests last month" value={summary?.aiUsage.totalRequestsPreviousMonth?.toLocaleString()} />
+        <StatCard label="AI requests, all time" value={summary?.aiUsage.totalRequestsAllTime?.toLocaleString()} />
+        <StatCard label="Failed AI requests" value={summary?.aiUsage.failedRequests?.toLocaleString()} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Estimated AI cost this month"
-          value={summary ? Number(summary.aiUsage.estimatedCostUsd.toFixed(2)) : undefined}
-          prefix="$"
+          value={summary ? Number(summary.aiUsage.estimatedCostUsd.toFixed(2)).toLocaleString("en-IN") : undefined}
+          prefix="₹"
         />
         <StatCard
           label="Average AI request cost"
-          value={summary ? Number(summary.aiUsage.averageRequestCostUsd.toFixed(4)) : undefined}
-          prefix="$"
+          value={summary ? Number(summary.aiUsage.averageRequestCostUsd.toFixed(4)).toLocaleString("en-IN") : undefined}
+          prefix="₹"
         />
-        <StatCard label="Total AI tokens this month" value={summary?.aiUsage.totalTokens} />
+        <StatCard label="Total AI tokens this month" value={summary?.aiUsage.totalTokens?.toLocaleString()} />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Scheduled jobs</CardTitle>
-          <p className="text-xs text-neutral-500">
-            This project&apos;s Vercel plan does not support the cron schedules these jobs used to
-            run on (docs/admin/CRON_INCIDENT.md) — they now run via this scheduler instead. A
-            job overdue past 3× its own interval is flagged stale here and raises an alert.
-          </p>
         </CardHeader>
         <CardContent>
           {jobsError && <p className="text-sm text-red-600">{jobsError}</p>}
           {jobs === null && !jobsError && <p className="text-sm text-neutral-500">Loading…</p>}
           {jobs && (
-            <div className="space-y-2">
-              {jobs.map((j) => (
+            <TruncatedList
+              items={jobs}
+              renderItem={(j) => (
                 <div key={j.jobId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0 gap-2">
                   <div className="min-w-0">
                     <p className="font-medium truncate">
@@ -248,8 +253,8 @@ export default function PlatformDashboardPage() {
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           )}
         </CardContent>
       </Card>
@@ -262,8 +267,9 @@ export default function PlatformDashboardPage() {
           {alerts.length === 0 && (
             <p className="text-sm text-neutral-400 italic">No unresolved alerts.</p>
           )}
-          <div className="space-y-2">
-            {alerts.map((a) => (
+          <TruncatedList
+            items={alerts}
+            renderItem={(a) => (
               <div key={a.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
                 <div>
                   <p>{a.message}</p>
@@ -273,8 +279,8 @@ export default function PlatformDashboardPage() {
                   {a.severity}
                 </Badge>
               </div>
-            ))}
-          </div>
+            )}
+          />
         </CardContent>
       </Card>
 
@@ -285,14 +291,15 @@ export default function PlatformDashboardPage() {
           </CardHeader>
           <CardContent>
             {aiAlerts.length === 0 && <p className="text-sm text-neutral-400 italic">No unresolved AI usage/cost alerts.</p>}
-            <div className="space-y-2">
-              {aiAlerts.map((a) => (
+            <TruncatedList
+              items={aiAlerts}
+              renderItem={(a) => (
                 <div key={a.id} className="text-sm border-b pb-2 last:border-0">
                   <p>{a.message}</p>
                   <p className="text-xs text-neutral-400">{formatPlatformTimestamp(a.createdAt)}</p>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -302,14 +309,15 @@ export default function PlatformDashboardPage() {
           </CardHeader>
           <CardContent>
             {securityAlerts.length === 0 && <p className="text-sm text-neutral-400 italic">No unresolved security alerts.</p>}
-            <div className="space-y-2">
-              {securityAlerts.map((a) => (
+            <TruncatedList
+              items={securityAlerts}
+              renderItem={(a) => (
                 <div key={a.id} className="text-sm border-b pb-2 last:border-0">
                   <p>{a.message}</p>
                   <p className="text-xs text-neutral-400">{formatPlatformTimestamp(a.createdAt)}</p>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           </CardContent>
         </Card>
       </div>
@@ -317,20 +325,22 @@ export default function PlatformDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">System Errors</CardTitle>
-          <p className="text-xs text-neutral-500">Scheduled jobs currently in a failed state — a subset of the Scheduled Jobs panel below.</p>
         </CardHeader>
         <CardContent>
           {jobs && jobs.filter((j) => j.lastRunStatus === "error").length === 0 && (
             <p className="text-sm text-neutral-400 italic">No jobs currently in a failed state.</p>
           )}
-          <div className="space-y-2">
-            {jobs?.filter((j) => j.lastRunStatus === "error").map((j) => (
-              <div key={j.jobId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
-                <span>{j.jobId}</span>
-                <span className="text-xs text-red-600 truncate max-w-xs">{j.lastError}</span>
-              </div>
-            ))}
-          </div>
+          {jobs && (
+            <TruncatedList
+              items={jobs.filter((j) => j.lastRunStatus === "error")}
+              renderItem={(j) => (
+                <div key={j.jobId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                  <span>{j.jobId}</span>
+                  <span className="text-xs text-red-600 truncate max-w-xs">{j.lastError}</span>
+                </div>
+              )}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -343,14 +353,19 @@ export default function PlatformDashboardPage() {
             {summary && summary.panels.recentOrganisations.length === 0 && (
               <p className="text-sm text-neutral-400 italic">No organisations yet.</p>
             )}
-            <div className="space-y-2">
-              {summary?.panels.recentOrganisations.map((o) => (
-                <div key={o.id} className="text-sm border-b pb-2 last:border-0">
-                  <p className="truncate">{o.name}</p>
-                  <p className="text-xs text-neutral-400">{o.status} · {formatPlatformTimestamp(o.createdAt, { dateOnly: true })}</p>
-                </div>
-              ))}
-            </div>
+            {summary && (
+              <TruncatedList
+                items={summary.panels.recentOrganisations}
+                renderItem={(o) => (
+                  <div key={o.id} className="text-sm border-b pb-2 last:border-0">
+                    <p className="truncate">
+                      {o.name} <span className="text-xs text-neutral-400">(<CopyableId value={o.id} />)</span>
+                    </p>
+                    <p className="text-xs text-neutral-400">{o.status} · {formatPlatformTimestamp(o.createdAt, { dateOnly: true })}</p>
+                  </div>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -362,14 +377,17 @@ export default function PlatformDashboardPage() {
             {summary && summary.panels.recentSubscriptionChanges.length === 0 && (
               <p className="text-sm text-neutral-400 italic">No subscription changes recorded yet.</p>
             )}
-            <div className="space-y-2">
-              {summary?.panels.recentSubscriptionChanges.map((e) => (
-                <div key={e.id} className="text-sm border-b pb-2 last:border-0">
-                  <p className="truncate">{e.tenantId} — {e.type}</p>
-                  <p className="text-xs text-neutral-400">{formatPlatformTimestamp(e.occurredAt, { dateOnly: true })}</p>
-                </div>
-              ))}
-            </div>
+            {summary && (
+              <TruncatedList
+                items={summary.panels.recentSubscriptionChanges}
+                renderItem={(e) => (
+                  <div key={e.id} className="text-sm border-b pb-2 last:border-0">
+                    <div className="truncate flex items-center gap-1"><CopyableId value={e.tenantId} /> <span>— {e.type}</span></div>
+                    <p className="text-xs text-neutral-400">{formatPlatformTimestamp(e.occurredAt, { dateOnly: true })}</p>
+                  </div>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -381,14 +399,17 @@ export default function PlatformDashboardPage() {
             {summary && summary.panels.recentAdminActions.length === 0 && (
               <p className="text-sm text-neutral-400 italic">No admin actions recorded yet.</p>
             )}
-            <div className="space-y-2">
-              {summary?.panels.recentAdminActions.map((a) => (
-                <div key={a.id} className="text-sm border-b pb-2 last:border-0">
-                  <p className="truncate">{a.actorRole} — {a.eventType}</p>
-                  <p className="text-xs text-neutral-400">{a.tenantId ?? "—"} · {formatPlatformTimestamp(a.createdAt, { dateOnly: true })}</p>
-                </div>
-              ))}
-            </div>
+            {summary && (
+              <TruncatedList
+                items={summary.panels.recentAdminActions}
+                renderItem={(a) => (
+                  <div key={a.id} className="text-sm border-b pb-2 last:border-0">
+                    <p className="truncate">{a.actorRole} — {a.eventType}</p>
+                    <p className="text-xs text-neutral-400">{a.tenantId ? <CopyableId value={a.tenantId} /> : "—"} · {formatPlatformTimestamp(a.createdAt, { dateOnly: true })}</p>
+                  </div>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -401,16 +422,19 @@ export default function PlatformDashboardPage() {
           {summary && summary.aiUsage.topOrganisations.length === 0 && (
             <p className="text-sm text-neutral-400 italic">No AI usage recorded yet this month.</p>
           )}
-          <div className="space-y-2">
-            {summary?.aiUsage.topOrganisations.map((org) => (
-              <div key={org.tenantId} className="flex items-center justify-between text-sm">
-                <span>{org.name}</span>
-                <span className="text-neutral-500">
-                  {org.requestCount} requests · ${org.estimatedCostUsd.toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
+          {summary && (
+            <TruncatedList
+              items={summary.aiUsage.topOrganisations}
+              renderItem={(org) => (
+                <div key={org.tenantId} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                  <span>{org.name}</span>
+                  <span className="text-neutral-500">
+                    {org.requestCount?.toLocaleString()} requests · ₹{org.estimatedCostUsd.toFixed(2)}
+                  </span>
+                </div>
+              )}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -422,24 +446,23 @@ export default function PlatformDashboardPage() {
           {summary && summary.aiUsage.topModels.length === 0 && (
             <p className="text-sm text-neutral-400 italic">No AI usage recorded yet this month.</p>
           )}
-          <div className="space-y-2">
-            {summary?.aiUsage.topModels.map((m) => (
-              <div key={m.modelName} className="flex items-center justify-between text-sm">
-                <span>{m.modelName}</span>
-                <span className="text-neutral-500">{m.requestCount} requests</span>
-              </div>
-            ))}
-          </div>
+          {summary && (
+            <TruncatedList
+              items={summary.aiUsage.topModels}
+              renderItem={(m) => (
+                <div key={m.modelName} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                  <span>{m.modelName}</span>
+                  <span className="text-neutral-500">{m.requestCount?.toLocaleString()} requests</span>
+                </div>
+              )}
+            />
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Payment collection</CardTitle>
-          <p className="text-xs text-neutral-500">
-            Distinct from the MRR/ARR KPIs above, which are real (contracted plan prices). This
-            card is about actually charging a tenant for platform access.
-          </p>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-neutral-500">
@@ -486,5 +509,23 @@ function EmptyStatTile({ label, reason }: { label: string; reason?: string }) {
         {reason && <p className="text-xs text-neutral-400 mt-1">{reason}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function TruncatedList<T>({ items, renderItem }: { items: T[]; renderItem: (item: T) => React.ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!items || items.length === 0) return null;
+  const showMore = items.length > 5;
+  const displayed = expanded ? items : items.slice(0, 5);
+
+  return (
+    <div className="space-y-2">
+      {displayed.map(renderItem)}
+      {showMore && (
+        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full text-xs text-neutral-500 mt-2">
+          {expanded ? "Show less" : `Show more (${items.length - 5})`}
+        </Button>
+      )}
+    </div>
   );
 }

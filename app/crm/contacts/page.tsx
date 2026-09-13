@@ -96,7 +96,6 @@ export default function ContactsPage() {
 
   useEffect(() => {
     fetchContacts(page, debouncedSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedSearch]);
 
   const setField = (field: string, value: any) => setForm(p => ({ ...p, [field]: value }));

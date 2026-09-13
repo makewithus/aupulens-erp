@@ -297,7 +297,6 @@ export default function VouchersPage() {
 
   useEffect(() => {
     if (status === "authenticated") load(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router, page, typeFilter, statusFilter, debouncedQuery, dateFrom, dateTo]);
 
   const handleOpenAction = (actionName: string) => {

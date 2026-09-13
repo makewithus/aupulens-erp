@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,14 @@ import {
 } from "@/components/ui/table";
 import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import { TypeToConfirm } from "@/components/platform/TypeToConfirm";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface SessionRow {
   id: string;
@@ -44,18 +53,23 @@ export default function AdminSessionsPage() {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [activeOnly, setActiveOnly] = useState(true);
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("all");
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch("/api/platform/admin-sessions");
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (role !== "all") params.set("role", role);
+      const res = await fetch(`/api/platform/admin-sessions?${params}`);
       const body = await res.json();
       if (body.success) setSessions(body.data);
       else setError(body.message ?? "Failed to load admin sessions.");
     } catch {
       setError("Failed to load admin sessions.");
     }
-  }, []);
+  }, [search, role]);
 
   useEffect(() => {
     load();
@@ -72,9 +86,10 @@ export default function AdminSessionsPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to revoke session.");
+        toast.error(body.message ?? "Failed to revoke session.");
         return;
       }
+      toast.success("Session revoked.");
       setRevokeTarget(null);
       setReason("");
       await load();
@@ -90,18 +105,40 @@ export default function AdminSessionsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Admin Sessions</h1>
         <p className="text-sm text-neutral-500">
-          Every Global Admin session, with the IP and device it started from (source doc §25). A
+          Every Global Admin session, with the IP and device it started from. A
           session from an IP that admin hasn&apos;t used in any prior session is flagged.
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant={activeOnly ? "default" : "outline"} onClick={() => setActiveOnly(true)}>
-          Active only
-        </Button>
-        <Button size="sm" variant={!activeOnly ? "default" : "outline"} onClick={() => setActiveOnly(false)}>
-          All (last 200)
-        </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-[200px]"
+        />
+        <Select
+          value={role}
+          onValueChange={setRole}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value="GLOBAL_SUPER_ADMIN">Global Super Admin</SelectItem>
+            <SelectItem value="SUPPORT_AGENT">Support Agent</SelectItem>
+            <SelectItem value="BILLING_ADMIN">Billing Admin</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2 border-l pl-3 ml-2">
+          <Button size="sm" variant={activeOnly ? "default" : "outline"} onClick={() => setActiveOnly(true)}>
+            Active only
+          </Button>
+          <Button size="sm" variant={!activeOnly ? "default" : "outline"} onClick={() => setActiveOnly(false)}>
+            All
+          </Button>
+        </div>
       </div>
 
       {error && (

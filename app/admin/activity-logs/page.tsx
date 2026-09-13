@@ -59,12 +59,10 @@ export default function ActivityLogsPage() {
         fetchLogs();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session, router]);
 
   useEffect(() => {
     if (status === 'authenticated') fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFrom, dateTo]);
 
   const fetchLogs = async () => {

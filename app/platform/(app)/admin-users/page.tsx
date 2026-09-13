@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,7 @@ export default function AdminUsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: "" });
   const [createReason, setCreateReason] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [roleTarget, setRoleTarget] = useState<AdminUserRow | null>(null);
   const [newRole, setNewRole] = useState("");
@@ -98,9 +101,10 @@ export default function AdminUsersPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to create admin.");
+        toast.error(body.message ?? "Failed to create admin.");
         return;
       }
+      toast.success("Admin created successfully.");
       setCreateOpen(false);
       setCreateForm({ name: "", email: "", password: "", role: "" });
       setCreateReason("");
@@ -121,9 +125,10 @@ export default function AdminUsersPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to change role.");
+        toast.error(body.message ?? "Failed to change role.");
         return;
       }
+      toast.success("Role updated.");
       setRoleTarget(null);
       setRoleReason("");
       await load();
@@ -144,9 +149,10 @@ export default function AdminUsersPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to change status.");
+        toast.error(body.message ?? "Failed to change status.");
         return;
       }
+      toast.success("Status updated.");
       setSuspendTarget(null);
       setSuspendReason("");
       await load();
@@ -166,9 +172,10 @@ export default function AdminUsersPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to reset MFA.");
+        toast.error(body.message ?? "Failed to reset MFA.");
         return;
       }
+      toast.success("MFA reset successfully.");
       setMfaResetTarget(null);
       setMfaResetReason("");
       await load();
@@ -302,7 +309,21 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-1">
               <Label>Temporary password (12+ characters)</Label>
-              <Input type="password" value={createForm.password} onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))} />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>Role</Label>

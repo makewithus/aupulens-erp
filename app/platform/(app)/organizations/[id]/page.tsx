@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -227,9 +228,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to save AI limits.");
+        toast.error(body.message ?? "Failed to save AI limits.");
         return;
       }
+      toast.success("AI limits saved successfully.");
       setAiLimitDialogOpen(false);
       await loadAiLimits();
     } finally {
@@ -253,9 +255,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Plan assignment failed.");
+        toast.error(body.message ?? "Plan assignment failed.");
         return;
       }
+      toast.success("Plan assigned successfully.");
       setPlanDialogOpen(false);
       setPlanReason("");
       await loadEntitlements();
@@ -294,9 +297,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to set override.");
+        toast.error(body.message ?? "Failed to set override.");
         return;
       }
+      toast.success("Override set successfully.");
       setOverrideDialogOpen(false);
       await loadEntitlements();
     } finally {
@@ -315,9 +319,10 @@ export default function OrganizationDetailPage() {
       );
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to clear override.");
+        toast.error(body.message ?? "Failed to clear override.");
         return;
       }
+      toast.success("Override cleared.");
       await loadEntitlements();
     } finally {
       setSubmitting(false);
@@ -341,9 +346,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to update modules.");
+        toast.error(body.message ?? "Failed to update modules.");
         return;
       }
+      toast.success("Modules updated.");
       setModuleDialogOpen(false);
       delete tabData.modules;
       delete tabData.subscription;
@@ -376,9 +382,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Failed to update configuration.");
+        toast.error(body.message ?? "Failed to update configuration.");
         return;
       }
+      toast.success("Configuration updated.");
       setConfigDialogOpen(false);
       delete tabData.configuration;
       await loadTab("configuration");
@@ -398,9 +405,10 @@ export default function OrganizationDetailPage() {
       });
       const body = await res.json();
       if (!body.success) {
-        setError(body.message ?? "Status change failed.");
+        toast.error(body.message ?? "Status change failed.");
         return;
       }
+      toast.success("Status changed.");
       setStatusDialogOpen(false);
       setReason("");
       await loadTab("overview");
@@ -549,7 +557,7 @@ export default function OrganizationDetailPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Custom override (source doc §11)</CardTitle>
+              <CardTitle className="text-base">Custom override</CardTitle>
               <div className="flex gap-2">
                 {entitlements?.overrides && (
                   <Button size="sm" variant="ghost" disabled={submitting} onClick={handleClearOverride}>
@@ -844,7 +852,7 @@ export default function OrganizationDetailPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">AI limits &amp; overage (source doc §15/§16)</CardTitle>
+              <CardTitle className="text-base">AI limits & overage</CardTitle>
               <Button size="sm" variant="outline" onClick={openAiLimitDialog}>
                 Configure
               </Button>
@@ -1172,8 +1180,7 @@ export default function OrganizationDetailPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-xs text-neutral-500">
-              This replaces the module set as an override on top of the current plan (source doc
-              §11) — it does not change the plan itself.
+              This replaces the module set as an override on top of the current plan — it does not change the plan itself.
             </p>
             <div className="grid grid-cols-2 gap-2">
               {((tabData.modules as any)?.allModules as string[] | undefined)?.map((m) => (

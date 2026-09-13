@@ -92,6 +92,9 @@ export interface SecurityEventSearchQuery {
   page?: number;
   pageSize?: number;
   tenantId?: string;
+  severity?: string;
+  eventType?: string;
+  actorRole?: string;
 }
 
 /**
@@ -122,6 +125,9 @@ export async function searchSecurityEvents(actor: AdminActor, reason: string, qu
         $or: [{ eventCategory: PLATFORM_EVENT_CATEGORY.SECURITY }, { severity: PLATFORM_SEVERITY.SECURITY }],
       };
       if (query.tenantId) filter.tenantId = query.tenantId;
+      if (query.severity) filter.severity = query.severity;
+      if (query.eventType) filter.eventType = query.eventType;
+      if (query.actorRole) filter.actorRole = query.actorRole;
 
       const [total, rows] = await Promise.all([
         PlatformAuditLog.countDocuments(filter),
