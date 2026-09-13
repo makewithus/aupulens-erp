@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import { generateExportData } from "@/lib/crm/exportEngine";
+import { recordMassDataExport } from "@/lib/platform/alerts/conditions";
 
 const getModel = (entityType: string) => {
   const map: Record<string, string> = {
@@ -36,7 +37,20 @@ export async function POST(req: NextRequest) {
     try {
       const exportQuery = ids && ids.length > 0 ? { _id: { $in: ids } } : query;
       const data = await generateExportData(entityType, tenantId, exportQuery, format || "csv", columns);
-      
+
+      // Phase 11 Part 1.7 (source doc §28): a thin, additive audit signal —
+      // never allowed to affect the export's own success/failure, hence the
+      // separate try/catch here on top of recordMassDataExport()'s own
+      // internal one. Record count via ids.length when an explicit
+      // selection was made (cheap, exact), else a real count query against
+      // the same filter the export itself just ran.
+      try {
+        const recordCount = ids && ids.length > 0 ? ids.length : await Model.countDocuments({ ...exportQuery, tenantId });
+        await recordMassDataExport({ tenantId, actorUserId: userId, entityType, recordCount, format: format || "csv" });
+      } catch {
+        // Never let an audit/alert failure turn a successful export into a failed one.
+      }
+
       // We return base64 for xlsx buffer or direct string for csv
       if (format === "xlsx") {
         return NextResponse.json({ success: true, data: data.toString('base64'), isBase64: true });

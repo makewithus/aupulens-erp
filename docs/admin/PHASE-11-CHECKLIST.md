@@ -40,7 +40,8 @@ CLOSE THE PARTIALS (Part 1)
 [ ] §24: all six operational panels
 [ ] §25: Admin Sessions view with IP/device and new-IP flag
 [ ] §25: privileged-action confirmation on the three named actions
-[ ] §28: export audit signal + alert (7 of 10)
+[x] §28: export audit signal + alert (7 of 10) — recordMassDataExport() wired into
+    app/api/crm/bulk/route.ts's export action, wrapped so it can never affect the export itself
 [ ] §26: SUPPORT_ADMIN gate verified over real HTTP
 [ ] §19: ActivityLog isolation proven by source-grep
 

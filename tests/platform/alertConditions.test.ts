@@ -13,6 +13,7 @@ let checkFailedLoginSpike: typeof import("@/lib/platform/alerts/conditions").che
 let checkPermissionFailureSpike: typeof import("@/lib/platform/alerts/conditions").checkPermissionFailureSpike;
 let checkLargeDowngrade: typeof import("@/lib/platform/alerts/conditions").checkLargeDowngrade;
 let checkAiCostSpike: typeof import("@/lib/platform/alerts/conditions").checkAiCostSpike;
+let recordMassDataExport: typeof import("@/lib/platform/alerts/conditions").recordMassDataExport;
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
@@ -20,7 +21,7 @@ beforeAll(async () => {
   await PlatformAlertConfig.init();
   await PlatformAuditLog.init();
   await AiUsageDaily.init();
-  ({ checkFailedLoginSpike, checkPermissionFailureSpike, checkLargeDowngrade, checkAiCostSpike } =
+  ({ checkFailedLoginSpike, checkPermissionFailureSpike, checkLargeDowngrade, checkAiCostSpike, recordMassDataExport } =
     await import("@/lib/platform/alerts/conditions"));
 });
 
@@ -178,5 +179,42 @@ describe("checkAiCostSpike — today's cost vs. trailing average", () => {
     await checkAiCostSpike();
     await checkAiCostSpike();
     expect(await PlatformAlert.countDocuments({ alertType: "ai_cost_spike" })).toBe(1);
+  });
+});
+
+describe("recordMassDataExport — Phase 11 Part 1.7 (source doc §28)", () => {
+  it("always writes an audit row, even below the alert threshold", async () => {
+    await recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Lead", recordCount: 10, format: "csv" });
+    const audits = await PlatformAuditLog.find({ tenantId: "acme", eventType: "mass_data_export" });
+    expect(audits).toHaveLength(1);
+    expect(audits[0].actorType).toBe("tenant_user");
+    expect(audits[0].actorId).toBe("user-1");
+    expect(audits[0].entityType).toBe("Lead");
+    expect((audits[0].metadata as any).recordCount).toBe(10);
+    expect((audits[0].metadata as any).format).toBe("csv");
+    expect(audits[0].severity).toBe("info"); // below threshold
+  });
+
+  it("raises an alert only when the record count reaches the configured threshold (default 1000)", async () => {
+    await recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Lead", recordCount: 50, format: "csv" });
+    expect(await PlatformAlert.countDocuments({ alertType: "mass_data_export" })).toBe(0);
+
+    await recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Lead", recordCount: 1000, format: "csv" });
+    expect(await PlatformAlert.countDocuments({ alertType: "mass_data_export" })).toBe(1);
+
+    const audits = await PlatformAuditLog.find({ tenantId: "acme", eventType: "mass_data_export", "metadata.recordCount": 1000 });
+    expect(audits[0].severity).toBe("warning"); // at/above threshold
+  });
+
+  it("respects a configured threshold, not a hardcoded one", async () => {
+    await PlatformAlertConfig.create({ singleton: true, massExportRecordThreshold: 5 });
+    await recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Contact", recordCount: 6, format: "xlsx" });
+    expect(await PlatformAlert.countDocuments({ alertType: "mass_data_export" })).toBe(1);
+  });
+
+  it("never throws — a logging failure must not turn a successful export into a failed one", async () => {
+    await expect(
+      recordMassDataExport({ tenantId: "acme", actorUserId: "user-1", entityType: "Lead", recordCount: NaN as unknown as number, format: "csv" }),
+    ).resolves.not.toThrow();
   });
 });

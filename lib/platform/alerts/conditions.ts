@@ -5,12 +5,14 @@ import PlatformAlertConfig, { IPlatformAlertConfig } from "@/models/platform/Pla
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
 import {
   PLATFORM_ALERT_TYPE,
+  PLATFORM_EVENT_CATEGORY,
   PLATFORM_EVENT_TYPE,
   PLATFORM_SEVERITY,
   PLAN_KEY,
   PlanKeyType,
 } from "@/lib/constants/statuses";
 import { emitPlatformAlert } from "./emit";
+import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 import { getAiPeriod } from "@/lib/ai/usage";
 
 /**
@@ -192,6 +194,62 @@ export async function checkAiCostSpike(): Promise<void> {
       severity: PLATFORM_SEVERITY.WARNING,
       message: `Platform AI cost today ($${todayCost.toFixed(2)}) is ${(todayCost / trailingAverage).toFixed(1)}x the ${config.aiCostSpikeTrailingDays}-day trailing average ($${trailingAverage.toFixed(2)}).`,
       metadata: { dedupeKey, todayCost, trailingAverage, multiplier: config.aiCostSpikeMultiplier },
+    });
+  }
+}
+
+/**
+ * Condition 5 (Phase 11 Part 1.7, source doc §28 reclassified from
+ * DECLARED_NOT_POSSIBLE to MISSING by Addendum C Part 0.2's audit):
+ * `lib/crm/exportEngine.ts` + `app/api/crm/bulk/route.ts` is a real, working
+ * CRM bulk export with no audit signal at all. This is that signal — an
+ * always-written audit row (actor, tenant, entity type, record count,
+ * format) plus a threshold alert, using the same `PlatformAlertConfig`
+ * pattern as the other four conditions. Wrapped so it can never throw back
+ * into the export itself: a logging/alerting failure must not turn a
+ * successful export into a failed one for the tenant.
+ *
+ * `actorType: "tenant_user"` — this is a TENANT user's own action (CRM
+ * export), not an admin actor, so it is recorded distinctly from every
+ * other `PlatformAuditLog` row this project writes (which are all
+ * `actor: "admin"` or `"system"`). Still lands in the same append-only
+ * store, still visible on the organisation's own Audit Logs tab.
+ */
+export async function recordMassDataExport(input: {
+  tenantId: string;
+  actorUserId: string;
+  entityType: string;
+  recordCount: number;
+  format: string;
+}): Promise<void> {
+  try {
+    await connectDB();
+    const config = await getConfig();
+
+    await emitPlatformAuditEvent({
+      actor: { id: input.actorUserId, role: "tenant_user" },
+      actorType: "tenant_user",
+      tenantId: input.tenantId,
+      eventCategory: PLATFORM_EVENT_CATEGORY.SECURITY,
+      eventType: PLATFORM_EVENT_TYPE.MASS_DATA_EXPORT,
+      severity: input.recordCount >= config.massExportRecordThreshold ? PLATFORM_SEVERITY.WARNING : PLATFORM_SEVERITY.INFO,
+      entityType: input.entityType,
+      metadata: { recordCount: input.recordCount, format: input.format },
+    });
+
+    if (input.recordCount >= config.massExportRecordThreshold) {
+      await emitPlatformAlert({
+        tenantId: input.tenantId,
+        alertType: PLATFORM_ALERT_TYPE.MASS_DATA_EXPORT,
+        severity: PLATFORM_SEVERITY.WARNING,
+        message: `Organisation "${input.tenantId}" exported ${input.recordCount} ${input.entityType} record(s) as ${input.format}.`,
+        metadata: { dedupeKey: `mass-export:${input.tenantId}:${Date.now()}`, entityType: input.entityType, recordCount: input.recordCount, format: input.format },
+      });
+    }
+  } catch (err) {
+    console.error("[platform-alerts] failed to record mass data export", {
+      tenantId: input.tenantId,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 }

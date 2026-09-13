@@ -2290,6 +2290,10 @@ export const PLATFORM_ALERT_TYPE = {
   // days would have been six minutes."
   SCHEDULER_JOB_STALE: "scheduler_job_stale",
   SCHEDULER_JOB_FAILED: "scheduler_job_failed",
+  // Phase 11 Part 1.7 — the mass-export condition reclassified from
+  // DECLARED_NOT_POSSIBLE to MISSING (Addendum C Part 0.2's audit found a
+  // real export feature, lib/crm/exportEngine.ts, with no audit signal).
+  MASS_DATA_EXPORT: "mass_data_export",
 } as const;
 export const PLATFORM_ALERT_TYPE_VALUES = Object.values(PLATFORM_ALERT_TYPE);
 export type PlatformAlertType = (typeof PLATFORM_ALERT_TYPE)[keyof typeof PLATFORM_ALERT_TYPE];
@@ -2393,6 +2397,8 @@ export const PLATFORM_EVENT_TYPE = {
   CAPABILITY_DENIED: "capability_denied",
   // Phase 10 Part 0.3.
   SCHEDULER_JOB_RUN_MANUAL: "scheduler_job_run_manual",
+  // Phase 11 Part 1.7 — the mass-export audit signal, source doc §28.
+  MASS_DATA_EXPORT: "mass_data_export",
 } as const;
 export const PLATFORM_EVENT_TYPE_VALUES = Object.values(PLATFORM_EVENT_TYPE);
 export type PlatformEventType =

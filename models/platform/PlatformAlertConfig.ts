@@ -27,6 +27,11 @@ export interface IPlatformAlertConfig extends Document {
   // days, expressed as a multiplier (2.5 = "2.5x the trailing average").
   aiCostSpikeMultiplier: number;
   aiCostSpikeTrailingDays: number;
+  // Phase 11 Part 1.7 — a single bulk export whose record count is at or
+  // above this is "mass" (source doc §28's own wording). One export, not a
+  // rolling window — there is no sustained-condition shape here the way
+  // failed logins or permission failures have.
+  massExportRecordThreshold: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +45,7 @@ const PlatformAlertConfigSchema = new Schema<IPlatformAlertConfig>(
     largeDowngradeTierDrop: { type: Number, required: true, default: 2 },
     aiCostSpikeMultiplier: { type: Number, required: true, default: 3 },
     aiCostSpikeTrailingDays: { type: Number, required: true, default: 7 },
+    massExportRecordThreshold: { type: Number, required: true, default: 1000 },
   },
   { timestamps: true },
 );
