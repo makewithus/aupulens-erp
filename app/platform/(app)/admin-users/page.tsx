@@ -223,8 +223,11 @@ export default function AdminUsersPage() {
             <TableBody>
               {admins === null && !error && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-sm text-neutral-500 py-8">
-                    Loading…
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+                      <p className="text-sm text-muted-foreground">Loading admin users…</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

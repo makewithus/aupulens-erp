@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import connectDB from "@/lib/db";
 import AiEvent from "@/models/ai/AiEvent";
 import { AI_EVENT_STATUS } from "@/lib/constants/statuses";
@@ -27,6 +28,10 @@ import type { TriggerEvent } from "@/lib/aiRuntime/workflows/types";
 
 const MAX_ATTEMPTS = 5;
 
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: number }).code === 11000;
+}
+
 export async function emitEvent(
   tenantId: string,
   eventKey: string,
@@ -40,13 +45,31 @@ export async function emitEvent(
     if (existing) return { eventId: String(existing._id), deduped: true };
   }
 
-  const event = await AiEvent.create({
-    tenantId,
-    eventKey,
-    payload,
-    dedupeKey: opts?.dedupeKey,
-    status: AI_EVENT_STATUS.PENDING,
-  });
+  let event;
+  try {
+    event = await AiEvent.create({
+      tenantId,
+      eventKey,
+      payload,
+      dedupeKey: opts?.dedupeKey || crypto.randomUUID(),
+      status: AI_EVENT_STATUS.PENDING,
+    });
+  } catch (err) {
+    // The findOne-then-create above isn't atomic — two concurrent emitEvent()
+    // calls with the SAME dedupeKey (e.g. the Vercel cron sweep and the
+    // opportunistic scheduler trigger both firing for the same hourKey) can
+    // both pass the check above and race on create(). The unique index is
+    // the real source of truth for "already emitted": a duplicate-key error
+    // here means deduplication worked as designed, not a genuine failure —
+    // this is the exact live "ai-runtime-sweep failed: E11000..." class of
+    // error found in the Scheduled Jobs panel, hardened at its second cause
+    // (the first being the sparse/partial index gap fixed on the model).
+    if (opts?.dedupeKey && isDuplicateKeyError(err)) {
+      const existing = await AiEvent.findOne({ tenantId, eventKey, dedupeKey: opts.dedupeKey });
+      if (existing) return { eventId: String(existing._id), deduped: true };
+    }
+    throw err;
+  }
 
   // Best-effort inline dispatch — never let this throw back to the caller.
   await dispatchEvent(String(event._id)).catch(() => undefined);

@@ -87,8 +87,14 @@ describe("checkAiUsageThresholdCrossing — fires exactly once per threshold bou
   });
 });
 
-describe("source-grep: emailSent/webhookSent are never set true anywhere in the codebase", () => {
+describe("source-grep: emailSent is never set true anywhere; webhookSent only inside its one real delivery module", () => {
   const ROOT = path.resolve(__dirname, "../..");
+  // Phase 12 Part 0.2 (source doc §28): webhook delivery is real now — HTTP
+  // POST needs no credentials this environment lacks, unlike email (SMTP).
+  // This is the one file allowed to set webhookSent: true, since it's the
+  // single place that performs (and honestly records the outcome of) actual
+  // delivery. Every other file is still held to "never fabricate a send."
+  const WEBHOOK_DELIVERY_FILE = path.join(ROOT, "lib", "platform", "alerts", "webhookDelivery.ts");
 
   function walk(dir: string): string[] {
     const out: string[] = [];
@@ -102,9 +108,18 @@ describe("source-grep: emailSent/webhookSent are never set true anywhere in the 
     return out;
   }
 
-  it("no file sets emailSent or webhookSent to true — no platform-level send infrastructure exists yet", () => {
+  it("no file sets emailSent to true — no platform-level email send infrastructure exists yet", () => {
     const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib")), ...walk(path.join(ROOT, "models"))];
-    const violationPattern = /(emailSent|webhookSent)\s*:\s*true|\.(emailSent|webhookSent)\s*=\s*true/;
+    const violationPattern = /emailSent\s*:\s*true|\.emailSent\s*=\s*true/;
+    const violations = files.filter((f) => violationPattern.test(readFileSync(f, "utf8")));
+    expect(violations.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
+  it("no file other than webhookDelivery.ts sets webhookSent to true", () => {
+    const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib")), ...walk(path.join(ROOT, "models"))].filter(
+      (f) => f !== WEBHOOK_DELIVERY_FILE,
+    );
+    const violationPattern = /webhookSent\s*:\s*true|\.webhookSent\s*=\s*true/;
     const violations = files.filter((f) => violationPattern.test(readFileSync(f, "utf8")));
     expect(violations.map((f) => path.relative(ROOT, f))).toEqual([]);
   });

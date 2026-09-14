@@ -44,7 +44,21 @@ const AiEventSchema: Schema<IAiEvent> = new Schema(
   { timestamps: true },
 );
 
-AiEventSchema.index({ tenantId: 1, eventKey: 1, dedupeKey: 1 }, { unique: true, sparse: true });
+// `sparse: true` on a COMPOUND index only excludes a document when EVERY
+// indexed field is missing — since tenantId/eventKey are always present,
+// sparse never actually excludes an event with no dedupeKey, so two such
+// events for the same {tenantId, eventKey} both index as dedupeKey: null
+// and collide on the unique constraint (found live: ai-runtime-sweep
+// failing every hour with "E11000 duplicate key... dedupeKey: null" for
+// callers that emit ai.sweep.hourly with no dedupeKey, e.g.
+// lib/aiRuntime/closeReadiness/compute.ts). A partial index is the correct
+// primitive for "unique only when this field is actually provided" — a
+// document missing dedupeKey is excluded from the index entirely, so any
+// number of them can coexist for the same tenantId+eventKey.
+AiEventSchema.index(
+  { tenantId: 1, eventKey: 1, dedupeKey: 1 },
+  { unique: true, partialFilterExpression: { dedupeKey: { $exists: true } } },
+);
 AiEventSchema.index({ status: 1, createdAt: 1 });
 
 const AiEvent: Model<IAiEvent> =

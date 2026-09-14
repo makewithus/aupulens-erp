@@ -34,10 +34,19 @@ export default function RetentionSettingsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/platform/retention-policies");
-    const body = await res.json();
-    if (body.success) setPolicies(body.data);
-    else setError(body.message ?? "Failed to load retention policies.");
+    try {
+      const res = await fetch("/api/platform/retention-policies");
+      const text = await res.text();
+      try {
+        const body = JSON.parse(text);
+        if (body.success) setPolicies(body.data);
+        else setError(body.message ?? "Failed to load retention policies.");
+      } catch (err) {
+        setError(`Failed to load data (Server Error: ${res.status}). Response: ${text.slice(0, 50)}`);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   useEffect(() => {
@@ -69,61 +78,71 @@ export default function RetentionSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-semibold">Retention policy</h1>
-        <p className="text-sm text-neutral-500">
+    <div className="space-y-6 max-w-3xl mx-auto p-4 sm:p-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Retention policy</h1>
+        <p className="text-sm text-muted-foreground">
           The most specific matching policy wins. A policy with no category set is the platform
           default (30 days if none is configured at all).
         </p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="bg-destructive/10 text-destructive text-sm p-4 rounded-md font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+          {error}
+        </div>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Add a policy</CardTitle>
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-muted/50 border-b border-border">
+          <CardTitle className="text-base font-semibold">Add a policy</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>Event category (optional — leave unset for the platform default)</Label>
-              <Select value={eventCategory} onValueChange={setEventCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Platform default (all categories)</SelectItem>
-                  {PLATFORM_EVENT_CATEGORY_VALUES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <CardContent className="p-0">
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-foreground font-medium">Event category (leave unset for default)</Label>
+                <Select value={eventCategory} onValueChange={setEventCategory}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Platform default (all categories)</SelectItem>
+                    {PLATFORM_EVENT_CATEGORY_VALUES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-foreground font-medium">Retention days</Label>
+                <Input type="number" min={1} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} className="w-full" />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Retention days</Label>
-              <Input type="number" min={1} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} />
-            </div>
+            <Button onClick={handleCreate} disabled={submitting}>
+              {submitting ? "Saving…" : "Add policy"}
+            </Button>
           </div>
-          <Button onClick={handleCreate} disabled={submitting}>
-            {submitting ? "Saving…" : "Add policy"}
-          </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Configured policies</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {policies.length === 0 && <p className="text-sm text-neutral-400 italic">No policies configured — the hardcoded 30-day platform default applies.</p>}
-          {policies.map((p) => (
-            <div key={p.id} className="flex items-center justify-between text-sm border-b pb-2">
-              <span>
-                {p.eventCategory ?? "All categories"} {p.organizationType ? `· ${p.organizationType}` : ""}
-                {p.isDefault && <Badge variant="secondary" className="ml-2">default</Badge>}
-              </span>
-              <span className="text-neutral-500">{p.retentionDays} days</span>
-            </div>
-          ))}
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-muted/50 border-b border-border">
+          <CardTitle className="text-base font-semibold">Configured policies</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="p-4 sm:p-6 space-y-2">
+            {policies.length === 0 && <p className="text-sm text-muted-foreground italic">No policies configured — the hardcoded 30-day platform default applies.</p>}
+            {policies.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-sm py-4 border-b border-border last:border-0">
+                <span className="font-medium text-foreground flex items-center gap-2">
+                  {p.eventCategory ?? "All categories"} {p.organizationType ? <span className="text-muted-foreground">· {p.organizationType}</span> : ""}
+                  {p.isDefault && <Badge variant="secondary" className="rounded-md">default</Badge>}
+                </span>
+                <span className="text-muted-foreground font-medium">{p.retentionDays} days</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

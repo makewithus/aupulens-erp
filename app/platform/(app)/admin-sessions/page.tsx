@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ADMIN_ROLE_VALUES, ADMIN_ROLE_LABELS } from "@/lib/constants/statuses";
 
 interface SessionRow {
   id: string;
@@ -126,9 +127,11 @@ export default function AdminSessionsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
-            <SelectItem value="GLOBAL_SUPER_ADMIN">Global Super Admin</SelectItem>
-            <SelectItem value="SUPPORT_AGENT">Support Agent</SelectItem>
-            <SelectItem value="BILLING_ADMIN">Billing Admin</SelectItem>
+            {ADMIN_ROLE_VALUES.map((r) => (
+              <SelectItem key={r} value={r}>
+                {ADMIN_ROLE_LABELS[r]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 border-l pl-3 ml-2">
@@ -168,8 +171,11 @@ export default function AdminSessionsPage() {
             <TableBody>
               {sessions === null && !error && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-neutral-500 py-8">
-                    Loading…
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+                      <p className="text-sm text-muted-foreground">Loading admin sessions…</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

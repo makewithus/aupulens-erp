@@ -604,7 +604,12 @@ export default function OrganizationDetailPage() {
         </TabsContent>
 
         <TabsContent value="modules" className="space-y-4">
-          {loading && tab === "modules" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {loading && tab === "modules" && (
+            <div className="flex flex-col items-center justify-center min-h-[15vh] gap-3 py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading modules...</p>
+            </div>
+          )}
           {tabData.modules && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -646,7 +651,12 @@ export default function OrganizationDetailPage() {
         </TabsContent>
 
         <TabsContent value="configuration" className="space-y-4">
-          {loading && tab === "configuration" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {loading && tab === "configuration" && (
+            <div className="flex flex-col items-center justify-center min-h-[15vh] gap-3 py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading configuration...</p>
+            </div>
+          )}
           {tabData.configuration === null && (
             <Card>
               <CardContent className="pt-6">
@@ -784,7 +794,12 @@ export default function OrganizationDetailPage() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          {loading && tab === "security" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {loading && tab === "security" && (
+            <div className="flex flex-col items-center justify-center min-h-[15vh] gap-3 py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading security data...</p>
+            </div>
+          )}
           {tabData.security && (
             <>
               <div>
@@ -813,7 +828,12 @@ export default function OrganizationDetailPage() {
         </TabsContent>
 
         <TabsContent value="ai-usage" className="space-y-4">
-          {loading && tab === "ai-usage" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {loading && tab === "ai-usage" && (
+            <div className="flex flex-col items-center justify-center min-h-[15vh] gap-3 py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading AI usage...</p>
+            </div>
+          )}
           {tabData["ai-usage"] && (
             <>
               <Card>
@@ -904,7 +924,12 @@ export default function OrganizationDetailPage() {
         </TabsContent>
 
         <TabsContent value="usage" className="space-y-4">
-          {loading && tab === "usage" && <p className="text-sm text-neutral-500 py-4">Loading…</p>}
+          {loading && tab === "usage" && (
+            <div className="flex flex-col items-center justify-center min-h-[15vh] gap-3 py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading usage data...</p>
+            </div>
+          )}
           {tabData.usage && (
             <>
               <Card>
@@ -1307,16 +1332,15 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function SimpleTable({
-  rows,
-  columns,
-  loading,
-}: {
-  rows: any[];
-  columns: string[];
-  loading: boolean;
-}) {
-  if (loading) return <p className="text-sm text-neutral-500 py-4">Loading…</p>;
+function SimpleTable({ rows, columns, loading }: { rows: any[]; columns: string[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[20vh] gap-3 py-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-primary" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading data...</p>
+      </div>
+    );
+  }
   if (rows.length === 0) return <p className="text-sm text-neutral-500 py-4">No records.</p>;
   return (
     <div className="overflow-x-auto">

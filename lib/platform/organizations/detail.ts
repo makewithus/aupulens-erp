@@ -44,6 +44,13 @@ export async function getOrganizationOverview(actor: AdminActor, reason: string,
     run: async () => {
       const org = await Organization.findOne({ subdomain }).lean();
       if (!org) return null;
+      
+      const entitlements = await resolveEntitlements(subdomain);
+      
+      const settings = org.settings ?? {};
+      // Use the resolved entitlement modules, bypassing the stale org settings list
+      settings.enabledModules = entitlements.modules;
+
       return {
         id: String(org._id),
         name: org.name,
@@ -55,9 +62,9 @@ export async function getOrganizationOverview(actor: AdminActor, reason: string,
         planAssignmentPending: org.planAssignmentPending ?? false,
         tier: org.tier,
         subscriptionStatus: org.subscriptionStatus,
-        maxUsers: org.maxUsers,
-        aiCallsPerMonth: org.aiCallsPerMonth,
-        settings: org.settings,
+        maxUsers: entitlements.limits.maxUsers,
+        aiCallsPerMonth: entitlements.limits.aiRequestsPerMonth,
+        settings,
         createdAt: org.createdAt.toISOString(),
       };
     },

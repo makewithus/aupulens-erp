@@ -34,12 +34,21 @@ export default function OrganizationsListPage() {
   const [rows, setRows] = useState<OrganizationListRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [orgType, setOrgType] = useState<string>("all");
   const [plan, setPlan] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,11 +93,8 @@ export default function OrganizationsListPage() {
       <div className="flex gap-3">
         <Input
           placeholder="Search by name or subdomain…"
-          value={search}
-          onChange={(e) => {
-            setPage(1);
-            setSearch(e.target.value);
-          }}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-xs"
         />
         <Select
@@ -176,8 +182,11 @@ export default function OrganizationsListPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-sm text-neutral-500 py-8">
-                    Loading…
+                  <TableCell colSpan={12} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-primary dark:border-neutral-800 dark:border-t-primary" />
+                      <p className="text-sm text-neutral-500">Loading organisations…</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

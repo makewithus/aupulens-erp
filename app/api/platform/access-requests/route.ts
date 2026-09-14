@@ -4,14 +4,19 @@ import { AdminForbiddenError } from "@/lib/platform/auth/adminRbac";
 import { listAccessRequests, requestOrgAccess, AccessRequestError } from "@/lib/platform/access/request";
 
 export async function GET(request: Request) {
-  const actor = await getAdminActorFromRequest(request);
-  if (!actor) {
-    return NextResponse.json({ success: false, message: "Not authenticated." }, { status: 401 });
+  try {
+    const actor = await getAdminActorFromRequest(request);
+    if (!actor) {
+      return NextResponse.json({ success: false, message: "Not authenticated." }, { status: 401 });
+    }
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") || undefined;
+    const requests = await listAccessRequests(status);
+    return NextResponse.json({ success: true, data: requests });
+  } catch (err) {
+    console.error("[platform-access-requests] GET failed", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ success: false, message: "Failed to load access requests." }, { status: 500 });
   }
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status") || undefined;
-  const requests = await listAccessRequests(status);
-  return NextResponse.json({ success: true, data: requests });
 }
 
 export async function POST(request: Request) {

@@ -7,28 +7,33 @@ import { ADMIN_CAPABILITY, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFOR
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 
 export async function GET(request: Request) {
-  const actor = await getAdminActorFromRequest(request);
-  if (!actor) {
-    return NextResponse.json({ success: false, message: "Not authenticated." }, { status: 401 });
-  }
-  if (!(await hasCapability(actor, ADMIN_CAPABILITY.VIEW_AUDIT_LOGS))) {
-    return NextResponse.json({ success: false, message: "Forbidden." }, { status: 403 });
-  }
+  try {
+    const actor = await getAdminActorFromRequest(request);
+    if (!actor) {
+      return NextResponse.json({ success: false, message: "Not authenticated." }, { status: 401 });
+    }
+    if (!(await hasCapability(actor, ADMIN_CAPABILITY.VIEW_AUDIT_LOGS))) {
+      return NextResponse.json({ success: false, message: "Forbidden." }, { status: 403 });
+    }
 
-  await connectDB();
-  const policies = await RetentionPolicy.find({}).sort({ createdAt: -1 }).lean();
-  return NextResponse.json({
-    success: true,
-    data: policies.map((p) => ({
-      id: String(p._id),
-      organizationType: p.organizationType,
-      country: p.country,
-      eventCategory: p.eventCategory,
-      eventType: p.eventType,
-      retentionDays: p.retentionDays,
-      isDefault: p.isDefault,
-    })),
-  });
+    await connectDB();
+    const policies = await RetentionPolicy.find({}).sort({ createdAt: -1 }).lean();
+    return NextResponse.json({
+      success: true,
+      data: policies.map((p) => ({
+        id: String(p._id),
+        organizationType: p.organizationType,
+        country: p.country,
+        eventCategory: p.eventCategory,
+        eventType: p.eventType,
+        retentionDays: p.retentionDays,
+        isDefault: p.isDefault,
+      })),
+    });
+  } catch (err) {
+    console.error("[platform-retention-policies] GET failed", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ success: false, message: "Failed to load retention policies." }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {

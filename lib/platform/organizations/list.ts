@@ -12,8 +12,9 @@ import {
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
-import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
+import { resolveEntitlements, getLegacyTierForPlanKey } from "@/lib/platform/entitlements/resolve";
 import { OrganizationListRow, LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "./types";
+import { PlanKeyType } from "@/lib/constants/statuses";
 
 export type { OrganizationListRow };
 export { LAST_MEANINGFUL_ACTIVITY_DEFINITION };
@@ -63,7 +64,10 @@ export async function listOrganizations(
       if (query.organizationType) filter.organizationType = query.organizationType;
       // Note: planKey filters the raw legacy tier field on the Organization.
       // Filtering natively on resolveEntitlements() would require a memory scan.
-      if (query.planKey) filter.tier = query.planKey;
+      if (query.planKey) {
+        const legacyTier = getLegacyTierForPlanKey(query.planKey as PlanKeyType);
+        filter.tier = legacyTier || query.planKey;
+      }
       if (query.search) {
         filter.$or = [
           { name: { $regex: query.search, $options: "i" } },

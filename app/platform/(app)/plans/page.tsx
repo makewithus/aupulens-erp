@@ -25,6 +25,7 @@ interface PlanRow {
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,7 +35,8 @@ export default function PlansPage() {
         if (body.success) setPlans(body.data);
         else setError(body.message ?? "Failed to load plans.");
       })
-      .catch(() => setError("Failed to load plans."));
+      .catch(() => setError("Failed to load plans."))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -49,7 +51,13 @@ export default function PlansPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map((plan) => (
+        {loading && (
+          <div className="col-span-full py-12 flex flex-col items-center justify-center space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-primary dark:border-neutral-800 dark:border-t-primary" />
+            <p className="text-sm text-neutral-500">Loading plans…</p>
+          </div>
+        )}
+        {!loading && plans.map((plan) => (
           <Card key={plan.key}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -69,7 +77,7 @@ export default function PlansPage() {
               <p className="text-xs text-neutral-400 pt-2">
                 {plan.features.modules.join(", ") || "No modules"}
               </p>
-              <Link href={`/platform/plans/${plan.key}/edit`}>
+              <Link href={`/platform/plans/${plan.key}/edit`} prefetch={true}>
                 <Button size="sm" variant="outline" className="mt-3 w-full">
                   Edit
                 </Button>

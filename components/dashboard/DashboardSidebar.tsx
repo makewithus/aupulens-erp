@@ -115,6 +115,7 @@ export function DashboardSidebar({
                 <Link
                   key={item.href}
                   href={item.disabled ? "#" : item.href}
+                  prefetch={true}
                   className={cn(
                     "group flex items-center transition-all duration-300",
                     isCollapsed ? "justify-center py-3" : "gap-3 px-6 py-2",

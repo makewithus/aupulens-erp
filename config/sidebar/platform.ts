@@ -1,9 +1,9 @@
-import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, MonitorSmartphone, ScrollText, Search, Settings, Shield, ShieldAlert, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, KeyRound, LayoutDashboard, MonitorSmartphone, ScrollText, Search, Settings, Shield, ShieldAlert, Users, LucideIcon } from "lucide-react";
 
 export interface PlatformSidebarItem {
   title: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
 }
 
 export interface PlatformSidebarSection {

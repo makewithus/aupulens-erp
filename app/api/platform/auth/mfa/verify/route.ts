@@ -70,15 +70,17 @@ export async function POST(request: Request) {
 
   if (!matched) {
     admin.failedLoginCount += 1;
-    await admin.save();
-    await emitPlatformAuditEvent({
-      actor: { id: String(admin._id), role: admin.role },
-      eventCategory: PLATFORM_EVENT_CATEGORY.AUTH,
-      eventType: PLATFORM_EVENT_TYPE.MFA_CHALLENGE_FAILED,
-      severity: PLATFORM_SEVERITY.SECURITY,
-      ipAddress: ip,
-      userAgent,
-    });
+    await Promise.all([
+      admin.save(),
+      emitPlatformAuditEvent({
+        actor: { id: String(admin._id), role: admin.role },
+        eventCategory: PLATFORM_EVENT_CATEGORY.AUTH,
+        eventType: PLATFORM_EVENT_TYPE.MFA_CHALLENGE_FAILED,
+        severity: PLATFORM_SEVERITY.SECURITY,
+        ipAddress: ip,
+        userAgent,
+      }),
+    ]);
     return NextResponse.json({ success: false, message: "Incorrect code." }, { status: 401 });
   }
 
@@ -101,22 +103,25 @@ export async function POST(request: Request) {
   admin.failedLoginCount = 0;
   admin.lastLoginAt = new Date();
   admin.lastLoginIp = ip;
-  await admin.save();
 
-  const { token, expiresAt } = await createAdminSession(
-    { id: String(admin._id), email: admin.email, name: admin.name, role: admin.role },
-    { ip, userAgent },
-  );
-
-  await emitPlatformAuditEvent({
-    actor: { id: String(admin._id), role: admin.role },
-    eventCategory: PLATFORM_EVENT_CATEGORY.AUTH,
-    eventType: PLATFORM_EVENT_TYPE.LOGIN_SUCCESS,
-    severity: PLATFORM_SEVERITY.INFO,
-    ipAddress: ip,
-    userAgent,
-    metadata: consumedBackupCode ? { usedBackupCode: true } : undefined,
-  });
+  // Phase 12 performance fix: these three are independent of each other's
+  // results (session creation only needs admin's id/email/name/role, all
+  // already known; the audit write needs neither) but ran one after another
+  // — three sequential round trips to a remote database on every login,
+  // now one.
+  const [, { token, expiresAt }] = await Promise.all([
+    admin.save(),
+    createAdminSession({ id: String(admin._id), email: admin.email, name: admin.name, role: admin.role }, { ip, userAgent }),
+    emitPlatformAuditEvent({
+      actor: { id: String(admin._id), role: admin.role },
+      eventCategory: PLATFORM_EVENT_CATEGORY.AUTH,
+      eventType: PLATFORM_EVENT_TYPE.LOGIN_SUCCESS,
+      severity: PLATFORM_SEVERITY.INFO,
+      ipAddress: ip,
+      userAgent,
+      metadata: consumedBackupCode ? { usedBackupCode: true } : undefined,
+    }),
+  ]);
 
   const response = NextResponse.json({
     success: true,

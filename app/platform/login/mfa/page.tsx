@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthHeader } from "@/components/auth/AuthHeader";
 
 export default function PlatformMfaPage() {
   const router = useRouter();
@@ -80,79 +82,70 @@ export default function PlatformMfaPage() {
 
   if (backupCodes) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Save your backup codes</CardTitle>
-            <p className="text-sm text-neutral-500">
-              Each code can be used once if you lose access to your authenticator app. They will
-              not be shown again.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 font-mono text-sm">
-              {backupCodes.map((c) => (
-                <div key={c} className="rounded bg-neutral-100 dark:bg-neutral-800 px-2 py-1">
-                  {c}
-                </div>
-              ))}
-            </div>
-            <Button className="w-full" onClick={() => router.push("/platform")}>
-              I&apos;ve saved these — continue
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout>
+        <div className="space-y-6 animate-fade-in">
+          <AuthHeader
+            title="Save your backup codes"
+            subtitle="Each code can be used once if you lose access to your authenticator app. They will not be shown again."
+          />
+          <div className="grid grid-cols-2 gap-2 font-mono text-sm">
+            {backupCodes.map((c) => (
+              <div key={c} className="rounded bg-neutral-100 dark:bg-neutral-800 px-2 py-1">
+                {c}
+              </div>
+            ))}
+          </div>
+          <Button className="w-full" onClick={() => router.push("/platform")}>
+            I&apos;ve saved these — continue
+          </Button>
+        </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center space-y-2">
-          <ShieldCheck className="h-8 w-8 mx-auto text-primary" />
-          <CardTitle>{mode === "setup" ? "Set up two-factor authentication" : "Enter your code"}</CardTitle>
-          {mode === "setup" && (
-            <p className="text-sm text-neutral-500">
-              Two-factor authentication is required for every Global Admin account. Scan this QR
-              code with an authenticator app.
-            </p>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {mode === "setup" && qrDataUrl && (
-            <div className="flex flex-col items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrDataUrl} alt="MFA QR code" className="h-40 w-40" />
-              {manualSecret && (
-                <p className="text-xs text-neutral-500 font-mono break-all text-center">
-                  Manual entry: {manualSecret}
-                </p>
-              )}
-            </div>
-          )}
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="code">6-digit code</Label>
-              <Input
-                id="code"
-                type="text"
-                pattern="\d{6}"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                minLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Verifying…" : "Verify"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout>
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex justify-center mb-4">
+          <ShieldCheck className="h-8 w-8 text-primary" />
+        </div>
+        <AuthHeader
+          title={mode === "setup" ? "Set up two-factor authentication" : "Enter your code"}
+          subtitle={mode === "setup" ? "Two-factor authentication is required for every Global Admin account. Scan this QR code with an authenticator app." : undefined}
+        />
+
+        {mode === "setup" && qrDataUrl && (
+          <div className="flex flex-col items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrDataUrl} alt="MFA QR code" className="h-40 w-40" />
+            {manualSecret && (
+              <p className="text-xs text-neutral-500 font-mono break-all text-center">
+                Manual entry: {manualSecret}
+              </p>
+            )}
+          </div>
+        )}
+        <form onSubmit={handleVerify} className="space-y-4">
+          <div className="space-y-1">
+            <Label htmlFor="code">6-digit code</Label>
+            <Input
+              id="code"
+              type="text"
+              pattern="\d{6}"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              minLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              required
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Verifying…" : "Verify"}
+          </Button>
+        </form>
+      </div>
+    </AuthLayout>
   );
 }

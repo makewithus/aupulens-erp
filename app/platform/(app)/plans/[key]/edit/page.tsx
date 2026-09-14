@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,9 +112,11 @@ export default function EditPlanPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <Button variant="ghost" size="sm" onClick={() => router.push("/platform/plans")}>
-          ← Back to plans
-        </Button>
+        <Link href="/platform/plans" prefetch={true}>
+          <Button variant="ghost" size="sm" type="button">
+            ← Back to plans
+          </Button>
+        </Link>
         <h1 className="text-2xl font-semibold mt-1">Edit {plan.name}</h1>
         <p className="text-sm text-neutral-500">
           Editing a plan&apos;s configuration changes every organisation resolved to it at once.

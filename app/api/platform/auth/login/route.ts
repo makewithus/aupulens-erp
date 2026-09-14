@@ -64,16 +64,19 @@ export async function POST(request: Request) {
     if (admin.failedLoginCount >= MAX_FAILED_ATTEMPTS) {
       admin.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
     }
-    await admin.save();
-    await auditFailure("bad_password");
-    await checkFailedLoginSpike(email, admin.failedLoginCount);
+    // Phase 12 performance fix: three independent writes (AdminUser,
+    // PlatformAuditLog, PlatformAlert) that ran sequentially — still all
+    // awaited before responding (this is security state, not safe to make
+    // truly fire-and-forget in a serverless function that may freeze once
+    // the response is sent), just no longer paying three round trips
+    // back-to-back against a remote database.
+    await Promise.all([admin.save(), auditFailure("bad_password"), checkFailedLoginSpike(email, admin.failedLoginCount)]);
     return NextResponse.json({ success: false, message: "Invalid credentials." }, { status: 401 });
   }
 
   admin.failedLoginCount = 0;
   admin.lockedUntil = undefined;
-  await admin.save();
-  await checkFailedLoginSpike(email, 0);
+  await Promise.all([admin.save(), checkFailedLoginSpike(email, 0)]);
 
   // MFA is mandatory (source doc §25) — every path from here requires it,
   // either completing a challenge (already enrolled) or enrolling now.

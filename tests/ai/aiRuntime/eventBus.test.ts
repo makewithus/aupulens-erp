@@ -81,6 +81,44 @@ describe("emitEvent — the AI runtime's event bus (outbox + inline dispatch)", 
     expect(runCount).toBe(1);
   });
 
+  it("two events with the SAME tenant+eventKey and NO dedupeKey never collide — the live 'E11000 duplicate key... dedupeKey: null' bug found in the Scheduled Jobs panel", async () => {
+    // A sparse compound unique index only excludes a document when EVERY
+    // indexed field is missing — tenantId/eventKey are always present, so a
+    // dedupeKey-less event was never actually excluded from the old index,
+    // and two of them collided on dedupeKey: null. Fixed with a partial
+    // index (models/ai/AiEvent.ts). This is the exact real-world trigger:
+    // lib/aiRuntime/closeReadiness/compute.ts calls emitEvent(tenantId,
+    // "ai.sweep.hourly", {}) with no opts object at all, for the same
+    // tenant, potentially more than once.
+    const first = await emitEvent(TENANT, "ai.sweep.hourly", {});
+    const second = await emitEvent(TENANT, "ai.sweep.hourly", {});
+
+    expect(first.eventId).not.toBe(second.eventId);
+    expect(first.deduped).toBe(false);
+    expect(second.deduped).toBe(false);
+
+    const count = await AiEvent.countDocuments({ tenantId: TENANT, eventKey: "ai.sweep.hourly" });
+    expect(count).toBe(2);
+  });
+
+  it("two CONCURRENT emitEvent calls with the SAME dedupeKey never throw — the findOne-then-create race is closed by catching E11000 as a real dedupe", async () => {
+    // The Vercel cron sweep and the opportunistic scheduler trigger can both
+    // reach emitEvent for the same hourKey around the same moment — a true
+    // race, not a sequential duplicate, so unlike the "same dedupeKey" test
+    // above (which is sequential and short-circuits on the initial findOne),
+    // this fires both calls together so they can genuinely race on create().
+    const [first, second] = await Promise.all([
+      emitEvent(TENANT, "ai.sweep.hourly", {}, { dedupeKey: "race-key" }),
+      emitEvent(TENANT, "ai.sweep.hourly", {}, { dedupeKey: "race-key" }),
+    ]);
+
+    expect(first.eventId).toBe(second.eventId);
+    expect([first.deduped, second.deduped].sort()).toEqual([false, true]);
+
+    const count = await AiEvent.countDocuments({ tenantId: TENANT, eventKey: "ai.sweep.hourly", dedupeKey: "race-key" });
+    expect(count).toBe(1);
+  });
+
   it("emitEvent never throws back to the caller even if dispatch fails internally", async () => {
     // AI-00-SMOKE is OBSERVE-level and always succeeds, so simulate a bad
     // payload shape instead — the workflow tolerates it (observe() coerces

@@ -254,10 +254,12 @@ export const JOB_REGISTRY: JobDefinition[] = [
       const result = await sweepPendingEvents();
       await connectDB();
       const orgs = await Organization.find({ isActive: true }, "subdomain").lean();
-      for (const org of orgs) {
-        await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {});
-      }
       const now = new Date();
+      const hourKey = now.toISOString().substring(0, 13); // e.g., "2026-09-14T13"
+      
+      for (const org of orgs) {
+        await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {}, { dedupeKey: hourKey });
+      }
       const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
       const currentPeriodEnd = new Date(
         Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59),
@@ -266,7 +268,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
         await emitEvent((org as { subdomain: string }).subdomain, "period.horizon.reached", {
           period: currentPeriod,
           periodEnd: currentPeriodEnd,
-        });
+        }, { dedupeKey: hourKey });
       }
       const dueSchedules = await AiSchedule.find({
         status: AI_SCHEDULE_STATUS.APPROVED,

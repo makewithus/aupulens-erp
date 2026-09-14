@@ -39,10 +39,19 @@ export default function AccessRequestsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/platform/access-requests");
-    const body = await res.json();
-    if (body.success) setRequests(body.data);
-    else setError(body.message ?? "Failed to load access requests.");
+    try {
+      const res = await fetch("/api/platform/access-requests");
+      const text = await res.text();
+      try {
+        const body = JSON.parse(text);
+        if (body.success) setRequests(body.data);
+        else setError(body.message ?? "Failed to load access requests.");
+      } catch (err) {
+        setError(`Failed to load data (Server Error: ${res.status}). Response: ${text.slice(0, 50)}`);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   useEffect(() => {
@@ -109,73 +118,85 @@ export default function AccessRequestsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Organisation Access</h1>
-        <p className="text-sm text-neutral-500">
+    <div className="space-y-6 max-w-3xl mx-auto p-4 sm:p-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Organisation Access</h1>
+        <p className="text-sm text-muted-foreground">
           Time-boxed, reason-required, fully audited access to a specific organisation&apos;s
           data. Every grant expires automatically (4 hours) and defaults to read-only.
         </p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="bg-destructive/10 text-destructive text-sm p-4 rounded-md font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+          {error}
+        </div>
+      )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Request access</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>Organisation subdomain</Label>
-              <Input value={tenantId} onChange={(e) => setTenantId(e.target.value)} />
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-muted/50 border-b border-border">
+          <CardTitle className="text-base font-semibold">Request access</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-foreground font-medium">Organisation subdomain</Label>
+                <Input value={tenantId} onChange={(e) => setTenantId(e.target.value)} className="w-full" placeholder="e.g. acme-corp" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-foreground font-medium">Scope</Label>
+                <Select value={scope} onValueChange={setScope}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="read">Read-only</SelectItem>
+                    <SelectItem value="write">Write (requires additional privilege)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Scope</Label>
-              <Select value={scope} onValueChange={setScope}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="read">Read-only</SelectItem>
-                  <SelectItem value="write">Write (requires additional privilege)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label className="text-foreground font-medium">Reason (required, audited)</Label>
+              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="resize-none" placeholder="Explain why you need access to this tenant..." />
             </div>
+            <Button onClick={handleRequest} disabled={submitting || !tenantId || !reason.trim()}>
+              {submitting ? "Submitting…" : "Request access"}
+            </Button>
           </div>
-          <div className="space-y-1">
-            <Label>Reason (required, audited)</Label>
-            <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
-          </div>
-          <Button onClick={handleRequest} disabled={submitting || !tenantId || !reason.trim()}>
-            {submitting ? "Submitting…" : "Request access"}
-          </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Requests</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {requests.length === 0 && <p className="text-sm text-neutral-400 italic">No access requests yet.</p>}
-          {requests.map((r) => (
-            <div key={r.id} className="border-b pb-3 last:border-0 text-sm space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{r.tenantId} — {r.requestedScope}</span>
-                <Badge variant={r.status === "approved" ? "default" : r.status === "denied" ? "destructive" : "secondary"}>
-                  {r.status}
-                </Badge>
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-muted/50 border-b border-border">
+          <CardTitle className="text-base font-semibold">Requests</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="p-4 sm:p-6 space-y-2">
+            {requests.length === 0 && <p className="text-sm text-muted-foreground italic">No access requests yet.</p>}
+            {requests.map((r) => (
+              <div key={r.id} className="border-b border-border py-4 last:border-0 text-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{r.tenantId} <span className="text-muted-foreground font-normal ml-2">— {r.requestedScope}</span></span>
+                  <Badge variant={r.status === "approved" ? "default" : r.status === "denied" ? "destructive" : "secondary"} className="rounded-md">
+                    {r.status}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">{r.reason}</p>
+                {r.expiresAt && <p className="text-xs text-muted-foreground">Expires: {formatPlatformTimestamp(r.expiresAt)}</p>}
+                <div className="flex gap-2 pt-2">
+                  {r.status === "pending" && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => handleApprove(r.id)}>Approve</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeny(r.id)}>Deny</Button>
+                    </>
+                  )}
+                  {r.status === "approved" && (
+                    <Button size="sm" variant="outline" onClick={() => handleEnd(r.id)}>End session</Button>
+                  )}
+                </div>
               </div>
-              <p className="text-neutral-500">{r.reason}</p>
-              {r.expiresAt && <p className="text-xs text-neutral-400">Expires: {formatPlatformTimestamp(r.expiresAt)}</p>}
-              <div className="flex gap-2 pt-1">
-                {r.status === "pending" && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => handleApprove(r.id)}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDeny(r.id)}>Deny</Button>
-                  </>
-                )}
-                {r.status === "approved" && (
-                  <Button size="sm" variant="outline" onClick={() => handleEnd(r.id)}>End session</Button>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

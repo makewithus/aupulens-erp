@@ -34,14 +34,24 @@ export {
   type LoginChallengePurpose,
 } from "./adminSessionEdge";
 
-/** Node runtime only (DB access). Issues a new session: signs the JWT and
- *  persists the tracked AdminSession row that makes revocation possible. */
-export async function createAdminSession(
-  adminUser: { id: string; email: string; name: string; role: AdminRoleType },
-  meta: { ip?: string; userAgent?: string },
-): Promise<{ token: string; expiresAt: Date; sessionId: string }> {
-  await connectDB();
-  const jti = crypto.randomUUID();
+// Phase 12 performance fix: this was an uncached DB read on EVERY single
+// login — a value that changes only when an admin explicitly edits Security
+// Configuration. Same 60s-TTL in-process cache idiom already used by
+// adminRbac.ts's role-capability cache and entitlements/resolve.ts.
+const SECURITY_CONFIG_CACHE_TTL_MS = 60_000;
+let cachedSessionTimeoutSeconds: number | null = null;
+let sessionTimeoutCacheExpiresAt = 0;
+
+/** Test-only escape hatch, matching invalidateAdminRoleCache's own convention. */
+export function invalidateSessionTimeoutCache(): void {
+  cachedSessionTimeoutSeconds = null;
+  sessionTimeoutCacheExpiresAt = 0;
+}
+
+async function getSessionTimeoutSeconds(): Promise<number> {
+  if (cachedSessionTimeoutSeconds !== null && sessionTimeoutCacheExpiresAt > Date.now()) {
+    return cachedSessionTimeoutSeconds;
+  }
   // Phase 11 Part 1.6: was a hardcoded constant — now configurable via
   // Security Configuration (/platform/security-config), falling back to the
   // same 8h default when unconfigured. A missing/invalid config row must
@@ -51,7 +61,21 @@ export async function createAdminSession(
   const securityConfig = await PlatformSecurityConfig.findOne({ singleton: true })
     .lean()
     .catch(() => null);
-  const sessionTimeoutSeconds = securityConfig ? securityConfig.sessionTimeoutHours * 60 * 60 : ADMIN_SESSION_MAX_AGE_SECONDS;
+  const seconds = securityConfig ? securityConfig.sessionTimeoutHours * 60 * 60 : ADMIN_SESSION_MAX_AGE_SECONDS;
+  cachedSessionTimeoutSeconds = seconds;
+  sessionTimeoutCacheExpiresAt = Date.now() + SECURITY_CONFIG_CACHE_TTL_MS;
+  return seconds;
+}
+
+/** Node runtime only (DB access). Issues a new session: signs the JWT and
+ *  persists the tracked AdminSession row that makes revocation possible. */
+export async function createAdminSession(
+  adminUser: { id: string; email: string; name: string; role: AdminRoleType },
+  meta: { ip?: string; userAgent?: string },
+): Promise<{ token: string; expiresAt: Date; sessionId: string }> {
+  await connectDB();
+  const jti = crypto.randomUUID();
+  const sessionTimeoutSeconds = await getSessionTimeoutSeconds();
   const expiresAt = new Date(Date.now() + sessionTimeoutSeconds * 1000);
 
   const session = await AdminSession.create({
@@ -84,18 +108,31 @@ async function resolveActorFromToken(
   if (!payload) return null;
 
   await connectDB();
-  const session = await AdminSession.findOne({ jti: payload.jti });
+  // Phase 12 performance fix: these two reads are independent (both derive
+  // from the JWT payload, neither depends on the other's result) but ran
+  // sequentially — on the network round trip to a remote Atlas cluster,
+  // that's the query latency paid twice, on EVERY single /api/platform/**
+  // request, since this function sits in front of every one of them.
+  const [session, adminUser] = await Promise.all([
+    AdminSession.findOne({ jti: payload.jti }),
+    AdminUser.findById(payload.sub).lean(),
+  ]);
   if (!session || session.revokedAt || session.expiresAt.getTime() < Date.now()) {
     return null;
   }
-
-  const adminUser = await AdminUser.findById(payload.sub).lean();
   if (!adminUser || adminUser.status !== ADMIN_USER_STATUS.ACTIVE) {
     return null;
   }
 
-  session.lastActivityAt = new Date();
-  await session.save();
+  // Phase 11 Performance Fix: Only update lastActivityAt if it has been more than 5 minutes
+  // since the last update to prevent a slow MongoDB write on every single page load and API call.
+  // Phase 12: also no longer awaited — this is a best-effort freshness marker,
+  // not something the caller needs to wait on before getting their actor back.
+  const FIVE_MINUTES = 5 * 60 * 1000;
+  if (!session.lastActivityAt || Date.now() - session.lastActivityAt.getTime() > FIVE_MINUTES) {
+    session.lastActivityAt = new Date();
+    session.save().catch(() => undefined);
+  }
 
   return {
     id: String(adminUser._id),

@@ -30,8 +30,10 @@ async function handler(req: NextRequest) {
   // bank line). Same per-tenant iteration pattern as app/api/cron/business-health/route.ts.
   await connectDB();
   const orgs = await Organization.find({ isActive: true }, "subdomain").lean();
+  const now = new Date();
+  const hourKey = now.toISOString().substring(0, 13);
   for (const org of orgs) {
-    await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {});
+    await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {}, { dedupeKey: hourKey });
   }
 
   // `period.horizon.reached` (docs/ai/BRIEF-04-BATCH-C.md) — AI-13/22/24/28's continuous-
@@ -40,11 +42,10 @@ async function handler(req: NextRequest) {
   // gate it on, and recomputation is idempotent/cheap (AiCloseState is upserted per
   // {tenantId, period}), so "recompute now" every hour is the honest, conservative choice —
   // recorded in docs/ai/OPEN_QUESTIONS.md.
-  const now = new Date();
   const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const currentPeriodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString();
   for (const org of orgs) {
-    await emitEvent((org as { subdomain: string }).subdomain, "period.horizon.reached", { period: currentPeriod, periodEnd: currentPeriodEnd });
+    await emitEvent((org as { subdomain: string }).subdomain, "period.horizon.reached", { period: currentPeriod, periodEnd: currentPeriodEnd }, { dedupeKey: hourKey });
   }
 
   // The recurring schedule engine's runner (docs/ai/BRIEF-03-BATCH-B.md B.2) — extends this
