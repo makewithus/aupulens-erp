@@ -1,0 +1,24 @@
+
+> aupulens-erp@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://10.21.218.179:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 13.5s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1225ms (238 modules)
+ ○ Compiling /api/platform/scheduler/run-due ...
+ ✓ Compiled /api/platform/scheduler/run-due in 5.5s (915 modules)
+[scheduler] job "ai-runtime-sweep" failed [MongoServerError: E11000 duplicate key error collection: test.aievents index: tenantId_1_eventKey_1_dedupeKey_1 dup key: { tenantId: "default-tenant", eventKey: "ai.sweep.hourly", dedupeKey: null }] {
+  errorLabelSet: Set(0) {},
+  errorResponse: [Object],
+  index: 0,
+  code: 11000,
+  keyPattern: [Object],
+  keyValue: [Object]
+}
+ POST /api/platform/scheduler/run-due 200 in 604044ms
