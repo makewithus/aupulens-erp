@@ -36,7 +36,7 @@ export async function emitEvent(
   tenantId: string,
   eventKey: string,
   payload: Record<string, unknown>,
-  opts?: { dedupeKey?: string },
+  opts?: { dedupeKey?: string; dispatchInline?: boolean },
 ): Promise<{ eventId: string; deduped: boolean }> {
   await connectDB();
 
@@ -72,7 +72,9 @@ export async function emitEvent(
   }
 
   // Best-effort inline dispatch — never let this throw back to the caller.
-  await dispatchEvent(String(event._id)).catch(() => undefined);
+  if (opts?.dispatchInline !== false) {
+    await dispatchEvent(String(event._id)).catch(() => undefined);
+  }
 
   return { eventId: String(event._id), deduped: false };
 }
@@ -153,7 +155,7 @@ export async function dispatchEvent(eventId: string): Promise<void> {
  *  cron sweep route on an hourly schedule. This is the retry-with-backoff +
  *  dead-letter mechanism: "backoff" here is simply "next hourly sweep,"
  *  matching the granularity of every other cron in this codebase. */
-export async function sweepPendingEvents(limit = 200): Promise<{ processed: number; deadLettered: number }> {
+export async function sweepPendingEvents(limit = 200, timeBudgetMs = 240000): Promise<{ processed: number; deadLettered: number }> {
   await connectDB();
   const events = await AiEvent.find({
     status: { $in: [AI_EVENT_STATUS.PENDING, AI_EVENT_STATUS.FAILED] },
@@ -164,8 +166,14 @@ export async function sweepPendingEvents(limit = 200): Promise<{ processed: numb
 
   let processed = 0;
   let deadLettered = 0;
+  const startTime = Date.now();
 
   for (const event of events) {
+    if (Date.now() - startTime > timeBudgetMs) {
+      console.warn(`[scheduler] sweepPendingEvents time budget of ${timeBudgetMs}ms reached, aborting sweep early.`);
+      break;
+    }
+    
     await dispatchEvent(String(event._id));
     const after = await AiEvent.findById(event._id).lean();
     if (after?.status === AI_EVENT_STATUS.PROCESSED) processed += 1;

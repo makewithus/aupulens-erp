@@ -258,7 +258,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
       const hourKey = now.toISOString().substring(0, 13); // e.g., "2026-09-14T13"
       
       for (const org of orgs) {
-        await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {}, { dedupeKey: hourKey });
+        await emitEvent((org as { subdomain: string }).subdomain, "ai.sweep.hourly", {}, { dedupeKey: hourKey, dispatchInline: false });
       }
       const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
       const currentPeriodEnd = new Date(
@@ -268,7 +268,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
         await emitEvent((org as { subdomain: string }).subdomain, "period.horizon.reached", {
           period: currentPeriod,
           periodEnd: currentPeriodEnd,
-        }, { dedupeKey: hourKey });
+        }, { dedupeKey: hourKey, dispatchInline: false });
       }
       const dueSchedules = await AiSchedule.find({
         status: AI_SCHEDULE_STATUS.APPROVED,
@@ -277,7 +277,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
         .select("_id tenantId")
         .lean();
       for (const schedule of dueSchedules) {
-        await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) });
+        await emitEvent(schedule.tenantId, "schedule.due", { scheduleId: String(schedule._id) }, { dispatchInline: false });
       }
       return { ...result, tenantsSwept: orgs.length, schedulesDue: dueSchedules.length };
     },
