@@ -215,8 +215,15 @@ export async function runDueJobs(
   const ran: string[] = [];
   const skipped: string[] = [];
   const failed: string[] = [];
+  const startTime = Date.now();
+  const GLOBAL_TIME_BUDGET_MS = 240000; // 4 minutes
 
   for (const status of due) {
+    if (Date.now() - startTime > GLOBAL_TIME_BUDGET_MS) {
+      console.warn(`[scheduler] Global time budget of 4m reached. Breaking out to prevent serverless timeout. Remaining jobs will be picked up next tick.`);
+      break;
+    }
+
     const job = getJobDefinition(status.jobId);
     if (!job) continue;
     const outcome = await runOneJob(job, trigger);

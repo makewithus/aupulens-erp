@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { runDueJobs } from "@/lib/platform/scheduler/runner";
 
 /**
@@ -21,8 +21,11 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runDueJobs("run-due");
-  return NextResponse.json({ success: true, ...result });
+  after(async () => {
+    await runDueJobs("run-due");
+  });
+
+  return NextResponse.json({ success: true, message: "Scheduler jobs dispatched to background" });
 }
 
 export { handler as GET, handler as POST };
