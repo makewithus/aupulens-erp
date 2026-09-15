@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants/statuses";
 import { AdminActor } from "@/lib/platform/auth/types";
 import { withCrossTenantRead } from "@/lib/platform/tenancy/crossTenant";
-import { resolveEntitlements, getLegacyTierForPlanKey } from "@/lib/platform/entitlements/resolve";
+import { resolveEntitlementsBatch, getLegacyTierForPlanKey } from "@/lib/platform/entitlements/resolve";
 import { OrganizationListRow, LAST_MEANINGFUL_ACTIVITY_DEFINITION } from "./types";
 import { PlanKeyType } from "@/lib/constants/statuses";
 
@@ -60,7 +60,9 @@ export async function listOrganizations(
       const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? 25));
 
       const filter: Record<string, unknown> = {};
-      if (query.status) filter.status = query.status;
+      if (query.status && query.status !== ORGANIZATION_STATUS.ACTIVE) {
+        filter.status = query.status;
+      }
       if (query.organizationType) filter.organizationType = query.organizationType;
       // Note: planKey filters the raw legacy tier field on the Organization.
       // Filtering natively on resolveEntitlements() would require a memory scan.
@@ -69,10 +71,30 @@ export async function listOrganizations(
         filter.tier = legacyTier || query.planKey;
       }
       if (query.search) {
-        filter.$or = [
-          { name: { $regex: query.search, $options: "i" } },
-          { subdomain: { $regex: query.search, $options: "i" } },
-        ];
+        filter.$or = filter.$or || [];
+        // Note: MongoDB requires $and if we want both status $or AND search $or to apply simultaneously.
+        // But since we only have two $or conditions at most, we can convert it into an $and of $or arrays.
+      }
+      
+      // If we have both search AND status=$exists:false logic, we MUST construct an $and array
+      // otherwise one $or will overwrite the other.
+      const finalFilter: Record<string, unknown> = { ...filter };
+      delete finalFilter.$or;
+      const andClauses: any[] = [];
+      
+      if (query.status === ORGANIZATION_STATUS.ACTIVE) {
+        andClauses.push({ $or: [{ status: query.status }, { status: { $exists: false } }, { status: null }] });
+      }
+      if (query.search) {
+        andClauses.push({
+          $or: [
+            { name: { $regex: query.search, $options: "i" } },
+            { subdomain: { $regex: query.search, $options: "i" } },
+          ]
+        });
+      }
+      if (andClauses.length > 0) {
+        finalFilter.$and = andClauses;
       }
 
       const sortField = query.sortBy ?? "createdAt";
@@ -81,8 +103,8 @@ export async function listOrganizations(
       // Server-side pagination throughout — never load the full collection
       // into memory to filter/sort in application code (Hard Rule, §3).
       const [total, orgs] = await Promise.all([
-        Organization.countDocuments(filter),
-        Organization.find(filter)
+        Organization.countDocuments(finalFilter),
+        Organization.find(finalFilter)
           .sort({ [sortField]: sortDir })
           .skip((page - 1) * pageSize)
           .limit(pageSize)
@@ -109,12 +131,10 @@ export async function listOrganizations(
         // here): the list must resolve through resolveEntitlements(), never
         // the raw legacy Organization.tier, or the two surfaces silently
         // disagree for any organisation with an assigned plan/override.
-        // Parallelised across the page (bounded to MAX_PAGE_SIZE, not the
-        // full collection) rather than a sequential loop; resolveEntitlements()
-        // itself carries a 60s in-process cache so a re-rendered page is
-        // effectively free. See docs/admin/verification/PERFORMANCE.md for
+        // full collection) rather than a sequential loop; resolveEntitlementsBatch()
+        // efficiently queries exactly 3 collections. See docs/admin/verification/PERFORMANCE.md for
         // the measured cost at scale.
-        Promise.all(subdomains.map((tenantId) => resolveEntitlements(tenantId))),
+        resolveEntitlementsBatch(subdomains),
       ]);
 
       const userCountMap = new Map(userCounts.map((r) => [r._id, r.count as number]));
@@ -122,7 +142,7 @@ export async function listOrganizations(
         lastActivityByTenant.map((r) => [r._id, r.lastActivity as Date]),
       );
       const aiUsageMap = new Map(aiUsageByTenant.map((r) => [r._id, r.count as number]));
-      const entitlementsMap = new Map(subdomains.map((tenantId, i) => [tenantId, entitlementsByTenant[i]]));
+      // entitlementsByTenant is already a Map<string, ResolvedEntitlements>
 
       const rows: OrganizationListRow[] = orgs.map((org) => {
         const lastActivity = lastActivityMap.get(org.subdomain);
@@ -136,7 +156,7 @@ export async function listOrganizations(
           country: org.settings?.country,
           region: org.region,
           timezone: org.settings?.timezone,
-          planKey: entitlementsMap.get(org.subdomain)?.planKey ?? org.tier,
+          planKey: entitlementsByTenant.get(org.subdomain)?.planKey ?? org.tier,
           status: (org.status as OrganizationStatus) ?? ORGANIZATION_STATUS.ACTIVE,
           activeUserCount: userCountMap.get(org.subdomain) ?? 0,
           currentPeriodAiUsage: aiUsage,

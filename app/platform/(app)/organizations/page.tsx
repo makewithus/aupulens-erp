@@ -197,7 +197,7 @@ export default function OrganizationsListPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((row) => (
+              {!loading && rows.map((row) => (
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"

@@ -8,6 +8,7 @@ import { formatPlatformTimestamp } from "@/lib/platform/formatting/orgTimezone";
 import { formatShortId } from "@/lib/platform/formatting/idFormatter";
 import { CopyableId } from "@/components/platform/CopyableId";
 import { StatCard } from "@/components/admin/StatCard";
+import { toast } from "sonner";
 
 interface JobStatus {
   jobId: string;
@@ -106,8 +107,16 @@ export default function PlatformDashboardPage() {
   async function handleRunNow(jobId: string) {
     setRunningJobId(jobId);
     try {
-      await fetch(`/api/platform/scheduler/jobs/${jobId}/run`, { method: "POST" });
+      const res = await fetch(`/api/platform/scheduler/jobs/${jobId}/run`, { method: "POST" });
+      const body = await res.json();
+      if (body.success) {
+        toast.success(`Job ${jobId} completed successfully.`);
+      } else {
+        toast.error(`Job ${jobId} failed: ${body.message ?? "Unknown error"}`);
+      }
       loadJobs();
+    } catch (err) {
+      toast.error(`Failed to trigger job ${jobId}.`);
     } finally {
       setRunningJobId(null);
     }

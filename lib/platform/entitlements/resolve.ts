@@ -141,3 +141,110 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
     return permissiveDefault();
   }
 }
+
+export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map<string, ResolvedEntitlements>> {
+  const result = new Map<string, ResolvedEntitlements>();
+  const missing: string[] = [];
+
+  for (const tenantId of tenantIds) {
+    const cached = cache.get(tenantId);
+    if (cached && cached.expiresAt > Date.now()) {
+      result.set(tenantId, cached.value);
+    } else {
+      missing.push(tenantId);
+    }
+  }
+
+  if (missing.length === 0) return result;
+
+  try {
+    await connectDB();
+    const entitlements = await OrganizationEntitlement.find({ tenantId: { $in: missing } }).lean();
+    const entitlementMap = new Map(entitlements.map(e => [e.tenantId, e]));
+
+    const missingOrgs = missing.filter(t => !entitlementMap.has(t));
+    let orgMap = new Map();
+    if (missingOrgs.length > 0) {
+      const orgs = await Organization.find({ subdomain: { $in: missingOrgs } }, { subdomain: 1, tier: 1 }).lean();
+      orgMap = new Map(orgs.map(o => [o.subdomain, o]));
+    }
+
+    const planKeysToFetch = new Set<PlanKeyType>();
+    for (const tenantId of missing) {
+      const ent = entitlementMap.get(tenantId);
+      if (ent) {
+        planKeysToFetch.add(ent.planKey as PlanKeyType);
+      } else {
+        const org = orgMap.get(tenantId);
+        planKeysToFetch.add(bridgeTierToPlanKey(org?.tier));
+      }
+    }
+
+    const plans = await Plan.find({ key: { $in: Array.from(planKeysToFetch) } }).lean();
+    const planMap = new Map(plans.map(p => [p.key, p]));
+
+    for (const tenantId of missing) {
+      const ent = entitlementMap.get(tenantId);
+      let planKey: PlanKeyType;
+      let source: ResolvedEntitlements["source"] = "assigned";
+      
+      if (ent) {
+        planKey = ent.planKey as PlanKeyType;
+      } else {
+        const org = orgMap.get(tenantId);
+        planKey = bridgeTierToPlanKey(org?.tier);
+        source = "tier_fallback";
+      }
+
+      const plan = planMap.get(planKey);
+      if (!plan) {
+         await emitPlatformAuditEvent({
+           actor: { id: "system", role: "system" },
+           tenantId,
+           eventCategory: PLATFORM_EVENT_CATEGORY.SUBSCRIPTION,
+           eventType: PLATFORM_EVENT_TYPE.ENTITLEMENT_OVERRIDDEN,
+           severity: PLATFORM_SEVERITY.SECURITY,
+           metadata: {
+             note: "resolveEntitlementsBatch threw — falling back to the permissive default",
+             error: `No Plan document found for key "${planKey}"`,
+           },
+         });
+         const def = permissiveDefault();
+         result.set(tenantId, def);
+         cache.set(tenantId, { value: def, expiresAt: Date.now() + CACHE_TTL_MS });
+         continue;
+      }
+
+      const overrides = ent?.overrides ?? {};
+      const { modules: baseModules, featureFlags: baseFlags, ...baseLimits } = plan.features;
+
+      const resolved: ResolvedEntitlements = {
+        planKey,
+        modules: overrides.modules ?? baseModules,
+        limits: { ...baseLimits, ...overrides } as any,
+        featureFlags: { ...baseFlags, ...(overrides.featureFlags ?? {}) },
+        source,
+      };
+
+      cache.set(tenantId, { value: resolved, expiresAt: Date.now() + CACHE_TTL_MS });
+      result.set(tenantId, resolved);
+    }
+  } catch (err) {
+    for (const tenantId of missing) {
+      await emitPlatformAuditEvent({
+        actor: { id: "system", role: "system" },
+        tenantId,
+        eventCategory: PLATFORM_EVENT_CATEGORY.SUBSCRIPTION,
+        eventType: PLATFORM_EVENT_TYPE.ENTITLEMENT_OVERRIDDEN,
+        severity: PLATFORM_SEVERITY.SECURITY,
+        metadata: {
+          note: "resolveEntitlementsBatch threw — falling back to permissive default",
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+      result.set(tenantId, permissiveDefault());
+    }
+  }
+
+  return result;
+}
