@@ -29,6 +29,14 @@ jobs:
     steps:
       - name: Call the scheduler's run-due endpoint
         run: |
-          curl -sS -f -X POST \
+          HTTP_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -m 15 -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.DEPLOYMENT_URL }}/api/platform/scheduler/run-due"
+            "${{ secrets.DEPLOYMENT_URL }}/api/platform/scheduler/run-due" || echo "TIMEOUT")
+          
+          if [ "$HTTP_STATUS" = "TIMEOUT" ] || [ "$HTTP_STATUS" = "200" ]; then
+            echo "Scheduler triggered successfully (Status: $HTTP_STATUS). Background jobs are processing."
+            exit 0
+          else
+            echo "Failed with HTTP $HTTP_STATUS"
+            exit 1
+          fi

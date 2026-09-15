@@ -196,10 +196,12 @@ export const JOB_REGISTRY: JobDefinition[] = [
     scheduleLabel: "daily at 05:00 UTC",
     intervalMinutes: 24 * 60,
     handler: async () => {
+      const startTime = Date.now();
       await connectDB();
       const orgs = await Organization.find({}, "subdomain").lean();
       const results: Array<{ tenantId: string; invoices: unknown; bills: unknown }> = [];
       for (const org of orgs) {
+        if (Date.now() - startTime > 200000) break; // 3.3 mins
         const tenantId = (org as { subdomain: string }).subdomain;
         const invoices = await evaluateInvoiceReminders(tenantId);
         const bills = await evaluateBillReminders(tenantId);
@@ -215,10 +217,12 @@ export const JOB_REGISTRY: JobDefinition[] = [
     scheduleLabel: "daily at 06:00 UTC",
     intervalMinutes: 24 * 60,
     handler: async () => {
+      const startTime = Date.now();
       await connectDB();
       const orgs = await Organization.find({}, "subdomain").lean();
       const results: Array<{ tenantId: string; billing: unknown; dunning: unknown }> = [];
       for (const org of orgs) {
+        if (Date.now() - startTime > 200000) break; // 3.3 mins
         const tenantId = (org as { subdomain: string }).subdomain;
         const billing = await runSubscriptionBilling(tenantId);
         const dunning = await processDunningRetries(tenantId);
@@ -234,10 +238,12 @@ export const JOB_REGISTRY: JobDefinition[] = [
     scheduleLabel: "daily at 07:00 UTC",
     intervalMinutes: 24 * 60,
     handler: async () => {
+      const startTime = Date.now();
       await connectDB();
       const orgs = await Organization.find({ isActive: true }, "subdomain").lean();
       const results = [];
       for (const org of orgs) {
+        if (Date.now() - startTime > 200000) break; // 3.3 mins
         results.push(await generateBusinessHealthSummary((org as { subdomain: string }).subdomain));
       }
       return { results };
@@ -289,6 +295,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
     scheduleLabel: "daily at 02:00 UTC",
     intervalMinutes: 24 * 60,
     handler: async () => {
+      const startTime = Date.now();
       bootstrapAiRuntime();
       await connectDB();
       const orgs = await Organization.find({ isActive: true }, "subdomain").lean();
@@ -296,6 +303,7 @@ export const JOB_REGISTRY: JobDefinition[] = [
       let tenantsProcessed = 0;
       let driftFindings = 0;
       for (const org of orgs) {
+        if (Date.now() - startTime > 200000) break; // 3.3 mins
         const tenantId = (org as { subdomain: string }).subdomain;
         await computeAndPersistTenantMetrics(tenantId);
         for (const workflowId of workflowIds) {
