@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthHeader } from "@/components/auth/AuthHeader";
@@ -125,9 +125,11 @@ export default function PlatformMfaPage() {
             )}
           </div>
         )}
-        <form onSubmit={handleVerify} className="space-y-4">
+        <form onSubmit={handleVerify} className="space-y-6">
           <div className="space-y-1">
-            <Label htmlFor="code">6-digit code</Label>
+            <Label htmlFor="code" className="font-mono text-[11px] text-muted-foreground/60">
+              6-digit code
+            </Label>
             <Input
               id="code"
               type="text"
@@ -136,14 +138,33 @@ export default function PlatformMfaPage() {
               autoComplete="one-time-code"
               maxLength={6}
               minLength={6}
+              placeholder="000000"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               required
+              disabled={loading}
+              className="h-10 px-0 bg-transparent rounded-none border-0 border-b border-border focus-visible:ring-0 focus-visible:border-foreground transition-colors placeholder:text-muted-foreground/30 shadow-none text-center tracking-[0.5em] text-lg"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Verifying…" : "Verify"}
-          </Button>
+          <div className="flex items-center justify-end pt-6">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </AuthLayout>
