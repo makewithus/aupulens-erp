@@ -95,9 +95,16 @@ export default function PlatformMfaPage() {
               </div>
             ))}
           </div>
-          <Button className="w-full" onClick={() => router.push("/platform")}>
-            I&apos;ve saved these — continue
-          </Button>
+          <div className="flex items-center justify-end pt-6">
+            <button
+              type="button"
+              onClick={() => router.push("/platform")}
+              className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80"
+            >
+              I've saved these — continue
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </button>
+          </div>
         </div>
       </AuthLayout>
     );
