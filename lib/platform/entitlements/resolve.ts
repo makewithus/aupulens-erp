@@ -8,7 +8,6 @@ import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
 /**
  * The single source of truth for "what does this tenant get" (source doc
  * §10 / Hard Rule 6). Every entitlement-aware check — Phase 3b's tenant-route
- * enforcement, dashboards, anything — calls this, never a hardcoded
  * `if (plan === ...)`. Cached in-process; invalidated by assignPlan().
  */
 export interface ResolvedEntitlements {
