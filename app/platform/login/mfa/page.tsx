@@ -101,7 +101,7 @@ export default function PlatformMfaPage() {
               onClick={() => router.push("/platform")}
               className="group inline-flex items-center gap-2 text-sm font-mono uppercase tracking-[0.2em] font-bold text-foreground transition-all duration-300 hover:text-foreground/80"
             >
-              I've saved these — continue
+              I&apos;ve saved these — continue
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </button>
           </div>
