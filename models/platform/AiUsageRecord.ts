@@ -2,6 +2,11 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import {
   AI_USAGE_FEATURE_BUCKET_VALUES,
   AI_USAGE_REQUEST_STATUS_VALUES,
+  AI_PROVIDER,
+  AI_PROVIDER_VALUES,
+  SARVAM_CALL_TYPE_VALUES,
+  AiProvider,
+  SarvamCallType,
   AiUsageFeatureBucket,
   AiUsageRequestStatus,
 } from "@/lib/constants/statuses";
@@ -24,6 +29,10 @@ export interface IAiUsageRecord extends Document {
   latencyMs: number;
   status: AiUsageRequestStatus;
   requestId: string;
+  // Additive: absent on historical rows, which are Azure OpenAI by definition.
+  provider?: AiProvider;
+  callType?: SarvamCallType;
+  characters?: number;
   createdAt: Date;
 }
 
@@ -38,6 +47,9 @@ const AiUsageRecordSchema = new Schema<IAiUsageRecord>(
     latencyMs: { type: Number, required: true, default: 0 },
     status: { type: String, required: true, enum: AI_USAGE_REQUEST_STATUS_VALUES },
     requestId: { type: String, required: true },
+    provider: { type: String, enum: AI_PROVIDER_VALUES, default: AI_PROVIDER.AZURE_OPENAI },
+    callType: { type: String, enum: SARVAM_CALL_TYPE_VALUES },
+    characters: { type: Number },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
@@ -45,6 +57,7 @@ const AiUsageRecordSchema = new Schema<IAiUsageRecord>(
 AiUsageRecordSchema.index({ tenantId: 1, createdAt: -1 });
 AiUsageRecordSchema.index({ createdAt: -1 });
 AiUsageRecordSchema.index({ tenantId: 1, feature: 1, createdAt: -1 });
+AiUsageRecordSchema.index({ provider: 1, createdAt: -1 });
 
 export default (mongoose.models.AiUsageRecord as Model<IAiUsageRecord>) ||
   mongoose.model<IAiUsageRecord>("AiUsageRecord", AiUsageRecordSchema);

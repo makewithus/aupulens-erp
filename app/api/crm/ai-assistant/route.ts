@@ -188,6 +188,7 @@ Instructions:
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      language: { rawText: message },
       ...opts,
       history: priorTurns,
     });

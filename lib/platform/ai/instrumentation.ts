@@ -2,7 +2,8 @@ import crypto from "crypto";
 import connectDB from "@/lib/db";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import AiCostRate from "@/models/platform/AiCostRate";
-import { AI_USAGE_REQUEST_STATUS, AiUsageFeatureBucket } from "@/lib/constants/statuses";
+import { AI_USAGE_REQUEST_STATUS, AI_PROVIDER, AiUsageFeatureBucket } from "@/lib/constants/statuses";
+import type { ProviderCall } from "@/lib/ai/language/types";
 import { mapFeatureToBucket } from "./featureMap";
 
 export interface RecordAiUsageInput {
@@ -57,6 +58,42 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
     });
   } catch (err) {
     console.error("[ai-usage] failed to record AiUsageRecord", {
+      tenantId: input.tenantId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Sarvam is a second provider (Part 7). Cost comes from the AiCostRate row whose modelName is
+ * `sarvam-<callType>` (e.g. sarvam-translate), priced per 1,000 characters — never hardcoded.
+ * No rate row => cost 0, exactly like a missing model rate above. Same never-throw contract.
+ */
+export async function recordSarvamUsage(input: { tenantId: string; feature: string; call: ProviderCall }): Promise<void> {
+  try {
+    await connectDB();
+    const modelName = `sarvam-${input.call.type}`;
+    let cost = 0;
+    if (input.call.ok) {
+      const rate = await AiCostRate.findOne({ modelName, provider: AI_PROVIDER.SARVAM }).lean();
+      if (rate?.costPerThousandCharacters) cost = (input.call.characters / 1000) * rate.costPerThousandCharacters;
+    }
+    await AiUsageRecord.create({
+      tenantId: input.tenantId,
+      feature: mapFeatureToBucket(input.feature) as AiUsageFeatureBucket,
+      modelName,
+      provider: AI_PROVIDER.SARVAM,
+      callType: input.call.type,
+      characters: input.call.characters,
+      inputTokens: 0,
+      outputTokens: 0,
+      estimatedCostUsd: cost,
+      latencyMs: input.call.latencyMs,
+      status: input.call.ok ? AI_USAGE_REQUEST_STATUS.SUCCESS : AI_USAGE_REQUEST_STATUS.ERROR,
+      requestId: crypto.randomUUID(),
+    });
+  } catch (err) {
+    console.error("[ai-usage] failed to record Sarvam usage", {
       tenantId: input.tenantId,
       error: err instanceof Error ? err.message : String(err),
     });

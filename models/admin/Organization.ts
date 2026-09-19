@@ -71,6 +71,10 @@ export interface IOrganization extends Document {
       model?: string;
       maxTokensPerCall?: number;
       disabled?: boolean;
+      // Multilingual (Sarvam) layer — additive; absent/false = layer ON when configured.
+      multilingualDisabled?: boolean;
+      // AI create flow: execute-and-redirect instead of prefill-and-open-form. Default off.
+      autoCreateEnabled?: boolean;
     };
     // Per-workspace branding overrides
     branding?: {
@@ -146,6 +150,8 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
         model: { type: String },
         maxTokensPerCall: { type: Number, default: 1024 },
         disabled: { type: Boolean, default: false },
+        multilingualDisabled: { type: Boolean, default: false },
+        autoCreateEnabled: { type: Boolean, default: false },
       },
       // Per-workspace branding overrides (Phase 2 — Step 1)
       branding: {

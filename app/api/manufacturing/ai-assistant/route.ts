@@ -257,6 +257,7 @@ Instructions:
 3. Use bullet points for clarity. Be concise but complete.`;
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      language: { rawText: message },
       systemPrompt: "You are a precise manufacturing/logistics analytics assistant. For DATA questions use only the figures given; for HOW-TO questions give clear step-by-step app guidance. NEVER print internal database IDs or raw JSON. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
       maxTokens: 1024,
       imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,

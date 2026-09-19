@@ -476,6 +476,7 @@ async function generateResponseWithClaude(
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      language: { rawText: message },
       systemPrompt,
       maxTokens,
       history: priorTurns,

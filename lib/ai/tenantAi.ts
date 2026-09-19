@@ -47,6 +47,8 @@ import {
 // into this function) so a metering/limit-config bug can never break an AI
 // call that would otherwise have succeeded.
 import { recordAiUsage } from "@/lib/platform/ai/instrumentation";
+import { applyLanguageInput, applyLanguageReply, finaliseLanguage, type LanguageOptions } from "@/lib/ai/language/tenantBridge";
+import type { LanguageTrace, ProviderCall } from "@/lib/ai/language/types";
 import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/platform/ai/limitBehavior";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,6 +57,10 @@ export interface TenantAiSettings {
   model?: string;
   maxTokensPerCall?: number;
   disabled?: boolean;
+  /** Multilingual layer per-tenant switch (same shape as `disabled`). */
+  multilingualDisabled?: boolean;
+  /** Execute-and-redirect for AI create flows. Default false; read by the create flow, not here. */
+  autoCreateEnabled?: boolean;
 }
 
 /**
@@ -68,7 +74,7 @@ export interface TenantAiSettings {
  *   const responseText = result.text;
  */
 export type TenantAiResult =
-  | { gated: false; text: string }
+  | { gated: false; text: string; language?: LanguageTrace }
   | {
       gated: true;
       code: "AI_DISABLED" | "AI_LIMIT_REACHED" | "AI_GLOBAL_LIMIT_REACHED";
@@ -138,7 +144,7 @@ export async function callClaudeForTenant(
   // an AiFeature key (lib/ai/featureLimits.ts) identifying which usage
   // bucket this call meters against. Every existing call site that omits it
   // keeps working unchanged; it defaults to "chat" for metering purposes.
-  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string } = {}
+  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string; language?: LanguageOptions } = {}
 ): Promise<TenantAiResult> {
   // (a) Workspace AI kill-switch
   if (aiSettings.disabled === true) {
@@ -193,7 +199,7 @@ export async function callClaudeForTenant(
 
   // (c)+(d) Resolve model and token limit.
   // Tenant settings take priority; caller opts are the fallback; defaults are last resort.
-  const { history, feature, ...restOpts } = opts;
+  const { history, feature, language, ...restOpts } = opts;
   const resolvedOpts: ClaudeCallOptions = {
     model:        aiSettings.model           ?? restOpts.model     ?? CLAUDE_DEFAULT_MODEL,
     maxTokens:    aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -205,16 +211,25 @@ export async function callClaudeForTenant(
   // Call Azure OpenAI — throws on API failure so increment is skipped on
   // error (usage metering still records the failed attempt, at 0 tokens,
   // for the platform dashboard's "failed requests" figure — Phase 4).
+  // Multilingual layer (additive): only when the caller passed the user's raw text. Runs AFTER
+  // every gate above, so a tenant that is disabled or at its limit never triggers a Sarvam call.
+  let langTrace: LanguageTrace | undefined;
+  let effectiveMessage = userMessage;
+  if (language) {
+    ({ message: effectiveMessage, trace: langTrace } = await applyLanguageInput(tenantId, aiSettings, userMessage, language));
+  }
+
   const startedAt = Date.now();
   let text: string;
   let usage: { promptTokens: number; completionTokens: number; totalTokens: number };
   try {
     if (history && history.length > 0) {
-      ({ text, usage } = await callClaudeWithHistoryAndUsage(history, userMessage, resolvedOpts));
+      ({ text, usage } = await callClaudeWithHistoryAndUsage(history, effectiveMessage, resolvedOpts));
     } else {
-      ({ text, usage } = await callClaudeWithUsage(userMessage, resolvedOpts));
+      ({ text, usage } = await callClaudeWithUsage(effectiveMessage, resolvedOpts));
     }
   } catch (err) {
+    if (language && langTrace) await finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
     await recordAiUsage({
       tenantId,
       feature: feature ?? "chat",
@@ -241,6 +256,15 @@ export async function callClaudeForTenant(
     latencyMs: Date.now() - startedAt,
     status: "success",
   });
+
+  if (language && langTrace) {
+    let extra: ProviderCall[] = [];
+    const r = await applyLanguageReply(text, langTrace, language);
+    text = r.text;
+    extra = r.calls;
+    await finaliseLanguage(tenantId, feature ?? "chat", langTrace, extra, language.userId);
+    return { gated: false, text, language: langTrace };
+  }
 
   return { gated: false, text };
 }

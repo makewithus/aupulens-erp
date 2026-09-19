@@ -451,6 +451,7 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      language: { rawText: message, replyInUserLanguage: false, showInterpretation: false },
       maxTokens: 700,
       imageDataUrls: imageSlice.length ? imageSlice : undefined,
     });

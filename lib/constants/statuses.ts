@@ -2269,6 +2269,59 @@ export const AI_USAGE_REQUEST_STATUS_VALUES = Object.values(AI_USAGE_REQUEST_STA
 export type AiUsageRequestStatus =
   (typeof AI_USAGE_REQUEST_STATUS)[keyof typeof AI_USAGE_REQUEST_STATUS];
 
+/** AI provider dimension on AiUsageRecord / AiCostRate. Historical rows have no
+ *  value and default to AZURE_OPENAI (the only provider that existed). */
+export const AI_PROVIDER = {
+  AZURE_OPENAI: "azure_openai",
+  SARVAM: "sarvam",
+} as const;
+export const AI_PROVIDER_VALUES = Object.values(AI_PROVIDER);
+export type AiProvider = (typeof AI_PROVIDER)[keyof typeof AI_PROVIDER];
+
+/** Kinds of Sarvam call, recorded per call for metering. */
+export const SARVAM_CALL_TYPE = {
+  DETECT: "detect",
+  TRANSLITERATE: "transliterate",
+  TRANSLATE: "translate",
+  ASR: "asr",
+  TTS: "tts",
+} as const;
+export const SARVAM_CALL_TYPE_VALUES = Object.values(SARVAM_CALL_TYPE);
+export type SarvamCallType = (typeof SARVAM_CALL_TYPE)[keyof typeof SARVAM_CALL_TYPE];
+
+/** Languages the multilingual layer handles (Sarvam BCP-47 codes, docs.sarvam.ai
+ *  2026-09-19). English is included so detection has a "no translation" answer. */
+export const LANGUAGE_CODE = {
+  ENGLISH: "en-IN",
+  HINDI: "hi-IN",
+  BENGALI: "bn-IN",
+  GUJARATI: "gu-IN",
+  KANNADA: "kn-IN",
+  MALAYALAM: "ml-IN",
+  MARATHI: "mr-IN",
+  ODIA: "od-IN",
+  PUNJABI: "pa-IN",
+  TAMIL: "ta-IN",
+  TELUGU: "te-IN",
+} as const;
+export const LANGUAGE_CODE_VALUES = Object.values(LANGUAGE_CODE);
+export type LanguageCode = (typeof LANGUAGE_CODE)[keyof typeof LANGUAGE_CODE];
+
+/** Why the language pipeline passed the original text through untouched. */
+export const LANGUAGE_DEGRADED_REASON = {
+  DISABLED_GLOBAL: "disabled_global",
+  DISABLED_TENANT: "disabled_tenant",
+  NOT_CONFIGURED: "not_configured",
+  TIMEOUT: "timeout",
+  PROVIDER_ERROR: "provider_error",
+  BAD_RESPONSE: "bad_response",
+  UNSUPPORTED_LANGUAGE: "unsupported_language",
+  LOW_CONFIDENCE: "low_confidence",
+} as const;
+export const LANGUAGE_DEGRADED_REASON_VALUES = Object.values(LANGUAGE_DEGRADED_REASON);
+export type LanguageDegradedReason =
+  (typeof LANGUAGE_DEGRADED_REASON)[keyof typeof LANGUAGE_DEGRADED_REASON];
+
 /** Source doc §15's four at-limit behaviours. BLOCK is the default and the
  *  ONLY behaviour that existed before Phase 4 — an AiLimit-less tenant sees
  *  byte-identical behaviour to pre-Phase-4 (Hard Rule). */

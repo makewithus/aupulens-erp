@@ -12,6 +12,10 @@ export interface IAiCostRate extends Document {
   modelName: string;
   inputCostPerMillionTokens: number;
   outputCostPerMillionTokens: number;
+  // Additive: defaults to azure_openai. Non-token providers (Sarvam) are priced
+  // per 1,000 characters; their token rates are 0.
+  provider?: string;
+  costPerThousandCharacters?: number;
   effectiveFrom: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +26,8 @@ const AiCostRateSchema = new Schema<IAiCostRate>(
     modelName: { type: String, required: true, unique: true },
     inputCostPerMillionTokens: { type: Number, required: true },
     outputCostPerMillionTokens: { type: Number, required: true },
+    provider: { type: String, default: "azure_openai" },
+    costPerThousandCharacters: { type: Number },
     effectiveFrom: { type: Date, required: true, default: Date.now },
   },
   { timestamps: true },

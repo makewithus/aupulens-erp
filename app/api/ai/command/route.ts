@@ -101,7 +101,7 @@ Return ONLY JSON (no markdown):
 {"intent":"...","destination":"...","searchTerm":"...","reportType":"...","actionType":"...","actionParams":{...},"actions":[{"actionType":"...","actionParams":{...}}],"workflowId":"...","message":"short friendly message"}`;
 
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: AI_MAX_TOKENS.intent });
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { language: { rawText: command, replyInUserLanguage: false, showInterpretation: false }, maxTokens: AI_MAX_TOKENS.intent });
 
     // strictNullChecks is off in this project — narrow on "text" in result.
     if (!("text" in result)) {
