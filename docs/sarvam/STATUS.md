@@ -55,7 +55,7 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 * Browser QA ran in **dev mode** (first loads are slow) with a mock Sarvam; production build and real provider are separate confirmations.
 
 ## Merge notes
-* **Branch:** `sarvam`, local only — **not pushed, not merged**. Cut from `e3eff17`. `@@COMMITS@@`
+* **Branch:** `sarvam`, local only — **not pushed, not merged**. Cut from `e3eff17`. `Final commit `aaec2b5`; 12 commits ahead of the branch point.`
 * **One shared-config edit:** `vitest.config.ts` — `hookTimeout` 10 s→30 s, `testTimeout` 5 s→15 s (affects **every** suite in the repo). Why: Mongo-backed suites' heavy `beforeAll`
   sits at the old limits under load; the timeout-only flakiness **reproduced on the untouched branch point** (1 of 7 runs there), so it pre-dates this branch. Revertible
   in one line if CI on a quieter machine behaves differently. Evidence and the 30/15-vs-45/20 decision: `BASELINE.md`.
