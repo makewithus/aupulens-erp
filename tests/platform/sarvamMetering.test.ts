@@ -5,8 +5,6 @@
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_sarvam_metering";
 
@@ -74,25 +72,22 @@ describe("every Sarvam call is metered as its own provider", () => {
     expect((await AiUsageRecord.findOne({ tenantId: T }).lean() as any).estimatedCostUsd).toBe(0);
   });
   it("THE SEED SCRIPT's rate reaches real cost figures (script → AiCostRate → recordSarvamUsage → breakdown)", async () => {
-    execFileSync("npx", ["tsx", "scripts/seed-platform-sarvam-cost-rates.ts"], {
-      cwd: path.resolve(__dirname, "../.."),
-      env: { ...process.env, MONGODB_URI: process.env.MONGODB_URI!, SARVAM_COST_PER_1K_CHARS_USD: "0.004", SARVAM_COST_PER_1K_CHARS_USD_DETECT: "0.001" },
-      stdio: "pipe",
-    });
+    const { seedSarvamCostRates } = await import("../../scripts/seed-platform-sarvam-cost-rates");
+    const seeded = await seedSarvamCostRates({ SARVAM_COST_PER_1K_CHARS_USD: "0.004", SARVAM_COST_PER_1K_CHARS_USD_DETECT: "0.001" } as any);
+    expect(seeded.map((r) => r.modelName).sort()).toEqual(["sarvam-detect", "sarvam-translate", "sarvam-transliterate"]);
     const rates = await AiCostRate.find({ provider: "sarvam" }).lean();
-    expect(rates.map((r: any) => r.modelName).sort()).toEqual(["sarvam-detect", "sarvam-translate", "sarvam-transliterate"]);
     expect((rates.find((r: any) => r.modelName === "sarvam-detect") as any).costPerThousandCharacters).toBe(0.001);
     await recordSarvamUsage({ tenantId: T, feature: "chat", call: call({ characters: 1000 }) });
     const b = await getProviderBreakdown(startOfMonth(), T);
     expect(b.rows.find((r) => r.provider === "sarvam")!.estimatedCostUsd).toBeCloseTo(0.004, 10);
-  }, 60_000);
-  it("the seed script REFUSES to invent a price when none is configured", async () => {
-    const out = execFileSync("npx", ["tsx", "scripts/seed-platform-sarvam-cost-rates.ts"], {
-      cwd: path.resolve(__dirname, "../.."), env: { ...process.env, MONGODB_URI: process.env.MONGODB_URI!, SARVAM_COST_PER_1K_CHARS_USD: "" }, stdio: "pipe",
-    }).toString() + "";
+  });
+  it("the seed script REFUSES to invent a price when none is configured (blank ≠ 0)", async () => {
+    const { seedSarvamCostRates } = await import("../../scripts/seed-platform-sarvam-cost-rates");
+    for (const env of [{}, { SARVAM_COST_PER_1K_CHARS_USD: "" }, { SARVAM_COST_PER_1K_CHARS_USD: "   " }]) {
+      expect(await seedSarvamCostRates(env as any)).toEqual([]);
+    }
     expect(await AiCostRate.countDocuments({ provider: "sarvam" })).toBe(0);
-    expect(out).toBe(out); // (error text goes to stderr; the assertion that matters is the count above)
-  }, 60_000);
+  });
 });
 
 describe("dashboards: split by provider, combined total", () => {

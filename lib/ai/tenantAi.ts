@@ -47,9 +47,12 @@ import {
 // into this function) so a metering/limit-config bug can never break an AI
 // call that would otherwise have succeeded.
 import { recordAiUsage } from "@/lib/platform/ai/instrumentation";
-import { applyLanguageInput, applyLanguageReply, finaliseLanguage, type LanguageOptions } from "@/lib/ai/language/tenantBridge";
-import { interpretationLine } from "@/lib/ai/language/respond";
+// The multilingual layer is imported LAZILY (only when a caller passes `language`), so every existing
+// caller — and every test that imports this module — pays nothing for it. Types are erased at build.
+import type { LanguageOptions } from "@/lib/ai/language/tenantBridge";
 import type { LanguageTrace, ProviderCall } from "@/lib/ai/language/types";
+const loadLanguageBridge = () => import("@/lib/ai/language/tenantBridge");
+const loadLanguageRespond = () => import("@/lib/ai/language/respond");
 import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/platform/ai/limitBehavior";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -217,7 +220,8 @@ export async function callClaudeForTenant(
   let langTrace: LanguageTrace | undefined;
   let effectiveMessage = userMessage;
   if (language) {
-    ({ message: effectiveMessage, trace: langTrace } = await applyLanguageInput(tenantId, aiSettings, userMessage, language));
+    const bridge = await loadLanguageBridge();
+    ({ message: effectiveMessage, trace: langTrace } = await bridge.applyLanguageInput(tenantId, aiSettings, userMessage, language));
   }
 
   const startedAt = Date.now();
@@ -230,7 +234,7 @@ export async function callClaudeForTenant(
       ({ text, usage } = await callClaudeWithUsage(effectiveMessage, resolvedOpts));
     }
   } catch (err) {
-    if (language && langTrace) await finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
+    if (language && langTrace) await (await loadLanguageBridge()).finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
     await recordAiUsage({
       tenantId,
       feature: feature ?? "chat",
@@ -260,10 +264,11 @@ export async function callClaudeForTenant(
 
   if (language && langTrace) {
     let extra: ProviderCall[] = [];
-    const r = await applyLanguageReply(text, langTrace, language);
+    const bridge = await loadLanguageBridge();
+    const r = await bridge.applyLanguageReply(text, langTrace, language);
     text = r.text;
     extra = r.calls;
-    await finaliseLanguage(tenantId, feature ?? "chat", langTrace, extra, language.userId);
+    await bridge.finaliseLanguage(tenantId, feature ?? "chat", langTrace, extra, language.userId);
     return { gated: false, text, language: langTrace };
   }
 
@@ -332,20 +337,20 @@ export async function callClaudeForTenantStream(
   let langTrace: LanguageTrace | undefined;
   let effectiveMessage = userMessage;
   if (language) {
-    ({ message: effectiveMessage, trace: langTrace } = await applyLanguageInput(tenantId, aiSettings, userMessage, language));
+    ({ message: effectiveMessage, trace: langTrace } = await (await loadLanguageBridge()).applyLanguageInput(tenantId, aiSettings, userMessage, language));
   }
 
   const startedAt = Date.now();
   async function* gatedStream(): AsyncGenerator<string, void, unknown> {
     if (langTrace && language?.showInterpretation !== false) {
-      const line = interpretationLine(langTrace);
+      const line = (await loadLanguageRespond()).interpretationLine(langTrace);
       if (line) yield line;
     }
     let usage: { promptTokens: number; completionTokens: number; totalTokens: number };
     try {
       usage = yield* callClaudeStreamWithUsage(history ?? [], effectiveMessage, resolvedOpts);
     } finally {
-      if (language && langTrace) await finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
+      if (language && langTrace) await (await loadLanguageBridge()).finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
     }
     await incrementAiUsage(tenantId, period);
     await incrementGlobalAiUsage(period);

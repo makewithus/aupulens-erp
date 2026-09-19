@@ -14,16 +14,18 @@ import AiCostRate from "../models/platform/AiCostRate";
 const TYPES = ["translate", "transliterate", "detect"] as const;
 
 /** Unset or blank means "not configured" — never 0 (Number("") === 0 would silently seed a free rate). */
-const readPrice = (name: string): number => {
-  const raw = process.env[name];
+const readPrice = (env: NodeJS.ProcessEnv, name: string): number => {
+  const raw = env[name];
   return raw === undefined || raw.trim() === "" ? NaN : Number(raw);
 };
 
-async function main() {
-  const base = readPrice("SARVAM_COST_PER_1K_CHARS_USD");
+/** Exported so tests can run it in-process (no child process). Returns the rows it upserted. */
+export async function seedSarvamCostRates(env: NodeJS.ProcessEnv = process.env): Promise<{ modelName: string; rate: number }[]> {
+  const base = readPrice(env, "SARVAM_COST_PER_1K_CHARS_USD");
   await connectDB();
+  const seeded: { modelName: string; rate: number }[] = [];
   for (const t of TYPES) {
-    const override = readPrice(`SARVAM_COST_PER_1K_CHARS_USD_${t.toUpperCase()}`);
+    const override = readPrice(env, `SARVAM_COST_PER_1K_CHARS_USD_${t.toUpperCase()}`);
     const rate = Number.isFinite(override) && override >= 0 ? override : base;
     if (!Number.isFinite(rate) || rate < 0) {
       console.error(`Skipping sarvam-${t}: set SARVAM_COST_PER_1K_CHARS_USD (USD per 1,000 characters).`);
@@ -35,8 +37,13 @@ async function main() {
       { upsert: true },
     );
     console.log(`Seeded AiCostRate sarvam-${t} = $${rate} / 1k chars`);
+    seeded.push({ modelName: `sarvam-${t}`, rate });
   }
-  await mongoose.connection.close();
+  return seeded;
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+if (require.main === module) {
+  seedSarvamCostRates()
+    .then(() => mongoose.connection.close())
+    .catch((err) => { console.error(err); process.exit(1); });
+}
