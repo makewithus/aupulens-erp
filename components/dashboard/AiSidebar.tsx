@@ -9,6 +9,7 @@ import { confirmDialog } from "@/components/providers/ConfirmRoot";
 import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
+import { runTaskFlow, shouldConsultTaskFlow } from "@/lib/ai/taskFlowClient";
 import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
 import { tryAiInventoryMemoryFlow } from "@/lib/ai/inventoryMemoryFlow";
 import { NAV_TRIGGER_RX } from "@/lib/ai/navFlow";
@@ -350,8 +351,27 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     const attForMsg = freshAttachments.length ? freshAttachments : undefined;
     const sentAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
 
+    // ── Guided create (sales invoice: explain / do / ask, one question at a time) ──
+    // Same server flow the per-module assistants get via tryAiCreateFlow. It also hands back the
+    // pipeline's ENGLISH for the message, so regional-language create requests reach the routing below.
+    let qEnglish = q;
+    if (!attachments.length && shouldConsultTaskFlow(q, false)) {
+      setIsLoading(true);
+      setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
+      const tf = await runTaskFlow(q, { hasAttachments: false });
+      if (tf.outcome) {
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: tf.outcome.message }]);
+        setIsLoading(false);
+        if (tf.outcome.route) router.push(tf.outcome.route);
+        return;
+      }
+      setIsLoading(false);
+      setMessages(messages); // not ours: drop the temporary bubble; the normal path below re-renders the turn
+      if (tf.english && tf.english.trim()) qEnglish = tf.english.trim();
+    }
+
     // ── AI-native create: pre-fill the real form and navigate there ──────────
-    const targetDef = CREATE_VERB_RX.test(q) ? findCreateTarget(q) : undefined;
+    const targetDef = CREATE_VERB_RX.test(qEnglish) ? findCreateTarget(qEnglish) : undefined;
     if (targetDef) {
       // A bare "product" is ambiguous — Inventory catalogue or Manufacturing?
       // If the user didn't say, ASK instead of guessing the wrong module.

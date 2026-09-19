@@ -10,8 +10,8 @@ export default defineConfig({
     // large module graphs) that all funnel through Vite's single transform server. Under load those sat
     // right at the old 10 s hook / 5 s test defaults and timed out at random (see docs/sarvam/BASELINE.md).
     // Generous limits remove that noise without hiding real failures: a genuinely hung test still fails.
-    hookTimeout: 45_000,
-    testTimeout: 20_000,
+    hookTimeout: 30_000,
+    testTimeout: 15_000,
   },
   resolve: {
     alias: {

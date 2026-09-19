@@ -252,3 +252,20 @@ rather than built silently, per this project's own standing rule for exactly thi
   but the action is deliberately unimplemented pending this decision — not a gap to close, a
   decision to make. `GLOBAL_ADMIN_Test.md`'s known-limits section says the same, so a tester
   doesn't file it as a bug.
+
+## The per-tenant AI cost cap (`AiLimit.maxCostUsdPerMonth`) does not cap Azure OpenAI spend — found 2026-09-19 (Sarvam work)
+
+**What the setting implies.** The Global Admin control plane lets an admin configure a "Max cost/mo" per organisation
+(`models/platform/AiLimit.ts`, editable on the organisation's AI Usage tab). It reads as a spending limit.
+
+**What it actually does.** For **Azure OpenAI — the larger provider by far — nothing.** `callClaudeForTenant()` /
+`callClaudeForTenantStream()` (`lib/ai/tenantAi.ts`) only enforce the *call-count* cap (`aiCallsPerMonth` + the at-limit
+behaviour) and the platform-wide ceiling; `maxCostUsdPerMonth` is stored and displayed but read by no Azure path. A tenant can
+exceed its configured cost cap with Azure calls indefinitely (until its call-count cap). Only the new Sarvam translation calls
+honour it (`lib/platform/ai/spend.ts::costCapReached`, asked lazily before a provider call).
+
+**Shape of the fix.** The gate already exists: extend `costCapReached(tenantId)` (combined Azure + Sarvam month-to-date cost from
+`AiUsageRecord`, 60 s cache, fails open) into the gate block at the top of `callClaudeForTenant` / `…Stream`, and return an
+`AI_COST_CAP_REACHED` gated result (plus the admin-configured at-limit behaviour via `resolveAtLimitDecision`). Add a test that a
+tenant over its cost cap is gated on the Azure path. Deliberately **not** done in the Sarvam work: it changes behaviour for every
+existing tenant that has a cap set, which is a product decision. Do this before advertising the cost cap to customers.

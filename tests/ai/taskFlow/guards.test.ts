@@ -173,3 +173,21 @@ describe("1.2 the customerless-invoice 500 is UNREACHABLE from the assistant", (
     expect(created).toBeGreaterThan(0); // the property is not vacuous: real creations happened
   }, 60_000);
 });
+
+describe("the 'I understood this as… no, I meant …' correction path", () => {
+  it("a full corrected request replaces the open draft", async () => {
+    const h = makeHarness();
+    await h.say("create an invoce for Kamal, 45k");
+    const r = await h.say("no, I meant create an invoice for Acme Industries, 4500, Repairs");
+    expect(r.kind).toBe("confirm");
+    expect(r.message).toContain("Acme Industries");
+    expect(r.message).toContain("₹4,500");
+    expect(h.store.closed.some((c) => c.status === "rejected")).toBe(true);
+  });
+  it("a corrected ANSWER ('no, I meant Kamal') is taken as the answer, without the 'no, I meant'", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice");
+    await h.say("no, I meant Kamal");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Kamal");
+  });
+});

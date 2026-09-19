@@ -248,7 +248,7 @@ export default function PlatformDashboardPage() {
         />
         <StatCard
           title="Average AI request cost"
-          value={summary ? `₹${Number(summary.aiUsage.averageRequestCostUsd.toFixed(4)).toLocaleString("en-IN")}` : undefined}
+          value={summary ? `₹${Number(summary.aiUsage.averageRequestCostUsd.toFixed(4)).toLocaleString("en-IN", { maximumFractionDigits: 4 })}` : undefined}
         />
         <StatCard title="Total AI tokens this month" value={summary?.aiUsage.totalTokens?.toLocaleString()} />
       </div>
@@ -282,7 +282,7 @@ export default function PlatformDashboardPage() {
                         <td className="py-2 px-4 text-right">{(r.inputTokens + r.outputTokens).toLocaleString()}</td>
                         <td className="py-2 px-4 text-right">{r.characters.toLocaleString()}</td>
                         <td className="py-2 px-4 text-right">{r.failedRequests.toLocaleString()}</td>
-                        <td className="py-2 px-4 text-right">₹{Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-4 text-right">₹{Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN", { maximumFractionDigits: 4 })}</td>
                       </tr>
                     ))}
                     <tr className="bg-muted/30 font-medium">
@@ -291,7 +291,7 @@ export default function PlatformDashboardPage() {
                       <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0).toLocaleString()}</td>
                       <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.characters, 0).toLocaleString()}</td>
                       <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.failedRequests, 0).toLocaleString()}</td>
-                      <td className="py-2 px-4 text-right">₹{Number((summary.aiUsage.combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN")}</td>
+                      <td className="py-2 px-4 text-right">₹{Number((summary.aiUsage.combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN", { maximumFractionDigits: 4 })}</td>
                     </tr>
                   </tbody>
                 </table>

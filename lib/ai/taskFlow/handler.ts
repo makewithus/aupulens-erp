@@ -81,7 +81,9 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
     rawText: inp.text,
     multilingualDisabled: inp.aiSettings.multilingualDisabled === true || !allowed,
   });
-  const english = trace.modelText;
+  // The "I understood this as…" line invites: no, I meant …  — treat the corrected text as the message.
+  const correction = trace.modelText.match(/^\s*(?:no|nope|nah|wrong|not that|not quite)[,.!\s]+(?:i\s+)?(?:meant|mean|said|want(?:ed)?)\s*:?\s*([\s\S]+)$/i);
+  const english = correction ? correction[1].trim() : trace.modelText;
 
   const respond = async (reply: FlowReply, extra: Partial<TaskFlowResponse> = {}): Promise<TaskFlowResponse> => {
     const r = reply.kind === "not_handled" ? { text: "", calls: [] } : await respondInLanguage(reply.message, trace);

@@ -930,14 +930,14 @@ export default function OrganizationDetailPage() {
                         tokens: r.inputTokens + r.outputTokens,
                         characters: r.characters,
                         failed: r.failedRequests,
-                        cost: `₹${Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN")}`,
+                        cost: `₹${Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN", { maximumFractionDigits: 4 })}`,
                       }))}
                       columns={["provider", "requests", "tokens", "characters", "failed", "cost"]}
                       loading={false}
                     />
                   )}
                   <p className="text-xs text-neutral-500 mt-2">
-                    Combined spend: ₹{Number(((tabData["ai-usage"] as any).combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN")}
+                    Combined spend: ₹{Number(((tabData["ai-usage"] as any).combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN", { maximumFractionDigits: 4 })}
                     {(tabData["ai-usage"] as any).costCapUsd != null
                       ? ` of the ₹${Number((tabData["ai-usage"] as any).costCapUsd).toLocaleString("en-IN")} monthly cost cap — regional-language translation pauses once the cap is reached.`
                       : " — no monthly cost cap is configured for this organisation."}
