@@ -16,7 +16,7 @@ import {
   type FlowReply, type FlowState, type Lookups, type StepInput, type StepOutput,
 } from "./engine";
 import { FlowAccessError, type InternalCtx, createLookups, createViaRoute } from "./http";
-import { TASK_TARGETS, type TaskTarget } from "./registry";
+import { TASK_TARGETS, validatePayload, type TaskTarget } from "./registry";
 import type { LoadedSession } from "./session";
 
 export interface TaskFlowInput {
@@ -38,6 +38,11 @@ export interface TaskFlowDeps {
   aiAllowed(tenantId: string): Promise<boolean>;
   /** count a translated turn against the tenant's AI quota (combined-usage rule) */
   chargeTranslation(tenantId: string): Promise<void>;
+  /**
+   * LLM fallback for phrasing the deterministic classifier is unsure about ("raise a bill for Acme",
+   * "acme invoice pls"). Returns null on any failure — the message then just takes the legacy path, it is never lost.
+   */
+  classify?(tenantId: string, english: string): Promise<"create" | "explain" | "other" | null>;
   lookups?: Lookups;
   now?: () => Date;
 }
@@ -59,7 +64,7 @@ export interface TaskFlowResponse {
 
 const pickTarget = (english: string): { t: TaskTarget; intent: ReturnType<typeof classifyIntent> } | null => {
   for (const t of Object.values(TASK_TARGETS)) {
-    const intent = classifyIntent(english, t.nounRx);
+    const intent = classifyIntent(english, t.nounRx, t.weakNounRx);
     if (intent !== "none") return { t, intent };
   }
   return null;
@@ -139,7 +144,15 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
         }
         return await respond({ kind: "not_handled", message: "" });
       }
-      const { t, intent } = picked;
+      const { t } = picked;
+      let intent = picked.intent;
+      if (intent === "uncertain") {
+        // Rules can't tell. Ask an LLM rather than ignore a clear instruction; on any failure fall through to legacy.
+        const verdict = allowed && deps.classify ? await deps.classify(inp.tenantId, english).catch(() => null) : null;
+        if (verdict === "create") intent = "do";
+        else if (verdict === "explain") intent = "explain";
+        else return await respond({ kind: "not_handled", message: "" });
+      }
       if (!t.allowedRoles.includes(inp.role)) {
         return await respond({ kind: "notice", message: `You don't have access to create ${t.label}s with your current role. Ask your workspace admin if you need it.` }, { kind: "refused", handled: true });
       }
@@ -168,6 +181,13 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
 
   // ── execute path (only when the tenant flag is on) ───────────────────────────
   if (reply.kind === "execute" && reply.payload) {
+    // Belt and braces: never POST a payload the registry says is incomplete (the route's customerless-draft 500 is pre-existing).
+    const missing = validatePayload(t, reply.payload);
+    if (missing.length) {
+      reply = { kind: "notice", message: `I don't have everything the ${t.label} needs yet (${missing.join(", ")}), so I haven't created anything. Say "open the form" to finish it there, or "cancel".` };
+      nextState = nextState ?? state;
+      if (nextState) nextState.stage = "collecting";
+    } else {
     const res = await createViaRoute(inp.http, t.createEndpoint, reply.payload);
     if (res.ok === true) {
       if (sessionId) await deps.closeSession(inp.tenantId, sessionId, "executed", res.id);
@@ -177,6 +197,7 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
     reply = { kind: "notice", message: `I couldn't create the ${t.label}: ${(res as { message: string }).message}. Your answers are saved — say "yes" to try again, "open form" to finish it in the form, or "cancel".` };
     nextState = nextState ?? state;
     if (nextState) nextState.stage = "confirming";
+    }
   }
 
   // ── persist / close ──────────────────────────────────────────────────────────

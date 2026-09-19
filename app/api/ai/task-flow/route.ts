@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import { resolveTenantAiSettings } from "@/lib/ai/tenantAi";
+import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { getTierLimits } from "@/lib/constants/tiers";
 import { getAiPeriod, getAiUsageCount, incrementAiUsage, getGlobalMonthlyCap, getGlobalAiUsageCount, incrementGlobalAiUsage } from "@/lib/ai/usage";
 import { costCapReached } from "@/lib/platform/ai/spend";
@@ -28,6 +28,22 @@ const deps: TaskFlowDeps = {
     const cap = getTierLimits(tier).aiCallsPerMonth;
     if ((await getAiUsageCount(tenantId, period)) >= cap) return (await resolveAtLimitDecision(tenantId)).action !== "block";
     return true;
+  },
+  async classify(tenantId, english) {
+    // Metered and gated exactly like any other AI call (callClaudeForTenant). The reply is parsed strictly
+    // to three tokens, so nothing the model (or the user's text) says can do anything but pick one of them.
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const prompt = `You route messages for an ERP assistant. Reply with EXACTLY one token and nothing else:
+CREATE_SALES_INVOICE — the user wants a sales invoice (a bill sent TO a customer) created.
+EXPLAIN_SALES_INVOICE — the user asks how to create a sales invoice.
+OTHER — anything else (vendor/purchase bills, payments, lookups, reports, other records).
+Message: """${english.slice(0, 300).replace(/"/g, "'")}"""`;
+    const r = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 12, feature: "task_flow_classify" });
+    if (r.gated === true) return null;
+    const t = r.text.trim().toUpperCase();
+    if (t.startsWith("CREATE_SALES_INVOICE")) return "create";
+    if (t.startsWith("EXPLAIN_SALES_INVOICE")) return "explain";
+    return t.startsWith("OTHER") ? "other" : null;
   },
   async chargeTranslation(tenantId) {
     const period = getAiPeriod();

@@ -44,6 +44,22 @@ export function createLookups(ctx: InternalCtx): Lookups {
       for (const r of results) for (const c of r.json?.items ?? []) byId.set(String(c._id), toLite(c));
       return [...byId.values()];
     },
+    async recentItems() {
+      const r = await call(ctx, "/api/sales/invoices?page=1&limit=30");
+      const counts = new Map<string, { name: string; n: number; first: number }>();
+      let order = 0;
+      for (const inv of r.json?.data ?? []) {
+        for (const li of inv?.lineItems ?? []) {
+          const name = String(li?.name ?? "").trim();
+          if (!name || name.length > 80) continue;
+          const key = name.toLowerCase();
+          const cur = counts.get(key);
+          if (cur) cur.n++; else counts.set(key, { name, n: 1, first: order++ });
+        }
+      }
+      // most-used first; ties → most recent (the list is newest-first)
+      return [...counts.values()].sort((a, b) => b.n - a.n || a.first - b.first).map((c) => c.name);
+    },
     async lastCustomer() {
       const r = await call(ctx, "/api/sales/invoices?page=1&limit=1");
       const c = r.json?.data?.[0]?.customerId;

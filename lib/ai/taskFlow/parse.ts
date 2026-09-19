@@ -4,34 +4,53 @@ import { normaliseNumbers } from "@/lib/ai/language/numbers";
 
 /** All functions here take NORMALISED ENGLISH (the pipeline's output), never raw input. */
 
-export type FlowIntent = "explain" | "do" | "ambiguous" | "none";
+/** "uncertain" = looks like it MIGHT be a create request but rules can't tell — the caller asks an LLM to classify. */
+export type FlowIntent = "explain" | "do" | "ambiguous" | "uncertain" | "none";
 
 const EXPLAIN_RX = /^\s*(?:please\s+)?(?:how\s+(?:do|can|should|would|to|does|is)\b|how\s+i\b|what(?:'s| is| are)\b|where\s+(?:do|can|is|are|to)\b|steps?\s+(?:to|for)\b|guide me\b|explain\b|tell me how\b|show me how\b|help me understand\b|walk me through\b)/i;
 const QUESTION_MODAL_RX = /^\s*(?:can|could|may|should|do|does|is|am)\s+i\b|^\s*(?:is it possible|do i need|what if|why)\b/i;
 const REQUEST_RX = /^\s*(?:please\s+)?(?:can|could|would|will)\s+you\b/i;
 
-/** Classify a message that mentions `nounRx`. Ambiguous ⇒ the caller must ASK which they meant. */
-export function classifyIntent(english: string, nounRx: RegExp): FlowIntent {
+// Words that make a message a QUERY/OPERATION on existing invoices, not a request to create one.
+export const QUERY_RX = /\b(?:show|list|view|open|find|search|look ?up|display|fetch|how many|how much|what|which|who|when|status|total|pending|overdue|unpaid|paid|outstanding|due|delete|remove|cancel|void|print|download|email|resend|reminder|export|report|summary|summarise|summarize|copy|duplicate|edit|update|reverse|send|share|forward|attach|mark|approve|reject|apply|record|remind)\b/i;
+const DATA_QUERY_RX = /\b(?:total|pending|overdue|unpaid|paid|outstanding|status|summary|report|how many|how much|this (?:month|year|week|quarter)|last (?:month|year|week|quarter))\b/i;
+const STRONG_CREATE_RX = /\b(?:create|make|generate|draft|prepare|prep|raise|issue|write|cut|new|add)\b/i;
+const WEAK_CREATE_RX = /\b(?:need|want|require|give|pls|plz|please|kindly)\b/i;
+const CREATE_CUE_RX = new RegExp(`${STRONG_CREATE_RX.source}|${WEAK_CREATE_RX.source}`, "i");
+const VENDOR_RX = /\b(?:vendor|supplier|purchase|payable|payables|expense|reimburse\w*)\b/i;
+
+/** Classify a message that mentions `nounRx` (or, if given, the ambiguous `weakNounRx`, e.g. "bill").
+ *  Deterministic where it can be; "uncertain" hands the decision to an LLM rather than ignoring a clear instruction. */
+export function classifyIntent(english: string, nounRx: RegExp, weakNounRx?: RegExp): FlowIntent {
   const q = english.trim();
-  if (!q || !nounRx.test(q)) return "none";
-  if (EXPLAIN_RX.test(q)) return "explain";
+  if (!q) return "none";
+  const strong = nounRx.test(q);
+  const weak = !strong && !!weakNounRx && weakNounRx.test(q) && !VENDOR_RX.test(q);
+  if (!strong && !weak) return "none";
+  if (EXPLAIN_RX.test(q)) return DATA_QUERY_RX.test(q) ? "none" : strong ? "explain" : "uncertain"; // "what is the total of my invoices" is a data question
   // "Creating an invoice" / "Making invoices" — a topic, not a request (unless it says for whom/what).
-  if (/^\s*(?:creating|making|generating|drafting|raising|adding)\b/i.test(q) && !/\b(?:for|to|of)\s+\S/i.test(q)) return "ambiguous";
-  if (QUESTION_MODAL_RX.test(q)) return "ambiguous"; // "Can I create an invoice without a customer?"
-  if (CREATE_VERB_RX.test(q) && (REQUEST_RX.test(q) || !/\?\s*$/.test(q))) {
-    // "creating an invoice", "invoice creation" are topics, not requests
-    if (/^\s*(?:creating|making|generating|drafting|adding)\b/i.test(q) && !/\b(?:for|to|of)\b/i.test(q)) return "ambiguous";
-    return "do";
-  }
-  if (/\?\s*$/.test(q) && CREATE_VERB_RX.test(q)) return "ambiguous";
-  // Noun alone / "invoice creation" / "new invoice?" — a topic, not a request.
+  if (/^\s*(?:creating|making|generating|drafting|raising|adding)\b/i.test(q) && !/\b(?:for|to|of)\s+\S/i.test(q)) return strong ? "ambiguous" : "uncertain";
+  if (QUESTION_MODAL_RX.test(q)) return strong ? "ambiguous" : "uncertain"; // "Can I create an invoice without a customer?"
+  if (weak) return CREATE_CUE_RX.test(q) && !QUERY_RX.test(q) ? "uncertain" : "none"; // "raise a bill for Acme": sales invoice or vendor bill? ask the LLM
+  // The verb must govern the noun ("create an invoice", "raise a new invoice for X") — not "add a note TO invoice 5".
+  const nounSrc = (strong ? nounRx : weakNounRx!).source;
+  const adjacent = new RegExp(`${STRONG_CREATE_RX.source}\\s+(?:(?!\\b(?:to|on|in|against|from|of)\\b)[\\w'-]+\\s+){0,3}(?:${nounSrc})`, "i").test(q);
+  if (STRONG_CREATE_RX.test(q) && !adjacent && !WEAK_CREATE_RX.test(q)) return "none";
+  const strongCue = adjacent;
+  const weakCue = WEAK_CREATE_RX.test(q) && !QUERY_RX.test(q);
+  if ((strongCue || weakCue) && (REQUEST_RX.test(q) || !/\?\s*$/.test(q))) return "do";
+  if (/\?\s*$/.test(q) && (strongCue || weakCue)) return "ambiguous";
   if (/\b(?:creation|process|procedure|steps|format|template)\b/i.test(q)) return "ambiguous";
-  return "none";
+  // Noun with no verb: "invoice for Acme 45k", "acme invoice" — a request or a lookup? Query words ⇒ not ours.
+  if (QUERY_RX.test(q)) return "none";
+  return q.split(/\s+/).length >= 2 ? "uncertain" : "none";
 }
 
-export type Control = "cancel" | "back" | "skip" | "skip_rest" | "confirm" | "deny" | "resume" | "restart";
+export type Control = "open_form" | "cancel" | "back" | "skip" | "skip_rest" | "confirm" | "deny" | "resume" | "restart";
 export function parseControl(english: string): Control | null {
   const s = english.trim().toLowerCase().replace(/[.!]+$/, "");
+  // Escape hatch (offered at every question): today's behaviour — a partly pre-filled form.
+  if (/^(?:(?:please\s+)?(?:just\s+)?(?:skip (?:the )?questions?(?: and)?(?: just)? (?:open|show) (?:the )?form|(?:just )?open (?:the )?(?:invoice )?form(?: now)?|skip questions|open form))$/.test(s)) return "open_form";
   if (/^(?:cancel|stop|abort|quit|exit|never ?mind|forget it|discard|cancel (?:it|this|the (?:invoice|task)))$/.test(s)) return "cancel";
   if (/^(?:back|go back|previous|undo|previous question|one step back)$/.test(s)) return "back";
   if (/^(?:skip|pass|skip (?:this|it)|not needed|no due date|leave (?:it )?blank|none)$/.test(s)) return "skip";
@@ -98,10 +117,15 @@ export function segmentNumbers(text: string): Segments {
 }
 
 // ── customer text ──────────────────────────────────────────────────────────────────
-const INTENT_LEAD_RX = /^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:(?:i\s+)?(?:want|need|would like|wish)\s+to\s+)?(?:create|make|generate|draft|prepare|raise|add|new|issue|write)\s+(?:me\s+)?(?:an?\s+|the\s+|one\s+|new\s+)*(?:sales\s+)?invoices?\b\s*/i;
+const INTENT_LEAD_RX = /^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:(?:i\s+)?(?:want|need|require|would like|wish)\s+(?:to\s+)?(?:create|make|raise|generate)?\s*)?(?:(?:create|make|generate|draft|prepare|prep|raise|add|new|issue|write|cut|give|do)\s+(?:me\s+)?)?(?:an?\s+|the\s+|one\s+|new\s+)*(?:sales\s+)?(?:invoices?|bills?)\b\s*/i;
 
 export function stripIntentLead(text: string): string {
-  return text.replace(INTENT_LEAD_RX, "").replace(/^(?:for|to|of|with|,|:)\s*/i, "").trim();
+  return text
+    .replace(INTENT_LEAD_RX, "")
+    .replace(/\b(?:invoices?|pls|plz|please|kindly)\b/gi, " ") // "acme invoice pls" → "acme"
+    .replace(/\s{2,}/g, " ")
+    .replace(/^(?:for|to|of|with|,|:)\s*/i, "")
+    .trim();
 }
 
 /** Company-name suffix words never decide a match on their own. */

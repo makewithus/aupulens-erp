@@ -16,6 +16,7 @@ export interface Choice { label: string; value: any }
 export type Pending =
   | { kind: "customer"; candidate: string; choices: Choice[] }
   | { kind: "amount"; choices: Choice[] }
+  | { kind: "item"; choices: Choice[] }
   | { kind: "intent" }
   | { kind: "change" };
 
@@ -46,6 +47,8 @@ export interface Lookups {
   findCustomers(q: string): Promise<CustomerLite[]>;
   lastCustomer(): Promise<CustomerLite | null>;
   customerCount(): Promise<number>;
+  /** This tenant's most-used invoice line names (from real invoice history), best first. May be empty. */
+  recentItems?(): Promise<string[]>;
 }
 
 export type ReplyKind =
@@ -83,6 +86,10 @@ export function progress(st: FlowState): { current: number; total: number } {
   const done = list.filter((s) => isResolved(st, s.key)).length;
   return { current: Math.min(done + 1, list.length), total: list.length };
 }
+
+/** Required slots still empty (defaults count as filled). */
+const missingRequired = (st: FlowState): SlotDef[] =>
+  target(st).slots.filter((s) => s.required && !st.slots[s.key]);
 
 function nextSlot(st: FlowState): SlotDef | null {
   const t = target(st);
@@ -281,18 +288,18 @@ function askReply(st: FlowState, prefix = ""): FlowReply {
     slot.ask,
     `(${slot.why}.)`,
   ];
-  if (choices) lines.push("", ...choices.map((c, i) => `${i + 1}. ${c}`), "", "Reply with a number, or type the answer.");
-  lines.push("", `You can say "back", ${slot.required ? "" : '"skip", '}or "cancel" at any time.`);
+  if (choices) lines.push("", ...choices.map((c, i) => `${i + 1}. **${c}**`), "", "Reply with a number, or type the answer.");
+  lines.push("", `You can say "back", ${slot.required ? "" : '"skip", '}"open the form" (skip the questions), or "cancel" at any time.`);
   return { kind: "question", message: lines.filter((l, i) => l !== "" || i > 0).join("\n").replace(/^\n+/, ""), progress: pr, choices };
 }
 
 function pendingReply(st: FlowState, notice: string): FlowReply {
   const pend = st.pending as Extract<Pending, { choices: Choice[] }>;
-  const slotKey = pend.kind === "customer" ? "customer" : "unitPrice";
+  const slotKey = pend.kind === "customer" ? "customer" : pend.kind === "item" ? "itemName" : "unitPrice";
   const slot = target(st).slots.find((s) => s.key === slotKey)!;
   st.asked = slotKey;
   const pr = progress(st);
-  const lines = [notice, "", `Question ${pr.current} of ${pr.total} · ${slot.label}`, ...pend.choices.map((c, i) => `${i + 1}. ${c.label}`), "", "Reply with a number, or type the answer."];
+  const lines = [notice, "", `Question ${pr.current} of ${pr.total} · ${slot.label}`, ...(pend.kind === "item" ? [slot.ask] : []), ...pend.choices.map((c, i) => `${i + 1}. **${c.label}**`), "", "Reply with a number, or type the answer.", "", `You can say "back", "open the form" (skip the questions), or "cancel" at any time.`];
   return { kind: "question", message: lines.join("\n"), progress: pr, choices: pend.choices.map((c) => c.label) };
 }
 
@@ -303,12 +310,14 @@ function confirmReply(st: FlowState, autoCreate: boolean, notice = ""): FlowRepl
   st.pending = undefined;
   const summary = summaryLines(st);
   const body = summary.map((l) => `- ${l.label}: **${l.value}**${l.caveat ? ` (⚠ ${l.caveat})` : ""}`).join("\n");
+  const unset = t.slots.filter((s) => !st.slots[s.key] && !s.required);
+  const hint = unset.length ? `\nTo add ${unset.map((s) => s.label.toLowerCase()).join(" / ")}, say e.g. "change ${unset[0].aliases[0]} to …".` : "";
   const act = autoCreate
     ? `Reply "yes" to create this ${t.label} as a draft now, "open form" to review it in the form first, "change" to edit something, or "cancel".`
     : `Reply "yes" to open the ${t.label} form with these details, "change" to edit something, or "cancel".`;
   return {
     kind: "confirm",
-    message: `${notice ? notice + "\n\n" : ""}Here is the ${t.label} I'll prepare — please check it:\n${body}\n\n${act}`,
+    message: `${notice ? notice + "\n\n" : ""}Here is the ${t.label} I'll prepare — please check it:\n${body}${hint}\n\n${act}`,
     summary,
   };
 }
@@ -360,22 +369,34 @@ function resolvePending(st: FlowState, inp: StepInput): { done: boolean; note?: 
     if (v.retype) { st.pending = undefined; return { done: true, note: "Okay — type the customer's name." }; }
     if (v.createNew) return { done: true, note: `CREATE_CUSTOMER:${v.name}` };
     st.slots.customer = { value: { id: v.id, name: v.name }, display: v.name };
+  } else if (p.kind === "item") {
+    st.slots.itemName = { value: pick.value, display: String(pick.value) };
   } else {
     if (pick.value === null) { st.pending = undefined; return { done: true, note: "Okay — what is the amount?" }; }
     st.slots.unitPrice = { value: pick.value, display: money(pick.value) };
   }
-  const key = p.kind === "customer" ? "customer" : "unitPrice";
+  const key = p.kind === "customer" ? "customer" : p.kind === "item" ? "itemName" : "unitPrice";
   st.order = st.order.filter((o) => o !== key);
   st.order.push(key);
   st.pending = undefined;
   return { done: true };
 }
 
-function next(st: FlowState, inp: StepInput, notice = ""): StepOutput {
+async function next(st: FlowState, inp: StepInput, lk: Lookups, notice = ""): Promise<StepOutput> {
   if (st.pending && "choices" in st.pending) return { state: st, reply: pendingReply(st, notice) };
   const slot = nextSlot(st);
   if (!slot) return { state: st, reply: confirmReply(st, inp.autoCreate, notice) };
   st.stage = "collecting";
+  // Item name is never defaulted (it lands on a customer-facing document). Offer this tenant's own recent
+  // line names as one-tap choices; free text is still accepted.
+  if (slot.key === "itemName" && lk.recentItems) {
+    let items: string[] = [];
+    try { items = (await lk.recentItems()).slice(0, 5); } catch { /* history unavailable: plain question */ }
+    if (items.length) {
+      st.pending = { kind: "item", choices: items.map((n) => ({ label: n, value: n })) };
+      return { state: st, reply: pendingReply(st, notice) };
+    }
+  }
   return { state: st, reply: askReply(st, notice) };
 }
 
@@ -390,7 +411,10 @@ export async function startFlow(targetId: string, inp: StepInput, lk: Lookups): 
   const ex = await extract(st, inp, lk, { stripLead: true });
   apply(st, ex);
   st.pending = ex.pending;
-  return next(st, inp, ex.failures.join("\n"));
+  // Skip ahead: everything MANDATORY was supplied in the first message ⇒ straight to the summary, no questions.
+  // (Optional fields such as the due date show in the summary and can be changed there.)
+  if (!st.pending && missingRequired(st).length === 0 && !ex.failures.length) return { state: st, reply: confirmReply(st, inp.autoCreate) };
+  return next(st, inp, lk, ex.failures.join("\n"));
 }
 
 export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Promise<StepOutput> {
@@ -398,7 +422,9 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
   const ctrl: Control | null = parseControl(inp.english);
 
   if (ctrl === "cancel") return { state: null, reply: { kind: "cancelled", message: `Okay — I've cancelled that ${t.label}. Nothing was created.` } };
-  if (ctrl === "restart") { const fresh = newState(st.target); return next(fresh, inp, "Starting over."); }
+  if (ctrl === "restart") { const fresh = newState(st.target); return next(fresh, inp, lk, "Starting over."); }
+
+  if (ctrl === "open_form") return finish(st, inp, true); // "skip the questions and open the form": whatever is known, prefilled
 
   if (st.stage === "intent") {
     const idx = parseChoiceIndex(inp.english);
@@ -407,23 +433,23 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
     if (idx === 2 || /\bcreate|make|do it|for me|yes\b/.test(s) || ctrl === "confirm") {
       const fresh = newState(st.target);
       if ((await lk.customerCount()) === 0) return { state: null, reply: { kind: "no_customers", message: `You don't have any customers yet, and every ${t.label} needs one. I can open the New Customer form for you first.` } };
-      return next(fresh, inp);
+      return next(fresh, inp, lk);
     }
     return { state: st, reply: { kind: "ask_intent", message: `Sorry, I didn't catch that. Reply 1 to have it explained, or 2 to create it for you.`, choices: ["Explain how to create it", "Create it for me"] } };
   }
 
-  if (ctrl === "resume") return next(st, inp);
+  if (ctrl === "resume") return next(st, inp, lk);
 
   if (ctrl === "back") {
     const last = st.order.pop();
-    if (!last) return next(st, inp, "There's nothing to go back to yet.");
+    if (!last) return next(st, inp, lk, "There's nothing to go back to yet.");
     delete st.slots[last];
     const def = t.slots.find((s) => s.key === last)?.default;
     if (def) st.slots[last] = { value: def.value, display: def.display, isDefault: true };
     st.skipped = st.skipped.filter((s) => s !== last);
     st.pending = undefined;
     st.stage = "collecting";
-    return next(st, inp, `Okay — going back to ${t.slots.find((s) => s.key === last)!.label}.`);
+    return next(st, inp, lk, `Okay — going back to ${t.slots.find((s) => s.key === last)!.label}.`);
   }
 
   if (st.stage === "confirming") {
@@ -438,13 +464,13 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
   if (ctrl === "skip" || ctrl === "skip_rest") {
     const slot = nextSlot(st);
     if (ctrl === "skip") {
-      if (!slot) return next(st, inp);
-      if (slot.required) return next(st, inp, `${slot.label} is required, so I can't skip it.`);
+      if (!slot) return next(st, inp, lk);
+      if (slot.required) return next(st, inp, lk, `${slot.label} is required, so I can't skip it.`);
       st.skipped.push(slot.key);
-      return next(st, inp);
+      return next(st, inp, lk);
     }
     for (const s of askable(t)) if (!s.required && !isResolved(st, s.key)) st.skipped.push(s.key);
-    return next(st, inp);
+    return next(st, inp, lk);
   }
 
   if (inp.degraded && !inp.translated && inp.english === inp.original && /[^\x00-\x7f]|\b(?:ke|liye|banao|karo|hai|venum|kavali)\b/i.test(inp.original)) {
@@ -461,7 +487,7 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
     if (rp.note?.startsWith("CREATE_CUSTOMER:")) {
       return { state: null, reply: { kind: "no_customers", message: `Okay — I'll open the New Customer form for ${rp.note.slice(16)}. Create them, then ask me for the ${t.label} again.`, createCustomerName: rp.note.slice(16) } };
     }
-    return next(st, inp, rp.note ?? "");
+    return next(st, inp, lk, rp.note ?? "");
   }
   if (st.pending?.kind === "change") st.pending = undefined;
 
@@ -472,7 +498,7 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
     if (q || !st.asked) return notHandled(st);
     const asked = t.slots.find((s) => s.key === st.asked);
     if (asked && (asked.kind === "money" || asked.kind === "quantity" || asked.kind === "date")) {
-      return next(st, inp, `I couldn't read that as ${asked.kind === "money" ? "an amount" : asked.kind === "date" ? "a date" : "a quantity"}.`);
+      return next(st, inp, lk, `I couldn't read that as ${asked.kind === "money" ? "an amount" : asked.kind === "date" ? "a date" : "a quantity"}.`);
     }
     return notHandled(st);
   }
@@ -480,7 +506,7 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
   if (ex.pending) st.pending = ex.pending;
   const wasConfirming = st.stage === "confirming";
   if (wasConfirming && !ex.failures.length && !st.pending) return { state: st, reply: confirmReply(st, inp.autoCreate, "Updated.") };
-  return next(st, inp, ex.failures.join("\n"));
+  return next(st, inp, lk, ex.failures.join("\n"));
 }
 
 export { classifyIntent };

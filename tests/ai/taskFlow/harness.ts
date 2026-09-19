@@ -37,11 +37,12 @@ export interface Harness {
   client: ReturnType<typeof fakeClient>;
   posts: { url: string; body: any; cookie: string }[];
   clock: { now: Date };
+  classifySpy: ReturnType<typeof vi.fn>;
 }
 
 export function makeHarness(o: {
   customers?: CustomerLite[]; role?: string; autoCreate?: boolean; last?: CustomerLite | null;
-  translate?: (req: any) => any; postResponse?: { status: number; json: any }; lookupThrows?: Error; multilingualDisabled?: boolean;
+  translate?: (req: any) => any; classify?: (english: string) => Promise<any>; recentItems?: string[] | (() => Promise<string[]>); postResponse?: { status: number; json: any }; lookupThrows?: Error; multilingualDisabled?: boolean;
 } = {}): Harness {
   setSarvamEnv(true);
   clearLanguageCache(); clearReplyCache();
@@ -59,6 +60,7 @@ export function makeHarness(o: {
       const words = q.toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
       return customers.filter((c) => words.some((w) => c.name.toLowerCase().includes(w)));
     },
+    async recentItems() { return typeof o.recentItems === "function" ? o.recentItems() : (o.recentItems ?? []); },
     async lastCustomer() { return o.last === undefined ? customers[0] : o.last; },
   };
   const deps: TaskFlowDeps = {
@@ -80,8 +82,10 @@ export function makeHarness(o: {
     return { status: r.status, json: async () => r.json } as any;
   });
 
+  const classifySpy = vi.fn(async (_t: string, e: string) => (o.classify ? o.classify(e) : null));
+  (deps as any).classify = classifySpy;
   return {
-    store, client, posts, clock,
+    store, client, posts, clock, classifySpy,
     say: (text, extra) => handleTaskFlow(
       { tenantId: "t1", userId: "u1", role: o.role ?? "sales", text, expectSession: extra?.expectSession, aiSettings: { autoCreateEnabled: o.autoCreate, multilingualDisabled: o.multilingualDisabled }, http: { origin: "http://x", cookie: "session=abc", fetchFn: fetchFn as any } },
       deps,

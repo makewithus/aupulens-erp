@@ -36,6 +36,8 @@ export interface TaskTarget {
   createEndpoint: string; // the real route the execute path goes through
   listEndpoint: string;
   nounRx: RegExp;
+  /** nouns that are ambiguous with another record type ("bill" could be a vendor bill) — LLM decides */
+  weakNounRx?: RegExp;
   slots: SlotDef[];
   validation: {
     routeSource: string;
@@ -63,7 +65,8 @@ export const SALES_INVOICE_TARGET: TaskTarget = {
   recordRoute: (id) => `/sales/invoices/${id}`,
   createEndpoint: "/api/sales/invoices",
   listEndpoint: "/api/sales/invoices",
-  nounRx: /\binvoices?\b/i,
+  nounRx: /\b(?:invoices?|invoce|invoise|invioce|inovice|invce)s?\b/i,
+  weakNounRx: /\bbills?\b/i,
   slots: [
     { key: "customer", label: "Customer", kind: "customer", required: true, ask: "Who is this invoice for?", why: "every invoice is billed to a customer", satisfies: ["customerId"], aliases: ["customer", "client", "party", "bill to"] },
     { key: "itemName", label: "Item / service", kind: "text", required: true, ask: "What is being billed — the item or service name?", why: "each invoice line needs a name", satisfies: ["lineItems", "lineItems.name"], aliases: ["item", "product", "service", "description"] },
@@ -104,13 +107,42 @@ export const SALES_INVOICE_TARGET: TaskTarget = {
     ...(v.dueDate ? { dueDate: v.dueDate } : {}),
     lineItems: [{ name: v.itemName, qty: v.quantity ?? 1, unitPrice: v.unitPrice }],
   }),
+  // Safe with PARTIAL data — the "skip the questions and open the form" escape opens whatever is known.
   toPrefill: (v, { today }) => ({
-    customerId: v.customer.id,
-    customerName: v.customer.name,
+    ...(v.customer ? { customerId: v.customer.id, customerName: v.customer.name } : {}),
     invoiceDate: today,
     ...(v.dueDate ? { dueDate: v.dueDate } : {}),
-    lineItems: [{ name: v.itemName, qty: v.quantity ?? 1, unitPrice: v.unitPrice }],
+    ...(v.itemName || v.unitPrice != null
+      ? { lineItems: [{ ...(v.itemName ? { name: v.itemName } : {}), qty: v.quantity ?? 1, ...(v.unitPrice != null ? { unitPrice: v.unitPrice } : {}) }] }
+      : {}),
   }),
 };
 
 export const TASK_TARGETS: Record<string, TaskTarget> = { invoice: SALES_INVOICE_TARGET };
+
+/**
+ * Defensive, registry-driven check run right before the execute path POSTs. The guided flow cannot reach
+ * "execute" without every required slot (tests prove it), but a financial record is never created on the
+ * strength of one code path — the customerless-draft 500 in the real route is pre-existing and must stay unreachable.
+ * Returns the missing/invalid paths ([] = OK).
+ */
+export function validatePayload(t: TaskTarget, payload: Record<string, any>): string[] {
+  const bad: string[] = [];
+  for (const path of t.validation.modelRequired) {
+    const [head, sub] = path.split(".");
+    if (!sub) {
+      const v = payload[head];
+      if (v === undefined || v === null || v === "") bad.push(path);
+      continue;
+    }
+    const arr = payload[head];
+    if (!Array.isArray(arr) || arr.length === 0) { bad.push(path); continue; }
+    for (const item of arr) {
+      const v = item?.[sub];
+      if (v === undefined || v === null || v === "" || (typeof v === "number" && !Number.isFinite(v))) { bad.push(path); break; }
+      const min = t.validation.modelMin[path];
+      if (min !== undefined && typeof v === "number" && v < min) { bad.push(path); break; }
+    }
+  }
+  return bad;
+}

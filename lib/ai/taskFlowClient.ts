@@ -1,5 +1,6 @@
 import { detectLanguage } from "@/lib/ai/language/detect";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
+import { QUERY_RX } from "@/lib/ai/taskFlow/parse";
 
 /**
  * Client half of the guided task flow (lib/ai/taskFlow/*). Called from tryAiCreateFlow FIRST, so all
@@ -20,10 +21,12 @@ export function shouldConsultTaskFlow(text: string, hasAttachments: boolean): bo
   if (hasAttachments || !text.trim() || text.length > 600) return false; // documents keep the existing extraction path
   if (isActive()) return true;
   const kind = detectLanguage(text).kind;
-  // English stays local unless it is BOTH about an invoice ("invoice", "invoce", "invoices") AND
-  // reads like a create/explain request — "show unpaid invoices" never pays for a round trip.
+  // English stays local unless it is about an invoice/bill AND reads like a create/explain request (or is a bare
+  // "invoice for Acme 45k"). "show unpaid invoices" / "how many bills" never pay for a round trip.
   if (kind === "english" || kind === "none") {
-    return /\binv[a-z]{2,6}\b/i.test(text) && /\b(?:create|creating|make|making|generate|draft|prepare|raise|add|new|issue|how|steps?|explain|guide|can i|could i|help)\b/i.test(text);
+    if (!/\b(?:inv[a-z]{2,6}|bills?)\b/i.test(text)) return false;
+    const cue = /\b(?:create|creating|make|making|generate|draft|prepare|prep|raise|issue|write|cut|new|add|need|want|require|give|pls|plz|please|kindly|how (?:do|can|to|should|would)|steps?|explain|guide|can i|could i|help)\b/i;
+    return cue.test(text) || (!QUERY_RX.test(text) && (/\d/.test(text) || /\bfor\b/i.test(text)));
   }
   return kind !== "unsupported";
 }
