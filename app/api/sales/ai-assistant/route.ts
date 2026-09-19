@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
     // feel and persists the conversation itself (no server-side double-save).
     if (body.stream) {
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, prompt, {
+        language: { rawText: message, replyInUserLanguage: false },
         systemPrompt,
         maxTokens,
         history: priorTurns,

@@ -40,3 +40,48 @@ No API key is available in this sandbox → all Sarvam calls mocked; live verifi
 
 ## 8. Feature 3 scope (proposed)
 Cover ONE flow perfectly first: **sales invoice** (explain / do / ask, slot-fill customer + line items + due date, confirm, then execute via existing `POST /api/sales/invoices` logic and redirect to `/sales/invoices/[id]`). Customer/expense/bill only if the pattern holds. Not covered (recorded): other ~45 create targets keep the existing prefill-and-navigate behaviour unchanged.
+
+---
+# Phase 2 additions (BRIEF-SARVAM-2)
+
+## Deliberate deviations and scoped decisions — DO NOT "FIX" THESE BACK
+1. **Numbers are verified after translation, not masked — a deliberate deviation from Rule 5.** Masking amounts would stop the
+   translator seeing "45000 rupees" and hurt fluency; instead every number in the pre-translation text must still be present, **by
+   value**, in the output (`numbersPreserved` in `lib/ai/language/translate.ts`): `45,000`≡`45000`≡`४५०००`≡`45000.00`; `4500`, a
+   shifted decimal or a dropped number fails and the whole result falls back to the original text (`degraded: bad_response`,
+   low-confidence). Names, ids, GSTIN/PAN/TAN, emails, URLs, phones, dates and quoted text ARE masked and restored exactly.
+   Tests: `tests/ai/language/numberValues.test.ts`.
+2. **Deterministic normalisation only.** An LLM normalisation pass is *available if live testing shows deterministic rules are
+   insufficient* — it is not built because it would add a model round trip to the English path (budget < 50 ms) and Azure GPT-4o
+   already tolerates residual typos. Decide from the live check (`LIVE_VERIFICATION.md`), not by guessing now.
+3. **Placeholder corruption degrades.** Missing / duplicated / truncated / re-indexed / stray `ZXQ` fragments (case-insensitive) ⇒
+   original text, `degraded`, `lowConfidence`; nothing placeholder-shaped can reach the model or a form
+   (`tests/ai/language/placeholderSafety.test.ts`).
+4. **Streaming is wired (input side).** `callClaudeForTenantStream` accepts `language`; replies stream in English (declared).
+5. **Feature 3 keeps the existing contract.** Default path = guided questions → summary → confirm → open the real pre-filled form →
+   the user clicks Create. `tryAiCreateFlow`'s signature/return type are unchanged; it now consults `/api/ai/task-flow` first and
+   uses the pipeline's English for every classifier. Execute-and-redirect exists behind `settings.ai.autoCreateEnabled`
+   (default false), goes through the real `POST /api/sales/invoices` with the caller's own cookie (so middleware role/module gates
+   apply), always as a **draft**, and is inert until a tenant flag is set.
+6. **No LLM in the task flow.** Intent, slot extraction, questions and explanations are deterministic (registry-driven) — fast (<1 ms
+   engine time), auditable, and Azure is not called. The brief's "Azure stays the brain" is untouched: every other AI path is unchanged.
+7. **Item name is a required question.** The route/model require a line-item name, so "Create an invoice for Acme, 45000, due 30
+   days" asks ONE question (what is being billed?) rather than inventing a line name. If you prefer a default (e.g. "Services") it is
+   a one-line registry change (`SlotDef.default`) — a product call, not made silently.
+
+## Feature 3 — what is covered
+| Target | Status |
+|---|---|
+| Sales invoice (`/sales/invoices/new`) | **Covered end to end**: explain / do / ask / ask-which, slot filling, summary, prefilled form, execute path (flag), resume/expire, roles |
+| Customer, vendor bill, expense | **Not wired this pass** (declared). The registry is generic (`lib/ai/taskFlow/registry.ts`): adding one = a `TaskTarget` entry + its drift-test row; no engine change. Slot kinds available: `customer`, `text`, `money`, `quantity`, `date`. Not done because customer/bill/expense forms have different required-field shapes (e.g. bills also need a vendor, GL account) that deserve their own drift tests rather than special-casing |
+| Every other create target (~50) | Unchanged existing prefill-and-navigate behaviour; regional input now reaches it via the pipeline's English |
+
+## Pre-existing findings surfaced while reading the invoice route/model (NOT changed)
+* The route validates only `customerId` + ≥1 line, and **only for non-draft**. Draft POSTs skip the route checks, but the model
+  still requires `customerId` and each line's `name`/`qty≥1`/`unitPrice≥0`, so a draft with no customer fails with **HTTP 500 and a
+  raw Mongoose message** rather than a 400. Nothing invalid is stored (the model rejects it) — it is an error-shape wart, not data
+  corruption. The drift test pins today's behaviour (`registryDrift.test.ts` "model-required … REJECTED").
+* `SalesInvoice.status` defaults to *saved* when the caller omits it, and a saved invoice posts to the GL immediately; that is why
+  the assistant's execute path always sends `status: "draft"`.
+* Cost caps (`AiLimit.maxCostUsdPerMonth`) were stored but never enforced for Azure calls; only the call-count cap is. This work
+  applies the cost cap **only to the new Sarvam calls** (combined Azure+Sarvam spend vs cap) and leaves Azure behaviour as it was.

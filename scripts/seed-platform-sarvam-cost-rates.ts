@@ -13,12 +13,18 @@ import AiCostRate from "../models/platform/AiCostRate";
 
 const TYPES = ["translate", "transliterate", "detect"] as const;
 
+/** Unset or blank means "not configured" — never 0 (Number("") === 0 would silently seed a free rate). */
+const readPrice = (name: string): number => {
+  const raw = process.env[name];
+  return raw === undefined || raw.trim() === "" ? NaN : Number(raw);
+};
+
 async function main() {
-  const base = Number(process.env.SARVAM_COST_PER_1K_CHARS_USD);
+  const base = readPrice("SARVAM_COST_PER_1K_CHARS_USD");
   await connectDB();
   for (const t of TYPES) {
-    const override = Number(process.env[`SARVAM_COST_PER_1K_CHARS_USD_${t.toUpperCase()}`]);
-    const rate = Number.isFinite(override) && override >= 0 && process.env[`SARVAM_COST_PER_1K_CHARS_USD_${t.toUpperCase()}`] !== undefined ? override : base;
+    const override = readPrice(`SARVAM_COST_PER_1K_CHARS_USD_${t.toUpperCase()}`);
+    const rate = Number.isFinite(override) && override >= 0 ? override : base;
     if (!Number.isFinite(rate) || rate < 0) {
       console.error(`Skipping sarvam-${t}: set SARVAM_COST_PER_1K_CHARS_USD (USD per 1,000 characters).`);
       continue;

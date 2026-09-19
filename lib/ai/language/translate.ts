@@ -7,16 +7,39 @@
 import { LANGUAGE_CODE, LANGUAGE_DEGRADED_REASON, SARVAM_CALL_TYPE, type LanguageDegradedReason } from "@/lib/constants/statuses";
 import { getSarvamClient, MODEL_LIMITS, type TranslateMode, type TranslateModel } from "./sarvam/client";
 import { getRomanStrategy } from "./config";
+import { toAsciiDigits } from "./numbers";
 import type { Detection, ProviderCall, SarvamResult } from "./types";
 
-export const NUMBER_TOKEN_RX = /\d+(?:\.\d+)?/g;
+/**
+ * Number verification is by VALUE, never by string (BRIEF-SARVAM-2 §0.1): "45,000" == "45000" ==
+ * "४५०००" == "45000.00", but "4500" != "45000" and a dropped number is a failure. A false fallback on
+ * every comma would make the feature look permanently degraded; a missed corruption is a wrong invoice.
+ */
+const NUMBER_RX = /(?:\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
+const PLACEHOLDER_STRIP_RX = /ZXQ\s*\d+\s*ZXQ/gi;
 
+/** Canonical decimal string: no commas, no leading zeros, no trailing decimal zeros. */
+export function canonicalNumber(raw: string): string {
+  let [int, dec = ""] = raw.replace(/,/g, "").split(".");
+  int = int.replace(/^0+(?=\d)/, "");
+  dec = dec.replace(/0+$/, "");
+  return dec ? `${int}.${dec}` : int;
+}
+
+export function numberValues(text: string): string[] {
+  const clean = toAsciiDigits(text.replace(PLACEHOLDER_STRIP_RX, " "));
+  return (clean.match(NUMBER_RX) ?? []).map(canonicalNumber);
+}
+
+/** Every number in `before` must still be present, by value, in `after`. Extra numbers are fine. */
 export function numbersPreserved(before: string, after: string): boolean {
-  const need = new Map<string, number>();
-  for (const n of before.match(NUMBER_TOKEN_RX) ?? []) need.set(n, (need.get(n) || 0) + 1);
   const have = new Map<string, number>();
-  for (const n of after.match(NUMBER_TOKEN_RX) ?? []) have.set(n, (have.get(n) || 0) + 1);
-  for (const [n, c] of need) if ((have.get(n) || 0) < c) return false;
+  for (const n of numberValues(after)) have.set(n, (have.get(n) || 0) + 1);
+  for (const n of numberValues(before)) {
+    const c = have.get(n) || 0;
+    if (c === 0) return false;
+    have.set(n, c - 1);
+  }
   return true;
 }
 

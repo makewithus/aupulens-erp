@@ -139,7 +139,10 @@ export function placeholdersIntact(text: string, entities: ProtectedEntity[]): b
   const seen = new Map<number, number>();
   for (const m of text.matchAll(PH_RX)) seen.set(Number(m[1]), (seen.get(Number(m[1])) || 0) + 1);
   if (seen.size !== entities.length) return false;
-  return entities.every((_, i) => seen.get(i) === 1);
+  if (!entities.every((_, i) => seen.get(i) === 1)) return false;
+  // Nothing placeholder-shaped may be left over once the well-formed ones are removed
+  // ("ZXQ", "ZXQ1ZX", "zxq 3"…): a half-mangled token must never reach a model or a form.
+  return !/ZXQ/i.test(text.replace(PH_RX, ""));
 }
 
 export function unprotectEntities(text: string, entities: ProtectedEntity[]): string {

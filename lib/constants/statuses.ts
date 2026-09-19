@@ -2317,6 +2317,7 @@ export const LANGUAGE_DEGRADED_REASON = {
   BAD_RESPONSE: "bad_response",
   UNSUPPORTED_LANGUAGE: "unsupported_language",
   LOW_CONFIDENCE: "low_confidence",
+  LIMIT_REACHED: "limit_reached",
 } as const;
 export const LANGUAGE_DEGRADED_REASON_VALUES = Object.values(LANGUAGE_DEGRADED_REASON);
 export type LanguageDegradedReason =

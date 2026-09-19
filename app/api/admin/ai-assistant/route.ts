@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
       const attachPrompt = `${parts.join(" ")} Answer using ONLY the attached content (text + images); if the answer isn't present, say so.\n\n${docTexts.join("\n\n")}\n\nUSER QUESTION: "${message}"`;
 
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, attachPrompt, {
+        language: { rawText: message, replyInUserLanguage: false },
         systemPrompt: "You are Aupulens' assistant analysing one or more user-attached files. Be accurate, organised and concise. Never print internal database IDs or raw JSON." + AI_ASSISTANT_GUIDANCE,
         maxTokens: 1100,
         imageDataUrls: imageUrls.length ? imageUrls : undefined,
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "I encountered an error while fetching your data. Please try again." }, { status: 200 });
       }
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, built.prompt, {
+        language: { rawText: message, replyInUserLanguage: false },
         systemPrompt: built.systemPrompt,
         maxTokens: built.maxTokens,
         history: priorTurns,

@@ -3,6 +3,7 @@ import AiUsageMonthly from "@/models/platform/AiUsageMonthly";
 import AiUsageDaily from "@/models/platform/AiUsageDaily";
 import AiUsageRecord from "@/models/platform/AiUsageRecord";
 import Organization from "@/models/admin/Organization";
+import { getProviderBreakdown } from "./providerBreakdown";
 import { isAiUsageRollupStale } from "./rollupFreshness";
 import { getAiPeriod } from "@/lib/ai/usage";
 import { ADMIN_CAPABILITY, PLATFORM_EVENT_TYPE } from "@/lib/constants/statuses";
@@ -100,6 +101,8 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
         ]),
       ]);
 
+      const providerBreakdown = await getProviderBreakdown(monthStart);
+
       const orgSubdomains = byOrg.map((o) => o._id as string);
       const orgs = await Organization.find({ subdomain: { $in: orgSubdomains } }, "subdomain name").lean();
       const orgNameMap = new Map(orgs.map((o) => [o.subdomain, o.name]));
@@ -154,6 +157,10 @@ export async function getPlatformAiUsageSummary(actor: AdminActor, reason: strin
         })),
         topFeatures: byFeature.map((f) => ({ feature: f._id as string, requestCount: f.requestCount })),
         topModels: byModel.map((m) => ({ modelName: m._id as string, requestCount: m.requestCount })),
+        // Additive (Sarvam, BRIEF-SARVAM Part 7): per-provider split of this month. Totals above already
+        // include every provider; `combinedCostUsd` is the figure tenant spend limits apply against.
+        byProvider: providerBreakdown.rows,
+        combinedCostUsd: providerBreakdown.combinedCostUsd,
       };
     },
   });

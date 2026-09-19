@@ -48,6 +48,7 @@ import {
 // call that would otherwise have succeeded.
 import { recordAiUsage } from "@/lib/platform/ai/instrumentation";
 import { applyLanguageInput, applyLanguageReply, finaliseLanguage, type LanguageOptions } from "@/lib/ai/language/tenantBridge";
+import { interpretationLine } from "@/lib/ai/language/respond";
 import type { LanguageTrace, ProviderCall } from "@/lib/ai/language/types";
 import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/platform/ai/limitBehavior";
 
@@ -285,7 +286,7 @@ export async function callClaudeForTenantStream(
   tier: string,
   aiSettings: TenantAiSettings,
   userMessage: string,
-  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string } = {}
+  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string; language?: LanguageOptions } = {}
 ): Promise<TenantAiStreamResult> {
   if (aiSettings.disabled === true) {
     return { gated: true, code: "AI_DISABLED", error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them." };
@@ -313,7 +314,7 @@ export async function callClaudeForTenantStream(
     await new Promise((resolve) => setTimeout(resolve, throttleDelayMs));
   }
 
-  const { history, feature, ...restOpts } = opts;
+  const { history, feature, language, ...restOpts } = opts;
   const resolvedOpts: ClaudeCallOptions = {
     model: aiSettings.model ?? restOpts.model ?? CLAUDE_DEFAULT_MODEL,
     maxTokens: aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -325,9 +326,27 @@ export async function callClaudeForTenantStream(
   // Wrap the raw stream so usage is incremented exactly once, after a clean
   // finish, and the run is metered (Phase 4) with the usage totals the inner
   // generator's own return value carries.
+  // Multilingual layer, input side only: the raw text is translated BEFORE the stream starts.
+  // The reply streams in English (a reply cannot be translated mid-stream) — see
+  // docs/sarvam/LIVE_VERIFICATION.md §streaming. The "I understood this as" line is streamed first.
+  let langTrace: LanguageTrace | undefined;
+  let effectiveMessage = userMessage;
+  if (language) {
+    ({ message: effectiveMessage, trace: langTrace } = await applyLanguageInput(tenantId, aiSettings, userMessage, language));
+  }
+
   const startedAt = Date.now();
   async function* gatedStream(): AsyncGenerator<string, void, unknown> {
-    const usage = yield* callClaudeStreamWithUsage(history ?? [], userMessage, resolvedOpts);
+    if (langTrace && language?.showInterpretation !== false) {
+      const line = interpretationLine(langTrace);
+      if (line) yield line;
+    }
+    let usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+    try {
+      usage = yield* callClaudeStreamWithUsage(history ?? [], effectiveMessage, resolvedOpts);
+    } finally {
+      if (language && langTrace) await finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
+    }
     await incrementAiUsage(tenantId, period);
     await incrementGlobalAiUsage(period);
     await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);

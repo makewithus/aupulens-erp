@@ -59,6 +59,11 @@ export interface PrepareInput {
   rawText: string;
   /** settings.ai.multilingualDisabled */
   multilingualDisabled?: boolean;
+  /**
+   * Asked lazily — only when a provider call is actually about to happen (never on the English
+   * short-circuit or a cache hit) — so tenant spend limits cost English input nothing.
+   */
+  allowProvider?: () => Promise<boolean>;
 }
 
 export async function prepareLanguageInput(input: PrepareInput): Promise<LanguageTrace> {
@@ -88,6 +93,9 @@ export async function prepareLanguageInput(input: PrepareInput): Promise<Languag
     const hit = cache.get(key);
     if (hit) return finish({ ...hit, cacheHit: true, providerCalls: [] });
 
+    if (input.allowProvider && !(await input.allowProvider())) {
+      return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.LIMIT_REACHED, raw));
+    }
     const tr = await translateToEnglish(prep.masked, det);
     trace.providerCalls = tr.calls;
     if (tr.ok === false) return finish(degrade(trace, tr.reason, raw));

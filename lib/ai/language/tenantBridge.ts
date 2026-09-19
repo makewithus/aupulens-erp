@@ -7,6 +7,7 @@ import AiLanguageInteraction from "@/models/ai/AiLanguageInteraction";
 import { recordSarvamUsage } from "@/lib/platform/ai/instrumentation";
 import { prepareLanguageInput, substituteUserText } from "./pipeline";
 import { respondInLanguage, interpretationLine } from "./respond";
+import { costCapReached } from "@/lib/platform/ai/spend";
 import type { LanguageTrace, ProviderCall } from "./types";
 
 /** Pass the user's RAW typed text (as it appears inside the composed prompt). */
@@ -29,6 +30,7 @@ export async function applyLanguageInput(
     tenantId,
     rawText: lang.rawText,
     multilingualDisabled: aiSettings.multilingualDisabled === true,
+    allowProvider: async () => !(await costCapReached(tenantId)),
   });
   return { message: substituteUserText(userMessage, lang.rawText, trace.modelText), trace };
 }

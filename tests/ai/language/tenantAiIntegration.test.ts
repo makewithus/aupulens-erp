@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const { mockClaude, mockFinalise } = vi.hoisted(() => ({ mockClaude: vi.fn(), mockFinalise: vi.fn() }));
+const { mockClaude, mockFinalise, mockStream } = vi.hoisted(() => ({ mockClaude: vi.fn(), mockFinalise: vi.fn(), mockStream: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({ default: vi.fn(async () => undefined) }));
 vi.mock("@/models/admin/Organization", () => ({ default: { findOne: vi.fn() } }));
 vi.mock("@/lib/ai/claude", () => ({
   callClaudeWithUsage: mockClaude,
   callClaudeWithHistoryAndUsage: mockClaude,
-  callClaudeStreamWithUsage: vi.fn(),
+  callClaudeStreamWithUsage: mockStream,
   CLAUDE_DEFAULT_MODEL: "test-model",
   CLAUDE_DEFAULT_MAX_TOKENS: 100,
 }));
@@ -24,10 +24,11 @@ vi.mock("@/lib/platform/ai/limitBehavior", () => ({
   resolveAtLimitDecision: vi.fn(async () => ({ action: "block" })),
   checkAiUsageThresholdCrossing: vi.fn(),
 }));
+vi.mock("@/lib/platform/ai/spend", () => ({ costCapReached: vi.fn(async () => false) }));
 vi.mock("@/models/ai/AiLanguageInteraction", () => ({ default: { create: vi.fn(async () => ({})) } }));
 
 import * as usage from "@/lib/ai/usage";
-import { callClaudeForTenant } from "@/lib/ai/tenantAi";
+import { callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { setSarvamClientForTests } from "@/lib/ai/language/sarvam/client";
 import { clearLanguageCache } from "@/lib/ai/language/pipeline";
 import { recordSarvamUsage } from "@/lib/platform/ai/instrumentation";
@@ -100,6 +101,49 @@ describe("callClaudeForTenant + language option", () => {
     setSarvamClientForTests(c);
     await callClaudeForTenant("t1", "starter", { multilingualDisabled: true }, "Q: mujhe invoice banao", { language: { rawText: "mujhe invoice banao" } });
     expect(mockClaude.mock.calls[0][0]).toBe("Q: mujhe invoice banao");
+    expect(c.translateSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("§0.4 streaming: input-side language layer (reply streams in English)", () => {
+  const streamOf = (chunks: string[]) => async function* () { for (const c of chunks) yield c; return { promptTokens: 1, completionTokens: 1, totalTokens: 2 }; };
+  const drain = async (r: any) => { const out: string[] = []; if (r.gated === true) throw new Error("gated"); for await (const d of r.stream) out.push(d); return out; };
+
+  it("WITHOUT the option: the stream gets the exact prompt and yields exactly what the model yields", async () => {
+    mockStream.mockReset(); mockStream.mockImplementation(streamOf(["Hel", "lo"]));
+    const c = fakeClient(tr); setSarvamClientForTests(c);
+    const out = await drain(await callClaudeForTenantStream("t1", "starter", {}, "Q: mujhe invoice banao"));
+    expect(mockStream.mock.calls[0][1]).toBe("Q: mujhe invoice banao");
+    expect(out).toEqual(["Hel", "lo"]);
+    expect(c.translateSpy).not.toHaveBeenCalled();
+  });
+  it("WITH the option and Roman Hindi: translated BEFORE the stream starts; interpretation streamed first; usage recorded", async () => {
+    mockStream.mockReset(); mockStream.mockImplementation(streamOf(["Sure."]));
+    setSarvamClientForTests(fakeClient(tr));
+    const out = await drain(await callClaudeForTenantStream("t1", "starter", {}, "Q: mujhe invoice banao\nA:", { language: { rawText: "mujhe invoice banao", replyInUserLanguage: false } }));
+    expect(mockStream.mock.calls[0][1]).toBe("Q: I want to create an invoice\nA:");
+    expect(out[0]).toContain("I understood this as");
+    expect(out.slice(1)).toEqual(["Sure."]);
+    expect(recordSarvamUsage).toHaveBeenCalled();
+  });
+  it("English text with the option: no extra chunk, no provider call", async () => {
+    mockStream.mockReset(); mockStream.mockImplementation(streamOf(["ok"]));
+    const c = fakeClient(tr); setSarvamClientForTests(c);
+    const out = await drain(await callClaudeForTenantStream("t1", "starter", {}, "Q: show balance", { language: { rawText: "show balance" } }));
+    expect(out).toEqual(["ok"]);
+    expect(c.translateSpy).not.toHaveBeenCalled();
+  });
+  it("Sarvam down: the original text is streamed to the model; the user still gets an answer", async () => {
+    mockStream.mockReset(); mockStream.mockImplementation(streamOf(["fine"]));
+    setSarvamClientForTests(fakeClient(() => ({ fail: "timeout" })));
+    const out = await drain(await callClaudeForTenantStream("t1", "starter", {}, "Q: mujhe invoice banao", { language: { rawText: "mujhe invoice banao" } }));
+    expect(mockStream.mock.calls[0][1]).toBe("Q: mujhe invoice banao");
+    expect(out).toEqual(["fine"]);
+  });
+  it("gated tenant: no Sarvam call before the gate", async () => {
+    const c = fakeClient(tr); setSarvamClientForTests(c);
+    const r = await callClaudeForTenantStream("t1", "starter", { disabled: true }, "Q", { language: { rawText: "mujhe invoice banao" } });
+    expect((r as any).gated).toBe(true);
     expect(c.translateSpy).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,6 @@
+import { getProviderBreakdown } from "@/lib/platform/ai/providerBreakdown";
+import { getCombinedMonthCost } from "@/lib/platform/ai/spend";
+import { getMultilingualStatus } from "@/lib/platform/ai/multilingual";
 import Organization from "@/models/admin/Organization";
 import User from "@/models/auth/User";
 import ActivityLog from "@/models/admin/ActivityLog";
@@ -280,6 +283,9 @@ export async function getOrganizationAiUsage(actor: AdminActor, reason: string, 
         byFeature = new Map(rows.map((r) => [r.feature, r]));
       }
 
+      const periodStart = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(4, 6)) - 1, 1));
+      const providerSplit = await getProviderBreakdown(periodStart, subdomain);
+      const costInfo = await getCombinedMonthCost(subdomain);
       const used = Array.from(byFeature.values()).reduce((sum, r) => sum + r.requestCount, 0);
       const allocation = entitlements.limits.aiRequestsPerMonth;
 
@@ -305,6 +311,10 @@ export async function getOrganizationAiUsage(actor: AdminActor, reason: string, 
         remaining: Math.max(0, allocation - used),
         usagePercent: allocation > 0 ? Math.round((used / allocation) * 100) : 0,
         featureBreakdown,
+        // Additive: provider split + combined spend vs the tenant's configured cost cap.
+        byProvider: providerSplit.rows,
+        combinedCostUsd: providerSplit.combinedCostUsd,
+        costCapUsd: costInfo.cap,
         dataSource: rollupStale ? ("live" as const) : ("rollup" as const),
       };
     },
@@ -387,6 +397,8 @@ export async function getOrganizationConfiguration(actor: AdminActor, reason: st
         taxJurisdiction: org.settings?.taxJurisdiction ?? null,
         organizationType: org.organizationType ?? null,
         organizationTypeDefaults: typeDoc?.defaultConfig ?? null,
+        // Additive (Sarvam): whether multilingual is on for this tenant, and which languages were really used.
+        multilingual: await getMultilingualStatus(subdomain),
       };
     },
   });

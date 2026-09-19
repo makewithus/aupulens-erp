@@ -119,6 +119,8 @@ export default function OrganizationDetailPage() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configForm, setConfigForm] = useState({ country: "", currency: "", timezone: "", taxJurisdiction: "" });
   const [configReason, setConfigReason] = useState("");
+  const [mlDialogOpen, setMlDialogOpen] = useState(false);
+  const [mlReason, setMlReason] = useState("");
   const [configCountryChanged, setConfigCountryChanged] = useState(false);
   const [activityFilters, setActivityFilters] = useState({ userId: "", dateFrom: "", dateTo: "", ip: "", device: "" });
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
@@ -390,6 +392,31 @@ export default function OrganizationDetailPage() {
       delete tabData.configuration;
       await loadTab("configuration");
       await loadTab("overview");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggleMultilingual() {
+    const ml = (tabData.configuration as any)?.multilingual;
+    if (!ml) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/platform/organizations/${subdomain}/multilingual`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !ml.tenantEnabled, reason: mlReason }),
+      });
+      const body = await res.json();
+      if (!body.success) {
+        toast.error(body.message ?? "Failed to update multilingual setting.");
+        return;
+      }
+      toast.success(ml.tenantEnabled ? "Multilingual support disabled for this organisation." : "Multilingual support enabled for this organisation.");
+      setMlDialogOpen(false);
+      setMlReason("");
+      delete tabData.configuration;
+      await loadTab("configuration");
     } finally {
       setSubmitting(false);
     }
@@ -680,6 +707,44 @@ export default function OrganizationDetailPage() {
                   <Field label="Tax jurisdiction" value={(tabData.configuration as any).taxJurisdiction ?? "—"} />
                 </CardContent>
               </Card>
+              {(tabData.configuration as any).multilingual && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-base">Multilingual support (Sarvam)</CardTitle>
+                    <Button size="sm" variant="outline" onClick={() => { setMlReason(""); setMlDialogOpen(true); }}>
+                      {(tabData.configuration as any).multilingual.tenantEnabled ? "Disable for this organisation" : "Enable for this organisation"}
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Effective status" value={(tabData.configuration as any).multilingual.active ? "Active" : "Inactive"} />
+                      <Field label="This organisation" value={(tabData.configuration as any).multilingual.tenantEnabled ? "Enabled" : "Disabled"} />
+                      <Field label="Platform switch (SARVAM_ENABLED)" value={(tabData.configuration as any).multilingual.globalEnabled ? "On" : "Off"} />
+                      <Field label="Sarvam API key" value={(tabData.configuration as any).multilingual.keyConfigured ? "Configured" : "Not configured — English only"} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium mb-2">Languages actually used</p>
+                      {(tabData.configuration as any).multilingual.languagesUsed.length === 0 ? (
+                        <p className="text-sm text-neutral-500">No regional-language requests yet.</p>
+                      ) : (
+                        <SimpleTable
+                          rows={(tabData.configuration as any).multilingual.languagesUsed.map((l: any) => ({
+                            language: l.language,
+                            requests: l.interactions,
+                            degraded: l.degraded,
+                            lastUsed: formatInOrgTimezone(l.lastUsedAt, (tabData.configuration as any).timezone),
+                          }))}
+                          columns={["language", "requests", "degraded", "lastUsed"]}
+                          loading={false}
+                        />
+                      )}
+                      <p className="text-xs text-neutral-400 mt-2">
+                        &quot;Degraded&quot; = the original text was passed to the AI untranslated (translation unavailable, disabled or over the spend cap).
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               {(tabData.configuration as any).organizationTypeDefaults && (
                 <Card>
                   <CardHeader>
@@ -852,6 +917,33 @@ export default function OrganizationDetailPage() {
                   </CardContent>
                 )}
               </Card>
+              {Array.isArray((tabData["ai-usage"] as any).byProvider) && (
+                <div>
+                  <p className="text-sm font-medium mb-2">By provider (this month)</p>
+                  {(tabData["ai-usage"] as any).byProvider.every((r: any) => r.requestCount === 0) ? (
+                    <p className="text-sm text-neutral-500 py-2">No AI usage recorded yet this month.</p>
+                  ) : (
+                    <SimpleTable
+                      rows={(tabData["ai-usage"] as any).byProvider.map((r: any) => ({
+                        provider: r.label,
+                        requests: r.requestCount,
+                        tokens: r.inputTokens + r.outputTokens,
+                        characters: r.characters,
+                        failed: r.failedRequests,
+                        cost: `₹${Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN")}`,
+                      }))}
+                      columns={["provider", "requests", "tokens", "characters", "failed", "cost"]}
+                      loading={false}
+                    />
+                  )}
+                  <p className="text-xs text-neutral-500 mt-2">
+                    Combined spend: ₹{Number(((tabData["ai-usage"] as any).combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN")}
+                    {(tabData["ai-usage"] as any).costCapUsd != null
+                      ? ` of the ₹${Number((tabData["ai-usage"] as any).costCapUsd).toLocaleString("en-IN")} monthly cost cap — regional-language translation pauses once the cap is reached.`
+                      : " — no monthly cost cap is configured for this organisation."}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-sm font-medium mb-2">Feature breakdown (this month)</p>
                 <p className="text-xs text-neutral-400 italic mb-2">
@@ -1299,6 +1391,33 @@ export default function OrganizationDetailPage() {
             </Button>
             <Button disabled={!configReason.trim() || submitting} onClick={handleSaveConfiguration}>
               {submitting ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={mlDialogOpen} onOpenChange={setMlDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {(tabData.configuration as any)?.multilingual?.tenantEnabled ? "Disable" : "Enable"} multilingual support
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              {(tabData.configuration as any)?.multilingual?.tenantEnabled
+                ? "Users will still get answers; regional-language text is passed to the AI untranslated."
+                : "Regional-language input will be translated to English for the AI (subject to the platform switch, API key and spend cap)."}
+            </p>
+            <div className="space-y-1">
+              <Label>Reason (required, audited)</Label>
+              <Textarea value={mlReason} onChange={(e) => setMlReason(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMlDialogOpen(false)}>Cancel</Button>
+            <Button disabled={!mlReason.trim() || submitting} onClick={handleToggleMultilingual}>
+              {submitting ? "Saving…" : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

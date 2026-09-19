@@ -22,3 +22,26 @@
 
 ## Still to measure (needs the live key)
 Regional uncached end-to-end (target < 1.5 s), `direct` vs `transliterate_first`, and reply-translation latency.
+
+---
+# Phase 2 additions (2026-09-19)
+
+## Guided task-flow turn latency — `tests/ai/taskFlow/perf.test.ts` (engine + session logic + language layer; provider mocked at 0 ms; in-memory session/customer lookups)
+| Turn | Budget | Measured |
+|---|---|---|
+| English clarifying-question turn (5-turn conversation, per conversation) | < 1 s / turn | p50 0.58 ms · p95 **1.12 ms** for the *whole* 5-turn conversation |
+| Regional (Roman Hindi) 2-turn exchange, reply translation uncached | < 1 s / turn | p95 **0.74 ms** (our overhead) + Sarvam round trip(s) per turn |
+| Regional turn, repeated question template | < 200 ms | **0 provider calls** — input cache (per tenant) + reply cache (masked template, cross-tenant-safe) |
+
+Real-world turn time = our overhead + (English: one internal `GET /api/sales/customers` round trip only on the first turn and on
+customer answers) + (regional: 1 Sarvam translate for the input, 0–1 for the reply; the reply call is skipped when the question
+template was translated before). Live numbers need the key — `LIVE_VERIFICATION.md` §4.
+
+## English path — unchanged and re-measured after Phase 2
+`tests/ai/language/perf.test.ts` still passes its budgets (English p95 ≈ 0.04 ms). Additional English-path guarantees added in Phase 2:
+* The browser never calls `/api/ai/task-flow` for an English message unless it is about an invoice **and** reads as a create/explain
+  request (`shouldConsultTaskFlow`) — "show unpaid invoices", "what's my balance", etc. cost zero extra round trips.
+* The cost-cap check (`allowProvider`) is asked lazily, only when a provider call is about to happen — never for English or a cache hit,
+  so the English path still touches no DB.
+* English invoice-create requests no longer wait for a `/api/ai/prefill` LLM extraction: the guided flow is deterministic (no Azure call),
+  so the first response is *faster* than before (one internal customers lookup instead of a ~2 s model call).

@@ -29,7 +29,7 @@ set change go back skip done finish confirm yes no correct wrong right left
 /** Distinctive Roman-script words per language. Longest-first matching is not needed — token lookup. */
 export const ROMAN_INDIC_WORDS: Record<string, Set<string>> = {
   [LANGUAGE_CODE.HINDI]: words(`
-mujhe mujhko mera meri mere hamara hamari hum aap aapka aapki tum tumhara tera teri hai hain tha thi hoga hogi hoon nahi nahin
+haan ji mujhe mujhko mera meri mere hamara hamari hum aap aapka aapki tum tumhara tera teri hai hain tha thi hoga hogi hoon nahi nahin
 kya kyun kyon kaise kaisa kab kahan kaun kitna kitni kitne kis
 banao banana banani banaye banaiye bana banado karo karna karni kariye kar kardo kijiye
 dikhao dikhana dikha bhejo bhejna bhej bhijwao dena dedo do_ lena lelo chahiye chahie chahta chahti
@@ -40,7 +40,7 @@ bakaya baki baaki bhugtan grahak khata hisab hisaab bikri kharid kharcha
 dhanyavaad shukriya kripya zara zaroor bilkul theek thik accha acha
   `),
   [LANGUAGE_CODE.TAMIL]: words(`
-venum vendum pannu pannunga pannanum panni seiyavum seyyavum enna eppadi yenna irukku irukkum illai illa
+podunga podungal poduga seiyunga venum vendum pannu pannunga pannanum panni seiyavum seyyavum enna eppadi yenna irukku irukkum illai illa
 naan nan enakku unakku ungalukku avanga ivanga romba sollunga sollu kaattu kaatunga kodunga kudunga
 vaanga vangi vittru nalla seri sari innaikku naalai neethu
   `),

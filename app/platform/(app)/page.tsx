@@ -45,6 +45,9 @@ interface AiUsageSummary {
   averageRequestCostUsd: number;
   topOrganisations: { tenantId: string; name: string; requestCount: number; estimatedCostUsd: number }[];
   topModels: { modelName: string; requestCount: number }[];
+  /** Additive: per-provider split (Azure OpenAI vs Sarvam). Absent on an older API response. */
+  byProvider?: { provider: string; label: string; requestCount: number; characters: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; failedRequests: number }[];
+  combinedCostUsd?: number;
 }
 
 interface DashboardKpis {
@@ -249,6 +252,57 @@ export default function PlatformDashboardPage() {
         />
         <StatCard title="Total AI tokens this month" value={summary?.aiUsage.totalTokens?.toLocaleString()} />
       </div>
+
+      {summary?.aiUsage.byProvider && (
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-muted/50 border-b border-border">
+            <CardTitle className="text-base font-semibold">AI usage by provider (this month)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {summary.aiUsage.byProvider.every((r) => r.requestCount === 0) ? (
+              <p className="text-sm text-muted-foreground p-4">No AI usage recorded yet this month.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 px-4 font-medium">Provider</th>
+                      <th className="py-2 px-4 font-medium text-right">Requests</th>
+                      <th className="py-2 px-4 font-medium text-right">Tokens</th>
+                      <th className="py-2 px-4 font-medium text-right">Characters</th>
+                      <th className="py-2 px-4 font-medium text-right">Failed</th>
+                      <th className="py-2 px-4 font-medium text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.aiUsage.byProvider.map((r) => (
+                      <tr key={r.provider} className="border-b last:border-0">
+                        <td className="py-2 px-4">{r.label}</td>
+                        <td className="py-2 px-4 text-right">{r.requestCount.toLocaleString()}</td>
+                        <td className="py-2 px-4 text-right">{(r.inputTokens + r.outputTokens).toLocaleString()}</td>
+                        <td className="py-2 px-4 text-right">{r.characters.toLocaleString()}</td>
+                        <td className="py-2 px-4 text-right">{r.failedRequests.toLocaleString()}</td>
+                        <td className="py-2 px-4 text-right">₹{Number(r.estimatedCostUsd.toFixed(4)).toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-muted/30 font-medium">
+                      <td className="py-2 px-4">Combined</td>
+                      <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.requestCount, 0).toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0).toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.characters, 0).toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right">{summary.aiUsage.byProvider.reduce((s, r) => s + r.failedRequests, 0).toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right">₹{Number((summary.aiUsage.combinedCostUsd ?? 0).toFixed(4)).toLocaleString("en-IN")}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-muted-foreground px-4 py-2">
+                  A regional-language request records one Azure OpenAI row plus its Sarvam translation row(s). A tenant&apos;s spend cap applies to the combined cost.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <CardHeader className="bg-muted/50 border-b border-border">

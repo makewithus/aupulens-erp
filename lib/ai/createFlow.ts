@@ -1,5 +1,6 @@
 import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
+import { runTaskFlow } from "@/lib/ai/taskFlowClient";
 
 export interface CreateFlowAttachment {
   name: string;
@@ -47,7 +48,12 @@ export async function tryAiCreateFlow(input: {
   attachments?: CreateFlowAttachment[];
   history?: { role: string; content: string }[];
 }): Promise<CreateFlowOutcome> {
-  const q = input.text.trim();
+  // Guided flow first (sales invoice: explain / do / ask, one question at a time). It also
+  // returns the pipeline's ENGLISH for the message, so every classifier below keys off
+  // normalised English — a Tamil "invoice podunga" hits the same trigger an English user hits.
+  const tf = await runTaskFlow(input.text, { hasAttachments: !!input.attachments?.length });
+  if (tf.outcome) return tf.outcome;
+  const q = (tf.english && tf.english.trim() ? tf.english : input.text).trim();
   if (!q || !CREATE_VERB_RX.test(q)) return { handled: false };
   const targetDef = findCreateTarget(q);
   if (!targetDef) return { handled: false };
