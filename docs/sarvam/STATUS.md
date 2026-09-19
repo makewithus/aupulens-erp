@@ -1,33 +1,76 @@
-# STATUS — final table (branch `sarvam`, 2026-09-19)
+# STATUS — final (branch `sarvam`, Phase 3 sign-off)
 
-"Verified" means: automated test(s) named here pass under the stable baseline command (`npx vitest run --maxWorkers=3`, see `BASELINE.md`),
-with Sarvam **mocked** (no key in this environment). Anything only a real key can prove is stated as the *user's live step* and points at
-`LIVE_VERIFICATION.md` — that is a declared boundary, not an open item.
+**Verified how:** **browser** = driven in real Chrome against a seeded demo workspace (34 steps, `QA_GUIDE.md` self-run log) ·
+**test** = automated tests, Sarvam mocked · **live key** = only provable with a real Sarvam key (the user's step,
+`LIVE_VERIFICATION.md`). Nothing below is "pending": the live-key items are declared boundaries with a reason (no key exists in this environment).
 
-| Feature | Implemented | Verified working | Notes |
+## ⚠ ESCALATION 1 — the Azure cost cap does not cap Azure spend
+`AiLimit.maxCostUsdPerMonth` ("Max cost/mo" on the organisation's AI limits, Global Admin) **implies** a spending limit. For Azure OpenAI — the
+larger provider — it **does nothing**: `tenantAi.ts` enforces only the call-count cap and the platform ceiling. Only Sarvam translation honours the cost
+cap (combined Azure+Sarvam spend, `lib/platform/ai/spend.ts`). **Fix shape:** extend that same `costCapReached` gate into `callClaudeForTenant` /
+`…Stream` and return a gated result. Deliberately not changed here (it alters behaviour for every tenant with a cap set). Full paragraph:
+`docs/admin/OPEN_QUESTIONS.md`. Do this before the cost cap is advertised to customers.
+
+## ⚠ ESCALATION 2 — pre-existing 500 on a customerless draft invoice
+`POST /api/sales/invoices` with `status: "draft"` and no customer skips the route's checks, then the model rejects it → **HTTP 500 with a raw Mongoose
+message** (not a 400). Nothing invalid is stored. **Unreachable from the assistant** — proved: registry-driven `validatePayload` runs before any POST, and a
+1,500-conversation randomised test (execute flag ON) asserts every POST that ever happens is complete (`tests/ai/taskFlow/guards.test.ts`).
+
+## Feature table
+| Feature | Implemented | Verified how | Notes |
 |---|---|---|---|
-| **Value-based number check** (0.1) | Yes — `numberValues`/`canonicalNumber` in `translate.ts` | Yes — `numberValues.test.ts`: `45,000`≡`45000`; `45000`→`4500`/`450000`/`45`/`4500.0`/`45.000` fail; Devanagari/Tamil/Bengali numerals ≡ Latin; dropped number fails; repeats counted; pipeline accepts `45,000`/`४५०००`, degrades on `4500`/`450000`/dropped | Recorded as a deliberate deviation in `DISCOVERY.md` |
-| **Deterministic-only normalisation** (0.2) | Yes — scoped decision | Yes — English p95 0.04 ms (`perf.test.ts`) | LLM pass "available if live testing shows rules are insufficient" (`DISCOVERY.md`) |
-| **Placeholder-corruption safety net** (0.3) | Yes — exactly-once check + residue check, input and reply, reply cache never stores a bad result | Yes — `placeholderSafety.test.ts`: 8 mangling patterns × (input, reply) all degrade with original text, `lowConfidence`, no `ZXQ` reaching the model | Whether the real API preserves `ZXQnZXQ` is the user's first live step (`LIVE_VERIFICATION.md` §1); if not, degradation is graceful and the fix is one constant |
-| **Streaming** (0.4) | Yes — `callClaudeForTenantStream({language})`, wired on admin (×2) and sales assistant streams | Yes — `tenantAiIntegration.test.ts` (5 stream tests) | Input is translated before the stream; interpretation line streamed first; **reply streams in English** (declared; non-streaming routes translate replies) |
-| Language pipeline (detect/protect/normalise/translate/respond) | Yes | Yes — 134+ tests in `tests/ai/language` | Fails open on every provider failure; English short-circuits with no config/DB/provider |
-| Sarvam client | Yes — typed, timeout, 1 retry (transient only), never throws, key never in errors; ASR/TTS interfaces | Yes — `client.test.ts` (10) | Speech = interface only (`VOICE_READINESS.md`) |
-| Config & switches | Yes — `SARVAM_*` env, `.env.example`, `settings.ai.multilingualDisabled`, global kill, works with no key | Yes — pipeline + integration + metering tests | `sarvam_setup.md` |
-| Feature 3: classifier keys off normalised English | Yes — `handler.ts`, `tryAiCreateFlow` uses `english` from the server | Yes — `regional.test.ts` (Tamil script, Roman Tamil, Roman Hindi → same flow); `client.test.ts` (regional non-invoice create reaches `/api/ai/prefill` in English) | |
-| Explain / do / ask / ask-which | Yes | Yes — `flow.test.ts`, `datesAndIntent.test.ts` (21 classifier cases) | |
-| Slot filling (one question, progress, real choices, multi-answer, back/skip/change/cancel, references, own language) | Yes — sales invoice | Yes — `flow.test.ts`, `regional.test.ts` | "same customer as last time" resolves via the real invoices route |
-| **Registry + drift test (fails CI)** | Yes — `registry.ts`, generic `TaskTarget` | Yes — `registryDrift.test.ts` (13): route source, model schema introspection, middleware roles, and the real route (accepts registry payload; rejects each missing field). **Mutation-proven**: adding a required model field and a route check made it fail with `REGISTRY DRIFT`, then reverted | Only sales invoice wired; customer/bill/expense = registry entries (declared, not built: each needs its own drift rows) |
-| Summary → confirm → open pre-filled form (default, ON) | Yes | Yes — `flow.test.ts` (§1.5) | `tryAiCreateFlow` contract unchanged |
-| Execute path (`autoCreateEnabled`, OFF) | Yes — real route, caller's cookie, always DRAFT, redirect to record | Yes — both states: off = byte-identical to absent (JSON-equal) and never POSTs; on = POST once with `status:"draft"`; 400/403 handled with answers kept | Ships inert; enabling is a data change per tenant |
-| Resume / expire (existing TTL pattern) | Yes — `AiCommandProposal`, 30 min | Yes — resume, replace, expiry message | |
-| Roles / permissions | Yes — role gate mirrors middleware (drift-tested), real-route 403 also refuses | Yes | The flow's data access goes through the real routes with the caller's cookie |
-| Metering: provider dimension, cost server-side | Yes — `AiUsageRecord.provider/callType/characters`, `AiCostRate.costPerThousandCharacters`, `recordSarvamUsage` | Yes — `sarvamMetering.test.ts`: seeded rate → real cost; no rate ⇒ 0; failed call ⇒ 0; blank price is not 0 | |
-| Dashboards split by provider; combined spend | Yes — platform dashboard card; org AI-usage table + spend vs cap | Yes — breakdown/combined aggregates tested (populated + empty); UI compiled + linted | UI verified by type-check, lint and the tested API payloads; pixel-level visual check is in `QA_GUIDE.md` §E (no browser session in this environment) |
-| Tenant limit applies to combined spend | Yes — Sarvam gated by combined cost cap and count cap; regional turns charge the AI counter | Yes — Azure+Sarvam cross the cap together; other tenants excluded; provider not called at cap; English never asks | Azure cost-cap enforcement was never present and is unchanged (declared in `DISCOVERY.md`) |
-| Configuration tab (status, languages used, switch) | Yes — `getMultilingualStatus`, audited `setTenantMultilingual`, `PATCH …/multilingual` | Yes — enabled/disabled layers, key never returned, languages counted per tenant, reason + capability required, 404 for unknown org | |
-| Edge-case matrix + adversarial pass | Yes | Yes — `adversarial.test.ts` (30): near-miss name, translator swapping a customer, duplicate names, misspelling-as-name, `45.000`, `4,5000`, `200 x 5`, `-500`, 1.5 crore, wrong year/day-month/`30/9`, quoted typo, invoice-number lookalike | Zero-customers, abandon/return, Sarvam-failing-between-questions, language switch, code-mixed mid-slot all covered in `flow.test.ts`/`regional.test.ts` |
-| Performance | Yes | Yes — `PERFORMANCE.md`: English +0.04 ms; guided turn overhead ≈1 ms | Regional end-to-end latency needs the live key (declared) |
-| Stable baseline | Yes — `BASELINE.md`; `vitest.config.ts` hook/test timeouts raised (10 s→45 s, 5 s→20 s) because load-induced timeouts made "no regression" unprovable | Yes — same command on the branch point: 201 files / 1957 tests / 0 failed (×2); on `sarvam` @ `2a682a2` in a fresh worktree: **217 files / 2261 tests / 0 failed / 0 pending, ×3, identical at test level** | Before the timeout change both trees flaked with timeout-only failures (branch point 1 of 7 runs, `sarvam` 7 of 12); all 10 distinct flaking files pass alone |
-| Fresh-worktree verification | Yes | Yes — `tsc --noEmit` exit 0; `eslint` clean on every touched path; `next build` exit 0 (fresh `git worktree`, `/api/ai/task-flow` and the multilingual route compiled); clean tree | |
-| Docs | `BASELINE`, `LIVE_VERIFICATION`, `PERFORMANCE`, `VOICE_READINESS`, `QA_GUIDE`, `DISCOVERY`, `STATUS`, `sarvam_setup.md` | — | Native-speaker flags on every supplied phrase; Hindi + Tamil first |
-| Voice | Designed, not built (as briefed) | n/a | `VOICE_READINESS.md`: ≈ 4–5 days to a usable v1 |
+| Language pipeline (detect / protect / normalise / translate / respond), English short-circuit | Yes | test (134+) · browser (English path makes **zero** guided-flow requests: C10) | English p95 ≈ 0.04 ms |
+| Value-based number check; placeholder-corruption safety net | Yes | test | 4 required cases + 8 mangling patterns |
+| Sarvam client (timeout, 1 retry, never throws; speech = interface only) | Yes | test | real endpoint shapes read from docs; **live key** confirms |
+| Provider down / wrong key / tenant switch off → fails open | Yes | **browser** (R4 with the mock stopped: still answers, degraded record written, nothing created) · test | |
+| Streaming (input side; reply streams in English) | Yes | test · browser (sidebar is the streaming surface) | declared limit: streamed replies stay English |
+| Guided create — explain / do / ask / ask-which | Yes | browser (C1–C4, C11) · test | |
+| Skip-ahead (all mandatory supplied ⇒ summary only) | Yes | browser (C1) · test | optional due date shown in summary, changeable |
+| **Escape hatch** "Skip the questions and open the form" at every question | Yes | browser (C3) · test (5 phrasings × every stage) | opens a partial form = old behaviour; never creates, even with auto-create ON |
+| **Item name**: never defaulted; tenant's recent items offered | Yes | browser (C2: choices come from the seeded history) · test | |
+| Unusual English phrasings + **LLM fallback** when rules are unsure | Yes | test (60+ phrasings; LLM mocked) | "raise a bill for Acme" → LLM; vendor/lookup/other messages never reach it; failure ⇒ legacy path. Real-LLM behaviour = **live key** for Azure prompt wording |
+| Slot filling: choices, multi-answer, back, skip, change, cancel, progress, resume/expire | Yes | browser (C2, C4, C5) · test | drafts 30 min |
+| Answers in the user's language; reply in that language; "I understood this as…" + correction (`no, I meant …`) | Yes | browser (R1–R3, C7) with the mock · test | real translation quality = **live key** |
+| Registry + **drift test that fails CI** | Yes | test (mutation-proven) | only the sales invoice is wired |
+| Default path (ON): summary → confirm → pre-filled form | Yes | browser (C1–C3, R1; asserts the form's own customer/item/price/due date) | |
+| Execute path (OFF by default) | Yes | browser (E1 creates a **Draft** through the real route, lands on it, exactly one record; E2 flag off ⇒ none) · test both states | |
+| Permissions: refusal, never blank | Yes | browser (X1 HR refusal, X2 /sales gate, X4 401, O9 read-only admin) | |
+| Empty states | Yes | browser (X3 no customers → New Customer form; P3/O3/O6 no AI usage / no languages) | |
+| Loading / error states | Yes | browser (P2, P4, O7, O8, C8, C9) | |
+| Metering: provider dimension, server-side cost; seeded rate reaches real figures | Yes | test · **browser** (O1: on-screen Sarvam ₹ = Σ characters × the seeded rate, computed from the DB) | seed script refuses a blank price |
+| Dashboard + org AI Usage split by provider; combined spend vs cap | Yes | **browser** (P1, O1, O2) | |
+| Cost cap gates Sarvam on combined spend; regional turns charge the AI counter | Yes | test | Azure not gated — Escalation 1 |
+| Configuration tab: status, languages used, audited per-tenant switch | Yes | **browser** (O4–O8; toggling wrote an audit record and really turned translation off for that tenant) | |
+| Stable baseline | Yes | test — see `BASELINE.md` | shared-config edit, below |
+| Docs & QA | Yes | — | `QA_GUIDE`, `LIVE_VERIFICATION`, `PERFORMANCE`, `VOICE_READINESS`, `BASELINE`, `DISCOVERY`, `sarvam_setup.md`, `qa-browser/README` |
+| Voice | Designed, not built (as briefed) | n/a | `VOICE_READINESS.md` |
+| Sarvam real-API behaviour, placeholder format, phrase quality, uncached regional latency | Mocked here | **live key** | first step of `LIVE_VERIFICATION.md` |
+
+## Known limits (plain English)
+* Streamed replies stay in English (your message is understood; non-streaming assistants answer in your language).
+* Only the **sales invoice** has the guided flow. Customer, bill, expense and ~50 other create actions are unchanged (regional input reaches them).
+* Sarvam behaviour is **mock-verified** until the live check; the `ZXQnZXQ` placeholder format is **unconfirmed** (wrong ⇒ degrades, never misleads).
+* Every non-English phrase needs native-speaker review (Hindi, Tamil first).
+* The Azure cost cap is not enforced (Escalation 1). The customerless-draft 500 is pre-existing (Escalation 2).
+* Browser QA ran in **dev mode** (first loads are slow) with a mock Sarvam; production build and real provider are separate confirmations.
+
+## Merge notes
+* **Branch:** `sarvam`, local only — **not pushed, not merged**. Cut from `e3eff17`. `@@COMMITS@@`
+* **One shared-config edit:** `vitest.config.ts` — `hookTimeout` 10 s→30 s, `testTimeout` 5 s→15 s (affects **every** suite in the repo). Why: Mongo-backed suites' heavy `beforeAll`
+  sits at the old limits under load; the timeout-only flakiness **reproduced on the untouched branch point** (1 of 7 runs there), so it pre-dates this branch. Revertible
+  in one line if CI on a quieter machine behaves differently. Evidence and the 30/15-vs-45/20 decision: `BASELINE.md`.
+* **Before it works (env):** `SARVAM_API_KEY` (from the Sarvam dashboard), `SARVAM_API_BASE_URL=https://api.sarvam.ai`, `SARVAM_ENABLED=true`, `SARVAM_TIMEOUT_MS=2000`;
+  **`SARVAM_COST_PER_1K_CHARS_USD` set to the real price — NOT blank** (a blank used to seed a ₹0 rate; the script now refuses). No key ⇒ the product runs English-only, no errors.
+* **Run once:** `SARVAM_COST_PER_1K_CHARS_USD=<price> npx tsx scripts/seed-platform-sarvam-cost-rates.ts`.
+* **Additive schema:** `AiUsageRecord.provider/callType/characters`, `AiCostRate.provider/costPerThousandCharacters`, `Organization.settings.ai.multilingualDisabled/autoCreateEnabled`, new `AiLanguageInteraction` (90-day TTL). No migration needed; historical rows default to Azure.
+* **Order vs other branches (measured with `git merge-tree` dry-runs, nothing merged):**
+  * `sarvam` + `global/admin` → **merges cleanly** (they overlap on the platform dashboard, org detail page and `lib/platform/organizations/detail.ts`, but git resolves it).
+  * `sarvam` + `ai/workflows` → **conflicts, none in files this branch touched**: `app/api/cron/ai/runtime-sweep/route.ts`, `lib/aiRuntime/workflows/ai-29-control-monitoring/index.ts`,
+    `tests/ai/aiRuntime/ai07AccrualIntelligence.test.ts`, `tests/ai/aiRuntime/ai21StatementIntelligenceEdgeCases.test.ts` — they come from `ai/workflows` and `sarvam` having
+    different histories (merge-bases `dc3e1f7` / `e3dcb33`), so whoever lands second resolves them. `ai/workflows` also auto-merges cleanly with the files we both edit
+    (`tenantAi.ts`, `AiSidebar.tsx`, `app/api/ai/command/route.ts`, `statuses.ts`). Suggested order: **`global/admin`, then `ai/workflows`, then `sarvam`** (smallest conflict surface last); run the
+    `BASELINE.md` command after each merge.
+* **Auto-create** stays off everywhere until QA enables `settings.ai.autoCreateEnabled` per tenant (a data change).
+
+## Suite result
+Fresh `git worktree` of the final commit, `npx vitest run --maxWorkers=3` ×3: **219 files / 2348 tests / 0 failed / 0 pending, identical at test level** (30 s/15 s timeouts — `BASELINE.md`). `tsc --noEmit` exit 0 · `next build` exit 0 · `eslint` clean on every file this branch touched · clean tree. Browser QA: **34/34** steps pass (`QA_GUIDE.md`).

@@ -1,5 +1,8 @@
 # LIVE_VERIFICATION — confirming the mocks match reality
 
+> **If any step fails, the system degrades rather than misleads — nothing here can produce a wrong record, only a worse translation.**
+> Run **§1 (the placeholder-format check) first**: everything else depends on it. A failure there looks like `degraded: bad_response` on any phrase containing a name, and the fix is **one constant** (`PH_PREFIX` in `lib/ai/language/protect.ts`).
+
 CI mocks Sarvam. These steps are how we confirm the mocks (`tests/ai/language/helpers.ts`, `tests/ai/taskFlow/harness.ts`) behave like the real API.
 
 ## 0. READ FIRST — the phrases were written by an AI, not a native speaker
@@ -115,3 +118,8 @@ After a few regional requests: Platform admin → dashboard shows **AI usage by 
 
 ## 9. Report back
 For each row: pass / fail + the `model got` line. Any fail in §3 items 1–3 is a mock-vs-reality mismatch — send the output and I'll fix the layer, not the test.
+
+## 10. Also now covered (Phase 3)
+* The escape hatch, skip-ahead and item-name choices are language-independent; verify one regional flow ends on a pre-filled form (§6).
+* **Uncached regional latency** — the one number that could not be measured here: run each §2 phrase once cold and note `total` from the live-check script; budget < 1.5 s before the model call.
+* **LLM fallback prompt** (`app/api/ai/task-flow/route.ts::classify`): send `can you raise a bill for Acme` and `raise a purchase bill from Acme` — the first should start the invoice flow, the second must NOT.

@@ -46,26 +46,26 @@ machine is busy. `invoiceLineTotal.route.test.ts` is the same file `docs/ai/BASE
    in two consecutive full runs, or fails alone, is a regression.
 4. Keep the machine quiet while measuring (no other test/build processes) — every clean run above was taken that way.
 
-## The fix: one config change, then the numbers are identical
-Root cause of the residual noise: the Mongo-backed suites (notably `tests/ai/aiRuntime/*`) run a heavy `beforeAll` — connect, dozens of
-`Model.init()`, and `await import()` of large module graphs — and all of those imports funnel through Vitest's single Vite transform
-server. On a busy machine (this one runs a browser and an office suite) that hook lands right at the default **10 s** hook / **5 s**
-test limits and times out at random, in a different file each run, always passing when re-run alone.
+## ⚠ For the wider team — a shared-config change (`vitest.config.ts`)
+This branch edits **one shared file**, and it affects **every** suite in the repo: `hookTimeout` 10 s → **30 s**, `testTimeout` 5 s → **15 s**.
+* **Why:** the Mongo-backed suites (notably `tests/ai/aiRuntime/*`) run a heavy `beforeAll` — connect, dozens of `Model.init()`, and dynamic imports of large module
+  graphs through Vitest's single Vite transform server. On a busy machine that hook lands at the old limits and times out at random, in a different file each run,
+  and always passes alone.
+* **Evidence it pre-dates this branch:** on the *untouched* branch point (`e3eff17`), same command, 1 of 7 runs failed (3 timeout-only files:
+  `organizationCreate`, `invoiceLineTotal`, `ai26AccountingPolicy`). On `sarvam` (before the change) 7 of 12 runs had timeout-only failures in 10 distinct files, every one passing alone; no assertion failure other than the same documented `invoiceLineTotal` timing test.
+* **Why 30/15 and not 45/20:** I first used 45/20, then trimmed as requested. Measured hooks sat right at 10 s, so 30 s is 3× headroom while still failing fast on a real hang.
+  **30/15 was stable: three consecutive full runs on a fresh worktree, identical at test level** (below). 45/20 was not needed.
+* **Revertible in one line** (delete the two settings) if CI on a quieter machine behaves differently — the tests themselves were not changed.
 
-`vitest.config.ts` now sets `hookTimeout: 45_000` and `testTimeout: 20_000`. Only the time limit changed; a genuinely hung test still fails.
-(This is the only change to an existing test file/config in this whole project.)
-
-**Same command, both trees, with that config:**
-
+## Final numbers — same command (`npx vitest run --maxWorkers=3`)
 | Tree | Runs | Files | Tests passed | Failed | Pending |
 |---|---|---|---|---|---|
-| Branch point `e3eff17` (+ the config) | 2 | 201 | 1957 | 0 | 0 |
-| `sarvam` @ `2a682a2` (fresh `git worktree`, symlinked `node_modules`) | 3 | 217 | **2261** | **0** | **0** |
+| Branch point `e3eff17` (+ the config) | 2 (earlier: 1957-test baseline, 5 of 7 clean without the config) | 201 | 1957 | 0 | 0 |
+| **`sarvam` @ final commit, fresh `git worktree`** | **3, identical at test level** | **219** | **2348** | **0** | **0** |
 
-The three `sarvam` runs are identical at the individual-test level. `sarvam` adds 16 test files / 304 tests (all passing); the 1957
-pre-existing tests are all still passing.
+`sarvam` adds 18 test files / 391 tests; all 1957 pre-existing tests still pass. Also in that worktree: `tsc --noEmit` exit 0; `next build` exit 0 (both new routes compiled);
+`eslint` clean on everything this branch touched (it reports 2 errors + 1 warning in `tests/ai/aiRuntime/safety.test.ts` / `ai29ControlMonitoringEdgeCases.test.ts`, which this branch did not modify).
 
-**Evidence the noise was environmental, not a regression** (before the config change, same command):
-branch point 6 of 7 runs clean (1 run: 3 timeout-only files); `sarvam` 5 of 12 clean, every failure a timeout-only file in
-`tests/ai/aiRuntime/*`, `tests/platform/*` or `tests/sales/invoiceLineTotal…` — **all 10 distinct failing files pass when re-run alone**, and no assertion failure
-ever appeared on the branch point or on `sarvam` except the same documented-timing-sensitive `invoiceLineTotal` "Mark as fully paid" test.
+## The rule (unchanged, exact)
+1. Run `npx vitest run --maxWorkers=3`. 2. A failing **assertion** is always a regression. 3. A **timeout-only** failure is load noise iff the file passes alone and does not fail again on a repeat run.
+4. Keep the machine quiet while measuring.
