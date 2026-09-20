@@ -142,10 +142,10 @@ describe("tenant limit applies to COMBINED spend", () => {
     setSarvamEnv(true); clearLanguageCache();
     const c = fakeClient((r) => ({ text: r.input }));
     setSarvamClientForTests(c);
-    const t = await prepareLanguageInput({ tenantId: T, rawText: "mujhe invoice banao Acme", allowProvider: async () => false });
+    const t = await prepareLanguageInput({ tenantId: T, rawText: "mujhe kal invoice banao Acme", allowProvider: async () => false });
     expect(c.translateSpy).not.toHaveBeenCalled();
     expect(t.degradedReason).toBe("limit_reached");
-    expect(t.modelText).toBe("mujhe invoice banao Acme");
+    expect(t.modelText).toBe("mujhe kal invoice banao Acme");
     const en = await prepareLanguageInput({ tenantId: T, rawText: "create an invoice", allowProvider: async () => { throw new Error("must not be asked for English"); } });
     expect(en.degraded).toBe(false); // English never even asks (no DB query on the majority path)
     setSarvamClientForTests(null);
