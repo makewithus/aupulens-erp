@@ -5,7 +5,7 @@ browser against the **production build** with the **real Sarvam key** (2026-09-2
 on your machine, that is the finding: stop and tell me exactly what you typed and saw.
 
 You can stop after any group and still have learned something. **A–B (English)** take ~10 min and prove nothing you rely on has changed. **C–E** is the new multilingual
-behaviour. **F–G** are the admin screens and the failure case.
+behaviour. **F–G** are the admin screens and the failure case; **H** is the "asked something else mid-draft" case.
 
 ---
 ## 1. Setup (one block, copy-paste)
@@ -43,7 +43,7 @@ therefore — correctly — **not** treated as a create request); Hindi *replies
 
 ---
 ## 4. The tests
-Use the AI panel logged in as **owner@demo-acme.demo** unless a step says otherwise. Today's date in the examples is 20 Sep 2026, so "30 days" = Tue 20 Oct 2026 — your date will differ; check the *weekday and date agree with 30 days from today*.
+Use the AI panel logged in as **owner@demo-acme.demo** unless a step says otherwise. **Answers can be clicked:** every question shows its choices (customers, your past items) and *Back / Skip / Skip the questions — open the form / Cancel* as buttons inside the chat — you can still type instead. Only the newest question has buttons. The typed forms below are what a click sends. Today's date in the examples is 20 Sep 2026, so "30 days" = Tue 20 Oct 2026 — your date will differ; check the *weekday and date agree with 30 days from today*.
 
 ### Group A — English, nothing changed
 | # | Type | Should happen | Look for / what would be wrong |
@@ -89,6 +89,15 @@ Your own message always stays on screen exactly as typed. **Wrong:** "Receipt Pa
 | E3 | `Create an invoice for Kamal, 500` → `item "INV-0O42 adjustment"` | Accepted as-is (letter **O**, not zero, kept) → due-date question. At the summary the item reads **INV-0O42 adjustment** |
 | E4 | `Kamal ke liye invoice banao 500, GSTIN 27AAPFU0939F1ZV` | "I understood this as: create invoice for Kamal 500, GSTIN **27AAPFU0939F1ZV**" — the GSTIN unchanged, and **not** taken as the item (you are asked for the item) |
 `cancel` after each. **Wrong:** any of those strings altered, or a GSTIN/number appearing as an item name.
+
+### Group H — Asking for something else in the middle (reported by a user; fixed and re-run)
+| # | Do | Should happen | Wrong if |
+|---|---|---|---|
+| H1 | `Create an invoice`, then (customer question open) `Invoices less than ₹25,000.` | The assistant **answers it** — the invoice list under ₹25,000 opens ("Yes — found N invoices below ₹25,000…"). The draft is **not** touched. Then `continue` → the same *Question 1 of 4 · Customer* comes back | it offers `Create a new customer "Invoices less than"` |
+| H2 | `Create an invoice`, then `create the customer ramesh` | The **New Customer** form opens with **ramesh** already in the name field. Save or leave it, go back to the panel, type `continue` → your invoice draft resumes | a customer called "create the customer ramesh" is offered |
+| H3 | `Create an invoice`, then the Roman-Hindi request `Pachchis hazaar se Kam ke saare invoices Ki list mujhe dijiye.` (= "list all invoices below twenty-five thousand") | It is translated ("A list of all invoices for a sum less than 25000…"), answered like H1 (list under ₹25,000 opens) — **not** "I couldn't translate that", and not taken as a customer | the "couldn't translate" notice, or a customer choice list |
+| H4 | Click through with buttons only: `Create an invoice` → type `Kamal` → click an item → type `5000` → click **Skip** → click **Yes, open the invoice form** | Ends on the pre-filled New Invoice form (Kamal, that item, ₹5,000). Your clicks appear in the chat as your messages | a button that does nothing; buttons left on old messages |
+Also try: any `how many…`, `show…`, `list…`, `what is…` question mid-draft — it is answered and the draft survives; a plain answer (`Kamal`, `Repairs`, `500`) still fills the question.
 
 ### Group F — Admin surfaces (Global Admin, see Setup)
 | # | Do | Should see |

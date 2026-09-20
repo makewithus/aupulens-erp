@@ -277,7 +277,8 @@ if (on("chat")) {
     j = await say(page, "cancel");
     assert(j.kind === "cancelled", `got ${j.kind}`);
     await expectText(page, "Nothing was created");
-    const open = mongo('db.aicommandproposals.countDocuments({actionType:/^task_flow/, status:"proposed"})');
+    const uid = mongo('db.users.findOne({email:"sales@demo-acme.demo"})._id.toHexString()'); // only THIS user's drafts (other sessions may legitimately have their own)
+    const open = mongo(`db.aicommandproposals.countDocuments({actionType:/^task_flow/, status:"proposed", userId:ObjectId("${uid}")})`);
     assert(open === "0", `draft still open in DB (${open})`);
   }, page);
 

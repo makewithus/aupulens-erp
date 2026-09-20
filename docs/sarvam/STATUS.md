@@ -1,6 +1,6 @@
 # STATUS — final (branch `sarvam`, Phase 4 close-out, 2026-09-20)
 
-**Verified how:** **browser (prod)** = driven in real Chrome against the **production build** with the **real Sarvam key** and the real Azure model, seeded demo workspace (35 steps + provider-down, `QA_GUIDE.md`) ·
+**Verified how:** **browser (prod)** = driven in real Chrome against the **production build** with the **real Sarvam key** and the real Azure model, seeded demo workspace (39 steps incl. the four user-reported scenarios, plus provider-down; `QA_GUIDE.md`) ·
 **live API** = run directly against the real Sarvam / Azure APIs (`scripts/sarvam-live-*.ts`, results in `docs/sarvam/live-results/`, `LIVE_VERIFICATION.md`) · **test** = automated, Sarvam mocked in CI (416+ tests on the language/guided-flow layers).
 **No cell below is pending.** What still depends on a person is listed under *Open items* with an owner.
 
@@ -47,6 +47,8 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 | **Live Sarvam API** — reachability, all 11 languages, placeholder survival, round trips, code-mixed/WhatsApp, protected entities, failure paths | Yes | **live API** (≈ 650–700 calls; every step in `LIVE_VERIFICATION.md` as expected / observed / action) | Found and fixed: script-dependent placeholder style; local code-mixed mapping; retry + degenerate-output detection; sentence-start name protection; PAN/name boundaries; elongation; `<Noise/>` markup. Mocks corrected to match |
 | Uncached regional latency | Measured | **live API**: p50 722 ms · p95 **1,023 ms** (budget 1.5 s → met) | tails and the ≈ 1.4 s uncached guided turn are declared (`PERFORMANCE.md`) |
 | Classification prompt vs the real Azure model | Yes (prompt tightened) | **live API**: 22/22 stable ×3 (66 calls); injection attempts never create | first pass was 17/22 |
+| **Asking for something else mid-draft** (user-reported) | Yes — interruption detector; `create the customer X` command; untranslatable Roman-Hindi queries go to the assistant; Hindi words never masked as names | **browser (prod), live Sarvam + Azure**: U1 (`Invoices less than ₹25,000.` answered, draft resumes), U2 (New Customer form prefilled, draft kept), U3 (real Roman-Hindi list request translated and answered) · tests (14) | Not a name/answer: questions, imperative asks, comparisons+numbers, record-words+query-words |
+| **One-tap reply buttons in the chat** | Yes — choices + Back/Skip/Open the form/Cancel/Yes/Change as buttons under the newest question (sidebar + all 7 assistant pages) | **browser (prod)**: U4 (click-through to the pre-filled form; only the newest message has buttons); tests (presentation + every button's value understood by the flow) | Buttons are English; typing still works |
 | Guided flow + regional flow on the **production build** | Yes | **browser (prod), live Sarvam**: R1 (Roman Hindi end-to-end to a pre-filled form), R2 (Tamil), R3, R4 (key removed), SARVAM_TEST Groups A–G | 6 further parser defects found and fixed (leftover "amount" as item, greeting as customer, word order, labelled fields, stale cap, eager allowance) |
 | Phrase quality per language | Caveats recorded | **live API** round-trip caveats; **native-speaker review remains an open item** (owner: you) | `mr` `बीजक` = "seed" and colloquial Tamil `போடுங்க` = "send" recorded, not softened |
 
@@ -89,4 +91,4 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 
 ## Suite result
 Fresh `git worktree` of the final commit `b3f901c`, `npx vitest run --maxWorkers=3` ×3: **219 files / 2391 tests / 0 failed / 0 pending, identical at test level** (30 s/15 s timeouts — `BASELINE.md`). `tsc --noEmit` exit 0 · `next build` exit 0 (fresh worktree) · `eslint` clean on every file this branch touched · clean tree · the API key appears in no tracked file or commit (scanned).
-Browser QA: **35/35 steps + the provider-down step pass on the production build with the live key** (`QA_GUIDE.md`); live API steps 1–8 run and actioned (`LIVE_VERIFICATION.md`); every `SARVAM_TEST.md` step run first.
+Browser QA: **39/39 steps pass on the production build with the live key** (`QA_GUIDE.md`); live API steps 1–8 run and actioned (`LIVE_VERIFICATION.md`); every `SARVAM_TEST.md` step run first.

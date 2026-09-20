@@ -36,6 +36,12 @@ prompt) is now 22/22 stable.
 | `இன்வாய்ஸ் போடுங்க` | starts an invoice | real API: **"Send the invoice"** → correctly *not* a create | **phrase needs a native speaker; expectation not changed** (a verified Tamil phrase is used for the flow test) |
 | Org AI-Usage tab after changing the cost cap | shows the new cap | stale up to 60 s (enforcement cache reused by the admin view) | admin view reads fresh |
 | Tenant at its cost cap, `Kamal ke liye invoice banao 500 rupaye` | free local mapping still works | degraded (allowance was checked eagerly) | allowance checked lazily, only before a paid call |
+**User-reported round (after sign-off) — reproduced, fixed, re-run live:**
+| Input (mid-draft, customer question open) | Observed before | Fix |
+|---|---|---|
+| `Invoices less than ₹25,000.` | offered `Create a new customer "Invoices less than"` (any free text was accepted as a customer/item name) | an interruption detector (questions, imperative asks, comparisons + numbers, record-words + query-words): answered by the assistant, draft kept, no slot filled — also blocks `25000` from being taken as the amount |
+| `create the customer ramesh` | offered `Create a new customer "create the customer ramesh"` | recognised as a **command**: opens New Customer prefilled `ramesh`, keeps the draft |
+| `Pachchis hazaar se Kam ke saare invoices Ki list mujhe dijiye.` | "I couldn't translate that just now" — capitalised Hindi words (`Kam`, `Ki`) were **masked as names**, which broke the translation | Hindi function words are never masked as names (and the lexicon grew); an untranslatable *query* is handed to the assistant instead of rejected. **Live: now translates to "A list of all invoices for a sum less than 25000…", is answered, and the ₹25,000 list opens** |
 After the fixes: the full 35-step browser pass on the production build, live Sarvam, **35/35** (+ the provider-down step R4 with the key removed: passes).
 
 ## Per-language caveats from the round trip (Step 2)
