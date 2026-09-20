@@ -1,5 +1,5 @@
 import levenshtein from "js-levenshtein";
-import { protectEntities, unprotectEntities, mapOutsidePlaceholders } from "./protect";
+import { protectEntities, unprotectEntities, mapOutsidePlaceholders, type PlaceholderStyle } from "./protect";
 import { normaliseNumbers } from "./numbers";
 import { ENGLISH_WORDS, ROMAN_LOOKUP, DOMAIN_MISSPELLINGS, DOMAIN_VOCAB } from "./lexicon";
 import type { ProtectedEntity } from "./types";
@@ -86,9 +86,9 @@ export interface Prepared {
   cosmeticOnly: boolean;
 }
 
-export function prepareText(raw: string): Prepared {
+export function prepareText(raw: string, opts: { style?: PlaceholderStyle } = {}): Prepared {
   const cleaned = stripInvisibles(raw);
-  const { masked: m0, entities } = protectEntities(cleaned);
+  const { masked: m0, entities } = protectEntities(cleaned, { style: opts.style });
   const rewrites: string[] = [];
 
   let masked = mapOutsidePlaceholders(m0, (seg) => {

@@ -1,0 +1,351 @@
+[
+  {
+    "id": "cm-1",
+    "typed": "invoice banao for Acme Trading, amount 45000 rupees",
+    "expected": "create an invoice for Acme Trading, amount 45000 rupees",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "create invoice for Acme Trading, amount 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 2.44,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "cm-2",
+    "typed": "Acme Trading ke liye invoice banao, 45k, due agle mangalwar",
+    "expected": "create invoice for Acme Trading, 45000, due next Tuesday",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Make an invoice for Acme Trading, due next Tuesday, 45000.",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [
+      "45k → 45000"
+    ],
+    "calls": [
+      "translate/mayura:v1 53ch 958ms ok"
+    ],
+    "ms": 959.99,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "cm-3",
+    "typed": "bhai ek invoice bana do Kamal ke naam, 5000 ka, consulting",
+    "expected": "bro make an invoice in Kamal's name, of 5000, consulting",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Brother, create an invoice for 5000 in the name of Kamal, consulting",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Kamal"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 57ch 904ms ok"
+    ],
+    "ms": 906.01,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "wa-1",
+    "typed": "hi ​please​ create  invoice\n\nfor   Acme Trading 😊😊\n45,000 rs   due 30 days\n\n\nthx 🙏",
+    "expected": "create invoice for Acme Trading 45000 due 30 days",
+    "language": "en-IN",
+    "kind": "english",
+    "modelGot": "hi please create invoice\n\nfor Acme Trading\n45000 rs due 30 days\n\nthx",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [],
+    "calls": [],
+    "ms": 2.77,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "wa-2",
+    "typed": "PLEASEEEE mujhe invoice banana hai Acme Industries ke liye 1,00,000 rupaye 🙏🙏",
+    "expected": "please I want to make an invoice for Acme Industries 100000 rupees",
+    "language": "hi-IN",
+    "kind": "romanised",
+    "modelGot": "please I need to create invoice for Acme Industries 100000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Industries"
+      }
+    ],
+    "rewrites": [
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 1.57,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "wa-3",
+    "typed": "“invoice” banao  Kamal  ke liye ,,  paanch hazaar rupaye",
+    "expected": "make an invoice for Kamal, five thousand (5000) rupees",
+    "language": "hi-IN",
+    "kind": "romanised",
+    "modelGot": "“invoice” banao  Kamal  ke liye ,,  paanch hazaar rupaye",
+    "degraded": "bad_response",
+    "lowConfidence": true,
+    "protected": [
+      {
+        "type": "quoted",
+        "value": "“invoice”"
+      },
+      {
+        "type": "name",
+        "value": "Kamal"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 47ch 614ms ok",
+      "translate/mayura:v1 47ch 812ms ok"
+    ],
+    "ms": 1429.56,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "typo-1",
+    "typed": "mujhe invce banana hai custmer Acme Trading ke liye amout 45000",
+    "expected": "I want to make an invoice for customer Acme Trading amount 45000",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "I need to create invoice customer for Acme Trading amount 45000",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [
+      "invce → invoice",
+      "custmer → customer",
+      "amout → amount",
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 0.59,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "long-1",
+    "typed": "mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. mujhe Acme Trading ke liye invoice banana hai, 45000 rupaye. ",
+    "expected": "(40× the same request, 2400 chars — chunked)",
+    "language": "hi-IN",
+    "kind": "romanised",
+    "modelGot": "I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees.",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/sarvam-translate:v1 1933ch 4812ms ok",
+      "translate/sarvam-translate:v1 215ch 1426ms ok"
+    ],
+    "ms": 4816.68,
+    "hasInvoice": true,
+    "keeps45000": true
+  }
+]

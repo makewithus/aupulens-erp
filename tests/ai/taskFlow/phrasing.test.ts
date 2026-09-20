@@ -26,13 +26,13 @@ describe("deterministic classification of real-world phrasings", () => {
 
   it.each([
     ["can you raise a bill for Acme"], ["make a bill for Kamal 500"], ["need a bill for Acme"], ["bill Acme 45k pls"],
-    ["invoice for Acme Trading 45k"], ["invoice Acme 500"], ["Acme Trading invoice 45000"],
+    ["invoice for Acme Trading 45k"], ["invoice Acme 500"], ["Acme Trading invoice 45000"], ["bill Kamal 2500 for repairs"], ["Get an invoice of 100000 for Acme due next Tuesday"],
   ])("UNCERTAIN → handed to the LLM: %s", (q) => expect(cls(q)).toBe("uncertain"));
 
   it.each([
     ["show me unpaid invoices"], ["how many invoices are overdue"], ["what is the total of my invoices this month"], ["delete invoice 5"],
     ["add a note to invoice INV-5"], ["send invoice 5 to the customer"], ["invoice 5 status"], ["print the invoice"], ["email the invoice to Kamal"],
-    ["create a vendor bill for Acme"], ["raise a purchase bill"], ["how many bills are pending"], ["show my bills"], ["cancel invoice 7"], ["list invoices for Acme"],
+    ["create a vendor bill for Acme"], ["raise a purchase bill"], ["how many bills are pending"], ["show my bills"], ["bills pending 5"], ["cancel invoice 7"], ["list invoices for Acme"],
     ["create a lead"], ["what do my invoices look like"],
   ])("NOT ours (existing behaviour untouched): %s", (q) => expect(cls(q)).toBe("none"));
 });

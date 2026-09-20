@@ -1,0 +1,178 @@
+[
+  {
+    "lang": "hi-native",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Please Qavrix Holdings के लिए 45000 rupees का invoice create कीजिए, जो 30 days में due है।",
+    "back": "Create an invoice for Qavrx Holdings, a company, for a total amount of 45000 rupees, due in 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-native",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings को एक reminder भेजो: 12500 rupees का invoice Zolmen Traders का overdue है।",
+    "back": "Please send a reminder to Qavrix Holdings regarding the overdue invoice of Rs. 12500 from Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Please Qavrix Holdings ke liye 45000 rupees ka invoice create kijiye, jo 30 days mein due hai.",
+    "back": "Invoice Create For Qavrix Holdings, please create an invoice for a transaction of Rs.45000 that is due within 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings ko ek reminder bhejo: 12500 rupees ka invoice Zolmen Traders ka overdue hai.",
+    "back": "A reminder for Qavrix Holdings to send a reminder for your overdue invoice of Rs. 12500 to Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees-க்கு Qavrix Holdings-க்கு ஒரு invoice create பண்ணித் தரீங்களா? Due date 30 days-ல இருந்துடும்.",
+    "back": "Would you like me to create an invoice for Qavrix Holdings for 45000? The due date is 30 days from today.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-க்கு ஒரு reminder அனுப்புங்க: Zolmen Traders-க்கு 12500 rupees-ஓட invoice overdue ஆகிடுச்சு.",
+    "back": "A reminder for Qavrix Holdings: Invoice for Rs 1,2500 for Zolmen Traders is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "te",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "30 days-లో due ఉండే Qavrix Holdings-కి 45000 rupees invoice create చేయండి.",
+    "back": "Create an invoice for Qavrix Holdings for a total amount of 45000 rupees, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-కి ఒక reminder పంపించండి: 12500 rupees Zolmen Traders-కి invoice overdue అయిపోయింది.",
+    "back": "Sir, a reminder for Qavrix Holdings, a overdue invoice of Rs. 12500 to Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Qavrix Holdings-चा 45000 rupees-चा invoice 30 days-मध्ये due आहे, तो create करा.",
+    "back": "Create an invoice for Qavrix Holdings, a sum of Rs. 45000, due in the 30th day from today.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-ला reminder पाठवा: 12500 rupees-चा Zolmen Traders-चा invoice overdue आहे.",
+    "back": "Remember to send a reminder to Qavrix Holdings regarding the overdue invoice of Rs. 12,500 from Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Qavrix Holdings-এর জন্য 45000 rupees-এর একটা invoice create করুন, যেটা 30 days-এ due.",
+    "back": "Create an invoice for Qavrix Holdings, a sum of Rs. 45000, due in the 30th day.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-কে একটা reminder পাঠান: Zolmen Traders-দের 12500 rupees-এর invoice-টা overdue.",
+    "back": "Remember to remind Qavrix Holdings about their overdue invoice of Rs. 12500 from Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Qavrix Holdings માટે 45000 rupees-નું invoice create કરો, જે 30 days-માં due છે.",
+    "back": "Create an invoice for Qavrix Holdings, a sum of Rs. 45000, due in the 30th day.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-ને reminder send કરો: Zolmen Traders-નો 12500 rupees-નો invoice overdue છે.",
+    "back": "A reminder for Qavrix Holdings: Invoice amount of 1,2500 from Zolmen Traders is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "kn",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Qavrix Holdings-ಗೆ 45000 rupees-ನ invoice create ಮಾಡಿ, due date 30 days.",
+    "back": "Create an invoice for Qavrix Holdings for four thousand five hundred rupees, with a due date of thirty days from today.",
+    "entitiesIntact": true,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "kn",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-ಗೆ reminder ಕಳಿಸಿ: 12500 rupees-ನ Zolmen Traders-ನ invoice overdue ಆಗಿದೆ.",
+    "back": "Remember to send a reminder to Qavrix Holdings regarding the overdue invoice of Rs. 12,500 for Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees-ന്റെ ഒരു invoice, 30 days-നുള്ളിൽ due ആയിട്ടുള്ള Qavrix Holdings-ന് വേണ്ടി create ചെയ്യണേ.",
+    "back": "Create an invoice for Qavrix Holdings for a total amount of 45,000 rupees, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-ന് ഒരു reminder അയക്കണം: 12500 rupees-ന്റെ invoice Zolmen Traders-ന് overdue ആണ്.",
+    "back": "Please send a reminder to Qavrix Holdings regarding the overdue invoice of Rs. 12,500 to Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Qavrix Holdings ਲਈ 45000 rupees ਦਾ invoice 30 days ਵਿੱਚ due ਹੈ, please create ਕਰ ਦਿਓ।",
+    "back": "Create an invoice for Qavrix Holdings, a sum of Rs. 45000, due in the 30th day from today.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings ਨੂੰ ਇੱਕ reminder ਭੇਜੋ: invoice Zolmen Traders of 12500 rupees overdue ਹੈ।",
+    "back": "Please send a reminder to Qavrix Holdings regarding the overdue invoice of Rs. 1,2500, Traders of Zolmen.",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "or",
+    "en": "Please create an invoice for Qavrix Holdings for 45000 rupees, due in 30 days.",
+    "there": "Please 45000 rupees-ର Qavrix Holdings ପାଇଁ ଏକ invoice create କରନ୍ତୁ, ଯାହା 30 days-ରେ due।",
+    "back": "Create an invoice for Qavry Holdings, Inc. for USD 45000, with an due date of 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Send Qavrix Holdings a reminder: invoice Zolmen Traders of 12500 rupees is overdue.",
+    "there": "Qavrix Holdings-କୁ ଏକ reminder ପଠାନ୍ତୁ: Zolmen Traders-ଙ୍କର 12500 rupees-ର invoice overdue ଅଛି।",
+    "back": "A reminder for Qavrix Holdings: Invoice payment of Rs. 1,2500 is overdue from Zolmen Traders.",
+    "entitiesIntact": true,
+    "numbersPreserved": false
+  }
+]

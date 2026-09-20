@@ -71,3 +71,36 @@ describe("placeholder integrity", () => {
     expect(placeholdersIntact(masked + " " + entities[0].placeholder, entities)).toBe(false);
   });
 });
+
+describe("live findings: protection at the START of a message", () => {
+  it("'Recipt Traders ke liye…' — a company whose name is a known misspelling is a NAME, not a typo (live: it was 'corrected' to 'Receipt')", () => {
+    const p = prepareText("Recipt Traders ke liye invoice banao, INV-0O42 ki copy bhejo");
+    expect(p.entities.map((e) => e.value)).toEqual(expect.arrayContaining(["Recipt Traders", "INV-0O42"]));
+    expect(p.normalised).toContain("Recipt Traders");
+    expect(p.normalised).not.toContain("Receipt");
+  });
+  it("…but a lone misspelling at the start is still a typo: 'Invoce banao' → 'Invoice banao'", () => {
+    expect(prepareText("Invoce banao for Acme").normalised).toMatch(/^Invoice banao/);
+  });
+  it("'Invoce Pad 250' at the start is a product name", () => {
+    expect(prepareText("Invoce Pad 250 rupaye").normalised).toContain("Invoce Pad");
+  });
+  it("an elongated word is not a name: 'PLEASEEEE mujhe…' collapses to 'PLEASE' (live: it was masked and reached the translator)", () => {
+    const p = prepareText("PLEASEEEE mujhe invoice banana hai Acme Industries ke liye");
+    expect(p.entities.some((e) => /PLEASE/i.test(e.value))).toBe(false);
+    expect(p.normalised.toLowerCase()).toContain("please mujhe");
+    expect(p.entities.some((e) => e.value === "Acme Industries")).toBe(true);
+  });
+});
+
+describe("live findings: entity boundaries", () => {
+  it("a PAN is one entity — a name run cannot swallow part of it ('PAN AAPFU0939F' was split into 'PAN AAPFU' + 'F')", () => {
+    const p = prepareText("PAN AAPFU0939F wale customer ke liye invoice banao");
+    expect(p.entities.map((e) => e.value)).toEqual(["AAPFU0939F"]);
+    expect(p.normalised).toBe("PAN AAPFU0939F wale customer ke liye invoice banao");
+  });
+  it("GSTIN and TAN likewise", () => {
+    expect(prepareText("Acme Trading GSTIN 27AAPFU0939F1ZV").entities.map((e) => e.value)).toEqual(["Acme Trading", "27AAPFU0939F1ZV"]);
+    expect(prepareText("tan MUMA12345B").entities.map((e) => e.value)).toEqual(["MUMA12345B"]);
+  });
+});

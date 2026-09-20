@@ -12,7 +12,7 @@ const QUESTION_MODAL_RX = /^\s*(?:can|could|may|should|do|does|is|am)\s+i\b|^\s*
 const REQUEST_RX = /^\s*(?:please\s+)?(?:can|could|would|will)\s+you\b/i;
 
 // Words that make a message a QUERY/OPERATION on existing invoices, not a request to create one.
-export const QUERY_RX = /\b(?:show|list|view|open|find|search|look ?up|display|fetch|how many|how much|what|which|who|when|status|total|pending|overdue|unpaid|paid|outstanding|due|delete|remove|cancel|void|print|download|email|resend|reminder|export|report|summary|summarise|summarize|copy|duplicate|edit|update|reverse|send|share|forward|attach|mark|approve|reject|apply|record|remind)\b/i;
+export const QUERY_RX = /\b(?:show|list|view|open|find|search|look ?up|display|fetch|how many|how much|what|which|who|when|status|total|pending|overdue|unpaid|paid|outstanding|delete|remove|cancel|void|print|download|email|resend|reminder|export|report|summary|summarise|summarize|copy|duplicate|edit|update|reverse|send|share|forward|attach|mark|approve|reject|apply|record|remind)\b/i;
 const DATA_QUERY_RX = /\b(?:total|pending|overdue|unpaid|paid|outstanding|status|summary|report|how many|how much|this (?:month|year|week|quarter)|last (?:month|year|week|quarter))\b/i;
 const STRONG_CREATE_RX = /\b(?:create|make|generate|draft|prepare|prep|raise|issue|write|cut|new|add)\b/i;
 const WEAK_CREATE_RX = /\b(?:need|want|require|give|pls|plz|please|kindly)\b/i;
@@ -31,7 +31,7 @@ export function classifyIntent(english: string, nounRx: RegExp, weakNounRx?: Reg
   // "Creating an invoice" / "Making invoices" — a topic, not a request (unless it says for whom/what).
   if (/^\s*(?:creating|making|generating|drafting|raising|adding)\b/i.test(q) && !/\b(?:for|to|of)\s+\S/i.test(q)) return strong ? "ambiguous" : "uncertain";
   if (QUESTION_MODAL_RX.test(q)) return strong ? "ambiguous" : "uncertain"; // "Can I create an invoice without a customer?"
-  if (weak) return CREATE_CUE_RX.test(q) && !QUERY_RX.test(q) ? "uncertain" : "none"; // "raise a bill for Acme": sales invoice or vendor bill? ask the LLM
+  if (weak) return !QUERY_RX.test(q) && (CREATE_CUE_RX.test(q) || /\d/.test(q)) ? "uncertain" : "none"; // "bill Kamal 2500 for repairs" // "raise a bill for Acme": sales invoice or vendor bill? ask the LLM
   // The verb must govern the noun ("create an invoice", "raise a new invoice for X") — not "add a note TO invoice 5".
   const nounSrc = (strong ? nounRx : weakNounRx!).source;
   const adjacent = new RegExp(`${STRONG_CREATE_RX.source}\\s+(?:(?!\\b(?:to|on|in|against|from|of)\\b)[\\w'-]+\\s+){0,3}(?:${nounSrc})`, "i").test(q);

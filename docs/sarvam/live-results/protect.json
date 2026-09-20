@@ -1,0 +1,249 @@
+[
+  {
+    "id": "pr-name-typo",
+    "typed": "Recipt Traders ke liye invoice banao 45000",
+    "expected": "…Recipt Traders… verbatim (not 'Receipt')",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "for Recipt Traders create invoice 45000",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Recipt Traders"
+      }
+    ],
+    "rewrites": [
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 2.63,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-name-typo2",
+    "typed": "Invoce Traders ko invoice bhejo 500 rupaye",
+    "expected": "…Invoce Traders… verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Send an invoice to Invoce Traders for 500 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Invoce Traders"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 32ch 956ms ok"
+    ],
+    "ms": 957.53,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-invno",
+    "typed": "INV-0O42 ki copy bhejo Acme Trading ko",
+    "expected": "INV-0O42 verbatim (not INV-0042)",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Send a copy of INV-0O42 to Acme Trading",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "code",
+        "value": "INV-0O42"
+      },
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 26ch 792ms ok"
+    ],
+    "ms": 792.97,
+    "hasInvoice": false,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-gstin",
+    "typed": "Acme Trading ka GSTIN 27AAPFU0939F1ZV hai, invoice banao 500",
+    "expected": "27AAPFU0939F1ZV verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "GSTIN of Acme Trading is 27AAPFU0939F1ZV, invoice created successfully, 500.",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme Trading"
+      },
+      {
+        "type": "gstin",
+        "value": "27AAPFU0939F1ZV"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 41ch 722ms ok"
+    ],
+    "ms": 723.02,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-pan",
+    "typed": "PAN AAPFU0939F wale customer ke liye invoice banao",
+    "expected": "AAPFU0939F verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "PAN AAPFU0939F wale customer ke liye invoice banao",
+    "degraded": "bad_response",
+    "lowConfidence": true,
+    "protected": [
+      {
+        "type": "name",
+        "value": "PAN AAPFU"
+      },
+      {
+        "type": "name",
+        "value": "F"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 48ch 715ms ok",
+      "translate/mayura:v1 48ch 618ms ok"
+    ],
+    "ms": 1333.64,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-quote",
+    "typed": "item ka naam \"Reciept Pad\" rakho aur invoice banao",
+    "expected": "\"Reciept Pad\" verbatim incl. quotes",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "<Noise/> Keep the item name as \"Reciept Pad\" and create an invoice.",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "quoted",
+        "value": "\"Reciept Pad\""
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 41ch 709ms ok"
+    ],
+    "ms": 709.89,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-sku",
+    "typed": "SKU aB12-xY9 ka stock dikhao",
+    "expected": "aB12-xY9 verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Show the stock of SKU and aB12-xY9.",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "SKU"
+      },
+      {
+        "type": "code",
+        "value": "aB12-xY9"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 25ch 616ms ok"
+    ],
+    "ms": 617.08,
+    "hasInvoice": false,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-email",
+    "typed": "ramesh.k+inv@acme-traders.co.in ko invoice bhejo",
+    "expected": "email verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Send an invoice to ramesh.k+inv@acme-traders.co.in",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "email",
+        "value": "ramesh.k+inv@acme-traders.co.in"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 21ch 613ms ok"
+    ],
+    "ms": 613.09,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-hindi-name",
+    "typed": "Kamal ke liye invoice banao 500",
+    "expected": "Kamal verbatim (also a Hindi word)",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "for Kamal create invoice 500",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Kamal"
+      }
+    ],
+    "rewrites": [
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 0.18,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pr-ta-name",
+    "typed": "Kanchipuram Silks Pvt Ltd க்கு இன்வாய்ஸ் உருவாக்கு 12000",
+    "expected": "Kanchipuram Silks Pvt Ltd verbatim",
+    "language": "ta-IN",
+    "kind": "mixed",
+    "modelGot": "Create an invoice for Kanchipuram Silks Pvt Ltd, 12000",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Kanchipuram Silks Pvt Ltd"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 38ch 718ms ok"
+    ],
+    "ms": 718.7,
+    "hasInvoice": true,
+    "keeps45000": true
+  }
+]

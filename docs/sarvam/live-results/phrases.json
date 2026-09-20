@@ -1,0 +1,454 @@
+[
+  {
+    "id": "hi-native",
+    "typed": "Acme के लिए 45000 रुपये का इनवॉइस बनाओ",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Create an invoice for 45000 rupees for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 41ch 1073ms ok"
+    ],
+    "ms": 1075.48,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "hi-roman",
+    "typed": "Acme ke liye 45000 rupaye ka invoice banao",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "hi-IN",
+    "kind": "romanised",
+    "modelGot": "Create an invoice for Rs. 45000 for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 42ch 1115ms ok"
+    ],
+    "ms": 1117.34,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "ta",
+    "typed": "Acme க்கு 45000 ரூபாய்க்கு இன்வாய்ஸ் உருவாக்கு",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "ta-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for Acme for 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 49ch 713ms ok"
+    ],
+    "ms": 715.18,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "te",
+    "typed": "Acme కోసం 45000 రూపాయలకు ఇన్వాయిస్ సృష్టించండి",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "te-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for Acme for 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 49ch 827ms ok"
+    ],
+    "ms": 827.43,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "mr",
+    "typed": "Acme साठी 45000 रुपयांचे बीजक तयार करा",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "mr-IN",
+    "kind": "native",
+    "modelGot": "Prepare a seed for Acme worth 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 41ch 804ms ok"
+    ],
+    "ms": 805.17,
+    "hasInvoice": false,
+    "keeps45000": true
+  },
+  {
+    "id": "mr-alt",
+    "typed": "Acme साठी 45000 रुपयांचे इनव्हॉइस तयार करा",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "mr-IN",
+    "kind": "native",
+    "modelGot": "Prepare an invoice for 45000 rupees for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 45ch 821ms ok"
+    ],
+    "ms": 821.29,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "bn",
+    "typed": "Acme এর জন্য 45000 টাকার ইনভয়েস তৈরি করুন",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "bn-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for Acme for 45000 taka",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 45ch 821ms ok"
+    ],
+    "ms": 822.52,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "gu",
+    "typed": "Acme માટે 45000 રૂપિયાનું ઇન્વોઇસ બનાવો",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "gu-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for 45000 rupees for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 42ch 818ms ok"
+    ],
+    "ms": 817.95,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "kn",
+    "typed": "Acme ಗಾಗಿ 45000 ರೂಪಾಯಿಗಳ ಇನ್ವಾಯ್ಸ್ ರಚಿಸಿ",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "kn-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for Acme for 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 43ch 815ms ok"
+    ],
+    "ms": 815.63,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "ml",
+    "typed": "Acme നായി 45000 രൂപയുടെ ഇൻവോയ്സ് സൃഷ്ടിക്കുക",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "ml-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for 45000 rupees for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 47ch 721ms ok"
+    ],
+    "ms": 721.18,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "pa",
+    "typed": "Acme ਲਈ 45000 ਰੁਪਏ ਦਾ ਇਨਵੌਇਸ ਬਣਾਓ",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "pa-IN",
+    "kind": "mixed",
+    "modelGot": "Create an invoice for 45000 for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 36ch 711ms ok"
+    ],
+    "ms": 711.87,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "or",
+    "typed": "Acme ପାଇଁ 45000 ଟଙ୍କାର ଇନଭଏସ୍ ତିଆରି କର",
+    "expected": "Create an invoice for Acme for 45000 rupees",
+    "language": "od-IN",
+    "kind": "native",
+    "modelGot": "Create an invoice for 45000 for Acme",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 41ch 719ms ok"
+    ],
+    "ms": 719.91,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "code-mixed",
+    "typed": "invoice banao for Acme, amount 45000 rupees",
+    "expected": "Create an invoice for Acme, amount 45000 rupees",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "create invoice for Acme, amount 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [
+      "mapped common Hindi words locally (no translation call)"
+    ],
+    "calls": [],
+    "ms": 0.99,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "protected-typo-lookalike",
+    "typed": "Recipt Traders ke liye invoice banao, INV-0O42 ki copy bhejo",
+    "expected": "…Recipt Traders… and INV-0O42 must appear VERBATIM (not 'Receipt', not 'INV-0042')",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Make an invoice for Recipt Traders, send a copy to INV-0O42",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Recipt Traders"
+      },
+      {
+        "type": "code",
+        "value": "INV-0O42"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 46ch 607ms ok"
+    ],
+    "ms": 608.6,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "deliberate-typo-quoted",
+    "typed": "item ka naam \"Reciept Pad\" rakho",
+    "expected": "Name the item \"Reciept Pad\" — quoted text verbatim",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Name the item as \"Reciept Pad\"",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "quoted",
+        "value": "\"Reciept Pad\""
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 23ch 627ms ok"
+    ],
+    "ms": 627.53,
+    "hasInvoice": false,
+    "keeps45000": true
+  },
+  {
+    "id": "deliberate-typo-unquoted-titlecase",
+    "typed": "naya product banao Invoce Pad 250 rupaye",
+    "expected": "…Invoce Pad… kept (capitalised proper noun mid-sentence)",
+    "language": "hi-IN",
+    "kind": "mixed",
+    "modelGot": "Create a new product called Invoce Pad - Rupees 250",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Invoce Pad"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 34ch 703ms ok"
+    ],
+    "ms": 703.71,
+    "hasInvoice": false,
+    "keeps45000": true
+  },
+  {
+    "id": "unquoted-lowercase-typo",
+    "typed": "create an invoce pad for 250",
+    "expected": "Rewritten to 'invoice'; reply must open 'I understood this as: …'",
+    "language": "en-IN",
+    "kind": "english",
+    "modelGot": "create an invoice pad for 250",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [],
+    "rewrites": [
+      "invoce → invoice"
+    ],
+    "calls": [],
+    "ms": 0.57,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "number-formats",
+    "typed": "1,00,000 ka invoice banao Acme ke liye, due agle mangalwar",
+    "expected": "Create invoice of 100000 for Acme, due next Tuesday",
+    "language": "hi-IN",
+    "kind": "romanised",
+    "modelGot": "Get an invoice of 100000 for Acme due next Tuesday",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [],
+    "calls": [
+      "translate/mayura:v1 56ch 718ms ok"
+    ],
+    "ms": 719.15,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "number-words-en",
+    "typed": "invoice for Acme forty five thousand rupees",
+    "expected": "45000 (no provider call: English)",
+    "language": "en-IN",
+    "kind": "english",
+    "modelGot": "invoice for Acme 45000 rupees",
+    "degraded": false,
+    "lowConfidence": false,
+    "protected": [
+      {
+        "type": "name",
+        "value": "Acme"
+      }
+    ],
+    "rewrites": [
+      "forty five thousand → 45000"
+    ],
+    "calls": [],
+    "ms": 0.9,
+    "hasInvoice": true,
+    "keeps45000": true
+  },
+  {
+    "id": "unsupported",
+    "typed": "请给客户创建发票",
+    "expected": "degraded: unsupported_language, original text passed through",
+    "language": "und",
+    "kind": "unsupported",
+    "modelGot": "请给客户创建发票",
+    "degraded": "unsupported_language",
+    "lowConfidence": true,
+    "protected": [],
+    "rewrites": [],
+    "calls": [],
+    "ms": 0.24,
+    "hasInvoice": false,
+    "keeps45000": true
+  }
+]

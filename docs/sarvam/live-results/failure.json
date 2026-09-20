@@ -1,0 +1,46 @@
+[
+  {
+    "name": "invalid key → pipeline",
+    "degraded": true,
+    "reason": "provider_error",
+    "modelText": "mujhe Acme Trading ke liye invoice banana hai 45000",
+    "lowConfidence": true,
+    "calls": [
+      "http"
+    ]
+  },
+  {
+    "name": "bad language code → client",
+    "ok": false,
+    "kind": "http",
+    "status": 400
+  },
+  {
+    "name": "empty input → client",
+    "ok": false,
+    "kind": "http",
+    "status": 400
+  },
+  {
+    "name": "raw malformed JSON body (API status only)",
+    "status": 400
+  },
+  {
+    "name": "oversized (1560 chars) to mayura directly (API status only)",
+    "status": 400
+  },
+  {
+    "name": "pipeline with 5490-char paste",
+    "degraded": false,
+    "chunks": 3,
+    "modelTextChars": 5759,
+    "count45000": 90
+  },
+  {
+    "name": "forced 1 ms timeout → pipeline",
+    "degraded": true,
+    "reason": "timeout",
+    "modelText": "mujhe Acme Trading ke liye invoice banana hai 45001",
+    "ms": 4.09
+  }
+]

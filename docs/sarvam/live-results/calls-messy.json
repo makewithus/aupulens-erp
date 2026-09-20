@@ -1,0 +1,41 @@
+{
+  "count": 6,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 53,
+      "ms": 955,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 57,
+      "ms": 903,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 613,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 811,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 215,
+      "ms": 1425,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 1933,
+      "ms": 4811,
+      "status": 200
+    }
+  ]
+}

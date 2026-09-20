@@ -44,21 +44,21 @@ describe("§0.1 end-to-end: the pipeline honours the value check", () => {
   beforeEach(() => { setSarvamEnv(true); clearLanguageCache(); });
   afterEach(() => setSarvamClientForTests(null));
   it("provider returns 45,000 for 45000 → accepted, no degrade", async () => {
-    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe invoice banao", "create invoice").replace("45000", "45,000") })));
-    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe invoice banao Acme 45000" });
+    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe kal invoice banao", "create invoice").replace("45000", "45,000") })));
+    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe kal invoice banao Acme 45000" });
     expect(t.degraded).toBe(false);
   });
   it("provider returns Devanagari digits → accepted", async () => {
-    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe invoice banao", "create invoice").replace("45000", "४५०००") })));
-    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe invoice banao Acme 45000" });
+    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe kal invoice banao", "create invoice").replace("45000", "४५०००") })));
+    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe kal invoice banao Acme 45000" });
     expect(t.degraded).toBe(false);
     expect(t.modelText).toContain("45000"); // normalised back to Latin digits before it reaches the model
   });
   it.each([["4500"], ["450000"], [""]])("provider changes/drops the amount (%s) → degraded, original text, low confidence", async (bad) => {
-    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe invoice banao", "create invoice").replace("45000", bad) })));
-    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe invoice banao Acme 45000" });
+    setSarvamClientForTests(fakeClient((r) => ({ text: r.input.replace("mujhe kal invoice banao", "create invoice").replace("45000", bad) })));
+    const t = await prepareLanguageInput({ tenantId: "t", rawText: "mujhe kal invoice banao Acme 45000" });
     expect(t.degraded).toBe(true);
-    expect(t.modelText).toBe("mujhe invoice banao Acme 45000");
+    expect(t.modelText).toBe("mujhe kal invoice banao Acme 45000");
     expect(t.lowConfidence).toBe(true);
   });
 });

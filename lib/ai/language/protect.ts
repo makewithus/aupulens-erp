@@ -7,9 +7,20 @@ import type { EntityType, ProtectedEntity } from "./types";
  * (translators must see "45000 rupees"); they are verified unchanged after translation instead.
  */
 
+/**
+ * Two placeholder styles, chosen by the input's script (live-verified, docs/sarvam/LIVE_VERIFICATION.md §1):
+ *  - "zxq"  ZXQ<n>ZXQ — survives native-script text and every English→regional reply (11/11), but in ROMAN-script /
+ *           code-mixed text the real translator garbles it ("JXQ0ZXQ", "zxq zxq zxq …") 4 times in 10.
+ *  - "ent"  Ent<n>    — a short name-like token: survived 9 of 10 of the same Roman/code-mixed sentences.
+ * Restoration accepts either; any alteration/drop/duplicate still degrades (placeholdersIntact).
+ */
 const PH_PREFIX = "ZXQ";
-const PH_RX = /ZXQ\s*(\d+)\s*ZXQ/gi;
-export const placeholder = (i: number) => `${PH_PREFIX}${i}${PH_PREFIX}`;
+export type PlaceholderStyle = "zxq" | "ent";
+const PH_RX = /ZXQ\s*(\d+)\s*ZXQ|\bEnt(\d+)\b/gi;
+const phIndex = (m: RegExpMatchArray | string[]) => Number(m[1] ?? m[2]);
+export const placeholder = (i: number, style: PlaceholderStyle = "zxq") => (style === "ent" ? `Ent${i}` : `${PH_PREFIX}${i}${PH_PREFIX}`);
+/** A literal "Ent3" in the user's own text would collide with the ent style — fall back to zxq. */
+export const chooseStyle = (raw: string, latinScript: boolean): PlaceholderStyle => (latinScript && !/\bEnt\d+\b/i.test(raw) ? "ent" : "zxq");
 
 interface Span { start: number; end: number; type: EntityType; prio: number }
 
@@ -38,7 +49,9 @@ const MD_PATTERNS: { type: EntityType; rx: RegExp }[] = [
   { type: "url", rx: /\[[^\]\n]+\]\([^)\n]+\)/g },
 ];
 
-const isLexicon = (w: string) => ENGLISH_WORDS.has(w) || ROMAN_LOOKUP.has(w) || w in DOMAIN_MISSPELLINGS;
+// "PLEASEEEE" is an elongated word, not a name (found live: it was masked as an entity and reached the translator).
+const collapse = (w: string) => w.replace(/([a-z])\1{2,}/g, "$1");
+const isLexicon = (w: string) => ENGLISH_WORDS.has(w) || ROMAN_LOOKUP.has(w) || w in DOMAIN_MISSPELLINGS || ENGLISH_WORDS.has(collapse(w)) || ENGLISH_WORDS.has(w.replace(/([a-z])\1+/g, "$1"));
 
 function nameSpans(text: string): Span[] {
   const spans: Span[] = [];
@@ -78,7 +91,13 @@ function nameSpans(text: string): Span[] {
     if (isCap) {
       if (lenient) protect = !isLexicon(lower);
       else if (isAllCapsAcronym) protect = !isLexicon(lower);
-      else protect = sentenceStart(t.s) ? !isLexicon(lower) : true;
+      else if (sentenceStart(t.s)) {
+        // "Recipt Traders ke liye…": a known MISSPELLING at the start of a Capitalised run is a company name, not a typo
+        // (found live: it was "corrected" to "Receipt"). Real English words ("Create Invoice…") still are not names.
+        const next = toks[toks.indexOf(t) + 1];
+        const nextIsCap = !!next && /^[A-Z]/.test(next.w) && /^[ \t]+$/.test(text.slice(t.e, next.s));
+        protect = !isLexicon(lower) || (lower in DOMAIN_MISSPELLINGS && !ENGLISH_WORDS.has(lower) && nextIsCap);
+      } else protect = true;
     }
     const gap = prevEnd >= 0 ? text.slice(prevEnd, t.s) : "";
     if (protect) {
@@ -95,7 +114,7 @@ function nameSpans(text: string): Span[] {
 
 export function protectEntities(
   text: string,
-  opts: { markdown?: boolean } = {},
+  opts: { markdown?: boolean; style?: PlaceholderStyle } = {},
 ): { masked: string; entities: ProtectedEntity[] } {
   const spans: Span[] = [];
   let prio = 0;
@@ -110,8 +129,11 @@ export function protectEntities(
     }
     prio++;
   }
-  if (!opts.markdown) spans.push(...nameSpans(text));
-  else spans.push(...nameSpans(text.replace(/\*\*[^*\n]+\*\*|`[^`\n]+`/g, (s) => " ".repeat(s.length))));
+  // Names are detected on a COPY with every other entity blanked out, so a name run can never swallow part of a
+  // PAN/GSTIN/code ("PAN AAPFU0939F" was split into "PAN AAPFU" + "F" — found live).
+  const blank = (t: string) => { let o = t; for (const sp of spans) o = o.slice(0, sp.start) + " ".repeat(sp.end - sp.start) + o.slice(sp.end); return o; };
+  if (!opts.markdown) spans.push(...nameSpans(blank(text)));
+  else spans.push(...nameSpans(blank(text.replace(/\*\*[^*\n]+\*\*|`[^`\n]+`/g, (s) => " ".repeat(s.length)))));
 
   // Resolve overlaps: earliest start wins, then higher priority (lower number), then longer.
   spans.sort((a, b) => a.start - b.start || a.prio - b.prio || b.end - a.end);
@@ -125,7 +147,7 @@ export function protectEntities(
   let out = "";
   let pos = 0;
   for (const s of chosen) {
-    const ph = placeholder(entities.length);
+    const ph = placeholder(entities.length, opts.style);
     entities.push({ type: s.type, value: text.slice(s.start, s.end), placeholder: ph });
     out += text.slice(pos, s.start) + ph;
     pos = s.end;
@@ -137,7 +159,7 @@ export function protectEntities(
 /** True iff every placeholder survived exactly once — otherwise the transform is untrustworthy. */
 export function placeholdersIntact(text: string, entities: ProtectedEntity[]): boolean {
   const seen = new Map<number, number>();
-  for (const m of text.matchAll(PH_RX)) seen.set(Number(m[1]), (seen.get(Number(m[1])) || 0) + 1);
+  for (const m of text.matchAll(PH_RX)) seen.set(phIndex(m), (seen.get(phIndex(m)) || 0) + 1);
   if (seen.size !== entities.length) return false;
   if (!entities.every((_, i) => seen.get(i) === 1)) return false;
   // Nothing placeholder-shaped may be left over once the well-formed ones are removed
@@ -146,8 +168,8 @@ export function placeholdersIntact(text: string, entities: ProtectedEntity[]): b
 }
 
 export function unprotectEntities(text: string, entities: ProtectedEntity[]): string {
-  return text.replace(PH_RX, (whole, n) => {
-    const e = entities[Number(n)];
+  return text.replace(PH_RX, (whole, n1, n2) => {
+    const e = entities[Number(n1 ?? n2)];
     return e ? e.value : whole;
   });
 }

@@ -114,7 +114,7 @@ describe("adversarial: the wrong AMOUNT", () => {
     const bad = (req: any) => ({ text: translator(req).text.replace("45000", "54000") });
     const h = makeHarness({ translate: bad });
     await h.say("Create an invoice for Kamal");
-    const r = await h.say("Repairs ke liye 45000");
+    const r = await h.say("Repairs ke liye kal 45000");
     expect(h.store.session!.state.slots.unitPrice).toBeUndefined();
     expect(r.kind).toBe("notice");
   });

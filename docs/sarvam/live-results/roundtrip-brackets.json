@@ -1,0 +1,178 @@
+[
+  {
+    "lang": "hi-native",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]] के लिए 45000 rupees का invoice बनाइए, जो 30 days में due है।",
+    "back": "Create an invoice with an amount of 45000 rupees for [[E0]] due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-native",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]] को reminder भेजिए: 12500 rupees का invoice [[E1]] overdue है।",
+    "back": "Can you send a reminder to [[E0]] regarding the overdue invoice of 12500?",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "Please [[E0]] ke liye 45000 rupees ka invoice create kijiye, jo 30 days mein due hai.",
+    "back": "Please create an invoice for the amount of 45000 rupees, due on the 30th, for {{ user_name }}.",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]] ko reminder bhejie: 12500 rupees ka invoice [[E1]] overdue hai.",
+    "back": "[[E0|Send an email to the reminder: 📦 Your purchase worth ₹1,25,000 is due today.",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "ta",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]]-க்கு 45000 rupees invoice create பண்ணித் தரீங்களா? Due date 30 days-ல.",
+    "back": "Would you like to create an invoice for [[E0]] with a quantity of 45000? The due date is 30 days from now.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-க்கு reminder அனுப்புங்க: 12500 rupees-ஓட invoice [[E1]] overdue ஆகிடுச்சு.",
+    "back": "Aapko [[E0]] ka reminder bhejeenge, jismein aapko 12500 rupay ki invoice [[E1]] ki avadhi seema ki baat ki jaaye.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "30 days-లో due అయ్యే [[E0]] కోసం 45000 rupees invoice create చేయండి.",
+    "back": "Create an invoice for 45000 rupees for [[E0]] on or before 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-కి reminder పంపించండి: 12500 rupees-లో ఉన్న invoice [[E1]] overdue అయిపోయింది.",
+    "back": "Aapko [[E0]] ka reminder bhejna chahiye, jismein bataya gaya hai ki aapka invoice [[E1]] jisma 12500 rupaye ki undi hui hai aur ab wo overdue hai.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]]-साठी 45000 rupees-चा invoice 30 days-मध्ये create करा.",
+    "back": "Create an invoice for [[E0]] with a total amount of 45000 rupees and create it within 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-ला reminder पाठवा: 12500 rupees-चा invoice [[E1]] overdue आहे.",
+    "back": "Aapko [[E0]] ko reminder bhejna chahiye: Invoice of Rs. 12500 is overdue from [[E1]].",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]]-এর জন্য 45000 rupees-এর একটা invoice create করুন, যেটা 30 days-এ due.",
+    "back": "Create an invoice with an amount of 45000 rupees for [[E0]] due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-কে একটা reminder পাঠান: 12500 rupees-এর invoice [[E1]] overdue হয়ে গেছে।",
+    "back": "Can you send a reminder to [[E0]] that the invoice of 12500 is overdue?",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "gu",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]] માટે 45000 rupees-નું invoice create કરો, જે 30 days-માં due છે.",
+    "back": "Create an invoice for [[E0]] with a total amount of 45000 rupees and a due date of 30 days from now.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-ને reminder send કરો: 12500 rupees-નું invoice [[E1]] overdue છે.",
+    "back": "Can you send a reminder to [[E0]] regarding the overdue invoice of 12500?",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "kn",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]]-ಗೆ 45000 rupees-ನ invoice create ಮಾಡಿ, 30 days-ನಲ್ಲಿ due ಇರುತ್ತೆ.",
+    "back": "Create an invoice with an amount of 45000 rupees for [[E0]] and it will be due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "kn",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-ಗೆ reminder send ಮಾಡಿ: invoice [[E1]] of 12500 rupees overdue ಆಗಿದೆ.",
+    "back": "Aapko [[E0]] ko reminder bhejna hai: invoice [[E1]] of 12500 rupees overdue hai.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees-ന്റെ ഒരു invoice, 30 days-നുള്ളിൽ [[E0]]-ന് വേണ്ടി create ചെയ്യണേ.",
+    "back": "Create an invoice for 45000 rupees for [[E0]] within 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-ന് ഒരു reminder അയക്കണം: invoice [[E1]] of 12500 rupees overdue ആയിട്ടുണ്ട്.",
+    "back": "I need to send a reminder to [[E0]] that the invoice [[E1]] of 12500 is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "[[E0]] ਲਈ 45000 rupees ਦਾ invoice 30 days ਵਿੱਚ due ਹੈ, please create ਕਰ ਦਿਓ।",
+    "back": "Create an invoice with an amount of 45000 rupees for [[E0]] due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]] ਨੂੰ reminder ਭੇਜੋ: invoice [[E1]] of 12500 rupees overdue ਹੈ।",
+    "back": "Send a reminder to [[E0]]: Invoice [[E1]] of Rs.",
+    "entitiesIntact": true,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "or",
+    "en": "Please create an invoice for [[E0]] for 45000 rupees, due in 30 days.",
+    "there": "Please [[E0]] ପାଇଁ 45000 rupees-ର invoice create କରନ୍ତୁ, ଯାହା 30 days-ରେ due।",
+    "back": "Create an invoice for 45000 rupees for [[E0]] that is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Send [[E0]] a reminder: invoice [[E1]] of 12500 rupees is overdue.",
+    "there": "[[E0]]-କୁ reminder ପଠାନ୍ତୁ: invoice [[E1]] of 12500 rupees overdue ଅଛି।",
+    "back": "Aapko [[E0]] ko reminder bhejna hoga: invoice [[E1]] of 12500 is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  }
+]

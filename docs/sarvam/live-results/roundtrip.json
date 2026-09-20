@@ -1,0 +1,178 @@
+[
+  {
+    "lang": "hi-native",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "Please ZXQ0ZXQ का 45000 rupees का invoice create कीजिए, जो 30 days में due है।",
+    "back": "Create an invoice with ZXQ0ZXQ for a total amount of 45000 rupees, due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-native",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ को reminder send कर रही हूँ: 12500 rupees का invoice ZXQ1ZXQ overdue है।",
+    "back": "I'm sending this reminder to you: your invoice with amount due of 12500, secured by ZXQ1ZXQ is overdue.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "Please ZXQ0ZXQ ka Rs. 45000 ka invoice create kijiye, jo 30 days mein due hai.",
+    "back": "Please create an invoice for the amount of Rs. 45000.00 that has been paid by ZXQ0ZXQ and make sure it is due within the next 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ ko reminder send kar rahi hun: 12500 rupees ka invoice ZXQ1ZXQ overdue hai.",
+    "back": "I'm sending a reminder to ZXQ0ZXQ: 12500 is due by ZXQ1ZXQ.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ-க்கு 45000 rupees invoice create பண்ணித் தரீங்களா? Due date 30 days-ல.",
+    "back": "Would you like to create an invoice for 45000 for ZXQ0ZXQ? The due date is 30 days from today.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-க்கு ஒரு reminder அனுப்புங்க: 12500 rupees ZXQ1ZXQ invoice overdue ஆகிடுச்சு.",
+    "back": "Aapko 12500 rupaye ki ZXQ1ZXQ invoice ki avadhi hai, jo abhi batai gaya tha ki ZXQ0ZXQ ke liye ek reminder bhejne ke liye.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees invoice create చేయండి. Due date 30 days.",
+    "back": "You will create an invoice for 45000. Due date 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-కి reminder పంపించండి: 12500 rupees ZXQ1ZXQ invoice overdue అయింది.",
+    "back": "Send a reminder to ZXQ0ZXQ: 12500 रुपये ZXQ1ZXQ invoice overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ चा 45000 rupees चा invoice 30 days मध्ये due आहे, तो create करा.",
+    "back": "Create an invoice with an amount of 45000 rupees for ZXQ0ZXQ that is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-ला reminder पाठवा: 12500 rupees-चा ZXQ1ZXQ invoice overdue आहे.",
+    "back": "Send a reminder to ZXQ0ZXQ: 12500 INR ZXQ1ZXQ is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ-র জন্য 45000 rupees-এর একটা invoice create করুন, যেটা 30 days-এ due.",
+    "back": "Create an invoice with an amount of 45000 rupees for ZXQ0ZXQ, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-কে একটা reminder পাঠান: 12500 rupees-এর ZXQ1ZXQ invoice-টা overdue হয়ে গেছে।",
+    "back": "Create a reminder to send ZXQ0ZXQ to 12500, which is the invoice for ZXQ1ZXQ with overdue status.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ માટે 45000 rupees-નું invoice create કરો, જે 30 days-માં due છે.",
+    "back": "Create an invoice with an amount of 45000 rupees for ZXQ0ZXQ, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-ને reminder send કરો: 12500 rupees-નું invoice ZXQ1ZXQ overdue છે.",
+    "back": "Send a reminder to ZXQ0ZXQ: 12500 रुपये invoice reminder for ZXQ1ZXQ, which is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "kn",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ-ಗೆ 45000 rupees-ನ invoice create ಮಾಡಿ, due date 30 days.",
+    "back": "Create an invoice with an amount of 45000 for ZXQ0ZXQ and a due date of 30th.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "kn",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-ಗೆ reminder send ಮಾಡಿ: 12500 rupees-ನ ZXQ1ZXQ invoice overdue ಆಗಿದೆ.",
+    "back": "Send a reminder to ZXQ0ZXQ: 12500 INR  ZXQ1ZXQ is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees-ന്റെ ZXQ0ZXQ-ന് 30 days-നുള്ളിൽ ഒരു invoice create ചെയ്യണേ.",
+    "back": "Create an invoice for ZXQ0ZXQ, amount 45000, within 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-ന് ഒരു reminder അയക്കണം: 12500 rupees-ന്റെ ZXQ1ZXQ invoice overdue ആയിട്ടുണ്ട്.",
+    "back": "I need to send a reminder for ZXQ0ZXQ, the invoice for 12500 is overdue.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "ZXQ0ZXQ ਲਈ 45000 rupees ਦਾ invoice please create ਕਰੋ, ਜੋ 30 days ਵਿੱਚ due ਹੈ।",
+    "back": "Create an invoice with an amount of 45000 rupees for ZXQ0ZXQ, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ ਨੂੰ reminder ਭੇਜੋ: invoice ZXQ1ZXQ of 12500 rupees overdue ਹੈ।",
+    "back": "Send a reminder to ZXQ0ZXQ: Invoice ZXQ1ZXQ for Rs. 12500 is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Please create an invoice for ZXQ0ZXQ for 45000 rupees, due in 30 days.",
+    "there": "Please ZXQ0ZXQ ପାଇଁ 45000 rupees-ର invoice create କରନ୍ତୁ, ଯାହା 30 days-ରେ due।",
+    "back": "Create an invoice with an amount of 45000 rupees for ZXQ0ZXQ, which is due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Send ZXQ0ZXQ a reminder: invoice ZXQ1ZXQ of 12500 rupees is overdue.",
+    "there": "ZXQ0ZXQ-କୁ ଏକ reminder ପଠାନ୍ତୁ: 12500 rupees-ର ZXQ1ZXQ invoice-ଟି overdue ଅଛି।",
+    "back": "Send a reminder to ZXQ0ZXQ: 12500 INR  ZXQ1ZXQ is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  }
+]

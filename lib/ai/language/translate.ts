@@ -16,7 +16,7 @@ import type { Detection, ProviderCall, SarvamResult } from "./types";
  * every comma would make the feature look permanently degraded; a missed corruption is a wrong invoice.
  */
 const NUMBER_RX = /(?:\d{1,3}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
-const PLACEHOLDER_STRIP_RX = /ZXQ\s*\d+\s*ZXQ/gi;
+const PLACEHOLDER_STRIP_RX = /ZXQ\s*\d+\s*ZXQ|\bEnt\d+\b/gi;
 
 /** Canonical decimal string: no commas, no leading zeros, no trailing decimal zeros. */
 export function canonicalNumber(raw: string): string {
@@ -79,12 +79,22 @@ export type StageResult =
   | { ok: false; reason: LanguageDegradedReason; calls: ProviderCall[] };
 
 /** Translate one masked string to English. Chunks in parallel. */
-export async function translateToEnglish(masked: string, det: Detection): Promise<StageResult> {
+/** Live finding: the real translator sometimes emits degenerate output ("invoice zxc zxc zxc …"). */
+export function looksDegenerate(output: string, input: string): boolean {
+  if (output.length > input.length * 5 + 80) return true;
+  // the same token repeated 8+ times IN A ROW ("zxc zxc zxc …") — a long paste that legitimately repeats words is not flagged
+  const run = /(?:^|\s)(\S{2,12})(?:\s+\1){7,}(?=\s|$)/i.exec(output);
+  return !!run && !new RegExp(`(?:^|\\s)${run[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s+${run[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}){7,}`, "i").test(input);
+}
+
+/** `variant` 1 = the retry after a failed verification: a different translation mode (the API is not deterministic). */
+export async function translateToEnglish(masked: string, det: Detection, variant = 0): Promise<StageResult> {
   const client = getSarvamClient();
   const calls: ProviderCall[] = [];
   const romanised = det.script === "Latn";
   const source = det.ambiguous || det.language === "und" ? "auto" : det.language;
-  const mode: TranslateMode = romanised || det.kind === "mixed" ? "code-mixed" : "modern-colloquial";
+  const base: TranslateMode = romanised || det.kind === "mixed" ? "code-mixed" : "modern-colloquial";
+  const mode: TranslateMode = variant === 0 ? base : base === "code-mixed" ? "modern-colloquial" : "formal";
 
   let input = masked;
 
@@ -109,8 +119,9 @@ export async function translateToEnglish(masked: string, det: Detection): Promis
     sourceLanguage ??= r.data.sourceLanguage;
     out.push(r.data.translatedText);
   }
-  const text = out.join(" ").replace(/[ ]{2,}/g, " ").trim();
-  if (!text) return { ok: false, reason: LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, calls };
+  // The real translator sometimes emits markup artefacts such as "<Noise/>" (found live) — never part of the meaning.
+  const text = out.join(" ").replace(/<\/?\s*noise\s*\/?>/gi, " ").replace(/[ ]{2,}/g, " ").trim();
+  if (!text || looksDegenerate(text, masked)) return { ok: false, reason: LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, calls };
   return { ok: true, text, sourceLanguage, calls };
 }
 

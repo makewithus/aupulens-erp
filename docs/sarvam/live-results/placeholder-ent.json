@@ -1,0 +1,156 @@
+[
+  {
+    "lang": "hi-native",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 के लिए 45000 रुपये का इनवॉइस बनाओ Ent1",
+      "out": "Create an invoice for Ent0, worth 45000 rupees, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open करो और Ent1 check करो ₹45000 के लिए।"
+    }
+  },
+  {
+    "lang": "hi-roman",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": false,
+      "in": "Ent0 ke liye 45000 rupaye ka invoice banao Ent1",
+      "out": "Create an invoice of Rs. 45000 for Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open karo aur Ent1 check karo Rs. 45000 ke liye."
+    }
+  },
+  {
+    "lang": "ta",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 க்கு 45000 ரூபாய்க்கு இன்வாய்ஸ் உருவாக்கு Ent1",
+      "out": "Create an invoice for Ent0 for 45000 rupees. Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0-அ open பண்ணி Ent1-ல ₹45000 check பண்ணுங்க."
+    }
+  },
+  {
+    "lang": "te",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 కోసం 45000 రూపాయలకు ఇన్వాయిస్ సృష్టించండి Ent1",
+      "out": "Create an invoice for Ent0 for 45000 rupees Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open చేసి, Ent1-లో 45000 rupees check చేయండి."
+    }
+  },
+  {
+    "lang": "mr",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 साठी 45000 रुपयांचे बीजक तयार करा Ent1",
+      "out": "Prepare the seed for Ent0, 45000 rupees, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open करा आणि ₹45000 साठी Ent1 check करा."
+    }
+  },
+  {
+    "lang": "bn",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 এর জন্য 45000 টাকার ইনভয়েস তৈরি করুন Ent1",
+      "out": "Create an invoice of 45000 taka for Ent0, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open করুন, আর Ent1 check করুন ₹45000-র জন্য।"
+    }
+  },
+  {
+    "lang": "gu",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 માટે 45000 રૂપિયાનું ઇન્વોઇસ બનાવો Ent1",
+      "out": "Create an invoice of 45000 rupees for Ent0, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open કરો અને Ent1 check કરો 45000 rupees માટે."
+    }
+  },
+  {
+    "lang": "kn",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 ಗಾಗಿ 45000 ರೂಪಾಯಿಗಳ ಇನ್ವಾಯ್ಸ್ ರಚಿಸಿ Ent1",
+      "out": "Create an invoice for Ent0 for 45000 rupees Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Open Ent0 ಮಾಡಿ Ent1 check ಮಾಡಿ ₹45000-ಗೋಸ್ಕರ."
+    }
+  },
+  {
+    "lang": "ml",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 നായി 45000 രൂപയുടെ ഇൻവോയ്സ് സൃഷ്ടിക്കുക Ent1",
+      "out": "Create an invoice of 45000 rupees for Ent0 Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open ചെയ്ത് Ent1-ൽ ₹45000 check ചെയ്തേ."
+    }
+  },
+  {
+    "lang": "pa",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 ਲਈ 45000 ਰੁਪਏ ਦਾ ਇਨਵੌਇਸ ਬਣਾਓ Ent1",
+      "out": "Create an invoice for Ent0, amount 45000, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open ਕਰੋ ਤੇ Ent1 check ਕਰੋ ₹45000 ਲਈ।"
+    }
+  },
+  {
+    "lang": "or",
+    "fmt": "ent",
+    "toEnglish": {
+      "ok": true,
+      "in": "Ent0 ପାଇଁ 45000 ଟଙ୍କାର ଇନଭଏସ୍ ତିଆରି କର Ent1",
+      "out": "Create an invoice for Ent0 with an amount of 45000 rupees, Ent1"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open Ent0 and check Ent1 for ₹45000.",
+      "out": "Ent0 open କରନ୍ତୁ ଏବଂ ₹45000 ପାଇଁ Ent1 check କରନ୍ତୁ।"
+    }
+  }
+]

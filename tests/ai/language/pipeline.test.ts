@@ -49,10 +49,10 @@ describe("pipeline: regional input", () => {
     // The provider never saw the company name.
     expect((c.translateSpy.mock.calls[0][0] as any).input).not.toContain("Kanchipuram");
   });
-  it("code-mixed uses mayura code-mixed mode", async () => {
+  it("code-mixed uses mayura code-mixed mode (when the local map cannot resolve every word)", async () => {
     const c = fakeClient(translator);
     setSarvamClientForTests(c);
-    await prepareLanguageInput({ tenantId: "t1", rawText: "invoice banao for Acme, amount 45000 rupees" });
+    await prepareLanguageInput({ tenantId: "t1", rawText: "invoice banao for Acme, kal tak amount 45000 rupees" });
     expect(c.translateSpy.mock.calls[0][0]).toMatchObject({ model: "mayura:v1", mode: "code-mixed", target: "en-IN" });
   });
   it("Devanagari passes the detected source language", async () => {
@@ -66,7 +66,7 @@ describe("pipeline: regional input", () => {
   it("2,000-char paste is chunked, run in parallel, and reassembled", async () => {
     const c = fakeClient(translator);
     setSarvamClientForTests(c);
-    const raw = ("mujhe invoice banao ke liye customer 100. ").repeat(60);
+    const raw = ("mujhe kal invoice banao ke liye customer 100. ").repeat(60);
     const t = await prepareLanguageInput({ tenantId: "t1", rawText: raw });
     expect(c.translateSpy.mock.calls.length).toBeGreaterThan(1);
     for (const call of c.translateSpy.mock.calls) expect((call[0] as any).input.length).toBeLessThanOrEqual(2000);
@@ -76,7 +76,7 @@ describe("pipeline: regional input", () => {
   it("caches identical input per tenant (no second provider call)", async () => {
     const c = fakeClient(translator);
     setSarvamClientForTests(c);
-    const raw = "mujhe invoice banao ke liye Acme";
+    const raw = "mujhe kal invoice banao ke liye Acme";
     await prepareLanguageInput({ tenantId: "t1", rawText: raw });
     const again = await prepareLanguageInput({ tenantId: "t1", rawText: raw });
     expect(again.cacheHit).toBe(true);
@@ -87,7 +87,7 @@ describe("pipeline: regional input", () => {
 });
 
 describe("pipeline: fails open, never closed", () => {
-  const raw = "mujhe invoice banao ke liye Acme 45000";
+  const raw = "mujhe kal invoice banao ke liye Acme 45000";
   it.each([
     ["timeout", "timeout"], ["provider error", "http"], ["nonsense (bad_response)", "bad_response"],
   ])("Sarvam %s => original text, degraded", async (_n, kind) => {
@@ -130,16 +130,16 @@ describe("pipeline: fails open, never closed", () => {
     expect(t.modelText).toBe("请给客户创建发票");
   });
   it("provider drops an entity placeholder => degrade (never act on a translation missing the customer)", async () => {
-    setSarvamClientForTests(fakeClient((req) => ({ text: req.input.replace(/ZXQ\d+ZXQ/g, "") })));
+    setSarvamClientForTests(fakeClient((req) => ({ text: req.input.replace(/ZXQ\d+ZXQ|Ent\d+/g, "") })));
     const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe Acme Traders ke liye invoice banao" });
     expect(t.degraded).toBe(true);
     expect(t.modelText).toContain("Acme Traders");
   });
   it("ADVERSARIAL: provider silently changes the amount => degrade", async () => {
     setSarvamClientForTests(fakeClient((req) => ({ text: req.input.replace("45000", "54000") })));
-    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe invoice banao Acme 45000" });
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe kal invoice banao Acme 45000" });
     expect(t.degraded).toBe(true);
-    expect(t.modelText).toBe("mujhe invoice banao Acme 45000");
+    expect(t.modelText).toBe("mujhe kal invoice banao Acme 45000");
     expect(t.lowConfidence).toBe(true);
   });
   it("ADVERSARIAL: provider swaps the customer for a different name => placeholder restores the ORIGINAL", async () => {
@@ -150,7 +150,7 @@ describe("pipeline: fails open, never closed", () => {
   });
   it("provider emitting '45,000' for '45000' is accepted (format only)", async () => {
     setSarvamClientForTests(fakeClient((req) => ({ text: translator(req).text.replace("45000", "45,000") })));
-    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe invoice banao Acme 45000" });
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe kal invoice banao Acme 45000" });
     expect(t.degraded).toBe(false);
     expect(t.modelText).toContain("45000");
   });
@@ -215,5 +215,72 @@ describe("respond: reply in the user's language, entities untouched", () => {
     const r = await respondInLanguage("Done.", trace({ kind: "mixed" }));
     expect(r.text).toBe("Done.");
     expect(c.translateSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("live findings (docs/sarvam/live-results): the real API is less well-behaved than the first mock", () => {
+  it("the canonical code-mixed sentence is mapped LOCALLY — no provider call, no cost (live: the translator returned 'zxc zxc…' / dropped the customer for it)", async () => {
+    const c = fakeClient(() => ({ text: "SHOULD NOT BE CALLED" }));
+    setSarvamClientForTests(c);
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "invoice banao for Acme Trading, amount 45000 rupees" });
+    expect(c.translateSpy).not.toHaveBeenCalled();
+    expect(t.degraded).toBe(false);
+    expect(t.modelText).toBe("create invoice for Acme Trading, amount 45000 rupees");
+    expect(t.changedMaterially).toBe(true);
+    expect(t.interpretation).toBe(t.modelText); // shown back as "I understood this as…"
+  });
+  it("Roman Hindi 'X ke liye' with a masked name is mapped locally; a multi-word lowercase name is left to the provider (never half-mapped)", async () => {
+    const c = fakeClient(translator);
+    setSarvamClientForTests(c);
+    const a = await prepareLanguageInput({ tenantId: "t1", rawText: "Acme ke liye invoice banao 500 rupaye" });
+    expect(a.modelText).toBe("for Acme create invoice 500 rupees");
+    expect(c.translateSpy).not.toHaveBeenCalled();
+    const b = await prepareLanguageInput({ tenantId: "t1", rawText: "acme traders ke liye invoice banao 500 rupaye" });
+    expect(c.translateSpy).toHaveBeenCalledTimes(1); // 'ke' stays unmapped ⇒ provider decides
+    expect(b.kind).not.toBe("english");
+  });
+  it("live: degenerate provider output ('invoice zxc zxc …') is detected; ONE retry in a different mode recovers", async () => {
+    let n = 0;
+    const c = fakeClient((r) => (++n === 1 ? { text: "invoice " + "zxc ".repeat(80).trim() } : { text: r.input.replace("kal", "tomorrow").replace("banao", "create") }));
+    setSarvamClientForTests(c);
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe Acme Trading ke liye kal invoice banao 45000" });
+    expect(c.translateSpy).toHaveBeenCalledTimes(2);
+    expect((c.translateSpy.mock.calls[0][0] as any).mode).not.toBe((c.translateSpy.mock.calls[1][0] as any).mode);
+    expect(t.degraded).toBe(false);
+    expect(t.providerCalls).toHaveLength(2); // both calls are metered
+  });
+  it("live: a dropped entity is retried once; still dropped ⇒ degrade to the original text", async () => {
+    const drop = fakeClient((r) => ({ text: r.input.replace(/ZXQ\d+ZXQ|Ent\d+/g, "").replace("banao", "create") }));
+    setSarvamClientForTests(drop);
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe Acme Trading ke liye kal invoice banao 45000" });
+    expect(drop.translateSpy).toHaveBeenCalledTimes(2);
+    expect(t.degraded).toBe(true);
+    expect(t.modelText).toBe("mujhe Acme Trading ke liye kal invoice banao 45000");
+  });
+  it("timeouts and provider errors are NOT retried (no double delay)", async () => {
+    const c = fakeClient(() => ({ fail: "timeout" }));
+    setSarvamClientForTests(c);
+    await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe Acme Trading ke liye kal invoice banao 45000" });
+    expect(c.translateSpy).toHaveBeenCalledTimes(1);
+  });
+  it("live: a long paste that legitimately repeats words is NOT flagged degenerate", async () => {
+    const { looksDegenerate } = await import("@/lib/ai/language/translate");
+    expect(looksDegenerate("pcs pcs pcs pcs pcs pcs pcs pcs pcs pcs", "pcs pcs pcs pcs pcs pcs pcs pcs pcs pcs")).toBe(false);
+    expect(looksDegenerate("invoice zxc zxc zxc zxc zxc zxc zxc zxc zxc", "invoice banao for x")).toBe(true);
+  });
+  it("live: the currency word may be dropped by the provider — the amount VALUE is what is verified", async () => {
+    setSarvamClientForTests(fakeClient((r) => ({ text: `Create an invoice for 45000 for ${(r.input.match(/ZXQ\d+ZXQ|Ent\d+/) ?? ["Acme"])[0]}` })));
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "Acme ke liye kal 45000 rupaye ka invoice banao" });
+    expect(t.degraded).toBe(false);
+    expect(t.modelText).toContain("45000");
+  });
+});
+
+describe("live finding: markup artefacts", () => {
+  it("'<Noise/>' emitted by the real translator is stripped, never shown to the model", async () => {
+    setSarvamClientForTests(fakeClient((r) => ({ text: "<Noise/> " + r.input.replace("kal", "tomorrow").replace("banao", "create") })));
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "mujhe kal invoice banao Acme 500" });
+    expect(t.modelText).not.toMatch(/noise/i);
+    expect(t.degraded).toBe(false);
   });
 });

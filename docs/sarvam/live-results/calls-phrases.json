@@ -1,0 +1,101 @@
+{
+  "count": 16,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 1069,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 1114,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 712,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 826,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 804,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 820,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 821,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 817,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 814,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 719,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 710,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 718,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 46,
+      "ms": 607,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 23,
+      "ms": 626,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 34,
+      "ms": 702,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 56,
+      "ms": 718,
+      "status": 200
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+[
+  {
+    "lang": "hi-native",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ के लिए 45000 रुपये का इनवॉइस बनाओ ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ, amount 45000, ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open करो और ZXQ1ZXQ ₹45000 के लिए check करो।"
+    }
+  },
+  {
+    "lang": "hi-roman",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": false,
+      "in": "ZXQ0ZXQ ke liye 45000 rupaye ka invoice banao ZXQ1ZXQ",
+      "out": "Create an invoice of Rs. 45000 for ZXQ0ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open karo aur ZXQ1ZXQ Rs. 45000 ke liye check karo."
+    }
+  },
+  {
+    "lang": "ta",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ க்கு 45000 ரூபாய்க்கு இன்வாய்ஸ் உருவாக்கு ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ for 45000 rupees. ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ-அ open பண்ணி ₹45000-க்கு ZXQ1ZXQ check பண்ணுங்க."
+    }
+  },
+  {
+    "lang": "te",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ కోసం 45000 రూపాయలకు ఇన్వాయిస్ సృష్టించండి ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ for 45000 rupees ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open చేసి, ₹45000 కోసం ZXQ1ZXQ check చేయండి."
+    }
+  },
+  {
+    "lang": "mr",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ साठी 45000 रुपयांचे बीजक तयार करा ZXQ1ZXQ",
+      "out": "Prepare a ZXQ1ZXQ seed for 45000 rupees for ZXQ0ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open करा आणि ₹45000 साठी ZXQ1ZXQ check करा."
+    }
+  },
+  {
+    "lang": "bn",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ এর জন্য 45000 টাকার ইনভয়েস তৈরি করুন ZXQ1ZXQ",
+      "out": "Create an invoice of 45000 taka for ZXQ0ZXQ ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open করুন, আর ₹45000-র জন্য ZXQ1ZXQ check করুন।"
+    }
+  },
+  {
+    "lang": "gu",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": false,
+      "in": "ZXQ0ZXQ માટે 45000 રૂપિયાનું ઇન્વોઇસ બનાવો ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ, 45000 rupees"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open કરો અને ₹45000 માટે ZXQ1ZXQ check કરો."
+    }
+  },
+  {
+    "lang": "kn",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ ಗಾಗಿ 45000 ರೂಪಾಯಿಗಳ ಇನ್ವಾಯ್ಸ್ ರಚಿಸಿ ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ with an amount of 45000 rupees ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open ಮಾಡಿ ₹45000-ಗೆ ZXQ1ZXQ check ಮಾಡಿ."
+    }
+  },
+  {
+    "lang": "ml",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ നായി 45000 രൂപയുടെ ഇൻവോയ്സ് സൃഷ്ടിക്കുക ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ worth 45000 rupees for ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open ചെയ്ത് ₹45000-ന് ZXQ1ZXQ check ചെയ്യൂ."
+    }
+  },
+  {
+    "lang": "pa",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": true,
+      "in": "ZXQ0ZXQ ਲਈ 45000 ਰੁਪਏ ਦਾ ਇਨਵੌਇਸ ਬਣਾਓ ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ, amount 45000, ZXQ1ZXQ"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open ਕਰੋ ਤੇ ZXQ1ZXQ ₹45000 ਲਈ check ਕਰੋ।"
+    }
+  },
+  {
+    "lang": "or",
+    "fmt": "zxq",
+    "toEnglish": {
+      "ok": false,
+      "in": "ZXQ0ZXQ ପାଇଁ 45000 ଟଙ୍କାର ଇନଭଏସ୍ ତିଆରି କର ZXQ1ZXQ",
+      "out": "Create an invoice for ZXQ0ZXQ with an amount of 45000"
+    },
+    "fromEnglish": {
+      "ok": true,
+      "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
+      "out": "ZXQ0ZXQ open କରନ୍ତୁ ଏବଂ ₹45000 ପାଇଁ ZXQ1ZXQ check କରନ୍ତୁ।"
+    }
+  }
+]

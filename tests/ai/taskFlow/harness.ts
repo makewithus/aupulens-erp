@@ -21,7 +21,7 @@ export const CUSTOMERS: CustomerLite[] = [
 /** Mock translator: word-level, keeps ZXQ placeholders and digits, like a well-behaved provider. */
 export const RULES: [RegExp, string][] = [
   [/invoice podunga|இன்வாய்ஸ் போடுங்க/gi, "create an invoice"],
-  [/mujhe invoice banana hai/gi, "create an invoice"],
+  [/mujhe (?:kal )?invoice banana hai/gi, "create an invoice"],
   [/(\S+) ke liye invoice banao/gi, "create an invoice for $1"],
   [/(\S+) ke liye/gi, "for $1"],
   [/agle mangalwar/gi, "next Tuesday"],

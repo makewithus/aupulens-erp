@@ -1,0 +1,137 @@
+{
+  "count": 22,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 890,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 910,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 1124,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 1431,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 51,
+      "ms": 711,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 721,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 51,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 818,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 710,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 44,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 721,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 813,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 667,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 1078,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 718,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 38,
+      "ms": 707,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 734,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 709,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 812,
+      "status": 200
+    }
+  ]
+}

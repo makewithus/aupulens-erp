@@ -8,9 +8,10 @@ import { LANGUAGE_CODE, LANGUAGE_DEGRADED_REASON, type LanguageDegradedReason } 
 import { detectLanguage } from "./detect";
 import { ENGLISH_WORDS } from "./lexicon";
 import { prepareText, type Prepared } from "./normalise";
-import { placeholdersIntact, unprotectEntities } from "./protect";
+import { placeholdersIntact, unprotectEntities, chooseStyle } from "./protect";
 import { normaliseNumbers } from "./numbers";
 import { translateToEnglish, numbersPreserved } from "./translate";
+import { localRomanToEnglish } from "./localMap";
 import { getSarvamConfig, isSarvamUsable } from "./config";
 import { TtlCache } from "./cache";
 import type { Detection, LanguageTrace } from "./types";
@@ -73,7 +74,7 @@ export async function prepareLanguageInput(input: PrepareInput): Promise<Languag
 
   try {
     const det = detectLanguage(raw);
-    const prep = prepareText(raw);
+    const prep = prepareText(raw, { style: chooseStyle(raw, det.script === "Latn") });
     const trace = baseTrace(raw, det, prep);
 
     // ── English short-circuit: no config read, no provider, no cache ──
@@ -93,17 +94,37 @@ export async function prepareLanguageInput(input: PrepareInput): Promise<Languag
     const hit = cache.get(key);
     if (hit) return finish({ ...hit, cacheHit: true, providerCalls: [] });
 
+    // Code-mixed text that is really English + a few Hindi particles: map them locally (0 ms, 0 cost, no fallible round trip).
+    if (det.script === "Latn" && (det.kind === "romanised" || det.kind === "mixed")) {
+      const m = localRomanToEnglish(prep.masked);
+      if (m.changed && placeholdersIntact(m.text, prep.entities)) {
+        const restored = unprotectEntities(m.text, prep.entities).replace(/[ ]{2,}/g, " ").trim();
+        if (detectLanguage(restored).kind === "english") {
+          return finish({ ...trace, translated: restored, modelText: restored, changedMaterially: true, interpretation: restored, rewrites: [...prep.rewrites, "mapped common Hindi words locally (no translation call)"] });
+        }
+      }
+    }
+
     if (input.allowProvider && !(await input.allowProvider())) {
       return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.LIMIT_REACHED, raw));
     }
-    const tr = await translateToEnglish(prep.masked, det);
-    trace.providerCalls = tr.calls;
-    if (tr.ok === false) return finish(degrade(trace, tr.reason, raw));
 
-    // Verify before trusting: numbers first (canonicalise "45,000" the provider may emit), then placeholders.
-    const english = normaliseNumbers(tr.text).text;
-    if (!numbersPreserved(prep.masked, english)) return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, raw));
-    if (!placeholdersIntact(english, prep.entities)) return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, raw));
+    // Live finding: the translator occasionally drops a masked entity or returns degenerate text. Verify; on a
+    // verification failure retry ONCE in a different mode (not on timeouts/errors — no double delay), else degrade.
+    let english = "";
+    let verified = false;
+    for (let variant = 0; variant < 2 && !verified; variant++) {
+      const tr = await translateToEnglish(prep.masked, det, variant);
+      trace.providerCalls = [...trace.providerCalls, ...tr.calls];
+      if (tr.ok === false) {
+        if (tr.reason !== LANGUAGE_DEGRADED_REASON.BAD_RESPONSE) return finish(degrade(trace, tr.reason, raw));
+        continue; // degenerate output ⇒ retry
+      }
+      // numbers first (canonicalise "45,000" the provider may emit), then placeholders
+      const candidate = normaliseNumbers(tr.text).text;
+      if (numbersPreserved(prep.masked, candidate) && placeholdersIntact(candidate, prep.entities)) { english = candidate; verified = true; }
+    }
+    if (!verified) return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, raw));
 
     const translated = unprotectEntities(english, prep.entities).replace(/[ ]{2,}/g, " ").trim();
     // A translator can invent a name. Any mid-sentence capitalised word that is neither a known

@@ -1,0 +1,389 @@
+{
+  "count": 64,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 934,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 1108,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 742,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 688,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 800,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 630,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 1442,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 701,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 917,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 614,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 77,
+      "ms": 718,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 714,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 714,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 817,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 6353,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 1017,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 77,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 817,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 49,
+      "ms": 825,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 708,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 75,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 818,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 711,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 719,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 710,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 720,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 707,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 45,
+      "ms": 725,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 817,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 77,
+      "ms": 711,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 822,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 817,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 42,
+      "ms": 731,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 803,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 1018,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 823,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 714,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 43,
+      "ms": 816,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 821,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 716,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 919,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 814,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 47,
+      "ms": 1021,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 721,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 717,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 36,
+      "ms": 821,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 714,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 77,
+      "ms": 739,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 660,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 666,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 796,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 716,
+      "status": 200
+    }
+  ]
+}

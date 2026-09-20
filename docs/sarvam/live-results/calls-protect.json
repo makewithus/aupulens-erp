@@ -1,0 +1,59 @@
+{
+  "count": 9,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 32,
+      "ms": 955,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 26,
+      "ms": 792,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 721,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 48,
+      "ms": 715,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 48,
+      "ms": 617,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 708,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 25,
+      "ms": 615,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 21,
+      "ms": 612,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 38,
+      "ms": 717,
+      "status": 200
+    }
+  ]
+}

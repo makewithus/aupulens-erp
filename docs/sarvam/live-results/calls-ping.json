@@ -1,0 +1,11 @@
+{
+  "count": 1,
+  "calls": [
+    {
+      "path": "/translate",
+      "chars": 26,
+      "ms": 840,
+      "status": 200
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+[
+  {
+    "lang": "hi-native",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Please Entity0X के लिए 45000 rupees का invoice create कीजिए, जो 30 days में due है।",
+    "back": "Create an invoice with amount due of 45000 rupees for Entity0X with due date of 30th day.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-native",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X को reminder send कर दीजिए: invoice Entity1X का 12500 rupees का invoice overdue है।",
+    "back": "Send a reminder to Entity0X: 1. Send a reminder to Entity1X for invoice payment with amount due 12500.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Please Entity0X ke liye 45000 rupees ka invoice create kijiye, jo 30 days mein due hai.",
+    "back": "Please create an invoice for Entity0X for a total amount of 45000 rupees, due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "hi-roman",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X ko reminder send kar dijiye: invoice Entity1X ka 12500 rupees ka invoice overdue hai.",
+    "back": "Please send a reminder to Entity0X, the invoice number is 12500, Entity1X.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Entity0X-க்கு 45000 rupees invoice create பண்ணித் தரீங்களா? Due date 30 days-ல வரும்.",
+    "back": "Would you like to create an invoice for entity0X, please? 45000. The due date is 30 days from now.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ta",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-க்கு reminder அனுப்புங்க: 12500 rupees-ஓட invoice Entity1X overdue ஆகிடுச்சு.",
+    "back": "Remind Entity0X that their overdue invoice of Rs. 12,500 is due.",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "te",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "30 days-లో due అయ్యే 45000 rupees-కి Entity0X-కి invoice create చేయండి.",
+    "back": "Create an invoice for 45000 rupees that is due in 30 days for Entity0X.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "te",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-కి reminder పంపించండి: 12500 rupees Entity1X invoice overdue అయింది.",
+    "back": "Aapko entiX ke liye reminder bhejunga: 12500 rupees ki Entity1X ki invoice overdue hai.",
+    "entitiesIntact": false,
+    "numbersPreserved": false
+  },
+  {
+    "lang": "mr",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Entity0X-साठी 45000 rupees-चा invoice 30 days-मध्ये create करा.",
+    "back": "Create an invoice for entity0X for Rs. 45000 within 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "mr",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-ला reminder पाठवा: 12500 rupees-चा invoice Entity1X overdue आहे.",
+    "back": "Send a reminder to Entity0X: 1. Send a reminder to Entity1X, whose invoice is overdue for Rs. 12,500.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Entity0X-এর জন্য 45000 rupees-এর একটা invoice create করুন, যেটা 30 days-এ due.",
+    "back": "Create an invoice with amount due of 45000 rupees for entity0X, which is pending for 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "bn",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-কে একটা reminder পাঠান: 12500 rupees-এর invoice Entity1X overdue হয়ে গেছে।",
+    "back": "Send a reminder to Entity0X: 1. Send a reminder to Entity1X, noting that invoice with amount of 12500 is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Entity0X માટે 45000 rupees-નું invoice create કરો, જે 30 days-માં due છે.",
+    "back": "Create an invoice for entity0X, amount 45000, due in 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "gu",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-ને reminder send કરો: invoice Entity1X of 12500 rupees overdue છે.",
+    "back": "Send a reminder to Entity0X: Invoice Entity1X is overdue by Rs. 12500.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "kn",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "45000 rupees-ನ Entity0X-ಗೆ invoice create ಮಾಡಿ, due date 30 days.",
+    "back": "Create an invoice with amount due of 45000 rupees to Entity0X and set the due date to 30 days from now.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "kn",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-ಗೆ reminder send ಮಾಡಿ: 12500 rupees-ನ invoice Entity1X overdue ಆಗಿದೆ.",
+    "back": "A reminder has been sent to Entity0X: 12500 INR invoice is overdue from Entity1X.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "30 days-ൽ due ആകുന്ന Entity0X-ന്റെ 45000 rupees-ന്റെ invoice create ചെയ്യണേ.",
+    "back": "Create an invoice for Entity0X for Rs. 45000, due in 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "ml",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-ന് ഒരു reminder അയക്കണം: 12500 rupees-ന്റെ invoice Entity1X overdue ആയിട്ടുണ്ട്.",
+    "back": "A reminder should be sent to Entity0X: 12500 INR, Invoice Entity1X, Overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Entity0X ਲਈ 45000 rupees ਦਾ invoice 30 days ਵਿੱਚ due ਹੈ, please create ਕਰ ਦਿਓ।",
+    "back": "Create an invoice with amount due of 45000 rupees for entity0X with due date of 30 days.",
+    "entitiesIntact": false,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "pa",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X ਨੂੰ reminder ਭੇਜ ਦਿਓ: invoice Entity1X of 12500 rupees overdue ਹੈ।",
+    "back": "Send a reminder to Entity0X: Invoice Entity1X is overdue by 12500 rupees.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Please create an invoice for Entity0X for 45000 rupees, due in 30 days.",
+    "there": "Please 45000 rupees-ର Entity0X ପାଇଁ ଏକ invoice create କରନ୍ତୁ, ଯାହା 30 days-ରେ due।",
+    "back": "Create an invoice for Entity0X for Rs. 45000 within 30 days.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  },
+  {
+    "lang": "or",
+    "en": "Send Entity0X a reminder: invoice Entity1X of 12500 rupees is overdue.",
+    "there": "Entity0X-କୁ reminder ପଠାନ୍ତୁ: 12500 rupees-ର invoice Entity1X overdue ଅଛି।",
+    "back": "Send a reminder to Entity0X: 1. Send a reminder to Entity1X, noting that invoice with amount due 12500 is overdue.",
+    "entitiesIntact": true,
+    "numbersPreserved": true
+  }
+]
