@@ -18,7 +18,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 2.44,
+    "ms": 7.31,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -41,9 +41,9 @@
       "45k → 45000"
     ],
     "calls": [
-      "translate/mayura:v1 53ch 958ms ok"
+      "translate/mayura:v1 53ch 885ms ok"
     ],
-    "ms": 959.99,
+    "ms": 888.21,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -64,9 +64,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 57ch 904ms ok"
+      "translate/mayura:v1 57ch 724ms ok"
     ],
-    "ms": 906.01,
+    "ms": 725.15,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -87,7 +87,7 @@
     ],
     "rewrites": [],
     "calls": [],
-    "ms": 2.77,
+    "ms": 1.47,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -110,7 +110,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 1.57,
+    "ms": 0.82,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -135,10 +135,10 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 47ch 614ms ok",
-      "translate/mayura:v1 47ch 812ms ok"
+      "translate/mayura:v1 47ch 647ms ok",
+      "translate/mayura:v1 47ch 591ms ok"
     ],
-    "ms": 1429.56,
+    "ms": 1240.45,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -164,7 +164,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 0.59,
+    "ms": 0.34,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -174,7 +174,7 @@
     "expected": "(40× the same request, 2400 chars — chunked)",
     "language": "hi-IN",
     "kind": "romanised",
-    "modelGot": "I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees. I need to create an invoice for Acme Trading, 45000 rupees.",
+    "modelGot": "I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, which is ₹45000. I need to create an invoice for Acme Trading, for 45000 rupees. I need to create an invoice for Acme Trading, for 45000 rupees. I need to create an invoice for Acme Trading, for 45000 rupees. I need to create an invoice for Acme Trading, for 45000 rupees.",
     "degraded": false,
     "lowConfidence": false,
     "protected": [
@@ -341,10 +341,10 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/sarvam-translate:v1 1933ch 4812ms ok",
-      "translate/sarvam-translate:v1 215ch 1426ms ok"
+      "translate/sarvam-translate:v1 1933ch 4596ms ok",
+      "translate/sarvam-translate:v1 215ch 1106ms ok"
     ],
-    "ms": 4816.68,
+    "ms": 4598.43,
     "hasInvoice": true,
     "keeps45000": true
   }

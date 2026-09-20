@@ -42,6 +42,9 @@ async function main() {
   const acme: any = await Organization.findOne({ subdomain: "demo-acme" });
   if (!acme) throw new Error("Run scripts/seed-platform-demo.ts first (demo-acme is missing).");
 
+  // The demo org is created on the starter tier (no "admin" module), which makes the AI panel's Q&A route answer 403 MODULE_NOT_AVAILABLE. QA needs the full product.
+  await Organization.updateOne({ subdomain: "demo-acme" }, { $set: { tier: "enterprise", subscriptionStatus: "active" }, $addToSet: { "settings.enabledModules": "admin" } });
+
   const mkUser = (tenantId: string, name: string, email: string, role: string) =>
     User.findOneAndUpdate(
       { tenantId, email },

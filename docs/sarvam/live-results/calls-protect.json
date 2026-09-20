@@ -4,55 +4,55 @@
     {
       "path": "/translate",
       "chars": 32,
-      "ms": 955,
+      "ms": 730,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 26,
-      "ms": 792,
+      "ms": 753,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 41,
-      "ms": 721,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 48,
-      "ms": 715,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 48,
-      "ms": 617,
+      "ms": 707,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 41,
-      "ms": 708,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 25,
       "ms": 615,
       "status": 200
     },
     {
       "path": "/translate",
+      "chars": 44,
+      "ms": 613,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 41,
+      "ms": 634,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 24,
+      "ms": 589,
+      "status": 200
+    },
+    {
+      "path": "/translate",
       "chars": 21,
-      "ms": 612,
+      "ms": 818,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 38,
-      "ms": 717,
+      "ms": 711,
       "status": 200
     }
   ]

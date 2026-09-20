@@ -21,6 +21,8 @@ const RULES: [RegExp, string][] = [
   [/\bdikhao\b/gi, "show"],
   [/\bbhejo\b/gi, "send"],
   [/\baur\b/gi, "and"],
+  // Hindi word order leaves "for X create invoice" — put it in the order English (and the guided flow) expects.
+  [new RegExp(`\\bfor\\s+(\\S+)\\s+create\\s+(${NOUN})\\b`, "gi"), "create $2 for $1"],
 ];
 
 export function localRomanToEnglish(text: string): { text: string; changed: boolean } {

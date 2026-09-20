@@ -18,7 +18,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 2.63,
+    "ms": 4.85,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -39,9 +39,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 32ch 956ms ok"
+      "translate/mayura:v1 32ch 733ms ok"
     ],
-    "ms": 957.53,
+    "ms": 734.74,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -66,9 +66,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 26ch 792ms ok"
+      "translate/mayura:v1 26ch 753ms ok"
     ],
-    "ms": 792.97,
+    "ms": 754.29,
     "hasInvoice": false,
     "keeps45000": true
   },
@@ -78,9 +78,9 @@
     "expected": "27AAPFU0939F1ZV verbatim",
     "language": "hi-IN",
     "kind": "mixed",
-    "modelGot": "GSTIN of Acme Trading is 27AAPFU0939F1ZV, invoice created successfully, 500.",
-    "degraded": false,
-    "lowConfidence": false,
+    "modelGot": "Acme Trading ka GSTIN 27AAPFU0939F1ZV hai, invoice banao 500",
+    "degraded": "bad_response",
+    "lowConfidence": true,
     "protected": [
       {
         "type": "name",
@@ -93,9 +93,10 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 41ch 722ms ok"
+      "translate/mayura:v1 41ch 709ms ok",
+      "translate/mayura:v1 41ch 616ms ok"
     ],
-    "ms": 723.02,
+    "ms": 1326.23,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -105,25 +106,20 @@
     "expected": "AAPFU0939F verbatim",
     "language": "hi-IN",
     "kind": "mixed",
-    "modelGot": "PAN AAPFU0939F wale customer ke liye invoice banao",
-    "degraded": "bad_response",
-    "lowConfidence": true,
+    "modelGot": "Create an invoice for a customer named PAN AAPFU0939F",
+    "degraded": false,
+    "lowConfidence": false,
     "protected": [
       {
-        "type": "name",
-        "value": "PAN AAPFU"
-      },
-      {
-        "type": "name",
-        "value": "F"
+        "type": "pan",
+        "value": "AAPFU0939F"
       }
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 48ch 715ms ok",
-      "translate/mayura:v1 48ch 618ms ok"
+      "translate/mayura:v1 44ch 615ms ok"
     ],
-    "ms": 1333.64,
+    "ms": 615.65,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -133,7 +129,7 @@
     "expected": "\"Reciept Pad\" verbatim incl. quotes",
     "language": "hi-IN",
     "kind": "mixed",
-    "modelGot": "<Noise/> Keep the item name as \"Reciept Pad\" and create an invoice.",
+    "modelGot": "Keep the item name as \"Reciept Pad\" and create an invoice.",
     "degraded": false,
     "lowConfidence": false,
     "protected": [
@@ -144,9 +140,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 41ch 709ms ok"
+      "translate/mayura:v1 41ch 635ms ok"
     ],
-    "ms": 709.89,
+    "ms": 635.67,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -156,14 +152,10 @@
     "expected": "aB12-xY9 verbatim",
     "language": "hi-IN",
     "kind": "mixed",
-    "modelGot": "Show the stock of SKU and aB12-xY9.",
+    "modelGot": "Show the stock of SKU aB12-xY9",
     "degraded": false,
     "lowConfidence": false,
     "protected": [
-      {
-        "type": "name",
-        "value": "SKU"
-      },
       {
         "type": "code",
         "value": "aB12-xY9"
@@ -171,9 +163,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 25ch 616ms ok"
+      "translate/mayura:v1 24ch 590ms ok"
     ],
-    "ms": 617.08,
+    "ms": 590.49,
     "hasInvoice": false,
     "keeps45000": true
   },
@@ -194,9 +186,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 21ch 613ms ok"
+      "translate/mayura:v1 21ch 818ms ok"
     ],
-    "ms": 613.09,
+    "ms": 818.95,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -219,7 +211,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 0.18,
+    "ms": 0.28,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -240,9 +232,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 38ch 718ms ok"
+      "translate/mayura:v1 38ch 713ms ok"
     ],
-    "ms": 718.7,
+    "ms": 714.84,
     "hasInvoice": true,
     "keeps45000": true
   }

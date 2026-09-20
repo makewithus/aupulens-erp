@@ -107,7 +107,7 @@ describe("tenant at its AI/cost limit (live browser pass: a leftover cap silentl
   it("fully locally-mapped Roman Hindi still works at the cap (free); provider-needing text degrades with the original text", async () => {
     const h = makeHarness({ aiAllowed: async () => false });
     const free = await h.say("Kamal ke liye invoice banao 500 rupaye");
-    expect(free.english).toBe("for Kamal create invoice 500 rupees");
+    expect(free.english).toBe("create invoice for Kamal 500 rupees");
     expect(free.language.degraded).toBe(false);
     expect(h.client.translateSpy).not.toHaveBeenCalled();
     await h.say("cancel");

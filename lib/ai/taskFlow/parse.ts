@@ -91,7 +91,14 @@ export function parseAmountToken(token: string): Amount | null {
   return { value };
 }
 
-const AMOUNT_CUE_RX = /(?:₹|\brs\.?|\binr\b|\brupees?\b)\s*(\d[\d.,]*)|(\d[\d.,]*)\s*(?:₹|\brs\.?|\binr\b|\brupees?\b|\/-)/i;
+// The cue WORD ("amount", "price"…) goes with the number — otherwise it is left behind and becomes the item name
+// (found in the live browser pass: "…, amount 45000 rupees" produced Item / service: "amount").
+const AMOUNT_WORD = "(?:amount|price|rate|cost|worth|total|value|of|for)";
+const AMOUNT_CUE_RX = new RegExp(`(?:\\b${AMOUNT_WORD}\\s*[:=-]?\\s*)?(?:(?:₹|\\brs\\.?|\\binr\\b|\\brupees?\\b)\\s*(\\d[\\d.,]*)|(\\d[\\d.,]*)\\s*(?:₹|\\brs\\.?|\\binr\\b|\\brupees?\\b|\\/-))`, "i");
+
+/** Words that are never an item or customer NAME on their own (leftovers of numbers/dates/fillers). */
+export const GENERIC_WORD_RX = /^(?:amount|price|rate|cost|worth|total|value|rupees?|rs\.?|inr|only|for|of|due|date|the|a|an|and|is|are|with|to|on|by|in|at|per|each|units?|qty|quantity|pcs|days?|weeks?|months?)$/i;
+export const isGenericLeftover = (s: string) => s.trim().split(/\s+/).every((w) => GENERIC_WORD_RX.test(w.replace(/[.,:;-]+$/g, "")));
 
 export interface Segments {
   quantity?: number;
@@ -119,8 +126,15 @@ export function segmentNumbers(text: string): Segments {
 // ── customer text ──────────────────────────────────────────────────────────────────
 const INTENT_LEAD_RX = /^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:(?:i\s+)?(?:want|need|require|would like|wish)\s+(?:to\s+)?(?:create|make|raise|generate)?\s*)?(?:(?:create|make|generate|draft|prepare|prep|raise|add|new|issue|write|cut|give|do)\s+(?:me\s+)?)?(?:an?\s+|the\s+|one\s+|new\s+)*(?:sales\s+)?(?:invoices?|bills?)\b\s*/i;
 
+const GREETING_RX = /^\s*(?:(?:hi|hello|hey|hii+|dear\s+\w+|good\s+(?:morning|afternoon|evening)|namaste|namaskar)\b[\s,!.:-]*)+/i;
+const SIGNOFF_RX = /[\s,.!-]*\b(?:thx|thanks|thank\s+you|regards|warm\s+regards|cheers|ty)\b[\s\S]*$/i;
+/** A part that is a labelled contact/tax field ("GSTIN 27AAPFU…", "email …", "phone …") is never an item or customer name. */
+export const LABELLED_FIELD_RX = /\b(?:gstin|gst|pan|tan|email|e-mail|phone|mobile|contact|address|hsn|sac|website)\b/i;
+
 export function stripIntentLead(text: string): string {
   return text
+    .replace(GREETING_RX, "")
+    .replace(SIGNOFF_RX, "")
     .replace(INTENT_LEAD_RX, "")
     .replace(/\b(?:invoices?|pls|plz|please|kindly)\b/gi, " ") // "acme invoice pls" → "acme"
     .replace(/\s{2,}/g, " ")

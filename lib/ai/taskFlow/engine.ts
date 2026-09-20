@@ -7,7 +7,7 @@
 import { looksLikeDate, resolveDate } from "./dates";
 import {
   classifyIntent, matchCustomers, normName, parseAmountToken, parseChoiceIndex, parseControl,
-  segmentNumbers, stripIntentLead, type Control, type CustomerLite,
+  isGenericLeftover, LABELLED_FIELD_RX, segmentNumbers, stripIntentLead, type Control, type CustomerLite,
 } from "./parse";
 import { TASK_TARGETS, type SlotDef, type TaskTarget } from "./registry";
 
@@ -233,7 +233,7 @@ async function extract(st: FlowState, inp: StepInput, lk: Lookups, opts: { strip
   if (!forced || wantsText) {
     const parts = text.split(/[,;\n|]/).map((p) => p.trim()).filter(Boolean);
     for (const raw of parts) {
-      if (/\?\s*$/.test(raw) || raw.length > 160) continue;
+      if (/\?\s*$/.test(raw) || raw.length > 160 || LABELLED_FIELD_RX.test(raw)) continue;
       const itemM = raw.match(/^(?:item|product|service|description)\s*[:=-]?\s*(.+)$/i);
       let slot: SlotDef | undefined = wantsText;
       let val = raw;
@@ -249,7 +249,7 @@ async function extract(st: FlowState, inp: StepInput, lk: Lookups, opts: { strip
       }
       if (!slot) continue;
       const cleaned = cleanCandidate(val);
-      if (!cleaned) continue;
+      if (!cleaned || isGenericLeftover(cleaned)) continue; // never let "amount"/"rupees"/"due" become a name
       if (slot.kind === "customer") await resolveCustomer(cleaned, inp, lk, out);
       else if (cleaned.length <= 120) out.updates[slot.key] = { value: cleaned, display: cleaned };
     }

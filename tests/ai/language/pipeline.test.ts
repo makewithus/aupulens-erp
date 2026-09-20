@@ -233,7 +233,7 @@ describe("live findings (docs/sarvam/live-results): the real API is less well-be
     const c = fakeClient(translator);
     setSarvamClientForTests(c);
     const a = await prepareLanguageInput({ tenantId: "t1", rawText: "Acme ke liye invoice banao 500 rupaye" });
-    expect(a.modelText).toBe("for Acme create invoice 500 rupees");
+    expect(a.modelText).toBe("create invoice for Acme 500 rupees"); // reordered to English order (live browser finding)
     expect(c.translateSpy).not.toHaveBeenCalled();
     const b = await prepareLanguageInput({ tenantId: "t1", rawText: "acme traders ke liye invoice banao 500 rupaye" });
     expect(c.translateSpy).toHaveBeenCalledTimes(1); // 'ke' stays unmapped ⇒ provider decides

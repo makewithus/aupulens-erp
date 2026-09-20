@@ -393,12 +393,22 @@ if (on("regional")) {
   }, page);
 
   page = await freshChat(ctx);
-  await step("R2", "Regional — Tamil script", "Tamil 'இன்வாய்ஸ் போடுங்க' starts the same flow (detected ta-IN)", async () => {
-    const j = await say(page, "இன்வாய்ஸ் போடுங்க");
-    assert((LIVE ? /invoice/i.test(j.english) : j.english === "create an invoice") && j.language.detected === "ta-IN", `english=${j.english} lang=${j.language.detected}`);
+  await step("R2", "Regional — Tamil script", "Tamil 'Acme க்கு இன்வாய்ஸ் உருவாக்கு' (create an invoice for Acme) starts the guided flow (detected ta-IN) and asks which Acme", async () => {
+    const j = await say(page, "Acme க்கு இன்வாய்ஸ் உருவாக்கு");
+    assert(j.language.detected === "ta-IN", `lang=${j.language.detected}`);
+    assert(/invoice/i.test(j.english) && /Acme/.test(j.english), `english="${j.english}"`);
     assert(j.kind === "question", `got ${j.kind}`);
-    if (!LIVE) await expectText(page, "Question 1 of 4");
+    assert(j.choices && j.choices.includes("Acme Trading") && j.choices.includes("Acme Industries"), "near-miss customer choices expected (never a silent pick)");
     await say(page, "cancel");
+  }, page);
+
+  page = await freshChat(ctx);
+  await step("R2b", "Regional — colloquial Tamil that the real translator misreads", "'இன்வாய்ஸ் போடுங்க' is translated by the real API as 'Send the invoice' — so it must NOT start an invoice; nothing is created (finding: phrase needs a native speaker)", async () => {
+    const before = Number(mongo('db.salesinvoices.countDocuments({tenantId:"demo-acme"})'));
+    const j = await say(page, "இன்வாய்ஸ் போடுங்க");
+    assert(j.kind !== "question" && j.kind !== "confirm" && j.kind !== "open_form", `it wrongly started a create flow: ${j.kind}`);
+    assert(Number(mongo('db.salesinvoices.countDocuments({tenantId:"demo-acme"})')) === before, "an invoice was created");
+    return `translated to: "${j.english}" → ${j.kind}`;
   }, page);
 
   page = await freshChat(ctx);

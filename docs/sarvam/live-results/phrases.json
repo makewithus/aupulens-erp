@@ -16,9 +16,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 41ch 1073ms ok"
+      "translate/mayura:v1 41ch 1061ms ok"
     ],
-    "ms": 1075.48,
+    "ms": 1067.18,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -39,9 +39,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 42ch 1115ms ok"
+      "translate/mayura:v1 42ch 823ms ok"
     ],
-    "ms": 1117.34,
+    "ms": 824.7,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -62,9 +62,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 49ch 713ms ok"
+      "translate/mayura:v1 49ch 792ms ok"
     ],
-    "ms": 715.18,
+    "ms": 792.24,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -85,9 +85,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 49ch 827ms ok"
+      "translate/mayura:v1 49ch 837ms ok"
     ],
-    "ms": 827.43,
+    "ms": 837.32,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -108,9 +108,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 41ch 804ms ok"
+      "translate/mayura:v1 41ch 753ms ok"
     ],
-    "ms": 805.17,
+    "ms": 753.41,
     "hasInvoice": false,
     "keeps45000": true
   },
@@ -131,9 +131,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 45ch 821ms ok"
+      "translate/mayura:v1 45ch 782ms ok"
     ],
-    "ms": 821.29,
+    "ms": 782.87,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -154,9 +154,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 45ch 821ms ok"
+      "translate/mayura:v1 45ch 717ms ok"
     ],
-    "ms": 822.52,
+    "ms": 717.65,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -177,9 +177,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 42ch 818ms ok"
+      "translate/mayura:v1 42ch 730ms ok"
     ],
-    "ms": 817.95,
+    "ms": 730.26,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -200,9 +200,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 43ch 815ms ok"
+      "translate/mayura:v1 43ch 689ms ok"
     ],
-    "ms": 815.63,
+    "ms": 689.66,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -223,9 +223,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 47ch 721ms ok"
+      "translate/mayura:v1 47ch 769ms ok"
     ],
-    "ms": 721.18,
+    "ms": 769.96,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -246,9 +246,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 36ch 711ms ok"
+      "translate/mayura:v1 36ch 664ms ok"
     ],
-    "ms": 711.87,
+    "ms": 663.89,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -269,9 +269,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 41ch 719ms ok"
+      "translate/mayura:v1 41ch 650ms ok"
     ],
-    "ms": 719.91,
+    "ms": 649.75,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -294,7 +294,7 @@
       "mapped common Hindi words locally (no translation call)"
     ],
     "calls": [],
-    "ms": 0.99,
+    "ms": 1.21,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -319,9 +319,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 46ch 607ms ok"
+      "translate/mayura:v1 46ch 686ms ok"
     ],
-    "ms": 608.6,
+    "ms": 687.1,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -331,7 +331,7 @@
     "expected": "Name the item \"Reciept Pad\" — quoted text verbatim",
     "language": "hi-IN",
     "kind": "mixed",
-    "modelGot": "Name the item as \"Reciept Pad\"",
+    "modelGot": "#Name the item as \"Reciept Pad\"",
     "degraded": false,
     "lowConfidence": false,
     "protected": [
@@ -342,9 +342,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 23ch 627ms ok"
+      "translate/mayura:v1 23ch 630ms ok"
     ],
-    "ms": 627.53,
+    "ms": 630.21,
     "hasInvoice": false,
     "keeps45000": true
   },
@@ -365,9 +365,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 34ch 703ms ok"
+      "translate/mayura:v1 34ch 684ms ok"
     ],
-    "ms": 703.71,
+    "ms": 685.51,
     "hasInvoice": false,
     "keeps45000": true
   },
@@ -385,7 +385,7 @@
       "invoce → invoice"
     ],
     "calls": [],
-    "ms": 0.57,
+    "ms": 0.44,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -406,9 +406,9 @@
     ],
     "rewrites": [],
     "calls": [
-      "translate/mayura:v1 56ch 718ms ok"
+      "translate/mayura:v1 56ch 779ms ok"
     ],
-    "ms": 719.15,
+    "ms": 779.49,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -431,7 +431,7 @@
       "forty five thousand → 45000"
     ],
     "calls": [],
-    "ms": 0.9,
+    "ms": 1.07,
     "hasInvoice": true,
     "keeps45000": true
   },
@@ -447,7 +447,7 @@
     "protected": [],
     "rewrites": [],
     "calls": [],
-    "ms": 0.24,
+    "ms": 0.31,
     "hasInvoice": false,
     "keeps45000": true
   }

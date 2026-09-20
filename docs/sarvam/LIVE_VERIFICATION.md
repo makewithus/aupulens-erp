@@ -1,7 +1,50 @@
 # LIVE_VERIFICATION — confirming the mocks match reality
 
 > **If any step fails, the system degrades rather than misleads — nothing here can produce a wrong record, only a worse translation.**
-> Run **§1 (the placeholder-format check) first**: everything else depends on it. A failure there looks like `degraded: bad_response` on any phrase containing a name, and the fix is **one constant** (`PH_PREFIX` in `lib/ai/language/protect.ts`).
+> Run **§1 (the placeholder-format check) first**: everything else depends on it. A failure there looks like `degraded: bad_response` on any phrase containing a name, and the fix lives in one place (`placeholder` / `chooseStyle` in `lib/ai/language/protect.ts`) — live-checked 2026-09-20, see below.
+
+# LIVE RESULTS — real Sarvam API + real Azure model (2026-09-20)
+
+> Run with `scripts/sarvam-live-verify.ts` and `scripts/sarvam-live-classify.ts` (never in CI; not under `tests/`; every printed/written line is scrubbed of the key,
+> which is read from `.env` only). Raw outputs (scrubbed) are in `docs/sarvam/live-results/`. **Credits spent:** ≈ 650–700 Sarvam calls / ≈ 40k input characters
+> (many of them deliberate A/B comparisons of placeholder formats) and ≈ 200 Azure classification calls. **Rule applied throughout: where live disagreed with a mock or an
+> expectation, the mock/code changed — no expected result was edited to match.**
+
+**Headline.** The pipeline design holds: nothing the live API did could produce a wrong record — every misbehaviour was caught by the verification layer and degraded to the original
+text. But the live API is materially *less* well-behaved than the first mock, and three real defects were found and fixed (below). The one item outside Sarvam (the Azure classification
+prompt) is now 22/22 stable.
+
+| # | Step | Expected | Observed (live) | Action taken |
+|---|---|---|---|---|
+| 0 | Reachability | key accepted | `POST /translate` 200 in 844 ms | — |
+| 1 | **Placeholder format** | `ZXQnZXQ` returns intact, un-moved, un-reindexed in every language | **Native script & replies: yes** — English→regional 11/11 intact; regional→English 8/11 (the 3 misses were a *dropped* bare trailing token, never a mangled one). **Roman-script / code-mixed: NO** — the real translator garbled it 4 times in 10 (`JXQ0ZXQ`, `zxq0 zxq zxq zxq…`, entity dropped). A/B over formats (22 round trips each): `ZXQnZXQ` 3 fail · name-like `Qavrix Holdings` 3 fail *and it rewrote the names* (Quavrix/Zolman) · `[[E0]]` 5 · `Entity0X` 7 · `Ent0` 6 (partly my number check counting its digit). On 10 Roman/code-mixed sentences: `ZXQ` 6/10 · `Ent0` **9/10** · `@@0@@` 5/10 · `Entity0X` 4/10 (errors) | **Design kept; constant made script-dependent:** `ZXQnZXQ` for native script, **`Ent<n>` for Latin-script input** (`chooseStyle`; falls back to ZXQ if the user's own text contains `Ent3`). Every alteration/drop/duplicate/stray fragment still degrades (tests for both styles). Live pipeline degrade rate on Roman/code-mixed/protected input fell from 5 of 18 to 2 of 18 |
+| 2 | Round-trip EN→lang→EN, 11 languages | meaning, entities and amount survive | **Numbers 22/22 preserved.** Entities intact 19/22 (drops, never mangling). Per-language caveats below | Caveats recorded; no code change (verification already catches drops) |
+| 3 | The documented phrases | each → "Create an invoice for Acme for 45000 rupees" | 19/20 resolve to that meaning (word order varies: "…for 45000 rupees for Acme"; `pa`/`or` drop the word "rupees" but keep 45000; `bn` says "taka"). **`mr` FAILS:** `बीजक` → *"Prepare a seed for Acme"* (बीजक also means "seed"). Unsupported (Chinese) → passed through | **`mr` marked "needs a native speaker" — expectation NOT changed**; an alternative phrase (`mr-alt`, `इनव्हॉइस`) was added as a *separate* row and resolves ("Prepare an invoice…"). All 11 languages detected correctly |
+| 4 | Code-mixed / WhatsApp-damaged | resolves | **The canonical sentence `invoice banao for Acme Trading, amount 45000 rupees` FAILED live** (`degraded: bad_response`): the translator returned `invoice zxc zxc zxc …` and, unmasked, silently *dropped the customer* ("Make an invoice for the amount of Rs. 45000") | **Fixed:** a deterministic local map handles code-mixed text that is really English + a few Hindi particles (0 ms, no provider); degenerate output detection; one retry in a different mode on a failed verification (not on timeouts). WhatsApp paste, emoji, zero-width chars, `45,000`, `1,00,000`, typos all resolve; 5 of 6 messy inputs never reach the provider or resolve. `wa-3` (`“invoice” banao Kamal ke liye ,, paanch hazaar`) still degrades (safe) |
+| 5 | Protected entities | nothing "corrected" | **Two real defects found:** (a) `Recipt Traders ke liye…` at the START of a message was "corrected" to `Receipt`; (b) `PAN AAPFU0939F` was split into `PAN AAPFU` + `F`; (c) `PLEASEEEE` was masked as if it were a name and reached the translator; (d) the translator emits markup like `<Noise/>` | All four fixed + tested. Live after fix: `Recipt Traders`, `Invoce Traders`, `INV-0O42`, `27AAPFU0939F1ZV` (when not degraded), `"Reciept Pad"`, `aB12-xY9`, the e-mail, `Kamal`, `Kanchipuram Silks Pvt Ltd` — **all verbatim**; `pr-gstin` degraded on the last run (API non-determinism) — safe |
+| 6 | Failure paths, for real | degrade, never an error | Invalid key → HTTP 403 → `degraded: provider_error`, original text ✔ · bad language code / empty input / malformed JSON → HTTP 400 → structured failure, no throw ✔ · oversized (1,560 chars) to mayura → 400 (limit 1,000 confirmed; our client refuses locally) ✔ · **5,490-char paste through the pipeline → 3 chunks, all 90 amounts preserved, not degraded** ✔ · forced 1 ms timeout → `degraded: timeout` in 4 ms ✔ | none needed |
+| 7 | **Uncached regional latency** | p95 < 1.5 s before the model call | **p50 722 ms · p95 1,023 ms · max 6,355 ms** (55 uncached calls, 5 per language; per-language p50 703–823 ms — no language differs materially). Reply translation p50 719 ms (max 1.4 s) | Budget **met at p95**. Two declared caveats in `PERFORMANCE.md`: a ~2 % tail beyond the 2 s timeout degrades safely; and an *uncached regional guided turn* = input (~0.7 s) + reply (~0.7 s) ≈ **1.4 s, above the 1 s clarifying-turn budget** (cached/locally-mapped turns are ≈ 0) |
+| 8 | **Classification prompt vs the real Azure model** (Azure, not Sarvam) | correct and stable | First pass **17/22**: `bill Acme 45k pls` and `invoice for Acme Trading 45k` flipped between runs; `Acme Trading invoice 45000` misread as a lookup; "steps to make a bill" → other. Also found: the rule layer's `due` query-word wrongly ruled out `Get an invoice of 100000 for Acme due next Tuesday`, and `bill Kamal 2500 for repairs` never reached the LLM. Injection attempts are blocked by Azure's content filter (400) | **Prompt tightened with examples + a "bill = sales invoice unless vendor/purchase/from" rule; rule layer fixed. Re-run: 22/22 correct on all 3 runs, 0 unstable** (66 calls); injection cases → never "create" (filter block ⇒ the route fails open) |
+
+## Per-language caveats from the round trip (Step 2)
+| Language | Observed | Caveat |
+|---|---|---|
+| Hindi (native) | forward fine; back-translation of "Send X a reminder" reversed who sends; one entity dropped on the back-trip | reminder-style sentences: confirm direction |
+| Hindi (Roman) | fine; one back-trip read "paid by X" for "for X" | semantic drift possible on prepositions |
+| Tamil | entities intact; one back-trip came out in **Roman Hindi** | back-translation language can drift |
+| Telugu | **one forward translation dropped the customer entirely** | most likely to lose an entity → degrade |
+| Marathi | fine; **`बीजक` = "seed"** | use `इनव्हॉइस` |
+| Bengali | fine forward; one back-trip garbled ("Create a reminder to send X to 12500…"); currency rendered **"taka"** | currency word ambiguity |
+| Gujarati | fine; back-trip leaks Hindi-script "रुपये" | cosmetic |
+| Kannada | fine; **"30 days" came back as "30th"** | due-date wording can drift — the summary always shows the resolved absolute date |
+| Malayalam | one entity dropped on the back-trip | degrade path |
+| Punjabi, Odia | fine (`45000` kept, "rupees" sometimes dropped) | none |
+None of these can create a wrong record: names/ids are verbatim or the whole result degrades; amounts are value-verified; every field is shown in the confirmation summary before anything opens.
+
+## Mock corrections made because live disagreed
+`tests/ai/language/helpers.ts` / test translators now model: entity **drops**, **degenerate** repetition output, the **currency word dropped**, `<Noise/>` markup, and script-dependent placeholder style; new tests: `pipeline.test.ts` ("live findings"), `placeholderSafety.test.ts` (Ent style, 7 corruptions), `protection.test.ts` ("live findings: protection at the START…", "entity boundaries"), `phrasing.test.ts` (weak-noun + digits), `sarvamMetering.test.ts` (fresh cap). Suite re-run: green.
+
+---
 
 CI mocks Sarvam. These steps are how we confirm the mocks (`tests/ai/language/helpers.ts`, `tests/ai/taskFlow/harness.ts`) behave like the real API.
 

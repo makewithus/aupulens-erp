@@ -177,3 +177,73 @@ describe("adversarial: protected text passes through to the form unchanged", () 
     expect(CUSTOMERS.length).toBeGreaterThan(0);
   });
 });
+
+describe("live browser finding: leftover words must never become the item name", () => {
+  it.each([
+    ["Create an invoice for Acme Trading, amount 45000 rupees"],
+    ["Create an invoice for Kamal, price 500"],
+    ["Create an invoice for Kamal, rate: Rs. 500"],
+    ["Create an invoice for Kamal, total 500 rupees only"],
+    ["Create an invoice for Kamal, 500 rupees"],
+  ])("'%s' → amount taken, item still ASKED (never 'amount'/'price'…)", async (text) => {
+    const h = makeHarness();
+    const r = await h.say(text);
+    expect(h.store.session!.state.slots.unitPrice.value).toBeGreaterThan(0);
+    expect(h.store.session!.state.slots.itemName).toBeUndefined();
+    expect(r.kind).toBe("question");
+    expect(r.message).toContain("Item / service");
+  });
+  it("a real item next to an amount cue is still taken: 'consulting, amount 45000 rupees'", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice for Kamal, consulting, amount 45000 rupees");
+    expect(h.store.session!.state.slots.itemName?.value ?? "").toBe("consulting");
+  });
+  it("code-mixed: locally mapped 'invoice banao for Acme Trading, amount 45000 rupees' asks for the item", async () => {
+    const h = makeHarness();
+    const r = await h.say("invoice banao for Acme Trading, amount 45000 rupees");
+    expect(r.english).toBe("create invoice for Acme Trading, amount 45000 rupees");
+    expect(r.kind).toBe("question");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Acme Trading");
+    expect(h.store.session!.state.slots.unitPrice.value).toBe(45000);
+    expect(h.store.session!.state.slots.itemName).toBeUndefined();
+  });
+});
+
+describe("live browser findings (round 2): fillers, word order, labelled fields", () => {
+  it("a WhatsApp paste with a greeting and sign-off: 'hi please create invoice ⏎ for Acme Trading ⏎ 45,000 rs due 30 days ⏎ thx 🙏' resolves customer+amount+due, asks the item", async () => {
+    const h = makeHarness();
+    const r = await h.say("hi ​please​ create  invoice\n\nfor   Acme Trading 😊😊\n45,000 rs   due 30 days\n\n\nthx 🙏");
+    const s = h.store.session!.state.slots;
+    expect(s.customer.value.name).toBe("Acme Trading");
+    expect(s.unitPrice.value).toBe(45000);
+    expect(s.dueDate.value).toBe("2026-10-19");
+    expect(s.itemName).toBeUndefined();
+    expect(r.message).toContain("Item / service");
+  });
+  it("locally-mapped Hindi word order: 'Kamal ke liye invoice banao 500' resolves the customer exactly", async () => {
+    const h = makeHarness();
+    const r = await h.say("Kamal ke liye invoice banao 500");
+    expect(r.english).toBe("create invoice for Kamal 500");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Kamal");
+  });
+  it("an unknown customer written Hindi-style still offers to create THAT name verbatim ('Recipt Traders')", async () => {
+    const h = makeHarness();
+    const r = await h.say("Recipt Traders ke liye invoice banao 500");
+    expect(r.choices).toContain('Create a new customer "Recipt Traders"');
+  });
+  it("a labelled field ('GSTIN 27AAPFU0939F1ZV') is never taken as the item or the customer", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice for Kamal, 500, GSTIN 27AAPFU0939F1ZV");
+    expect(h.store.session!.state.slots.itemName).toBeUndefined();
+    await h.say("cancel");
+    await h.say("Kamal ke liye invoice banao 500, GSTIN 27AAPFU0939F1ZV");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Kamal");
+    expect(h.store.session!.state.slots.itemName).toBeUndefined();
+  });
+  it("sign-offs and greetings never become names: 'hello, invoice for Kamal 500 thanks'", async () => {
+    const h = makeHarness();
+    await h.say("hello, create an invoice for Kamal 500 thanks");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Kamal");
+    expect(h.store.session!.state.slots.itemName).toBeUndefined();
+  });
+});
