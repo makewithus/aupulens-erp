@@ -150,6 +150,13 @@ describe("tenant limit applies to COMBINED spend", () => {
     expect(en.degraded).toBe(false); // English never even asks (no DB query on the majority path)
     setSarvamClientForTests(null);
   });
+  it("the admin view reads the cap FRESH: a cap changed a moment ago is shown immediately (prod browser pass found a 60 s stale cache)", async () => {
+    const { getCombinedMonthCost } = await import("@/lib/platform/ai/spend");
+    expect((await getCombinedMonthCost(T)).cap).toBeNull(); // primes the cache
+    await AiLimit.create({ tenantId: T, maxCostUsdPerMonth: 5 });
+    expect((await getCombinedMonthCost(T)).cap).toBeNull(); // enforcement path: cached (documented)
+    expect((await getCombinedMonthCost(T, { fresh: true })).cap).toBe(5); // admin screen: fresh
+  });
   it("the seam used by callClaudeForTenant reads the same combined figure", async () => {
     await AiLimit.create({ tenantId: T, maxCostUsdPerMonth: 0.001 });
     await spend(T, 0.01, "sarvam");

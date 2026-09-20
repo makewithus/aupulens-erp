@@ -285,7 +285,7 @@ export async function getOrganizationAiUsage(actor: AdminActor, reason: string, 
 
       const periodStart = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(4, 6)) - 1, 1));
       const providerSplit = await getProviderBreakdown(periodStart, subdomain);
-      const costInfo = await getCombinedMonthCost(subdomain);
+      const costInfo = await getCombinedMonthCost(subdomain, { fresh: true });
       const used = Array.from(byFeature.values()).reduce((sum, r) => sum + r.requestCount, 0);
       const allocation = entitlements.limits.aiRequestsPerMonth;
 

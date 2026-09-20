@@ -97,3 +97,22 @@ describe("1.1 the classifier and slot filling key off the pipeline's NORMALISED 
     expect(h.store.charged).toBe(before);
   });
 });
+
+describe("tenant at its AI/cost limit (live browser pass: a leftover cap silently disabled even the free local mapping)", () => {
+  it("English never asks the allowance question (no DB on the majority path)", async () => {
+    const h = makeHarness({ aiAllowed: async () => false });
+    await h.say("Create an invoice for Kamal, 500");
+    expect(h.allowanceChecks()).toBe(0);
+  });
+  it("fully locally-mapped Roman Hindi still works at the cap (free); provider-needing text degrades with the original text", async () => {
+    const h = makeHarness({ aiAllowed: async () => false });
+    const free = await h.say("Kamal ke liye invoice banao 500 rupaye");
+    expect(free.english).toBe("for Kamal create invoice 500 rupees");
+    expect(free.language.degraded).toBe(false);
+    expect(h.client.translateSpy).not.toHaveBeenCalled();
+    await h.say("cancel");
+    const paid = await h.say("mujhe kal Kamal ke liye invoice banana hai 500");
+    expect(paid.language.degraded).toBe(true);
+    expect(h.client.translateSpy).not.toHaveBeenCalled(); // no paid call at the cap
+  });
+});

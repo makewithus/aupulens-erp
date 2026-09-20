@@ -38,11 +38,12 @@ export interface Harness {
   posts: { url: string; body: any; cookie: string }[];
   clock: { now: Date };
   classifySpy: ReturnType<typeof vi.fn>;
+  allowanceChecks: () => number;
 }
 
 export function makeHarness(o: {
   customers?: CustomerLite[]; role?: string; autoCreate?: boolean; last?: CustomerLite | null;
-  translate?: (req: any) => any; classify?: (english: string) => Promise<any>; recentItems?: string[] | (() => Promise<string[]>); postResponse?: { status: number; json: any }; lookupThrows?: Error; multilingualDisabled?: boolean;
+  translate?: (req: any) => any; classify?: (english: string) => Promise<any>; recentItems?: string[] | (() => Promise<string[]>); aiAllowed?: () => Promise<boolean>; postResponse?: { status: number; json: any }; lookupThrows?: Error; multilingualDisabled?: boolean;
 } = {}): Harness {
   setSarvamEnv(true);
   clearLanguageCache(); clearReplyCache();
@@ -53,6 +54,7 @@ export function makeHarness(o: {
   const clock = { now: new Date(NOW) };
   const posts: Harness["posts"] = [];
   let seq = 0;
+  let asked = 0;
 
   const lookups: Lookups = {
     async customerCount() { if (o.lookupThrows) throw o.lookupThrows; return customers.length; },
@@ -73,7 +75,7 @@ export function makeHarness(o: {
       return sid;
     },
     closeSession: async (_t, id, status, ref) => { store.closed.push({ id, status, ref }); if (store.session?.id === id) store.session = null; },
-    aiAllowed: async () => true,
+    aiAllowed: async () => { asked++; return o.aiAllowed ? o.aiAllowed() : true; },
     chargeTranslation: async () => { store.charged++; },
   };
   const fetchFn = vi.fn(async (url: string, init: any) => {
@@ -85,7 +87,7 @@ export function makeHarness(o: {
   const classifySpy = vi.fn(async (_t: string, e: string) => (o.classify ? o.classify(e) : null));
   (deps as any).classify = classifySpy;
   return {
-    store, client, posts, clock, classifySpy,
+    store, client, posts, clock, classifySpy, allowanceChecks: () => asked,
     say: (text, extra) => handleTaskFlow(
       { tenantId: "t1", userId: "u1", role: o.role ?? "sales", text, expectSession: extra?.expectSession, aiSettings: { autoCreateEnabled: o.autoCreate, multilingualDisabled: o.multilingualDisabled }, http: { origin: "http://x", cookie: "session=abc", fetchFn: fetchFn as any } },
       deps,

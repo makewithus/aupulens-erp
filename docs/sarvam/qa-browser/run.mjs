@@ -4,7 +4,10 @@ import { step, assert, bodyText, expectText, expectNoText, mongo, platformContex
 const pw = await import(process.env.PLAYWRIGHT_CORE || "playwright-core");
 const chromium = pw.chromium ?? pw.default.chromium;
 const which = process.argv[2] || "all";
+const LIVE = !!process.env.QA_LIVE; // real Sarvam key on the server (not the mock): assertions accept real translations
 const browser = await chromium.launch({ executablePath: process.env.CHROME || "/usr/bin/google-chrome", headless: true, args: ["--no-sandbox"] });
+/** Today (India) + n days as YYYY-MM-DD — "due 30 days" must equal what the form shows, whatever day the suite runs. */
+const plusDays = (n) => { const d = new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()) + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const on = (s) => which === s || (which === "all" && s !== "down"); // 'down' needs the mock STOPPED, run it on its own
 const nav = (p, url) => p.goto(url, { waitUntil: "domcontentloaded", timeout: 180000 });
 
@@ -96,9 +99,10 @@ if (on("org") || which === "o8") {
 
   await step("O2", "Org → AI Usage: combined spend vs cap", "With a monthly cost cap set, the tab shows 'of the ₹<cap> monthly cost cap — translation pauses once reached'", async () => {
     mongo('db.ailimits.updateOne({tenantId:"demo-acme"},{$set:{tenantId:"demo-acme",maxCostUsdPerMonth:0.01}},{upsert:true}).acknowledged');
-    await openOrg(page, "demo-acme", "AI Usage");
-    await expectText(page, "monthly cost cap — regional-language translation pauses once the cap is reached", 120000);
-    mongo('db.ailimits.deleteOne({tenantId:"demo-acme"}).acknowledged');
+    try {
+      await openOrg(page, "demo-acme", "AI Usage");
+      await expectText(page, "monthly cost cap — regional-language translation pauses once the cap is reached", 120000);
+    } finally { mongo('db.ailimits.deleteMany({tenantId:"demo-acme"}).acknowledged'); } // never leave a cap behind (it would silently degrade later regional steps)
   }, page);
 
   const page2 = await ctx.newPage();
@@ -116,8 +120,8 @@ if (on("org") || which === "o8") {
     assert(!t.includes("mock-key"), "the API key leaked into the page!");
     const hi = (await page.locator("table tr", { hasText: "hi-IN" }).first().innerText()).replace(/\s+/g, " ");
     const ta = (await page.locator("table tr", { hasText: "ta-IN" }).first().innerText()).replace(/\s+/g, " ");
-    assert(/hi-IN\s+\d+\s+\d+/.test(hi) && hi.includes("3") && hi.includes("1"), `hi-IN row wrong: ${hi}`);
-    assert(ta.includes("2"), `ta-IN row wrong: ${ta}`);
+    const n = (row) => Number((row.match(/(?:hi|ta)-IN\s+(\d+)/) || [])[1]);
+    assert(n(hi) >= 3 && n(ta) >= 2, `language counts below the seeded 3 / 2: ${hi} || ${ta}`); // live runs only ADD real interactions
     await page.getByText("Multilingual support (Sarvam)").scrollIntoViewIfNeeded();
     return `${hi} || ${ta}`;
   }, page);
@@ -232,7 +236,7 @@ if (on("chat")) {
     await expectText(page, "₹45,000");
     const y = await say(page, "yes");
     assert(y.kind === "open_form", `got ${y.kind}`);
-    await invoiceForm(page, { customer: "Acme Trading", values: ["consulting services", "45000", "2026-10-19"] });
+    await invoiceForm(page, { customer: "Acme Trading", values: ["consulting services", "45000", plusDays(30)] });
   }, page);
 
   page = await freshChat(ctx);
@@ -369,10 +373,12 @@ if (on("regional")) {
   let page = await freshChat(ctx);
   await step("R1", "Regional — Roman Hindi create, end to end", "'mujhe invoice banana hai' → 'I understood this as: create an invoice' + Question 1 (in the reply language); answers in Hindi; ends on a pre-filled form", async () => {
     let j = await say(page, "mujhe invoice banana hai");
-    assert(j.english === "create an invoice", `english was "${j.english}"`);
+    if (LIVE) assert(/invoice/i.test(j.english) && /(create|make|prepare)/i.test(j.english), `english was "${j.english}"`);
+    else assert(j.english === "create an invoice", `english was "${j.english}"`);
     assert(j.language.detected === "hi-IN", `detected ${j.language.detected}`);
-    assert(j.message.includes("I understood this as") && j.message.includes("Question 1 of 4"), "interpretation + question expected");
-    assert(j.message.includes("[hi]"), "reply did not go back through the translation stage");
+    assert(j.message.includes("I understood this as"), "interpretation line expected");
+    if (LIVE) assert(j.kind === "question" && j.progress?.current === 1, `expected question 1, got ${j.kind}`);
+    else assert(j.message.includes("Question 1 of 4") && j.message.includes("[hi]"), "question / translation stage expected");
     await expectText(page, "I understood this as");
     j = await say(page, "Acme Industries ke liye");
     assert(j.kind === "question" && j.progress.current === 2, `customer not taken: ${j.message.slice(0, 120)}`);
@@ -389,9 +395,9 @@ if (on("regional")) {
   page = await freshChat(ctx);
   await step("R2", "Regional — Tamil script", "Tamil 'இன்வாய்ஸ் போடுங்க' starts the same flow (detected ta-IN)", async () => {
     const j = await say(page, "இன்வாய்ஸ் போடுங்க");
-    assert(j.english === "create an invoice" && j.language.detected === "ta-IN", `english=${j.english} lang=${j.language.detected}`);
+    assert((LIVE ? /invoice/i.test(j.english) : j.english === "create an invoice") && j.language.detected === "ta-IN", `english=${j.english} lang=${j.language.detected}`);
     assert(j.kind === "question", `got ${j.kind}`);
-    await expectText(page, "Question 1 of 4");
+    if (!LIVE) await expectText(page, "Question 1 of 4");
     await say(page, "cancel");
   }, page);
 

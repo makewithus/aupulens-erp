@@ -74,12 +74,15 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
   const today = todayIST(deps.now?.());
   const session = await deps.loadSession(inp.tenantId, inp.userId);
 
-  // Translation is a paid call: only for tenants still inside their AI allowance and switched on.
-  const allowed = inp.aiSettings.disabled === true ? false : await deps.aiAllowed(inp.tenantId);
+  // Translation is a paid call: only for tenants still inside their AI allowance and switched on. Asked LAZILY (only when a
+  // provider call is about to happen) — English, cache hits and the free local code-mixed mapping never touch the DB for it.
+  let allowedMemo: boolean | undefined;
+  const providerAllowed = async () => (allowedMemo ??= inp.aiSettings.disabled === true ? false : await deps.aiAllowed(inp.tenantId));
   const trace: LanguageTrace = await prepareLanguageInput({
     tenantId: inp.tenantId,
     rawText: inp.text,
-    multilingualDisabled: inp.aiSettings.multilingualDisabled === true || !allowed,
+    multilingualDisabled: inp.aiSettings.multilingualDisabled === true,
+    allowProvider: providerAllowed,
   });
   // The "I understood this as…" line invites: no, I meant …  — treat the corrected text as the message.
   const correction = trace.modelText.match(/^\s*(?:no|nope|nah|wrong|not that|not quite)[,.!\s]+(?:i\s+)?(?:meant|mean|said|want(?:ed)?)\s*:?\s*([\s\S]+)$/i);
@@ -150,7 +153,7 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
       let intent = picked.intent;
       if (intent === "uncertain") {
         // Rules can't tell. Ask an LLM rather than ignore a clear instruction; on any failure fall through to legacy.
-        const verdict = allowed && deps.classify ? await deps.classify(inp.tenantId, english).catch(() => null) : null;
+        const verdict = deps.classify && (await providerAllowed()) ? await deps.classify(inp.tenantId, english).catch(() => null) : null;
         if (verdict === "create") intent = "do";
         else if (verdict === "explain") intent = "explain";
         else return await respond({ kind: "not_handled", message: "" });

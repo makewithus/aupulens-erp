@@ -17,9 +17,10 @@ const TTL_MS = 60_000;
 
 const monthStart = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); };
 
-export async function getCombinedMonthCost(tenantId: string): Promise<{ costUsd: number; cap: number | null }> {
+/** `fresh` skips the 60 s cache — used by the admin screen so a cap the admin just changed shows immediately (found in the production browser pass). Enforcement keeps the cache. */
+export async function getCombinedMonthCost(tenantId: string, opts: { fresh?: boolean } = {}): Promise<{ costUsd: number; cap: number | null }> {
   const hit = cache.get(tenantId);
-  if (hit && Date.now() - hit.at < TTL_MS) return { costUsd: hit.costUsd, cap: hit.cap };
+  if (!opts.fresh && hit && Date.now() - hit.at < TTL_MS) return { costUsd: hit.costUsd, cap: hit.cap };
   await connectDB();
   const [agg, limit] = await Promise.all([
     AiUsageRecord.aggregate([
