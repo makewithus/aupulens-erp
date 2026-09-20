@@ -26,6 +26,18 @@ prompt) is now 22/22 stable.
 | 7 | **Uncached regional latency** | p95 < 1.5 s before the model call | **p50 722 ms · p95 1,023 ms · max 6,355 ms** (55 uncached calls, 5 per language; per-language p50 703–823 ms — no language differs materially). Reply translation p50 719 ms (max 1.4 s) | Budget **met at p95**. Two declared caveats in `PERFORMANCE.md`: a ~2 % tail beyond the 2 s timeout degrades safely; and an *uncached regional guided turn* = input (~0.7 s) + reply (~0.7 s) ≈ **1.4 s, above the 1 s clarifying-turn budget** (cached/locally-mapped turns are ≈ 0) |
 | 8 | **Classification prompt vs the real Azure model** (Azure, not Sarvam) | correct and stable | First pass **17/22**: `bill Acme 45k pls` and `invoice for Acme Trading 45k` flipped between runs; `Acme Trading invoice 45000` misread as a lookup; "steps to make a bill" → other. Also found: the rule layer's `due` query-word wrongly ruled out `Get an invoice of 100000 for Acme due next Tuesday`, and `bill Kamal 2500 for repairs` never reached the LLM. Injection attempts are blocked by Azure's content filter (400) | **Prompt tightened with examples + a "bill = sales invoice unless vendor/purchase/from" rule; rule layer fixed. Re-run: 22/22 correct on all 3 runs, 0 unstable** (66 calls); injection cases → never "create" (filter block ⇒ the route fails open) |
 
+## Findings from the live BROWSER pass on the production build (guided flow + live Sarvam)
+| Input | Expected | Observed | Action |
+|---|---|---|---|
+| `invoice banao for Acme Trading, amount 45000 rupees` | customer, amount taken; item **asked** | summary with **Item / service: "amount"** (parser left the cue word behind) | amount-cue words removed with the number; generic words can never be an item/customer name (+ English variants tested) |
+| WhatsApp paste with `hi please create invoice … thx` | customer/amount/due taken, item asked | greeting became the customer candidate → choice list | greetings/sign-offs stripped before parsing |
+| `Recipt Traders ke liye invoice banao 500` | "Create a new customer \"Recipt Traders\"" | locally-mapped order "for X create invoice" left the customer unresolved (only "Someone else") | word order normalised to "create invoice for X" |
+| `…, GSTIN 27AAPFU0939F1ZV` | GSTIN verbatim, not an item | could be taken as the item | labelled fields (GSTIN/PAN/email/phone…) never become an item/customer |
+| `இன்வாய்ஸ் போடுங்க` | starts an invoice | real API: **"Send the invoice"** → correctly *not* a create | **phrase needs a native speaker; expectation not changed** (a verified Tamil phrase is used for the flow test) |
+| Org AI-Usage tab after changing the cost cap | shows the new cap | stale up to 60 s (enforcement cache reused by the admin view) | admin view reads fresh |
+| Tenant at its cost cap, `Kamal ke liye invoice banao 500 rupaye` | free local mapping still works | degraded (allowance was checked eagerly) | allowance checked lazily, only before a paid call |
+After the fixes: the full 35-step browser pass on the production build, live Sarvam, **35/35** (+ the provider-down step R4 with the key removed: passes).
+
 ## Per-language caveats from the round trip (Step 2)
 | Language | Observed | Caveat |
 |---|---|---|

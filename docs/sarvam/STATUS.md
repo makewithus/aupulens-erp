@@ -1,8 +1,8 @@
-# STATUS — final (branch `sarvam`, Phase 3 sign-off)
+# STATUS — final (branch `sarvam`, Phase 4 close-out, 2026-09-20)
 
-**Verified how:** **browser** = driven in real Chrome against a seeded demo workspace (34 steps, `QA_GUIDE.md` self-run log) ·
-**test** = automated tests, Sarvam mocked · **live key** = only provable with a real Sarvam key (the user's step,
-`LIVE_VERIFICATION.md`). Nothing below is "pending": the live-key items are declared boundaries with a reason (no key exists in this environment).
+**Verified how:** **browser (prod)** = driven in real Chrome against the **production build** with the **real Sarvam key** and the real Azure model, seeded demo workspace (35 steps + provider-down, `QA_GUIDE.md`) ·
+**live API** = run directly against the real Sarvam / Azure APIs (`scripts/sarvam-live-*.ts`, results in `docs/sarvam/live-results/`, `LIVE_VERIFICATION.md`) · **test** = automated, Sarvam mocked in CI (416+ tests on the language/guided-flow layers).
+**No cell below is pending.** What still depends on a person is listed under *Open items* with an owner.
 
 ## ⚠ ESCALATION 1 — the Azure cost cap does not cap Azure spend
 `AiLimit.maxCostUsdPerMonth` ("Max cost/mo" on the organisation's AI limits, Global Admin) **implies** a spending limit. For Azure OpenAI — the
@@ -44,15 +44,30 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 | Stable baseline | Yes | test — see `BASELINE.md` | shared-config edit, below |
 | Docs & QA | Yes | — | `QA_GUIDE`, `LIVE_VERIFICATION`, `PERFORMANCE`, `VOICE_READINESS`, `BASELINE`, `DISCOVERY`, `sarvam_setup.md`, `qa-browser/README` |
 | Voice | Designed, not built (as briefed) | n/a | `VOICE_READINESS.md` |
-| Sarvam real-API behaviour, placeholder format, phrase quality, uncached regional latency | Mocked here | **live key** | first step of `LIVE_VERIFICATION.md` |
+| **Live Sarvam API** — reachability, all 11 languages, placeholder survival, round trips, code-mixed/WhatsApp, protected entities, failure paths | Yes | **live API** (≈ 650–700 calls; every step in `LIVE_VERIFICATION.md` as expected / observed / action) | Found and fixed: script-dependent placeholder style; local code-mixed mapping; retry + degenerate-output detection; sentence-start name protection; PAN/name boundaries; elongation; `<Noise/>` markup. Mocks corrected to match |
+| Uncached regional latency | Measured | **live API**: p50 722 ms · p95 **1,023 ms** (budget 1.5 s → met) | tails and the ≈ 1.4 s uncached guided turn are declared (`PERFORMANCE.md`) |
+| Classification prompt vs the real Azure model | Yes (prompt tightened) | **live API**: 22/22 stable ×3 (66 calls); injection attempts never create | first pass was 17/22 |
+| Guided flow + regional flow on the **production build** | Yes | **browser (prod), live Sarvam**: R1 (Roman Hindi end-to-end to a pre-filled form), R2 (Tamil), R3, R4 (key removed), SARVAM_TEST Groups A–G | 6 further parser defects found and fixed (leftover "amount" as item, greeting as customer, word order, labelled fields, stale cap, eager allowance) |
+| Phrase quality per language | Caveats recorded | **live API** round-trip caveats; **native-speaker review remains an open item** (owner: you) | `mr` `बीजक` = "seed" and colloquial Tamil `போடுங்க` = "send" recorded, not softened |
 
 ## Known limits (plain English)
 * Streamed replies stay in English (your message is understood; non-streaming assistants answer in your language).
 * Only the **sales invoice** has the guided flow. Customer, bill, expense and ~50 other create actions are unchanged (regional input reaches them).
-* Sarvam behaviour is **mock-verified** until the live check; the `ZXQnZXQ` placeholder format is **unconfirmed** (wrong ⇒ degrades, never misleads).
+* **Sarvam behaviour is now confirmed live** — with the caveats in `LIVE_VERIFICATION.md`: the real translator sometimes drops an entity or returns degenerate text (≈ 2 in 18 pipeline inputs degrade, safely), Roman-script input needs a different placeholder style (done), and replies are readable but unpolished.
 * Every non-English phrase needs native-speaker review (Hindi, Tamil first).
 * The Azure cost cap is not enforced (Escalation 1). The customerless-draft 500 is pre-existing (Escalation 2).
-* Browser QA ran in **dev mode** (first loads are slow) with a mock Sarvam; production build and real provider are separate confirmations.
+* The browser pass ran on the **production build** against the **real** Sarvam key; the local database, the demo workspace and the Sarvam **price (a $0.002/1k placeholder)** are fixtures.
+
+## Open items (named owners) — nothing here blocks merging
+| Item | Owner |
+|---|---|
+| Native-speaker review of every non-English phrase (Hindi & Tamil first; `mr` `बीजक`, colloquial Tamil `போடுங்க` known-bad) | you |
+| Azure cost cap not enforced (Escalation 1) | whoever owns AI limits / Global Admin |
+| Real Sarvam price → `SARVAM_COST_PER_1K_CHARS_USD` (fixture uses a placeholder) | you |
+| Optional: pre-warm the reply-translation cache (≈ 110 calls) to bring an uncached regional guided turn under 1 s; consider `SARVAM_TIMEOUT_MS=3000` for the tail | product decision |
+| Streamed replies in the user's language; guided flow for customer/bill/expense | future work (declared) |
+| Voice input | `VOICE_READINESS.md` (≈ 4–5 days) |
+| The 2 eslint errors + 1 warning in `tests/ai/aiRuntime/safety.test.ts` and `ai29ControlMonitoringEdgeCases.test.ts` | belong to `ai/workflows` (not modified here); they arrive with that branch |
 
 ## Merge notes
 * **Branch:** `sarvam`, local only — **not pushed, not merged**. Cut from `e3eff17`. `Final commit `aaec2b5`; 12 commits ahead of the branch point.`
@@ -63,7 +78,7 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
   **`SARVAM_COST_PER_1K_CHARS_USD` set to the real price — NOT blank** (a blank used to seed a ₹0 rate; the script now refuses). No key ⇒ the product runs English-only, no errors.
 * **Run once:** `SARVAM_COST_PER_1K_CHARS_USD=<price> npx tsx scripts/seed-platform-sarvam-cost-rates.ts`.
 * **Additive schema:** `AiUsageRecord.provider/callType/characters`, `AiCostRate.provider/costPerThousandCharacters`, `Organization.settings.ai.multilingualDisabled/autoCreateEnabled`, new `AiLanguageInteraction` (90-day TTL). No migration needed; historical rows default to Azure.
-* **Order vs other branches (measured with `git merge-tree` dry-runs, nothing merged):**
+* **Order vs other branches (`git merge-tree` dry-runs, nothing merged; re-run 2026-09-20 after all Phase-4 changes — unchanged):**
   * `sarvam` + `global/admin` → **merges cleanly** (they overlap on the platform dashboard, org detail page and `lib/platform/organizations/detail.ts`, but git resolves it).
   * `sarvam` + `ai/workflows` → **conflicts, none in files this branch touched**: `app/api/cron/ai/runtime-sweep/route.ts`, `lib/aiRuntime/workflows/ai-29-control-monitoring/index.ts`,
     `tests/ai/aiRuntime/ai07AccrualIntelligence.test.ts`, `tests/ai/aiRuntime/ai21StatementIntelligenceEdgeCases.test.ts` — they come from `ai/workflows` and `sarvam` having

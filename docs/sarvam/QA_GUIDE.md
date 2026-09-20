@@ -50,10 +50,11 @@ already answered (e.g. customer Kamal, no item). This is the old "dump text, edi
 ## 5. Regional languages (mock or live Sarvam) — expected outcomes, no Hindi/Tamil needed
 | # | Paste | English meaning | Expected |
 |---|---|---|---|
-| A | `mujhe invoice banana hai` (Roman Hindi) | I want to make an invoice | Reply begins **I understood this as: create an invoice** then **Question 1 of 4** — in Hindi (Roman script) with live Sarvam; with the mock, the reply shows a `[hi]` marker |
+| A | `mujhe invoice banana hai` (Roman Hindi) | I want to make an invoice | Reply begins **I understood this as: create an invoice** then **Question 1 of 4** — in Hindi (Roman script) with live Sarvam; the reply is in Roman Hindi with the real API (a `[hi]` marker only with the dev mock) |
 | B | then `Acme Industries ke liye` | for Acme Industries | Customer set to **Acme Industries** (exactly as typed) → next question |
 | C | item `1`, amount `12000`, `skip`, then `haan` | 1 = first choice, 12000, skip, yes | Summary shows **Acme Industries** and **₹12,000** unchanged; `haan` opens the pre-filled form |
-| D | `இன்வாய்ஸ் போடுங்க` (Tamil) | make an invoice | Same flow, language shown as Tamil (ta-IN in the trace) |
+| D | `Acme க்கு இன்வாய்ஸ் உருவாக்கு` (Tamil) | Create an invoice for Acme | "I understood this as: Create an invoice for Acme", then a customer choice list (Acme Trading / Acme Industries / Create a new customer "Acme"); language ta-IN in the trace |
+| D2 | `இன்வாய்ஸ் போடுங்க` (colloquial Tamil) | *intended:* make an invoice — **the real API reads it as "Send the invoice"** | Does **not** start an invoice and creates nothing (a phrase needing a native speaker — recorded, not softened) |
 | E | `Acme के लिए 45000 रुपये का इनवॉइस बनाओ` (Hindi) | Create an invoice for Acme for 45000 rupees | Flow starts; **Acme** and **45000** unchanged |
 | F | `invoice banao for Acme, amount 45000 rupees` (mixed) | Create an invoice for Acme, amount 45000 rupees | Flow starts; reply in **English** (mixed input keeps an English reply) |
 | G | `Recipt Traders ke liye invoice banao, INV-0O42 ki copy bhejo` | invoice for Recipt Traders; send copy of INV-0O42 | "Recipt Traders" and "INV-0O42" appear **exactly** as typed — never "Receipt" / "INV-0042" |
@@ -94,50 +95,54 @@ opens the form.
 
 ---
 ## Self-run log
-Every row below was run by the assistant in a **real browser** (Chrome, driven by `docs/sarvam/qa-browser/run.mjs`) against a seeded demo workspace with
-a mock Sarvam server. Method for every row: **browser**. Re-run: see `docs/sarvam/qa-browser/README.md`.
 
-| # | Area | Expected | Method | Result |
-|---|---|---|---|---|
-| P1 | Platform dashboard | AI usage by provider card lists Azure OpenAI and Sarvam with requests, characters, cost, and a Combined row | browser | **PASS** — Sarvam (translation) 15 0 11,066 1 ₹0.0181 |
-| P2 | Platform dashboard — loading | While the summary is in flight the page shows a loading state, not a blank/broken card | browser | **PASS** — page chrome shown, no half-rendered provider card while the summary is held 6s; card appears when data arrives |
-| P3 | Platform dashboard — empty | A month with no AI usage shows 'No AI usage recorded yet this month.' | browser | **PASS** |
-| P4 | Platform dashboard — error | If the summary API fails the page shows an error/empty state, never a blank screen | browser | **PASS** — DG OVERVIEW Dashboard Search ORGANISATIONS Organisations BILLING Plans SECURITY Audit Logs Security Log Admin  |
-| O1 | Org → AI Usage tab | Provider split table (Azure + Sarvam) with real numbers; Sarvam cost = seeded rate × characters; combined spend line | browser | **PASS** — Sarvam (translation) 25 0 11652 1 ₹0.0193 |
-| O2 | Org → AI Usage: combined spend vs cap | With a monthly cost cap set, the tab shows 'of the ₹<cap> monthly cost cap — translation pauses once reached' | browser | **PASS** |
-| O3 | Org → AI Usage: empty | A tenant with no AI usage says 'No AI usage recorded yet this month.' (not a blank table) | browser | **PASS** |
-| O4 | Org → Configuration: multilingual status | Effective status, tenant switch, platform switch, key 'Configured' (never the key), languages used with counts | browser | **PASS** — hi-IN 16 3 Sep 19, 2026, 11:19 PM GMT+5:30 // ta-IN 4 0 Sep 19, 2026, 11:19 PM GMT+5:30 |
-| O5 | Org → Configuration: toggle the per-tenant switch | Disable needs a reason, updates the status, writes an audit record, and really turns translation off for that tenant; re-enabling restores it | browser | **PASS** — audit rows: 5 |
-| O6 | Org → Configuration: empty languages | 'No regional-language requests yet.' for a tenant that never used one | browser | **PASS** |
-| O7 | Org → Configuration: error state | If saving the switch fails the admin sees an error toast and the status does not change | browser | **PASS** |
-| O8 | Org → Configuration: loading state | While the tab loads the admin sees 'Loading configuration…' (not blank) | browser | **PASS** |
-| O9 | Permission — read-only platform admin | Can view; trying to change the switch shows a clear refusal and nothing changes | browser | **PASS** |
-| C1 | Chat — English, everything supplied | Summary only (no questions); 'yes' opens the real invoice form fully pre-filled (customer, item, ₹45000, due date +30 days) | browser | **PASS** |
-| C2 | Chat — English with gaps (guided) | One question at a time with progress; item choices come from this tenant's invoice history; summary; form opens pre-filled | browser | **PASS** |
-| C3 | Chat — escape hatch | 'Skip the questions and open the form' opens a partly pre-filled form (customer known, no item) — today's behaviour | browser | **PASS** |
-| C4 | Chat — back and cancel | 'back' returns to the previous question; 'cancel' says nothing was created and the draft is closed | browser | **PASS** |
-| C5 | Chat — resume after abandoning | Reload the page mid-flow, ask to continue: the same question comes back with the answers kept | browser | **PASS** |
-| C6 | Chat — near-miss customer name | 'Acme Traders' does not exist: a numbered list of real customers is offered; nothing is picked silently | browser | **PASS** |
-| C7 | Chat — 'I understood this as…' and its correction path | A typo + '45k' is shown back as 'I understood this as: … 45000'; 'no, I meant …' redoes the request | browser | **PASS** |
-| C8 | Chat — loading state | While the flow is thinking, your message is already on screen with a loading bubble (not a frozen input) | browser | **PASS** |
-| C9 | Chat — error state (fails open) | If the guided-flow service is down the assistant still answers (the older create path) — never a dead end | browser | **PASS** — landed on: http://demo-acme.localhost:3100/sales/invoices/new |
-| C10 | Chat — English path untouched | A normal English question makes NO guided-flow request at all | browser | **PASS** |
-| C11 | Sales AI Assistant page | The same guided flow works on a module assistant page (not only the sidebar) | browser | **PASS** |
-| R1 | Regional — Roman Hindi create, end to end | 'mujhe invoice banana hai' → 'I understood this as: create an invoice' + Question 1 (in the reply language); answers in Hindi; ends on a pre-filled form | browser | **PASS** |
-| R2 | Regional — Tamil script | Tamil 'இன்வாய்ஸ் போடுங்க' starts the same flow (detected ta-IN) | browser | **PASS** |
-| R3 | Regional — your own text stays on screen | The chat bubble shows exactly what you typed, never the normalised copy | browser | **PASS** |
-| R4 | Regional — provider down (fails open) | With Sarvam unreachable the assistant still answers; no error screen; a degraded record is logged; nothing wrong is created | browser | **PASS** — degraded records 4→5 |
-| X1 | Permission — HR user asks for an invoice | A clear refusal in the chat ('you don't have access…'), never a blank screen; nothing is created | browser | **PASS** |
-| X2 | Permission — HR user opens /sales directly | Redirected away by the app's own gate, page has content (not blank) | browser | **PASS** — redirected to http://demo-acme.localhost:3100/hr/dashboard |
-| X3 | Empty state — tenant with no customers | Says so plainly and opens the New Customer form (no dead end, no invoice flow) | browser | **PASS** |
-| X4 | Unauthenticated API call | The guided-flow endpoint refuses with a clear 401, not an HTML/blank response | browser | **PASS** — status 401 |
-| E1 | Execute path (flag ON for this tenant) | 'yes' creates a DRAFT through the real route and lands on the new invoice; nothing posted to the ledger | browser | **PASS** — created INV-0002 as draft, total 700 |
-| E2 | Execute path (flag OFF again) | Same conversation only OPENS the form; no invoice is created | browser | **PASS** |
+**Method for every row: browser, production build** — real Chrome (driven by `docs/sarvam/qa-browser/run.mjs`) against `npm run build:local` + `next start` (NODE_ENV=production), a seeded demo workspace, the **real Sarvam key** and the real Azure model, run 2026-09-20. Sarvam was **live** (not the mock) for every step that needs a provider; the **Live/mocked** column says which steps actually exercised it. English-only steps make no provider call by design. (The earlier dev-mode pass used a mock Sarvam and is superseded.) Re-run: `docs/sarvam/qa-browser/README.md`.
 
-Summary: 34/34 steps passed in a real browser. Bugs found by this pass and fixed before sign-off are listed below.
+| # | Area | Expected | Method | Live vs mocked | Result |
+|---|---|---|---|---|---|
+| P1 | Platform dashboard | AI usage by provider card lists Azure OpenAI and Sarvam with requests, characters, cost, and a Combined row | browser, production build | no provider needed (English / admin) | **PASS** — Sarvam (translation) 17 0 11,306 2 ₹0.0183 |
+| P2 | Platform dashboard — loading | While the summary is in flight the page shows a loading state, not a blank/broken card | browser, production build | no provider needed (English / admin) | **PASS** — page chrome shown, no half-rendered provider card while the summary is held 6s; card appears when da |
+| P3 | Platform dashboard — empty | A month with no AI usage shows 'No AI usage recorded yet this month.' | browser, production build | no provider needed (English / admin) | **PASS** |
+| P4 | Platform dashboard — error | If the summary API fails the page shows an error/empty state, never a blank screen | browser, production build | no provider needed (English / admin) | **PASS** — DG OVERVIEW Dashboard Search ORGANISATIONS Organisations BILLING Plans SECURITY Audit Logs Security  |
+| O1 | Org → AI Usage tab | Provider split table (Azure + Sarvam) with real numbers; Sarvam cost = seeded rate × characters; combined spend line | browser, production build | DB-verified cost from the seeded rate | **PASS** — Sarvam (translation) 17 0 11306 2 ₹0.0183 |
+| O2 | Org → AI Usage: combined spend vs cap | With a monthly cost cap set, the tab shows 'of the ₹<cap> monthly cost cap — translation pauses once reached' | browser, production build | no provider needed (English / admin) | **PASS** |
+| O3 | Org → AI Usage: empty | A tenant with no AI usage says 'No AI usage recorded yet this month.' (not a blank table) | browser, production build | no provider needed (English / admin) | **PASS** |
+| O4 | Org → Configuration: multilingual status | Effective status, tenant switch, platform switch, key 'Configured' (never the key), languages used with counts | browser, production build | no provider needed (English / admin) | **PASS** — hi-IN 25 7 Sep 20, 2026, 12:34 PM GMT+5:30 // ta-IN 7 1 Sep 20, 2026, 12:33 PM GMT+5:30 |
+| O5 | Org → Configuration: toggle the per-tenant switch | Disable needs a reason, updates the status, writes an audit record, and really turns translation off for that tenant; re-enabling restores it | browser, production build | LIVE Sarvam (tenant switch → real regional message) | **PASS** — audit rows: 5 |
+| O6 | Org → Configuration: empty languages | 'No regional-language requests yet.' for a tenant that never used one | browser, production build | no provider needed (English / admin) | **PASS** |
+| O7 | Org → Configuration: error state | If saving the switch fails the admin sees an error toast and the status does not change | browser, production build | no provider needed (English / admin) | **PASS** |
+| O8 | Org → Configuration: loading state | While the tab loads the admin sees 'Loading configuration…' (not blank) | browser, production build | no provider needed (English / admin) | **PASS** |
+| O9 | Permission — read-only platform admin | Can view; trying to change the switch shows a clear refusal and nothing changes | browser, production build | no provider needed (English / admin) | **PASS** |
+| C1 | Chat — English, everything supplied | Summary only (no questions); 'yes' opens the real invoice form fully pre-filled (customer, item, ₹45000, due date +30 days) | browser, production build | no provider needed (English / admin) | **PASS** |
+| C2 | Chat — English with gaps (guided) | One question at a time with progress; item choices come from this tenant's invoice history; summary; form opens pre-filled | browser, production build | no provider needed (English / admin) | **PASS** |
+| C3 | Chat — escape hatch | 'Skip the questions and open the form' opens a partly pre-filled form (customer known, no item) — today's behaviour | browser, production build | no provider needed (English / admin) | **PASS** |
+| C4 | Chat — back and cancel | 'back' returns to the previous question; 'cancel' says nothing was created and the draft is closed | browser, production build | no provider needed (English / admin) | **PASS** |
+| C5 | Chat — resume after abandoning | Reload the page mid-flow, ask to continue: the same question comes back with the answers kept | browser, production build | no provider needed (English / admin) | **PASS** |
+| C6 | Chat — near-miss customer name | 'Acme Traders' does not exist: a numbered list of real customers is offered; nothing is picked silently | browser, production build | no provider needed (English / admin) | **PASS** |
+| C7 | Chat — 'I understood this as…' and its correction path | A typo + '45k' is shown back as 'I understood this as: … 45000'; 'no, I meant …' redoes the request | browser, production build | English (rule layer only) | **PASS** |
+| C8 | Chat — loading state | While the flow is thinking, your message is already on screen with a loading bubble (not a frozen input) | browser, production build | no provider needed (English / admin) | **PASS** |
+| C9 | Chat — error state (fails open) | If the guided-flow service is down the assistant still answers (the older create path) — never a dead end | browser, production build | no provider needed (English / admin) | **PASS** — landed on: http://demo-acme.localhost:3100/sales/invoices/new |
+| C10 | Chat — English path untouched | A normal English question makes NO guided-flow request at all | browser, production build | no provider needed (English / admin) | **PASS** |
+| C11 | Sales AI Assistant page | The same guided flow works on a module assistant page (not only the sidebar) | browser, production build | no provider needed (English / admin) | **PASS** |
+| R1 | Regional — Roman Hindi create, end to end | 'mujhe invoice banana hai' → 'I understood this as: create an invoice' + Question 1 (in the reply language); answers in Hindi; ends on a pre-filled form | browser, production build | LIVE Sarvam + live Azure | **PASS** |
+| R2 | Regional — Tamil script | Tamil 'Acme க்கு இன்வாய்ஸ் உருவாக்கு' (create an invoice for Acme) starts the guided flow (detected ta-IN) and asks which Acme | browser, production build | LIVE Sarvam | **PASS** |
+| R2b | Regional — colloquial Tamil that the real translator misreads | 'இன்வாய்ஸ் போடுங்க' is translated by the real API as 'Send the invoice' — so it must NOT start an invoice; nothing is created (finding: phrase needs a native speaker) | browser, production build | LIVE Sarvam | **PASS** — translated to: "Send the invoice" → not_handled |
+| R3 | Regional — your own text stays on screen | The chat bubble shows exactly what you typed, never the normalised copy | browser, production build | LIVE Sarvam | **PASS** |
+| R4 | Regional — provider down (fails open) | With Sarvam unreachable the assistant still answers; no error screen; a degraded record is logged; nothing wrong is created | browser, production build | LIVE (key removed → degraded) | **PASS** — degraded records 9→10 |
+| X1 | Permission — HR user asks for an invoice | A clear refusal in the chat ('you don't have access…'), never a blank screen; nothing is created | browser, production build | no provider needed (English / admin) | **PASS** |
+| X2 | Permission — HR user opens /sales directly | Redirected away by the app's own gate, page has content (not blank) | browser, production build | no provider needed (English / admin) | **PASS** — redirected to http://demo-acme.localhost:3100/hr/dashboard |
+| X3 | Empty state — tenant with no customers | Says so plainly and opens the New Customer form (no dead end, no invoice flow) | browser, production build | no provider needed (English / admin) | **PASS** |
+| X4 | Unauthenticated API call | The guided-flow endpoint refuses with a clear 401, not an HTML/blank response | browser, production build | no provider needed (English / admin) | **PASS** — status 401 |
+| E1 | Execute path (flag ON for this tenant) | 'yes' creates a DRAFT through the real route and lands on the new invoice; nothing posted to the ledger | browser, production build | no provider needed (English / admin) | **PASS** — created INV-0003 as draft, total 700 |
+| E2 | Execute path (flag OFF again) | Same conversation only OPENS the form; no invoice is created | browser, production build | no provider needed (English / admin) | **PASS** |
 
-### Defects the browser pass found (all fixed and re-run)
-1. **The global AI panel never ran the guided flow.** Only the seven module AI-Assistant pages called `tryAiCreateFlow`; the sidebar has its own send path, so the surface most people use ignored the new flow (and regional create requests never reached the create router there). Fixed: `AiSidebar.handleSend` now consults the same flow (`runTaskFlow`), shows the user's message with a loading bubble immediately, and classifies on the pipeline's English. Covered by C1–C10, R1–R3.
-2. **My first form check was too weak** — it passed because the chat panel contained the customer's name. The runner now asserts the *form's own* customer control and input values (and found the form needs a few seconds in dev mode to show the customer).
-3. Seed script: a **blank** price seeded a free (₹0) rate (fixed earlier; re-verified on screen in O1: ₹ on the dashboard equals characters × the seeded rate).
-4. Runner/environment only (not product): multi-tenant logins fail with `TenantMismatch` if `NEXTAUTH_URL` is pinned to one tenant's host.
+Summary: **35/35** steps passed (the original 34 plus R2b, added when the live run showed the colloquial Tamil phrase is mistranslated).
+
+### Defects the browser passes found (all fixed and re-run)
+1. **The global AI panel never ran the guided flow** (dev pass) — fixed.
+2. **My first form check passed for the wrong reason** (the chat panel contained the name) — the runner now asserts the form's own customer control and input values.
+3. **Seed script: a blank price seeded a ₹0 rate** — fixed; re-verified on screen (O1: dashboard ₹ = characters × the seeded rate, computed from the DB).
+4. **Production pass:** the organisation AI-Usage tab showed a **stale cost cap for up to 60 s** after it was changed (a cache meant for enforcement was feeding the admin screen) — the admin view now reads fresh (O2).
+5. **Production pass, live API:** the tenant's regional messages silently degraded when the tenant was at its cost cap *even for the free local mapping* — the allowance is now asked lazily, only when a paid call is about to happen.
+6. **Live guided-flow findings (SARVAM_TEST Groups C–E):** "…, amount 45000 rupees" put the word **"amount"** in as the **item name**; a WhatsApp paste's greeting became the customer candidate; Hindi word order ("for X create invoice") stopped the customer resolving; a **"GSTIN 27AAPFU…"** fragment could become an item. All fixed with tests; SARVAM_TEST re-run on the final build.
+7. Fixture/runner only: the demo organisation is created without the *admin* module (the panel's Q&A route then returns 403) — the fixture enables it; date-relative expectations ("due 30 days") are computed, not hard-coded.
