@@ -19,6 +19,8 @@ export interface AiChatMessage {
   isLoading?: boolean;
   proposal?: { proposalId: string; destructive: boolean; status: "pending" | "confirmed" | "rejected" | "failed" };
   attachments?: { name: string; type: string; dataUrl: string }[];
+  /** One-tap replies (guided flow choices/actions) rendered as buttons under this message. */
+  quickReplies?: { label: string; value: string; kind: "choice" | "action" }[];
 }
 
 type Updater = AiChatMessage[] | ((prev: AiChatMessage[]) => AiChatMessage[]);

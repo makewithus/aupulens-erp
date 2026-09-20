@@ -11,7 +11,7 @@ import { QUERY_RX } from "@/lib/ai/taskFlow/parse";
  * then works on the pipeline's English, and that English is handed back (`english`) so the existing
  * create-form router can classify regional input too.
  */
-export interface TaskFlowOutcome { handled: true; message: string; route?: string }
+export interface TaskFlowOutcome { handled: true; message: string; route?: string; choices?: string[]; actions?: { label: string; value: string }[] }
 
 const ACTIVE_KEY = "aupulens:task-flow-active";
 const setActive = (on: boolean) => { try { if (on) sessionStorage.setItem(ACTIVE_KEY, "1"); else sessionStorage.removeItem(ACTIVE_KEY); } catch { /* storage unavailable */ } };
@@ -50,7 +50,7 @@ export async function runTaskFlow(
     if (data.route && data.prefill && data.target) {
       stashPrefill({ target: data.target, route: data.route, data: data.prefill, suggestions: [] });
     }
-    return { outcome: { handled: true, message: String(data.message ?? ""), route: data.route }, english };
+    return { outcome: { handled: true, message: String(data.message ?? ""), route: data.route, choices: data.choices, actions: data.actions }, english };
   } catch {
     return { outcome: null }; // fail open: the normal assistant answers
   }

@@ -59,6 +59,7 @@ export interface TaskFlowResponse {
   target?: string;
   progress?: { current: number; total: number };
   choices?: string[];
+  actions?: { label: string; value: string }[];
   language: { detected: string; degraded: boolean; interpretation?: string; original: string };
 }
 
@@ -101,6 +102,7 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
       english,
       progress: reply.progress,
       choices: reply.choices,
+      actions: reply.actions,
       language: { detected: trace.detectedLanguage, degraded: trace.degraded, interpretation: trace.changedMaterially ? trace.interpretation : undefined, original: trace.original },
       ...extra,
     };

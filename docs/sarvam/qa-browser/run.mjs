@@ -367,6 +367,73 @@ if (on("chat")) {
   await ctx.close();
 }
 
+// ─────────────────────────────── user-reported: interruptions, commands, one-tap replies ───────────────────────────────
+if (on("chat2")) {
+  const ctx = await loginContext(browser, ...SALES);
+  const quick = async (p) => (await p.locator('[data-testid="flow-quick-replies"] button').allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
+  const clickReply = async (p, label) => { const rp = p.waitForResponse((r) => r.url().includes("/api/ai/task-flow"), { timeout: 60000 }); await p.locator('[data-testid="flow-quick-replies"] button', { hasText: label }).first().click(); const j = await (await rp).json(); await p.waitForTimeout(2500); return j; };
+  let page = await freshChat(ctx);
+  await step("U1", "Chat — a request in the middle of a draft", "'Invoices less than ₹25,000.' asked while the customer question is open is ANSWERED (filtered invoice list), not taken as a customer name; 'continue' resumes the same question", async () => {
+    await say(page, "Create an invoice");
+    const j = await say(page, "Invoices less than ₹25,000.", { wait: 12000 });
+    assert(j.handled === false && j.sessionActive === true, `flow consumed it: ${j.kind}`);
+    await expectText(page, "below ₹25,000", 60000);
+    assert(page.url().includes("/sales/invoices"), `assistant did not open the invoice list: ${page.url()}`);
+    await openChat(page);
+    const c = await say(page, "continue");
+    assert(c.kind === "question" && c.message.includes("Question 1 of 4"), "draft did not resume");
+    await say(page, "cancel");
+  }, page);
+
+  page = await freshChat(ctx);
+  await step("U2", "Chat — 'create the customer ramesh' in the middle of a draft", "Opens the New Customer form with the name filled in (NOT a customer called 'create the customer ramesh'); the draft is kept and 'continue' resumes it", async () => {
+    await say(page, "Create an invoice");
+    const j = await say(page, "create the customer ramesh", { wait: 4000 });
+    assert(j.route === "/sales/customers/new", `route ${j.route}`);
+    await page.waitForURL(/\/sales\/customers\/new/, { timeout: 120000 });
+    await page.waitForTimeout(5000);
+    assert((await formValues(page)).some((v) => v === "ramesh"), `customer form not prefilled: ${(await formValues(page)).join("|")}`);
+    await nav(page, tenantUrl("demo-acme", "/sales/summary"));
+    await openChat(page);
+    const c = await say(page, "continue");
+    assert(c.kind === "question" && c.message.includes("Question 1 of 4"), "draft did not resume");
+    await say(page, "cancel");
+  }, page);
+
+  page = await freshChat(ctx);
+  await step("U3", "Chat — Roman-Hindi list request in the middle of a draft (real Sarvam)", "'Pachchis hazaar se Kam ke saare invoices Ki list mujhe dijiye.' is translated, is NOT taken as an answer, is NOT rejected with \"couldn't translate\", and the invoice list under ₹25,000 is opened", async () => {
+    await say(page, "Create an invoice");
+    const j = await say(page, "Pachchis hazaar se Kam ke saare invoices Ki list mujhe dijiye.", { wait: 12000 });
+    assert(j.kind !== "notice", "answered with the 'couldn't translate' notice");
+    assert(j.handled === false, `flow consumed it as ${j.kind}`);
+    if (LIVE) assert(/25000|25,000/.test(j.english) && /invoice/i.test(j.english), `translation was: ${j.english}`);
+    await expectNoText(page, "Create a new customer \"Invoices");
+    return `english: ${j.english}; url: ${page.url()}`;
+  }, page);
+
+  page = await freshChat(ctx);
+  await step("U4", "Chat — one-tap replies", "Questions show clickable choices and Back/Skip/Cancel INSIDE the chat; clicking customer → item → amount → Skip → 'Yes, open the invoice form' ends on the pre-filled form; only the latest message has buttons", async () => {
+    await say(page, "Create an invoice");
+    let b = await quick(page);
+    assert(b.includes("Cancel") && b.some((x) => /open the form/i.test(x)), `action buttons missing: ${b}`);
+    await say(page, "Kamal");
+    b = await quick(page);
+    assert(b.some((x) => /Consulting services/.test(x)) && b.includes("Back"), `item choices missing: ${b}`);
+    assert(new Set(b).size === b.length, `duplicate buttons (old messages still show theirs): ${b}`);
+    let j = await clickReply(page, "Consulting services");
+    assert(j.kind === "question" && j.message.includes("Amount"), `got ${j.kind}`);
+    await expectText(page, "Consulting services"); // the click shows up as the user's message
+    j = await say(page, "5000");
+    j = await clickReply(page, "Skip");
+    assert(j.kind === "confirm", `got ${j.kind}`);
+    assert((await quick(page)).some((x) => /Yes, open the invoice form/.test(x)), "confirm buttons missing");
+    j = await clickReply(page, "Yes, open the invoice form");
+    assert(j.kind === "open_form", `got ${j.kind}`);
+    await invoiceForm(page, { customer: "Kamal", values: ["Consulting services", "5000"] });
+  }, page);
+  await ctx.close();
+}
+
 // ─────────────────────────────── REGIONAL (mock Sarvam) ───────────────────────────────
 if (on("regional")) {
   const ctx = await loginContext(browser, ...SALES);

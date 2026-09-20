@@ -10,6 +10,8 @@ import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { stashPrefill } from "@/lib/ai/aiPrefill";
 import { CREATE_VERB_RX, findCreateTarget } from "@/lib/ai/createTargets";
 import { runTaskFlow, shouldConsultTaskFlow } from "@/lib/ai/taskFlowClient";
+import { buildQuickReplies, stripChoiceText } from "@/lib/ai/flowPresentation";
+import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
 import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
 import { tryAiInventoryMemoryFlow } from "@/lib/ai/inventoryMemoryFlow";
 import { NAV_TRIGGER_RX } from "@/lib/ai/navFlow";
@@ -360,7 +362,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
       const tf = await runTaskFlow(q, { hasAttachments: false });
       if (tf.outcome) {
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: tf.outcome.message }]);
+        const quick = buildQuickReplies(tf.outcome);
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: quick.length ? stripChoiceText(tf.outcome.message) : tf.outcome.message, quickReplies: quick.length ? quick : undefined }]);
         setIsLoading(false);
         if (tf.outcome.route) router.push(tf.outcome.route);
         return;
@@ -912,6 +915,16 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                         </ReactMarkdown>
                       )}
                     </div>
+                  )}
+
+                  {/* Guided-flow one-tap replies — only on the latest message, so a stale button can't answer a question that has moved on */}
+                  {msg.role === "assistant" && i === messages.length - 1 && msg.quickReplies && msg.quickReplies.length > 0 && (
+                    <FlowQuickReplies
+                      replies={msg.quickReplies}
+                      dark={isDark}
+                      disabled={isLoading}
+                      onPick={(v) => handleSend(v)}
+                    />
                   )}
 
                   {/* AI action confirm gate — nothing runs until the user clicks */}

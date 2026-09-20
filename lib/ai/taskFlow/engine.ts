@@ -60,12 +60,45 @@ export interface FlowReply {
   message: string;
   progress?: { current: number; total: number };
   choices?: string[];
+  /** One-tap replies the chat can render as buttons (value is what gets sent as the user's message). */
+  actions?: { label: string; value: string }[];
   summary?: { label: string; value: string; caveat?: string }[];
   prefill?: Record<string, unknown>;
   payload?: Record<string, unknown>;
   createCustomerName?: string;
 }
 export interface StepOutput { state: FlowState | null; reply: FlowReply }
+
+
+// ── "is this an ANSWER, or the user asking for something else?" ───────────────────────────────
+// Reported by a user mid-question: "Invoices less than ₹25,000" was swallowed as a customer NAME, and
+// "create the customer ramesh" became a customer called "create the customer ramesh". A message that asks for
+// something else must be answered (the draft stays open); a command must be obeyed.
+const COMPARE_RX = /\b(?:less\s+than|more\s+than|greater\s+than|fewer\s+than|above|below|under|over|between|at\s+least|at\s+most|upto|up\s+to)\b/i;
+const ASK_START_RX = /^(?:how|what|whats|why|when|where|who|which|can|could|would|should|is|are|do|does|did|give|show|tell|list|find|get|fetch|display|view|check|search|explain|help|please\s+(?:give|show|tell|list|find))\b/i;
+const RECORD_WORD_RX = /\b(?:invoices?|bills?|customers|payments?|orders?|quotes?|quotations?|reports?|receivables?|balance)\b/i;
+const QUERYISH_RX = /\b(?:list|show|give|find|search|total|pending|overdue|unpaid|paid|outstanding|all|every|how many|how much|less|more|greater|between)\b/i;
+
+export function isInterruption(english: string): boolean {
+  const t = english.trim();
+  if (!t) return false;
+  if (/\?\s*$/.test(t)) return true;
+  if (ASK_START_RX.test(t)) return true;
+  if (COMPARE_RX.test(t) && /\d/.test(t)) return true; // "invoices less than 25,000"
+  if (RECORD_WORD_RX.test(t) && QUERYISH_RX.test(t)) return true;
+  if (t.split(/\s+/).length > 14) return true;
+  return false;
+}
+
+/** "create the customer ramesh" / "add a new customer called Ramesh Traders" → the name, else null. */
+export function parseCreateCustomer(english: string): string | null {
+  const m = english.trim().match(/^(?:please\s+)?(?:create|add|make|new|register)\s+(?:a\s+|the\s+|new\s+)*(?:customer|client|party)\s+(?:named\s+|called\s+|as\s+|for\s+)?["“']?(.+?)["”']?\s*$/i);
+  const name = m?.[1]?.trim().replace(/[.,;:!]+$/, "");
+  return name && name.length <= 80 ? name : null;
+}
+
+/** Raw (untranslated) text that is plainly a request/query — used when translation is unavailable. */
+const RAW_QUERYISH_RX = /\?|\b(?:list|show|dikha\w*|dijiye|dijie|batao|bataiye|bata do|kitn[aei]|kya|kaun|kaise|kab|kahan|saare|sabhi|invoices?|bills?|total)\b/i;
 
 export const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const target = (s: FlowState): TaskTarget => TASK_TARGETS[s.target];
@@ -275,6 +308,26 @@ function summaryLines(st: FlowState): NonNullable<FlowReply["summary"]> {
   return lines;
 }
 
+
+function flowActions(st: FlowState, kind: "question" | "confirm", autoCreate = false): { label: string; value: string }[] {
+  const t = target(st);
+  if (kind === "confirm") {
+    return [
+      { label: autoCreate ? "Create draft now" : `Yes, open the ${t.label} form`, value: "yes" },
+      ...(autoCreate ? [{ label: "Review in the form first", value: "open form" }] : []),
+      { label: "Change something", value: "change" },
+      { label: "Cancel", value: "cancel" },
+    ];
+  }
+  const slot = nextSlot(st);
+  return [
+    ...(st.order.length ? [{ label: "Back", value: "back" }] : []),
+    ...(slot && !slot.required ? [{ label: "Skip", value: "skip" }] : []),
+    { label: "Skip the questions — open the form", value: "open the form" },
+    { label: "Cancel", value: "cancel" },
+  ];
+}
+
 function askReply(st: FlowState, prefix = ""): FlowReply {
   const t = target(st);
   const slot = nextSlot(st)!;
@@ -290,7 +343,7 @@ function askReply(st: FlowState, prefix = ""): FlowReply {
   ];
   if (choices) lines.push("", ...choices.map((c, i) => `${i + 1}. **${c}**`), "", "Reply with a number, or type the answer.");
   lines.push("", `You can say "back", ${slot.required ? "" : '"skip", '}"open the form" (skip the questions), or "cancel" at any time.`);
-  return { kind: "question", message: lines.filter((l, i) => l !== "" || i > 0).join("\n").replace(/^\n+/, ""), progress: pr, choices };
+  return { kind: "question", message: lines.filter((l, i) => l !== "" || i > 0).join("\n").replace(/^\n+/, ""), progress: pr, choices, actions: flowActions(st, "question") };
 }
 
 function pendingReply(st: FlowState, notice: string): FlowReply {
@@ -300,7 +353,7 @@ function pendingReply(st: FlowState, notice: string): FlowReply {
   st.asked = slotKey;
   const pr = progress(st);
   const lines = [notice, "", `Question ${pr.current} of ${pr.total} · ${slot.label}`, ...(pend.kind === "item" ? [slot.ask] : []), ...pend.choices.map((c, i) => `${i + 1}. **${c.label}**`), "", "Reply with a number, or type the answer.", "", `You can say "back", "open the form" (skip the questions), or "cancel" at any time.`];
-  return { kind: "question", message: lines.join("\n"), progress: pr, choices: pend.choices.map((c) => c.label) };
+  return { kind: "question", message: lines.join("\n"), progress: pr, choices: pend.choices.map((c) => c.label), actions: flowActions(st, "question") };
 }
 
 function confirmReply(st: FlowState, autoCreate: boolean, notice = ""): FlowReply {
@@ -317,6 +370,7 @@ function confirmReply(st: FlowState, autoCreate: boolean, notice = ""): FlowRepl
     : `Reply "yes" to open the ${t.label} form with these details, "change" to edit something, or "cancel".`;
   return {
     kind: "confirm",
+    actions: flowActions(st, "confirm", autoCreate),
     message: `${notice ? notice + "\n\n" : ""}Here is the ${t.label} I'll prepare — please check it:\n${body}${hint}\n\n${act}`,
     summary,
   };
@@ -435,7 +489,7 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
       if ((await lk.customerCount()) === 0) return { state: null, reply: { kind: "no_customers", message: `You don't have any customers yet, and every ${t.label} needs one. I can open the New Customer form for you first.` } };
       return next(fresh, inp, lk);
     }
-    return { state: st, reply: { kind: "ask_intent", message: `Sorry, I didn't catch that. Reply 1 to have it explained, or 2 to create it for you.`, choices: ["Explain how to create it", "Create it for me"] } };
+    return { state: st, reply: { kind: "ask_intent", message: `Sorry, I didn't catch that. Reply 1 to have it explained, or 2 to create it for you.`, choices: ["Explain how to create it", "Create it for me"], actions: [{ label: "Explain how", value: "1" }, { label: "Create it for me", value: "2" }] } };
   }
 
   if (ctrl === "resume") return next(st, inp, lk);
@@ -473,10 +527,18 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
     return next(st, inp, lk);
   }
 
-  if (inp.degraded && !inp.translated && inp.english === inp.original && /[^\x00-\x7f]|\b(?:ke|liye|banao|karo|hai|venum|kavali)\b/i.test(inp.original)) {
-    // Non-English text we could NOT translate: do not parse free text (could misfill a slot).
+  // A command in the middle of a draft: "create the customer ramesh" → open the New Customer form; the draft stays open.
+  const newCust = parseCreateCustomer(inp.english);
+  if (newCust) {
+    return { state: st, reply: { kind: "no_customers", message: `Opening the New Customer form for ${newCust}. Save it there, then say "continue" and I'll pick your ${t.label} draft back up.`, createCustomerName: newCust } };
+  }
+
+  if (inp.degraded && !inp.translated && inp.english === inp.original && /[^\x00-\x7f]|\b(?:ke|liye|banao|karo|hai|venum|kavali|mujhe|dijiye|dikhao|saare)\b/i.test(inp.original)) {
+    // Non-English text we could NOT translate: never parse it into a slot (could misfill). If it is plainly a request/query,
+    // hand it to the assistant (which understands Roman Hindi itself) and keep the draft; otherwise say so.
     const idx = parseChoiceIndex(inp.english);
     if (!(idx && st.pending) && !/^\s*\d[\d.,]*\s*$/.test(inp.english)) {
+      if (RAW_QUERYISH_RX.test(inp.original)) return notHandled(st);
       return { state: st, reply: { kind: "notice", message: "I couldn't translate that just now, so I didn't use it. Please answer in English, or try again in a moment." } };
     }
   }
@@ -490,6 +552,9 @@ export async function stepFlow(st: FlowState, inp: StepInput, lk: Lookups): Prom
     return next(st, inp, lk, rp.note ?? "");
   }
   if (st.pending?.kind === "change") st.pending = undefined;
+
+  // The user is asking for something ELSE (a question, a list, "invoices less than 25,000"…): answer it, keep the draft, don't fill a slot.
+  if (isInterruption(inp.english)) return notHandled(st);
 
   const ex = await extract(st, inp, lk, { stripLead: /\binvoice\b/i.test(inp.english) });
   if (!ex.touched) {

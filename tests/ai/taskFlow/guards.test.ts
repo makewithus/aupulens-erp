@@ -191,3 +191,109 @@ describe("the 'I understood this as… no, I meant …' correction path", () => 
     expect(h.store.session!.state.slots.customer.value.name).toBe("Kamal");
   });
 });
+
+describe("user-reported: a request in the MIDDLE of a draft is answered, a command is obeyed", () => {
+  it("'Invoices less than ₹25,000.' while asked for the customer is NOT taken as a customer name — it is handed to the assistant, the draft stays", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice");
+    const r = await h.say("Invoices less than ₹25,000.");
+    expect(r.handled).toBe(false);
+    expect(r.sessionActive).toBe(true);
+    expect(h.store.session!.state.slots.customer).toBeUndefined();
+    const back = await h.say("continue");
+    expect(back.message).toContain("Question 1 of 4");
+  });
+  it.each([
+    ["Give me all invoices under 25000"], ["show my unpaid invoices"], ["how many customers do I have"], ["list invoices between 10000 and 50000"],
+    ["what is my cash balance"], ["invoices more than 1 lakh"], ["tell me total pending invoices"],
+  ])("'%s' mid-draft → answered by the assistant, no slot filled", async (q) => {
+    const h = makeHarness();
+    await h.say("Create an invoice for Kamal");        // item is asked
+    const before = JSON.stringify(h.store.session!.state.slots);
+    const r = await h.say(q);
+    expect(r.handled).toBe(false);
+    expect(JSON.stringify(h.store.session!.state.slots)).toBe(before);
+  });
+  it("…also while an AMOUNT is asked (25000 in a query must not become the price)", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice for Kamal");
+    await h.say("Repairs");
+    const r = await h.say("invoices less than 25000");
+    expect(r.handled).toBe(false);
+    expect(h.store.session!.state.slots.unitPrice).toBeUndefined();
+  });
+  it("'create the customer ramesh' opens the New Customer form prefilled 'ramesh' and KEEPS the draft", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice");
+    const r = await h.say("create the customer ramesh");
+    expect(r.route).toBe("/sales/customers/new");
+    expect(r.prefill).toEqual({ name: "ramesh" });
+    expect(h.store.session).not.toBeNull();
+    expect(r.sessionActive).toBe(true);
+    const c = await h.say("continue");
+    expect(c.message).toContain("Question 1 of 4");
+  });
+  it.each([["add a new customer called Ramesh Traders", "Ramesh Traders"], ["please create customer \"Ramesh & Sons\"", "Ramesh & Sons"], ["new client Kamal Silks", "Kamal Silks"]])("'%s' → %s", async (q, name) => {
+    const h = makeHarness();
+    await h.say("Create an invoice");
+    expect((await h.say(q)).prefill).toEqual({ name });
+  });
+  it("ordinary answers are STILL answers: names with record-words, short items, amounts, choices", async () => {
+    const h = makeHarness({ customers: [{ id: "x", name: "Order Masters Ltd", aliases: [] }] });
+    await h.say("Create an invoice");
+    await h.say("Order Masters Ltd");
+    expect(h.store.session!.state.slots.customer.value.name).toBe("Order Masters Ltd");
+    await h.say("Payments consulting");
+    expect(h.store.session!.state.slots.itemName.value).toBe("Payments consulting");
+    await h.say("500");
+    expect(h.store.session!.state.slots.unitPrice.value).toBe(500);
+  });
+  it("Roman-Hindi query that could not be translated is handed to the assistant, not answered with 'couldn't translate'", async () => {
+    const h = makeHarness({ translate: () => ({ fail: "timeout" }) });
+    await h.say("Create an invoice");
+    const r = await h.say("Pachchis hazaar se Kam ke saare invoices Ki list mujhe dijiye.");
+    expect(r.handled).toBe(false);
+    expect(r.sessionActive).toBe(true);
+  });
+  it("…but a non-query untranslatable answer still gets the plain notice (never guessed into a slot)", async () => {
+    const h = makeHarness({ translate: () => ({ fail: "timeout" }) });
+    await h.say("Create an invoice");
+    const r = await h.say("kal Acme Industries ke liye");
+    expect(r.kind).toBe("notice");
+    expect(h.store.session!.state.slots.customer).toBeUndefined();
+  });
+});
+
+describe("one-tap replies (buttons in the chat)", () => {
+  it("every question carries Back/Skip/Open-the-form/Cancel actions; choice lists carry labels the client turns into numbers", async () => {
+    const h = makeHarness({ recentItems: ["Repairs"] });
+    const q1 = await h.say("Create an invoice");
+    expect(q1.actions!.map((a) => a.value)).toEqual(["open the form", "cancel"]); // nothing to go back to yet
+    const q2 = await h.say("Kamal");
+    expect(q2.choices).toEqual(["Repairs"]);
+    expect(q2.actions!.map((a) => a.value)).toEqual(["back", "open the form", "cancel"]);
+    await h.say("1");
+    const amount = await h.say("500");
+    expect(amount.message).toContain("When is it due?");
+    expect(amount.actions!.map((a) => a.value)).toEqual(["back", "skip", "open the form", "cancel"]); // optional ⇒ Skip is offered
+  });
+  it("the due-date question offers Skip; the summary offers Yes / Change / Cancel", async () => {
+    const h = makeHarness();
+    await h.say("Create an invoice for Kamal, 500");
+    await h.say("Repairs");
+    const s = await h.say("skip");
+    expect(s.kind).toBe("confirm");
+    expect(s.actions!.map((a) => a.value)).toEqual(["yes", "change", "cancel"]);
+    expect(s.actions![0].label).toBe("Yes, open the invoice form");
+  });
+  it("with auto-create ON the summary offers 'Create draft now' AND 'Review in the form first'", async () => {
+    const h = makeHarness({ autoCreate: true });
+    await h.say("Create an invoice for Kamal, 500, Repairs"); // mandatory supplied ⇒ straight to the summary
+    const s = await h.say("change");
+    expect(s.kind).toBe("question");
+    const sum = await h.say("change amount to 600");
+    expect(sum.kind).toBe("confirm");
+    expect(sum.actions!.map((a) => a.value)).toContain("open form");
+    expect(sum.actions![0].label).toBe("Create draft now");
+  });
+});

@@ -10,6 +10,8 @@ import { manufacturingSidebarConfig } from '@/config/sidebar/manufacturing';
 import { Send, Trash2, Archive, Plus, MessageSquare, Mic, Paperclip } from 'lucide-react';
 import { useChatAttachments } from '@/lib/hooks/useChatAttachments';
 import { tryAiCreateFlow } from '@/lib/ai/createFlow';
+import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
+import { buildQuickReplies, stripChoiceText, type QuickReply } from "@/lib/ai/flowPresentation";
 import { tryAiNavFlow } from '@/lib/ai/navFlow';
 import { useAutoResizeTextarea } from '@/lib/hooks/useAutoResizeTextarea';
 import { ChatAttachmentBar } from '@/components/ai/ChatAttachmentBar';
@@ -27,6 +29,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isLoading?: boolean;
+  quickReplies?: QuickReply[];
 }
 
 interface ChatHistoryItem {
@@ -219,13 +222,13 @@ export default function ManufacturingAIAssistant() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, overrideInput?: string) => {
     e.preventDefault();
-    if ((!input.trim() && attachments.length === 0) || isLoading) return;
+    if ((!(overrideInput ?? input).trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
     const sentAttachments = attachments;
-    const userInputText = input.trim() || (sentAttachments.length ? 'Please read the attached file(s) and help accordingly.' : '');
+    const userInputText = (overrideInput ?? input).trim() || (sentAttachments.length ? 'Please read the attached file(s) and help accordingly.' : '');
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -258,7 +261,7 @@ export default function ManufacturingAIAssistant() {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: outcome.message,
+          content: buildQuickReplies(outcome).length ? stripChoiceText(outcome.message) : outcome.message, quickReplies: buildQuickReplies(outcome),
           timestamp: new Date(),
         };
         setMessages(prev => prev.filter(msg => !msg.isLoading).concat(assistantMessage));
@@ -740,6 +743,14 @@ export default function ManufacturingAIAssistant() {
                 </div>
               ))
             )}
+            {(() => {
+              const lastMsg = messages[messages.length - 1];
+              return lastMsg && lastMsg.role === "assistant" && lastMsg.quickReplies && lastMsg.quickReplies.length > 0 ? (
+                <div className="px-1 pb-2">
+                  <FlowQuickReplies replies={lastMsg.quickReplies} disabled={isLoading} onPick={(v) => handleSubmit({ preventDefault() {} } as React.FormEvent, v)} />
+                </div>
+              ) : null;
+            })()}
             <div ref={messagesEndRef} />
           </div>
 

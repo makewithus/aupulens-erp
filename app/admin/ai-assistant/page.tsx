@@ -34,6 +34,8 @@ import { AttachmentPreview } from "@/components/ai/AttachmentPreview";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
+import { buildQuickReplies, stripChoiceText, type QuickReply } from "@/lib/ai/flowPresentation";
 import { tryAiNavFlow } from "@/lib/ai/navFlow";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 
@@ -43,6 +45,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isLoading?: boolean;
+  quickReplies?: QuickReply[];
   attachments?: { name: string; type: string; dataUrl: string }[];
 }
 
@@ -336,7 +339,7 @@ export default function AIAssistant() {
       const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments });
       if (outcome.handled) {
         setMessages((prev) => prev.filter((m) => !m.isLoading).concat({
-          id: (Date.now() + 1).toString(), role: "assistant", content: outcome.message, timestamp: new Date(),
+          id: (Date.now() + 1).toString(), role: "assistant", content: buildQuickReplies(outcome).length ? stripChoiceText(outcome.message) : outcome.message, quickReplies: buildQuickReplies(outcome), timestamp: new Date(),
         }));
         setIsLoading(false);
         // Persist this turn just like a normal Q&A reply, so it shows up in
@@ -778,7 +781,15 @@ export default function AIAssistant() {
                   </div>
                 ))
               )}
-              <div ref={messagesEndRef} />
+              {(() => {
+              const lastMsg = messages[messages.length - 1];
+              return lastMsg && lastMsg.role === "assistant" && lastMsg.quickReplies && lastMsg.quickReplies.length > 0 ? (
+                <div className="px-1 pb-2">
+                  <FlowQuickReplies replies={lastMsg.quickReplies} disabled={isLoading} onPick={(v) => handleSubmit({ preventDefault() {} } as React.FormEvent, v)} />
+                </div>
+              ) : null;
+            })()}
+            <div ref={messagesEndRef} />
             </div>
           </div>
 

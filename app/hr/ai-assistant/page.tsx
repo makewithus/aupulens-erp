@@ -9,6 +9,8 @@ import { Send, Trash2, Plus, MessageSquare, Menu, X, Mic, Paperclip } from "luci
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useChatAttachments } from "@/lib/hooks/useChatAttachments";
 import { tryAiCreateFlow } from "@/lib/ai/createFlow";
+import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
+import { buildQuickReplies, stripChoiceText, type QuickReply } from "@/lib/ai/flowPresentation";
 import { tryAiNavFlow } from "@/lib/ai/navFlow";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { ChatAttachmentBar } from "@/components/ai/ChatAttachmentBar";
@@ -23,6 +25,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isLoading?: boolean;
+  quickReplies?: QuickReply[];
 }
 
 interface ChatHistoryItem {
@@ -116,13 +119,13 @@ export default function HRAIAssistantPage() {
     textareaRef.current?.focus();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, overrideInput?: string) => {
     e.preventDefault();
-    if ((!input.trim() && attachments.length === 0) || isLoading) return;
+    if ((!(overrideInput ?? input).trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
     const sentAttachments = attachments;
-    const userInput = input.trim() || (sentAttachments.length ? "Please read the attached file(s) and help accordingly." : "");
+    const userInput = (overrideInput ?? input).trim() || (sentAttachments.length ? "Please read the attached file(s) and help accordingly." : "");
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -149,7 +152,7 @@ export default function HRAIAssistantPage() {
     try {
       const outcome = await tryAiCreateFlow({ text: userInput, attachments: sentAttachments });
       if (outcome.handled) {
-        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: outcome.message, timestamp: new Date() };
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: buildQuickReplies(outcome).length ? stripChoiceText(outcome.message) : outcome.message, quickReplies: buildQuickReplies(outcome), timestamp: new Date() };
         setMessages((prev) => prev.filter((m) => !m.isLoading).concat(assistantMessage));
         setIsLoading(false);
         // Persist this turn just like a normal Q&A reply, so it shows up in
@@ -400,6 +403,14 @@ export default function HRAIAssistantPage() {
                 </div>
               </div>
             ))}
+            {(() => {
+              const lastMsg = messages[messages.length - 1];
+              return lastMsg && lastMsg.role === "assistant" && lastMsg.quickReplies && lastMsg.quickReplies.length > 0 ? (
+                <div className="px-1 pb-2">
+                  <FlowQuickReplies replies={lastMsg.quickReplies} disabled={isLoading} onPick={(v) => handleSubmit({ preventDefault() {} } as React.FormEvent, v)} />
+                </div>
+              ) : null;
+            })()}
             <div ref={messagesEndRef} />
           </div>
 

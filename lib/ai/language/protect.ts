@@ -97,7 +97,7 @@ function nameSpans(text: string): Span[] {
         const next = toks[toks.indexOf(t) + 1];
         const nextIsCap = !!next && /^[A-Z]/.test(next.w) && /^[ \t]+$/.test(text.slice(t.e, next.s));
         protect = !isLexicon(lower) || (lower in DOMAIN_MISSPELLINGS && !ENGLISH_WORDS.has(lower) && nextIsCap);
-      } else protect = true;
+      } else protect = !ROMAN_LOOKUP.has(lower); // "Ki"/"Kam" typed with a capital are Hindi words, not names (they were masked as entities and broke translation)
     }
     const gap = prevEnd >= 0 ? text.slice(prevEnd, t.s) : "";
     if (protect) {

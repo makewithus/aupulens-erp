@@ -38,6 +38,7 @@ ke_liye liye ke ka ki ko se mein main_ par aur ya lekin agar toh magar
 paise paisa rupaye rupay hazaar hazar lakh_ karod
 agle agla agli pichhle pichle mangalwar somwar budhwar guruwar shukrawar shanivar ravivar kal aaj parso
 bakaya baki baaki bhugtan grahak khata hisab hisaab bikri kharid kharcha
+kam zyada jyada se mein saare sabhi dijiye dijie dikhaiye dikhaye batao bataiye kitne kitna kitni wala wali wale tak abhi sirf pachchis pachas pachaas sau bhi
 dhanyavaad shukriya kripya zara zaroor bilkul theek thik accha acha
   `),
   [LANGUAGE_CODE.TAMIL]: words(`

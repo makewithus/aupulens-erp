@@ -10,7 +10,7 @@ export interface CreateFlowAttachment {
 
 export type CreateFlowOutcome =
   | { handled: false }
-  | { handled: true; message: string; route?: string };
+  | { handled: true; message: string; route?: string; choices?: string[]; actions?: { label: string; value: string }[] };
 
 // When prefill reports a missing dependency of one of these types, redirect
 // the user to THAT entity's own create form (prefilled with the name already
