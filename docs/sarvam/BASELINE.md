@@ -61,7 +61,7 @@ This branch edits **one shared file**, and it affects **every** suite in the rep
 | Tree | Runs | Files | Tests passed | Failed | Pending |
 |---|---|---|---|---|---|
 | Branch point `e3eff17` (+ the config) | 2 (earlier: 1957-test baseline, 5 of 7 clean without the config) | 201 | 1957 | 0 | 0 |
-| **`sarvam` @ final commit `b3f901c`, fresh `git worktree`** | **3, identical at test level** | **219** | **2391** | **0** | **0** |
+| **`sarvam` @ `fb404b7`, fresh `git worktree`** | **3, identical at test level** | **220** | **2416** | **0** | **0** |
 
 `sarvam` adds 18 test files / 434 tests; all 1957 pre-existing tests still pass. (The fresh-worktree discipline caught one of my own tests going stale after the Phase-4 local-mapping change — `sarvamMetering` failed identically 3/3 before it was fixed.) Also in that worktree: `tsc --noEmit` exit 0; `next build` exit 0 (both new routes compiled);
 `eslint` clean on everything this branch touched (it reports 2 errors + 1 warning in `tests/ai/aiRuntime/safety.test.ts` / `ai29ControlMonitoringEdgeCases.test.ts`, which this branch did not modify).

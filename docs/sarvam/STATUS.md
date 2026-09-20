@@ -90,5 +90,5 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 * **Auto-create** stays off everywhere until QA enables `settings.ai.autoCreateEnabled` per tenant (a data change).
 
 ## Suite result
-Fresh `git worktree` of the final commit `b3f901c`, `npx vitest run --maxWorkers=3` ×3: **219 files / 2391 tests / 0 failed / 0 pending, identical at test level** (30 s/15 s timeouts — `BASELINE.md`). `tsc --noEmit` exit 0 · `next build` exit 0 (fresh worktree) · `eslint` clean on every file this branch touched · clean tree · the API key appears in no tracked file or commit (scanned).
-Browser QA: **39/39 steps pass on the production build with the live key** (`QA_GUIDE.md`); live API steps 1–8 run and actioned (`LIVE_VERIFICATION.md`); every `SARVAM_TEST.md` step run first.
+Fresh `git worktree` of commit `fb404b7`, `npx vitest run --maxWorkers=3` ×3: **220 files / 2416 tests / 0 failed / 0 pending, identical at test level** (30 s/15 s timeouts — `BASELINE.md`). `tsc --noEmit` exit 0 · `eslint` exit 0 on everything this branch touched · `npm run build:local` (production build) succeeded and is what the browser pass ran against · clean tree · the API key appears in no tracked file or commit.
+Browser QA: **39/39 steps pass on the production build with the live key** (`QA_GUIDE.md`), plus provider-down; live API steps 1–8 run and actioned (`LIVE_VERIFICATION.md`); every `SARVAM_TEST.md` step run first.
