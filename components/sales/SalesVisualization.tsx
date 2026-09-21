@@ -104,6 +104,7 @@ export function SalesVisualization({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const tooltipDateRef = useRef<HTMLDivElement>(null);
   const tooltipValueRef = useRef<HTMLDivElement>(null);
 
@@ -172,6 +173,12 @@ export function SalesVisualization({
     }
     return "0";
   }, [visualizationData, isRevenue, isOrders, isConversion, isStatus]);
+
+  // Start the slider at the most recent data whenever the series changes.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [visualizationData]);
 
   // ── Canvas draw effect loop ──
   useEffect(() => {
@@ -578,7 +585,15 @@ export function SalesVisualization({
       </div>
 
       {/* Chart Canvas Container */}
-      <div ref={containerRef} className="relative w-full h-[320px] mt-2">
+      {/* Horizontal slider: with many points (e.g. 30 daily buckets) the chart
+          gets a fixed width per point and scrolls sideways instead of
+          squeezing every label onto one line. */}
+      <div ref={scrollRef} className="mt-2 w-full overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border">
+      <div
+        ref={containerRef}
+        className="relative h-[320px] w-full"
+        style={visualizationData.length > 12 ? { minWidth: visualizationData.length * 56 } : undefined}
+      >
         {isLoadingViz ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="h-8 w-8 animate-spin text-foreground/40" />
@@ -612,6 +627,7 @@ export function SalesVisualization({
             </div>
           </>
         )}
+      </div>
       </div>
     </Card>
   );
