@@ -94,7 +94,7 @@ export async function GET(request: Request) {
     }
 
     const baseQuery = SaleOrder.find(query)
-      .populate("header.partnerId", "header.name")
+      .populate("header.partnerId", "header.name addresses contact_details.email")
       .populate("orderLines.productId", "header.name")
       .sort({ createdAt: -1 });
 

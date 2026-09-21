@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
+import { buildExportDocPdf, type ExportDocType } from "@/lib/sales/exportDocPdf";
 
 interface SalesOrder {
   _id: string;
@@ -27,9 +28,42 @@ interface SalesOrder {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  shipped: "text-blue-500",
-  delivered: "text-emerald-500",
+  sales_order: "text-blue-500",
+  fulfillment: "text-blue-500",
+  invoice_posted: "text-emerald-500",
+  revenue_recognized: "text-emerald-500",
 };
+
+// Stages at which an order is confirmed and can be shipped/exported.
+const EXPORTABLE_STAGES = ["quote_accepted", "sales_order", "fulfillment", "invoice_posted", "revenue_recognized"];
+
+function normalizeOrder(o: any): SalesOrder {
+  const lines: any[] = o.orderLines || [];
+  const partner = o.header?.partnerId;
+  const shipping = (partner?.addresses || []).find((a: any) => a.type === "shipping") || (partner?.addresses || [])[0] || {};
+  const address = [shipping.street, shipping.street2, shipping.city, shipping.state_name, shipping.zip, shipping.country]
+    .filter(Boolean)
+    .join(", ");
+  return {
+    _id: o._id,
+    orderNumber: o.header?.name || "—",
+    customer: partner?.header?.name || "Unknown customer",
+    customerEmail: partner?.contact_details?.email,
+    items: lines.map((l) => ({
+      description: l.name,
+      quantity: Number(l.productQty) || 0,
+      price: Number(l.priceUnit) || 0,
+      amount: Number(l.priceSubtotal) || (Number(l.productQty) || 0) * (Number(l.priceUnit) || 0),
+    })),
+    subtotal: o.totals?.amountUntaxed || 0,
+    taxRate: 0,
+    taxAmount: o.totals?.amountTax || 0,
+    total: o.totals?.amountTotal || 0,
+    status: o.q2cStatus || o.status,
+    shippingAddress: address || undefined,
+    createdAt: o.header?.dateOrder || o.createdAt,
+  };
+}
 
 export default function ExportDocsPage() {
   const { data: session, status } = useSession();
@@ -53,18 +87,17 @@ export default function ExportDocsPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/sales/orders");
-      if (response.ok) {
-        const data = await response.json();
-        // Only show shipped and delivered orders for export docs
-        const exportableOrders = (data.items || []).filter((order: SalesOrder) =>
-          ["shipped", "delivered"].includes(order.status),
-        );
-        setOrders(exportableOrders);
-      }
+      const response = await fetch("/api/sales/sale-orders");
+      if (!response.ok) throw new Error("load failed");
+      const data = await response.json();
+      // Export documents only make sense once an order is confirmed.
+      const exportable = (data.items || []).filter((o: any) =>
+        EXPORTABLE_STAGES.includes(o.q2cStatus) || ["sale", "done", "posted"].includes(o.status),
+      );
+      setOrders(exportable.map(normalizeOrder));
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders");
+      toast.error("We couldn't load your orders. Please refresh the page.");
     } finally {
       setIsLoading(false);
     }
@@ -76,147 +109,43 @@ export default function ExportDocsPage() {
     }
   }, [status, fetchOrders]);
 
-  const generateBillOfLading = async (order: SalesOrder) => {
-    setExportingDoc(`bl-${order._id}`);
+  const downloadDoc = async (
+    type: ExportDocType,
+    key: string,
+    label: string,
+    filePrefix: string,
+    order: SalesOrder,
+  ) => {
+    setExportingDoc(`${key}-${order._id}`);
     try {
-      const doc = {
-        documentType: "Bill of Lading",
-        orderNumber: order.orderNumber,
-        date: new Date().toLocaleDateString(),
-        shipper: "Aupulens Enterprises",
-        consignee: order.customer,
-        address: order.shippingAddress || "N/A",
-        items: order.items.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          weight: "TBD",
-        })),
-        total: order.total,
-        generatedAt: new Date().toISOString(),
-      };
-
-      const blob = new Blob([JSON.stringify(doc, null, 2)], {
-        type: "application/json",
-      });
+      if (order.items.length === 0) {
+        toast.error(`${order.orderNumber} has no line items, so a ${label} can't be generated.`);
+        return;
+      }
+      const bytes = await buildExportDocPdf(type, order);
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `BL_${order.orderNumber}_${Date.now()}.json`;
+      a.download = `${filePrefix}_${order.orderNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      toast.success("Bill of Lading Generated", {
-        description: `Document for order ${order.orderNumber} has been downloaded`,
-      });
+      toast.success(`${label} downloaded`, { description: `Document for order ${order.orderNumber}` });
     } catch (error) {
-      console.error("Error generating B/L:", error);
-      toast.error("Failed to generate Bill of Lading");
+      console.error(`Error generating ${label}:`, error);
+      toast.error(`We couldn't generate the ${label}. Please try again.`);
     } finally {
       setExportingDoc(null);
     }
   };
 
-  const generateCommercialInvoice = async (order: SalesOrder) => {
-    setExportingDoc(`ci-${order._id}`);
-    try {
-      const doc = {
-        documentType: "Commercial Invoice",
-        invoiceNumber: `CI-${order.orderNumber}`,
-        date: new Date().toLocaleDateString(),
-        seller: {
-          name: "Aupulens Enterprises",
-          address: "Export Division, International Trade Center",
-        },
-        buyer: {
-          name: order.customer,
-          email: order.customerEmail,
-          address: order.shippingAddress,
-        },
-        items: order.items.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          amount: item.amount,
-        })),
-        subtotal: order.subtotal,
-        taxRate: order.taxRate,
-        taxAmount: order.taxAmount,
-        total: order.total,
-        currency: "USD",
-        paymentTerms: "Net 30",
-        generatedAt: new Date().toISOString(),
-      };
+  const generateBillOfLading = (order: SalesOrder) => downloadDoc("bill-of-lading", "bl", "Bill of Lading", "BL", order);
 
-      const blob = new Blob([JSON.stringify(doc, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `CommercialInvoice_${order.orderNumber}_${Date.now()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+  const generateCommercialInvoice = (order: SalesOrder) => downloadDoc("commercial-invoice", "ci", "Commercial Invoice", "CommercialInvoice", order);
 
-      toast.success("Commercial Invoice Generated", {
-        description: `Invoice for order ${order.orderNumber} has been downloaded`,
-      });
-    } catch (error) {
-      console.error("Error generating invoice:", error);
-      toast.error("Failed to generate Commercial Invoice");
-    } finally {
-      setExportingDoc(null);
-    }
-  };
-
-  const generatePackingList = async (order: SalesOrder) => {
-    setExportingDoc(`pl-${order._id}`);
-    try {
-      const doc = {
-        documentType: "Packing List",
-        listNumber: `PL-${order.orderNumber}`,
-        date: new Date().toLocaleDateString(),
-        shipper: "Aupulens Enterprises",
-        consignee: order.customer,
-        orderReference: order.orderNumber,
-        items: order.items.map((item, index) => ({
-          packageNumber: index + 1,
-          description: item.description,
-          quantity: item.quantity,
-          weight: "TBD",
-          dimensions: "TBD",
-          marks: `PKG-${index + 1}`,
-        })),
-        totalPackages: order.items.length,
-        totalQuantity: order.items.reduce((sum, item) => sum + item.quantity, 0),
-        generatedAt: new Date().toISOString(),
-      };
-
-      const blob = new Blob([JSON.stringify(doc, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `PackingList_${order.orderNumber}_${Date.now()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success("Packing List Generated", {
-        description: `Packing list for order ${order.orderNumber} has been downloaded`,
-      });
-    } catch (error) {
-      console.error("Error generating packing list:", error);
-      toast.error("Failed to generate Packing List");
-    } finally {
-      setExportingDoc(null);
-    }
-  };
+  const generatePackingList = (order: SalesOrder) => downloadDoc("packing-list", "pl", "Packing List", "PackingList", order);
 
   if (status === "loading" || isLoading) {
     return (
@@ -350,7 +279,7 @@ export default function ExportDocsPage() {
                   No exportable orders found
                 </p>
                 <p className="text-xs text-muted-foreground/50 mt-1 max-w-sm">
-                  Orders must be in &ldquo;shipped&rdquo; or &ldquo;delivered&rdquo; status to generate export documents.
+                  Export documents become available once a deal reaches Quote Accepted or a later stage of the Q2C pipeline.
                 </p>
               </div>
             ) : (
@@ -375,7 +304,7 @@ export default function ExportDocsPage() {
                             ${STATUS_COLORS[order.status] ?? "text-muted-foreground"}
                           `}
                         >
-                          {order.status}
+                          {String(order.status).replace(/_/g, " ")}
                         </Badge>
                       </div>
 
