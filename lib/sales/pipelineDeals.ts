@@ -405,7 +405,7 @@ async function transitionOrderDeal(tenantId: string, userId: string, id: string,
 
   const now = new Date();
   // Make sure the original SO reference is always the first history entry.
-  pushRef(order, "SO", order.header?.name, order._id, current);
+  if (!(order.refHistory || []).length) pushRef(order, "SO", order.header?.name, order._id, current);
 
   switch (to) {
     case Q2C_STATUS.QUOTE_GENERATED: {
