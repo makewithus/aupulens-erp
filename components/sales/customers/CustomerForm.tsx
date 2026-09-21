@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, ChevronRight, Mail, Download } from "lucide-react";
-import { uploadToCloudinary } from "@/lib/upload";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const COUNTRIES = [
@@ -274,29 +273,6 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
       toast.error(e.message);
     } finally {
       setPrefilling(false);
-    }
-  };
-
-  const handleFileUpload = async (file: File) => {
-    if (form.documents.length >= 10) {
-      toast.error("You can attach a maximum of 10 files to a customer.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(`"${file.name}" is larger than 10MB. Please choose a smaller file.`);
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Each file must be 10MB or smaller");
-      return;
-    }
-    const toastId = toast.loading("Uploading file...");
-    try {
-      const url = await uploadToCloudinary(file);
-      update({ documents: [...form.documents, { name: file.name, url, size: file.size }] });
-      toast.success("File uploaded", { id: toastId });
-    } catch (e: any) {
-      toast.error(e.message || "Failed to upload file", { id: toastId });
     }
   };
 
@@ -607,45 +583,6 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
             </label>
           </div>
 
-          <div className="max-w-2xl space-y-2">
-            <Label>Customer Documents (optional)</Label>
-            <p className="text-xs text-muted-foreground">
-              Attach supporting papers for this customer — e.g. GST registration certificate, PAN card, signed agreement or
-              KYC. They stay on the customer record for your team&apos;s reference and are not sent to the customer.
-            </p>
-            <div className="border border-dashed rounded-none p-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Up to 10 files, 10MB each (PDF, images, Word or Excel)
-              </span>
-              <label>
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file);
-                    e.target.value = "";
-                  }}
-                />
-                <span className="text-sm font-medium text-primary cursor-pointer">Upload File</span>
-              </label>
-            </div>
-            {form.documents.length > 0 && (
-              <ul className="text-sm space-y-1">
-                {form.documents.map((d, i) => (
-                  <li key={i} className="flex items-center justify-between">
-                    <span>{d.name}</span>
-                    <button
-                      onClick={() => update({ documents: form.documents.filter((_, idx) => idx !== i) })}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </TabsContent>
 
         <TabsContent value="address" className="pt-4">

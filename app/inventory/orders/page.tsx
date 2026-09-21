@@ -262,9 +262,19 @@ function OrdersPageInner() {
         const products = prodData.items || [];
         const stockMap = stockData.stock || {};
 
+        // Products without a SKU used to all share the code "N/A", which broke
+        // the picker (duplicate React keys, selecting one selected them all).
+        // Give every option a unique code.
+        const seen = new Set<string>();
+        const uniqueCode = (p: any) => {
+          const base = p.tab_general_information?.default_code || `ITEM-${String(p._id).slice(-6).toUpperCase()}`;
+          const code = seen.has(base) ? `${base}-${String(p._id).slice(-4).toUpperCase()}` : base;
+          seen.add(code);
+          return code;
+        };
         const items = products.map((p: any) => ({
           _id: p._id,
-          itemCode: p.tab_general_information?.default_code || "N/A",
+          itemCode: uniqueCode(p),
           itemName: p.header.name,
           quantity: stockMap[p._id] || 0,
           warehouse: "Main Warehouse", // Default since API aggregates all

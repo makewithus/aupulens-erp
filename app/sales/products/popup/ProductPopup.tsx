@@ -625,7 +625,32 @@ export function ProductPopupContent({
             </div>
           )}
 
-          {activeTab === "accounting" && (
+          {activeTab === "accounting" && isViewOnly && (
+            <div className="grid grid-cols-2 gap-8 py-4">
+              {[
+                ["Income Account", formData.tab_accounting?.cost_and_revenue?.property_account_income_id],
+                ["Expense Account", formData.tab_accounting?.cost_and_revenue?.property_account_expense_id],
+              ].map(([label, id]) => {
+                const acc: any = effectiveAccounts.find((x: any) => String(x._id) === String(id || ""));
+                return (
+                  <div key={label as string} className="space-y-3">
+                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label as string}</Label>
+                    <div className="border border-border/40 px-3 py-2.5 text-sm">
+                      {acc ? (
+                        <>
+                          {acc.name} <span className="ml-1 text-xs text-muted-foreground">{acc.code}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Not set — open the product in Edit to choose one</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {activeTab === "accounting" && !isViewOnly && (
             <div className="grid grid-cols-2 gap-8 py-4">
               <div className="space-y-3">
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
