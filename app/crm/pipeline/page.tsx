@@ -135,7 +135,7 @@ export default function PipelinePage() {
       <div className="mb-6 space-y-4">
         <h1 className="text-2xl font-bold">Kanban Pipeline</h1>
         {analytics && (
-          <div className="grid grid-cols-2 gap-1 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total Deals" value={Number(analytics.totalOpportunities).toLocaleString("en-IN")} visual={<UsersGraph />} />
             <StatCard title="Pipeline Value" value={formatInrCompact(analytics.totalPipelineValue)} visual={<ActivePulse />} />
             <StatCard title="Weighted Value" value={formatInrCompact(analytics.weightedPipeline)} visual={<UsersGraph />} />
