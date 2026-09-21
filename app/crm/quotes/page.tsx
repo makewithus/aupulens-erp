@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,8 +59,14 @@ function SummaryCard({
 
 // âââ Page âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
+const LIMIT = 10;
+
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({ totalValue: 0, pending: 0, approved: 0, expired: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -77,7 +84,7 @@ export default function QuotesPage() {
 
   const fetchQuotes = async () => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (accountFilter) params.set("account_id", accountFilter);
@@ -86,12 +93,25 @@ export default function QuotesPage() {
     if (validTo) params.set("validTo", validTo);
     if (minAmount) params.set("minAmount", minAmount);
     if (maxAmount) params.set("maxAmount", maxAmount);
-    const res = await fetch(`/api/crm/quotes?${params}`, { cache: "no-store" });
-    const data = await res.json();
-    const rows = data.data?.quotes || [];
-    if (data.success) setQuotes(rows);
-    setLoading(false);
-    return rows;
+    try {
+      const res = await fetch(`/api/crm/quotes?${params}`, { cache: "no-store" });
+      const data = await res.json();
+      const rows = data.data?.quotes || [];
+      if (data.success) {
+        setQuotes(rows);
+        setTotal(data.data.total ?? rows.length);
+        setTotalPages(data.data.totalPages ?? 1);
+        if (data.data.stats) setStats(data.data.stats);
+      } else {
+        toast.error("We couldn't load your quotes. Please refresh the page and try again.");
+      }
+      return rows;
+    } catch {
+      toast.error("We couldn't load your quotes. Please refresh the page and try again.");
+      return [];
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -117,9 +137,14 @@ export default function QuotesPage() {
     });
   }, []);
 
+  // Any filter change goes back to page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, accountFilter, ownerFilter, validFrom, validTo, minAmount, maxAmount]);
+
   useEffect(() => {
     fetchQuotes();
-  }, [search, statusFilter, accountFilter, ownerFilter, validFrom, validTo, minAmount, maxAmount]);
+  }, [page, search, statusFilter, accountFilter, ownerFilter, validFrom, validTo, minAmount, maxAmount]);
 
   const hasActiveFilters = !!(search || statusFilter || accountFilter || ownerFilter || validFrom || validTo || minAmount || maxAmount);
   const resetFilters = () => {
@@ -128,12 +153,10 @@ export default function QuotesPage() {
   };
 
   // ââ Metrics ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  const totalGrandTotal = quotes.reduce((a, q) => a + (q.grand_total || 0), 0);
-  const pendingCount = quotes.filter((q) => q.status === "Pending Approval").length;
-  const approvedCount = quotes.filter((q) => q.status === "Approved").length;
-  const expiredCount = quotes.filter(
-    (q) => q.validity_date && new Date(q.validity_date) < new Date()
-  ).length;
+  const totalGrandTotal = stats.totalValue;
+  const pendingCount = stats.pending;
+  const approvedCount = stats.approved;
+  const expiredCount = stats.expired;
 
   const ALL_STATUSES = [
     "Draft",
@@ -172,8 +195,8 @@ export default function QuotesPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Value"
-          value={`₹${totalGrandTotal.toLocaleString()}`}
-          sub={`${quotes.length} ${quotes.length === 1 ? "quote" : "quotes"}`}
+          value={`₹${totalGrandTotal.toLocaleString("en-IN")}`}
+          sub={`${total} ${total === 1 ? "quote" : "quotes"}`}
         />
         <SummaryCard
           label="Pending Approval"
@@ -206,7 +229,7 @@ export default function QuotesPage() {
               </h2>
 
               <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                {quotes.length} {quotes.length === 1 ? "Quote" : "Quotes"}
+                {total} {total === 1 ? "Quote" : "Quotes"}
               </p>
             </div>
 
@@ -501,6 +524,22 @@ export default function QuotesPage() {
               )}
             </TableBody>
           </TableContainer>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                  Previous
+                </Button>
+                <span className="text-sm">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

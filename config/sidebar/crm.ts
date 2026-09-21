@@ -123,11 +123,6 @@ export const crmSidebarConfig: SidebarSection[] = [
         href: "/crm/handoffs",
         icon: UserCheck,
       },
-      {
-        title: "Support",
-        href: "/crm/support",
-        icon: HelpCircle,
-      },
     ],
   },
   {

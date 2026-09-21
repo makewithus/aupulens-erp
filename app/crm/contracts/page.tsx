@@ -235,21 +235,32 @@ function ContractsPageInner() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
     }
-    const res = await fetch(`/api/crm/contracts?${params}`);
-    const data = await res.json();
-    if (data.success) {
-      setContracts(data.data.contracts || []);
-      setTotal(data.data.total ?? 0);
-      setTotalPages(data.data.totalPages ?? 1);
-      if (data.data.stats) setStats(data.data.stats);
+    try {
+      const res = await fetch(`/api/crm/contracts?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setContracts(data.data.contracts || []);
+        setTotal(data.data.total ?? 0);
+        setTotalPages(data.data.totalPages ?? 1);
+        if (data.data.stats) setStats(data.data.stats);
+      } else {
+        toast.error("We couldn't load your contracts. Please refresh the page and try again.");
+      }
+    } catch {
+      toast.error("We couldn't load your contracts. Please refresh the page and try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [page, debouncedSearch, statusFilter, churnFilter, expiryFilter, dateFrom, dateTo]);
 
   const fetchSummary = useCallback(async () => {
-    const res = await fetch("/api/crm/renewals");
-    const data = await res.json();
-    if (data.success) setRenewalSummary(data.data);
+    try {
+      const res = await fetch("/api/crm/renewals");
+      const data = await res.json();
+      if (data.success) setRenewalSummary(data.data);
+    } catch {
+      // Summary strip is non-critical; the table still loads without it.
+    }
   }, []);
 
   useEffect(() => { fetchContracts(); }, [fetchContracts]);

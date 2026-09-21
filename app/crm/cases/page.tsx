@@ -87,9 +87,11 @@ function CasesPageInner() {
         setCases(data.data.cases);
         setTotal(data.data.total ?? 0);
         setTotalPages(data.data.totalPages ?? 1);
+      } else {
+        toast.error("We couldn't load your cases. Please refresh the page and try again.");
       }
     } catch (e) {
-      toast.error("Failed to load cases.");
+      toast.error("We couldn't load your cases. Please refresh the page and try again.");
     } finally {
       setLoading(false);
     }
