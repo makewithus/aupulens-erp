@@ -39,6 +39,15 @@ const FORMATS: Record<ColumnType, string | undefined> = {
 const CURRENCY_HEADER = /(amount|total|price|balance|value|paid|due|cost|salary|gross|net|tax|revenue|payable|receivable|deduction|basic|hra|rate\s*\(₹\)|₹)/i;
 const DATE_HEADER = /(date|joined|created|updated|expiry|due on)/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
+// Many list exports pre-format dates with toLocaleDateString("en-IN") => dd/mm/yyyy.
+const DMY_DATE = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/;
+
+function parseDmy(v: any): Date | null {
+  const m = typeof v === "string" ? DMY_DATE.exec(v.trim()) : null;
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+  return d.getUTCDate() === Number(m[1]) ? d : null;
+}
 
 function safeSheetName(name: string) {
   return (name || "Report").replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || "Report";
@@ -47,7 +56,7 @@ function safeSheetName(name: string) {
 function toCellValue(v: any, type: ColumnType): any {
   if (v === null || v === undefined || v === "") return null;
   if (type === "date") {
-    const d = v instanceof Date ? v : new Date(v);
+    const d = v instanceof Date ? v : parseDmy(v) || new Date(v);
     return isNaN(d.getTime()) ? String(v) : d;
   }
   if (type === "number" || type === "integer" || type === "currency" || type === "percent") {
@@ -62,7 +71,7 @@ export function inferColumns(headers: string[], rows: any[][]): ReportColumn[] {
   return headers.map((header, i) => {
     const sample = rows.map((r) => r[i]).filter((v) => v !== null && v !== undefined && v !== "").slice(0, 25);
     let type: ColumnType = "text";
-    if (sample.length && sample.every((v) => v instanceof Date || (typeof v === "string" && ISO_DATE.test(v)))) type = "date";
+    if (sample.length && sample.every((v) => v instanceof Date || (typeof v === "string" && (ISO_DATE.test(v) || !!parseDmy(v))))) type = "date";
     else if (DATE_HEADER.test(header) && sample.length && sample.every((v) => !isNaN(new Date(v).getTime()) && typeof v !== "number")) type = "date";
     else if (sample.length && sample.every((v) => typeof v === "number" || (typeof v === "string" && /^-?[\d,]+(\.\d+)?$/.test(v.trim()) && v.trim().length < 16))) {
       // Codes / phone numbers / ids that only look numeric stay text.
