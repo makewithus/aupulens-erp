@@ -54,10 +54,27 @@ export const NAV_DESTINATIONS: NavDestination[] = (() => {
   return out;
 })();
 
+// Pages that exist but are not (or no longer) in a sidebar, plus everyday
+// synonyms for pages whose sidebar title is worded differently — so "services"
+// opens Products & Services and "audit logs" still works after the CRM
+// "System" sidebar section was removed.
+const EXTRA_DESTINATIONS: (NavDestination & { aliases: string[] })[] = [
+  { title: "Products & Services", href: "/sales/products", section: "Catalog", aliases: ["services", "service", "product and services", "products and services", "services section", "service catalog", "items"] },
+  { title: "Sales Orders", href: "/sales/sales-orders", section: "Orders", aliases: ["sales order", "sales orders", "orders section"] },
+  { title: "Quotes", href: "/sales/quotes", section: "Orders", aliases: ["quotation", "quotations", "estimates", "proposals"] },
+  { title: "CRM Reports", href: "/crm/reports", section: "CRM", aliases: ["crm reports", "crm report"] },
+  { title: "Executive View", href: "/crm/executive", section: "CRM", aliases: ["executive view", "executive dashboard"] },
+  { title: "Compliance", href: "/crm/compliance", section: "CRM", aliases: ["crm compliance"] },
+  { title: "System Health", href: "/crm/system-health", section: "CRM", aliases: ["system health"] },
+  { title: "CRM Approvals", href: "/crm/approvals", section: "CRM", aliases: ["crm approvals", "approvals"] },
+  { title: "CRM Settings", href: "/crm/settings", section: "CRM", aliases: ["crm settings"] },
+  { title: "Audit Logs", href: "/crm/audit", section: "CRM", aliases: ["audit logs", "audit log", "audit trail"] },
+];
+
 const STOP = new Set([
   "go", "to", "the", "a", "an", "open", "navigate", "show", "me", "take", "view",
   "page", "section", "please", "screen", "module", "my", "for", "of", "and", "into",
-  "goto", "bring", "up", "list", "all",
+  "goto", "bring", "up", "list", "all", "redirect", "direct", "route", "send", "jump", "switch", "head", "pull", "get", "display", "move", "want", "see",
 ]);
 
 function tokens(s: string): string[] {
@@ -77,6 +94,13 @@ export function resolveNavDestination(query: string): NavDestination | null {
   const qTokens = tokens(query);
   if (qTokens.length === 0) return null;
   const qJoined = qTokens.join(" ");
+
+  // Exact synonym / hidden-page match wins over fuzzy scoring.
+  for (const extra of EXTRA_DESTINATIONS) {
+    if (extra.aliases.some((a) => tokens(a).join(" ") === qJoined)) {
+      return { title: extra.title, href: extra.href, section: extra.section };
+    }
+  }
 
   let best: { dest: NavDestination; score: number } | null = null;
   for (const dest of NAV_DESTINATIONS) {

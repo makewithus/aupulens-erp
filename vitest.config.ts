@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     globals: false,
     include: ["tests/**/*.test.ts"],
+    // First DB call in a file pulls in every registered model (lib/dbModels.ts);
+    // under vitest transform that can take a few seconds on a loaded machine.
+    testTimeout: 20000,
   },
   resolve: {
     alias: {

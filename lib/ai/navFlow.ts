@@ -47,6 +47,11 @@ export async function tryAiNavFlow(input: { text: string; pathname?: string }): 
     if (res.ok && data.action === "navigate" && data.url) {
       return { handled: true, message: data.message || "Opening that now.", route: data.url };
     }
+    // The user asked to be taken somewhere we couldn't resolve: say so plainly
+    // rather than letting the chat model improvise (wrong) click-by-click steps.
+    if (res.ok && data.action === "unknown" && data.navMiss && data.message) {
+      return { handled: true, message: data.message };
+    }
     return { handled: false };
   } catch {
     return { handled: false };

@@ -129,7 +129,7 @@ Return ONLY JSON (no markdown):
         if (results.length) {
           return NextResponse.json({ action: "search", results, message: `I couldn't find a page called that, but here are matching records.` });
         }
-        return NextResponse.json({ action: "unknown", message: `I couldn't find that page. I can open pages like: ${topNavSuggestions().join(", ")}.` });
+        return NextResponse.json({ action: "unknown", navMiss: true, message: `I couldn't find a page called that. I can open pages like: ${topNavSuggestions().join(", ")}.` });
       }
 
       case "search": {
