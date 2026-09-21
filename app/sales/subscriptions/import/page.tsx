@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { X, UploadCloud, Lightbulb, Trash2, ChevronDown } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const SUBSCRIPTION_FIELDS = [
   { key: "customerName", label: "Customer Name", required: true },
@@ -73,7 +74,7 @@ export default function ImportSubscriptionsPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/sales/subscriptions/import/parse", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/subscriptions/import/parse", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setColumns(data.columns);
@@ -97,7 +98,7 @@ export default function ImportSubscriptionsPage() {
       fd.append("mapping", JSON.stringify(mapping));
       fd.append("autoGenerateNumbers", String(autoGenerateNumbers));
       fd.append("mapAddresses", String(mapAddresses));
-      const res = await fetch("/api/sales/subscriptions/import/execute", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/subscriptions/import/execute", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
       setResult(data);

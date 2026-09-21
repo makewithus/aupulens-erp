@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { X, UploadCloud, Trash2, ChevronDown } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const EXCESS_PAYMENT_FIELDS = [
   { key: "customerName", label: "Customer Name", required: false },
@@ -62,7 +63,7 @@ export default function ImportAppliedExcessPaymentsPage() {
       // Reuses the generic Import Payments parse route — parsing a
       // spreadsheet into rows has no business logic, so there's no need
       // for a dedicated parse endpoint here.
-      const res = await fetch("/api/sales/payments/import/parse", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/payments/import/parse", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setColumns(data.columns);
@@ -84,7 +85,7 @@ export default function ImportAppliedExcessPaymentsPage() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("mapping", JSON.stringify(mapping));
-      const res = await fetch("/api/sales/payments/import-excess/execute", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/payments/import-excess/execute", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok || data.success === false) throw new Error(data.message || "Import failed");
       setResult(data);

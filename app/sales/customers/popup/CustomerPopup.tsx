@@ -42,6 +42,7 @@ import {
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Local Combobox Component for Accounts
 function AccountCombobox({
@@ -187,7 +188,7 @@ export function CustomerPopupContent({
 
     setIsSubmittingAccount(true);
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),
@@ -218,7 +219,7 @@ export function CustomerPopupContent({
       // 1. Fetch Accounts if "accounts" prop is missing or empty, OR if we force refreshed
       if (!accounts || accounts.length === 0 || refreshKey > 0) {
         try {
-          const res = await fetch("/api/accounting/accounts");
+          const res = await cachedFetch("/api/accounting/accounts");
           if (res.ok) {
             const json = await res.json();
             setLocalAccounts(json.items || json.accounts || []);
@@ -231,7 +232,7 @@ export function CustomerPopupContent({
       // 2. Fetch Users (Salespersons)
       if (!users || users.length === 0) {
         try {
-          const res = await fetch("/api/users");
+          const res = await cachedFetch("/api/users");
           if (res.ok) {
             const json = await res.json();
             setLocalUsers(json.users || []);
@@ -244,7 +245,7 @@ export function CustomerPopupContent({
       // 3. Fetch Pricelists
       if (!pricelists || pricelists.length === 0) {
         try {
-          const res = await fetch("/api/sales/pricelists");
+          const res = await cachedFetch("/api/sales/pricelists");
           if (res.ok) {
             const json = await res.json();
             setLocalPricelists(json.items || json.pricelists || []);

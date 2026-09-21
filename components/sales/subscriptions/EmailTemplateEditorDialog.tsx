@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface EmailTemplateEditorDialogProps {
   open: boolean;
@@ -42,7 +43,7 @@ export function EmailTemplateEditorDialog({
     if (defaultName) params.set("name", defaultName);
     if (defaultSubject) params.set("subject", defaultSubject);
     if (defaultBody) params.set("body", defaultBody);
-    fetch(`/api/sales/email-templates/${encodeURIComponent(templateKey)}?${params.toString()}`)
+    cachedFetch(`/api/sales/email-templates/${encodeURIComponent(templateKey)}?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -56,7 +57,7 @@ export function EmailTemplateEditorDialog({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/sales/email-templates/${encodeURIComponent(templateKey)}`, {
+      const res = await cachedFetch(`/api/sales/email-templates/${encodeURIComponent(templateKey)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, body }),

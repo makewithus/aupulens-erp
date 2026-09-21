@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Eye, EyeOff } from "lucide-react";
 
 import { PASSWORD_POLICY, PASSWORD_POLICY_HELP_TEXT as PASSWORD_HELP } from "@/lib/sales/passwordPolicy";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface ExportCurrentViewDialogProps {
   open: boolean;
@@ -33,7 +34,7 @@ export function ExportCurrentViewDialog({ open, onOpenChange, viewId, viewName }
     }
     setExporting(true);
     try {
-      const res = await fetch("/api/sales/sales-orders/export", {
+      const res = await cachedFetch("/api/sales/sales-orders/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "current_view", viewId, decimalFormat, format: fileFormat, password: password || undefined }),

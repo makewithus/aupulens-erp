@@ -35,6 +35,7 @@ import { CreateCustomerDialog } from "./CreateCustomerDialog";
 import { CreateProductDialog } from "./CreateProductDialog";
 import { TemplateGallery } from "./TemplateGallery";
 import { uploadToCloudinary } from "@/lib/upload";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface LineItemState {
   id: string;
@@ -181,14 +182,14 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   // ── Initial data load ────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
-      fetch("/api/sales/customers").then((r) => r.json()),
-      fetch("/api/sales/products?status=published&limit=200").then((r) => r.json()),
-      fetch("/api/sales/document-prefixes?documentType=invoice&kind=prefix").then((r) => r.json()),
-      fetch("/api/sales/bank-accounts").then((r) => r.json()),
-      fetch("/api/sales/coupons").then((r) => r.json()),
-      fetch("/api/sales/document-notes?kind=notes&documentType=invoice").then((r) => r.json()),
-      fetch("/api/sales/document-notes?kind=terms&documentType=invoice").then((r) => r.json()),
-      fetch("/api/sales/document-settings").then((r) => r.json()),
+      cachedFetch("/api/sales/customers").then((r) => r.json()),
+      cachedFetch("/api/sales/products?status=published&limit=200").then((r) => r.json()),
+      cachedFetch("/api/sales/document-prefixes?documentType=invoice&kind=prefix").then((r) => r.json()),
+      cachedFetch("/api/sales/bank-accounts").then((r) => r.json()),
+      cachedFetch("/api/sales/coupons").then((r) => r.json()),
+      cachedFetch("/api/sales/document-notes?kind=notes&documentType=invoice").then((r) => r.json()),
+      cachedFetch("/api/sales/document-notes?kind=terms&documentType=invoice").then((r) => r.json()),
+      cachedFetch("/api/sales/document-settings").then((r) => r.json()),
     ]).then(([custRes, prodRes, prefixRes, bankRes, couponRes, notesRes, termsRes, settingsRes]) => {
       if (custRes.items) setCustomers(custRes.items);
       if (prodRes.items) setProducts(prodRes.items);
@@ -208,7 +209,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   }, []);
 
   useEffect(() => {
-    fetch("/api/sales/company-info")
+    cachedFetch("/api/sales/company-info")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -221,7 +222,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   // Suggest next number when prefix changes (create mode only)
   useEffect(() => {
     if (mode !== "create" || !prefix) return;
-    fetch(`/api/sales/invoices/next-number?prefix=${encodeURIComponent(prefix)}`)
+    cachedFetch(`/api/sales/invoices/next-number?prefix=${encodeURIComponent(prefix)}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setNumberSuffix(String(d.data.seq).padStart(4, "0"));
@@ -380,7 +381,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     try {
-      const res = await fetch("/api/sales/invoices/ai-draft", {
+      const res = await cachedFetch("/api/sales/invoices/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -421,7 +422,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     const setLoading = field === "notes" ? setNotesLoading : setTermsLoading;
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/invoices/ai-notes", {
+      const res = await cachedFetch("/api/sales/invoices/ai-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ field }),
@@ -488,7 +489,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       const payload = buildPayload(status);
       const url = mode === "create" ? "/api/sales/invoices" : `/api/sales/invoices/${invoiceId}`;
       const method = mode === "create" ? "POST" : "PATCH";
-      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await cachedFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || "Failed to save invoice");
 

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { PricelistPopupContent } from "../../pricelist/popup/PricelistPopup";
 import { CURRENCIES } from "@/config/currencies";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Helper components and sub-sections for the Product Modal
 export function ProductPopupContent({
@@ -48,7 +49,7 @@ export function ProductPopupContent({
   // Effect: Fetch pricelists locally if not provided
   useEffect(() => {
     if (!pricelists || pricelists.length === 0) {
-      fetch("/api/sales/pricelists")
+      cachedFetch("/api/sales/pricelists")
         .then((res) => res.json())
         .then((json) => setLocalPricelists(json.items || []))
         .catch((e) => console.error("Failed to fetch pricelists", e));
@@ -80,7 +81,7 @@ export function ProductPopupContent({
     }
 
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pricelistFormData),
@@ -115,7 +116,7 @@ export function ProductPopupContent({
   // Effect: Fetch accounts locally if not provided
   useEffect(() => {
     if (!accounts || accounts.length === 0) {
-      fetch("/api/accounting/accounts")
+      cachedFetch("/api/accounting/accounts")
         .then((res) => res.json())
         .then((json) => setLocalAccounts(json.items || []))
         .catch((e) => console.error("Failed to fetch accounts", e));
@@ -146,7 +147,7 @@ export function ProductPopupContent({
     }
 
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),

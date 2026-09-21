@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
 import { toast } from 'sonner';
 import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface Message {
   id: string;
@@ -91,7 +92,7 @@ export default function SalesAIAssistant() {
   const fetchChatHistory = async () => {
     try {
       setLoadingHistory(true);
-      const response = await fetch('/api/sales/chat-history?includeArchived=true');
+      const response = await cachedFetch('/api/sales/chat-history?includeArchived=true');
       if (response.ok) {
         const data = await response.json();
         const active = data.chats.filter((chat: ChatHistoryItem) => !chat.isArchived);
@@ -134,7 +135,7 @@ export default function SalesAIAssistant() {
 
     try {
       setDeletingChatId(chatId);
-      const response = await fetch(`/api/sales/chat-history?chatId=${chatId}`, {
+      const response = await cachedFetch(`/api/sales/chat-history?chatId=${chatId}`, {
         method: 'DELETE'
       });
 
@@ -162,7 +163,7 @@ export default function SalesAIAssistant() {
     event.stopPropagation();
     
     try {
-      const response = await fetch('/api/sales/chat-history/archive', {
+      const response = await cachedFetch('/api/sales/chat-history/archive', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId, isArchived: !isArchived })
@@ -230,7 +231,7 @@ export default function SalesAIAssistant() {
         // Recent Chats and the user can pick the thread back up later.
         if (isFirstMessage) {
           const title = userInputText.slice(0, 50).toUpperCase();
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, messages: [
@@ -242,7 +243,7 @@ export default function SalesAIAssistant() {
           }).catch(() => {});
         } else if (currentChatId) {
           const allMessages = [...messages.filter(m => !m.isLoading), userMessage, assistantMessage].map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
@@ -272,7 +273,7 @@ export default function SalesAIAssistant() {
         setIsLoading(false);
         if (isFirstMessage) {
           const title = userInputText.slice(0, 50).toUpperCase();
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, messages: [
@@ -284,7 +285,7 @@ export default function SalesAIAssistant() {
           }).catch(() => {});
         } else if (currentChatId) {
           const allMessages = [...messages.filter(m => !m.isLoading), userMessage, assistantMessage].map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
@@ -309,7 +310,7 @@ export default function SalesAIAssistant() {
         setIsLoading(false);
         if (isFirstMessage) {
           const title = userInputText.slice(0, 50).toUpperCase();
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, messages: [
@@ -321,7 +322,7 @@ export default function SalesAIAssistant() {
           }).catch(() => {});
         } else if (currentChatId) {
           const allMessages = [...messages.filter(m => !m.isLoading), userMessage, assistantMessage].map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp }));
-          fetch('/api/sales/chat-history', {
+          cachedFetch('/api/sales/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
@@ -341,7 +342,7 @@ export default function SalesAIAssistant() {
         .filter(m => !m.isLoading && m.content)
         .map(m => ({ role: m.role, content: m.content }));
 
-      const response = await fetch('/api/sales/ai-assistant', {
+      const response = await cachedFetch('/api/sales/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, attachments: sentAttachments })
@@ -384,7 +385,7 @@ export default function SalesAIAssistant() {
           { role: 'user' as const, content: userInputText, timestamp: userMessage.timestamp },
           { role: 'assistant' as const, content: finalText, timestamp: new Date() },
         ];
-        const saveResponse = await fetch('/api/sales/chat-history', {
+        const saveResponse = await cachedFetch('/api/sales/chat-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, messages: newMessages }),
@@ -401,7 +402,7 @@ export default function SalesAIAssistant() {
           { role: 'user' as const, content: userInputText, timestamp: userMessage.timestamp },
           { role: 'assistant' as const, content: finalText, timestamp: new Date() },
         ];
-        await fetch('/api/sales/chat-history', {
+        await cachedFetch('/api/sales/chat-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),

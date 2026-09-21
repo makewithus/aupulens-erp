@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Eye, EyeOff } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // TODO: confirm the final GSP provider name with the business/legal team.
 const GSP_PROVIDER = "Aupulens GSP";
@@ -73,7 +74,7 @@ export function EInvoiceConnectWizard({ open, onOpenChange, onConnected }: EInvo
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/sales/e-invoices/gsp/connect", {
+      const res = await cachedFetch("/api/sales/e-invoices/gsp/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: GSP_PROVIDER, username, password }),

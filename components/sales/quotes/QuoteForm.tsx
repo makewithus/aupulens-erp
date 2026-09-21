@@ -16,6 +16,7 @@ import { Plus, Trash2, GripVertical, X, Settings, Sparkles, Loader2 } from "luci
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface QuoteLineItem {
   itemId?: string;
@@ -90,17 +91,17 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
   const [paymentMode, setPaymentMode] = useState<"offline" | "online">("offline");
 
   useEffect(() => {
-    fetch("/api/sales/customers")
+    cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    fetch("/api/sales/products?status=published")
+    cachedFetch("/api/sales/products?status=published")
       .then((r) => r.json())
       .then((d) => setProducts(d.items || []));
-    fetch("/api/finance/accounting/tax-rates")
+    cachedFetch("/api/finance/accounting/tax-rates")
       .then((r) => r.json())
       .then((d) => setTaxRates(d.data || []));
     if (!quoteId) {
-      fetch("/api/sales/quotes/next-number")
+      cachedFetch("/api/sales/quotes/next-number")
         .then((r) => r.json())
         .then((d) => {
           if (d.success) {
@@ -129,7 +130,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     const setLoading = field === "notes" ? setNotesLoading : setTermsLoading;
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/invoices/ai-notes", {
+      const res = await cachedFetch("/api/sales/invoices/ai-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ field, context: "sales quote" }),
@@ -218,7 +219,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     }
     setSavingNumberSettings(true);
     try {
-      const res = await fetch("/api/sales/quotes/number-settings", {
+      const res = await cachedFetch("/api/sales/quotes/number-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
@@ -251,7 +252,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
       const method = quoteId ? "PATCH" : "POST";
       const body: any = { ...form, status };
       if (manualNumber) body.quoteNumber = displayNumber;
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -285,7 +286,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/subscriptions", {
+      const res = await cachedFetch("/api/sales/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -316,7 +317,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     if (!quoteId || converting) return;
     setConverting(true);
     try {
-      const res = await fetch(`/api/sales/quotes/${quoteId}/convert-to-order`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/quotes/${quoteId}/convert-to-order`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to create sales order");
       toast.success(`Sales order ${data.data.order.header.name} created`);
@@ -331,7 +332,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     if (!quoteId || converting) return;
     setConverting(true);
     try {
-      const res = await fetch(`/api/sales/quotes/${quoteId}/convert-to-invoice`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/quotes/${quoteId}/convert-to-invoice`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to convert to invoice");
       toast.success("Converted to invoice");

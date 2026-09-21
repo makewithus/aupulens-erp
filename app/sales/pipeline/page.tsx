@@ -18,6 +18,7 @@ import { PipelineStats } from "@/components/sales/pipeline/PipelineStats";
 import { PipelineBoard } from "@/components/sales/pipeline/PipelineBoard";
 import { LostDeals } from "@/components/sales/pipeline/LostDeals";
 import { CancelledDeals } from "@/components/sales/pipeline/CancelledDeals";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function Q2CPipelinePage() {
   const { data: session, status } = useSession();
@@ -30,7 +31,7 @@ export default function Q2CPipelinePage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/pipeline");
+      const res = await cachedFetch("/api/sales/pipeline");
       const json = await res.json();
       if (!res.ok || json.success === false) throw new Error(json.error || "load failed");
       setData(json.items || []);
@@ -50,7 +51,7 @@ export default function Q2CPipelinePage() {
   const handleQ2CTransition = async (dealId: string, nextStatus: string) => {
     const deal = data.find((d) => d._id === dealId);
     try {
-      const res = await fetch("/api/sales/pipeline/transition", {
+      const res = await cachedFetch("/api/sales/pipeline/transition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: deal?.kind || "order", id: dealId, to: nextStatus }),

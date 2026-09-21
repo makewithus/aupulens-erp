@@ -8,6 +8,7 @@ import { Loader2, Save, Palette } from "lucide-react";
 import { ScaledHtmlPreview } from "@/components/sales/ScaledHtmlPreview";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 /**
  * Print-Format Builder (6.3 Low-Code Customization) — sits on top of the
@@ -43,8 +44,8 @@ export default function PrintFormatBuilder() {
     (async () => {
       try {
         const [tRes, sRes] = await Promise.all([
-          fetch("/api/sales/invoice-templates?category=invoice").then((r) => r.json()),
-          fetch("/api/sales/document-settings").then((r) => r.json()),
+          cachedFetch("/api/sales/invoice-templates?category=invoice").then((r) => r.json()),
+          cachedFetch("/api/sales/document-settings").then((r) => r.json()),
         ]);
         const tmpls = tRes.success ? tRes.data : [];
         setTemplates(tmpls);
@@ -67,7 +68,7 @@ export default function PrintFormatBuilder() {
     if (!templateKey) return;
     setPreviewing(true);
     try {
-      const res = await fetch(`/api/sales/invoice-templates/${templateKey}/preview`, {
+      const res = await cachedFetch(`/api/sales/invoice-templates/${templateKey}/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -93,7 +94,7 @@ export default function PrintFormatBuilder() {
   const save = async () => {
     setSaving(true);
     try {
-      const settingsRes = await fetch("/api/sales/document-settings", {
+      const settingsRes = await cachedFetch("/api/sales/document-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -103,7 +104,7 @@ export default function PrintFormatBuilder() {
         }),
       });
       if (templateId) {
-        await fetch("/api/sales/invoice-templates", {
+        await cachedFetch("/api/sales/invoice-templates", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ templateId, category: "invoice" }),

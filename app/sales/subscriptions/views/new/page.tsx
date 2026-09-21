@@ -15,6 +15,7 @@ import { Star, Trash2, Plus, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { AVAILABLE_SUBSCRIPTION_COLUMNS } from "@/lib/sales/subscriptionViews";
 import { SALES_VIEW_VISIBILITY } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const CRITERIA_FIELDS = [
   { key: "status", label: "Status" },
@@ -92,7 +93,7 @@ export default function NewSubscriptionViewPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/subscription-views", {
+      const res = await cachedFetch("/api/sales/subscription-views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, isFavorite, criteria, columns: selectedColumns, visibility }),

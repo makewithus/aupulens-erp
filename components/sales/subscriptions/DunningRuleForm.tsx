@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
 import { EmailTemplateEditorDialog } from "@/components/sales/subscriptions/EmailTemplateEditorDialog";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 import {
   DUNNING_FINAL_SUBSCRIPTION_ACTION,
   DUNNING_FINAL_INVOICE_ACTION,
@@ -209,7 +210,7 @@ export function DunningRuleForm({
     try {
       const url = ruleId ? `/api/sales/dunning-rules/${ruleId}` : "/api/sales/dunning-rules";
       const method = ruleId ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(value),

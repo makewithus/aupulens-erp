@@ -13,6 +13,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Settings, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface InvoiceRow {
   _id: string;
@@ -82,23 +83,23 @@ export function PaymentForm() {
   const [bankAccountsLoading, setBankAccountsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/sales/customers")
+    cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    fetch("/api/accounting/accounts")
+    cachedFetch("/api/accounting/accounts")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []));
-    fetch("/api/accounting/accounts?type=bank")
+    cachedFetch("/api/accounting/accounts?type=bank")
       .then((r) => r.json())
       .then((d) => setBankAccounts(d.items || []))
       .finally(() => setBankAccountsLoading(false));
-    fetch("/api/sales/payment-modes")
+    cachedFetch("/api/sales/payment-modes")
       .then((r) => r.json())
       .then((d) => d.success && setModes(d.data));
-    fetch("/api/sales/payments/custom-fields")
+    cachedFetch("/api/sales/payments/custom-fields")
       .then((r) => r.json())
       .then((d) => d.success && setCustomFieldDefs(d.data.filter((f: any) => f.status === "active")));
-    fetch("/api/sales/payments/next-number")
+    cachedFetch("/api/sales/payments/next-number")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -115,7 +116,7 @@ export function PaymentForm() {
       return;
     }
     setLoadingInvoices(true);
-    fetch(`/api/sales/invoices?customerId=${customerId}&status=unpaid&limit=200`)
+    cachedFetch(`/api/sales/invoices?customerId=${customerId}&status=unpaid&limit=200`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setInvoices(d.data || []);
@@ -179,7 +180,7 @@ export function PaymentForm() {
     }
     setSavingNumberSettings(true);
     try {
-      const res = await fetch("/api/sales/payments/number-settings", {
+      const res = await cachedFetch("/api/sales/payments/number-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
@@ -187,7 +188,7 @@ export function PaymentForm() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setManualNumber(false);
-      const next = await fetch("/api/sales/payments/next-number").then((r) => r.json());
+      const next = await cachedFetch("/api/sales/payments/next-number").then((r) => r.json());
       if (next.success) setDisplayNumber(next.data.number);
       toast.success("Payment numbering preferences saved");
       setNumberModalOpen(false);
@@ -201,7 +202,7 @@ export function PaymentForm() {
   const handleAddMode = async (value: string) => {
     setMode(value);
     if (value && !modes.some((m: any) => m.name === value)) {
-      const res = await fetch("/api/sales/payment-modes", {
+      const res = await cachedFetch("/api/sales/payment-modes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: value }),
@@ -253,7 +254,7 @@ export function PaymentForm() {
       };
       if (manualNumber) body.paymentNumber = displayNumber;
 
-      const res = await fetch("/api/sales/payments", {
+      const res = await cachedFetch("/api/sales/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

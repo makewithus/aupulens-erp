@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/loading-skeletons";
 import { buildExportDocPdf, type ExportDocType } from "@/lib/sales/exportDocPdf";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface SalesOrder {
   _id: string;
@@ -87,7 +88,7 @@ export default function ExportDocsPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/sales/sale-orders");
+      const response = await cachedFetch("/api/sales/sale-orders");
       if (!response.ok) throw new Error("load failed");
       const data = await response.json();
       // Export documents only make sense once an order is confirmed.

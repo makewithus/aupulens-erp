@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { CustomerForm, EMPTY_CUSTOMER, type CustomerFormValue } from "@/components/sales/customers/CustomerForm";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function EditCustomerPage() {
   const { data: session } = useSession();
@@ -16,7 +17,7 @@ export default function EditCustomerPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/sales/customers/${id}`)
+    cachedFetch(`/api/sales/customers/${id}`)
       .then((r) => r.json())
       .then((data) => {
         const c = data.customer;

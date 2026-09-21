@@ -15,6 +15,7 @@ import { Star, Trash2, Plus, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { MANDATORY_PAYMENT_COLUMNS, AVAILABLE_PAYMENT_COLUMNS } from "@/lib/sales/paymentViews";
 import { SALES_VIEW_VISIBILITY } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const CRITERIA_FIELDS = [
   { key: "status", label: "Status" },
@@ -87,7 +88,7 @@ export default function NewPaymentViewPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/payment-views", {
+      const res = await cachedFetch("/api/sales/payment-views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, isFavorite, criteria, columns: selectedColumns, visibility }),

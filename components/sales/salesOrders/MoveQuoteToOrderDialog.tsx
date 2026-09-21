@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const formatInr = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n || 0);
@@ -25,7 +26,7 @@ export function MoveQuoteToOrderDialog({ open, onOpenChange }: { open: boolean; 
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/sales/quotes?limit=100");
+        const res = await cachedFetch("/api/sales/quotes?limit=100");
         const json = await res.json();
         if (!json.success) throw new Error();
         if (!cancelled) {
@@ -45,7 +46,7 @@ export function MoveQuoteToOrderDialog({ open, onOpenChange }: { open: boolean; 
   const move = async (quote: any) => {
     setBusyId(quote._id);
     try {
-      const res = await fetch(`/api/sales/quotes/${quote._id}/convert-to-order`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/quotes/${quote._id}/convert-to-order`, { method: "POST" });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || "Could not create the sales order.");
       toast.success(`Sales order ${json.data.order.header.name} created from ${quote.quoteNumber}`);

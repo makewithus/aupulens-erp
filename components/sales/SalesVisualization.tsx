@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface SalesVisualizationProps {
   availableDataTypes: Array<{ value: string; label: string }>;
@@ -113,7 +114,7 @@ export function SalesVisualization({
     if (!selectedDataType) return;
     try {
       setIsLoadingViz(true);
-      const res = await fetch(
+      const res = await cachedFetch(
         `/api/sales/visualization?type=${selectedDataType}&dateRange=${dateRange}&groupBy=${groupBy}`,
       );
       if (!res.ok) throw new Error("Failed to fetch visualization data");

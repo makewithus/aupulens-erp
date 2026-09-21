@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { QuoteForm, EMPTY_QUOTE, type QuoteFormValue } from "@/components/sales/quotes/QuoteForm";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function EditQuotePage() {
   const { data: session } = useSession();
@@ -17,7 +18,7 @@ export default function EditQuotePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/sales/quotes/${id}`)
+    cachedFetch(`/api/sales/quotes/${id}`)
       .then((r) => r.json())
       .then((data) => {
         const q = data.data;

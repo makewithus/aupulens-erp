@@ -18,6 +18,7 @@ import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoice
 import { SUBSCRIPTION_BILLING_FREQUENCY } from "@/lib/constants/statuses";
 import { uploadToCloudinary } from "@/lib/upload";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface LineItem {
   itemId?: string;
@@ -75,16 +76,16 @@ export function SubscriptionForm() {
   const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
 
   useEffect(() => {
-    fetch("/api/sales/customers")
+    cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    fetch("/api/sales/products")
+    cachedFetch("/api/sales/products")
       .then((r) => r.json())
       .then((d) => setProducts(d.items || []));
-    fetch("/api/finance/accounting/tax-rates")
+    cachedFetch("/api/finance/accounting/tax-rates")
       .then((r) => r.json())
       .then((d) => setTaxRates(d.data || []));
-    fetch("/api/sales/subscriptions/next-number")
+    cachedFetch("/api/sales/subscriptions/next-number")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -186,7 +187,7 @@ export function SubscriptionForm() {
     }
     setSavingNumberSettings(true);
     try {
-      const res = await fetch("/api/sales/subscriptions/number-settings", {
+      const res = await cachedFetch("/api/sales/subscriptions/number-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
@@ -242,7 +243,7 @@ export function SubscriptionForm() {
         activate,
       };
       if (manualNumber) body.number = displayNumber;
-      const res = await fetch("/api/sales/subscriptions", {
+      const res = await cachedFetch("/api/sales/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, ChevronRight, Mail, Download } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/upload";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const COUNTRIES = [
   "India",
@@ -157,15 +158,15 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   const [addingTag, setAddingTag] = useState(false);
 
   useEffect(() => {
-    fetch("/api/accounting/accounts")
+    cachedFetch("/api/accounting/accounts")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []))
       .catch(() => {});
-    fetch("/api/sales/customers/custom-field-definitions")
+    cachedFetch("/api/sales/customers/custom-field-definitions")
       .then((r) => r.json())
       .then((d) => d.success && setCustomFieldDefs(d.data))
       .catch(() => {});
-    fetch("/api/sales/customers/reporting-tags")
+    cachedFetch("/api/sales/customers/reporting-tags")
       .then((r) => r.json())
       .then((d) => d.success && setReportingTagDefs(d.data))
       .catch(() => {});
@@ -236,7 +237,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     }
     setPrefilling(true);
     try {
-      const res = await fetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput.trim())}`);
+      const res = await cachedFetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput.trim())}`);
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "We couldn't look up this GSTIN. Please try again.");
       const d = data.data;
@@ -303,7 +304,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     if (!newFieldLabel.trim()) return;
     setAddingField(true);
     try {
-      const res = await fetch("/api/sales/customers/custom-field-definitions", {
+      const res = await cachedFetch("/api/sales/customers/custom-field-definitions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: newFieldLabel.trim() }),
@@ -324,7 +325,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     if (!newTagName.trim()) return;
     setAddingTag(true);
     try {
-      const res = await fetch("/api/sales/customers/reporting-tags", {
+      const res = await cachedFetch("/api/sales/customers/reporting-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newTagName.trim() }),
@@ -365,7 +366,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     try {
       const url = customerId ? `/api/sales/customers/${customerId}` : "/api/sales/customers";
       const method = customerId ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
