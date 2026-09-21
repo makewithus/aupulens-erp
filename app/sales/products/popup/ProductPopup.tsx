@@ -637,8 +637,8 @@ export function ProductPopupContent({
                     code: a.code,
                   }))}
                   value={
-                    formData.tab_accounting.cost_and_revenue
-                      .property_account_income_id
+                    formData.tab_accounting?.cost_and_revenue
+                      ?.property_account_income_id
                   }
                   onValueChange={(val) =>
                     setFormData((prev: any) => ({
@@ -646,7 +646,7 @@ export function ProductPopupContent({
                       tab_accounting: {
                         ...prev.tab_accounting,
                         cost_and_revenue: {
-                          ...prev.tab_accounting.cost_and_revenue,
+                          ...prev.tab_accounting?.cost_and_revenue,
                           property_account_income_id: val,
                         },
                       },
@@ -667,8 +667,8 @@ export function ProductPopupContent({
                     code: a.code,
                   }))}
                   value={
-                    formData.tab_accounting.cost_and_revenue
-                      .property_account_expense_id
+                    formData.tab_accounting?.cost_and_revenue
+                      ?.property_account_expense_id
                   }
                   onValueChange={(val) =>
                     setFormData((prev: any) => ({
@@ -676,7 +676,7 @@ export function ProductPopupContent({
                       tab_accounting: {
                         ...prev.tab_accounting,
                         cost_and_revenue: {
-                          ...prev.tab_accounting.cost_and_revenue,
+                          ...prev.tab_accounting?.cost_and_revenue,
                           property_account_expense_id: val,
                         },
                       },

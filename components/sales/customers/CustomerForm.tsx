@@ -278,7 +278,11 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
 
   const handleFileUpload = async (file: File) => {
     if (form.documents.length >= 10) {
-      toast.error("You can upload a maximum of 10 files");
+      toast.error("You can attach a maximum of 10 files to a customer.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(`"${file.name}" is larger than 10MB. Please choose a smaller file.`);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -603,16 +607,25 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
           </div>
 
           <div className="max-w-2xl space-y-2">
-            <Label>Documents</Label>
+            <Label>Customer Documents (optional)</Label>
+            <p className="text-xs text-muted-foreground">
+              Attach supporting papers for this customer — e.g. GST registration certificate, PAN card, signed agreement or
+              KYC. They stay on the customer record for your team&apos;s reference and are not sent to the customer.
+            </p>
             <div className="border border-dashed rounded-none p-4 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
-                You can upload a maximum of 10 files, 10MB each
+                Up to 10 files, 10MB each (PDF, images, Word or Excel)
               </span>
               <label>
                 <input
                   type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
                   className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = "";
+                  }}
                 />
                 <span className="text-sm font-medium text-primary cursor-pointer">Upload File</span>
               </label>
