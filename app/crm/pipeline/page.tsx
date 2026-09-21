@@ -135,7 +135,7 @@ export default function PipelinePage() {
       <div className="border-b border-border/40 pb-6">
         <h1 className="text-4xl font-black leading-none tracking-tighter text-primary md:text-[56px]">Pipeline</h1>
         <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">
-          Drag deals between stages · {columns && Object.values(columns).reduce((n: number, c: any) => n + (c?.count || 0), 0)} deals
+          Drag deals between stages · {(Object.values(columns) as any[]).reduce((n: number, c: any) => n + (c?.count || 0), 0)} deals
         </p>
       </div>
 
