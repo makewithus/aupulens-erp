@@ -726,7 +726,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         Additional Fields: Start adding custom fields for your quotes by going to Settings → Sales → Quotes.
       </p>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
         <div className="flex items-center gap-3">
           {activeTab === "quote" ? (
             <>
