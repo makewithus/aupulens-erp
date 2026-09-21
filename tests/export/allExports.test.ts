@@ -152,7 +152,7 @@ describe("Sales / Finance / CRM Excel exports", () => {
     const buf: any = await generateExportData("Opportunities" as any, T, {}, "xlsx");
     expect(typeof buf).not.toBe("string");
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(Buffer.from(buf));
+    await wb.xlsx.load(Buffer.from(buf) as any);
     const ws = wb.worksheets[0];
     expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: 4 });
     expect(ws.getCell("A1").font?.bold).toBe(true);
