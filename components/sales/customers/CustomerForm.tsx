@@ -28,16 +28,42 @@ const COUNTRIES = [
 ];
 
 const INDIAN_STATES = [
-  "Maharashtra",
-  "Karnataka",
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
   "Delhi",
-  "Tamil Nadu",
+  "Goa",
   "Gujarat",
   "Haryana",
-  "Uttar Pradesh",
-  "West Bengal",
-  "Telangana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
   "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
 ];
 
 export interface CustomerFormValue {
@@ -204,23 +230,45 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   };
 
   const handlePrefill = async () => {
-    if (!gstinInput) {
-      toast.error("Enter a GSTIN first");
+    if (!gstinInput.trim()) {
+      toast.error("Please enter the customer's GSTIN first.");
       return;
     }
     setPrefilling(true);
     try {
-      const res = await fetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput)}`);
+      const res = await fetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput.trim())}`);
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "GSTIN lookup failed");
-      update({ gstin: gstinInput.toUpperCase() });
-      if (data.data?.legalName && !form.header.companyName) {
-        updateNested("header", { companyName: data.data.legalName });
-      }
-      if (data.data?.address?.state) {
-        updateAddress("billing", { state_name: data.data.address.state, country: "India" });
-      }
-      toast.success("Prefilled from GST portal");
+      if (!data.ok) throw new Error(data.error || "We couldn't look up this GSTIN. Please try again.");
+      const d = data.data;
+
+      // Fill every field the lookup returned; never overwrite what the user already typed.
+      setForm((f) => {
+        const display = d.tradeName || d.legalName;
+        const header = {
+          ...f.header,
+          customerType: d.isCompany ? ("business" as const) : ("individual" as const),
+          is_company: d.isCompany,
+          companyName: f.header.companyName || d.legalName || f.header.companyName,
+          name: f.header.name || display || f.header.name,
+          displayName: f.header.displayName || display || f.header.displayName,
+        };
+        const billingAddr = f.addresses.find((a) => a.type === "billing") || { type: "billing" as const };
+        const others = f.addresses.filter((a) => a.type !== "billing");
+        const addr = d.address || {};
+        const merged = {
+          ...billingAddr,
+          street: billingAddr.street || addr.street,
+          street2: billingAddr.street2 || addr.street2,
+          city: billingAddr.city || addr.city,
+          state_name: addr.state || billingAddr.state_name,
+          zip: billingAddr.zip || addr.zip,
+          country: "India",
+        };
+        return { ...f, gstin: d.gstin, pan: f.pan || d.pan, header, addresses: [...others, merged] };
+      });
+      setGstinInput(d.gstin);
+      if (data.live) toast.success("Customer details filled from the GST portal");
+      else toast.info(data.message || "Filled what could be read from the GSTIN");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
