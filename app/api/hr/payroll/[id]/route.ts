@@ -205,11 +205,20 @@ export async function PATCH(
           const lossOfPay = fullGross - grossSalary; // informational
 
           const deductions = (sal.deductions as any) || {};
-          const pf = Math.round((deductions.pf || 0) * ratio);
-          const esi = Math.round((deductions.esi || 0) * ratio);
-          const professionalTax = deductions.professionalTax || 0; // flat, not pro-rated
-          const tds = Math.round((deductions.tds || 0) * ratio);
-          const otherDeductions = Math.round((deductions.otherDeductions || 0) * ratio);
+          // Deductions can never exceed what the employee actually earned this
+          // period: with no attendance (gross 0) the flat professional tax used
+          // to be charged anyway, producing negative net pay (e.g. Rs -200).
+          let room = grossSalary;
+          const take = (amount: number) => {
+            const v = Math.max(0, Math.min(Math.round(amount) || 0, room));
+            room -= v;
+            return v;
+          };
+          const pf = take((deductions.pf || 0) * ratio);
+          const esi = take((deductions.esi || 0) * ratio);
+          const tds = take((deductions.tds || 0) * ratio);
+          const otherDeductions = take((deductions.otherDeductions || 0) * ratio);
+          const professionalTax = take(deductions.professionalTax || 0); // flat, not pro-rated
           const totalDed = pf + esi + professionalTax + tds + otherDeductions;
 
           const overtimeRate = (sal.basic || 0) / totalWorkingDays / 8;

@@ -110,8 +110,22 @@ export async function POST(req: NextRequest) {
       };
 
       const gross = (sal.basic || 0) + (sal.hra || 0) + (sal.da || 0) + (sal.specialAllowance || 0);
-      const ded: any = sal.deductions || {};
-      const totalDed = (ded.pf || 0) + (ded.esi || 0) + (ded.professionalTax || 0) + (ded.tds || 0) + (ded.otherDeductions || 0);
+      // Deductions never exceed gross pay (no negative net salary).
+      let room = gross;
+      const take = (v: any) => {
+        const n = Math.max(0, Math.min(Number(v) || 0, room));
+        room -= n;
+        return n;
+      };
+      const rawDed: any = sal.deductions || {};
+      const ded: any = {
+        pf: take(rawDed.pf),
+        esi: take(rawDed.esi),
+        tds: take(rawDed.tds),
+        otherDeductions: take(rawDed.otherDeductions),
+        professionalTax: take(rawDed.professionalTax),
+      };
+      const totalDed = ded.pf + ded.esi + ded.professionalTax + ded.tds + ded.otherDeductions;
       const net = gross - totalDed;
 
       lineItems.push({
