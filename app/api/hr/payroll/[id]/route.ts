@@ -161,16 +161,24 @@ export async function PATCH(
           const attendance = attendanceByEmp.get(String(emp._id)) ?? [];
 
           const totalWorkingDays = 26; // standard working days
-          const daysPresent = attendance.filter(
+          // Paid days: present, on-leave, holidays and weekly offs count in
+          // full; half-days count 0.5. If no attendance was recorded at all for
+          // this employee in the period, attendance simply isn't being tracked —
+          // pay the full month instead of prorating to zero (which is why
+          // gross/net used to collapse from the draft figure to Rs 0 the moment
+          // the run reached "Compute").
+          const halfDays = attendance.filter((a) => a.status === "half-day").length;
+          const fullDays = attendance.filter(
             (a) =>
               a.status === "present" ||
-              a.status === "half-day" ||
-              a.status === "on-leave",
+              a.status === "on-leave" ||
+              a.status === "holiday" ||
+              a.status === "week-off",
           ).length;
-          const halfDays = attendance.filter(
-            (a) => a.status === "half-day",
-          ).length;
-          const daysWorked = daysPresent - halfDays * 0.5;
+          const daysWorked =
+            attendance.length === 0
+              ? totalWorkingDays
+              : Math.min(totalWorkingDays, fullDays + halfDays * 0.5);
           const daysAbsent = totalWorkingDays - daysWorked;
           const overtime = attendance.reduce(
             (sum, a) => sum + (a.overtime || 0),

@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     // Calculate period dates
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // last day of month
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999); // end of last day of month
 
     // Fetch all active employees for this tenant (optionally filtered by department)
     const employeeQuery: any = { tenantId, lifecycleStatus: "active" };
