@@ -143,7 +143,7 @@ export default function PipelinePage() {
         // Hairline grid (same treatment as the Executive Dashboard tiles): tiles
         // share borders instead of floating as separate coloured boxes, and the
         // 3-up layout gives each value room so the graphic never overlaps it.
-        <div className="grid grid-cols-1 gap-px border border-border/40 bg-border/40 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px border border-border/40 bg-border/40 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard className="rounded-none bg-background" title="Total Deals" value={Number(analytics.totalOpportunities).toLocaleString("en-IN")} visual={<UsersGraph />} />
           <StatCard className="rounded-none bg-background" title="Pipeline Value" value={formatInrCompact(analytics.totalPipelineValue)} visual={<ActivePulse />} />
           <StatCard className="rounded-none bg-background" title="Weighted Value" value={formatInrCompact(analytics.weightedPipeline)} visual={<UsersGraph />} />
@@ -156,7 +156,7 @@ export default function PipelinePage() {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex items-start gap-4 overflow-x-auto pb-4">
           {STAGES.map((stage) => (
-            <div key={stage} className="flex w-72 min-w-72 shrink-0 flex-col border border-border/40 bg-background">
+            <div key={stage} className="flex w-80 min-w-80 shrink-0 flex-col border border-border/40 bg-background">
               <div className="flex items-center justify-between border-b border-border/40 px-4 py-3.5">
                 <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em]">{stage}</span>
                 <Badge variant="outline" className="h-5 rounded-none border-border/40 bg-transparent px-1.5 font-mono text-[10px] text-muted-foreground">
