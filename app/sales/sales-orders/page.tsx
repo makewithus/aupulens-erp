@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { MoveQuoteToOrderDialog } from "@/components/sales/salesOrders/MoveQuoteToOrderDialog";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Plus,
@@ -124,6 +125,7 @@ function SalesOrdersPageInner() {
   const [sortField, setSortField] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exportOpen, setExportOpen] = useState(false);
+  const [fromQuoteOpen, setFromQuoteOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
   // AI-native "redirect with filters" — seed filter state from the URL
   // synchronously (lazy useState initializer) so the very first fetch
@@ -278,6 +280,14 @@ function SalesOrdersPageInner() {
               onDateToChange={setDateTo}
               inputClassName="rounded-none bg-background"
             />
+            <Button
+              variant="outline"
+              onClick={() => setFromQuoteOpen(true)}
+              className="h-11 px-4 border-border/40 font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+            >
+              From Quote
+            </Button>
+            <MoveQuoteToOrderDialog open={fromQuoteOpen} onOpenChange={setFromQuoteOpen} />
             <Link href="/sales/sales-orders/new">
               <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New

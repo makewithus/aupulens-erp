@@ -47,6 +47,11 @@ export interface ISalesQuotation extends Document {
 
   status: QuoteStatus;
   convertedInvoiceId?: mongoose.Types.ObjectId;
+  // Q2C pipeline: the sales order this quote became (or was generated from),
+  // and any pipeline-only stage (discount approval / cancelled) the quote's
+  // own status enum cannot express.
+  saleOrderId?: mongoose.Types.ObjectId;
+  pipelineStage?: string;
   createdBy: mongoose.Types.ObjectId;
 
   createdAt: Date;
@@ -105,6 +110,8 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
 
     status: { type: String, enum: QUOTE_STATUS_VALUES, default: QUOTE_STATUS.DRAFT },
     convertedInvoiceId: { type: Schema.Types.ObjectId, ref: "SalesInvoice" },
+    saleOrderId: { type: Schema.Types.ObjectId, ref: "SaleOrder" },
+    pipelineStage: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },

@@ -312,6 +312,21 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
     }
   };
 
+  const handleConvertToOrder = async () => {
+    if (!quoteId || converting) return;
+    setConverting(true);
+    try {
+      const res = await fetch(`/api/sales/quotes/${quoteId}/convert-to-order`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to create sales order");
+      toast.success(`Sales order ${data.data.order.header.name} created`);
+      router.push(`/sales/sales-orders/${data.data.order._id}`);
+    } catch (e: any) {
+      toast.error(e.message);
+      setConverting(false);
+    }
+  };
+
   const handleConvertToInvoice = async () => {
     if (!quoteId || converting) return;
     setConverting(true);
@@ -721,6 +736,11 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
               <Button onClick={() => handleSave("sent")} disabled={saving}>
                 {saving ? "Saving..." : "Save and Send"}
               </Button>
+              {quoteId && (
+                <Button variant="outline" onClick={handleConvertToOrder} disabled={converting}>
+                  Move to Sales Order
+                </Button>
+              )}
               {quoteId && (
                 <Button variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
                   {converting ? "Converting..." : "Convert to Invoice"}

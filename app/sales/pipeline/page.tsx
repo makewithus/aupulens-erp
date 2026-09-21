@@ -30,12 +30,13 @@ export default function Q2CPipelinePage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sales/sale-orders");
+      const res = await fetch("/api/sales/pipeline");
       const json = await res.json();
+      if (!res.ok || json.success === false) throw new Error(json.error || "load failed");
       setData(json.items || []);
     } catch (error) {
       console.error("Error loading pipeline:", error);
-      toast.error("Failed to load pipeline data");
+      toast.error("We couldn't load the pipeline. Please refresh the page.");
     } finally {
       setLoading(false);
     }
@@ -46,17 +47,17 @@ export default function Q2CPipelinePage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
-  const handleQ2CTransition = async (orderId: string, nextStatus: string) => {
+  const handleQ2CTransition = async (dealId: string, nextStatus: string) => {
+    const deal = data.find((d) => d._id === dealId);
     try {
-      const res = await fetch(`/api/sales/sale-orders/${orderId}`, {
-        method: "PATCH",
+      const res = await fetch("/api/sales/pipeline/transition", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q2cStatus: nextStatus }),
+        body: JSON.stringify({ kind: deal?.kind || "order", id: dealId, to: nextStatus }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Transition failed");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || "We couldn't move this deal. Please try again.");
       }
 
       toast.success(`Moved to ${Q2C_STATUS_LABELS[nextStatus as Q2CStatus]}`);
