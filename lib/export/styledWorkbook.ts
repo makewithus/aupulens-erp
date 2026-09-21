@@ -107,7 +107,7 @@ export async function buildStyledXlsx(input: StyledReportInput): Promise<Uint8Ar
     cell.font = { name: "Calibri", bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3A5F" } };
     const numeric = ["number", "integer", "currency", "percent"].includes(c.type || "text");
-    cell.alignment = { vertical: "middle", horizontal: numeric ? "right" : "left", wrapText: true };
+    cell.alignment = { vertical: "middle", horizontal: numeric ? "right" : c.type === "date" ? "center" : "left", wrapText: true };
     cell.border = thinBorder();
   });
   headerRow.height = 24;
