@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Building2, Landmark, Wallet, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { StatementSection, TotalBar, formatInr } from "@/components/finance/StatementSection";
 
 export default function BalanceSheetPage() {
   const { data: session, status } = useSession();
@@ -29,9 +31,11 @@ export default function BalanceSheetPage() {
         `/api/finance/reports/balance-sheet?date=${date}`,
       );
       const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || "load failed");
       setData(json);
     } catch (error) {
-      toast.error("Failed to load Balance Sheet");
+      setData(null);
+      toast.error("We couldn't load the Balance Sheet. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -41,6 +45,9 @@ export default function BalanceSheetPage() {
     
     if (status === "authenticated") load();
   }, [status, router, load]);
+
+  const liabilitiesPlusEquity = (data?.liability?.total ?? 0) + (data?.equity?.total ?? 0);
+  const balanced = Math.abs((data?.asset?.total ?? 0) - liabilitiesPlusEquity) <= 0.01;
 
   const handlePrint = () => {
     if (!data) return;
@@ -172,36 +179,6 @@ export default function BalanceSheetPage() {
     printWindow.document.close();
   };
 
-  const renderSection = (title: string, sectionData: any) => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center border-b pb-2">
-        <h3 className="text-xl font-bold uppercase tracking-wider">{title}</h3>
-        <span className="text-xl font-bold">
-          ₹{sectionData?.total?.toLocaleString() ?? 0}
-        </span>
-      </div>
-      <div className="space-y-2">
-        {sectionData &&
-          Object.values(sectionData.accounts).map((acc: any) => (
-            <div
-              key={acc.code}
-              className="flex justify-between items-center py-2 hover:bg-muted/30 px-2 rounded-md transition-colors"
-            >
-              <div className="flex flex-col">
-                <span className="font-medium text-sm">{acc.name}</span>
-                <span className="text-[10px] text-muted-foreground uppercase">
-                  {acc.code}
-                </span>
-              </div>
-              <span className="font-semibold text-sm">
-                ₹{acc.amount?.toLocaleString() ?? 0}
-              </span>
-            </div>
-          ))}
-      </div>
-    </div>
-  );
-
   return (
     <DashboardLayout
       sidebarSections={financeSidebarConfig}
@@ -234,10 +211,11 @@ export default function BalanceSheetPage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-44"
+              className="w-44 rounded-none"
             />
             <Button
               variant="outline"
+              className="rounded-none"
               onClick={handlePrint}
               disabled={loading || !data}
             >
@@ -251,94 +229,61 @@ export default function BalanceSheetPage() {
           <div className="grid gap-6">
             <Skeleton className="h-[400px] w-full" />
           </div>
+        ) : !data ? (
+          <Card className="rounded-none border-border/40 bg-background shadow-none">
+            <CardContent className="py-16 text-center font-mono text-xs text-muted-foreground">
+              The balance sheet couldn&apos;t be loaded. Use refresh to try again.
+            </CardContent>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Side: Assets */}
-            <Card className="h-fit">
-              <CardContent className="p-8 space-y-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <Landmark className="h-6 w-6 text-primary" />
-                  <h2 className="text-2xl font-bold">Assets</h2>
-                </div>
-                {renderSection("Current & Non-Current Assets", data?.asset)}
+          <>
+            <div className="grid grid-cols-1 gap-px border border-border/40 bg-border/40 md:grid-cols-3">
+              <StatCard title="Total Assets" value={formatInr(data.asset?.total)} className="rounded-none bg-background" />
+              <StatCard title="Total Liabilities" value={formatInr(data.liability?.total)} className="rounded-none bg-background" />
+              <StatCard title="Total Equity" value={formatInr(data.equity?.total)} className="rounded-none bg-background" />
+            </div>
 
-                <div className="flex justify-between items-center border-t-2 border-primary pt-6 mt-12 bg-muted/20 p-4 rounded-lg">
-                  <h3 className="text-xl font-bold uppercase">Total Assets</h3>
-                  <span className="text-2xl font-extrabold text-primary">
-                    ₹{data?.asset?.total?.toLocaleString() ?? 0}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Right Side: Liabilities & Equity */}
-            <div className="space-y-8">
-              <Card>
-                <CardContent className="p-8 space-y-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Building2 className="h-6 w-6 text-red-600" />
-                    <h2 className="text-2xl font-bold">Liabilities</h2>
-                  </div>
-                  {renderSection(
-                    "Current & Long-Term Liabilities",
-                    data?.liability,
-                  )}
-
-                  <div className="flex justify-between items-center border-t border-red-200 pt-4 bg-red-50/30 p-4 rounded-lg">
-                    <h3 className="text-lg font-bold uppercase">
-                      Total Liabilities
-                    </h3>
-                    <span className="text-xl font-bold text-red-600">
-                      ₹{data?.liability?.total?.toLocaleString() ?? 0}
-                    </span>
-                  </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card className="h-fit rounded-none border-border/40 bg-background shadow-none">
+                <CardContent className="space-y-8 p-6 sm:p-8">
+                  <StatementSection title="Assets" section={data.asset} />
+                  <TotalBar label="Total Assets" value={data.asset?.total ?? 0} />
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-8 space-y-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Wallet className="h-6 w-6 text-green-600" />
-                    <h2 className="text-2xl font-bold">Equity</h2>
-                  </div>
-                  {renderSection(
-                    "Share Capital & Retained Earnings",
-                    data?.equity,
-                  )}
-
-                  <div className="flex justify-between items-center border-t border-green-200 pt-4 bg-green-50/30 p-4 rounded-lg">
-                    <h3 className="text-lg font-bold uppercase">
-                      Total Equity
-                    </h3>
-                    <span className="text-xl font-bold text-green-600">
-                      ₹{data?.equity?.total?.toLocaleString() ?? 0}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Equilibrium Check */}
-              <div className="p-6 bg-primary text-primary-foreground rounded-xl flex justify-between items-center shadow-lg">
-                <div className="space-y-1">
-                  <p className="text-xs uppercase font-bold opacity-80">
-                    Liabilities + Equity
-                  </p>
-                  <p className="text-3xl font-black">
-                    ₹
-                    {(
-                      (data?.liability?.total ?? 0) + (data?.equity?.total ?? 0)
-                    ).toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold opacity-80">
-                    Balanced
-                  </p>
-                  <div className="h-2 w-12 bg-white/40 rounded-full ml-auto mt-1" />
-                </div>
+              <div className="space-y-6">
+                <Card className="rounded-none border-border/40 bg-background shadow-none">
+                  <CardContent className="space-y-8 p-6 sm:p-8">
+                    <StatementSection title="Liabilities" section={data.liability} tone="negative" />
+                    <TotalBar label="Total Liabilities" value={data.liability?.total ?? 0} />
+                  </CardContent>
+                </Card>
+                <Card className="rounded-none border-border/40 bg-background shadow-none">
+                  <CardContent className="space-y-8 p-6 sm:p-8">
+                    <StatementSection title="Equity" section={data.equity} tone="positive" />
+                    <TotalBar label="Total Equity" value={data.equity?.total ?? 0} />
+                  </CardContent>
+                </Card>
               </div>
             </div>
-          </div>
+
+            {/* Accounting-equation check: Assets = Liabilities + Equity */}
+            <div
+              className={`flex items-center justify-between border px-6 py-5 ${
+                balanced ? "border-emerald-500/40" : "border-red-500/50"
+              }`}
+            >
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Liabilities + Equity</p>
+                <p className="mt-1 font-sans text-2xl font-bold tabular-nums">{formatInr(liabilitiesPlusEquity)}</p>
+              </div>
+              <p className={`font-mono text-xs uppercase tracking-[0.18em] ${balanced ? "text-emerald-500" : "text-red-500"}`}>
+                {balanced
+                  ? "Balanced — Assets equal Liabilities + Equity"
+                  : `Out of balance by ${formatInr(Math.abs((data.asset?.total ?? 0) - liabilitiesPlusEquity))}`}
+              </p>
+            </div>
+          </>
         )}
       </div>
     </DashboardLayout>

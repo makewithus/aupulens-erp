@@ -6,12 +6,14 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { financeSidebarConfig } from "@/config/sidebar/finance";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { TrendingUp, TrendingDown, DollarSign, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { StatementSection, TotalBar, formatInr } from "@/components/finance/StatementSection";
 
 export default function ProfitLossPage() {
   const { data: session, status } = useSession();
@@ -31,9 +33,11 @@ export default function ProfitLossPage() {
       }
       const res = await cachedFetch(url);
       const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || "load failed");
       setData(json);
     } catch (error) {
-      toast.error("Failed to load P&L");
+      setData(null);
+      toast.error("We couldn't load the Profit & Loss statement. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -183,42 +187,6 @@ export default function ProfitLossPage() {
     printWindow.document.close();
   };
 
-  const renderSection = (
-    title: string,
-    sectionData: any,
-    type: "income" | "expense",
-  ) => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center border-b pb-2">
-        <h3 className="text-xl font-bold uppercase tracking-wider">{title}</h3>
-        <span
-          className={`text-xl font-bold ${type === "income" ? "text-green-600" : "text-red-600"}`}
-        >
-          ₹{sectionData?.total?.toLocaleString() ?? 0}
-        </span>
-      </div>
-      <div className="space-y-2">
-        {sectionData &&
-          Object.entries(sectionData.accounts).map(([key, acc]: [string, any]) => (
-            <div
-              key={key}
-              className="flex justify-between items-center py-2 hover:bg-muted/30 px-2 rounded-md transition-colors"
-            >
-              <div className="flex flex-col">
-                <span className="font-medium">{acc.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {acc.code}
-                </span>
-              </div>
-              <span className="font-semibold">
-                ₹{acc.amount?.toLocaleString() ?? 0}
-              </span>
-            </div>
-          ))}
-      </div>
-    </div>
-  );
-
   return (
     <DashboardLayout
       sidebarSections={financeSidebarConfig}
@@ -247,10 +215,10 @@ export default function ProfitLossPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Note: DateRangePicker is a placeholder, assuming standard usage or replacing with simple inputs */}
-            <DateRangePicker onUpdate={(range) => setDateRange(range)} />
+                        <DateRangePicker onUpdate={(range) => setDateRange(range)} />
             <Button
               variant="outline"
+              className="rounded-none"
               onClick={handlePrint}
               disabled={loading || !data}
             >
@@ -262,78 +230,36 @@ export default function ProfitLossPage() {
 
         {loading ? (
           <div className="grid gap-6">
-            <Skeleton className="h-[300px] w-full" />
+            <Skeleton className="h-[120px] w-full" />
             <Skeleton className="h-[300px] w-full" />
           </div>
+        ) : !data ? (
+          <Card className="rounded-none border-border/40 bg-background shadow-none">
+            <CardContent className="py-16 text-center font-mono text-xs text-muted-foreground">
+              The statement couldn&apos;t be loaded. Use refresh to try again.
+            </CardContent>
+          </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/30">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-full">
-                      <TrendingUp className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-green-600 font-medium">
-                        Total Income
-                      </p>
-                      <h2 className="text-2xl font-bold">
-                        ₹{data?.income?.total?.toLocaleString() ?? 0}
-                      </h2>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-red-100 dark:bg-red-900/50 rounded-full">
-                      <TrendingDown className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-red-600 font-medium">
-                        Total Expenses
-                      </p>
-                      <h2 className="text-2xl font-bold">
-                        ₹{data?.expense?.total?.toLocaleString() ?? 0}
-                      </h2>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full">
-                      <DollarSign className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-600 font-medium">
-                        Net Profit
-                      </p>
-                      <h2 className="text-2xl font-bold">
-                        ₹{data?.netProfit?.toLocaleString() ?? 0}
-                      </h2>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 gap-px border border-border/40 bg-border/40 md:grid-cols-3">
+              <StatCard title="Total Income" value={formatInr(data.income?.total)} className="rounded-none bg-background" />
+              <StatCard title="Total Expenses" value={formatInr(data.expense?.total)} className="rounded-none bg-background" />
+              <StatCard
+                title={(data.netProfit ?? 0) >= 0 ? "Net Profit" : "Net Loss"}
+                value={formatInr(data.netProfit)}
+                className="rounded-none bg-background"
+              />
             </div>
 
-            <Card>
-              <CardContent className="p-8 space-y-12">
-                {renderSection("Income", data?.income, "income")}
-                {renderSection("Expenses", data?.expense, "expense")}
-
-                <div className="flex justify-between items-center border-t-2 border-primary pt-6">
-                  <h3 className="text-2xl font-bold uppercase">Net Profit</h3>
-                  <span
-                    className={`text-3xl font-bold ${data?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
-                  >
-                    ₹{data?.netProfit?.toLocaleString() ?? 0}
-                  </span>
-                </div>
+            <Card className="rounded-none border-border/40 bg-background shadow-none">
+              <CardContent className="space-y-10 p-6 sm:p-8">
+                <StatementSection title="Income" section={data.income} tone="positive" />
+                <StatementSection title="Expenses" section={data.expense} tone="negative" />
+                <TotalBar
+                  label={(data.netProfit ?? 0) >= 0 ? "Net Profit" : "Net Loss"}
+                  value={data.netProfit ?? 0}
+                  tone={(data.netProfit ?? 0) >= 0 ? "positive" : "negative"}
+                />
               </CardContent>
             </Card>
           </>
