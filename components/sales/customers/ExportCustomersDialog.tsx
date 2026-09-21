@@ -62,7 +62,7 @@ export function ExportCustomersDialog({ open, onOpenChange }: ExportCustomersDia
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `customers.${fileFormat}`;
+      a.download = `customers.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

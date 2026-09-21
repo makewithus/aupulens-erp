@@ -3,7 +3,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Account from "@/models/finance/Account";
-import * as XLSX from "xlsx";
+import { gridToStyledXlsx, XLSX_MIME } from "@/lib/export/styledWorkbook";
 
 export async function POST(request: Request) {
   try {
@@ -49,14 +49,11 @@ export async function POST(request: Request) {
         }
       });
     } else if (format === "xls" || format === "xlsx") {
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(csvData);
-      XLSX.utils.book_append_sheet(wb, ws, "Accounts");
-      const buffer = XLSX.write(wb, { type: "buffer", bookType: format });
-      return new NextResponse(buffer, {
+      const buffer = await gridToStyledXlsx({ title: "Chart of Accounts", sheetName: "Accounts", data: csvData });
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
-          "Content-Type": format === "xls" ? "application/vnd.ms-excel" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="chart_of_accounts_${new Date().getTime()}.${format}"`,
+          "Content-Type": XLSX_MIME,
+          "Content-Disposition": `attachment; filename="chart_of_accounts_${new Date().getTime()}.xlsx"`,
         }
       });
     }

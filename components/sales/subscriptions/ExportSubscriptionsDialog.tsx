@@ -60,7 +60,7 @@ export function ExportSubscriptionsDialog({ open, onOpenChange }: ExportSubscrip
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `subscriptions.${fileFormat}`;
+      a.download = `subscriptions.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

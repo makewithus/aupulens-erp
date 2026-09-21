@@ -55,7 +55,7 @@ export function ExportSalesOrdersDialog({ open, onOpenChange }: ExportSalesOrder
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sales_orders.${fileFormat}`;
+      a.download = `sales_orders.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

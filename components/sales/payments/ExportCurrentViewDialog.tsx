@@ -46,7 +46,7 @@ export function ExportCurrentViewDialog({ open, onOpenChange, viewId, viewName }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `payments_current_view.${fileFormat}`;
+      a.download = `payments_current_view.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

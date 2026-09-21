@@ -62,7 +62,7 @@ export function ExportInvoicePaymentsDialog({ open, onOpenChange }: ExportInvoic
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `invoice_payments.${fileFormat}`;
+      a.download = `invoice_payments.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");
