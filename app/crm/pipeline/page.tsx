@@ -14,6 +14,15 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 const STAGES = ['Prospecting','Discovery','Requirement Gathering','Solution Fit','Proposal Sent','Negotiation','Approval', 'Closed Won', 'Closed Lost'];
 const PAGE_SIZE = 5;
 
+// Indian-style compact amounts (₹40.73 Cr / ₹12.50 L) so large pipeline values
+// stay on one line and never show stray decimals like "₹407,323,390.2".
+function formatInrCompact(n: number) {
+  const v = Number(n) || 0;
+  if (Math.abs(v) >= 1e7) return `₹${(v / 1e7).toFixed(2)} Cr`;
+  if (Math.abs(v) >= 1e5) return `₹${(v / 1e5).toFixed(2)} L`;
+  return `₹${Math.round(v).toLocaleString("en-IN")}`;
+}
+
 export default function PipelinePage() {
   const [columns, setColumns] = useState<any>({});
   const [analytics, setAnalytics] = useState<any>(null);
@@ -127,10 +136,10 @@ export default function PipelinePage() {
         <h1 className="text-2xl font-bold">Kanban Pipeline</h1>
         {analytics && (
           <div className="grid grid-cols-2 gap-1 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard title="Total Deals" value={analytics.totalOpportunities} visual={<UsersGraph />} />
-            <StatCard title="Pipeline Value" value={`₹${analytics.totalPipelineValue.toLocaleString()}`} visual={<ActivePulse />} />
-            <StatCard title="Weighted Value" value={`₹${analytics.weightedPipeline.toLocaleString()}`} visual={<UsersGraph />} />
-            <StatCard title="Avg Deal Size" value={`₹${analytics.averageDealSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} visual={<UsersGraph />} />
+            <StatCard title="Total Deals" value={Number(analytics.totalOpportunities).toLocaleString("en-IN")} visual={<UsersGraph />} />
+            <StatCard title="Pipeline Value" value={formatInrCompact(analytics.totalPipelineValue)} visual={<ActivePulse />} />
+            <StatCard title="Weighted Value" value={formatInrCompact(analytics.weightedPipeline)} visual={<UsersGraph />} />
+            <StatCard title="Avg Deal Size" value={formatInrCompact(analytics.averageDealSize)} visual={<UsersGraph />} />
             <StatCard title="Win Rate" value={`${analytics.winRate.toFixed(1)}%`} visual={<ActivePulse />} />
             <StatCard title="Loss Rate" value={`${analytics.lossRate.toFixed(1)}%`} visual={<InactiveOrbit />} />
           </div>
