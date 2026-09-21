@@ -34,7 +34,9 @@ export async function syncSaleOrderOnQuoteConverted(params: {
   const { tenantId, quote, invoice } = params;
 
   const invoiceNumber = invoice.number;
-  const historyEntry = { docType: "INV", ref: invoiceNumber, docId: invoice._id, stage: Q2C_STATUS.INVOICE_POSTED, at: new Date() };
+  const historyEntries = invoiceNumber
+    ? [{ docType: "INV", ref: invoiceNumber, docId: invoice._id, stage: Q2C_STATUS.INVOICE_POSTED, at: new Date() }]
+    : [];
 
   // Deal already on the board (generated from / converted into a sales order):
   // advance that same record instead of spawning a second card.
@@ -45,10 +47,18 @@ export async function syncSaleOrderOnQuoteConverted(params: {
     existing.q2cStatus = Q2C_STATUS.INVOICE_POSTED;
     existing.salesInvoiceIds = [...(existing.salesInvoiceIds || []), invoice._id];
     existing.invoiceNumber = invoiceNumber;
-    existing.refHistory = [...(existing.refHistory || []), historyEntry];
+    existing.refHistory = [...(existing.refHistory || []), ...historyEntries];
     await existing.save();
     return;
   }
+
+  // Idempotent: a card already synced for this quote/invoice is left alone.
+  const alreadySynced = await (SaleOrder as any).exists({
+    tenantId,
+    "header.name": quote.quoteNumber,
+    ...(invoiceNumber ? { invoiceNumber } : {}),
+  });
+  if (alreadySynced) return;
 
   const orderLines = (quote.lineItems || []).map((li: any) => {
     const qty = Number(li.qty) || 1;
@@ -90,13 +100,13 @@ export async function syncSaleOrderOnQuoteConverted(params: {
         },
         q2cStatus: Q2C_STATUS.INVOICE_POSTED,
         salesInvoiceIds: [invoice._id],
-        invoiceNumber,
+        ...(invoiceNumber ? { invoiceNumber } : {}),
       },
       $push: {
         refHistory: {
           $each: [
             { docType: "QT", ref: quote.quoteNumber, docId: quote._id, stage: Q2C_STATUS.QUOTE_GENERATED, at: quote.createdAt || new Date() },
-            historyEntry,
+            ...historyEntries,
           ],
         },
       },
@@ -105,7 +115,7 @@ export async function syncSaleOrderOnQuoteConverted(params: {
   );
   if (order && !quote.saleOrderId) {
     quote.saleOrderId = order._id;
-    await quote.save();
+    if (typeof quote.save === "function") await quote.save();
   }
 }
 
