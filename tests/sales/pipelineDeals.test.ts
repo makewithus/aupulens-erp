@@ -37,6 +37,10 @@ describe("Q2C deals: one record, stage-aware document reference", () => {
       header: { name: "SO-000015", partnerId: c._id },
       orderLines: [{ name: "Widget", productQty: 2, priceUnit: 1000, discount: 10, discountMode: "percent", taxRate: 18, priceSubtotal: 2124 }],
       totals: { amountUntaxed: 1800, amountTax: 324, amountTotal: 2124 },
+      // Exercising the full manual Lead -> ... -> Invoice funnel a rep can
+      // walk a deal through by hand; a freshly created order otherwise
+      // defaults straight to the Sales Order stage (see the #25 test below).
+      q2cStatus: "lead",
     });
     const id = String(so._id);
     const refAt = async () => (await listDeals(T)).find((d) => d._id === id)!;
@@ -86,9 +90,24 @@ describe("Q2C deals: one record, stage-aware document reference", () => {
     expect(after[0].totals.amountTotal).toBe(5900);
   });
 
+  it("a Sales Order created directly (not from a quote) defaults to the Sales Order stage, not Lead — item #25", async () => {
+    const c = await customer();
+    const direct: any = await SaleOrder.create({
+      tenantId: T,
+      header: { name: "SO-DIRECT-1", partnerId: c._id },
+      orderLines: [{ name: "Widget", productQty: 1, priceUnit: 999, priceSubtotal: 999 }],
+      totals: { amountTotal: 999 },
+      // q2cStatus intentionally omitted — relies on the schema default.
+    });
+    expect(direct.q2cStatus).toBe("sales_order");
+    const deal = (await listDeals(T)).find((d) => d._id === String(direct._id))!;
+    expect(deal.q2cStatus).toBe("sales_order");
+    expect(deal.header.name).toBe("SO-DIRECT-1");
+  });
+
   it("rejects an illegal jump with a plain-language error", async () => {
     const c = await customer();
-    const so: any = await SaleOrder.create({ tenantId: T, header: { name: "SO-9", partnerId: c._id }, orderLines: [], totals: { amountTotal: 0 } });
+    const so: any = await SaleOrder.create({ tenantId: T, header: { name: "SO-9", partnerId: c._id }, orderLines: [], totals: { amountTotal: 0 }, q2cStatus: "lead" });
     await expect(transitionDeal({ tenantId: T, userId, kind: "order", id: String(so._id), to: "fulfillment" })).rejects.toBeInstanceOf(DealError);
   });
 

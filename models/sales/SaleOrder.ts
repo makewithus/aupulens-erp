@@ -182,10 +182,22 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
       enum: DOCUMENT_STATUS_VALUES,
       default: DOCUMENT_STATUS.DRAFT,
     },
+    // A real SaleOrder document existing at all already means "a sales
+    // order was created" — that's past Lead/Opportunity/Price-Rules/Quote,
+    // which are pre-document CRM-tracking stages with no SO/QT reference of
+    // their own yet. Defaulting every newly created order to LEAD (its
+    // original default) meant every confirmed, real order — created
+    // directly via New Order, never through a quote — showed up mislabelled
+    // "Lead Created" with its real SO number, which read as "a Sales Order
+    // exists before any Quote" (item #25: Quote is the first stage a deal
+    // can occupy; a Sales Order reference only appears once a Sales Order
+    // genuinely exists — either created directly, which is this default, or
+    // converted from an accepted Quote, which lib/sales/pipelineDeals.ts's
+    // createOrderFromQuote already sets to SALES_ORDER explicitly).
     q2cStatus: {
       type: String,
       enum: Q2C_STATUS_VALUES,
-      default: Q2C_STATUS.LEAD,
+      default: Q2C_STATUS.SALES_ORDER,
     },
     discountApproval: {
       required: { type: Boolean, default: false },
