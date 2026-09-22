@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, FileText, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const DOCUMENT_TYPES = [
   { value: "invoice", label: "Invoice" },
@@ -39,7 +40,7 @@ export default function DocumentNotesPage() {
 
   const fetchRows = () => {
     setLoading(true);
-    fetch(`/api/sales/document-notes?kind=${kind}&documentType=${docType}`)
+    cachedFetch(`/api/sales/document-notes?kind=${kind}&documentType=${docType}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setRows(d.data); })
       .finally(() => setLoading(false));
@@ -51,7 +52,7 @@ export default function DocumentNotesPage() {
     if (!title.trim()) return toast.error("Title is required");
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/document-notes", {
+      const res = await cachedFetch("/api/sales/document-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, documentType: docType, title, content }),
@@ -68,7 +69,7 @@ export default function DocumentNotesPage() {
   };
 
   const remove = async (id: string) => {
-    const res = await fetch(`/api/sales/document-notes/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/sales/document-notes/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) { toast.success("Deleted"); fetchRows(); }
   };

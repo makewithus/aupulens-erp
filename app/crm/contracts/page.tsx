@@ -16,6 +16,7 @@ import {
   Plus, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
   RefreshCw, TrendingUp, Loader2,
 } from "lucide-react";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 // âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -215,6 +216,17 @@ function ContractsPageInner() {
   const [expiryFilter, setExpiryFilter] = useState("");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [showModal, setShowModal] = useState(false);
   const [renewalSummary, setRenewalSummary] = useState<any>(null);
   const [runningEngine, setRunningEngine] = useState(false);
@@ -235,21 +247,32 @@ function ContractsPageInner() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
     }
-    const res = await fetch(`/api/crm/contracts?${params}`);
-    const data = await res.json();
-    if (data.success) {
-      setContracts(data.data.contracts || []);
-      setTotal(data.data.total ?? 0);
-      setTotalPages(data.data.totalPages ?? 1);
-      if (data.data.stats) setStats(data.data.stats);
+    try {
+      const res = await fetch(`/api/crm/contracts?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setContracts(data.data.contracts || []);
+        setTotal(data.data.total ?? 0);
+        setTotalPages(data.data.totalPages ?? 1);
+        if (data.data.stats) setStats(data.data.stats);
+      } else {
+        toast.error("We couldn't load your contracts. Please refresh the page and try again.");
+      }
+    } catch {
+      toast.error("We couldn't load your contracts. Please refresh the page and try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [page, debouncedSearch, statusFilter, churnFilter, expiryFilter, dateFrom, dateTo]);
 
   const fetchSummary = useCallback(async () => {
-    const res = await fetch("/api/crm/renewals");
-    const data = await res.json();
-    if (data.success) setRenewalSummary(data.data);
+    try {
+      const res = await fetch("/api/crm/renewals");
+      const data = await res.json();
+      if (data.success) setRenewalSummary(data.data);
+    } catch {
+      // Summary strip is non-critical; the table still loads without it.
+    }
   }, []);
 
   useEffect(() => { fetchContracts(); }, [fetchContracts]);

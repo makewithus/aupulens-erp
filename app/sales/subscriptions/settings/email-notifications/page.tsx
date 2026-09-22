@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pencil, Loader2 } from "lucide-react";
 import { EmailTemplateEditorDialog } from "@/components/sales/subscriptions/EmailTemplateEditorDialog";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function EmailNotificationsSettingsPage() {
   const { data: session } = useSession();
@@ -19,7 +20,7 @@ export default function EmailNotificationsSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/subscription-notifications");
+      const res = await cachedFetch("/api/sales/subscription-notifications");
       const data = await res.json();
       if (data.success) setSettings(data.data);
     } catch {
@@ -34,7 +35,7 @@ export default function EmailNotificationsSettingsPage() {
   }, [load]);
 
   const toggle = async (setting: any) => {
-    const res = await fetch("/api/sales/subscription-notifications", {
+    const res = await cachedFetch("/api/sales/subscription-notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventKey: setting.eventKey, enabled: !setting.enabled }),

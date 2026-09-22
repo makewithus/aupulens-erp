@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const statusColors: Record<string, string> = {
   confirmed: "text-emerald-500",
@@ -33,7 +34,7 @@ export default function SalesOrderDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales/sales-orders/${id}`);
+      const res = await cachedFetch(`/api/sales/sales-orders/${id}`);
       const data = await res.json();
       if (data.success) setOrder(data.data);
       else toast.error(data.message || "Failed to load sales order");
@@ -51,7 +52,7 @@ export default function SalesOrderDetailPage() {
   const patch = async (body: Record<string, any>) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/sales/sales-orders/${id}`, {
+      const res = await cachedFetch(`/api/sales/sales-orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -70,7 +71,7 @@ export default function SalesOrderDetailPage() {
   const convertToInvoice = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/sales/sales-orders/${id}/convert-to-invoice`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/sales-orders/${id}/convert-to-invoice`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to convert to invoice");
       toast.success("Converted to invoice");

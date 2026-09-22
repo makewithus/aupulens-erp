@@ -7,6 +7,7 @@ import {
   isSubscriptionBlocked,
   type OrgModuleInfo,
 } from "@/lib/middleware/moduleGate";
+import { createOrgTierCache } from "@/lib/middleware/orgTierCache";
 import { checkRateLimit } from "@/lib/middleware/rateLimit";
 import {
   extractAdminSessionCookie,
@@ -16,15 +17,14 @@ import {
 const { auth } = NextAuth(authConfig);
 
 // Mongoose can't run in the Edge middleware runtime, so tier/enabledModules
-// are resolved via an internal HTTP call to /api/internal/org-tier and cached
-// in-process for a short TTL to avoid a round trip on every request.
-const orgTierCache = new Map<string, { data: OrgModuleInfo; expiresAt: number }>();
-const ORG_TIER_CACHE_TTL_MS = 60_000;
-
-async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgModuleInfo | null> {
-  const cached = orgTierCache.get(tenantId);
-  if (cached && cached.expiresAt > Date.now()) return cached.data;
-
+// are resolved via an internal HTTP call to /api/internal/org-tier — a full
+// network hop out of Edge into a Node function that itself opens a Mongo
+// connection and runs 1-2 queries. See lib/middleware/orgTierCache.ts for why
+// this needed a real cache (stale-while-revalidate + request coalescing) —
+// it used to run on nearly every navigation with only a 60s per-isolate TTL
+// and no de-duplication, the concrete root cause of "everything is slow at
+// first, then gets fast" reported across the whole system, not just login.
+async function fetchOrgModuleData(tenantId: string, origin: string): Promise<OrgModuleInfo | null> {
   try {
     const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;
     const res = await fetch(
@@ -32,13 +32,14 @@ async function getOrgModuleData(tenantId: string, origin: string): Promise<OrgMo
       { headers: secret ? { "x-middleware-secret": secret } : {} },
     );
     if (!res.ok) return null;
-    const data = (await res.json()) as OrgModuleInfo;
-    orgTierCache.set(tenantId, { data, expiresAt: Date.now() + ORG_TIER_CACHE_TTL_MS });
-    return data;
+    return (await res.json()) as OrgModuleInfo;
   } catch {
     return null;
   }
 }
+
+const orgTierCache = createOrgTierCache(fetchOrgModuleData);
+const getOrgModuleData = (tenantId: string, origin: string) => orgTierCache.get(tenantId, origin);
 
 import { APP_ROOT_DOMAIN, APP_BASE_URL } from "@/lib/config";
 

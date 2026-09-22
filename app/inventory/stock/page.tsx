@@ -15,6 +15,7 @@ import { SearchInput } from "@/components/SearchInput";
 // Extracted Subcomponents
 import { StockTable } from "@/components/inventory/stock/StockTable";
 import { StockModals } from "@/components/inventory/stock/StockModals";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 export default function StockTrackingPage() {
   return (
@@ -48,6 +49,15 @@ function StockTrackingPageInner() {
   const [query, setQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
   const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("query") || searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    debouncedQuery: () => setDebouncedQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+  });
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,

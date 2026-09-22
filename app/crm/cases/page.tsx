@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const LIMIT = 25;
 
@@ -65,6 +66,17 @@ function CasesPageInner() {
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
 
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
+
   // AI-native pre-fill (sweep): open the create sheet with any AI-extracted
   // fields merged in. Generic — only keys that exist on the form are copied.
   useAiPrefill("case", (p) => {
@@ -87,9 +99,11 @@ function CasesPageInner() {
         setCases(data.data.cases);
         setTotal(data.data.total ?? 0);
         setTotalPages(data.data.totalPages ?? 1);
+      } else {
+        toast.error("We couldn't load your cases. Please refresh the page and try again.");
       }
     } catch (e) {
-      toast.error("Failed to load cases.");
+      toast.error("We couldn't load your cases. Please refresh the page and try again.");
     } finally {
       setLoading(false);
     }

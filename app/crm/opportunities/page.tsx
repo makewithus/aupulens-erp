@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from "sonner";
 import { Loader2, Plus, Download, FolderKanban } from "lucide-react";
 import Link from "next/link";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const FORECAST_CATEGORIES = ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"];
 const STAGES = ['Prospecting', 'Discovery', 'Requirement Gathering', 'Solution Fit', 'Proposal Sent', 'Negotiation', 'Approval', 'Closed Won', 'Closed Lost'];
@@ -70,6 +71,16 @@ function OpportunitiesPageInner() {
   const [riskFilter, setRiskFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    stageFilter: () => setStageFilter(searchParams.get("stage") || "all"),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   
   // Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

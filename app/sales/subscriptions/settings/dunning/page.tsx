@@ -10,6 +10,7 @@ import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Mail, Plus, Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function DunningRulesPage() {
   const { data: session } = useSession();
@@ -20,7 +21,7 @@ export default function DunningRulesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/dunning-rules");
+      const res = await cachedFetch("/api/sales/dunning-rules");
       const data = await res.json();
       if (data.success) setRules(data.data);
     } catch {

@@ -34,7 +34,7 @@ export default function HRReportsPage() {
       const json = await res.json();
       setData(json);
     } catch {
-      toast.error("Failed to load report data");
+      toast.error("We couldn't load the report data. Please refresh the page.");
     } finally {
       setLoading(false);
     }
@@ -47,119 +47,46 @@ export default function HRReportsPage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
-  const exportCSV = (title: string, headers: string[], rows: string[][]) => {
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title}-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${title} exported`);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  // Downloads a presentation-ready .xlsx generated on the server straight from
+  // the database, so the file always matches the source records.
+  const exportReport = async (type: string, label: string) => {
+    setExporting(type);
+    try {
+      const res = await fetch(`/api/hr/reports/export?type=${type}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "We couldn't generate this report. Please try again.");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const name = /filename="([^"]+)"/.exec(disposition)?.[1] || `${type}-report.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`${label} exported`);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setExporting(null);
+    }
   };
 
   const reportCards = [
-    {
-      title: "Headcount Report",
-      description: "Total, active, onboarding, and exited employee counts",
-      icon: Users,
-      color: "text-blue-500",
-      action: () => {
-        if (!data) return;
-        exportCSV(
-          "headcount-report",
-          ["Metric", "Count"],
-          [
-            ["Total Employees", String(data.stats?.totalEmployees || 0)],
-            ["Active", String(data.stats?.activeEmployees || 0)],
-            ["Onboarding", String(data.stats?.onboardingCount || 0)],
-            ["On Notice / Exit", String((data.stats?.totalEmployees || 0) - (data.stats?.activeEmployees || 0) - (data.stats?.onboardingCount || 0))],
-          ],
-        );
-      },
-    },
-    {
-      title: "Department Distribution",
-      description: "Employee count by department",
-      icon: Building2,
-      color: "text-green-500",
-      action: () => {
-        if (!data?.departmentDistribution) return;
-        exportCSV(
-          "department-distribution",
-          ["Department", "Count"],
-          data.departmentDistribution.map((d: any) => [d.departmentName || d._id || "Unassigned", String(d.count)]),
-        );
-      },
-    },
-    {
-      title: "Attendance Summary",
-      description: "Today's attendance breakdown",
-      icon: Clock,
-      color: "text-amber-500",
-      action: () => {
-        if (!data?.todayAttendance) return;
-        const att = data.todayAttendance;
-        const rows = Array.isArray(att)
-          ? att.map((a: any) => [a._id, String(a.count)])
-          : Object.entries(att).map(([k, v]) => [k, String(v)]);
-        exportCSV("attendance-summary", ["Status", "Count"], rows);
-      },
-    },
-    {
-      title: "Leave Summary",
-      description: "Leave requests by status",
-      icon: CalendarDays,
-      color: "text-purple-500",
-      action: () => {
-        if (!data?.stats) return;
-        exportCSV(
-          "leave-summary",
-          ["Metric", "Count"],
-          [["Pending Leaves", String(data.stats.pendingLeaves || 0)]],
-        );
-      },
-    },
-    {
-      title: "Payroll Summary",
-      description: "Monthly payroll totals",
-      icon: IndianRupee,
-      color: "text-emerald-500",
-      action: () => {
-        if (!data?.payrollSummary && !data?.stats) return;
-        const ps = data.payrollSummary || {};
-        exportCSV(
-          "payroll-summary",
-          ["Metric", "Value"],
-          [
-            ["Total Gross (₹)", String(ps.totalGross ?? data.stats?.monthlyPayroll ?? 0)],
-            ["Total Net (₹)", String(ps.totalNet ?? 0)],
-            ["Status", ps.status || "N/A"],
-          ],
-        );
-      },
-    },
-    {
-      title: "Recent Hires",
-      description: "Employees who joined recently",
-      icon: TrendingUp,
-      color: "text-cyan-500",
-      action: () => {
-        if (!data?.recentHires) return;
-        exportCSV(
-          "recent-hires",
-          ["Name", "Code", "Date of Joining", "Department"],
-          data.recentHires.map((h: any) => [
-            `${h.firstName} ${h.lastName}`,
-            h.employeeCode,
-            new Date(h.dateOfJoining).toLocaleDateString(),
-            h.departmentId?.name || "N/A",
-          ]),
-        );
-      },
-    },
-  ];
+    { type: "headcount", title: "Headcount Report", description: "Employees by lifecycle status", icon: Users, color: "text-blue-500" },
+    { type: "departments", title: "Department Distribution", description: "Employee count by department", icon: Building2, color: "text-green-500" },
+    { type: "attendance", title: "Attendance Summary", description: "Today's attendance breakdown", icon: Clock, color: "text-amber-500" },
+    { type: "leave", title: "Leave Summary", description: "Leave requests by type and status", icon: CalendarDays, color: "text-purple-500" },
+    { type: "payroll", title: "Payroll Summary", description: "This month's payroll, employee by employee", icon: IndianRupee, color: "text-emerald-500" },
+    { type: "hires", title: "Recent Hires", description: "Employees who joined in the last 90 days", icon: TrendingUp, color: "text-cyan-500" },
+    { type: "employees", title: "Employee Directory", description: "Complete employee list with contact and salary details", icon: Users, color: "text-rose-500" },
+  ].map((c) => ({ ...c, action: () => exportReport(c.type, c.title) }));
 
   return (
       <div className="space-y-8 max-w-8xl mx-auto">
@@ -250,9 +177,9 @@ export default function HRReportsPage() {
                             <p className="text-xs text-muted-foreground mt-1">{report.description}</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" className="mt-4 w-full gap-2" onClick={report.action}>
+                        <Button size="sm" variant="outline" className="mt-4 w-full gap-2" onClick={report.action} disabled={exporting !== null}>
                           <Download className="h-3.5 w-3.5" />
-                          Export CSV
+                          {exporting === report.type ? "Preparing…" : "Export Excel"}
                         </Button>
                       </CardContent>
                     </Card>

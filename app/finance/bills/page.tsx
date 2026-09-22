@@ -19,6 +19,7 @@ import { DOCUMENT_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
 // Extracted Subcomponents
 import { BillsTable } from "@/components/finance/bills/BillsTable";
 import { BillsModals } from "@/components/finance/bills/BillsModals";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 export default function VendorBillsPage() {
   return (
@@ -44,6 +45,18 @@ function VendorBillsPageInner() {
   const [partnerId, setPartnerId] = useState(() => searchParams.get("partnerId") || "");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    debouncedSearchQuery: () => setDebouncedSearchQuery(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    partnerId: () => setPartnerId(searchParams.get("partnerId") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);

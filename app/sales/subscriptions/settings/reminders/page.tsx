@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { EmailTemplateEditorDialog } from "@/components/sales/subscriptions/EmailTemplateEditorDialog";
 import { REMINDER_BASIS, REMINDER_DIRECTION } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 function groupBy<T>(items: T[], key: (t: T) => string | undefined) {
   const map = new Map<string, T[]>();
@@ -42,7 +43,7 @@ export default function RemindersSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales/reminders?scope=${tab}`);
+      const res = await cachedFetch(`/api/sales/reminders?scope=${tab}`);
       const data = await res.json();
       if (data.success) setReminders(data.data);
     } catch {
@@ -57,7 +58,7 @@ export default function RemindersSettingsPage() {
   }, [load]);
 
   const toggle = async (reminder: any) => {
-    const res = await fetch(`/api/sales/reminders/${reminder._id}`, {
+    const res = await cachedFetch(`/api/sales/reminders/${reminder._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: !reminder.enabled }),
@@ -70,7 +71,7 @@ export default function RemindersSettingsPage() {
   };
 
   const deleteReminder = async (id: string) => {
-    const res = await fetch(`/api/sales/reminders/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/sales/reminders/${id}`, { method: "DELETE" });
     if (res.ok) {
       setReminders((rs) => rs.filter((r) => r._id !== id));
       toast.success("Reminder deleted");
@@ -84,7 +85,7 @@ export default function RemindersSettingsPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/reminders", {
+      const res = await cachedFetch("/api/sales/reminders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

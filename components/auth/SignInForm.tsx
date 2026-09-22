@@ -19,7 +19,6 @@ import {
 import { toast } from "sonner";
 
 import { useTenantStore } from "@/store/useTenantStore";
-import { useAuthStore } from "@/store/authStore";
 import { safeCallbackUrl } from "@/lib/auth/safeCallbackUrl";
 
 export function SignInForm() {
@@ -39,7 +38,6 @@ function SignInFormContent() {
   const searchParams = useSearchParams();
 
   const { tenantId } = useTenantStore();
-  const { checkSession } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -177,50 +175,23 @@ function SignInFormContent() {
           );
         }
 
-        await checkSession(true);
-
-        const role =
-          useAuthStore.getState().user
-            ?.role;
-
-        const getRoleDashboard = (
-          r: string | undefined
-        ) => {
-          switch (r) {
-            case "admin":
-              return "/admin/dashboard";
-
-            case "master-admin":
-              return "/master-admin";
-
-            case "finance":
-              return "/finance/summary";
-
-            case "sales":
-              return "/sales/summary";
-
-            case "inventory":
-              return "/inventory/dashboard";
-
-            case "manufacturing":
-              return "/manufacturing/dashboard";
-
-            case "hr":
-              return "/hr/dashboard";
-
-            case "project":
-              return "/projects";
-
-            default:
-              return "/admin/dashboard";
-          }
-        };
-
-        // Land back where the user came from (e.g. /accept-invite) when a safe
-        // callbackUrl is present; otherwise fall back to the role dashboard.
+        // Previously: awaited a second round trip (checkSession -> GET
+        // /api/auth/session) just to read the role client-side and pick a
+        // dashboard URL that duplicated middleware's own role->dashboard
+        // logic — the visible "stuck on the login screen, then redirects"
+        // pause between "Login successful" and actually leaving the page.
+        // signIn() above already set a valid session cookie by the time its
+        // promise resolves (the browser has stored the Set-Cookie from that
+        // request), so navigating straight to "/" lets middleware.ts, which
+        // runs server-side on the very next request with that cookie, send
+        // the user to their correct role dashboard in that one redirect —
+        // no extra client-side fetch, no duplicated routing table to keep in
+        // sync with middleware's.
+        //
+        // Land back where the user came from (e.g. /accept-invite) when a
+        // safe callbackUrl is present; otherwise let middleware route by role.
         const safeCallback = getSafeCallbackUrl();
-        window.location.href =
-          safeCallback ?? getRoleDashboard(role);
+        window.location.href = safeCallback ?? "/";
       }
     } catch {
       setError(

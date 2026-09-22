@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const statusColors: Record<string, string> = {
   active: "text-emerald-500",
@@ -33,7 +34,7 @@ export default function SubscriptionDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales/subscriptions/${id}`);
+      const res = await cachedFetch(`/api/sales/subscriptions/${id}`);
       const data = await res.json();
       if (data.success) setSub(data.data);
       else toast.error(data.message || "Failed to load subscription");
@@ -51,7 +52,7 @@ export default function SubscriptionDetailPage() {
   const patch = async (body: Record<string, any>) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/sales/subscriptions/${id}`, {
+      const res = await cachedFetch(`/api/sales/subscriptions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -44,6 +44,7 @@ import {
   Search,
   Star,
 } from "lucide-react";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const statusColors: Record<string, string> = {
   accepted: "text-emerald-500",
@@ -127,6 +128,20 @@ function QuotesPageInner() {
   const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("search") || ""),
+    debouncedQuery: () => setDebouncedQuery(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || "all"),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    customerId: () => setCustomerId(searchParams.get("customerId") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   const activeView = views.find((v) => v._id === activeViewId);
   const filteredViews = views.filter((v) => v.name.toLowerCase().includes(viewSearch.toLowerCase()));

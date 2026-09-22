@@ -5,7 +5,7 @@ import SaleOrder from "@/models/sales/SaleOrder";
 import SalesView from "@/models/sales/SalesView";
 import { buildMongoFilterFromCriteria, MANDATORY_SALE_ORDER_COLUMNS, AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
 import { resolveSpecialFilter } from "@/lib/sales/saleOrderViews.server";
-import * as XLSX from "xlsx";
+import { gridToStyledXlsx, XLSX_MIME } from "@/lib/export/styledWorkbook";
 import "@/models/sales/Customer";
 import { PASSWORD_POLICY } from "@/lib/sales/passwordPolicy";
 
@@ -84,16 +84,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, "Sales Orders");
-    const bookType = format === "xlsx" ? "xlsx" : "xls";
-    const buffer = XLSX.write(wb, { type: "buffer", bookType });
-    return new NextResponse(buffer, {
+    // Always a real .xlsx (styled title, frozen header, typed cells). Legacy
+    // ".xls" requests get the same workbook rather than an unformatted BIFF file.
+    const buffer = await gridToStyledXlsx({ title: "Sales Orders Export", sheetName: "Sales Orders", data });
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type":
-          bookType === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/vnd.ms-excel",
-        "Content-Disposition": `attachment; filename="${filename}.${bookType}"`,
+        "Content-Type": XLSX_MIME,
+        "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
       },
     });
   } catch (error: any) {

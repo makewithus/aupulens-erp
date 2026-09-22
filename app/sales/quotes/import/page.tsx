@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, UploadCloud, Lightbulb, Trash2, ChevronDown } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const QUOTE_FIELDS = [
   { key: "quoteNumber", label: "Quote Number" },
@@ -62,7 +63,7 @@ export default function ImportQuotesPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/sales/quotes/import/parse", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/quotes/import/parse", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setColumns(data.columns);
@@ -83,7 +84,7 @@ export default function ImportQuotesPage() {
       fd.append("file", file);
       fd.append("mapping", JSON.stringify(mapping));
       fd.append("autoGenerateNumbers", String(autoGenerate));
-      const res = await fetch("/api/sales/quotes/import/execute", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/quotes/import/execute", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
       setResult(data);

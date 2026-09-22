@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   Plus, Search, Megaphone, DollarSign, Target, TrendingUp, Loader2
 } from "lucide-react";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "bg-accent text-foreground",
@@ -179,6 +180,17 @@ function CampaignsPageInner() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);

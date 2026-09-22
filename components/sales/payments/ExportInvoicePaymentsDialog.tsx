@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Eye, EyeOff, Info } from "lucide-react";
 
 import { PASSWORD_POLICY, PASSWORD_POLICY_HELP_TEXT as PASSWORD_HELP } from "@/lib/sales/passwordPolicy";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface ExportInvoicePaymentsDialogProps {
   open: boolean;
@@ -40,7 +41,7 @@ export function ExportInvoicePaymentsDialog({ open, onOpenChange }: ExportInvoic
     }
     setExporting(true);
     try {
-      const res = await fetch("/api/sales/payments/export", {
+      const res = await cachedFetch("/api/sales/payments/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -62,7 +63,7 @@ export function ExportInvoicePaymentsDialog({ open, onOpenChange }: ExportInvoic
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `invoice_payments.${fileFormat}`;
+      a.download = `invoice_payments.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

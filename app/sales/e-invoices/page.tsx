@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PlayCircle, Link2, Search, RefreshCw, FileText } from "lucide-react";
 import { EInvoiceConnectWizard } from "@/components/sales/einvoices/EInvoiceConnectWizard";
 import { EINVOICE_STATUS } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // TODO: replace with the final YouTube tutorial link.
 const EINVOICE_TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ";
@@ -81,7 +82,7 @@ export default function EInvoicingPage() {
       const params = new URLSearchParams({ status: activeTab, search: debouncedSearch, range, page: String(page), limit: String(LIMIT) });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      const res = await fetch(`/api/sales/e-invoices?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/e-invoices?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
         setRecords(data.data);
@@ -99,7 +100,7 @@ export default function EInvoicingPage() {
 
   const fetchGspStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/e-invoices/gsp/status");
+      const res = await cachedFetch("/api/sales/e-invoices/gsp/status");
       const data = await res.json();
       if (data.success) setGspStatus(data.data);
     } catch {
@@ -118,7 +119,7 @@ export default function EInvoicingPage() {
   const handleGenerate = async (invoiceId: string) => {
     setGeneratingId(invoiceId);
     try {
-      const res = await fetch(`/api/sales/e-invoices/${invoiceId}/generate`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/e-invoices/${invoiceId}/generate`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to generate e-invoice");
       toast.success("E-Invoice generated");

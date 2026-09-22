@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search } from "lucide-react";
 import { CUSTOM_FIELD_TYPE } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface Props {
   open: boolean;
@@ -38,7 +39,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/sales/payments/custom-fields");
+      const res = await cachedFetch("/api/sales/payments/custom-fields");
       const data = await res.json();
       if (data.success) setFields(data.data);
     } catch {
@@ -66,7 +67,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/payments/custom-fields", {
+      const res = await cachedFetch("/api/sales/payments/custom-fields", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -93,7 +94,7 @@ export function ManageCustomFieldsDrawer({ open, onOpenChange }: Props) {
 
   const toggleStatus = async (field: any) => {
     try {
-      const res = await fetch(`/api/sales/payments/custom-fields/${field._id}`, {
+      const res = await cachedFetch(`/api/sales/payments/custom-fields/${field._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: field.status === "active" ? "inactive" : "active" }),

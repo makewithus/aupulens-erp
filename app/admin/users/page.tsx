@@ -19,6 +19,7 @@ import { EditUserDialog } from "@/components/admin/EditUserDialog";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
 import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface User {
   _id: string;
@@ -80,6 +81,16 @@ function UsersPageInner() {
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);

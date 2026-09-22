@@ -148,6 +148,9 @@ export async function POST(request: NextRequest) {
       priceUnit: line.unitPrice,
       taxIds: [],
       discount: line.discount,
+      discountMode: line.discountMode || "percent",
+      taxRate: Number(line.taxRate) || 0,
+      hsn: line.hsn || body.lineItems[i].hsn || undefined,
       priceSubtotal: line.lineTotal,
     }));
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export function CreateProductDialog({
   open,
@@ -26,7 +27,7 @@ export function CreateProductDialog({
     if (!name.trim()) return toast.error("Product name is required");
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/products", {
+      const res = await cachedFetch("/api/sales/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

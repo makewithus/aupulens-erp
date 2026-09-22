@@ -247,7 +247,7 @@ export default function ReportsPage() {
     handleGenerate();
   }, [pendingGenerate]);
 
-  const handleExport = (format: 'csv' | 'xlsx') => {
+  const handleExport = async (format: 'csv' | 'xlsx') => {
     if (!generatedReport) return;
     const { headers, rows, title } = generatedReport;
     const filename = `${title.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
@@ -268,12 +268,10 @@ export default function ReportsPage() {
       URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } else {
-      const worksheet = xlsx.utils.aoa_to_sheet([headers, ...rows]);
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, 'Report');
-      const buffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const { gridToStyledXlsx, XLSX_MIME } = await import('@/lib/export/styledWorkbook');
+      const buffer = await gridToStyledXlsx({ title, sheetName: 'Report', data: [headers, ...rows] });
 
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const blob = new Blob([buffer as BlobPart], { type: XLSX_MIME });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

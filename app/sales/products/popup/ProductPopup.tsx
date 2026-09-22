@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { PricelistPopupContent } from "../../pricelist/popup/PricelistPopup";
 import { CURRENCIES } from "@/config/currencies";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 // Helper components and sub-sections for the Product Modal
 export function ProductPopupContent({
@@ -48,7 +49,7 @@ export function ProductPopupContent({
   // Effect: Fetch pricelists locally if not provided
   useEffect(() => {
     if (!pricelists || pricelists.length === 0) {
-      fetch("/api/sales/pricelists")
+      cachedFetch("/api/sales/pricelists")
         .then((res) => res.json())
         .then((json) => setLocalPricelists(json.items || []))
         .catch((e) => console.error("Failed to fetch pricelists", e));
@@ -80,7 +81,7 @@ export function ProductPopupContent({
     }
 
     try {
-      const res = await fetch("/api/sales/pricelists", {
+      const res = await cachedFetch("/api/sales/pricelists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pricelistFormData),
@@ -115,7 +116,7 @@ export function ProductPopupContent({
   // Effect: Fetch accounts locally if not provided
   useEffect(() => {
     if (!accounts || accounts.length === 0) {
-      fetch("/api/accounting/accounts")
+      cachedFetch("/api/accounting/accounts")
         .then((res) => res.json())
         .then((json) => setLocalAccounts(json.items || []))
         .catch((e) => console.error("Failed to fetch accounts", e));
@@ -146,7 +147,7 @@ export function ProductPopupContent({
     }
 
     try {
-      const res = await fetch("/api/accounting/accounts", {
+      const res = await cachedFetch("/api/accounting/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountFormData),
@@ -624,7 +625,32 @@ export function ProductPopupContent({
             </div>
           )}
 
-          {activeTab === "accounting" && (
+          {activeTab === "accounting" && isViewOnly && (
+            <div className="grid grid-cols-2 gap-8 py-4">
+              {[
+                ["Income Account", formData.tab_accounting?.cost_and_revenue?.property_account_income_id],
+                ["Expense Account", formData.tab_accounting?.cost_and_revenue?.property_account_expense_id],
+              ].map(([label, id]) => {
+                const acc: any = effectiveAccounts.find((x: any) => String(x._id) === String(id || ""));
+                return (
+                  <div key={label as string} className="space-y-3">
+                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label as string}</Label>
+                    <div className="border border-border/40 px-3 py-2.5 text-sm">
+                      {acc ? (
+                        <>
+                          {acc.name} <span className="ml-1 text-xs text-muted-foreground">{acc.code}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Not set — open the product in Edit to choose one</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {activeTab === "accounting" && !isViewOnly && (
             <div className="grid grid-cols-2 gap-8 py-4">
               <div className="space-y-3">
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -637,8 +663,8 @@ export function ProductPopupContent({
                     code: a.code,
                   }))}
                   value={
-                    formData.tab_accounting.cost_and_revenue
-                      .property_account_income_id
+                    formData.tab_accounting?.cost_and_revenue
+                      ?.property_account_income_id
                   }
                   onValueChange={(val) =>
                     setFormData((prev: any) => ({
@@ -646,7 +672,7 @@ export function ProductPopupContent({
                       tab_accounting: {
                         ...prev.tab_accounting,
                         cost_and_revenue: {
-                          ...prev.tab_accounting.cost_and_revenue,
+                          ...prev.tab_accounting?.cost_and_revenue,
                           property_account_income_id: val,
                         },
                       },
@@ -667,8 +693,8 @@ export function ProductPopupContent({
                     code: a.code,
                   }))}
                   value={
-                    formData.tab_accounting.cost_and_revenue
-                      .property_account_expense_id
+                    formData.tab_accounting?.cost_and_revenue
+                      ?.property_account_expense_id
                   }
                   onValueChange={(val) =>
                     setFormData((prev: any) => ({
@@ -676,7 +702,7 @@ export function ProductPopupContent({
                       tab_accounting: {
                         ...prev.tab_accounting,
                         cost_and_revenue: {
-                          ...prev.tab_accounting.cost_and_revenue,
+                          ...prev.tab_accounting?.cost_and_revenue,
                           property_account_expense_id: val,
                         },
                       },

@@ -33,15 +33,53 @@ export async function syncSaleOrderOnQuoteConverted(params: {
 }): Promise<void> {
   const { tenantId, quote, invoice } = params;
 
-  const orderLines = (quote.lineItems || []).map((li: any) => ({
-    name: li.name,
-    productQty: Number(li.qty) || 1,
-    priceUnit: Number(li.unitPrice) || 0,
-    discount: Number(li.discount) || 0,
-    priceSubtotal: (Number(li.qty) || 1) * (Number(li.unitPrice) || 0),
-  }));
+  const invoiceNumber = invoice.number;
+  const historyEntries = invoiceNumber
+    ? [{ docType: "INV", ref: invoiceNumber, docId: invoice._id, stage: Q2C_STATUS.INVOICE_POSTED, at: new Date() }]
+    : [];
 
-  await (SaleOrder as any).findOneAndUpdate(
+  // Deal already on the board (generated from / converted into a sales order):
+  // advance that same record instead of spawning a second card.
+  const existing: any = quote.saleOrderId
+    ? await (SaleOrder as any).findOne({ _id: quote.saleOrderId, tenantId })
+    : null;
+  if (existing) {
+    existing.q2cStatus = Q2C_STATUS.INVOICE_POSTED;
+    existing.salesInvoiceIds = [...(existing.salesInvoiceIds || []), invoice._id];
+    existing.invoiceNumber = invoiceNumber;
+    existing.refHistory = [...(existing.refHistory || []), ...historyEntries];
+    await existing.save();
+    return;
+  }
+
+  // Idempotent: a card already synced for this quote/invoice is left alone.
+  const alreadySynced = await (SaleOrder as any).exists({
+    tenantId,
+    "header.name": quote.quoteNumber,
+    ...(invoiceNumber ? { invoiceNumber } : {}),
+  });
+  if (alreadySynced) return;
+
+  const orderLines = (quote.lineItems || []).map((li: any) => {
+    const qty = Number(li.qty) || 1;
+    const unitPrice = Number(li.unitPrice) || 0;
+    const discount = Number(li.discount) || 0;
+    const gross = qty * unitPrice;
+    const discountAmt = li.discountMode === "amount" ? Math.min(discount, gross) : (gross * discount) / 100;
+    return {
+      productId: li.itemId || undefined,
+      name: li.name,
+      productQty: qty,
+      priceUnit: unitPrice,
+      discount,
+      discountMode: li.discountMode || "percent",
+      taxRate: Number(li.taxRate) || 0,
+      hsn: li.hsn,
+      priceSubtotal: gross - discountAmt,
+    };
+  });
+
+  const order: any = await (SaleOrder as any).findOneAndUpdate(
     { tenantId, "header.name": quote.quoteNumber },
     {
       $setOnInsert: {
@@ -49,19 +87,36 @@ export async function syncSaleOrderOnQuoteConverted(params: {
         header: { name: quote.quoteNumber, partnerId: quote.customerId, dateOrder: quote.quoteDate || new Date() },
         orderLines,
         status: DOCUMENT_STATUS.POSTED,
+        quoteId: quote._id,
+        quoteNumber: quote.quoteNumber,
       },
       $set: {
         totals: {
           amountUntaxed: quote.taxableAmount || quote.totalAmount || 0,
-          amountTax: 0,
-          amountTotal: quote.totalAmount || 0,
+          amountTax: Math.max(0, (invoice.totalAmount || quote.totalAmount || 0) - (quote.taxableAmount || 0)),
+          // Use the invoice's own total (what was actually billed) so the
+          // board never shows a different amount than the invoice.
+          amountTotal: invoice.totalAmount ?? quote.totalAmount ?? 0,
         },
         q2cStatus: Q2C_STATUS.INVOICE_POSTED,
         salesInvoiceIds: [invoice._id],
+        ...(invoiceNumber ? { invoiceNumber } : {}),
+      },
+      $push: {
+        refHistory: {
+          $each: [
+            { docType: "QT", ref: quote.quoteNumber, docId: quote._id, stage: Q2C_STATUS.QUOTE_GENERATED, at: quote.createdAt || new Date() },
+            ...historyEntries,
+          ],
+        },
       },
     },
-    { upsert: true },
+    { upsert: true, new: true },
   );
+  if (order && !quote.saleOrderId) {
+    quote.saleOrderId = order._id;
+    if (typeof quote.save === "function") await quote.save();
+  }
 }
 
 /**

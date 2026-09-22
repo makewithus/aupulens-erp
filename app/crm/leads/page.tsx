@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Loader2, Plus, FolderKanban } from "lucide-react";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const SOURCES = [
   "Organic Search","Paid Ads","Referral","Event","Social Media",
@@ -102,6 +103,16 @@ function LeadsPageInner() {
   const [totalPages, setTotalPages] = useState(1);
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
 
   const { data: session } = useSession();
 

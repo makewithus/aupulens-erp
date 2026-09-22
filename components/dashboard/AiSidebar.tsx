@@ -501,6 +501,13 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         router.push(data.url);
         return;
       }
+      // Asked to go somewhere we can't resolve: say so instead of letting the
+      // chat model invent click-by-click directions.
+      if (res.ok && data.action === "unknown" && data.navMiss && data.message) {
+        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.message }]);
+        setIsLoading(false);
+        return;
+      }
       // Not an action after all → answer conversationally (sendQuery re-renders
       // the list from this base + user, replacing the transient bubble).
       setIsLoading(false);

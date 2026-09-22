@@ -175,49 +175,4 @@ export const crmSidebarConfig: SidebarSection[] = [
       },
     ],
   },
-  {
-    title: "System",
-    items: [
-      {
-        title: "Reports",
-        href: "/crm/reports",
-        icon: PieChart,
-      },
-      {
-        title: "Executive View",
-        href: "/crm/executive",
-        icon: TrendingUp,
-      },
-      {
-        title: "Compliance",
-        href: "/crm/compliance",
-        icon: ShieldCheck,
-      },
-      {
-        title: "System Health",
-        href: "/crm/system-health",
-        icon: HeartPulse,
-      },
-      {
-        title: "Mobile",
-        href: "/crm/mobile",
-        icon: Smartphone,
-      },
-      {
-        title: "Approvals",
-        href: "/crm/approvals",
-        icon: CheckCircle,
-      },
-      {
-        title: "Settings",
-        href: "/crm/settings",
-        icon: Settings,
-      },
-      {
-        title: "Audit Logs",
-        href: "/crm/audit",
-        icon: ClipboardList,
-      },
-    ],
-  },
 ];

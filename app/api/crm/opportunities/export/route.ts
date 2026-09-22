@@ -1,3 +1,4 @@
+import { objectsToStyledXlsx } from "@/lib/export/styledWorkbook";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -118,10 +119,7 @@ export async function POST(req: NextRequest) {
       filename += '.csv';
     } else {
       // XLSX
-      const worksheet = xlsx.utils.json_to_sheet(dataToExport);
-      const workbook = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(workbook, worksheet, "Export");
-      const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      const excelBuffer = await objectsToStyledXlsx({ title: "Opportunities Export", sheetName: "Opportunities", rows: dataToExport as any[] });
       fileBuffer = Buffer.from(excelBuffer);
       contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       filename += '.xlsx';

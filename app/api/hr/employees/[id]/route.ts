@@ -1,3 +1,5 @@
+import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -41,7 +43,7 @@ export async function GET(
 
     return NextResponse.json({ employee });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
   }
 }
 
@@ -59,8 +61,13 @@ export async function PATCH(
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = sanitizeEmployeePayload(await req.json());
     await connectDB();
+
+    const fieldErrors = validateEmployee(body, { partial: true });
+    if (Object.keys(fieldErrors).length > 0) {
+      return NextResponse.json({ error: Object.values(fieldErrors)[0], fieldErrors }, { status: 400 });
+    }
 
     // Recalculate salary if salary fields are provided
     if (body.salary) {
@@ -157,7 +164,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, employee });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
   }
 }
 
@@ -196,6 +203,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: friendlyError(error, "We couldn't complete this request. Please try again.") }, { status: 500 });
   }
 }

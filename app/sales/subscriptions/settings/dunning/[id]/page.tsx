@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { DunningRuleForm, type DunningRuleFormValue } from "@/components/sales/subscriptions/DunningRuleForm";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function EditDunningRulePage() {
   const { data: session } = useSession();
@@ -16,7 +17,7 @@ export default function EditDunningRulePage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/sales/dunning-rules/${id}`)
+    cachedFetch(`/api/sales/dunning-rules/${id}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {

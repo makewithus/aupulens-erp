@@ -10,6 +10,7 @@ import { SalesTabNav } from "@/components/sales/SalesTabNav";
 import { SALES_PAGE_TITLE_CLASS } from "@/components/sales/styles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MoveQuoteToOrderDialog } from "@/components/sales/salesOrders/MoveQuoteToOrderDialog";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export default function SalesOrdersPage() {
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fromQuoteOpen, setFromQuoteOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -647,6 +649,10 @@ export default function SalesOrdersPage() {
               onDateToChange={setDateTo}
               inputClassName="bg-background"
             />
+            <Button variant="outline" onClick={() => setFromQuoteOpen(true)} className="font-mono text-[11px] uppercase tracking-wider">
+              From Quote
+            </Button>
+            <MoveQuoteToOrderDialog open={fromQuoteOpen} onOpenChange={setFromQuoteOpen} />
             <Button onClick={handleOpenCreate} className="font-mono text-[11px] uppercase tracking-wider">
               <Plus className="h-4 w-4 mr-2" /> New Order
             </Button>

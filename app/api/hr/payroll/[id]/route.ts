@@ -161,16 +161,24 @@ export async function PATCH(
           const attendance = attendanceByEmp.get(String(emp._id)) ?? [];
 
           const totalWorkingDays = 26; // standard working days
-          const daysPresent = attendance.filter(
+          // Paid days: present, on-leave, holidays and weekly offs count in
+          // full; half-days count 0.5. If no attendance was recorded at all for
+          // this employee in the period, attendance simply isn't being tracked —
+          // pay the full month instead of prorating to zero (which is why
+          // gross/net used to collapse from the draft figure to Rs 0 the moment
+          // the run reached "Compute").
+          const halfDays = attendance.filter((a) => a.status === "half-day").length;
+          const fullDays = attendance.filter(
             (a) =>
               a.status === "present" ||
-              a.status === "half-day" ||
-              a.status === "on-leave",
+              a.status === "on-leave" ||
+              a.status === "holiday" ||
+              a.status === "week-off",
           ).length;
-          const halfDays = attendance.filter(
-            (a) => a.status === "half-day",
-          ).length;
-          const daysWorked = daysPresent - halfDays * 0.5;
+          const daysWorked =
+            attendance.length === 0
+              ? totalWorkingDays
+              : Math.min(totalWorkingDays, fullDays + halfDays * 0.5);
           const daysAbsent = totalWorkingDays - daysWorked;
           const overtime = attendance.reduce(
             (sum, a) => sum + (a.overtime || 0),
@@ -205,11 +213,20 @@ export async function PATCH(
           const lossOfPay = fullGross - grossSalary; // informational
 
           const deductions = (sal.deductions as any) || {};
-          const pf = Math.round((deductions.pf || 0) * ratio);
-          const esi = Math.round((deductions.esi || 0) * ratio);
-          const professionalTax = deductions.professionalTax || 0; // flat, not pro-rated
-          const tds = Math.round((deductions.tds || 0) * ratio);
-          const otherDeductions = Math.round((deductions.otherDeductions || 0) * ratio);
+          // Deductions can never exceed what the employee actually earned this
+          // period: with no attendance (gross 0) the flat professional tax used
+          // to be charged anyway, producing negative net pay (e.g. Rs -200).
+          let room = grossSalary;
+          const take = (amount: number) => {
+            const v = Math.max(0, Math.min(Math.round(amount) || 0, room));
+            room -= v;
+            return v;
+          };
+          const pf = take((deductions.pf || 0) * ratio);
+          const esi = take((deductions.esi || 0) * ratio);
+          const tds = take((deductions.tds || 0) * ratio);
+          const otherDeductions = take((deductions.otherDeductions || 0) * ratio);
+          const professionalTax = take(deductions.professionalTax || 0); // flat, not pro-rated
           const totalDed = pf + esi + professionalTax + tds + otherDeductions;
 
           const overtimeRate = (sal.basic || 0) / totalWorkingDays / 8;

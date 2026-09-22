@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 import { toast } from "sonner";
 
 export default function SalesInvoicesLandingPage() {
@@ -49,6 +50,19 @@ function SalesInvoicesLandingPageInner() {
   const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    status: () => setStatusFilter(searchParams.get("status") || "all"),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    customerId: () => setCustomerId(searchParams.get("customerId") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -182,8 +196,16 @@ function SalesInvoicesLandingPageInner() {
                   </p>
                 </div>
 
-                <div className="w-full max-w-2xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
-                  <div className="relative flex-1">
+                {/* max-w-2xl used to squeeze this row to fit a full-labelled
+                    DateRangeFilter + status Select alongside the search box —
+                    with all three sharing ~42rem, the search box was left
+                    with only ~50px, just wide enough for 2-3 characters
+                    before they scrolled out of view (looked like nothing
+                    was being typed). flex-wrap now lets the row wrap onto a
+                    second line on narrower screens instead of squeezing any
+                    one field, and the search box keeps a real minimum width. */}
+                <div className="w-full flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                  <div className="relative flex-1 min-w-[220px]">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
                     <Input
                       placeholder="Search invoices..."
@@ -193,7 +215,7 @@ function SalesInvoicesLandingPageInner() {
                     />
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 w-full md:w-[190px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                    <SelectTrigger className="h-11 w-full lg:w-[190px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/30">

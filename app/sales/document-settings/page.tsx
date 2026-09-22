@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Palette, FileText, Settings, Hash, MessageSquare, Save, Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const SECTIONS = [
   { id: "display", label: "Display" },
@@ -52,7 +53,7 @@ export default function DocumentSettingsPage() {
   };
 
   useEffect(() => {
-    fetch("/api/sales/document-settings")
+    cachedFetch("/api/sales/document-settings")
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setSettings(data.data);
@@ -67,7 +68,7 @@ export default function DocumentSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/document-settings", {
+      const res = await cachedFetch("/api/sales/document-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -111,12 +112,12 @@ export default function DocumentSettingsPage() {
 
   const openCustomFields = () => {
     setCustomFieldsOpen(true);
-    fetch("/api/sales/custom-fields").then((r) => r.json()).then((d) => { if (d.success) setCustomFields(d.data); });
+    cachedFetch("/api/sales/custom-fields").then((r) => r.json()).then((d) => { if (d.success) setCustomFields(d.data); });
   };
 
   const addCustomField = async () => {
     if (!newFieldLabel.trim()) return;
-    const res = await fetch("/api/sales/custom-fields", {
+    const res = await cachedFetch("/api/sales/custom-fields", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ label: newFieldLabel.trim(), fieldType: "text" }),

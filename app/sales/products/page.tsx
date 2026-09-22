@@ -51,6 +51,7 @@ import { CURRENCIES } from "@/config/currencies";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ProductPopupContent } from "./popup/ProductPopup";
 import { PricelistPopupContent } from "../pricelist/popup/PricelistPopup";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface AccountItem {
   _id: string;
@@ -136,6 +137,34 @@ const INITIAL_PRODUCT_STATE: ProductFormData = {
 
 const LIMIT = 10;
 
+// Products saved by other flows (imports, AI, older versions) can lack whole
+// tabs or come back with populated account objects. Opening one used to crash
+// the modal (e.g. the Accounting tab reading cost_and_revenue of undefined),
+// so every tab is merged over safe defaults and account refs are flattened
+// to ids before the form sees them.
+const idOf = (v: any) => (v && typeof v === "object" ? v._id ?? undefined : v || undefined);
+
+function toFormData(product: Product): ProductFormData {
+  const d = INITIAL_PRODUCT_STATE;
+  const cr: any = product.tab_accounting?.cost_and_revenue || {};
+  return {
+    header: { ...d.header, ...(product.header || {}) },
+    tab_general_information: { ...d.tab_general_information, ...(product.tab_general_information || {}) },
+    tab_sales: {
+      upsell_cross_sell: { ...d.tab_sales.upsell_cross_sell, ...(product.tab_sales?.upsell_cross_sell || {}) },
+      extra_info: { ...d.tab_sales.extra_info, ...(product.tab_sales?.extra_info || {}) },
+    },
+    tab_prices: { pricelist_item_ids: product.tab_prices?.pricelist_item_ids || [] },
+    tab_accounting: {
+      cost_and_revenue: {
+        property_account_income_id: idOf(cr.property_account_income_id),
+        property_account_expense_id: idOf(cr.property_account_expense_id),
+      },
+    },
+    status: product.status || "draft",
+  } as ProductFormData;
+}
+
 export default function ProductsPage() {
   return (
     <Suspense fallback={null}>
@@ -160,6 +189,17 @@ function ProductsPageInner() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    debouncedQuery: () => setDebouncedQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -302,28 +342,14 @@ function ProductsPageInner() {
   const handleOpenView = (product: Product) => {
     setEditingId(product._id);
     setIsViewOnly(true);
-    setFormData({
-      header: { ...product.header },
-      tab_general_information: { ...product.tab_general_information },
-      tab_sales: { ...product.tab_sales },
-      tab_prices: { ...product.tab_prices },
-      tab_accounting: { ...product.tab_accounting },
-      status: product.status,
-    } as ProductFormData);
+    setFormData(toFormData(product));
     setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (product: Product) => {
     setEditingId(product._id);
     setIsViewOnly(false);
-    setFormData({
-      header: { ...product.header },
-      tab_general_information: { ...product.tab_general_information },
-      tab_sales: { ...product.tab_sales },
-      tab_prices: { ...product.tab_prices },
-      tab_accounting: { ...product.tab_accounting },
-      status: product.status,
-    } as ProductFormData);
+    setFormData(toFormData(product));
     setIsDialogOpen(true);
   };
 

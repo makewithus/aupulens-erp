@@ -42,6 +42,7 @@ import {
 import { ExportCustomersDialog } from "@/components/sales/customers/ExportCustomersDialog";
 import { ExportCurrentViewDialog } from "@/components/sales/customers/ExportCurrentViewDialog";
 import { AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const SORT_FIELDS = [
   { key: "header.displayName", label: "Display Name" },
@@ -85,6 +86,18 @@ function CustomersPageInner() {
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("search") || ""),
+    debouncedQuery: () => setDebouncedQuery(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);

@@ -37,6 +37,7 @@ import { StatCard } from '@/components/admin/StatCard';
 import { UsersGraph } from '@/components/admin/graphics/UsersGraph';
 import { ActivePulse } from '@/components/admin/graphics/ActivePulse';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const LIMIT = 10;
 
@@ -68,6 +69,16 @@ function AlertsPageInner() {
   const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '');
   const [selectedWarehouse, setSelectedWarehouse] = useState(() => searchParams.get('warehouse') || 'all');
   const [selectedStatus, setSelectedStatus] = useState(() => searchParams.get('status') || 'all');
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    searchTerm: () => setSearchTerm(searchParams.get('search') || ''),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get('search') || ''),
+    selectedWarehouse: () => setSelectedWarehouse(searchParams.get('warehouse') || 'all'),
+    selectedStatus: () => setSelectedStatus(searchParams.get('status') || 'all'),
+  });
   const [restockingId, setRestockingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);

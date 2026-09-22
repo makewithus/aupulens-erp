@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { X, UploadCloud, Trash2, ChevronDown } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const PAYMENT_FIELDS = [
   { key: "date", label: "Date", required: true },
@@ -67,7 +68,7 @@ export default function ImportPaymentsPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/sales/payments/import/parse", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/payments/import/parse", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setColumns(data.columns);
@@ -90,7 +91,7 @@ export default function ImportPaymentsPage() {
       fd.append("file", file);
       fd.append("mapping", JSON.stringify(mapping));
       fd.append("autoGenerateNumbers", String(autoGenerateNumbers));
-      const res = await fetch("/api/sales/payments/import/execute", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/payments/import/execute", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok || data.success === false) throw new Error(data.message || "Import failed");
       setResult(data);
