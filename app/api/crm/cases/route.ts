@@ -70,43 +70,49 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
   
   await dbConnect();
-  const body = await req.json();
-  sanitizeEnumFields(CrmCase, body);
-  body.tenantId = session.user.tenantId;
-  body.createdBy = session.user.id;
-  body.sla_target_at = calculateSlaTarget(body.severity || 'Low');
-  
-  const crmCase = await CrmCase.create(body);
+  try {
+    const body = await req.json();
+    sanitizeEnumFields(CrmCase, body);
+    body.tenantId = session.user.tenantId;
+    body.createdBy = session.user.id;
+    body.owner_id = body.owner_id || session.user.id;
+    body.sla_target_at = calculateSlaTarget(body.severity || 'Low');
+    
+    const crmCase = await CrmCase.create(body);
 
-  await CrmTask.create({
-    tenantId: session.user.tenantId,
-    title: `First Response: ${body.title}`,
-    category: 'Resolve Issue',
-    assigned_to_id: body.owner_id || session.user.id,
-    due_date: body.sla_target_at,
-    linked_case_id: crmCase._id,
-    createdBy: session.user.id,
-    status: 'Pending',
-    priority: 'High'
-  });
+    await CrmTask.create({
+      tenantId: session.user.tenantId,
+      title: `First Response: ${body.title}`,
+      category: 'Resolve Issue',
+      assigned_to_id: body.owner_id || session.user.id,
+      due_date: body.sla_target_at,
+      linked_case_id: crmCase._id,
+      createdBy: session.user.id,
+      status: 'Pending',
+      priority: 'High'
+    });
 
-  await CrmAuditLog.create({
-    tenantId: session.user.tenantId,
-    user_id: session.user.id,
-    action: 'created',
-    record_type: 'Case',
-    record_id: crmCase._id,
-    timestamp: new Date()
-  });
+    await CrmAuditLog.create({
+      tenantId: session.user.tenantId,
+      user_id: session.user.id,
+      action: 'created',
+      record_type: 'Case',
+      record_id: crmCase._id,
+      timestamp: new Date()
+    });
 
-  await logSystemActivity({
-    tenantId: session.user.tenantId,
-    userId: session.user.id,
-    type: 'Support Interaction',
-    subject: `Support Case Created: ${crmCase.title}`,
-    linked_case_id: crmCase._id.toString(),
-    linked_account_id: crmCase.account_id?.toString()
-  });
+    await logSystemActivity({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      type: 'Support Interaction',
+      subject: `Support Case Created: ${crmCase.title}`,
+      linked_case_id: crmCase._id.toString(),
+      linked_account_id: crmCase.account_id?.toString()
+    });
 
-  return NextResponse.json({ success: true, data: crmCase });
+    return NextResponse.json({ success: true, data: crmCase });
+  } catch (error: any) {
+    console.error("Error creating case:", error);
+    return NextResponse.json({ success: false, message: error.message || "Failed to create case" }, { status: 400 });
+  }
 }
