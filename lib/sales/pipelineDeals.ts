@@ -42,14 +42,32 @@ type DocType = "SO" | "QT" | "INV";
 const QUOTE_STAGES: Q2CStatus[] = [Q2C_STATUS.QUOTE_GENERATED, Q2C_STATUS.DISCOUNT_APPROVAL];
 const INVOICE_STAGES: Q2CStatus[] = [Q2C_STATUS.INVOICE_POSTED, Q2C_STATUS.REVENUE_RECOGNIZED];
 
+// The cached `invoiceNumber`/`quoteNumber` fields on the order are the fast
+// path, but older records synced before those fields existed (or synced by
+// a path that only set `salesInvoiceIds`) can have the id without the
+// cached number. `effectiveInvoice` resolves the real invoice — populated
+// separately below — so the board never falls back to showing a stale quote
+// or generic order reference on a deal that has, in fact, been invoiced.
+function effectiveInvoice(order: any): { id: any; number: string } | null {
+  // salesInvoiceIds is a Mongoose populate("salesInvoiceIds", "number") ref array —
+  // its entries are populated {_id, number} objects, not raw ids.
+  const ids: any[] = order.salesInvoiceIds || [];
+  const lastEntry = ids[ids.length - 1];
+  const lastId = lastEntry && typeof lastEntry === "object" ? lastEntry._id : lastEntry;
+  if (order.invoiceNumber) return { id: lastId, number: order.invoiceNumber };
+  const invoices = ids.filter((x: any) => x && typeof x === "object" && x.number);
+  const last = invoices[invoices.length - 1];
+  return last ? { id: last._id, number: last.number } : null;
+}
+
 function docTypeForStage(stage: Q2CStatus, order: any): DocType {
-  if (INVOICE_STAGES.includes(stage) && order.invoiceNumber) return "INV";
+  if (INVOICE_STAGES.includes(stage) && effectiveInvoice(order)) return "INV";
   if (QUOTE_STAGES.includes(stage) && order.quoteNumber) return "QT";
   return "SO";
 }
 
 function refFor(order: any, type: DocType): string {
-  if (type === "INV") return order.invoiceNumber;
+  if (type === "INV") return effectiveInvoice(order)?.number || order.invoiceNumber;
   if (type === "QT") return order.quoteNumber;
   return order.header?.name;
 }
@@ -61,8 +79,8 @@ function customerName(p: any): string {
 export function viewHrefForOrder(order: any, type: DocType): string {
   if (type === "QT" && order.quoteId) return `/sales/quotes/${order.quoteId}`;
   if (type === "INV") {
-    const ids = order.salesInvoiceIds || [];
-    if (ids.length) return `/sales/invoices/${ids[ids.length - 1]}`;
+    const inv = effectiveInvoice(order);
+    if (inv?.id) return `/sales/invoices/${inv.id}`;
   }
   return `/sales/sales-orders/${order._id}`;
 }
@@ -76,12 +94,22 @@ function quoteStage(q: any): Q2CStatus {
   return Q2C_STATUS.QUOTE_GENERATED;
 }
 
-/** Everything the Q2C board needs: sales-order deals + quotes not yet ordered. */
-export async function listDeals(tenantId: string) {
+/**
+ * Everything the Q2C board needs: sales-order deals + quotes not yet ordered.
+ *
+ * Self-healing: a deal that has reached Invoice Posted / Revenue Recognized
+ * but was synced by an older code path (or an import) with no invoice at
+ * all gets one generated right here — "moved into Invoice Posted" always
+ * means a real invoice exists, no matter which route put it there. Pass
+ * `userId` to enable this repair; omitted, the board still displays
+ * correctly, it just won't create anything.
+ */
+export async function listDeals(tenantId: string, userId?: string) {
   const [orders, quotes] = await Promise.all([
     (SaleOrder as any)
       .find({ tenantId })
       .populate("header.partnerId", "header.name")
+      .populate("salesInvoiceIds", "number")
       .sort({ createdAt: -1 })
       .lean(),
     (SalesQuotation as any)
@@ -90,6 +118,25 @@ export async function listDeals(tenantId: string) {
       .sort({ createdAt: -1 })
       .lean(),
   ]);
+
+  if (userId) {
+    for (const o of orders) {
+      if (!INVOICE_STAGES.includes(o.q2cStatus) || effectiveInvoice(o)) continue;
+      try {
+        const doc: any = await (SaleOrder as any).findOne({ _id: o._id, tenantId });
+        if (!doc || (doc.salesInvoiceIds || []).length > 0) continue; // beaten by a concurrent request
+        const invoice = await createInvoiceForOrder({ tenantId, userId, order: doc });
+        await doc.save();
+        o.salesInvoiceIds = [{ _id: invoice._id, number: invoice.number }];
+        o.invoiceNumber = invoice.number;
+      } catch (err) {
+        // Best-effort: a deal that genuinely can't be invoiced yet (e.g. no
+        // customer, ₹0 total) still shows on the board with its prior
+        // reference rather than breaking the whole pipeline load.
+        console.error(`Pipeline self-heal: couldn't generate invoice for deal ${o._id}:`, err);
+      }
+    }
+  }
 
   const claimedQuoteIds = new Set<string>();
   const claimedNumbers = new Set<string>();

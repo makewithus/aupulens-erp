@@ -11,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
-    const deals = await listDeals(session.user.tenantId);
+    const deals = await listDeals(session.user.tenantId, session.user.id);
     return NextResponse.json({ success: true, items: deals });
   } catch (error) {
     console.error("Pipeline GET error:", error);

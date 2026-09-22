@@ -98,4 +98,67 @@ describe("Q2C deals: one record, stage-aware document reference", () => {
     await expect(transitionDeal({ tenantId: T, userId, kind: "order", id: String(so._id), to: "invoice_posted" })).rejects.toThrow(/₹0/);
     expect(await (SalesInvoice as any).countDocuments({ tenantId: T })).toBe(0);
   });
+  it("legacy record with salesInvoiceIds but no cached invoiceNumber shows the real INV ref, not the stale quote/SO name", async () => {
+    const c = await customer();
+    const invoice: any = await SalesInvoice.create({
+      tenantId: T, number: "INV-LEGACY-1", customerId: c._id,
+      lineItems: [{ name: "X", qty: 1, unitPrice: 100, discount: 0, discountMode: "percent", taxRate: 0, lineTotal: 100 }],
+      taxableAmount: 100, totalAmount: 100, createdBy: new mongoose.Types.ObjectId(),
+    });
+    // Mirrors the pre-fix sync: header.name was set to the quote number, and
+    // invoiceNumber was never populated even though the order was invoiced.
+    const legacy: any = await SaleOrder.create({
+      tenantId: T,
+      header: { name: "QUO-000030", partnerId: c._id },
+      orderLines: [],
+      totals: { amountTotal: 100 },
+      q2cStatus: "invoice_posted",
+      salesInvoiceIds: [invoice._id],
+    });
+
+    const deal = (await listDeals(T, userId)).find((d) => d._id === String(legacy._id))!;
+    expect(deal.docType).toBe("INV");
+    expect(deal.header.name).toBe("INV-LEGACY-1");
+    expect(deal.viewHref).toBe(`/sales/invoices/${invoice._id}`);
+  });
+
+  it("a deal that reached Invoice Posted with NO invoice at all gets one auto-generated on load", async () => {
+    const c = await customer();
+    const stray: any = await SaleOrder.create({
+      tenantId: T,
+      header: { name: "SO-STRAY-1", partnerId: c._id },
+      orderLines: [{ name: "Widget", productQty: 1, priceUnit: 500, priceSubtotal: 500 }],
+      totals: { amountTotal: 500 },
+      q2cStatus: "invoice_posted",
+    });
+
+    expect(await SalesInvoice.countDocuments({ tenantId: T })).toBe(0);
+    const deal = (await listDeals(T, userId)).find((d) => d._id === String(stray._id))!;
+    expect(deal.docType).toBe("INV");
+    expect(deal.header.name).toMatch(/^INV/);
+    expect(deal.viewHref).toMatch(/^\/sales\/invoices\/[a-f0-9]{24}$/); // not "[object Object]"
+    expect(await SalesInvoice.countDocuments({ tenantId: T })).toBe(1);
+
+    const saved: any = await SaleOrder.findById(stray._id).lean();
+    expect(saved.invoiceNumber).toBe(deal.header.name);
+    expect(saved.salesInvoiceIds).toHaveLength(1);
+
+    // Reloading the board doesn't create a second invoice.
+    await listDeals(T, userId);
+    expect(await SalesInvoice.countDocuments({ tenantId: T })).toBe(1);
+  });
+
+  it("without a userId, the board still displays correctly but never creates anything", async () => {
+    const c = await customer();
+    const stray: any = await SaleOrder.create({
+      tenantId: T,
+      header: { name: "SO-STRAY-2", partnerId: c._id },
+      orderLines: [{ name: "Widget", productQty: 1, priceUnit: 500, priceSubtotal: 500 }],
+      totals: { amountTotal: 500 },
+      q2cStatus: "invoice_posted",
+    });
+    const deal = (await listDeals(T)).find((d) => d._id === String(stray._id))!;
+    expect(deal.docType).toBe("SO"); // no invoice exists yet, so it falls back honestly
+    expect(await SalesInvoice.countDocuments({ tenantId: T, customerId: c._id })).toBe(0);
+  });
 });
