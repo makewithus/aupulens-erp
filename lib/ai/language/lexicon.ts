@@ -14,7 +14,7 @@ i you he she it we they me my mine your yours his her hers our ours their them u
 do does did done doing have has had having will would shall should can could may might must not no yes ok okay please
 create add new make generate draft prepare register enter mark show list get find search open view update edit delete remove cancel send
 invoice invoices bill bills receipt customer customers vendor vendors supplier payment payments amount total due date days day week month year today tomorrow yesterday next last
-quote quotation order orders sales sale purchase expense expenses ledger journal account accounts balance report reports statement tax gst item items product products qty quantity price rate
+quote quotation order orders sales sale purchase expense expenses ledger journal account accounts balance report reports statement tax gst item items product products qty quantity price rate revenue profit profits loss losses income turnover margin cashflow
 pan tan gstin hsn sku tds tcs upi neft rtgs imps ifsc
 employee employees salary attendance leave inventory stock warehouse delivery budget lead leads opportunity case task project
 how what when where why which who whom whose much many more less all any some every each other another same different
@@ -39,6 +39,7 @@ paise paisa rupaye rupay hazaar hazar lakh_ karod
 agle agla agli pichhle pichle mangalwar somwar budhwar guruwar shukrawar shanivar ravivar kal aaj parso
 bakaya baki baaki bhugtan grahak khata hisab hisaab bikri kharid kharcha
 kam zyada jyada se mein saare sabhi dijiye dijie dikhaiye dikhaye batao bataiye kitne kitna kitni wala wali wale tak abhi sirf pachchis pachas pachaas sau bhi
+pichhale pichhla pichhli ek hua hui hue huya huyi saal varsh baras mahina mahine mahiney hafta hafte din
 dhanyavaad shukriya kripya zara zaroor bilkul theek thik accha acha
   `),
   [LANGUAGE_CODE.TAMIL]: words(`

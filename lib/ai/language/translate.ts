@@ -43,6 +43,26 @@ export function numbersPreserved(before: string, after: string): boolean {
   return true;
 }
 
+/**
+ * The reverse of numbersPreserved. A translator can also INVENT a number that was never in the
+ * source — e.g. "Pichhale ek saal mein kitna revenue hua hai?" (no digits at all) coming back as
+ * "the revenue at year-end 0 ... end of year 1" invents "0" and "1" out of nothing, and the model
+ * then confidently reports "revenue is ₹0" from a question that named no figure. numbersPreserved
+ * alone missed this (there was nothing to preserve). Any number in `after` not present in `before`
+ * — beyond what placeholder digits could explain, already stripped by numberValues — is untrusted:
+ * treat the whole translation as unverifiable rather than let a fabricated figure reach the model.
+ */
+export function numbersInvented(before: string, after: string): boolean {
+  const allowed = new Map<string, number>();
+  for (const n of numberValues(before)) allowed.set(n, (allowed.get(n) || 0) + 1);
+  for (const n of numberValues(after)) {
+    const c = allowed.get(n) || 0;
+    if (c === 0) return true;
+    allowed.set(n, c - 1);
+  }
+  return false;
+}
+
 /** Split at paragraph/sentence boundaries into chunks <= max chars (hard-split as a last resort). */
 export function chunkText(text: string, max: number): string[] {
   if (text.length <= max) return [text];

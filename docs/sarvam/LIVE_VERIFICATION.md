@@ -184,3 +184,31 @@ For each row: pass / fail + the `model got` line. Any fail in §3 items 1–3 is
 * The escape hatch, skip-ahead and item-name choices are language-independent; verify one regional flow ends on a pre-filled form (§6).
 * **Uncached regional latency** — the one number that could not be measured here: run each §2 phrase once cold and note `total` from the live-check script; budget < 1.5 s before the model call.
 * **LLM fallback prompt** (`app/api/ai/task-flow/route.ts::classify`): send `can you raise a bill for Acme` and `raise a purchase bill from Acme` — the first should start the invoice flow, the second must NOT.
+
+## 11. User-reported live bug (2026-09-22) — a numberless question came back with an invented figure
+
+**Report:** "Pichhale Ek saal Mein kitna revenue Hua hai." (Roman Hindi, no digits at all) came back as *"I understood this as: Pichhale is the revenue at year-end 0, and Hua is the revenue at the end
+of year 1"* and the assistant confidently answered **"Your revenue at the year-end is ₹0."** — a fabricated figure, not a real answer.
+
+**Root causes found (two, compounding):**
+1. `Pichhale`, `Ek` and `Hua` were capitalised (as the user typed them) and were **not in the Roman-Hindi word list**, so `protect.ts` masked them as if they were proper-noun entities
+   (`ZXQ0ZXQ saal Mein kitna revenue ZXQ1ZXQ hai.`). Sending a sentence that is mostly opaque placeholders is what the real API struggled to translate sensibly.
+2. Even with a bad translation, **nothing checked for a number invented out of nothing.** `numbersPreserved()` only confirmed that numbers already in the source survived — a
+   question with zero digits had nothing to preserve, so a translator that *added* "0" and "1" sailed straight through, and Azure then answered a Hindi-and-digit-garbled question
+   at face value with a confident but fabricated ₹0.
+
+**Fixed:**
+- Added `pichhale/pichhla/pichhli`, `ek`, `hua/hui/hue`, `saal/varsh/mahina/mahine/hafta` and the finance words `revenue/profit/loss/income/turnover/margin/cashflow` to the lexicon
+  (`lib/ai/language/lexicon.ts`) so they are never masked as entities.
+- Added `numbersInvented()` (`lib/ai/language/translate.ts`): any number in the translated text that isn't backed by a number in the source (placeholder digits excluded) marks the
+  translation as untrusted — the pipeline degrades to the original text instead of letting Azure answer a fabricated figure. Wired into the same verification gate as `numbersPreserved`
+  and `placeholdersIntact` in `pipeline.ts`.
+
+**Live re-check (2026-09-22, real Sarvam key):**
+```
+input:  "Pichhale Ek saal Mein kitna revenue Hua hai."
+masked: "Pichhale Ek saal Mein kitna revenue Hua hai."   (nothing wrongly masked now)
+output: "What was the revenue for the past year?"        (correct meaning, provider: sarvam, model: mayura:v1, ok: true)
+```
+Tests: `tests/ai/language/numberValues.test.ts` — a unit test on `numbersInvented`, and an end-to-end pipeline test that replays the exact reported mistranslation and asserts it degrades
+to the original question (never an invented figure). Full suite re-run: 220 files / 2423 tests, 0 failed.

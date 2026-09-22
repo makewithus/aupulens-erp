@@ -10,7 +10,7 @@ import { ENGLISH_WORDS } from "./lexicon";
 import { prepareText, type Prepared } from "./normalise";
 import { placeholdersIntact, unprotectEntities, chooseStyle } from "./protect";
 import { normaliseNumbers } from "./numbers";
-import { translateToEnglish, numbersPreserved } from "./translate";
+import { translateToEnglish, numbersPreserved, numbersInvented } from "./translate";
 import { localRomanToEnglish } from "./localMap";
 import { getSarvamConfig, isSarvamUsable } from "./config";
 import { TtlCache } from "./cache";
@@ -122,7 +122,7 @@ export async function prepareLanguageInput(input: PrepareInput): Promise<Languag
       }
       // numbers first (canonicalise "45,000" the provider may emit), then placeholders
       const candidate = normaliseNumbers(tr.text).text;
-      if (numbersPreserved(prep.masked, candidate) && placeholdersIntact(candidate, prep.entities)) { english = candidate; verified = true; }
+      if (numbersPreserved(prep.masked, candidate) && !numbersInvented(prep.masked, candidate) && placeholdersIntact(candidate, prep.entities)) { english = candidate; verified = true; }
     }
     if (!verified) return finish(degrade(trace, LANGUAGE_DEGRADED_REASON.BAD_RESPONSE, raw));
 
