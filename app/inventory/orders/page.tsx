@@ -53,6 +53,7 @@ import { StatCard } from "@/components/admin/StatCard";
 import { friendlyError } from "@/lib/errors/friendlyError";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface OrderItem {
   itemCode: string;
@@ -151,6 +152,18 @@ function OrdersPageInner() {
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    statusFilter: () => setStatusFilter(searchParams.get("status") || "all"),
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);

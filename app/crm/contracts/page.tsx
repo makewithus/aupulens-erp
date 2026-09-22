@@ -16,6 +16,7 @@ import {
   Plus, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
   RefreshCw, TrendingUp, Loader2,
 } from "lucide-react";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 // âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -215,6 +216,17 @@ function ContractsPageInner() {
   const [expiryFilter, setExpiryFilter] = useState("");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [showModal, setShowModal] = useState(false);
   const [renewalSummary, setRenewalSummary] = useState<any>(null);
   const [runningEngine, setRunningEngine] = useState(false);

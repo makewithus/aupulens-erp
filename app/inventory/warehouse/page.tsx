@@ -17,6 +17,7 @@ import { Plus } from "lucide-react";
 // Extracted Subcomponents
 import { WarehouseTable } from "@/components/inventory/warehouse/WarehouseTable";
 import { WarehouseModals } from "@/components/inventory/warehouse/WarehouseModals";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 export default function WarehousePage() {
   return (
@@ -39,6 +40,13 @@ function WarehousePageInner() {
   // (this page filters client-side, so seeding `query` is enough). A
   // normal, param-less visit just gets the default, unchanged.
   const [query, setQuery] = useState(() => searchParams.get("search") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("search") || ""),
+  });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);

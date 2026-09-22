@@ -51,6 +51,7 @@ import { CURRENCIES } from "@/config/currencies";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { ProductPopupContent } from "./popup/ProductPopup";
 import { PricelistPopupContent } from "../pricelist/popup/PricelistPopup";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface AccountItem {
   _id: string;
@@ -188,6 +189,17 @@ function ProductsPageInner() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    debouncedQuery: () => setDebouncedQuery(searchParams.get("query") || searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
