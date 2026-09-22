@@ -49,6 +49,5 @@ export function useSyncStateFromSearchParams(syncers: Record<string, () => void>
     // object (which is a fresh object every render) or individual setter
     // identities — this must fire exactly when the URL's params change, no
     // more and no less.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 }
