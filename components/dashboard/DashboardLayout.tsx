@@ -143,6 +143,7 @@ export function DashboardLayout({
           toast.success("Successfully signed out. Redirecting...");
           clearAllStores();
           console.log("[DashboardLayout] Invoking native signOut...");
+          await new Promise((resolve) => setTimeout(resolve, 800)); // allow toast to be visible
           await signOut({ callbackUrl: "/auth", redirect: true });
         }}
         onRefresh={effectiveOnRefresh}

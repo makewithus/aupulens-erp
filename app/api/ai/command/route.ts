@@ -79,8 +79,8 @@ Current page: "${context?.pathname ?? "unknown"}"
 
 Intents:
 - "navigate": user wants to OPEN / GO TO a page. Provide "destination" = the page in plain words (e.g. "leads", "customers", "invoices", "profit and loss", "employees"). Do NOT invent or guess a URL path — just the destination words.
-- "search": user wants to FIND records (leads, invoices, customers, etc). Provide "searchTerm" (the thing to find).
-- "explain_report": user wants an EXPLANATION of a report/metric/trend. Provide "reportType" (one of: "pipeline", "leads", "sales").
+- "search": user wants to FIND, VIEW, or LIST records (e.g. "show me all invoices from last month"). Provide "searchTerm" (the thing to find).
+- "explain_report": user wants an EXPLANATION of a report/metric/trend (e.g. "why are sales down"). Provide "reportType" (one of: "pipeline", "leads", "sales").
 - "action": user wants to CREATE, CHANGE, or DELETE data. Provide "actionType" (one of: ${COMMAND_ACTION_TYPES.join(", ")}) and "actionParams". Examples:
     • create_task → {"title":"...","dueInDays":3}
     • update_lead_status → {"leadName":"...","status":"Qualified"}
@@ -115,6 +115,7 @@ Return ONLY JSON (no markdown):
       return NextResponse.json({ action: "unknown", message: "I didn't quite understand that command." });
     }
 
+    let response: NextResponse;
     switch (parsed.intent) {
       case "navigate": {
         // Resolve against REAL app routes — never trust an AI-guessed URL (that
@@ -122,49 +123,76 @@ Return ONLY JSON (no markdown):
         // "go to leads" resolves even if the model omits "destination".
         const dest = resolveNavDestination(parsed.destination || parsed.url || parsed.searchTerm || command);
         if (dest) {
-          return NextResponse.json({ action: "navigate", url: dest.href, message: `Opening ${dest.title}…` });
+          response = NextResponse.json({ action: "navigate", url: dest.href, message: `Opening ${dest.title}…` });
+          break;
         }
         // No confident match → offer a search instead of navigating somewhere wrong.
         const { results } = await runCombinedSearch(tenantId, role, parsed.searchTerm || command, { semantic: true });
         if (results.length) {
-          return NextResponse.json({ action: "search", results, message: `I couldn't find a page called that, but here are matching records.` });
+          response = NextResponse.json({ action: "search", results, message: `I couldn't find a page called that, but here are matching records.` });
+          break;
         }
-        return NextResponse.json({ action: "unknown", navMiss: true, message: `I couldn't find a page called that. I can open pages like: ${topNavSuggestions().join(", ")}.` });
+        response = NextResponse.json({ action: "unknown", navMiss: true, message: `I couldn't find a page called that. I can open pages like: ${topNavSuggestions().join(", ")}.` });
+        break;
       }
 
       case "search": {
         // Natural-language commands benefit most from the semantic layer.
         const { results } = await runCombinedSearch(tenantId, role, parsed.searchTerm || command, { semantic: true });
-        return NextResponse.json({
+        response = NextResponse.json({
           action: "search",
           results,
           message: results.length ? `Found ${results.length} result(s) for "${parsed.searchTerm}".` : `No results for "${parsed.searchTerm}".`,
         });
+        break;
       }
 
       case "explain_report":
-        return await explainReport(tenantId, tier, aiSettings, parsed.reportType || "pipeline", command);
+        response = await explainReport(tenantId, tier, aiSettings, parsed.reportType || "pipeline", command);
+        break;
 
       case "action":
-        return await proposeAction(tenantId, session.user.id, role, parsed.actionType, parsed.actionParams || {});
+        response = await proposeAction(tenantId, session.user.id, role, parsed.actionType, parsed.actionParams || {});
+        break;
 
       case "batch":
-        return await proposeBatch(tenantId, session.user.id, role, parsed.actions || []);
+        response = await proposeBatch(tenantId, session.user.id, role, parsed.actions || []);
+        break;
 
       case "workflow": {
         if (!parsed.workflowId || !registeredWorkflowIds.includes(parsed.workflowId)) {
           const fallback = unmatchedResponse(command);
-          return NextResponse.json({ action: "unknown", message: fallback.message, suggestions: fallback.suggestions });
+          response = NextResponse.json({ action: "unknown", message: fallback.message, suggestions: fallback.suggestions });
+          break;
         }
-        const result = await handleWorkflowIntent(tenantId, userId, parsed.workflowId, "ai.sweep.hourly", {});
-        return NextResponse.json({ ...result, resolvedBy: "llm" });
+        const wfResult = await handleWorkflowIntent(tenantId, userId, parsed.workflowId, "ai.sweep.hourly", {});
+        response = NextResponse.json({ ...wfResult, resolvedBy: "llm" });
+        break;
       }
 
       default: {
         const fallback = unmatchedResponse(command);
-        return NextResponse.json({ action: "unknown", message: parsed.message || fallback.message, suggestions: fallback.suggestions });
+        response = NextResponse.json({ action: "unknown", message: parsed.message || fallback.message, suggestions: fallback.suggestions });
+        break;
       }
     }
+
+    const langTrace = "language" in result ? (result as any).language : undefined;
+    if (langTrace && langTrace.kind !== "english" && langTrace.kind !== "none") {
+      try {
+        const data = await response.json();
+        if (data.message) {
+          const { applyLanguageReply } = await import("@/lib/ai/language/tenantBridge");
+          const r = await applyLanguageReply(data.message, langTrace, { rawText: command, replyInUserLanguage: true, showInterpretation: false });
+          data.message = r.text;
+          return NextResponse.json(data, { status: response.status });
+        }
+      } catch (e) {
+        // Ignore JSON parse errors or translation errors, fall back to the original response
+      }
+    }
+
+    return response;
   } catch (error: any) {
     console.error("AI Command processing error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

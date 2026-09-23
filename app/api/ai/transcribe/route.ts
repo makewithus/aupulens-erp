@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       const client = getSarvamClient();
       const result = await client.speech.transcribe({
         audio: blob,
-        languageCode: language,
+        languageCode: "unknown", // Sarvam auto-detects language
         mimeType: contentType,
       });
       if (result.ok === false) {

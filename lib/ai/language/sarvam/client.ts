@@ -151,6 +151,9 @@ export function createSarvamClient(opts: { fetchFn?: FetchFn; config?: () => Sar
             const formData = new FormData();
             const blob = req.audio instanceof Blob ? req.audio : new Blob([req.audio], { type: req.mimeType || "audio/webm" });
             formData.append("file", blob, "audio.webm");
+            if (req.languageCode) {
+              formData.append("language_code", req.languageCode);
+            }
 
             const res = await fetchFn(`${cfgObj.baseUrl}/speech-to-text`, {
               method: "POST",

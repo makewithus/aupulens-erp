@@ -210,6 +210,7 @@ export function DashboardHeader({
     // 2. Fallback: Default native sign out behavior
     console.log("[DashboardHeader] Using native signOut fallback");
     clearAllStores();
+    await new Promise((resolve) => setTimeout(resolve, 800)); // allow toast to be visible
     await signOut({ callbackUrl: "/auth" });
   };
 
