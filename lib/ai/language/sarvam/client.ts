@@ -134,7 +134,57 @@ export function createSarvamClient(opts: { fetchFn?: FetchFn; config?: () => Sar
         cfg(), fetchFn);
     },
     speech: <SarvamSpeech>{
-      transcribe: async () => fail({ kind: "not_implemented", message: "ASR not built in this pass" }, Date.now(), 0),
+      transcribe: async (req: AsrRequest): Promise<SarvamResult<AsrData>> => {
+        const started = Date.now();
+        const cfgObj = cfg();
+        if (!cfgObj.enabled) return fail({ kind: "disabled", message: "Sarvam is disabled" }, started, 0);
+        if (!isSarvamUsable(cfgObj)) return fail({ kind: "not_configured", message: "SARVAM_API_KEY is not set" }, started, 0);
+
+        let lastError: SarvamError = { kind: "network", message: "unknown" };
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const remaining = (cfgObj.timeoutMs * 5) - (Date.now() - started); // Audio gets 5x timeout
+          if (attempt > 0 && remaining < 300) break;
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), Math.max(remaining, 1));
+          
+          try {
+            const formData = new FormData();
+            const blob = req.audio instanceof Blob ? req.audio : new Blob([req.audio], { type: req.mimeType || "audio/webm" });
+            formData.append("file", blob, "audio.webm");
+
+            const res = await fetchFn(`${cfgObj.baseUrl}/speech-to-text`, {
+              method: "POST",
+              headers: { "api-subscription-key": cfgObj.apiKey },
+              body: formData as any,
+              signal: ctrl.signal,
+            });
+
+            if (!res.ok) {
+              lastError = { kind: "http", status: res.status, message: `Sarvam ASR returned HTTP ${res.status}` };
+              if (res.status === 429 || res.status >= 500) continue;
+              break;
+            }
+
+            let json: any;
+            try { json = await res.json(); } catch { json = null; }
+            if (!json || typeof json.transcript !== "string") {
+              lastError = { kind: "bad_response", message: `Sarvam ASR returned unexpected body` };
+              break;
+            }
+
+            return { ok: true, data: { transcript: json.transcript, language: json.language_code }, latencyMs: Date.now() - started, characters: 0 };
+          } catch (err) {
+            const aborted = ctrl.signal.aborted || (err as any)?.name === "AbortError";
+            lastError = aborted
+              ? { kind: "timeout", message: `Sarvam ASR timed out` }
+              : { kind: "network", message: `Sarvam ASR network error` };
+            if (aborted) break;
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+        return fail(lastError, started, 0);
+      },
       synthesize: async () => fail({ kind: "not_implemented", message: "TTS not built in this pass" }, Date.now(), 0),
     },
   };

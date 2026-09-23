@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { transcribeAudio, isSpeechConfigured } from "@/lib/ai/speechToText";
+import { getSarvamClient } from "@/lib/ai/language/sarvam/client";
+import { getSarvamConfig, isSarvamUsable } from "@/lib/ai/language/config";
 
 // Node runtime — the Azure OpenAI SDK / file handling isn't Edge-compatible.
 export const runtime = "nodejs";
@@ -22,12 +24,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isSpeechConfigured()) {
+    const sarvamCfg = getSarvamConfig();
+    const useSarvam = sarvamCfg.enabled && isSarvamUsable(sarvamCfg);
+
+    if (!useSarvam && !isSpeechConfigured()) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Voice input isn't set up yet. Ask your admin to configure Azure speech-to-text (AZURE_OPENAI_TRANSCRIBE_DEPLOYMENT).",
+            "Voice input isn't set up yet. Ask your admin to configure Azure speech-to-text or Sarvam AI.",
         },
         { status: 501 }
       );
@@ -52,7 +57,21 @@ export async function POST(req: NextRequest) {
     const contentType = blob.type || "audio/webm";
     const filename = (blob as any).name || `audio.${contentType.includes("ogg") ? "ogg" : "webm"}`;
 
-    const text = await transcribeAudio(buffer, { contentType, filename, language });
+    let text = "";
+    if (useSarvam) {
+      const client = getSarvamClient();
+      const result = await client.speech.transcribe({
+        audio: buffer,
+        languageCode: language,
+        mimeType: contentType,
+      });
+      if (!result.ok) {
+        throw new Error(result.error.message || "Sarvam ASR failed.");
+      }
+      text = result.data.transcript || "";
+    } else {
+      text = await transcribeAudio(buffer, { contentType, filename, language });
+    }
     return NextResponse.json({ success: true, text });
   } catch (err: any) {
     return NextResponse.json(
