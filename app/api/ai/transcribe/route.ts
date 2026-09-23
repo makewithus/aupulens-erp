@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (useSarvam) {
       const client = getSarvamClient();
       const result = await client.speech.transcribe({
-        audio: buffer,
+        audio: blob,
         languageCode: language,
         mimeType: contentType,
       });
