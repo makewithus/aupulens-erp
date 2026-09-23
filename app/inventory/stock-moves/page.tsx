@@ -31,6 +31,7 @@ import {
 // Extracted Subcomponents
 import { StockMovesTable } from "@/components/inventory/stock-moves/StockMovesTable";
 import { StockMovesModals } from "@/components/inventory/stock-moves/StockMovesModals";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 // Default Form Data
 const DEFAULT_FORM: any = {
@@ -79,6 +80,17 @@ function StockMovesPageInner() {
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    query: () => setQuery(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   // Resources
   const [warehouses, setWarehouses] = useState<any[]>([]);

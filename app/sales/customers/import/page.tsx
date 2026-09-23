@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { X, UploadCloud, Lightbulb, Trash2, ChevronDown } from "lucide-react";
 import { IMPORT_DUPLICATE_HANDLING } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const CUSTOMER_FIELDS = [
   { key: "displayName", label: "Display Name", required: true },
@@ -72,7 +73,7 @@ export default function ImportCustomersPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/sales/customers/import/parse", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/customers/import/parse", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setColumns(data.columns);
@@ -95,7 +96,7 @@ export default function ImportCustomersPage() {
       fd.append("file", file);
       fd.append("mapping", JSON.stringify(mapping));
       fd.append("duplicateHandling", duplicateHandling);
-      const res = await fetch("/api/sales/customers/import/execute", { method: "POST", body: fd });
+      const res = await cachedFetch("/api/sales/customers/import/execute", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
       setResult(data);

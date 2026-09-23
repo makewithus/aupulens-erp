@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const statusColors: Record<string, string> = {
   paid: "text-emerald-500",
@@ -29,7 +30,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   const load = () => {
     setLoading(true);
-    fetch(`/api/sales/payments/${id}`)
+    cachedFetch(`/api/sales/payments/${id}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setPayment(d.data);
@@ -46,7 +47,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     if (!confirm("Void this payment? This will reverse its effect on any invoices it was applied to.")) return;
     setVoiding(true);
     try {
-      const res = await fetch(`/api/sales/payments/${id}`, {
+      const res = await cachedFetch(`/api/sales/payments/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "void" }),

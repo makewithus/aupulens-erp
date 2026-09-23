@@ -7,9 +7,11 @@ import CrmApprovalRequest from "@/models/crm/ApprovalRequest";
 import { processQuoteApproval } from "@/lib/crm/approvalEngine";
 import { logSystemActivity } from "@/lib/crm/activityLogger";
 import { requireRole } from "@/lib/crm/rbac";
+import { escapeRegex } from "@/lib/utils/regex";
+import { safeHandler } from "@/lib/api/safeHandler";
 
 // ─── GET /api/crm/quotes ─────────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
   if (owner_id) query.owner_id = owner_id;
   if (status) query.status = status;
   if (search) {
-    query.quote_number = { $regex: search, $options: "i" };
+    query.quote_number = { $regex: escapeRegex(search), $options: "i" };
   }
   if (validFrom || validTo) {
     const validity_date: Record<string, Date> = {};
@@ -68,12 +70,33 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(pageParam));
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "25")));
 
-  const [total, quotes] = await Promise.all([
+  // Summary cards reflect every quote matching the filters, not just the
+  // current page.
+  const now = new Date();
+  const [total, quotes, statsAgg] = await Promise.all([
     CrmQuote.countDocuments(query),
     baseQuery.skip((page - 1) * limit).limit(limit).lean(),
+    CrmQuote.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalValue: { $sum: "$grand_total" },
+          pending: { $sum: { $cond: [{ $eq: ["$status", "Pending Approval"] }, 1, 0] } },
+          approved: { $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] } },
+          expired: { $sum: { $cond: [{ $and: [{ $ne: ["$validity_date", null] }, { $lt: ["$validity_date", now] }] }, 1, 0] } },
+        },
+      },
+    ]),
   ]);
+  const stats = {
+    totalValue: statsAgg[0]?.totalValue || 0,
+    pending: statsAgg[0]?.pending || 0,
+    approved: statsAgg[0]?.approved || 0,
+    expired: statsAgg[0]?.expired || 0,
+  };
 
-  return NextResponse.json({ success: true, data: { quotes, total, page, totalPages: Math.max(1, Math.ceil(total / limit)) } });
+  return NextResponse.json({ success: true, data: { quotes, total, page, totalPages: Math.max(1, Math.ceil(total / limit)), stats } });
 }
 
 import CrmAccount from "@/models/crm/Account";
@@ -161,3 +184,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET = safeHandler(GET_handler);

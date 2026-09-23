@@ -6,11 +6,8 @@ import connectDB from "@/lib/db";
 import SaleOrder from "@/models/sales/SaleOrder";
 import "@/models/sales/Customer";
 import "@/models/inventory/Product";
-import {
-  DOCUMENT_STATUS,
-  Q2C_STATUS,
-  isValidQ2CTransition,
-} from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { transitionDeal, DealError } from "@/lib/sales/pipelineDeals";
 
 // Map client legacy status to DB DocumentStatus
 function toDbStatus(status: string): string {
@@ -109,73 +106,22 @@ export async function PATCH(
       }
     }
 
-    // ── Q2C transition validation ──
+    // ── Q2C transition: delegated to the shared pipeline engine so the
+    // document reference, linked quote and auto-generated invoice all stay in
+    // step no matter which UI triggers the move.
     if (body.q2cStatus) {
-      const existing = await SaleOrder.findOne({ _id: id, tenantId }).lean();
-      if (!existing) {
-        return NextResponse.json(
-          { error: "Order not found" },
-          { status: 404 },
-        );
-      }
-
-      const currentQ2C = (existing as any).q2cStatus || Q2C_STATUS.LEAD;
-      if (!isValidQ2CTransition(currentQ2C, body.q2cStatus)) {
-        return NextResponse.json(
-          {
-            error: `Invalid Q2C transition from "${currentQ2C}" to "${body.q2cStatus}"`,
-          },
-          { status: 400 },
-        );
-      }
-
-      // Auto-sync document status based on Q2C stage
-      if (
-        body.q2cStatus === Q2C_STATUS.QUOTE_GENERATED &&
-        !body.status
-      ) {
-        body.status = DOCUMENT_STATUS.PENDING_APPROVAL;
-      }
-      if (
-        body.q2cStatus === Q2C_STATUS.SALES_ORDER &&
-        !body.status
-      ) {
-        body.status = DOCUMENT_STATUS.APPROVED;
-        if (body.header) {
-          body.header.dateOrder = new Date();
-        } else {
-          body["header.dateOrder"] = new Date();
+      try {
+        await transitionDeal({ tenantId, userId: session.user.id, kind: "order", id, to: body.q2cStatus });
+      } catch (e: any) {
+        if (e instanceof DealError) {
+          return NextResponse.json({ error: e.message }, { status: e.status });
         }
+        throw e;
       }
-      if (
-        body.q2cStatus === Q2C_STATUS.CANCELLED &&
-        !body.status
-      ) {
-        body.status = DOCUMENT_STATUS.CANCELLED;
-      }
-
-      // Discount approval timestamps
-      if (body.q2cStatus === Q2C_STATUS.DISCOUNT_APPROVAL) {
-        body["discountApproval.required"] = true;
-      }
-      if (
-        body.q2cStatus === Q2C_STATUS.QUOTE_ACCEPTED &&
-        currentQ2C === Q2C_STATUS.DISCOUNT_APPROVAL
-      ) {
-        body["discountApproval.approvedAt"] = new Date();
-        body["discountApproval.approvedBy"] = session.user.id;
-      }
-
-      // Fulfillment timestamp
-      if (body.q2cStatus === Q2C_STATUS.FULFILLMENT) {
-        body["fulfillment.triggeredAt"] = new Date();
-        body["fulfillment.triggeredBy"] = session.user.id;
-      }
-
-      // Revenue recognition timestamp
-      if (body.q2cStatus === Q2C_STATUS.REVENUE_RECOGNIZED) {
-        body["revenueRecognition.recognizedAt"] = new Date();
-        body["revenueRecognition.recognizedBy"] = session.user.id;
+      delete body.q2cStatus;
+      if (Object.keys(body).length === 0) {
+        const updated = await SaleOrder.findOne({ _id: id, tenantId }).lean();
+        return NextResponse.json({ order: mapOrderToClient(updated) });
       }
     }
 

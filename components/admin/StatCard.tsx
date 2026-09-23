@@ -41,9 +41,9 @@ export function StatCard({
         className
       )}
     >
-      <CardContent className="p-6 sm:p-8">
-        <div className="flex items-start justify-between gap-4 sm:gap-6">
-          <div className="min-w-0 flex-1 space-y-4">
+      <CardContent className="p-4 sm:p-6 relative">
+        <div className="flex items-start justify-between gap-3 sm:gap-4 relative z-10">
+          <div className="min-w-0 flex-1 space-y-2 sm:space-y-4">
             <p className="font-mono text-[11px] text-muted-foreground/60">
               {title}
             </p>
@@ -62,16 +62,18 @@ export function StatCard({
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-4">
-            {rightContent}
-
-            {visual && (
-              <div className="pointer-events-none opacity-100 transition-opacity duration-500 group-hover:opacity-70">
-                {visual}
-              </div>
-            )}
-          </div>
+          {rightContent && (
+            <div className="flex flex-col items-end gap-4">
+              {rightContent}
+            </div>
+          )}
         </div>
+        
+        {visual && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-100 transition-opacity duration-500 group-hover:opacity-70 z-0 sm:-right-2">
+            {visual}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

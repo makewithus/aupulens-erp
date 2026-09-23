@@ -1,3 +1,5 @@
+import { escapeRegex } from "@/lib/utils/regex";
+import { safeHandler } from "@/lib/api/safeHandler";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -5,7 +7,7 @@ import CrmContract from "@/models/crm/Contract";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 
 // ─── GET /api/crm/contracts ──────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (url.searchParams.get("owner_id")) query.owner_id = url.searchParams.get("owner_id");
   if (url.searchParams.get("churn_risk")) query.churn_risk = url.searchParams.get("churn_risk");
   if (url.searchParams.get("search")) {
-    query.contract_number = { $regex: url.searchParams.get("search"), $options: "i" };
+    query.contract_number = { $regex: escapeRegex(url.searchParams.get("search") || ""), $options: "i" };
   }
 
   // Expiry window filter
@@ -99,7 +101,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ─── POST /api/crm/contracts ─────────────────────────────────────────────────
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
@@ -176,3 +178,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, data: contract }, { status: 201 });
 }
+
+export const GET = safeHandler(GET_handler);
+
+export const POST = safeHandler(POST_handler);

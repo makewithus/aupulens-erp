@@ -94,6 +94,14 @@ const UserSchema: Schema<IUser> = new Schema(
 );
 
 UserSchema.index({ tenantId: 1, email: 1 }, { unique: true });
+// auth.ts's authorize() looks up by email ALONE for two logins the
+// {tenantId, email} compound index above can't serve (Mongo can only use a
+// compound index's leading field(s) — a query with no tenantId filter can't
+// use it at all): the master-admin portal (`{email, role: "master-admin"}`)
+// and the "landed on the root/default domain without a subdomain" fallback
+// (`{email}`, whichever tenant the account actually belongs to). Both were
+// unindexed collection scans on every such login attempt.
+UserSchema.index({ email: 1 });
 UserSchema.index(
   { tenantId: 1, employeeId: 1 },
   {

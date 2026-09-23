@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_WEBHOOK_EVENT } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const EVENT_OPTIONS = Object.values(SUBSCRIPTION_WEBHOOK_EVENT);
 
@@ -30,7 +31,7 @@ export default function WebhooksSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/subscription-webhooks");
+      const res = await cachedFetch("/api/sales/subscription-webhooks");
       const data = await res.json();
       if (data.success) setWebhooks(data.data);
     } catch {
@@ -48,7 +49,7 @@ export default function WebhooksSettingsPage() {
     setEvents((e) => (e.includes(evt) ? e.filter((x) => x !== evt) : [...e, evt]));
 
   const toggleActive = async (webhook: any) => {
-    const res = await fetch(`/api/sales/subscription-webhooks/${webhook._id}`, {
+    const res = await cachedFetch(`/api/sales/subscription-webhooks/${webhook._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !webhook.active }),
@@ -58,7 +59,7 @@ export default function WebhooksSettingsPage() {
   };
 
   const remove = async (id: string) => {
-    const res = await fetch(`/api/sales/subscription-webhooks/${id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/sales/subscription-webhooks/${id}`, { method: "DELETE" });
     if (res.ok) {
       setWebhooks((ws) => ws.filter((w) => w._id !== id));
       toast.success("Webhook deleted");
@@ -72,7 +73,7 @@ export default function WebhooksSettingsPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/subscription-webhooks", {
+      const res = await cachedFetch("/api/sales/subscription-webhooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, url, events }),

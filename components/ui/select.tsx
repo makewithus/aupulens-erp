@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -65,10 +65,47 @@ const SelectScrollDownButton = React.forwardRef<
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
+// ── Searchable dropdowns ────────────────────────────────────────────────────
+// Every Select in the app gets a search box at the top of its list once it has
+// more than SEARCH_MIN_ITEMS options. Items filter themselves through this
+// context, so no call site needs to change.
+const SEARCH_MIN_ITEMS = 6
+const SelectSearchContext = React.createContext("")
+
+function nodeText(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return ""
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(nodeText).join(" ")
+  if (React.isValidElement(node)) return nodeText((node.props as any)?.children)
+  return ""
+}
+
+/** Flattens the option list (through fragments/groups/mapped arrays) to searchable item texts. */
+function collectItemTexts(children: React.ReactNode, out: string[] = []): string[] {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+    const props: any = child.props
+    if (child.type === SelectItem) {
+      out.push(`${nodeText(props.children)} ${typeof props.value === "string" ? props.value : ""}`.toLowerCase())
+    } else if (props?.children) {
+      collectItemTexts(props.children, out)
+    }
+  })
+  return out
+}
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
+>(({ className, children, position = "popper", onCloseAutoFocus, ...props }, ref) => {
+  const [query, setQuery] = React.useState("")
+  const searchRef = React.useRef<HTMLInputElement>(null)
+  const texts = React.useMemo(() => collectItemTexts(children), [children])
+  const searchable = texts.length > SEARCH_MIN_ITEMS
+  const term = query.trim().toLowerCase()
+  const matches = term ? texts.filter((t) => t.includes(term)).length : texts.length
+
+  return (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -79,8 +116,34 @@ const SelectContent = React.forwardRef<
         className
       )}
       position={position}
+      onCloseAutoFocus={(e) => {
+        setQuery("")
+        onCloseAutoFocus?.(e)
+      }}
       {...props}
     >
+      {searchable && (
+        <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1.5">
+          <Search className="h-3.5 w-3.5 shrink-0 opacity-50" />
+          <input
+            ref={(el) => {
+              searchRef.current = el
+              // Radix moves focus to the selected item on open; take it back.
+              if (el) setTimeout(() => el.focus({ preventScroll: true }), 30)
+            }}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Keep Radix's type-ahead from stealing typed characters; let
+              // arrows/Enter/Escape through so keyboard selection still works.
+              if (!["ArrowDown", "ArrowUp", "Enter", "Escape", "Tab"].includes(e.key)) e.stopPropagation()
+            }}
+            placeholder="Search…"
+            aria-label="Search options"
+            className="h-6 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+      )}
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
@@ -89,12 +152,16 @@ const SelectContent = React.forwardRef<
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
       >
-        {children}
+        <SelectSearchContext.Provider value={term}>{children}</SelectSearchContext.Provider>
+        {searchable && matches === 0 && (
+          <div className="px-2 py-3 text-center text-xs text-muted-foreground">No matches found</div>
+        )}
       </SelectPrimitive.Viewport>
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-))
+  )
+})
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
 const SelectLabel = React.forwardRef<
@@ -112,7 +179,13 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => {
+  const term = React.useContext(SelectSearchContext)
+  if (term) {
+    const hay = `${nodeText(children)} ${typeof props.value === "string" ? props.value : ""}`.toLowerCase()
+    if (!hay.includes(term)) return null
+  }
+  return (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -128,7 +201,8 @@ const SelectItem = React.forwardRef<
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
-))
+  )
+})
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
 const SelectSeparator = React.forwardRef<

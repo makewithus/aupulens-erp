@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { CreditCard, Loader2 } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface GatewayRow {
   _id: string;
@@ -39,7 +40,7 @@ export default function OnlinePaymentSettingsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/online-payment-gateways");
+      const res = await cachedFetch("/api/sales/online-payment-gateways");
       const data = await res.json();
       if (data.success) {
         setGateways(data.data);
@@ -71,7 +72,7 @@ export default function OnlinePaymentSettingsPage() {
     }
     setConnecting(true);
     try {
-      const res = await fetch(`/api/sales/online-payment-gateways/${connectTarget._id}`, {
+      const res = await cachedFetch(`/api/sales/online-payment-gateways/${connectTarget._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,7 +96,7 @@ export default function OnlinePaymentSettingsPage() {
     if (!disconnectTarget) return;
     setDisconnecting(true);
     try {
-      const res = await fetch(`/api/sales/online-payment-gateways/${disconnectTarget._id}`, {
+      const res = await cachedFetch(`/api/sales/online-payment-gateways/${disconnectTarget._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "disconnect" }),

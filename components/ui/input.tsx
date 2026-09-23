@@ -1,11 +1,16 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { DateField } from "@/components/ui/date-field"
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, onKeyDown, onChange, min, ...props }, ref) => {
+    // Every date input gets a calendar date picker (see date-field.tsx).
+    if (type === "date") {
+      return <DateField ref={ref} className={className} onChange={onChange} min={min} {...props} />
+    }
     return (
       <input
         type={type}

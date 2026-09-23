@@ -5,6 +5,7 @@ import { Check, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export interface GalleryTemplate {
   _id: string;
@@ -31,7 +32,7 @@ function TemplatePreviewThumbnail({ templateKey }: { templateKey: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/sales/invoice-templates/${templateKey}/preview`)
+    cachedFetch(`/api/sales/invoice-templates/${templateKey}/preview`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -92,7 +93,7 @@ export function TemplateGallery({
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/sales/invoice-templates?category=${category}`)
+    cachedFetch(`/api/sales/invoice-templates?category=${category}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setTemplates(d.data);
@@ -103,7 +104,7 @@ export function TemplateGallery({
   const setDefault = async (t: GalleryTemplate) => {
     setSettingDefault(t.key);
     try {
-      const res = await fetch("/api/sales/invoice-templates", {
+      const res = await cachedFetch("/api/sales/invoice-templates", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ templateId: t._id, category }),

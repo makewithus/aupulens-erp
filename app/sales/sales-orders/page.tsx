@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { MoveQuoteToOrderDialog } from "@/components/sales/salesOrders/MoveQuoteToOrderDialog";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import {
   Plus,
@@ -45,6 +46,7 @@ import {
 import { ExportSalesOrdersDialog } from "@/components/sales/salesOrders/ExportSalesOrdersDialog";
 import { ExportCurrentViewDialog } from "@/components/sales/salesOrders/ExportCurrentViewDialog";
 import { AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const SORT_FIELDS = [
   { key: "createdAt", label: "Created Time" },
@@ -124,6 +126,7 @@ function SalesOrdersPageInner() {
   const [sortField, setSortField] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exportOpen, setExportOpen] = useState(false);
+  const [fromQuoteOpen, setFromQuoteOpen] = useState(false);
   const [exportViewOpen, setExportViewOpen] = useState(false);
   // AI-native "redirect with filters" — seed filter state from the URL
   // synchronously (lazy useState initializer) so the very first fetch
@@ -140,6 +143,19 @@ function SalesOrdersPageInner() {
   const [customerId, setCustomerId] = useState(() => searchParams.get("customerId") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    search: () => setSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    customerId: () => setCustomerId(searchParams.get("customerId") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   const activeView = views.find((v) => v._id === activeViewId);
   const extraColumns: string[] = activeView?.columns?.length ? activeView.columns : [];
@@ -278,6 +294,14 @@ function SalesOrdersPageInner() {
               onDateToChange={setDateTo}
               inputClassName="rounded-none bg-background"
             />
+            <Button
+              variant="outline"
+              onClick={() => setFromQuoteOpen(true)}
+              className="h-11 px-4 border-border/40 font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+            >
+              From Quote
+            </Button>
+            <MoveQuoteToOrderDialog open={fromQuoteOpen} onOpenChange={setFromQuoteOpen} />
             <Link href="/sales/sales-orders/new">
               <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New

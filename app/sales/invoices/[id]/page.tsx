@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, MessageCircle, Pencil, Trash2, IndianRupee, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const statusColors: Record<string, string> = {
   paid: "text-emerald-500",
@@ -29,7 +30,7 @@ export default function InvoiceDetailPage() {
   const [previewOrientation, setPreviewOrientation] = useState<"portrait" | "landscape">("portrait");
 
   useEffect(() => {
-    fetch(`/api/sales/invoices/${params.id}`)
+    cachedFetch(`/api/sales/invoices/${params.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setInvoice(data.data);
@@ -44,7 +45,7 @@ export default function InvoiceDetailPage() {
   // which blocks framing even same-origin content, so an <iframe> pointed
   // at the PDF route always showed a blank box here.
   useEffect(() => {
-    fetch(`/api/sales/invoices/${params.id}/pdf?embed=1`)
+    cachedFetch(`/api/sales/invoices/${params.id}/pdf?embed=1`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -57,7 +58,7 @@ export default function InvoiceDetailPage() {
 
   const handleDelete = async () => {
     if (!confirm("Delete this invoice? This cannot be undone.")) return;
-    const res = await fetch(`/api/sales/invoices/${params.id}`, { method: "DELETE" });
+    const res = await cachedFetch(`/api/sales/invoices/${params.id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
       toast.success("Invoice deleted");
@@ -74,7 +75,7 @@ export default function InvoiceDetailPage() {
     // recipient.
     let url = "";
     try {
-      const res = await fetch(`/api/sales/invoices/${params.id}/share-link`, { method: "POST" });
+      const res = await cachedFetch(`/api/sales/invoices/${params.id}/share-link`, { method: "POST" });
       const data = await res.json();
       if (data.success) url = data.data.url;
     } catch {

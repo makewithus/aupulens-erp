@@ -41,16 +41,20 @@ export function PipelineCard({
     >
       <CardContent className="p-4 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-foreground text-sm truncate">
+          <span className="font-semibold text-foreground text-sm truncate" title={order.header.name}>
             {order.header.name}
           </span>
           <Button
             variant="ghost"
             size="icon"
+            aria-label={`View ${order.header.name}`}
+            title="View document"
             className="h-6 w-6 rounded-none hover:bg-white/5 text-muted-foreground hover:text-foreground shrink-0 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/sales/quotations?view=${order._id}`);
+              // Open the document the card currently represents (quote,
+              // sales order or invoice), not a generic list page.
+              if (order.viewHref) router.push(order.viewHref);
             }}
           >
             <Eye className="h-3.5 w-3.5" />
@@ -73,6 +77,12 @@ export function PipelineCard({
         {/* Action buttons when selected */}
         {isSelected && (
           <div className="pt-3 border-t border-border/20 space-y-2">
+            {Array.isArray(order.refHistory) && order.refHistory.length > 1 && (
+              <div className="font-mono text-[10px] text-muted-foreground/70 leading-relaxed">
+                <span className="uppercase tracking-wider text-muted-foreground/50">History: </span>
+                {order.refHistory.map((h: any) => h.ref).join(" → ")}
+              </div>
+            )}
             {/* Q2C Flow Progress */}
             <PipelineProgress currentStage={stage} />
 

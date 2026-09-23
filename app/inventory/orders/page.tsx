@@ -50,8 +50,10 @@ import {
 import { DraggableVisualization } from "@/components/finance/DraggableVisualization";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { StatCard } from "@/components/admin/StatCard";
+import { friendlyError } from "@/lib/errors/friendlyError";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface OrderItem {
   itemCode: string;
@@ -131,6 +133,9 @@ function OrdersPageInner() {
   const [stockItems, setStockItems] = useState<InventoryItem[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [error, setError] = useState("");
+  // Errors from the create-order form stay inside the dialog; `error` above is
+  // only for failures loading the list behind it.
+  const [formError, setFormError] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   // AI-native "redirect with filters" support — seeded from the URL
@@ -147,6 +152,18 @@ function OrdersPageInner() {
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
   const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
   const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    statusFilter: () => setStatusFilter(searchParams.get("status") || "all"),
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
+    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
+  });
 
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
@@ -222,7 +239,7 @@ function OrdersPageInner() {
       setTotalPages(data.totalPages ?? 1);
     } catch (err) {
       console.error("Error fetching orders:", err);
-      setError("Failed to load orders");
+      setError("We couldn't load your orders. Please refresh the page and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -258,9 +275,19 @@ function OrdersPageInner() {
         const products = prodData.items || [];
         const stockMap = stockData.stock || {};
 
+        // Products without a SKU used to all share the code "N/A", which broke
+        // the picker (duplicate React keys, selecting one selected them all).
+        // Give every option a unique code.
+        const seen = new Set<string>();
+        const uniqueCode = (p: any) => {
+          const base = p.tab_general_information?.default_code || `ITEM-${String(p._id).slice(-6).toUpperCase()}`;
+          const code = seen.has(base) ? `${base}-${String(p._id).slice(-4).toUpperCase()}` : base;
+          seen.add(code);
+          return code;
+        };
         const items = products.map((p: any) => ({
           _id: p._id,
-          itemCode: p.tab_general_information?.default_code || "N/A",
+          itemCode: uniqueCode(p),
           itemName: p.header.name,
           quantity: stockMap[p._id] || 0,
           warehouse: "Main Warehouse", // Default since API aggregates all
@@ -315,7 +342,26 @@ function OrdersPageInner() {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setFormError("");
+
+    const missing: string[] = [];
+    if (!newOrder.customerName.trim()) missing.push("Customer name");
+    if (!newOrder.warehouse) missing.push("Fulfillment warehouse");
+    if (!newOrder.expectedDelivery) missing.push("Expected delivery date");
+    if (!newOrder.shippingAddress.trim()) missing.push("Shipping address");
+    if (missing.length) {
+      setFormError(`Please fill in: ${missing.join(", ")}.`);
+      return;
+    }
+    if (newOrder.expectedDelivery < newOrder.orderDate) {
+      setFormError("Expected delivery can't be earlier than the order date.");
+      return;
+    }
+    const badLine = newOrder.items.findIndex((it) => !it.itemCode || !it.itemName || !(Number(it.quantity) > 0));
+    if (badLine >= 0) {
+      setFormError(`Order item ${badLine + 1}: please select an item and enter a quantity greater than 0.`);
+      return;
+    }
 
     try {
       // InventoryOrder requires expectedDeliveryDate (not expectedDelivery,
@@ -344,7 +390,7 @@ function OrdersPageInner() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to create order");
+        throw new Error(errorData.error || errorData.message || "");
       }
 
       setIsAddDialogOpen(false);
@@ -364,7 +410,7 @@ function OrdersPageInner() {
       fetchOrders();
     } catch (err) {
       console.error("Error creating order:", err);
-      setError(err instanceof Error ? err.message : "Failed to create order");
+      setFormError(friendlyError(err, "We couldn't create this order. Please check the details and try again."));
     }
   };
 
@@ -523,7 +569,7 @@ function OrdersPageInner() {
               Visualize
             </Button> */}
 
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) setFormError(""); }}>
               <DialogTrigger asChild>
                 <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
                   <Plus className="mr-2 h-4 w-4" />
@@ -541,7 +587,7 @@ function OrdersPageInner() {
                     Fill in the details to create a new fulfillment order
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleCreateOrder} className="space-y-4 pt-4">
+                <form onSubmit={handleCreateOrder} className="space-y-4 pt-4" noValidate>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="orderNumber">Order Number (auto-assigned)</Label>
@@ -799,6 +845,15 @@ function OrdersPageInner() {
                       </div>
                     ))}
                   </div>
+
+                  {formError && (
+                    <div
+                      role="alert"
+                      className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900"
+                    >
+                      {formError}
+                    </div>
+                  )}
 
                   <div className="flex justify-end gap-3 pt-4 border-t">
                     <Button

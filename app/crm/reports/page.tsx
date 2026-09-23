@@ -29,7 +29,7 @@ function downloadBlob(blob: Blob, filename: string) {
   document.body.removeChild(a);
 }
 
-function rowsToFile(rows: Record<string, any>[], filename: string, format: "csv" | "xlsx") {
+async function rowsToFile(rows: Record<string, any>[], filename: string, format: "csv" | "xlsx") {
   if (format === "csv") {
     const headers = Object.keys(rows[0] || {});
     const csv = [
@@ -38,12 +38,11 @@ function rowsToFile(rows: Record<string, any>[], filename: string, format: "csv"
     ].join("\n");
     downloadBlob(new Blob([csv], { type: "text/csv" }), `${filename}.csv`);
   } else {
-    const worksheet = xlsx.utils.json_to_sheet(rows);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Report");
-    const buffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" });
+    const { objectsToStyledXlsx, XLSX_MIME } = await import("@/lib/export/styledWorkbook");
+    const title = filename.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    const buffer = await objectsToStyledXlsx({ title, sheetName: "Report", rows });
     downloadBlob(
-      new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+      new Blob([buffer as BlobPart], { type: XLSX_MIME }),
       `${filename}.xlsx`,
     );
   }
@@ -93,7 +92,7 @@ export default function ReportsBuilderPage() {
             Value: a.score,
           })),
         ];
-        rowsToFile(rows, `Churn_Risk_Report_${new Date().toISOString().split("T")[0]}`, format);
+        await rowsToFile(rows, `Churn_Risk_Report_${new Date().toISOString().split("T")[0]}`, format);
       } else if (reportType === "renewals") {
         const res = await fetch("/api/crm/renewals");
         const json = await res.json();
@@ -106,7 +105,7 @@ export default function ReportsBuilderPage() {
           { Metric: "Expired but still active", Value: summary.expiredActive },
           { Metric: "Renewal Pipeline Value (90 days)", Value: summary.renewalPipelineValue90Days },
         ];
-        rowsToFile(rows, `Renewals_Report_${new Date().toISOString().split("T")[0]}`, format);
+        await rowsToFile(rows, `Renewals_Report_${new Date().toISOString().split("T")[0]}`, format);
       }
       toast.success(`Report exported as ${format.toUpperCase()}`);
     } catch {

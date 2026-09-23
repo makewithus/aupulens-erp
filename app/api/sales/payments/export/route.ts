@@ -9,7 +9,7 @@ import {
   AVAILABLE_PAYMENT_COLUMNS,
 } from "@/lib/sales/paymentViews";
 import { resolveSpecialFilter } from "@/lib/sales/paymentViews.server";
-import * as XLSX from "xlsx";
+import { gridToStyledXlsx, XLSX_MIME } from "@/lib/export/styledWorkbook";
 import "@/models/sales/Customer";
 import "@/models/sales/SalesInvoice";
 import { PASSWORD_POLICY } from "@/lib/sales/passwordPolicy";
@@ -110,16 +110,13 @@ export async function POST(request: Request) {
       });
     }
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, "Payments");
-    const bookType = format === "xlsx" ? "xlsx" : "xls";
-    const buffer = XLSX.write(wb, { type: "buffer", bookType });
-    return new NextResponse(buffer, {
+    // Always a real .xlsx (styled title, frozen header, typed cells). Legacy
+    // ".xls" requests get the same workbook rather than an unformatted BIFF file.
+    const buffer = await gridToStyledXlsx({ title: "Payments Export", sheetName: "Payments", data });
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type":
-          bookType === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/vnd.ms-excel",
-        "Content-Disposition": `attachment; filename="${filename}.${bookType}"`,
+        "Content-Type": XLSX_MIME,
+        "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
       },
     });
   } catch (error: any) {

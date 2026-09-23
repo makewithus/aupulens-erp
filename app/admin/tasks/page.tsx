@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 export default function TasksPage() {
   return (
@@ -89,6 +90,15 @@ function TasksPageInner() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
 
   const departments = ["Sales", "Finance", "Inventory", "Manufacturing"];
 

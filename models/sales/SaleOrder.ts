@@ -25,6 +25,9 @@ export interface ISaleOrderLine {
   priceUnit: number;
   taxIds: any[];
   discount: number;
+  discountMode?: "percent" | "amount";
+  taxRate?: number;
+  hsn?: string;
   priceSubtotal: number;
 }
 
@@ -107,6 +110,14 @@ export interface ISaleOrder extends mongoose.Document {
   salesInvoiceIds?: mongoose.Types.ObjectId[];
   customerViewed?: boolean;
 
+  // Q2C pipeline deal linkage: the same deal record keeps its identity while
+  // the document shown on the board changes with the stage (SO -> QT -> SO ->
+  // INV). refHistory keeps every reference the deal has ever carried.
+  quoteId?: mongoose.Types.ObjectId;
+  quoteNumber?: string;
+  invoiceNumber?: string;
+  refHistory?: { docType: string; ref: string; docId?: any; stage?: string; at: Date }[];
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -143,6 +154,9 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
         priceUnit: { type: Number, required: true },
         taxIds: [{ type: Schema.Types.Mixed }],
         discount: { type: Number, default: 0 },
+        discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
+        taxRate: { type: Number, default: 0 },
+        hsn: { type: String },
         priceSubtotal: { type: Number, required: true },
       },
     ],
@@ -168,10 +182,22 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
       enum: DOCUMENT_STATUS_VALUES,
       default: DOCUMENT_STATUS.DRAFT,
     },
+    // A real SaleOrder document existing at all already means "a sales
+    // order was created" — that's past Lead/Opportunity/Price-Rules/Quote,
+    // which are pre-document CRM-tracking stages with no SO/QT reference of
+    // their own yet. Defaulting every newly created order to LEAD (its
+    // original default) meant every confirmed, real order — created
+    // directly via New Order, never through a quote — showed up mislabelled
+    // "Lead Created" with its real SO number, which read as "a Sales Order
+    // exists before any Quote" (item #25: Quote is the first stage a deal
+    // can occupy; a Sales Order reference only appears once a Sales Order
+    // genuinely exists — either created directly, which is this default, or
+    // converted from an accepted Quote, which lib/sales/pipelineDeals.ts's
+    // createOrderFromQuote already sets to SALES_ORDER explicitly).
     q2cStatus: {
       type: String,
       enum: Q2C_STATUS_VALUES,
-      default: Q2C_STATUS.LEAD,
+      default: Q2C_STATUS.SALES_ORDER,
     },
     discountApproval: {
       required: { type: Boolean, default: false },
@@ -229,6 +255,19 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
     ],
     salesInvoiceIds: [{ type: Schema.Types.ObjectId, ref: "SalesInvoice" }],
     customerViewed: { type: Boolean, default: false },
+    quoteId: { type: Schema.Types.ObjectId, ref: "SalesQuotation" },
+    quoteNumber: { type: String },
+    invoiceNumber: { type: String },
+    refHistory: [
+      {
+        docType: { type: String, required: true },
+        ref: { type: String, required: true },
+        docId: { type: Schema.Types.Mixed },
+        stage: { type: String },
+        at: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
   },
   { timestamps: true },
 );

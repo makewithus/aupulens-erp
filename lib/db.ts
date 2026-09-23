@@ -22,6 +22,7 @@ if (!globalThis.mongoose) {
 }
 
 async function connectDB() {
+  await import("@/lib/dbModels");
   if (cached.conn) {
     return cached.conn;
   }

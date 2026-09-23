@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const DOCUMENT_TYPES = [
   { value: "invoice", label: "Invoice" },
@@ -36,7 +37,7 @@ export default function PrefixesSuffixesPage() {
 
   const fetchRows = () => {
     setLoading(true);
-    fetch(`/api/sales/document-prefixes?documentType=${docType}&kind=${kind}`)
+    cachedFetch(`/api/sales/document-prefixes?documentType=${docType}&kind=${kind}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setRows(d.data); })
       .finally(() => setLoading(false));
@@ -46,7 +47,7 @@ export default function PrefixesSuffixesPage() {
 
   const addRow = async () => {
     if (!newValue.trim()) return;
-    const res = await fetch("/api/sales/document-prefixes", {
+    const res = await cachedFetch("/api/sales/document-prefixes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ documentType: docType, kind, value: newValue.trim() }),
@@ -62,7 +63,7 @@ export default function PrefixesSuffixesPage() {
   };
 
   const setDefault = async (id: string) => {
-    const res = await fetch(`/api/sales/document-prefixes/${id}`, {
+    const res = await cachedFetch(`/api/sales/document-prefixes/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isDefault: true }),
@@ -72,7 +73,7 @@ export default function PrefixesSuffixesPage() {
   };
 
   const saveEdit = async (id: string) => {
-    const res = await fetch(`/api/sales/document-prefixes/${id}`, {
+    const res = await cachedFetch(`/api/sales/document-prefixes/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value: editValue }),

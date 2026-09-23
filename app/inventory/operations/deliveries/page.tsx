@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 interface InventoryTransfer {
   _id: string;
@@ -114,6 +115,17 @@ function DeliveriesPageInner() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+
+  // Re-applies the same filters above if the AI assistant redirects here
+  // again with new ones while this page is already open — see the hook's
+  // own doc for why the useState initializers alone aren't enough.
+  useSyncStateFromSearchParams({
+    searchQuery: () => setSearchQuery(searchParams.get("search") || ""),
+    debouncedSearch: () => setDebouncedSearch(searchParams.get("search") || ""),
+    statusFilter: () => setStatusFilter(searchParams.get("status") || "all"),
+    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
+    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+  });
 
   // Resources
   const [partners, setPartners] = useState([]);

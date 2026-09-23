@@ -65,9 +65,11 @@ export default function ContactsPage() {
         setStats(data.data.stats);
         setTotal(data.data.total ?? 0);
         setTotalPages(data.data.totalPages ?? 1);
+      } else {
+        toast.error("We couldn't load your contacts. Please refresh the page and try again.");
       }
     } catch (e) {
-      toast.error("Failed to load contacts.");
+      toast.error("We couldn't load your contacts. Please refresh the page and try again.");
     } finally {
       setLoading(false);
     }
@@ -115,7 +117,7 @@ export default function ContactsPage() {
         fetchContacts();
       }
     } catch (e) {
-      toast.error("Network error.");
+      toast.error("We couldn't reach the server. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }

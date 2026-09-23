@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, EyeOff } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const PASSWORD_HELP =
   "At least 12 characters, including one uppercase, one lowercase, one number, and one special character.";
@@ -39,7 +40,7 @@ export function ExportCustomersDialog({ open, onOpenChange }: ExportCustomersDia
     }
     setExporting(true);
     try {
-      const res = await fetch("/api/sales/customers/export", {
+      const res = await cachedFetch("/api/sales/customers/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -62,7 +63,7 @@ export function ExportCustomersDialog({ open, onOpenChange }: ExportCustomersDia
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `customers.${fileFormat}`;
+      a.download = `customers.${fileFormat === "xls" ? "xlsx" : fileFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export started");

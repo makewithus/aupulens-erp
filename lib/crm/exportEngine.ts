@@ -1,3 +1,4 @@
+import { objectsToStyledXlsx } from "@/lib/export/styledWorkbook";
 import { Parser } from "@json2csv/plainjs";
 import * as xlsx from "xlsx";
 import dbConnect from "@/lib/db";
@@ -57,11 +58,12 @@ export async function generateExportData(
   }
 
   if (format === "xlsx") {
-    const worksheet = xlsx.utils.json_to_sheet(flattenedData);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, entityType);
-    const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
-    return buffer; // Returns a Buffer
+    const styled = await objectsToStyledXlsx({
+      title: `${String(entityType).charAt(0).toUpperCase()}${String(entityType).slice(1)} Export`,
+      sheetName: String(entityType),
+      rows: flattenedData as any[],
+    });
+    return Buffer.from(styled); // Returns a Buffer
   }
 
   throw new Error("Invalid format");

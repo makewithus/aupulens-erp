@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModularModal } from "@/components/dashboard/ModularModal";
 import { toast } from "sonner";
+import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
@@ -86,6 +87,7 @@ export default function EmployeesPage() {
     "create",
   );
   const [formData, setFormData] = useState<any>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // Shown as a persistent banner INSIDE the create modal (not a toast — a
   // toast vanishes in a few seconds and the user can't reread it while
   // filling the form; this stays visible the whole time the modal is open).
@@ -121,7 +123,7 @@ export default function EmployeesPage() {
       if (empJson.stats) setStats(empJson.stats);
       setDepartments(deptJson.items || []);
     } catch (error) {
-      toast.error("Failed to load employees");
+      toast.error("We couldn't load the employee list. Please refresh the page.");
     } finally {
       setIsLoading(false);
     }
@@ -152,6 +154,7 @@ export default function EmployeesPage() {
   }, [debouncedSearch, lifecycleFilter, accountFilter, dateFrom, dateTo]);
 
   const handleOpenCreate = () => {
+    setFieldErrors({});
     setModalMode("create");
     setAiNotice(null);
     setFormData({
@@ -190,6 +193,7 @@ export default function EmployeesPage() {
   };
 
   const handleOpenEdit = (emp: Employee) => {
+    setFieldErrors({});
     setModalMode("edit");
     setAiNotice(null);
     setFormData({
@@ -223,10 +227,10 @@ export default function EmployeesPage() {
         load();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Delete failed");
+        toast.error(err.error || "We couldn't delete this employee. Please try again.");
       }
     } catch {
-      toast.error("Delete error");
+      toast.error("We couldn't delete this employee. Please try again.");
     }
   };
 
@@ -267,15 +271,19 @@ export default function EmployeesPage() {
     setAiNotice(p.suggestions && p.suggestions.length ? p.suggestions : null);
   });
 
+  const FieldError = ({ name }: { name: string }) =>
+    fieldErrors[name] ? (
+      <p role="alert" className="mt-1 text-xs text-red-500">
+        {fieldErrors[name]}
+      </p>
+    ) : null;
+
   const handleSubmit = async () => {
-    if (
-      !formData.firstName ||
-      !formData.lastName ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.employeeCode
-    ) {
-      toast.error("Please fill in all required fields");
+    const payload = sanitizeEmployeePayload(formData);
+    const errors = validateEmployee(payload);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the highlighted fields before saving.");
       return;
     }
 
@@ -290,7 +298,7 @@ export default function EmployeesPage() {
       const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -298,17 +306,23 @@ export default function EmployeesPage() {
         setIsModalOpen(false);
         load();
       } else {
-        const err = await res.json();
-        toast.error(err.error || "Operation failed");
+        const err = await res.json().catch(() => ({}));
+        if (err.fieldErrors) setFieldErrors(err.fieldErrors);
+        toast.error(err.error || "We couldn't save this employee. Please try again.");
       }
     } catch {
-      toast.error("Submission error");
+      toast.error("We couldn't reach the server. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const updateField = (field: string, value: any) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
     setFormData((prev: any) => {
       if (field.includes(".")) {
         const parts = field.split(".");
@@ -674,6 +688,7 @@ export default function EmployeesPage() {
                               updateField("userPassword", e.target.value)
                             }
                           />
+                    <FieldError name="userPassword" />
                         </div>
                       </div>
                     )}
@@ -697,6 +712,7 @@ export default function EmployeesPage() {
                         updateField("employeeCode", e.target.value)
                       }
                     />
+                    <FieldError name="employeeCode" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -725,6 +741,7 @@ export default function EmployeesPage() {
                         updateField("firstName", e.target.value)
                       }
                     />
+                    <FieldError name="firstName" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -736,6 +753,7 @@ export default function EmployeesPage() {
                         updateField("lastName", e.target.value)
                       }
                     />
+                    <FieldError name="lastName" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -748,6 +766,7 @@ export default function EmployeesPage() {
                         updateField("email", e.target.value)
                       }
                     />
+                    <FieldError name="email" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -759,6 +778,7 @@ export default function EmployeesPage() {
                         updateField("phone", e.target.value)
                       }
                     />
+                    <FieldError name="phone" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -778,6 +798,7 @@ export default function EmployeesPage() {
                         </option>
                       ))}
                     </select>
+                    <FieldError name="departmentId" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -789,6 +810,7 @@ export default function EmployeesPage() {
                         updateField("designation", e.target.value)
                       }
                     />
+                    <FieldError name="designation" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -801,6 +823,7 @@ export default function EmployeesPage() {
                         updateField("dateOfJoining", e.target.value)
                       }
                     />
+                    <FieldError name="dateOfJoining" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -818,6 +841,7 @@ export default function EmployeesPage() {
                       <option value="female">Female</option>
                       <option value="other">Other</option>
                     </select>
+                    <FieldError name="gender" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -854,11 +878,13 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.basic || 0}
                       onChange={(e) =>
                         updateField("salary.basic", +e.target.value)
                       }
                     />
+                    <FieldError name="salary.basic" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -866,11 +892,13 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.hra || 0}
                       onChange={(e) =>
                         updateField("salary.hra", +e.target.value)
                       }
                     />
+                    <FieldError name="salary.hra" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -878,11 +906,13 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.da || 0}
                       onChange={(e) =>
                         updateField("salary.da", +e.target.value)
                       }
                     />
+                    <FieldError name="salary.da" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -890,6 +920,7 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.specialAllowance || 0}
                       onChange={(e) =>
                         updateField(
@@ -898,6 +929,7 @@ export default function EmployeesPage() {
                         )
                       }
                     />
+                    <FieldError name="salary.specialAllowance" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -905,6 +937,7 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.deductions?.pf || 0}
                       onChange={(e) =>
                         updateField(
@@ -913,6 +946,7 @@ export default function EmployeesPage() {
                         )
                       }
                     />
+                    <FieldError name="salary.deductions.pf" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -920,6 +954,7 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.deductions?.esi || 0}
                       onChange={(e) =>
                         updateField(
@@ -928,6 +963,7 @@ export default function EmployeesPage() {
                         )
                       }
                     />
+                    <FieldError name="salary.deductions.esi" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -945,6 +981,7 @@ export default function EmployeesPage() {
                         )
                       }
                     />
+                    <FieldError name="salary.deductions.professionalTax" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">
@@ -952,6 +989,7 @@ export default function EmployeesPage() {
                     </label>
                     <Input
                       type="number"
+                      min={0}
                       value={formData.salary?.deductions?.tds || 0}
                       onChange={(e) =>
                         updateField(
@@ -960,7 +998,9 @@ export default function EmployeesPage() {
                         )
                       }
                     />
+                    <FieldError name="salary.deductions.tds" />
                   </div>
+                  <div className="md:col-span-3"><FieldError name="salary.deductions" /></div>
                 </div>
               </div>
 

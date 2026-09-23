@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { salesSidebarConfig } from "@/config/sidebar/sales";
 import { InvoiceForm } from "@/components/sales/invoices/InvoiceForm";
 import { FullPageLoadingSkeleton } from "@/components/ui/loading-skeletons";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export default function EditInvoicePage() {
   const params = useParams<{ id: string }>();
@@ -16,7 +17,7 @@ export default function EditInvoicePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/sales/invoices/${params.id}`)
+    cachedFetch(`/api/sales/invoices/${params.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setInvoice(data.data);

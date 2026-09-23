@@ -9,6 +9,7 @@ import Link from "next/link";
 export default function SupportDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     // KPI cards come from the same dedicated aggregate endpoint the Cases
@@ -27,12 +28,25 @@ export default function SupportDashboard() {
           avgResTime: kpi.data.avgResTime,
           escalationsToday: kpi.data.escalationsToday,
         });
+      } else {
+        setFailed(true);
       }
-      setLoading(false);
-    });
+    }).catch(() => setFailed(true)).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+
+  if (failed || !data) {
+    return (
+      <div className="p-6 space-y-4">
+        <h1 className="text-2xl font-bold">Support Operations Dashboard</h1>
+        <div className="border border-border p-8 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">We couldn&apos;t load the support dashboard right now.</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>Try again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

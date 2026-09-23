@@ -15,6 +15,7 @@ import { Star, Trash2, Plus, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { MANDATORY_SALE_ORDER_COLUMNS, AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
 import { SALES_VIEW_VISIBILITY } from "@/lib/constants/statuses";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const CRITERIA_FIELDS = [
   { key: "salesOrderStatus", label: "Order Status" },
@@ -88,7 +89,7 @@ export default function NewSaleOrderViewPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/sales-order-views", {
+      const res = await cachedFetch("/api/sales/sales-order-views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, isFavorite, criteria, columns: selectedColumns, visibility }),

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Check, X } from "lucide-react";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 export interface PrefixRow {
   _id: string;
@@ -33,7 +34,7 @@ export function PrefixPicker({
     if (!newValue.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/sales/document-prefixes", {
+      const res = await cachedFetch("/api/sales/document-prefixes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documentType: "invoice", kind: "prefix", value: newValue.trim() }),

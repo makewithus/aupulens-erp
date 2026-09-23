@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, ChevronRight, Mail, Download } from "lucide-react";
-import { uploadToCloudinary } from "@/lib/upload";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 const COUNTRIES = [
   "India",
@@ -28,16 +28,42 @@ const COUNTRIES = [
 ];
 
 const INDIAN_STATES = [
-  "Maharashtra",
-  "Karnataka",
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
   "Delhi",
-  "Tamil Nadu",
+  "Goa",
   "Gujarat",
   "Haryana",
-  "Uttar Pradesh",
-  "West Bengal",
-  "Telangana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
   "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
 ];
 
 export interface CustomerFormValue {
@@ -131,15 +157,15 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   const [addingTag, setAddingTag] = useState(false);
 
   useEffect(() => {
-    fetch("/api/accounting/accounts")
+    cachedFetch("/api/accounting/accounts")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []))
       .catch(() => {});
-    fetch("/api/sales/customers/custom-field-definitions")
+    cachedFetch("/api/sales/customers/custom-field-definitions")
       .then((r) => r.json())
       .then((d) => d.success && setCustomFieldDefs(d.data))
       .catch(() => {});
-    fetch("/api/sales/customers/reporting-tags")
+    cachedFetch("/api/sales/customers/reporting-tags")
       .then((r) => r.json())
       .then((d) => d.success && setReportingTagDefs(d.data))
       .catch(() => {});
@@ -204,23 +230,45 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
   };
 
   const handlePrefill = async () => {
-    if (!gstinInput) {
-      toast.error("Enter a GSTIN first");
+    if (!gstinInput.trim()) {
+      toast.error("Please enter the customer's GSTIN first.");
       return;
     }
     setPrefilling(true);
     try {
-      const res = await fetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput)}`);
+      const res = await cachedFetch(`/api/sales/customers/gstin-lookup?gstin=${encodeURIComponent(gstinInput.trim())}`);
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "GSTIN lookup failed");
-      update({ gstin: gstinInput.toUpperCase() });
-      if (data.data?.legalName && !form.header.companyName) {
-        updateNested("header", { companyName: data.data.legalName });
-      }
-      if (data.data?.address?.state) {
-        updateAddress("billing", { state_name: data.data.address.state, country: "India" });
-      }
-      toast.success("Prefilled from GST portal");
+      if (!data.ok) throw new Error(data.error || "We couldn't look up this GSTIN. Please try again.");
+      const d = data.data;
+
+      // Fill every field the lookup returned; never overwrite what the user already typed.
+      setForm((f) => {
+        const display = d.tradeName || d.legalName;
+        const header = {
+          ...f.header,
+          customerType: d.isCompany ? ("business" as const) : ("individual" as const),
+          is_company: d.isCompany,
+          companyName: f.header.companyName || d.legalName || f.header.companyName,
+          name: f.header.name || display || f.header.name,
+          displayName: f.header.displayName || display || f.header.displayName,
+        };
+        const billingAddr = f.addresses.find((a) => a.type === "billing") || { type: "billing" as const };
+        const others = f.addresses.filter((a) => a.type !== "billing");
+        const addr = d.address || {};
+        const merged = {
+          ...billingAddr,
+          street: billingAddr.street || addr.street,
+          street2: billingAddr.street2 || addr.street2,
+          city: billingAddr.city || addr.city,
+          state_name: addr.state || billingAddr.state_name,
+          zip: billingAddr.zip || addr.zip,
+          country: "India",
+        };
+        return { ...f, gstin: d.gstin, pan: f.pan || d.pan, header, addresses: [...others, merged] };
+      });
+      setGstinInput(d.gstin);
+      if (data.live) toast.success("Customer details filled from the GST portal");
+      else toast.info(data.message || "Filled what could be read from the GSTIN");
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -228,30 +276,11 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (form.documents.length >= 10) {
-      toast.error("You can upload a maximum of 10 files");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Each file must be 10MB or smaller");
-      return;
-    }
-    const toastId = toast.loading("Uploading file...");
-    try {
-      const url = await uploadToCloudinary(file);
-      update({ documents: [...form.documents, { name: file.name, url, size: file.size }] });
-      toast.success("File uploaded", { id: toastId });
-    } catch (e: any) {
-      toast.error(e.message || "Failed to upload file", { id: toastId });
-    }
-  };
-
   const handleAddCustomFieldDef = async () => {
     if (!newFieldLabel.trim()) return;
     setAddingField(true);
     try {
-      const res = await fetch("/api/sales/customers/custom-field-definitions", {
+      const res = await cachedFetch("/api/sales/customers/custom-field-definitions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: newFieldLabel.trim() }),
@@ -272,7 +301,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     if (!newTagName.trim()) return;
     setAddingTag(true);
     try {
-      const res = await fetch("/api/sales/customers/reporting-tags", {
+      const res = await cachedFetch("/api/sales/customers/reporting-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newTagName.trim() }),
@@ -313,7 +342,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     try {
       const url = customerId ? `/api/sales/customers/${customerId}` : "/api/sales/customers";
       const method = customerId ? "PATCH" : "POST";
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -554,36 +583,6 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
             </label>
           </div>
 
-          <div className="max-w-2xl space-y-2">
-            <Label>Documents</Label>
-            <div className="border border-dashed rounded-none p-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                You can upload a maximum of 10 files, 10MB each
-              </span>
-              <label>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                />
-                <span className="text-sm font-medium text-primary cursor-pointer">Upload File</span>
-              </label>
-            </div>
-            {form.documents.length > 0 && (
-              <ul className="text-sm space-y-1">
-                {form.documents.map((d, i) => (
-                  <li key={i} className="flex items-center justify-between">
-                    <span>{d.name}</span>
-                    <button
-                      onClick={() => update({ documents: form.documents.filter((_, idx) => idx !== i) })}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </TabsContent>
 
         <TabsContent value="address" className="pt-4">

@@ -1,3 +1,5 @@
+import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
+import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -123,12 +125,13 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const body = await req.json();
+    const body = sanitizeEmployeePayload(await req.json());
     await connectDB();
 
-    if (!body.firstName || !body.lastName || !body.email || !body.phone || !body.employeeCode) {
+    const fieldErrors = validateEmployee(body);
+    if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json(
-        { error: "First name, last name, email, phone, and employee code are required" },
+        { error: Object.values(fieldErrors)[0], fieldErrors },
         { status: 400 },
       );
     }
@@ -140,7 +143,7 @@ export async function POST(req: NextRequest) {
     });
     if (existing) {
       return NextResponse.json(
-        { error: "Employee with this code already exists" },
+        { error: "Employee code already exists. Please use a different code.", fieldErrors: { employeeCode: "Employee code already exists. Please use a different code." } },
         { status: 409 },
       );
     }
@@ -222,6 +225,9 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: any) {
     console.error("Create Employee Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: friendlyError(error, "We couldn't save this employee. Please check the details and try again.") },
+      { status: 500 },
+    );
   }
 }

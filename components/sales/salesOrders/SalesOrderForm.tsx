@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { uploadToCloudinary } from "@/lib/upload";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface LineItem {
   itemId?: string;
@@ -74,10 +75,10 @@ export function SalesOrderForm() {
   const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
 
   useEffect(() => {
-    fetch("/api/sales/customers")
+    cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    fetch("/api/sales/subscriptions")
+    cachedFetch("/api/sales/subscriptions")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -85,19 +86,19 @@ export function SalesOrderForm() {
           setSubscriberCustomerIds(ids);
         }
       });
-    fetch("/api/sales/products?status=published")
+    cachedFetch("/api/sales/products?status=published")
       .then((r) => r.json())
       .then((d) => setProducts(d.items || []));
-    fetch("/api/finance/accounting/tax-rates")
+    cachedFetch("/api/finance/accounting/tax-rates")
       .then((r) => r.json())
       .then((d) => setTaxRates(d.data || []));
-    fetch("/api/users")
+    cachedFetch("/api/users")
       .then((r) => r.json())
       .then((d) => setUsers(d.users || []));
-    fetch("/api/sales/delivery-methods")
+    cachedFetch("/api/sales/delivery-methods")
       .then((r) => r.json())
       .then((d) => setDeliveryMethods(d.data || []));
-    fetch("/api/sales/sales-orders/next-number")
+    cachedFetch("/api/sales/sales-orders/next-number")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -144,7 +145,7 @@ export function SalesOrderForm() {
     const setLoading = field === "notes" ? setNotesLoading : setTermsLoading;
     setLoading(true);
     try {
-      const res = await fetch("/api/sales/invoices/ai-notes", {
+      const res = await cachedFetch("/api/sales/invoices/ai-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ field, context: "sales order" }),
@@ -216,7 +217,7 @@ export function SalesOrderForm() {
   const handleAddDeliveryMethod = async (name: string) => {
     setDeliveryMethod(name);
     if (!deliveryMethods.some((m) => m.name === name)) {
-      const res = await fetch("/api/sales/delivery-methods", {
+      const res = await cachedFetch("/api/sales/delivery-methods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -234,7 +235,7 @@ export function SalesOrderForm() {
     }
     setSavingNumberSettings(true);
     try {
-      const res = await fetch("/api/sales/sales-orders/number-settings", {
+      const res = await cachedFetch("/api/sales/sales-orders/number-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefix: prefixInput, nextNumber: nextNumberInput, restartFiscalYear }),
@@ -284,7 +285,7 @@ export function SalesOrderForm() {
         status,
       };
       if (manualNumber) body.number = displayNumber;
-      const res = await fetch("/api/sales/sales-orders", {
+      const res = await cachedFetch("/api/sales/sales-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
