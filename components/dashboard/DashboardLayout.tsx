@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
@@ -139,6 +140,7 @@ export function DashboardLayout({
         userRole={userRole}
         onSignOut={async () => {
           console.log("[DashboardLayout] Sign out started, clearing state...");
+          toast.success("Successfully signed out. Redirecting...");
           clearAllStores();
           console.log("[DashboardLayout] Invoking native signOut...");
           await signOut({ callbackUrl: "/auth", redirect: true });

@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { PlatformDashboardLayout } from "./PlatformDashboardLayout";
@@ -31,6 +32,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   async function handleSignOut() {
+    toast.success("Successfully signed out. Redirecting...");
     await fetch("/api/platform/auth/logout", { method: "POST" });
     router.push("/platform/login");
   }

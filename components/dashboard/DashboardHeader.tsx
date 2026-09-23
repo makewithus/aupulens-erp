@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
 import { Roboto_Mono } from "next/font/google";
 import {
@@ -198,6 +199,7 @@ export function DashboardHeader({
 
   const handleSignOut = async () => {
     console.log("[DashboardHeader] Sign out triggered");
+    toast.success("Successfully signed out. Redirecting...");
     // 1. If a parent (DashboardLayout) provided a sign-out handler, use it
     if (onSignOut) {
       console.log("[DashboardHeader] Using onSignOut prop");
