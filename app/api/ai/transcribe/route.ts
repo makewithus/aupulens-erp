@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
         languageCode: language,
         mimeType: contentType,
       });
-      if (!result.ok) {
-        throw new Error(result.error.message || "Sarvam ASR failed.");
+      if (result.ok === false) {
+        throw new Error((result as any).error?.message || "Sarvam ASR failed.");
       }
-      text = result.data.transcript || "";
+      text = (result as any).data?.transcript || "";
     } else {
       text = await transcribeAudio(buffer, { contentType, filename, language });
     }
