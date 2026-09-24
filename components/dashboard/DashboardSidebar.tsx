@@ -85,7 +85,7 @@ export function DashboardSidebar({
             h-8
             w-8
             rounded-none
-            text-muted-foreground
+            text-[#B3BAC7]
             hover:bg-transparent
             hover:text-foreground
           "
@@ -103,7 +103,7 @@ export function DashboardSidebar({
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
-              <div className="mb-8 px-6 font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/60">
+              <div className="mb-8 px-6 font-mono text-[10px] uppercase tracking-[0.28em] text-[#B3BAC7]/80">
                 {section.title}
               </div>
             )}
@@ -128,7 +128,7 @@ export function DashboardSidebar({
                       "h-4 w-4 transition-all duration-300 shrink-0",
                       isActive
                         ? "text-foreground opacity-90"
-                        : "text-muted-foreground/35 group-hover:text-muted-foreground/60"
+                        : "text-[#B3BAC7]/70 group-hover:text-[#B3BAC7]"
                     )}
                   />
 
@@ -139,7 +139,7 @@ export function DashboardSidebar({
                           "relative w-fit text-[28px] leading-none tracking-[-0.06em] transition-colors duration-300",
                           isActive
                             ? "text-foreground"
-                            : "text-muted-foreground/55 group-hover:text-muted-foreground"
+                            : "text-[#B3BAC7] group-hover:text-[#B3BAC7]/90"
                         )}
                       >
                         {item.title}
@@ -156,7 +156,7 @@ export function DashboardSidebar({
 
                       {item.badge && (
                         <Badge
-                          className="mt-2 w-fit rounded-none border border-border bg-transparent text-[10px]"
+                          className="mt-2 w-fit rounded-none border border-border bg-transparent text-[10px] text-foreground"
                         >
                           {item.badge}
                         </Badge>
