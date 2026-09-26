@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -48,7 +48,11 @@ export default function Q2CPipelinePage() {
     if (status === "authenticated") load();
   }, [status, router, load]);
 
+  const transitionInFlight = useRef(false);
+
   const handleQ2CTransition = async (dealId: string, nextStatus: string) => {
+    if (transitionInFlight.current) return;
+    transitionInFlight.current = true;
     const deal = data.find((d) => d._id === dealId);
     try {
       const res = await cachedFetch("/api/sales/pipeline/transition", {
@@ -66,6 +70,8 @@ export default function Q2CPipelinePage() {
       setSelectedOrder(null);
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      transitionInFlight.current = false;
     }
   };
 

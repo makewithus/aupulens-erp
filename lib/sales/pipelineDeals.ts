@@ -227,6 +227,8 @@ async function ensureQuoteForOrder(tenantId: string, userId: string, order: any)
     const existing = await SalesQuotation.findOne({ _id: order.quoteId, tenantId });
     if (existing) return existing;
   }
+  const linked = await SalesQuotation.findOne({ tenantId, saleOrderId: order._id });
+  if (linked) { order.quoteId = linked._id; order.quoteNumber = linked.quoteNumber; return linked; }
   if (!order.header?.partnerId) {
     throw new DealError("This deal has no customer. Add a customer before generating a quote.");
   }
@@ -344,6 +346,22 @@ export async function createOrderFromQuote(params: { tenantId: string; userId: s
 
 /** Posts an invoice for a sales order deal (idempotent: reuses an existing one). */
 export async function createInvoiceForOrder(params: { tenantId: string; userId: string; order: any }) {
+  const { tenantId, order } = params;
+  const lock = await SaleOrder.findOneAndUpdate({
+    _id: order._id, tenantId,
+    $or: [{ invoiceConversionStartedAt: null }, { invoiceConversionStartedAt: { $lt: new Date(Date.now() - 120000) } }],
+  }, { $set: { invoiceConversionStartedAt: new Date() } });
+  if (!lock) throw new DealError("This order is already being invoiced. Refresh before retrying.", 409);
+  try {
+    const invoice = await createInvoiceForOrderLocked(params);
+    await order.save();
+    return invoice;
+  } finally {
+    await SaleOrder.updateOne({ _id: order._id, tenantId }, { $unset: { invoiceConversionStartedAt: 1 } });
+  }
+}
+
+async function createInvoiceForOrderLocked(params: { tenantId: string; userId: string; order: any }) {
   const { tenantId, userId, order } = params;
   const existingIds: any[] = order.salesInvoiceIds || [];
   if (existingIds.length) {

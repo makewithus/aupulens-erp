@@ -20,6 +20,7 @@ export interface IInvoiceLine {
   taxIds: number[]; // Array of tax IDs (consistent with SO)
   accountId?: mongoose.Types.ObjectId; // Income/Expense Account
   discount?: number;
+  taxRate?: number;
 }
 
 export interface IInvoice extends Document {
@@ -47,6 +48,9 @@ export interface IInvoice extends Document {
   // Totals
   amountUntaxed: number;
   amountTax: number;
+  gstInputEligible?: boolean;
+  supplierState?: string;
+  placeOfSupply?: string;
   amountTotal: number;
   amountResidual: number; // Amount due
 
@@ -92,6 +96,7 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
         taxIds: [{ type: Number }],
         accountId: { type: Schema.Types.ObjectId, ref: "Account" },
         discount: { type: Number, default: 0 },
+        taxRate: { type: Number, min: 0, max: 100 },
       },
     ],
     currencyId: { type: String, default: "INR" },
@@ -104,6 +109,9 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
 
     amountUntaxed: { type: Number, default: 0 },
     amountTax: { type: Number, default: 0 },
+    gstInputEligible: { type: Boolean, default: false },
+    supplierState: String,
+    placeOfSupply: String,
     amountTotal: { type: Number, default: 0 },
     amountResidual: { type: Number, default: 0 },
 
@@ -140,6 +148,8 @@ InvoiceSchema.index({ tenantId: 1, moveType: 1 });
 InvoiceSchema.index({ tenantId: 1, state: 1 });
 InvoiceSchema.index({ tenantId: 1, paymentState: 1 });
 InvoiceSchema.index({ tenantId: 1, moveType: 1, state: 1 });
+InvoiceSchema.index({ tenantId: 1, moveType: 1, paymentState: 1, invoiceDate: -1 });
+InvoiceSchema.index({ tenantId: 1, moveType: 1, state: 1, invoiceDate: -1 });
 InvoiceSchema.index({ tenantId: 1, invoiceDate: -1, createdAt: -1 });
 InvoiceSchema.index({ tenantId: 1, createdAt: -1 });
 

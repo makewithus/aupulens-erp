@@ -73,17 +73,20 @@ export async function GET() {
 
         // 3. Operational Counts
         StockTransfer.countDocuments({
+          tenantId,
           "header.operationType": "incoming",
-          status: { $ne: DOCUMENT_STATUS.CLOSED },
+          status: { $nin: [DOCUMENT_STATUS.CLOSED, DOCUMENT_STATUS.CANCELLED] },
         }),
 
         StockTransfer.countDocuments({
+          tenantId,
           "header.operationType": "outgoing",
-          status: { $ne: DOCUMENT_STATUS.CLOSED },
+          status: { $nin: [DOCUMENT_STATUS.CLOSED, DOCUMENT_STATUS.CANCELLED] },
         }),
 
         ManufacturingOrder.countDocuments({
-          status: { $ne: DOCUMENT_STATUS.CLOSED },
+          tenantId,
+          status: { $nin: [DOCUMENT_STATUS.CLOSED, DOCUMENT_STATUS.CANCELLED] },
         }),
 
         // 4. Low Stock (Items with quantity <= 5)

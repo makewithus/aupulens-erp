@@ -99,6 +99,7 @@ function StockTrackingPageInner() {
       invoice_policy: "order",
       list_price: 1.0,
       standard_price: 0,
+      gstRate: 18,
       taxes_id: [],
     },
     tab_sales: {
@@ -107,7 +108,7 @@ function StockTrackingPageInner() {
     },
     tab_prices: { pricelist_item_ids: [] },
     tab_accounting: { cost_and_revenue: {} },
-    status: "draft",
+    status: "published",
   };
 
   // Initial Load (Resources + Stock)

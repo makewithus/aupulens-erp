@@ -524,8 +524,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const res = await fetch(`/api/ai/command/actions/${proposalId}/confirm`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       const ok = res.ok && data.success;
-      setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: ok ? "✓ Done — I've completed that for you." : (data.message || "I couldn't complete that action."), proposal: { ...m.proposal, status: ok ? "confirmed" : "failed" } } : m)));
-      if (ok) router.refresh();
+      setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: ok ? (data.message || "✓ Done — I've completed that for you.") : (data.message || "I couldn't complete that action."), proposal: { ...m.proposal, status: ok ? "confirmed" : "failed" } } : m)));
+      if (ok) {
+        if (data.redirectUrl) router.push(data.redirectUrl);
+        else router.refresh();
+      }
     } catch {
       setMessages((prev) => prev.map((m) => (m.proposal?.proposalId === proposalId ? { ...m, text: "I couldn't complete that action. Please try again.", proposal: { ...m.proposal, status: "failed" } } : m)));
     }

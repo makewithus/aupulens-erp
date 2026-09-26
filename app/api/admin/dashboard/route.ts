@@ -2,7 +2,18 @@ import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
-import { DOCUMENT_STATUS, ENTITY_STATUS, PAYMENT_STATE } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, ENTITY_STATUS, PAYMENT_STATE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+
+const POSTED_SALES_STATUSES = [
+  SALES_INVOICE_STATUS.SAVED,
+  SALES_INVOICE_STATUS.PARTIALLY_PAID,
+  SALES_INVOICE_STATUS.PAID,
+  SALES_INVOICE_STATUS.OVERDUE,
+];
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export async function GET() {
   try {
@@ -20,7 +31,6 @@ export async function GET() {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    console.log(tenantId)
 
     const [
       SalesInvoice,
@@ -49,61 +59,113 @@ export async function GET() {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
     const lastSixMonths = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    // Finance: Revenue (using SalesInvoice) & Expenses (vendor bills) — these
-    // two finds are independent (different models), so run them together.
-    const [outInvoices, inInvoices] = await Promise.all([
-      (SalesInvoice as any).find({ tenantId }).lean(),
-      (Invoice as any).find({ tenantId, moveType: "in_invoice" }).lean(),
+    const [salesInvoiceAgg, purchaseBillAgg, revenueByMonthRows] = await Promise.all([
+      (SalesInvoice as any).aggregate([
+        { $match: { tenantId } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: {
+                $cond: [{ $in: ["$status", POSTED_SALES_STATUSES] }, { $ifNull: ["$totalAmount", 0] }, 0],
+              },
+            },
+            draftInvoices: {
+              $sum: { $cond: [{ $eq: ["$status", SALES_INVOICE_STATUS.DRAFT] }, 1, 0] },
+            },
+            revenueCurrentMonth: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $in: ["$status", POSTED_SALES_STATUSES] },
+                      { $gte: ["$invoiceDate", currentMonthStart] },
+                      { $lt: ["$invoiceDate", nextMonthStart] },
+                    ],
+                  },
+                  { $ifNull: ["$totalAmount", 0] },
+                  0,
+                ],
+              },
+            },
+            revenuePreviousMonth: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $in: ["$status", POSTED_SALES_STATUSES] },
+                      { $gte: ["$invoiceDate", prevMonthStart] },
+                      { $lt: ["$invoiceDate", currentMonthStart] },
+                    ],
+                  },
+                  { $ifNull: ["$totalAmount", 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      (Invoice as any).aggregate([
+        {
+          $match: {
+            tenantId,
+            moveType: "in_invoice",
+            $or: [
+              { state: DOCUMENT_STATUS.POSTED },
+              { paymentState: PAYMENT_STATE.PAID },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalExpenses: { $sum: { $ifNull: ["$amountTotal", 0] } },
+            expensesCurrentMonth: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ["$invoiceDate", currentMonthStart] },
+                      { $lt: ["$invoiceDate", nextMonthStart] },
+                    ],
+                  },
+                  { $ifNull: ["$amountTotal", 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      (SalesInvoice as any).aggregate([
+        {
+          $match: {
+            tenantId,
+            status: { $in: POSTED_SALES_STATUSES },
+            invoiceDate: { $gte: lastSixMonths, $lt: nextMonthStart },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m", date: "$invoiceDate" } },
+            revenue: { $sum: { $ifNull: ["$totalAmount", 0] } },
+          },
+        },
+      ]),
     ]);
 
-    // Valid finalized statuses for SalesInvoice
-    const isPostedSales = (inv: any) => ["saved", "partially_paid", "paid", "overdue"].includes(inv.status);
-    
-    const totalRevenue = outInvoices
-      .filter(isPostedSales)
-      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
-      
-    const draftInvoices = outInvoices.filter(
-      (inv: any) => inv.status === "draft",
-    ).length;
-    
-    const revenueCurrentMonth = outInvoices
-      .filter(
-        (inv: any) =>
-          isPostedSales(inv) &&
-          inv.invoiceDate &&
-          new Date(inv.invoiceDate) >= currentMonthStart,
-      )
-      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
-      
-    const revenuePreviousMonth = outInvoices
-      .filter(
-        (inv: any) =>
-          isPostedSales(inv) &&
-          inv.invoiceDate &&
-          new Date(inv.invoiceDate) >= prevMonthStart &&
-          new Date(inv.invoiceDate) <= prevMonthEnd,
-      )
-      .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0);
-
-    const totalExpenses = inInvoices
-      .filter(
-        (inv: any) =>
-          inv.state === DOCUMENT_STATUS.POSTED || inv.paymentState === PAYMENT_STATE.PAID,
-      )
-      .reduce((sum: number, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
-
-    const expensesCurrentMonth = inInvoices
-      .filter(
-        (inv: any) =>
-          (inv.state === DOCUMENT_STATUS.POSTED || inv.paymentState === PAYMENT_STATE.PAID) &&
-          inv.invoiceDate &&
-          new Date(inv.invoiceDate) >= currentMonthStart,
-      )
-      .reduce((sum: number, inv: any) => sum + (Number(inv.amountTotal) || 0), 0);
+    const salesTotals = salesInvoiceAgg[0] ?? {};
+    const purchaseTotals = purchaseBillAgg[0] ?? {};
+    const totalRevenue = Number(salesTotals.totalRevenue) || 0;
+    const draftInvoices = Number(salesTotals.draftInvoices) || 0;
+    const revenueCurrentMonth = Number(salesTotals.revenueCurrentMonth) || 0;
+    const revenuePreviousMonth = Number(salesTotals.revenuePreviousMonth) || 0;
+    const totalExpenses = Number(purchaseTotals.totalExpenses) || 0;
+    const expensesCurrentMonth = Number(purchaseTotals.expensesCurrentMonth) || 0;
 
     // Sales: Orders
     const [
@@ -133,10 +195,6 @@ export async function GET() {
       }),
     ]);
 
-    console.log(
-      `[Admin Dashboard] Orders: ${totalOrders}, Customers: ${totalCustomers}`,
-    );
-
     // Inventory: Products & Stock
     const [totalProducts, publishedProducts, totalStockTransfers] =
       await Promise.all([
@@ -152,10 +210,6 @@ export async function GET() {
         }),
       ]);
 
-    console.log(
-      `[Admin Dashboard] Products: ${totalProducts}, Stock Transfers: ${totalStockTransfers}`,
-    );
-
     // Manufacturing & Users
     const [totalManufacturingOrders, totalUsers, activeUsers] = await Promise.all([
       ManufacturingOrder.countDocuments({ tenantId }),
@@ -163,45 +217,31 @@ export async function GET() {
       User.countDocuments({ tenantId, status: ENTITY_STATUS.ACTIVE }),
     ]);
 
-    console.log(
-      `[Admin Dashboard] Users: ${totalUsers}, Active: ${activeUsers}`,
-    );
-
     // Additional Expenses & Transactions
     const [totalExpenseRecords, totalTransactions] = await Promise.all([
       Expense.aggregate([
         { $match: { tenantId } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ["$total", "$amount"] } } } },
       ]).then((r) => r[0]?.total || 0),
       Transaction.countDocuments({
         tenantId,
       }),
     ]);
 
-    // Chart Data: Revenue by month (last 6 months)
     const monthRanges = Array.from({ length: 6 }, (_, idx) => {
       const i = 5 - idx;
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       return { monthStart, monthEnd };
     });
-
-    const revenueByMonth = monthRanges.map(({ monthStart, monthEnd }) =>
-      outInvoices
-        .filter(
-          (inv: any) =>
-            isPostedSales(inv) &&
-            inv.invoiceDate &&
-            new Date(inv.invoiceDate) >= monthStart &&
-            new Date(inv.invoiceDate) <= monthEnd,
-        )
-        .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || 0), 0),
+    const revenueByMonth = new Map<string, number>(
+      revenueByMonthRows.map((row: any) => [row._id, Number(row.revenue) || 0]),
     );
 
     const ordersByMonth = await Promise.all(
       monthRanges.map(({ monthStart, monthEnd }) =>
         SaleOrder.countDocuments({
-          createdAt: { $gte: monthStart, $lte: monthEnd },
+          createdAt: { $gte: monthStart, $lt: monthEnd },
           tenantId,
         }),
       ),
@@ -240,7 +280,7 @@ export async function GET() {
 
       chartData.push({
         month: monthNames[month],
-        revenue: revenueByMonth[5 - i],
+        revenue: revenueByMonth.get(monthKey(date)) ?? 0,
         orders: ordersByMonth[5 - i],
       });
     }

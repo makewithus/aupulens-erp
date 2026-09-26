@@ -383,7 +383,7 @@ export function DashboardHeader({
                           {m.config.map((section, si) => (
                             <div key={si} className="mb-3 last:mb-0">
                               {section.title && (
-                                <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                                <div className="text-[10px] font-black tracking-widest uppercase text-[#B3BAC7] px-2 mb-1">
                                   {section.title}
                                 </div>
                               )}
@@ -427,7 +427,7 @@ export function DashboardHeader({
                         {sidebarConfig.map((section, si) => (
                           <div key={si} className="mb-3 last:mb-0">
                             {section.title && (
-                              <div className="text-[10px] font-black tracking-widest uppercase text-muted-foreground/70 px-2 mb-1">
+                              <div className="text-[10px] font-black tracking-widest uppercase text-[#B3BAC7] px-2 mb-1">
                                 {section.title}
                               </div>
                             )}
@@ -504,7 +504,7 @@ export function DashboardHeader({
         >
           {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
             <div className="mb-4 pb-4 border-b border-border/50">
-              <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
+              <div className="text-xs text-[#B3BAC7] uppercase tracking-widest mb-2 px-2">
                 Modules
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -539,7 +539,7 @@ export function DashboardHeader({
           ).map((section, si) => (
             <div key={si} className="mb-3">
               {section.title && (
-                <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
+                <div className="text-xs text-[#B3BAC7] uppercase tracking-widest mb-2 px-2">
                   {section.title}
                 </div>
               )}
@@ -553,7 +553,7 @@ export function DashboardHeader({
                         setIsMobileNavOpen(false);
                         router.push(it.href);
                       }}
-                      className="flex items-center gap-3 text-left px-3 py-2 rounded-none hover:bg-muted/50 text-sm text-muted-foreground"
+                      className="flex items-center gap-3 text-left px-3 py-2 rounded-none hover:bg-muted/50 text-sm text-[#B3BAC7]"
                     >
                       {Icon && <Icon className="h-4 w-4" />}
                       <span className="truncate">{it.title}</span>

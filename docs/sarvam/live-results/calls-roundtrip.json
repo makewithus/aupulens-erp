@@ -3,266 +3,266 @@
   "calls": [
     {
       "path": "/translate",
-      "chars": 67,
-      "ms": 1361,
+      "chars": 70,
+      "ms": 1219,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 79,
-      "ms": 1105,
+      "chars": 78,
+      "ms": 1297,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 62,
-      "ms": 717,
+      "chars": 68,
+      "ms": 794,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 72,
-      "ms": 811,
+      "chars": 80,
+      "ms": 897,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 67,
-      "ms": 1535,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 83,
-      "ms": 824,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 1429,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 66,
-      "ms": 795,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 738,
+      "chars": 70,
+      "ms": 1599,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 81,
-      "ms": 813,
+      "ms": 823,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 62,
-      "ms": 822,
+      "chars": 68,
+      "ms": 1718,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 78,
+      "chars": 83,
       "ms": 818,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 67,
-      "ms": 818,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 65,
-      "ms": 819,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 715,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 69,
-      "ms": 923,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 712,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 59,
-      "ms": 714,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 719,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 65,
-      "ms": 718,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 816,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 73,
-      "ms": 819,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
+      "chars": 70,
       "ms": 814,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 66,
-      "ms": 925,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 740,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 69,
-      "ms": 793,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 716,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 819,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 813,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 65,
-      "ms": 721,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 714,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 71,
-      "ms": 917,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 821,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 78,
+      "ms": 920,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 85,
+      "ms": 1125,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 53,
       "ms": 714,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 62,
-      "ms": 719,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 73,
-      "ms": 813,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 720,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 74,
-      "ms": 814,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 62,
-      "ms": 720,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 64,
-      "ms": 715,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 67,
-      "ms": 712,
+      "chars": 68,
+      "ms": 920,
       "status": 200
     },
     {
       "path": "/translate",
       "chars": 75,
-      "ms": 824,
+      "ms": 920,
       "status": 200
     },
     {
       "path": "/translate",
-      "chars": 62,
-      "ms": 717,
-      "status": 200
-    },
-    {
-      "path": "/translate",
-      "chars": 69,
+      "chars": 70,
       "ms": 818,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 60,
+      "ms": 919,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 818,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 71,
+      "ms": 921,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 813,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 874,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 872,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 84,
+      "ms": 1021,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 816,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 72,
+      "ms": 921,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 74,
+      "ms": 924,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 815,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 64,
+      "ms": 920,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 76,
+      "ms": 921,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 920,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 85,
+      "ms": 823,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 912,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 87,
+      "ms": 927,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 816,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 77,
+      "ms": 924,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 819,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 917,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 70,
+      "ms": 818,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 78,
+      "ms": 918,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 68,
+      "ms": 795,
+      "status": 200
+    },
+    {
+      "path": "/translate",
+      "chars": 75,
+      "ms": 875,
       "status": 200
     }
   ]

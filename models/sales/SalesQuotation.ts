@@ -52,6 +52,8 @@ export interface ISalesQuotation extends Document {
   // own status enum cannot express.
   saleOrderId?: mongoose.Types.ObjectId;
   pipelineStage?: string;
+  isConverting?: boolean;
+  conversionStartedAt?: Date;
   createdBy: mongoose.Types.ObjectId;
 
   createdAt: Date;
@@ -112,6 +114,8 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
     convertedInvoiceId: { type: Schema.Types.ObjectId, ref: "SalesInvoice" },
     saleOrderId: { type: Schema.Types.ObjectId, ref: "SaleOrder" },
     pipelineStage: { type: String },
+    isConverting: { type: Boolean, default: false },
+    conversionStartedAt: Date,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },

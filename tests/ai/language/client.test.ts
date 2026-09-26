@@ -70,14 +70,15 @@ describe("Sarvam client: never throws into the caller", () => {
     expect(r.ok).toBe(false);
     expect(f).not.toHaveBeenCalled();
   });
-  it("detect + transliterate map fields; speech is an explicit not_implemented", async () => {
-    const f = vi.fn().mockResolvedValueOnce(ok({ language_code: "ta-IN", script_code: "Taml" })).mockResolvedValueOnce(ok({ transliterated_text: "नमस्ते" }));
+  it("detect, transliterate and speech map provider fields", async () => {
+    const f = vi.fn().mockResolvedValueOnce(ok({ language_code: "ta-IN", script_code: "Taml" })).mockResolvedValueOnce(ok({ transliterated_text: "नमस्ते" })).mockResolvedValueOnce(ok({ transcript: "hello", language_code: "en-IN" }));
     const c = createSarvamClient({ fetchFn: f as any, config: cfg() });
     const d = await c.detect("vanakkam");
     expect(d.ok && d.data).toEqual({ language: "ta-IN", script: "Taml" });
     const t = await c.transliterate("namaste", "en-IN", "hi-IN");
     expect(t.ok && t.data.text).toBe("नमस्ते");
     const a = await c.speech.transcribe({ audio: new ArrayBuffer(1) });
-    if (a.ok === false) expect(a.error.kind).toBe("not_implemented"); else throw new Error("x");
+    expect(a.ok && a.data).toEqual({ transcript: "hello", language: "en-IN" });
+    expect(f.mock.calls[2][0]).toContain("/speech-to-text");
   });
 });

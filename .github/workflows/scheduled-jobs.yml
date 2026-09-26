@@ -28,15 +28,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call the scheduler's run-due endpoint
+        env:
+          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL || vars.DEPLOYMENT_URL || 'https://aupulens.online' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          HTTP_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -m 15 -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.DEPLOYMENT_URL }}/api/platform/scheduler/run-due" || echo "TIMEOUT")
-          
-          if [ "$HTTP_STATUS" = "TIMEOUT" ] || [ "$HTTP_STATUS" = "200" ]; then
-            echo "Scheduler triggered successfully (Status: $HTTP_STATUS). Background jobs are processing."
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning title=Scheduler not triggered::GitHub Actions secret CRON_SECRET is not configured. Add it with the same value as the production CRON_SECRET."
             exit 0
-          else
-            echo "Failed with HTTP $HTTP_STATUS"
-            exit 1
           fi
+
+          DEPLOYMENT_URL="${DEPLOYMENT_URL%/}"
+          URL="$DEPLOYMENT_URL/api/platform/scheduler/run-due"
+          BODY_FILE="$RUNNER_TEMP/scheduler-run-due-response.json"
+
+          for attempt in 1 2 3; do
+            HTTP_STATUS="000"
+            CURL_EXIT=0
+            HTTP_STATUS=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" -m 30 --retry 2 --retry-delay 5 --retry-all-errors -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$URL") || CURL_EXIT=$?
+
+            if [ "$CURL_EXIT" = "0" ] && [ "$HTTP_STATUS" = "200" ]; then
+              echo "Scheduler triggered successfully. Background jobs are processing."
+              cat "$BODY_FILE"
+              exit 0
+            fi
+
+            echo "::warning title=Scheduler trigger attempt $attempt failed::curl_exit=$CURL_EXIT http_status=$HTTP_STATUS url=$URL"
+            if [ -s "$BODY_FILE" ]; then
+              cat "$BODY_FILE"
+            fi
+            sleep 5
+          done
+
+          echo "::warning title=Scheduler trigger skipped::The external timer could not reach run-due after retries. The app's platform scheduler records real job failures internally, and this workflow stays non-failing to avoid repeated email noise."
+          exit 0

@@ -67,7 +67,9 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ warehouse }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 11000) return NextResponse.json({ error: "That warehouse code is already in use." }, { status: 409 });
+    if (error?.name === "ValidationError") return NextResponse.json({ error: Object.values(error.errors).map((e: any) => e.message).join(" ") }, { status: 400 });
     console.error("Error creating warehouse:", error);
     return NextResponse.json(
       { error: "Failed to create warehouse" },

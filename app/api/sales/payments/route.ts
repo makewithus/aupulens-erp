@@ -144,9 +144,15 @@ export async function POST(request: NextRequest) {
       // draft/cancelled invoice off that status.
       const invoiceIds = allocations.map((a) => a.invoiceId);
       targetInvoices = await (SalesInvoice as any)
-        .find({ _id: { $in: invoiceIds }, tenantId })
-        .select("_id number status totalAmount payments")
+        .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId })
+        .select("_id number status totalAmount payments taxes")
         .lean();
+      if (new Set(invoiceIds).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) {
+        return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
+      }
+      if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) {
+        return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice. Record its net balance without additional TDS." }, { status: 400 });
+      }
       const blocked = targetInvoices.find(
         (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
       );

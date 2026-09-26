@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { computeInvoiceTotals, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
+
 import { CustomerPicker, type PickerCustomer } from "./CustomerPicker";
 import { ProductPicker, type PickerProduct } from "./ProductPicker";
 import { PrefixPicker, type PrefixRow } from "./PrefixPicker";
@@ -130,6 +131,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const [markedFullyPaid, setMarkedFullyPaid] = useState(false);
   const [signatures, setSignatures] = useState<{ _id: string; name: string; imageUrl: string }[]>([]);
   const [signatureId, setSignatureId] = useState("");
+  const [withholdingRates, setWithholdingRates] = useState<any[]>([]);
+  const [tdsRateId, setTdsRateId] = useState("");
+  const [tcsRateId, setTcsRateId] = useState("");
   const [tdsEnabled, setTdsEnabled] = useState(false);
   const [tdsRate, setTdsRate] = useState(10);
   const [tcsEnabled, setTcsEnabled] = useState(false);
@@ -190,7 +194,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       cachedFetch("/api/sales/document-notes?kind=notes&documentType=invoice").then((r) => r.json()),
       cachedFetch("/api/sales/document-notes?kind=terms&documentType=invoice").then((r) => r.json()),
       cachedFetch("/api/sales/document-settings").then((r) => r.json()),
-    ]).then(([custRes, prodRes, prefixRes, bankRes, couponRes, notesRes, termsRes, settingsRes]) => {
+      cachedFetch("/api/finance/accounting/tax-rates").then((r) => r.json()),
+    ]).then(([custRes, prodRes, prefixRes, bankRes, couponRes, notesRes, termsRes, settingsRes, taxRes]) => {
+      if (taxRes.success) setWithholdingRates(taxRes.data.filter((r: any) => r.status === "active"));
       if (custRes.items) setCustomers(custRes.items);
       if (prodRes.items) setProducts(prodRes.items);
       if (prefixRes.success) {
@@ -295,7 +301,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       itemId: productId,
       name: p.header?.name || "",
       unitPrice: p.tab_general_information?.list_price || 0,
-      taxRate: p._taxRate ?? 0,
+      taxRate: p._taxRate ?? p.tab_general_information?.gstRate ?? 0,
     });
   };
 
@@ -565,7 +571,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
         <div className="grid grid-cols-4 gap-6 bg-card p-6 rounded-none border border-border/40 shadow-none">
           <div className="col-span-4 lg:col-span-2 space-y-2">
             <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">Select Customer *</label>
-            <CustomerPicker customers={customers} value={selectedCustomerId} onChange={setSelectedCustomerId} onCreateNew={() => setCreateCustomerOpen(true)} />
+            <CustomerPicker customers={customers} value={selectedCustomerId} onChange={(id) => { setSelectedCustomerId(id); setPlaceOfSupply((customers.find((c) => c._id === id) as any)?.address_tab?.state_name || ""); }} onCreateNew={() => setCreateCustomerOpen(true)} />
             <Button variant="link" onClick={() => setCreateCustomerOpen(true)} className="text-primary h-auto p-0 text-xs mt-1">+ Create Customer</Button>
           </div>
 
@@ -867,9 +873,19 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
 
             <div className="flex gap-4 text-xs">
               <label className="flex items-center gap-1"><Checkbox checked={tdsEnabled} onCheckedChange={(c) => setTdsEnabled(!!c)} /> TDS</label>
-              {tdsEnabled && <Input type="number" value={tdsRate} onChange={(e) => setTdsRate(Number(e.target.value))} className="h-6 w-14 rounded-none border-border/40 text-xs" />}
+              {tdsEnabled && (
+                <><select aria-label="TDS rate" value={tdsRateId} onChange={(e) => { setTdsRateId(e.target.value); const r = withholdingRates.find((r) => r._id === e.target.value); if (r) setTdsRate(r.ratePercent); }} className="h-6 max-w-64 rounded-none border border-border/40 bg-background text-xs px-1">
+                  <option value="">Custom / current rate</option>
+                  {withholdingRates.filter((r) => r.type === "tds").map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
+                </select><Input aria-label="TDS percentage" type="number" min="0" max="100" step="0.01" value={tdsRate} onChange={(e) => { setTdsRateId(""); setTdsRate(Number(e.target.value)); }} className="h-6 w-16 text-xs" /></>
+              )}
               <label className="flex items-center gap-1"><Checkbox checked={tcsEnabled} onCheckedChange={(c) => setTcsEnabled(!!c)} /> TCS</label>
-              {tcsEnabled && <Input type="number" value={tcsRate} onChange={(e) => setTcsRate(Number(e.target.value))} className="h-6 w-14 rounded-none border-border/40 text-xs" />}
+              {tcsEnabled && (
+                <><select aria-label="TCS rate" value={tcsRateId} onChange={(e) => { setTcsRateId(e.target.value); const r = withholdingRates.find((r) => r._id === e.target.value); if (r) setTcsRate(r.ratePercent); }} className="h-6 max-w-64 rounded-none border border-border/40 bg-background text-xs px-1">
+                  <option value="">Custom / current rate</option>
+                  {withholdingRates.filter((r) => r.type === "tcs").map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
+                </select><Input aria-label="TCS percentage" type="number" min="0" max="100" step="0.01" value={tcsRate} onChange={(e) => { setTcsRateId(""); setTcsRate(Number(e.target.value)); }} className="h-6 w-16 text-xs" /></>
+              )}
             </div>
 
             <div className="flex justify-between items-center pt-2">

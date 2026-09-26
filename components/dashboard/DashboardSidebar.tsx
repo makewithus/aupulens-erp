@@ -99,11 +99,11 @@ export function DashboardSidebar({
         </Button>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-4">
+      <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-2">
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
-              <div className="mb-8 px-6 font-mono text-[10px] uppercase tracking-[0.28em] text-[#B3BAC7]/80">
+              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-[#B3BAC7]">
                 {section.title}
               </div>
             )}
@@ -118,7 +118,7 @@ export function DashboardSidebar({
                   prefetch={true}
                   className={cn(
                     "group flex items-center transition-all duration-300",
-                    isCollapsed ? "justify-center py-3" : "gap-3 px-6 py-2",
+                    isCollapsed ? "justify-center py-3" : "gap-3 px-6 py-2.5",
                     item.disabled && "pointer-events-none opacity-40"
                   )}
                   title={isCollapsed ? item.title : undefined}
@@ -127,8 +127,8 @@ export function DashboardSidebar({
                     className={cn(
                       "h-4 w-4 transition-all duration-300 shrink-0",
                       isActive
-                        ? "text-foreground opacity-90"
-                        : "text-[#B3BAC7]/70 group-hover:text-[#B3BAC7]"
+                        ? "text-[#B3BAC7] opacity-100"
+                        : "text-[#B3BAC7]/75 group-hover:text-[#B3BAC7]"
                     )}
                   />
 
@@ -136,10 +136,10 @@ export function DashboardSidebar({
                     <div className="flex flex-col">
                       <span
                         className={cn(
-                          "relative w-fit text-[28px] leading-none tracking-[-0.06em] transition-colors duration-300",
+                          "relative w-fit max-w-[13rem] text-[25px] leading-[0.98] tracking-[-0.055em] transition-colors duration-300",
                           isActive
-                            ? "text-foreground"
-                            : "text-[#B3BAC7] group-hover:text-[#B3BAC7]/90"
+                            ? "text-[#B3BAC7]"
+                            : "text-[#B3BAC7]/90 group-hover:text-[#B3BAC7]"
                         )}
                       >
                         {item.title}
@@ -167,7 +167,7 @@ export function DashboardSidebar({
               );
             })}
             {sectionIndex < sections.length - 1 && (
-              <Separator className="my-6 bg-border/100" />
+              <Separator className="my-7 bg-border/80" />
             )}
           </div>
         ))}

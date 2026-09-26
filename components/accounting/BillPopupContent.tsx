@@ -1,5 +1,7 @@
 "use client";
 
+import { computeBillTotals } from "@/lib/accounting/billMath";
+import { INDIAN_STATES } from "@/lib/constants/indianStates";
 import React, { useState, useEffect } from "react";
 import {
   Receipt,
@@ -109,39 +111,22 @@ export default function BillPopupContent({
       quantity: line.productQty,
       priceUnit: line.priceUnit,
       priceSubtotal: line.priceSubtotal,
+      taxRate: line.taxRate ?? products.find((p) => p._id === (line.productId?._id || line.productId))?.tab_general_information?.gstRate ?? 0,
     }));
 
-    const untaxed = updatedLines.reduce(
-      (acc: number, line: any) => acc + (line.priceSubtotal || 0),
-      0,
-    );
-    const tax = untaxed * 0.18;
-
     setFormData((prev: any) => ({
-      ...prev,
-      poReference: po.name,
-      partnerId: po.partnerId?._id || po.partnerId,
-      invoiceLines: updatedLines,
-      amountUntaxed: untaxed,
-      amountTax: prev.isTaxIncluded ? 0 : tax,
-      amountTotal: prev.isTaxIncluded ? untaxed : untaxed + tax,
-      sourceDocument: po.name,
+      ...prev, ...computeBillTotals(updatedLines), poReference: po.name,
+      partnerId: po.partnerId?._id || po.partnerId, sourceDocument: po.name,
     }));
   };
 
   const calculateTotals = (lines: any[]) => {
-    const untaxed = lines.reduce(
-      (acc, line) => acc + (line.priceSubtotal || 0),
-      0,
-    );
-    const tax = untaxed * 0.18; // Manual 18% tax for demo, later bind to line taxIds
-    setFormData((prev: any) => ({
-      ...prev,
-      invoiceLines: lines,
-      amountUntaxed: untaxed,
-      amountTax: prev.isTaxIncluded ? 0 : tax,
-      amountTotal: prev.isTaxIncluded ? untaxed : untaxed + tax,
-    }));
+    try {
+      const totals = computeBillTotals(lines);
+      setFormData((prev: any) => ({ ...prev, ...totals }));
+    } catch {
+      setFormData((prev: any) => ({ ...prev, invoiceLines: lines }));
+    }
   };
 
   const addLine = () => {
@@ -153,6 +138,7 @@ export default function BillPopupContent({
         quantity: 1,
         priceUnit: 0,
         priceSubtotal: 0,
+        taxRate: 0,
       },
     ];
     updateField("invoiceLines", newLines);
@@ -172,6 +158,7 @@ export default function BillPopupContent({
       const prod = products.find((p) => p._id === value);
       if (prod) {
         newLines[index].name = prod.header?.name;
+        newLines[index].taxRate = prod.tab_general_information?.gstRate ?? 0;
         newLines[index].priceUnit =
           prod.tab_general_information?.standard_price || 0;
       }
@@ -187,6 +174,13 @@ export default function BillPopupContent({
 
   return (
     <div className="space-y-6">
+      <datalist id="gst-states">{INDIAN_STATES.map((state) => <option key={state} value={state} />)}</datalist>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4">
+        <label className="text-sm"><input type="checkbox" checked={!!formData.gstInputEligible} disabled={isViewOnly} onChange={(e) => updateField("gstInputEligible", e.target.checked)} /> Eligible for GST input credit</label>
+        <label className="text-sm">Supplier state<Input list="gst-states" value={formData.supplierState || ""} disabled={isViewOnly} onChange={(e) => updateField("supplierState", e.target.value)} /></label>
+        <label className="text-sm">Place of supply<Input list="gst-states" value={formData.placeOfSupply || ""} disabled={isViewOnly} onChange={(e) => updateField("placeOfSupply", e.target.value)} /></label>
+        <p className="text-xs text-muted-foreground md:col-span-3">Confirm eligibility and supplier invoice details before claiming credit. Eligible GST posts to input tax accounts when the bill is posted.</p>
+      </div>
       {/* Header Info */}
       <div className="flex items-start gap-6 border-b pb-6">
         <div className="w-24 h-24 bg-primary/10 flex items-center justify-center none-2xl shrink-0">
@@ -401,6 +395,7 @@ export default function BillPopupContent({
                         <TableHead className="p-4 text-right text-[9px] font-black uppercase tracking-widest opacity-40 w-32">
                           Subtotal
                         </TableHead>
+                        <TableHead>GST %</TableHead>
                         {!isViewOnly && <TableHead className="p-4 w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -460,6 +455,7 @@ export default function BillPopupContent({
                             <TableCell className="p-4 text-right font-black font-sans tabular-nums text-[11px]">
                               ₹ {line.priceSubtotal?.toLocaleString()}
                             </TableCell>
+                            <TableCell><Input aria-label="Line GST rate" type="number" min="0" max="100" step="0.01" disabled={isViewOnly} value={line.taxRate ?? 0} onChange={(e) => updateLine(idx, "taxRate", Number(e.target.value))} /></TableCell>
                             {!isViewOnly && (
                               <TableCell className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
@@ -647,7 +643,7 @@ export default function BillPopupContent({
                   <span>₹ {formData.amountUntaxed?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest opacity-40">
-                  <span>Taxes (18%)</span>
+                  <span>GST</span>
                   <span>₹ {formData.amountTax?.toLocaleString()}</span>
                 </div>
                 <div className="pt-4 border-t-2 border-primary/20">

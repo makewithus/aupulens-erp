@@ -49,6 +49,12 @@ export async function GET(request: NextRequest) {
     const query: any = { tenantId };
 
     const type = request.nextUrl.searchParams.get("type");
+    if (type === "tds-receivable") {
+      const { ensureChartOfAccounts } = await import("@/lib/accounting/coa-seeder");
+      await ensureChartOfAccounts(tenantId, session.user.id);
+      query.account_type = "asset_current";
+      query.name = /TDS/i;
+    }
     if (type === "bank") {
       const bankCashTypeIds = await AccountType.find(
         { tenantId, name: { $in: BANK_CASH_TYPE_NAMES } },

@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
     const tenantId = session.user.tenantId;
     const body = await request.json();
+    for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
     const isDraft = body.status === SALES_INVOICE_STATUS.DRAFT;
 
     if (!isDraft) {
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
           invoice: newInvoice,
           tenantId,
           createdBy: session.user.id,
-          current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount },
+          current: { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount },
         });
         await newInvoice.save();
         if (newInvoice.status === SALES_INVOICE_STATUS.PAID) {

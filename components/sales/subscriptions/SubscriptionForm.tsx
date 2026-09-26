@@ -411,6 +411,7 @@ export function SubscriptionForm() {
                           updateLine(i, {
                             name: e.target.value,
                             unitPrice: match ? match.tab_general_information?.list_price ?? li.unitPrice : li.unitPrice,
+                            taxRate: match ? match._taxRate ?? match.tab_general_information?.gstRate ?? li.taxRate : li.taxRate,
                             itemId: match?._id,
                           });
                         }}

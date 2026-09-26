@@ -82,10 +82,14 @@ export function CommandCenterInput() {
       const res = await fetch(`/api/ai/command/actions/${pending.proposalId}/confirm`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Action failed");
-      toast.success("Done — the AI completed that for you.");
+      toast.success(data.message || "Done — the AI completed that for you.");
       setPending(null);
       setQuery("");
-      router.refresh();
+      if (data.redirectUrl) {
+        router.push(data.redirectUrl);
+      } else {
+        router.refresh();
+      }
     } catch (e: any) {
       toast.error(e.message || "Could not complete the action.");
     } finally {

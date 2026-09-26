@@ -75,6 +75,13 @@ function fixWords(s: string, rewrites: string[]): string {
   });
 }
 
+function fixNativeDomainTerms(s: string, rewrites: string[]): string {
+  return s.replace(/बीजक/g, (tok) => {
+    rewrites.push(`${tok} → इनव्हॉइस`);
+    return "इनव्हॉइस";
+  });
+}
+
 export interface Prepared {
   /** Text with placeholders — what providers see. */
   masked: string;
@@ -98,6 +105,7 @@ export function prepareText(raw: string, opts: { style?: PlaceholderStyle } = {}
       .replace(EMOJI_RX, "")
       .replace(/([!?.,])\1{2,}/g, "$1")
       .replace(/([,;])(?=[A-Za-z])/g, "$1 "); // "invoice,for" -> "invoice, for"
+    s = fixNativeDomainTerms(s, rewrites);
     s = fixWords(s, rewrites);
     const n = normaliseNumbers(s);
     rewrites.push(...n.rewrites);

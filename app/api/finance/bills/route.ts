@@ -1,3 +1,4 @@
+import { computeBillTotals } from "@/lib/accounting/billMath";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -193,10 +194,11 @@ export async function POST(req: NextRequest) {
           priceSubtotal: Number(item.amount) || 0,
           taxIds: [],
         }));
-    const amountUntaxed = Number(body.amountUntaxed ?? body.subtotal) || 0;
-    const amountTax = Number(body.amountTax ?? body.taxAmount) || 0;
+    const computed = invoiceLines.length && invoiceLines.every((l: any) => l.taxRate !== undefined) ? computeBillTotals(invoiceLines) : null;
+    const amountUntaxed = Number(computed?.amountUntaxed ?? body.amountUntaxed ?? body.subtotal) || 0;
+    const amountTax = Number(computed?.amountTax ?? body.amountTax ?? body.taxAmount) || 0;
     const amountTotal =
-      Number(body.amountTotal ?? body.total) || amountUntaxed + amountTax;
+      Number(computed?.amountTotal ?? body.amountTotal ?? body.total) || amountUntaxed + amountTax;
 
     try {
       await assertTransactionNotLocked(tenantId, "purchases", body.invoiceDate);
@@ -207,6 +209,7 @@ export async function POST(req: NextRequest) {
       throw lockError;
     }
 
+    if (body.state === DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Create and approve the bill before posting it." }, { status: 400 });
     const bill = await Invoice.create({
       ...body,
       name,
@@ -214,7 +217,7 @@ export async function POST(req: NextRequest) {
       moveType: "in_invoice",
       invoiceDate: body.invoiceDate ? new Date(body.invoiceDate) : new Date(),
       dueDate: body.dueDate ? new Date(body.dueDate) : new Date(),
-      invoiceLines,
+      invoiceLines: computed?.invoiceLines || invoiceLines,
       currencyId: body.currencyId || body.currency || "INR",
       amountUntaxed,
       amountTax,
@@ -242,7 +245,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Refetch the updated bill with matching results
-    const finalBill = await Invoice.findById(bill._id).populate("partnerId", "header.name contact_details.email");
+    const finalBill = await Invoice.findOne({ _id: bill._id, tenantId }).populate("partnerId", "header.name contact_details.email");
 
     return NextResponse.json({ success: true, item: finalBill || bill });
   } catch (error: any) {

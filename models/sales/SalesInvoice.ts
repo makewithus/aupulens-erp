@@ -29,6 +29,7 @@ export interface ISalesInvoice extends Document {
   customerId: mongoose.Types.ObjectId;
   invoiceDate: Date;
   dueDate: Date;
+  sourceQuoteId?: mongoose.Types.ObjectId;
   reference?: string;
   placeOfSupply?: string;
 
@@ -77,6 +78,10 @@ export interface ISalesInvoice extends Document {
     totalTax: number;
     tcsAmount: number;
     tdsAmount: number;
+    cgst?: number;
+    sgst?: number;
+    igst?: number;
+    roundOffAmount?: number;
   };
 
   createdAt: Date;
@@ -91,6 +96,7 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     invoiceDate: { type: Date, default: Date.now },
     dueDate: { type: Date, default: Date.now },
+    sourceQuoteId: { type: Schema.Types.ObjectId, ref: "SalesQuotation" },
     reference: { type: String },
     placeOfSupply: { type: String },
 
@@ -173,6 +179,7 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
           totalTax: { type: Number, required: true },
           tcsAmount: { type: Number, required: true },
           tdsAmount: { type: Number, required: true },
+          cgst: Number, sgst: Number, igst: Number, roundOffAmount: Number,
         },
         { _id: false },
       ),
@@ -181,6 +188,8 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
   },
   { timestamps: true }
 );
+
+SalesInvoiceSchema.index({ tenantId: 1, sourceQuoteId: 1 }, { unique: true, partialFilterExpression: { sourceQuoteId: { $type: "objectId" } } });
 
 // Enforce unique invoice number per tenant
 SalesInvoiceSchema.index({ tenantId: 1, number: 1 }, { unique: true });

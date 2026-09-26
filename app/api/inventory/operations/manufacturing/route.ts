@@ -1,3 +1,5 @@
+import "@/models/inventory/Product";
+import "@/models/auth/User";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";

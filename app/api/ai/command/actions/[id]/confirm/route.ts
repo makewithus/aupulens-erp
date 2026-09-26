@@ -7,6 +7,35 @@ import { AI_ACTION_STATUS } from "@/lib/constants/statuses";
 import { COMMAND_ACTIONS, CommandActionError, isCommandAction, executeCommandBatch } from "@/lib/ai/commandActions";
 import { executeWorkflowProposal } from "@/lib/aiRuntime/nl/workflowChatHandler";
 
+function redirectForCommandAction(actionType: string, resultRef?: string | null): string | undefined {
+  const id = resultRef ? encodeURIComponent(resultRef) : "";
+  switch (actionType) {
+    case "create_invoice":
+      return id ? `/sales/invoices/${id}` : "/sales/invoices";
+    case "create_customer":
+      return id ? `/sales/customers/${id}` : "/sales/customers";
+    case "create_lead":
+    case "update_lead_status":
+      return id ? `/crm/leads/${id}` : "/crm/leads";
+    case "create_task":
+      return "/crm/tasks";
+    case "create_employee":
+      return "/hr/employees";
+    case "create_ledger":
+    case "delete_ledger":
+      return "/finance/accounting/chart-of-accounts";
+    case "create_journal_entry":
+      return "/finance/accounting/journal-entries";
+    default:
+      return undefined;
+  }
+}
+
+function lastSuccessfulBatchRedirect(outcome: { results?: { actionType: string; ok: boolean; resultRef?: string }[] }) {
+  const last = [...(outcome.results ?? [])].reverse().find((r) => r.ok);
+  return last ? redirectForCommandAction(last.actionType, last.resultRef) : undefined;
+}
+
 /**
  * Step 2 of the generalized Command Center confirm gate: the user has
  * explicitly confirmed the previewed action, so now perform the mutation and
@@ -43,11 +72,21 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       if (outcome.failedIndex !== null) {
         const failed = outcome.results[outcome.failedIndex];
         return NextResponse.json(
-          { success: false, message: `Completed ${outcome.completed} of ${outcome.total} step(s). Step ${outcome.failedIndex + 1} (${failed.actionType}) failed: ${failed.error}`, data: { outcome } },
+          {
+            success: false,
+            message: `Completed ${outcome.completed} of ${outcome.total} step(s). Step ${outcome.failedIndex + 1} (${failed.actionType}) failed: ${failed.error}`,
+            redirectUrl: lastSuccessfulBatchRedirect(outcome),
+            data: { outcome },
+          },
           { status: 400 },
         );
       }
-      return NextResponse.json({ success: true, data: { proposal, outcome } });
+      return NextResponse.json({
+        success: true,
+        message: `Completed ${outcome.total} step(s).`,
+        redirectUrl: lastSuccessfulBatchRedirect(outcome),
+        data: { proposal, outcome },
+      });
     }
 
     // AI-NL (docs/ai/BRIEF-08b-FINAL.md Part B): a workflow proposal's actionType is the literal
@@ -74,7 +113,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     proposal.executedAt = new Date();
     await proposal.save();
 
-    return NextResponse.json({ success: true, data: { proposal, result } });
+    return NextResponse.json({
+      success: true,
+      message: "Action completed.",
+      redirectUrl: redirectForCommandAction(proposal.actionType, resultRef),
+      data: { proposal, result },
+    });
   } catch (error: any) {
     if (error instanceof CommandActionError) {
       return NextResponse.json({ success: false, message: error.message }, { status: 400 });

@@ -27,6 +27,7 @@ export interface IProduct extends Document {
     categ_id?: number;
     default_code?: string;
     description?: string;
+    gstRate?: number;
   };
   tab_sales: {
     upsell_cross_sell: {
@@ -84,6 +85,7 @@ const ProductSchema: Schema<IProduct> = new Schema(
       categ_id: { type: Number },
       default_code: { type: String, trim: true },
       description: { type: String },
+      gstRate: { type: Number, min: 0, max: 100 },
     },
     tab_sales: {
       upsell_cross_sell: {

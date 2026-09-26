@@ -72,11 +72,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
     }
 
-    if (payment.status === PAYMENT_STATUS.PAID) {
-      await reverseAllocationsOnInvoices(tenantId, String(payment._id));
-    }
-
     if (body.action === "void") {
+      if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
       payment.status = PAYMENT_STATUS.VOID;
       try {
         // Posts a reversing entry (mirror-image of whatever was last
@@ -117,9 +114,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // would silently attach a "paid" payment with no visible effect.
       const invoiceIds = allocations.map((a: any) => a.invoiceId);
       targetInvoices = await (SalesInvoice as any)
-        .find({ _id: { $in: invoiceIds }, tenantId })
-        .select("_id number status totalAmount payments")
+        .find({ _id: { $in: invoiceIds }, tenantId, customerId: body.customerId || payment.customerId })
+        .select("_id number status totalAmount payments taxes")
         .lean();
+      if (new Set(invoiceIds.map(String)).size !== invoiceIds.length || targetInvoices.length !== invoiceIds.length) return NextResponse.json({ success: false, message: "Select each invoice once and only for this customer." }, { status: 400 });
+      if (tdsAmount > 0 && targetInvoices.some((inv: any) => Number(inv.taxes?.tds) > 0)) return NextResponse.json({ success: false, message: "TDS is already recorded on an allocated invoice." }, { status: 400 });
       const blocked = targetInvoices.find(
         (inv: any) => inv.status === SALES_INVOICE_STATUS.DRAFT || inv.status === SALES_INVOICE_STATUS.CANCELLED,
       );
@@ -134,12 +133,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // payment's contribution — exactly what's needed to validate the new
       // allocation amounts against each invoice's true remaining balance.
       try {
-        validateAllocationAmounts(allocations, targetInvoices as any);
+        validateAllocationAmounts(allocations, targetInvoices.map((inv: any) => ({ ...inv, payments: (inv.payments || []).filter((p: any) => String(p.paymentId) !== String(payment._id)) })) as any);
       } catch (e: any) {
         return NextResponse.json({ success: false, message: e.message }, { status: 400 });
       }
     }
 
+    if (payment.status === PAYMENT_STATUS.PAID) await reverseAllocationsOnInvoices(tenantId, String(payment._id));
     payment.customerId = body.customerId || payment.customerId;
     payment.amountReceived = amountReceived;
     payment.bankCharges = bankCharges;

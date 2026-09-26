@@ -32,6 +32,7 @@ export interface ISaleOrderLine {
 }
 
 export interface ISaleOrder extends mongoose.Document {
+  invoiceConversionStartedAt?: Date;
   tenantId?: any; // Changed to any for Mixed type support
   header: {
     name: string;
@@ -124,6 +125,7 @@ export interface ISaleOrder extends mongoose.Document {
 
 const SaleOrderSchema = new Schema<ISaleOrder>(
   {
+    invoiceConversionStartedAt: Date,
     tenantId: { type: Schema.Types.Mixed, index: true },
     header: {
       name: { type: String, required: true },

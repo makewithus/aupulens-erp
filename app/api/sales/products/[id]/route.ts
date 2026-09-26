@@ -53,6 +53,7 @@ export async function PATCH(
     const { id } = await params;
     await connectDB();
     const body = sanitizeProductPayload(await request.json());
+    for (const key of ["_id", "tenantId", "createdBy", "createdAt", "updatedAt"]) delete body[key];
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;

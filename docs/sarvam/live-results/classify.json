@@ -113,7 +113,7 @@
     },
     {
       "text": "bill Kamal 2500 for repairs",
-      "deterministic": "none",
+      "deterministic": "uncertain",
       "expected": "create",
       "verdicts": [
         "create",

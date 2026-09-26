@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore } from "@/store/authStore";
 import { APP_BASE_URL, APP_ROOT_DOMAIN } from "@/lib/config";
@@ -55,8 +56,17 @@ function getTenantFromHost(hostname: string): string | null {
 }
 
 export default function TenantInitializer() {
-  const { tenantId, setTenantId, setIsActive } = useTenantStore();
-  const { checkSession } = useAuthStore();
+  const { setTenantId, setIsActive } = useTenantStore();
+  const { setUser } = useAuthStore();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      setUser(session.user as any);
+    } else if (status === "unauthenticated") {
+      setUser(null);
+    }
+  }, [setUser, session?.user, status]);
 
   useEffect(() => {
     const initializeTenant = async () => {
@@ -74,13 +84,6 @@ export default function TenantInitializer() {
         const extractedTenant = getTenantFromHost(hostname) || "default-tenant";
 
         setTenantId(extractedTenant);
-
-        // Populate the auth store from the session. A VALID session cookie must
-        // keep the user signed in across tab/browser restarts (closing a tab or
-        // the PC dying should NOT force re-login) — so we no longer force a
-        // logout on fresh loads. An expired/absent session is still rejected by
-        // the middleware + server auth, which redirect to login.
-        await checkSession(false);
 
         if (extractedTenant === "default-tenant") {
           setIsActive(true);
@@ -107,7 +110,7 @@ export default function TenantInitializer() {
     };
 
     initializeTenant();
-  }, [setTenantId, setIsActive, checkSession]);
+  }, [setTenantId, setIsActive]);
 
   return null;
 }

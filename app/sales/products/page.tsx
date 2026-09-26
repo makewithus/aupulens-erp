@@ -78,6 +78,7 @@ interface Product {
     categ_id?: number;
     default_code?: string;
     description?: string;
+    gstRate?: number;
   };
   tab_sales: {
     upsell_cross_sell: { optional_product_ids: number[] };
@@ -120,6 +121,7 @@ const INITIAL_PRODUCT_STATE: ProductFormData = {
     categ_id: undefined,
     default_code: "",
     description: "",
+    gstRate: 18,
   },
   tab_sales: {
     upsell_cross_sell: { optional_product_ids: [] },

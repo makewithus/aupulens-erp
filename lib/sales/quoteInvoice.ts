@@ -1,3 +1,5 @@
+import Organization from "@/models/admin/Organization";
+import Customer from "@/models/sales/Customer";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import { generateInvoiceNumber } from "@/lib/sales/invoiceNumbering";
@@ -32,7 +34,26 @@ export async function convertQuoteToInvoice(params: {
     throw new QuoteInvoiceError("This quote has already been invoiced.", 409);
   }
 
-  const { number } = await generateInvoiceNumber(tenantId);
+  // Atomically lock the quote to prevent double-click race conditions from
+  // creating duplicate identical invoices.
+  const lockedQuote = await SalesQuotation.findOneAndUpdate(
+    { _id: quote._id, tenantId, convertedInvoiceId: null, $or: [{ isConverting: { $ne: true } }, { conversionStartedAt: { $lt: new Date(Date.now() - 120000) } }] },
+    { $set: { isConverting: true, conversionStartedAt: new Date() } },
+  );
+
+  if (!lockedQuote) {
+    throw new QuoteInvoiceError("This quote is already being invoiced or has been invoiced.", 409);
+  }
+
+  try {
+    const [org, customer] = await Promise.all([
+      Organization.findOne({ subdomain: tenantId }).lean(),
+      Customer.findOne({ _id: quote.customerId, tenantId }).lean(),
+    ]);
+    const sellerState = org?.settings?.state;
+    const placeOfSupply = (quote as any).placeOfSupply || (customer as any)?.address_tab?.state_name;
+    let invoice = await SalesInvoice.findOne({ tenantId, sourceQuoteId: quote._id });
+    const number = invoice?.number || (await generateInvoiceNumber(tenantId)).number;
 
   const tdsRate = quote.taxes?.mode === "tds" ? quote.taxes.rate : 0;
   const tcsRate = quote.taxes?.mode === "tcs" ? quote.taxes.rate : 0;
@@ -43,6 +64,7 @@ export async function convertQuoteToInvoice(params: {
   const additionalCharges = adjustment ? [{ name: "Adjustment", amount: adjustment, isTaxable: false }] : [];
 
   const totals = computeInvoiceTotals({
+    sellerState, placeOfSupply,
     lineItems: quote.lineItems as any,
     itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
     extraDiscount: quote.extraDiscount,
@@ -59,7 +81,9 @@ export async function convertQuoteToInvoice(params: {
     lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
   }));
 
-  const invoice = new SalesInvoice({
+  invoice = invoice || new SalesInvoice({
+    sourceQuoteId: quote._id,
+    placeOfSupply,
     tenantId,
     number,
     customerId: quote.customerId,
@@ -73,34 +97,43 @@ export async function convertQuoteToInvoice(params: {
     totalDiscount: totals.totalDiscount,
     totalAmount: totals.totalAmount,
     taxes: { tds: tdsRate, tcs: tcsRate, gstBreakup: totals.gstBreakup },
-    status: SALES_INVOICE_STATUS.SAVED,
+    status: SALES_INVOICE_STATUS.DRAFT,
     notes: quote.customerNotes,
     terms: quote.terms,
     createdBy: userId,
   });
 
+  await invoice.save();
   try {
     await postSalesInvoiceJournal({
       invoice,
       tenantId,
       createdBy: userId,
+      idempotencyKey: `Q2C/${quote._id}`,
       current: {
         taxableAmount: totals.taxableAmount,
         totalTax: totals.totalTax,
         tcsAmount: totals.tcsAmount,
         tdsAmount: totals.tdsAmount,
+        cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst,
       },
     });
   } catch (postingError: any) {
     throw new QuoteInvoiceError(postingError.message, 400);
   }
+  invoice.status = SALES_INVOICE_STATUS.SAVED;
   await invoice.save();
 
   quote.status = QUOTE_STATUS.INVOICED;
   quote.convertedInvoiceId = invoice._id as any;
+  quote.isConverting = false;
   await quote.save();
 
   return invoice;
+  } catch (err: any) {
+    await SalesQuotation.updateOne({ _id: quote._id, tenantId }, { $set: { isConverting: false } });
+    throw err;
+  }
 }
 
 export async function findQuote(tenantId: string, id: string) {

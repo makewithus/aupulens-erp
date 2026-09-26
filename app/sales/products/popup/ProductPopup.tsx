@@ -411,6 +411,25 @@ export function ProductPopupContent({
                 />
               </div>
               <div className="space-y-2">
+                <Label>GST Rate (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.tab_general_information.gstRate ?? 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      tab_general_information: {
+                        ...formData.tab_general_information,
+                        gstRate: parseFloat(e.target.value) || 0,
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Internal Reference</Label>
                 <Input
                   value={formData.tab_general_information.default_code}

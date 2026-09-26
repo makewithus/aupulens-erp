@@ -20,6 +20,8 @@ interface InvoiceRow {
   number: string;
   invoiceDate: string;
   totalAmount: number;
+  taxableAmount: number;
+  taxes?: { tds?: number; tcs?: number };
   payments: { amount: number }[];
 }
 
@@ -86,7 +88,7 @@ export function PaymentForm() {
     cachedFetch("/api/sales/customers")
       .then((r) => r.json())
       .then((d) => setCustomers(d.items || []));
-    cachedFetch("/api/accounting/accounts")
+    cachedFetch("/api/accounting/accounts?type=tds-receivable")
       .then((r) => r.json())
       .then((d) => setAccounts(d.items || []));
     cachedFetch("/api/accounting/accounts?type=bank")
@@ -146,6 +148,8 @@ export function PaymentForm() {
     const due = amountDue(target);
     setAmountReceived(due.toFixed(2));
     setApplied({ [prefillInvoiceId]: due.toFixed(2) });
+    setTaxDeducted(false);
+    setTdsAmount("");
     setTouchedManually(true);
   }, [prefillInvoiceId, invoices]);
   useEffect(() => {
@@ -166,6 +170,10 @@ export function PaymentForm() {
     () => Object.values(applied).reduce((acc, v) => acc + (Number(v) || 0), 0),
     [applied],
   );
+  const invoiceTaxRecorded = invoices.some((inv) => Number(applied[inv._id]) > 0 && Number(inv.taxes?.tds) > 0);
+  useEffect(() => {
+    if (invoiceTaxRecorded) { setTaxDeducted(false); setTdsAmount(""); }
+  }, [invoiceTaxRecorded]);
   const receivedNum = Number(amountReceived) || 0;
   const bankChargesNum = Number(bankCharges) || 0;
   const tdsNum = taxDeducted ? Number(tdsAmount) || 0 : 0;
@@ -388,17 +396,17 @@ export function PaymentForm() {
         <Label className="pt-2">Reference#</Label>
         <Input disabled={!enabled} value={reference} onChange={(e) => setReference(e.target.value)} className="max-w-sm" />
 
-        <Label className="pt-2">Tax deducted?</Label>
+        <Label className="pt-2">Additional TDS deducted?</Label>
         <RadioGroup
           value={taxDeducted ? "yes" : "no"}
           onValueChange={(v) => setTaxDeducted(v === "yes")}
           className="space-y-2"
         >
           <label className="flex items-center gap-2 text-sm">
-            <RadioGroupItem value="no" disabled={!enabled} /> No Tax deducted
+            <RadioGroupItem value="no" disabled={!enabled} /> No additional TDS
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <RadioGroupItem value="yes" disabled={!enabled} /> Yes, TDS (Income Tax)
+            <RadioGroupItem value="yes" disabled={!enabled || invoiceTaxRecorded} /> TDS not already recorded on the invoice
           </label>
           {taxDeducted && (
             <div className="flex gap-2 pl-6 pt-1">

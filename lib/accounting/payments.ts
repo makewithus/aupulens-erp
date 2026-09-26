@@ -313,6 +313,13 @@ const ZERO_PAYMENT_SNAPSHOT: CustomerPaymentSnapshot = {
   tdsAmount: 0,
 };
 
+async function resolveTdsReceiptAccount(tenantId: string, id: any) {
+  if (!id) return resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable");
+  const account = await Account.findOne({ _id: id, tenantId, account_type: "asset_current", name: /TDS/i });
+  if (!account) throw new Error("Choose a TDS receivable account for customer receipts.");
+  return account;
+}
+
 async function resolveAccountByCode(tenantId: string, code: string, label: string) {
   const account = await Account.findOne({ tenantId, code });
   if (!account) {
@@ -439,7 +446,7 @@ export async function postCustomerPaymentJournal({
     Customer.findOne({ _id: payment.customerId, tenantId }).select("header.name header.displayName").lean(),
     resolveDepositAccountForPosting(tenantId, payment.depositToAccountId),
     needsBankCharges ? resolveAccountByCode(tenantId, BANK_CHARGES_CODE, "Bank Charges") : null,
-    needsTds ? resolveAccountByCode(tenantId, TDS_RECEIVABLE_CODE, "TDS Receivable") : null,
+    needsTds ? resolveTdsReceiptAccount(tenantId, payment.tdsAccountId) : null,
     resolveReceivableAccountForPosting(tenantId),
     needsAdvances ? resolveAccountByCode(tenantId, CUSTOMER_ADVANCES_CODE, "Customer Advances") : null,
   ]);

@@ -1,4 +1,5 @@
 import type mongoose from "mongoose";
+import JournalEntry from "@/models/finance/JournalEntry";
 import Account from "@/models/finance/Account";
 import type { ISalesInvoice } from "@/models/sales/SalesInvoice";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
@@ -23,6 +24,10 @@ export interface SalesInvoiceSnapshot {
   totalTax: number;
   tcsAmount: number;
   tdsAmount: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  roundOffAmount?: number;
 }
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
@@ -71,18 +76,10 @@ async function resolveAccountsByCode(tenantId: string, codes: string[]) {
  * Cr GST Output Tax Payable (totalTax), Cr TCS Payable (tcsAmount), and
  * Dr TDS Receivable (tdsAmount).
  *
- * Assumption (flagged per the ground rules — confirm if this doesn't match
- * house accounting policy): TDS is booked as a receivable at invoice-
- * issuance time, not only when the customer actually pays and deducts it.
- * This keeps AR (= SalesInvoice.totalAmount, which the Payments module
- * already treats as "the amount owed") exactly balanced against Revenue +
- * GST + TCS − TDS, matching how computeInvoiceTotals already defines
- * totalAmount. The alternative (booking TDS only at payment time) is
- * arguably more conservative but would leave AR permanently overstated by
- * the TDS amount unless payment-side posting is also reworked to match —
- * out of scope here since lib/accounting/payments.ts's existing TDS
- * handling is driven by an independent, user-entered field on the Payment
- * itself, not the invoice's own tds rate.
+ * TDS is booked as a receivable when issued. Payment routes prevent adding
+ * it again for allocations to an invoice that already recorded TDS.
+ * Component snapshots preserve CGST/SGST/IGST across edits and reversals;
+ * snapshots from older invoices retain the combined GST ledger until reclassed.
  *
  * Mutates `invoice.postedSnapshot` and appends to `invoice.journalEntryIds`
  * on a successful post — the caller is responsible for `invoice.save()`.
@@ -92,14 +89,31 @@ export async function postSalesInvoiceJournal({
   tenantId,
   createdBy,
   current,
+  idempotencyKey,
 }: {
   invoice: ISalesInvoice & { _id: mongoose.Types.ObjectId };
   tenantId: string;
   createdBy: string;
   current: SalesInvoiceSnapshot;
+  idempotencyKey?: string;
 }): Promise<mongoose.Types.ObjectId | null> {
   const previous: SalesInvoiceSnapshot = invoice.postedSnapshot || ZERO_SNAPSHOT;
 
+  if (idempotencyKey) {
+    const existing = await JournalEntry.findOne({ tenantId, "header.name": idempotencyKey });
+    if (existing) {
+      invoice.postedSnapshot = current;
+      invoice.journalEntryIds = [existing._id as mongoose.Types.ObjectId];
+      return existing._id as mongoose.Types.ObjectId;
+    }
+  }
+  const taxParts = (snapshot: SalesInvoiceSnapshot) => ({
+    "2160": roundCurrency(snapshot.totalTax - (snapshot.cgst || 0) - (snapshot.sgst || 0) - (snapshot.igst || 0)),
+    "2161": snapshot.cgst || 0, "2162": snapshot.sgst || 0, "2163": snapshot.igst || 0,
+  });
+  const nowTax = taxParts(current), oldTax = taxParts(previous);
+  const taxDeltas = Object.entries(nowTax).map(([code, amount]) => ({ code, amount: roundCurrency(amount - oldTax[code as keyof typeof oldTax]) }));
+  const dRound = roundCurrency((current.roundOffAmount || 0) - (previous.roundOffAmount || 0));
   const dTaxable = roundCurrency(current.taxableAmount - previous.taxableAmount);
   const dTax = roundCurrency(current.totalTax - previous.totalTax);
   const dTcs = roundCurrency(current.tcsAmount - previous.tcsAmount);
@@ -109,7 +123,9 @@ export async function postSalesInvoiceJournal({
     Math.abs(dTaxable) < POSTING_EPSILON &&
     Math.abs(dTax) < POSTING_EPSILON &&
     Math.abs(dTcs) < POSTING_EPSILON &&
-    Math.abs(dTds) < POSTING_EPSILON
+    Math.abs(dTds) < POSTING_EPSILON &&
+    Math.abs(dRound) < POSTING_EPSILON &&
+    taxDeltas.every((d) => Math.abs(d.amount) < POSTING_EPSILON)
   ) {
     return null; // idempotent no-op — nothing changed since the last post
   }
@@ -132,21 +148,22 @@ export async function postSalesInvoiceJournal({
   };
 
   const neededCodes = [RECEIVABLE_CODE, REVENUE_CODE];
-  if (Math.abs(dTax) >= POSTING_EPSILON) neededCodes.push(GST_PAYABLE_CODE);
+  for (const d of taxDeltas) if (Math.abs(d.amount) >= POSTING_EPSILON) neededCodes.push(d.code);
   if (Math.abs(dTcs) >= POSTING_EPSILON) neededCodes.push(TCS_PAYABLE_CODE);
   if (Math.abs(dTds) >= POSTING_EPSILON) neededCodes.push(TDS_RECEIVABLE_CODE);
   const resolveAccount = await resolveAccountsByCode(tenantId, neededCodes);
 
   const receivableAccount = resolveAccount(RECEIVABLE_CODE);
-  const arDelta = roundCurrency(dTaxable + dTax + dTcs - dTds);
+  const arDelta = roundCurrency(dTaxable + dTax + dTcs - dTds + dRound);
   pushLine(receivableAccount._id, arDelta, narration);
 
   const revenueAccount = resolveAccount(REVENUE_CODE);
   pushLine(revenueAccount._id, -dTaxable, narration);
+  pushLine(revenueAccount._id, -dRound, `Rounding — ${narration}`);
 
-  if (Math.abs(dTax) >= POSTING_EPSILON) {
-    const gstAccount = resolveAccount(GST_PAYABLE_CODE);
-    pushLine(gstAccount._id, -dTax, `GST — ${narration}`);
+  for (const d of taxDeltas) {
+    if (Math.abs(d.amount) < POSTING_EPSILON) continue;
+    pushLine(resolveAccount(d.code)._id, -d.amount, `${({ "2160": "GST", "2161": "CGST", "2162": "SGST", "2163": "IGST" } as Record<string, string>)[d.code]} — ${narration}`);
   }
 
   if (Math.abs(dTcs) >= POSTING_EPSILON) {
@@ -167,6 +184,7 @@ export async function postSalesInvoiceJournal({
   const journalEntry = await createPostedJournalEntry({
     tenantId,
     header: {
+      name: idempotencyKey,
       date: invoice.invoiceDate || new Date(),
       ref: invoice.number,
       journalType: "sale",

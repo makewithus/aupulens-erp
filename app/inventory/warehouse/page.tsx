@@ -142,7 +142,8 @@ function WarehousePageInner() {
         body: JSON.stringify(formData),
       });
 
-      if (!res.ok) throw new Error("Failed to save warehouse");
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save warehouse");
 
       toast.success("Warehouse saved");
       setIsModalOpen(false);

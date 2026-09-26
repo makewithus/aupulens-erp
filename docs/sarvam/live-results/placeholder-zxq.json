@@ -24,7 +24,7 @@
     "fromEnglish": {
       "ok": true,
       "in": "Open ZXQ0ZXQ and check ZXQ1ZXQ for ₹45000.",
-      "out": "ZXQ0ZXQ open karo aur ZXQ1ZXQ Rs. 45000 ke liye check karo."
+      "out": "ZXQ0ZXQ open karo aur ZXQ1ZXQ ₹45000 ke liye check karo."
     }
   },
   {
@@ -87,9 +87,9 @@
     "lang": "gu",
     "fmt": "zxq",
     "toEnglish": {
-      "ok": false,
+      "ok": true,
       "in": "ZXQ0ZXQ માટે 45000 રૂપિયાનું ઇન્વોઇસ બનાવો ZXQ1ZXQ",
-      "out": "Create an invoice for ZXQ0ZXQ, 45000 rupees"
+      "out": "Create an invoice for ZXQ0ZXQ for 45000 rupees ZXQ1ZXQ"
     },
     "fromEnglish": {
       "ok": true,
@@ -103,7 +103,7 @@
     "toEnglish": {
       "ok": true,
       "in": "ZXQ0ZXQ ಗಾಗಿ 45000 ರೂಪಾಯಿಗಳ ಇನ್ವಾಯ್ಸ್ ರಚಿಸಿ ZXQ1ZXQ",
-      "out": "Create an invoice for ZXQ0ZXQ with an amount of 45000 rupees ZXQ1ZXQ"
+      "out": "Create an invoice for ZXQ0ZXQ with an amount of 45000 rupees for ZXQ1ZXQ"
     },
     "fromEnglish": {
       "ok": true,
@@ -143,9 +143,9 @@
     "lang": "or",
     "fmt": "zxq",
     "toEnglish": {
-      "ok": false,
+      "ok": true,
       "in": "ZXQ0ZXQ ପାଇଁ 45000 ଟଙ୍କାର ଇନଭଏସ୍ ତିଆରି କର ZXQ1ZXQ",
-      "out": "Create an invoice for ZXQ0ZXQ with an amount of 45000"
+      "out": "Create an invoice for ZXQ0ZXQ worth 45000 rupees, ZXQ1ZXQ"
     },
     "fromEnglish": {
       "ok": true,

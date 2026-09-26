@@ -149,6 +149,7 @@ export async function POST(request: Request) {
       ...body,
       tenantId,
       createdBy: session.user.id,
+      status: body.status || "published",
     });
 
     const productType = body.tab_general_information?.type || "consu";

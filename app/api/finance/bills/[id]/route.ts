@@ -1,3 +1,4 @@
+import { computeBillTotals } from "@/lib/accounting/billMath";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -18,6 +19,8 @@ import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postInvoicePayment } from "@/lib/accounting/payments";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+
+import { splitGst, GST_INPUT_CODES } from "@/lib/accounting/gst";
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
@@ -64,15 +67,28 @@ async function ensureBillPostingJournal(
     0,
   );
   const total = roundCurrency(Number(currentBill.amountTotal) || 0);
+  const inputTax = currentBill.gstInputEligible ? roundCurrency(Number(currentBill.amountTax) || 0) : 0;
+  if (inputTax < 0 || inputTax > total) throw new Error("Input GST must be between zero and the bill total.");
+  const expenseTotal = roundCurrency(total - inputTax);
+  const inputLines: any[] = [];
+  if (inputTax > 0) {
+    const parts = splitGst(inputTax, currentBill.supplierState, currentBill.placeOfSupply);
+    for (const head of ["cgst", "sgst", "igst"] as const) {
+      if (!parts[head]) continue;
+      const account = await Account.findOne({ tenantId, code: GST_INPUT_CODES[head] });
+      if (!account) throw new Error("Input GST account is missing.");
+      inputLines.push({ accountId: account._id, debit: parts[head], credit: 0, label: `${head.toUpperCase()} input credit — ${currentBill.name}`, sourceDocument: currentBill.name, sourceId: currentBill._id });
+    }
+  }
   let allocated = 0;
   const expenseLines = currentBill.invoiceLines.map((line: any, index: number) => {
     const amount =
       index === currentBill.invoiceLines.length - 1
-        ? roundCurrency(total - allocated)
+        ? roundCurrency(expenseTotal - allocated)
         : roundCurrency(
             subtotal > 0
-              ? ((Number(line.priceSubtotal) || 0) / subtotal) * total
-              : total / currentBill.invoiceLines.length,
+              ? ((Number(line.priceSubtotal) || 0) / subtotal) * expenseTotal
+              : expenseTotal / currentBill.invoiceLines.length,
           );
     allocated = roundCurrency(allocated + amount);
 
@@ -88,6 +104,7 @@ async function ensureBillPostingJournal(
 
   const lineIds = [
     ...expenseLines,
+    ...inputLines,
     {
       accountId: payableAccountId,
       partnerId: currentBill.partnerId,
@@ -136,7 +153,7 @@ async function ensureBillPostingJournal(
     tenantId,
     header: {
       name: entryName,
-      date: new Date(),
+      date: currentBill.invoiceDate || new Date(),
       ref: currentBill.name,
       journalType: "purchase",
     },
@@ -221,6 +238,19 @@ export async function PATCH(
       throw lockError;
     }
 
+    for (const key of ["_id", "tenantId", "createdBy", "journalId", "createdAt"]) delete body[key];
+    const financialFields = ["invoiceLines", "amountUntaxed", "amountTax", "amountTotal", "gstInputEligible", "supplierState", "placeOfSupply", "partnerId"];
+    if (currentBill.state === DOCUMENT_STATUS.POSTED && financialFields.some((key) => key in body && JSON.stringify(body[key]) !== JSON.stringify((currentBill as any)[key]))) {
+      return NextResponse.json({ error: "Posted bill amounts and GST cannot be edited. Use a reversal or adjustment journal." }, { status: 400 });
+    }
+    if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
+      for (const key of financialFields) if (key in body) (currentBill as any)[key] = body[key];
+    }
+    if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length && body.invoiceLines.every((l: any) => l.taxRate !== undefined)) {
+      const computed = computeBillTotals(body.invoiceLines);
+      Object.assign(body, computed); Object.assign(currentBill, computed);
+    }
+    if (currentBill.state === DOCUMENT_STATUS.POSTED && body.state && body.state !== DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Reverse the posted bill with an adjustment journal before changing its state." }, { status: 400 });
     if (body.poMatchStatus === "mismatch") {
       body.manualReviewRequired = true;
       body.state = DOCUMENT_STATUS.DRAFT;
@@ -368,6 +398,7 @@ export async function DELETE(
     await dbConnect();
 
     const existingBill = await Invoice.findOne({ _id: id, tenantId });
+    if (existingBill?.state === DOCUMENT_STATUS.POSTED) return NextResponse.json({ error: "Posted bills cannot be deleted. Reverse their accounting entries first." }, { status: 400 });
     if (existingBill) {
       try {
         await assertTransactionNotLocked(tenantId, "purchases", existingBill.invoiceDate);

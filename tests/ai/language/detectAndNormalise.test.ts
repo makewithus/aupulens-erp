@@ -73,6 +73,11 @@ describe("deterministic normalisation", () => {
   it("does not lowercase ALL CAPS input (names must survive)", () => {
     expect(prepareText("CREATE INVOICE FOR ACME TRADERS").normalised).toBe("CREATE INVOICE FOR ACME TRADERS");
   });
+  it("maps Marathi बीजक to invoice before provider translation", () => {
+    const p = prepareText("Acme साठी 45000 रुपयांचे बीजक तयार करा");
+    expect(p.normalised).toContain("इनव्हॉइस");
+    expect(p.rewrites).toContain("बीजक → इनव्हॉइस");
+  });
   it("comma spacing", () => expect(prepareText("invoice,for Acme").normalised).toBe("invoice, for Acme"));
 });
 

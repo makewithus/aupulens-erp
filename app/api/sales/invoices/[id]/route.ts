@@ -59,6 +59,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const tenantId = session.user.tenantId;
     const { id } = await params;
     const body = await request.json();
+    for (const key of ["tenantId", "createdBy", "postedSnapshot", "journalEntryIds", "sourceQuoteId", "_id"]) delete body[key];
     delete body.tenantId;
     delete body.number; // Immutable once assigned
 
@@ -139,7 +140,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // reversal if the invoice moved back to draft/cancelled. See the POST
     // route and lib/accounting/salesInvoicePosting.ts for why this exists.
     const nextSnapshot: SalesInvoiceSnapshot = REVENUE_RECOGNIZED_STATUSES.has(status as any)
-      ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount }
+      ? { taxableAmount: totals.taxableAmount, totalTax: totals.totalTax, tcsAmount: totals.tcsAmount, tdsAmount: totals.tdsAmount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, roundOffAmount: totals.roundOffAmount }
       : ZERO_SNAPSHOT;
     // Same "Mark as fully paid" GL-blind fix as the POST route — see
     // lib/sales/paymentAllocation.ts's settleInvoiceShortfallWithSystemPayment

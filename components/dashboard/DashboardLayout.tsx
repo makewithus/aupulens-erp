@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { clearAllStores } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
 import { usePageActionsStore } from "@/store/pageActionsStore";
-import Lenis from "lenis";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -71,27 +70,73 @@ export function DashboardLayout({
   useEffect(() => {
     if (!mainScrollRef.current || !contentRef.current) return;
 
-    const lenis = new Lenis({
-      wrapper: mainScrollRef.current,
-      content: contentRef.current,
-      duration: 1.2,
-      wheelMultiplier: 0.8,
-      touchMultiplier: 1.2,
-      smoothWheel: true,
-    });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
 
-    let rafId: number;
+    const wrapper = mainScrollRef.current;
+    const content = contentRef.current;
+    let cancelled = false;
+    let lenis: { raf: (time: number) => void; destroy: () => void } | null = null;
+    let rafId = 0;
+    let stopTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let running = false;
 
-    function raf(time: number) {
-      lenis.raf(time);
+    const stopRafSoon = () => {
+      if (stopTimer) clearTimeout(stopTimer);
+      stopTimer = setTimeout(() => {
+        running = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = 0;
+      }, 1600);
+    };
+
+    const startRaf = () => {
+      if (!lenis || running) return;
+      running = true;
+      const raf = (time: number) => {
+        if (!running || !lenis) return;
+        lenis.raf(time);
+        rafId = requestAnimationFrame(raf);
+      };
       rafId = requestAnimationFrame(raf);
+      stopRafSoon();
+    };
+
+    const initializeLenis = async () => {
+      const { default: Lenis } = await import("lenis");
+      if (cancelled) return;
+      lenis = new Lenis({
+        wrapper,
+        content,
+        duration: 0.9,
+        wheelMultiplier: 0.9,
+        touchMultiplier: 1,
+        smoothWheel: true,
+      });
+    };
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(() => void initializeLenis(), { timeout: 1500 });
+    } else {
+      fallbackTimer = setTimeout(() => void initializeLenis(), 250);
     }
 
-    rafId = requestAnimationFrame(raf);
+    wrapper.addEventListener("wheel", startRaf, { passive: true });
+    wrapper.addEventListener("touchstart", startRaf, { passive: true });
+    wrapper.addEventListener("keydown", startRaf);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
+      cancelled = true;
+      wrapper.removeEventListener("wheel", startRaf);
+      wrapper.removeEventListener("touchstart", startRaf);
+      wrapper.removeEventListener("keydown", startRaf);
+      if (idleId !== null) window.cancelIdleCallback(idleId);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (stopTimer) clearTimeout(stopTimer);
+      if (rafId) cancelAnimationFrame(rafId);
+      lenis?.destroy();
     };
   }, []);
 

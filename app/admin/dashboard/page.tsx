@@ -18,6 +18,7 @@ import { DashboardMetrics } from "@/components/admin/DashboardMetrics";
 import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
+import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface DashboardSummary {
   finance: {
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/admin/dashboard");
+      const res = await cachedFetch("/api/admin/dashboard", undefined, { ttl: 15_000 });
       // A 401/403 here means the session is actually invalid even if the client
       // session state hasn't flipped yet — go to login instead of showing stale
       // dashboard chrome.

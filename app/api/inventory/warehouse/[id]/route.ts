@@ -43,14 +43,14 @@ export async function PATCH(
     const tenantId = (session.user as any).tenantId;
     const body = await request.json(); // Fixed req -> request
 
-    console.log(`PATCH Warehouse [${id}]`, body);
+    for (const key of ["_id", "tenantId", "createdBy", "createdAt", "updatedAt"]) delete body[key];
 
     await connectDB();
 
     const warehouse = await Warehouse.findOneAndUpdate(
       { _id: id, tenantId },
       { $set: body },
-      { new: true },
+      { new: true, runValidators: true },
     );
 
     if (!warehouse) {
@@ -60,6 +60,8 @@ export async function PATCH(
 
     return NextResponse.json({ warehouse });
   } catch (e: any) {
+    if (e?.code === 11000) return NextResponse.json({ error: "That warehouse code is already in use." }, { status: 409 });
+    if (e?.name === "ValidationError") return NextResponse.json({ error: Object.values(e.errors).map((v: any) => v.message).join(" ") }, { status: 400 });
     console.error("PATCH Warehouse Error:", e);
     return NextResponse.json(
       { error: "Update Failed: " + e.message },

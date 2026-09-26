@@ -1,3 +1,4 @@
+import { normalizeIndianState } from "@/lib/constants/indianStates";
 // Pure functions — invoice line/tax/total math. No DB access, fully unit-testable.
 
 export interface InvoiceLineInput {
@@ -83,7 +84,7 @@ export interface InvoiceTotalsResult {
 }
 
 function normalizeState(s?: string) {
-  return (s || "").trim().toLowerCase();
+  return normalizeIndianState(s);
 }
 
 export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotalsResult {
@@ -116,23 +117,23 @@ export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotalsRe
     .reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
   const netTaxableBase = Math.max(0, sumTaxableBeforeExtra - extraDiscountAmount);
-  const taxableAmount = netTaxableBase + additionalChargesTotal;
+  const taxableAmount = round2(netTaxableBase + additionalChargesTotal);
 
   // Weighted-average effective tax rate carried over proportionally after
   // extra discount is applied, then charged on the taxable portion of
   // additional charges too.
   const effectiveTaxRateAvg = sumTaxableBeforeExtra > 0 ? sumLineTax / sumTaxableBeforeExtra : 0;
-  const totalTax = netTaxableBase * effectiveTaxRateAvg + taxableAdditionalCharges * effectiveTaxRateAvg;
+  const totalTax = round2(netTaxableBase * effectiveTaxRateAvg + taxableAdditionalCharges * effectiveTaxRateAvg);
 
   const isInterState =
     !!sellerState && !!placeOfSupply && normalizeState(sellerState) !== normalizeState(placeOfSupply);
 
-  const cgst = isInterState ? 0 : totalTax / 2;
-  const sgst = isInterState ? 0 : totalTax / 2;
+  const cgst = isInterState ? 0 : round2(totalTax / 2);
+  const sgst = isInterState ? 0 : round2(totalTax - cgst);
   const igst = isInterState ? totalTax : 0;
 
-  const tdsAmount = tdsRate ? (taxableAmount * tdsRate) / 100 : 0;
-  const tcsAmount = tcsRate ? ((taxableAmount + totalTax) * tcsRate) / 100 : 0;
+  const tdsAmount = tdsRate ? round2((taxableAmount * tdsRate) / 100) : 0;
+  const tcsAmount = tcsRate ? round2(((taxableAmount + totalTax) * tcsRate) / 100) : 0;
 
   const totalBeforeRound = taxableAmount + totalTax + tcsAmount - tdsAmount;
   const roundOffAmount = roundOff ? Math.round(totalBeforeRound) - totalBeforeRound : 0;

@@ -38,6 +38,7 @@ export const financeSidebarConfig: SidebarSection[] = [
   {
     title: "Accounting",
     items: [
+      { title: "GST & Input Credit", href: "/finance/gst", icon: Scale },
       {
         title: "Chart of Accounts",
         href: "/finance/accounting/chart-of-accounts",

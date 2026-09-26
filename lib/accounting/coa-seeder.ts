@@ -9,8 +9,16 @@ const DEFAULT_ACCOUNTS = [
   { code: "1120", name: "Bank Current Account", account_type: "asset_cash", internal_group: "asset", parentCode: "1100" },
   { code: "1200", name: "Accounts Receivable", account_type: "asset_receivable", internal_group: "asset", parentCode: "1000", reconcile: true },
   { code: "1210", name: "TDS Receivable", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1211", name: "TDS Receivable - Contractors", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1212", name: "TDS Receivable - Professional Fees", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1213", name: "TDS Receivable - Rent", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1214", name: "TDS Receivable - Interest/Other", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
   { code: "1300", name: "Stock/Inventory Account", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
   { code: "1400", name: "Fixed Assets", account_type: "asset_fixed", internal_group: "asset", parentCode: "1000" },
+
+  { code: "1221", name: "CGST Input Tax Credit", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1222", name: "SGST Input Tax Credit", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
+  { code: "1223", name: "IGST Input Tax Credit", account_type: "asset_current", internal_group: "asset", parentCode: "1000" },
 
   // Liabilities
   { code: "2000", name: "Liabilities", account_type: "liability_current", internal_group: "liability", parentCode: null },
@@ -19,6 +27,17 @@ const DEFAULT_ACCOUNTS = [
   { code: "2160", name: "GST Output Tax Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
   { code: "2170", name: "TCS Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
   { code: "2200", name: "Goods Received Not Invoiced (GRNI)", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+
+  { code: "2161", name: "CGST Output Tax Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2162", name: "SGST Output Tax Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2163", name: "IGST Output Tax Payable", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2181", name: "TDS Payable - Salaries", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2182", name: "TDS Payable - Contractors", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2183", name: "TDS Payable - Professional Fees", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2184", name: "TDS Payable - Rent", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+  { code: "2185", name: "TDS Payable - Interest/Other", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
+
+  { code: "2186", name: "TDS Payable - Other", account_type: "liability_current", internal_group: "liability", parentCode: "2000" },
 
   // Equity
   { code: "3000", name: "Equity", account_type: "equity", internal_group: "equity", parentCode: null },

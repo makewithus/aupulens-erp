@@ -63,6 +63,15 @@ describe("pipeline: regional input", () => {
     expect(t.modelText).toContain("Acme");
     expect((c.translateSpy.mock.calls[0][0] as any).source).toBe("hi-IN");
   });
+  it("Marathi बीजक is normalised before Sarvam so the model sees invoice, not seed", async () => {
+    const c = fakeClient((req) => ({ text: req.input.replace(/इनव्हॉइस/g, "invoice").replace(/साठी/g, "for").replace(/रुपयांचे/g, "rupees").replace(/तयार करा/g, "create") }));
+    setSarvamClientForTests(c);
+    const t = await prepareLanguageInput({ tenantId: "t1", rawText: "Acme साठी 45000 रुपयांचे बीजक तयार करा" });
+    expect((c.translateSpy.mock.calls[0][0] as any).input).toContain("इनव्हॉइस");
+    expect(t.modelText.toLowerCase()).toContain("invoice");
+    expect(t.modelText.toLowerCase()).not.toContain("seed");
+    expect(t.rewrites).toContain("बीजक → इनव्हॉइस");
+  });
   it("2,000-char paste is chunked, run in parallel, and reassembled", async () => {
     const c = fakeClient(translator);
     setSarvamClientForTests(c);

@@ -9,8 +9,8 @@ export interface IWarehouse extends Document {
   tenantId: string;
   warehouseCode: string;
   name: string;
-  location: string;
-  address: string;
+  location?: string;
+  address?: string;
   capacity: number;
   currentUtilization: number;
   type: 'standard' | 'bonded' | 'cold-storage' | 'hazmat';
@@ -31,9 +31,9 @@ const WarehouseSchema: Schema<IWarehouse> = new Schema(
     tenantId: { type: String, required: true, index: true },
     warehouseCode: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
-    location: { type: String, required: true, trim: true },
-    address: { type: String, required: true, trim: true },
-    capacity: { type: Number, required: true, default: 0 },
+    location: { type: String, trim: true },
+    address: { type: String, trim: true },
+    capacity: { type: Number, required: true, default: 0, min: 0 },
     currentUtilization: { type: Number, default: 0 },
     type: {
       type: String,

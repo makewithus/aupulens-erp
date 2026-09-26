@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { transcribeAudio, isSpeechConfigured } from "@/lib/ai/speechToText";
 import { getSarvamClient } from "@/lib/ai/language/sarvam/client";
 import { getSarvamConfig, isSarvamUsable } from "@/lib/ai/language/config";
+import { recordSarvamUsage } from "@/lib/platform/ai/instrumentation";
+import { SARVAM_CALL_TYPE } from "@/lib/constants/statuses";
 
 // Node runtime — the Azure OpenAI SDK / file handling isn't Edge-compatible.
 export const runtime = "nodejs";
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
+    const tenantId = (session.user as any).tenantId as string | undefined;
 
     const sarvamCfg = getSarvamConfig();
     const useSarvam = sarvamCfg.enabled && isSarvamUsable(sarvamCfg);
@@ -69,6 +72,20 @@ export async function POST(req: NextRequest) {
         throw new Error((result as any).error?.message || "Sarvam ASR failed.");
       }
       text = (result as any).data?.transcript || "";
+      if (tenantId) {
+        await recordSarvamUsage({
+          tenantId,
+          feature: "chat",
+          call: {
+            provider: "sarvam",
+            type: SARVAM_CALL_TYPE.ASR,
+            model: "speech-to-text",
+            characters: 0,
+            latencyMs: result.latencyMs,
+            ok: true,
+          },
+        });
+      }
     } else {
       text = await transcribeAudio(buffer, { contentType, filename, language });
     }
