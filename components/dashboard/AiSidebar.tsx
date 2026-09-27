@@ -421,7 +421,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       setIsLoading(true);
       setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
 
-      const memOutcome = await tryAiMemoryFlow({ text: q, history: priorTurnsForMemory });
+      const memOutcome = await tryAiMemoryFlow({ text: qEnglish, history: priorTurnsForMemory });
       if (memOutcome.handled) {
         setMessages((prev) => {
           const next = [...prev];
@@ -446,7 +446,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      const invMemOutcome = await tryAiInventoryMemoryFlow({ text: q, history: priorTurnsForMemory });
+      const invMemOutcome = await tryAiInventoryMemoryFlow({ text: qEnglish, history: priorTurnsForMemory });
       if (invMemOutcome.handled) {
         setMessages((prev) => {
           const next = [...prev];
@@ -474,7 +474,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       setIsLoading(false);
     }
 
-    const isCommand = ACTION_RX.test(q) || NAV_RX.test(q);
+    const isCommand = ACTION_RX.test(qEnglish) || NAV_RX.test(qEnglish);
     if (attachments.length > 0 || !isCommand) {
       sendQuery(q || "Please analyse the attached file(s).");
       return;
@@ -487,7 +487,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: q, context: { pathname: typeof window !== "undefined" ? window.location.pathname : "" } }),
+        body: JSON.stringify({ command: qEnglish, context: { pathname: typeof window !== "undefined" ? window.location.pathname : "" } }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.action === "confirm" && data.proposalId) {

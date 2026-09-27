@@ -19,12 +19,16 @@ declare module "next-auth" {
       role: string;
       tenantId: string;
       permissions?: string[];
+      sessionPolicyVersion?: string;
+      sessionStale?: boolean;
     } & DefaultSession["user"];
   }
   interface User {
     role: string;
     tenantId: string;
     permissions?: string[];
+    sessionPolicyVersion?: string;
+    sessionStale?: boolean;
   }
 }
 
@@ -34,6 +38,8 @@ declare module "@auth/core/jwt" {
     role?: string;
     tenantId?: string;
     permissions?: string[];
+    sessionPolicyVersion?: string;
+    sessionStale?: boolean;
   }
 }
 

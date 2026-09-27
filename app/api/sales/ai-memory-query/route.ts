@@ -183,6 +183,7 @@ Rules:
 - "dateFrom"/"dateTo": resolve ANY date-range phrasing to real YYYY-MM-DD dates using today (${todayIso}) as the anchor. An explicit date WITH a year (e.g. "15 Aug 2026", "since 15 August 2026", "after 15/08/2026") is absolute — use that exact date, even if it's in the future relative to your training data; today's date above is the only source of truth for "now"/"future". "X till now"/"X to date"/"since X" → dateFrom = X, dateTo empty (an open-ended range needs no upper bound). "first week of August" → the 1st to the 7th of the nearest August not in the future. "last three months" → 3 months before today to today. "this month" → the 1st of the current month to today. "in August" with no year → the nearest August that is not in the future. If there is NO date phrasing at all, leave both empty strings.
 - "status": only when the user clearly names a status. Map their words to the closest ONE of these, depending on entity — product: draft, published. invoice: draft, saved, partially_paid, paid, overdue, cancelled, unpaid. quote: draft, sent, accepted, rejected, invoiced. sales_order: draft, pending_approval, approved, confirmed, on_hold, void, closed. payment: draft, paid, void. subscription: draft, trial, active, non_renewing, unpaid, dunning, cancelled, expired. delivery_challan: pending, issued, delivered. vendor_bill: draft, pending_approval, approved, posted, closed, rejected, cancelled, paid, overdue, unpaid. expense: draft, pending_approval, approved, posted, closed, rejected, cancelled. purchase_order: draft, pending_approval, approved, posted, closed, rejected, cancelled. inventory_delivery / inventory_receipt: draft, pending_approval, approved, posted, closed, rejected, cancelled. manufacturing_order: demand_forecast, production_order, material_reserved, material_issued, in_production, qc_pending, qc_passed, qc_failed, rework, finished, cancelled. batch: active, quarantine, expired, released. crm_lead: New, Attempting Contact, Connected, Qualified, Nurture, Disqualified, Converted. crm_opportunity (this maps to the "stage", not a status): Prospecting, Discovery, Requirement Gathering, Solution Fit, Proposal Sent, Negotiation, Approval, Closed Won, Closed Lost. crm_case: New, Open, In Progress, Waiting on Customer, Waiting on Internal Team, Resolved, Closed, Reopened. crm_campaign: Draft, Planned, Active, Paused, Completed, Archived. crm_contract: Draft, Active, Renewal Due, Expiring, Expired, Terminated, Cancelled (use the closest match). admin_user: active, inactive. admin_task: todo, in_progress, review, done. Empty string if no status named.
 - "amountMin"/"amountMax" (invoice, quote, sales_order, payment, subscription, vendor_bill, expense, purchase_order, and customer — a plain rupee number, no currency symbol or commas; NOT applicable to any other entity, none of which have a comparable single amount field exposed here): "above/over/more than/at least X" → amountMin = X. "below/under/less than X" → amountMax = X. "between X and Y" → amountMin = X, amountMax = Y. "at most X" → amountMax = X. If no amount phrasing at all, leave both null. For "customer", this filters by the customer's own receivables/balance — a question about a CUSTOMER's outstanding balance/receivables (e.g. "customers with receivables above 10000", "clients who owe more than 5000") is entity "customer" with amountMin/amountMax set, NOT entity "invoice" — only pick "invoice" when the question is actually about invoice documents themselves (e.g. "invoices above 10000").
+- A follow-up such as "greater than 10000?" after invoices above 20000 last month means invoice, amountMin 10000, amountMax null, SAME previous month date range, and wantsToOpen true. Keep unchanged filters and execute the lookup even if the previous result was empty.
 - USE THE RECENT CONVERSATION ABOVE (if any) to resolve a follow-up that doesn't fully stand on its own — e.g. "and quotes?" after a question about invoices means entity: "quote" with the SAME name/date/status/amount scope the invoice question used; "now show me all of them" after a filtered lookup means the SAME entity with wantsToOpen true and every filter cleared. But the CURRENT question's own explicit words always override anything from history: if the current question names its OWN date range, status, or amount, use that instead of carrying the old one forward, and if the current question says "all time"/"all of them"/"any status"/similarly explicit language that CLEARS a filter, leave that field empty — do NOT keep a filter from an earlier turn once the user has said something that supersedes it. A current question that is already a complete, self-contained request (names its own entity and everything it needs) should be extracted from ITS OWN wording alone — ignore history for anything it doesn't otherwise need.
 - Never invent a name, a date, or an amount that isn't implied by the question or the recent conversation above. Output strict JSON, nothing else.`;
 
@@ -194,9 +195,8 @@ Rules:
     // single coherent context instead of splitting them across turns.
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { maxTokens: 300 });
     if (!("text" in result)) {
-      // Gated (AI disabled / cap reached) — fall through silently, let the
-      // normal assistant call surface the real gated error to the user.
-      return NextResponse.json({ success: true, handled: false });
+      // Keep failed execution out of the general advice path.
+      return NextResponse.json({ success: true, handled: true, message: "The AI lookup is unavailable under the current AI settings or usage allowance. No filters were changed." });
     }
 
     const VALID_ENTITIES: MemoryEntity[] = ["customer", "product", "invoice", "quote", "sales_order", "payment", "subscription", "delivery_challan", "vendor_bill", "expense", "purchase_order", "inventory_delivery", "inventory_receipt", "manufacturing_order", "batch", "crm_lead", "crm_opportunity", "crm_case", "crm_campaign", "crm_contract", "admin_user", "admin_task", "activity_log", "none"];
@@ -220,7 +220,10 @@ Rules:
       // fall through — handled below
     }
 
-    if (!extracted || extracted.entity === "none") {
+    if (!extracted) {
+      return NextResponse.json({ success: false, handled: false }, { status: 502 });
+    }
+    if (extracted.entity === "none") {
       return NextResponse.json({ success: true, handled: false });
     }
 
@@ -1555,6 +1558,6 @@ Rules:
     return NextResponse.json({ success: true, handled: false });
   } catch (error) {
     console.error("Sales AI memory-query error:", error);
-    return NextResponse.json({ success: true, handled: false });
+    return NextResponse.json({ success: false, handled: false }, { status: 500 });
   }
 }

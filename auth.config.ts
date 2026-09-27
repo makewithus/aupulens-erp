@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { getTenantSessionPolicyVersion, tenantSessionStaleReason } from "@/lib/auth/sessionPolicy";
 
 if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   if (process.env.NODE_ENV === "production") {
@@ -71,6 +72,10 @@ export const authConfig = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.permissions = user.permissions;
+        token.sessionPolicyVersion = getTenantSessionPolicyVersion();
+        token.sessionStale = false;
+      } else {
+        token.sessionStale = tenantSessionStaleReason(token.sessionPolicyVersion) !== null;
       }
       return token;
     },
@@ -80,6 +85,8 @@ export const authConfig = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as string;
         session.user.permissions = token.permissions;
+        session.user.sessionPolicyVersion = token.sessionPolicyVersion as string | undefined;
+        session.user.sessionStale = token.sessionStale === true;
       }
       return session;
     },
@@ -114,7 +121,7 @@ export const authConfig = {
   // uses the `__Secure-` prefix on HTTPS and strips it on HTTP.
   // It will also use host-only cookies (domain=undefined) by default, 
   // which works perfectly across most proxy and localhost setups.
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
   providers: [], // Providers are configured in auth.ts
 } satisfies NextAuthConfig;

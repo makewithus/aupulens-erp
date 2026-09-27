@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
 import NextAuth from "next-auth";
 import {
@@ -40,6 +40,34 @@ async function fetchOrgModuleData(tenantId: string, origin: string): Promise<Org
 
 const orgTierCache = createOrgTierCache(fetchOrgModuleData);
 const getOrgModuleData = (tenantId: string, origin: string) => orgTierCache.get(tenantId, origin);
+
+const TENANT_AUTH_COOKIE_NAMES = [
+  "authjs.session-token",
+  "__Secure-authjs.session-token",
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+];
+
+function clearTenantAuthCookies(response: NextResponse): NextResponse {
+  for (const name of TENANT_AUTH_COOKIE_NAMES) {
+    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+  }
+  return response;
+}
+
+function staleTenantSessionResponse(req: NextRequest, isApiRoute: boolean, role?: string): NextResponse {
+  if (isApiRoute) {
+    return clearTenantAuthCookies(
+      NextResponse.json(
+        { error: "Session expired. Please sign in again.", code: "SESSION_EXPIRED" },
+        { status: 401 },
+      ),
+    );
+  }
+  const loginUrl = new URL(role === "master-admin" ? "/auth/master" : "/auth", req.url);
+  loginUrl.searchParams.set("error", "SessionExpired");
+  return clearTenantAuthCookies(NextResponse.redirect(loginUrl));
+}
 
 import { APP_ROOT_DOMAIN, APP_BASE_URL } from "@/lib/config";
 
@@ -103,10 +131,14 @@ export default auth(async (req) => {
     requestHeaders.set("x-tenant-id", tenantId);
   }
 
-  // req.auth is the session object
+  // req.auth is the session object. Sessions created under an older
+  // deployment/security policy are deliberately treated as signed out so a
+  // redeploy or AUTH_SESSION_VERSION rotation forces fresh credentials while
+  // still allowing normal tab-close persistence for current sessions.
   const session = req.auth;
-  // Map session user to 'token' concept if needed, but session.user has the role
-  const user = session?.user;
+  const rawUser = session?.user;
+  const isStaleTenantSession = (rawUser as any)?.sessionStale === true;
+  const user = isStaleTenantSession ? undefined : rawUser;
 
   const isApiRoute = pathname.startsWith("/api");
   const isAuthApi = pathname.startsWith("/api/auth");
@@ -137,6 +169,13 @@ export default auth(async (req) => {
   const isPlatformApi = pathname.startsWith("/api/platform");
   const isPublicApi =
     pathname === "/api/tenant/status" || isCronApi || isInternalApi || isPublicSignedApi || isPlatformApi;
+
+  if (isStaleTenantSession) {
+    if (pathname.startsWith("/auth") || pathname.startsWith("/onboarding")) {
+      return clearTenantAuthCookies(NextResponse.next({ request: { headers: requestHeaders } }));
+    }
+    return staleTenantSessionResponse(req, isApiRoute, (rawUser as any)?.role);
+  }
 
   // Enforce strict tenant isolation
   if (user && tenantId) {

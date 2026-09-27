@@ -37,6 +37,9 @@ export function classifyIntent(english: string, nounRx: RegExp, weakNounRx?: Reg
   const adjacent = new RegExp(`${STRONG_CREATE_RX.source}\\s+(?:(?!\\b(?:to|on|in|against|from|of)\\b)[\\w'-]+\\s+){0,3}(?:${nounSrc})`, "i").test(q);
   if (STRONG_CREATE_RX.test(q) && !adjacent && !WEAK_CREATE_RX.test(q)) return "none";
   const strongCue = adjacent;
+  // Retrieval phrasing from translation must not turn "give me those invoices" into creation.
+  const retrieval = /\b(?:all|those|these|existing|whose|above|below|greater than|less than|more than|last (?:month|week|year)|this (?:month|week|year))\b/i.test(q);
+  if (!strongCue && (retrieval || DATA_QUERY_RX.test(q))) return "none";
   const weakCue = WEAK_CREATE_RX.test(q) && !QUERY_RX.test(q);
   if ((strongCue || weakCue) && (REQUEST_RX.test(q) || !/\?\s*$/.test(q))) return "do";
   if (/\?\s*$/.test(q) && (strongCue || weakCue)) return "ambiguous";

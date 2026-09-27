@@ -1,3 +1,6 @@
+import { detectLanguage } from "@/lib/ai/language/detect";
+import { runTaskFlow } from "@/lib/ai/taskFlowClient";
+
 export interface MemoryFlowOutcome {
   handled: boolean;
   message?: string;
@@ -48,8 +51,17 @@ export async function tryAiMemoryFlow(input: {
   text: string;
   history?: { role: string; content: string }[];
 }): Promise<MemoryFlowOutcome> {
-  const q = input.text.trim();
-  if (!q || !SALES_ENTITY_RX.test(q)) return { handled: false };
+  let q = input.text.trim();
+  if (!q) return { handled: false };
+  const language = detectLanguage(q).kind;
+  if (language !== "english" && language !== "none" && language !== "unsupported") {
+    const translated = await runTaskFlow(q);
+    if (translated.outcome) return translated.outcome;
+    if (translated.english) q = translated.english;
+  }
+  const hasRecordContext = (input.history ?? []).slice(-8).some((turn) => SALES_ENTITY_RX.test(turn.content));
+  const refinement = AMOUNT_RX.test(q) || DATE_RX.test(q) || STATUS_RX.test(q) || /\b(?:those|them|instead|same|all time|what about)\b/i.test(q);
+  if (!SALES_ENTITY_RX.test(q) && !(hasRecordContext && refinement)) return { handled: false };
   // Mid-conversation, a bare entity mention with no other signal word ("and
   // quotes?", "what about invoices") is still very likely a real follow-up —
   // the server-side extraction resolves it against the conversation history
@@ -70,8 +82,11 @@ export async function tryAiMemoryFlow(input: {
     if (res.ok && data.success && data.handled) {
       return { handled: true, message: data.message, route: data.route };
     }
+    if (!res.ok || data.success === false) {
+      return { handled: true, message: "I couldn't complete the lookup. Please try again; the filters have not been changed." };
+    }
     return { handled: false };
   } catch {
-    return { handled: false };
+    return { handled: true, message: "I couldn't complete the lookup. Please try again; the filters have not been changed." };
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -64,7 +64,9 @@ function SalesInvoicesLandingPageInner() {
     amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
   });
 
+  const invoiceRequest = useRef(0);
   const fetchInvoices = async () => {
+    const requestId = ++invoiceRequest.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({ search, status: statusFilter });
@@ -75,20 +77,22 @@ function SalesInvoicesLandingPageInner() {
       if (amountMax) params.set("amountMax", amountMax);
       const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
       const data = await res.json();
+      if (requestId !== invoiceRequest.current) return;
       if (data.success) {
         setInvoices(data.data);
       } else {
         toast.error(data.message || "Failed to fetch invoices");
       }
     } catch (e) {
-      toast.error("Failed to load invoices");
+      if (requestId === invoiceRequest.current) toast.error("Failed to load invoices");
     } finally {
-      setLoading(false);
+      if (requestId === invoiceRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchInvoices();
+    return () => { invoiceRequest.current += 1; };
   }, [search, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax]);
 
   const renderEmptyState = () => (

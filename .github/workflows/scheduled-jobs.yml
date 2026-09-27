@@ -29,37 +29,67 @@ jobs:
     steps:
       - name: Call the scheduler's run-due endpoint
         env:
-          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL || vars.DEPLOYMENT_URL || 'https://aupulens.online' }}
+          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL || vars.DEPLOYMENT_URL || 'https://aupulens-erp.vercel.app' }}
+          SCHEDULER_FALLBACK_URL: ${{ vars.SCHEDULER_FALLBACK_URL || 'https://aupulens-erp.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
-            echo "::warning title=Scheduler not triggered::GitHub Actions secret CRON_SECRET is not configured. Add it with the same value as the production CRON_SECRET."
+            echo "::notice title=Scheduler not triggered::GitHub Actions secret CRON_SECRET is not configured. Add it with the same value as the production CRON_SECRET."
             exit 0
           fi
 
-          DEPLOYMENT_URL="${DEPLOYMENT_URL%/}"
-          URL="$DEPLOYMENT_URL/api/platform/scheduler/run-due"
           BODY_FILE="$RUNNER_TEMP/scheduler-run-due-response.json"
-
-          for attempt in 1 2 3; do
-            HTTP_STATUS="000"
-            CURL_EXIT=0
-            HTTP_STATUS=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" -m 30 --retry 2 --retry-delay 5 --retry-all-errors -X POST \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              "$URL") || CURL_EXIT=$?
-
-            if [ "$CURL_EXIT" = "0" ] && [ "$HTTP_STATUS" = "200" ]; then
-              echo "Scheduler triggered successfully. Background jobs are processing."
-              cat "$BODY_FILE"
-              exit 0
+          declare -a BASE_URLS=()
+          for candidate in "$DEPLOYMENT_URL" "$SCHEDULER_FALLBACK_URL" "https://aupulens-erp.vercel.app"; do
+            candidate="${candidate%/}"
+            if [ -n "$candidate" ]; then
+              already_added=false
+              for existing in "${BASE_URLS[@]}"; do
+                if [ "$existing" = "$candidate" ]; then
+                  already_added=true
+                  break
+                fi
+              done
+              if [ "$already_added" = "false" ]; then
+                BASE_URLS+=("$candidate")
+              fi
             fi
-
-            echo "::warning title=Scheduler trigger attempt $attempt failed::curl_exit=$CURL_EXIT http_status=$HTTP_STATUS url=$URL"
-            if [ -s "$BODY_FILE" ]; then
-              cat "$BODY_FILE"
-            fi
-            sleep 5
           done
 
-          echo "::warning title=Scheduler trigger skipped::The external timer could not reach run-due after retries. The app's platform scheduler records real job failures internally, and this workflow stays non-failing to avoid repeated email noise."
+          for BASE_URL in "${BASE_URLS[@]}"; do
+            URL="$BASE_URL/api/platform/scheduler/run-due"
+            for attempt in 1 2 3; do
+              HTTP_STATUS="000"
+              CURL_EXIT=0
+              : > "$BODY_FILE"
+              HTTP_STATUS=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" -m 30 --retry 2 --retry-delay 5 --retry-all-errors -X POST \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                "$URL") || CURL_EXIT=$?
+
+              if [ "$CURL_EXIT" = "0" ] && [ "$HTTP_STATUS" = "200" ]; then
+                echo "Scheduler triggered successfully at $BASE_URL. Background jobs are processing."
+                cat "$BODY_FILE"
+                exit 0
+              fi
+
+              echo "::notice title=Scheduler trigger attempt $attempt did not run::curl_exit=$CURL_EXIT http_status=$HTTP_STATUS url=$URL"
+              if [ -s "$BODY_FILE" ]; then
+                cat "$BODY_FILE"
+              fi
+
+              if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
+                echo "::notice title=Scheduler auth rejected::The endpoint exists but rejected CRON_SECRET. Check that GitHub Actions secret CRON_SECRET matches production."
+                exit 0
+              fi
+
+              if [ "$HTTP_STATUS" = "404" ] && grep -q "DEPLOYMENT_NOT_FOUND" "$BODY_FILE"; then
+                echo "::notice title=Scheduler host unavailable::This Vercel deployment host was not found; trying the next configured host."
+                break
+              fi
+
+              sleep 5
+            done
+          done
+
+          echo "::notice title=Scheduler trigger skipped::The external timer could not reach run-due after retries. The workflow stays non-failing to avoid repeated email noise; fix DEPLOYMENT_URL/SCHEDULER_FALLBACK_URL or CRON_SECRET if this notice repeats."
           exit 0
