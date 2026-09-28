@@ -209,6 +209,8 @@ export default auth(async (req) => {
         return "/hr/dashboard";
       case "project":
         return "/projects";
+      case "user":
+        return "/calendar";
       default:
         return role === "master-admin" ? "/master-admin" : "/auth";
     }
