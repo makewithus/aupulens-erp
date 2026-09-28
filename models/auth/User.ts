@@ -19,7 +19,8 @@ export interface IUser extends Document {
     | "inventory"
     | "project"
     | "manufacturing"
-    | "master-admin";
+    | "master-admin"
+    | "user";
   department?: string;
   employeeId?: string;
   designation?: string;
@@ -68,8 +69,9 @@ const UserSchema: Schema<IUser> = new Schema(
         "project",
         "manufacturing",
         "master-admin",
+        "user",
       ],
-      default: "admin",
+      default: "user",
       required: true,
     },
     department: { type: String, trim: true },
