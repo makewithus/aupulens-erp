@@ -56,7 +56,8 @@ function clearTenantAuthCookies(response: NextResponse): NextResponse {
 }
 
 function staleTenantSessionResponse(req: NextRequest, isApiRoute: boolean, role?: string): NextResponse {
-  if (isApiRoute) {
+  const wantsHtml = req.headers.get("accept")?.includes("text/html");
+  if (isApiRoute && !wantsHtml) {
     return clearTenantAuthCookies(
       NextResponse.json(
         { error: "Session expired. Please sign in again.", code: "SESSION_EXPIRED" },

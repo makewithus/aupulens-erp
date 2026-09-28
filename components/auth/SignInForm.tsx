@@ -114,6 +114,8 @@ function SignInFormContent() {
           "The verification email could not be sent.",
         SessionRequired:
           "Please sign in to access this page.",
+        SessionExpired:
+          "Your session has expired. Please sign in again.",
         Default:
           "Invalid email, password, or organization domain.",
       };
