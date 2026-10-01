@@ -8,10 +8,19 @@
  */
 
 import { describe, it, expect } from "vitest";
+import AdmZip from "adm-zip";
 import { parseSourceFile, validateSourceFile } from "@/lib/migration/sourceAdapters";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { validateRows, toCanonicalRecord, dedupeSignature } from "@/lib/migration/validation";
+import {
+  expandMigrationPackage,
+  inferEntityType,
+  normalizeSourceSystem,
+  prepareMigrationFiles,
+  validateZipEntryPath,
+} from "@/lib/migration/package";
+import { MIGRATION_MAX_ROWS } from "@/lib/migration/constants";
 
 const buf = (s: string) => Buffer.from(s, "utf-8");
 
@@ -59,6 +68,60 @@ describe("sourceAdapters.parseSourceFile", () => {
 
   it("throws a clear error on invalid JSON", () => {
     expect(() => parseSourceFile("c.json", buf("{not json"))).toThrow(/valid JSON/);
+  });
+});
+
+describe("migration package preparation", () => {
+  it("rejects zip-slip paths before extraction", () => {
+    expect(validateZipEntryPath("../customers.csv")).toMatch(/Unsafe/);
+    expect(validateZipEntryPath("/tmp/customers.csv")).toMatch(/Unsafe/);
+    expect(validateZipEntryPath("nested/customers.csv")).toBeNull();
+  });
+
+  it("expands valid ZIP packages and rejects unsupported files inside ZIPs", () => {
+    const zip = new AdmZip();
+    zip.addFile("customers.csv", buf("Customer Name,Email ID\nAcme,acme@example.com"));
+    const files = expandMigrationPackage([{ name: "package.zip", buffer: zip.toBuffer() }]);
+    expect(files).toHaveLength(1);
+    expect(files[0].name).toBe("customers.csv");
+
+    const badZip = new AdmZip();
+    badZip.addFile("customers.pdf", buf("%PDF"));
+    expect(() => expandMigrationPackage([{ name: "bad.zip", buffer: badZip.toBuffer() }])).toThrow(/Unsupported file format/);
+  });
+
+  it("infers canonical entities from filenames and headers", () => {
+    expect(inferEntityType("ledger-export.csv", ["Ledger Name", "Under"])).toBe("account");
+    expect(inferEntityType("mystery.csv", ["Customer Name", "GST No", "Email ID"])).toBe("customer");
+    expect(inferEntityType("invoice-lines.csv", ["Invoice Number", "Item Name", "Qty", "Rate"])).toBe("invoiceItem");
+  });
+
+  it("prepares files atomically and fails unsupported entity data", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "customers.csv", buffer: buf("Customer Name,Email ID\nAcme,acme@example.com") }],
+      "other",
+    );
+    expect(prepared[0]).toMatchObject({ entityType: "customer", columns: ["Customer Name", "Email ID"] });
+
+    expect(() =>
+      prepareMigrationFiles([{ name: "unknown.csv", buffer: buf("Foo,Bar\n1,2") }], "other"),
+    ).toThrow(/Could not infer/);
+  });
+
+  it("normalizes unknown source systems instead of persisting invalid enum values", () => {
+    expect(normalizeSourceSystem("tally")).toBe("tally");
+    expect(normalizeSourceSystem("definitely-not-real")).toBe("other");
+  });
+
+  it("rejects batch files over the per-file row safety limit before workspace creation", () => {
+    const rows = ["Customer Name,Email ID"];
+    for (let i = 0; i < MIGRATION_MAX_ROWS + 1; i++) {
+      rows.push(`Customer ${i},customer${i}@example.com`);
+    }
+
+    expect(() =>
+      prepareMigrationFiles([{ name: "customers.csv", buffer: buf(rows.join("\n")) }], "other"),
+    ).toThrow(/per-file limit/);
   });
 });
 

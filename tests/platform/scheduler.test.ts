@@ -57,13 +57,14 @@ afterEach(async () => {
 });
 
 describe("the job registry — every job from docs/admin/CRON_INCIDENT.md is present", () => {
-  it("registers all 12 jobs that used to be scheduled via vercel.json", () => {
-    expect(JOB_REGISTRY).toHaveLength(12);
+  it("registers all scheduled jobs, including migration recovery", () => {
+    expect(JOB_REGISTRY).toHaveLength(13);
     const ids = JOB_REGISTRY.map((j) => j.jobId);
     expect(ids).toContain("crm-automations");
     expect(ids).toContain("ai-runtime-sweep");
     expect(ids).toContain("platform-ai-usage-rollup");
     expect(ids).toContain("platform-access-session-expiry");
+    expect(ids).toContain("migration-worker-sweep");
   });
 
   it("every job has a real handler and a positive interval", () => {

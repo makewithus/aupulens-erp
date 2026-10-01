@@ -5,6 +5,7 @@ import MigrationJob from "@/models/admin/MigrationJob";
 import { executeImport } from "@/lib/migration/importer";
 import { validateRows } from "@/lib/migration/validation";
 import { MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
+import { resolveEntityReference } from "@/lib/migration/resolver";
 
 // POST /api/migration/jobs/[id]/execute — the real import. Writes surviving rows
 // to live collections and records every created id for rollback. Idempotent-ish:
@@ -37,7 +38,11 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
     job.entityType,
     (job.rows || []) as Record<string, unknown>[],
     (job.mapping || {}) as Record<string, string>,
-    { tenantId: session.user.tenantId, userId: session.user.id },
+    { 
+      tenantId: session.user.tenantId, 
+      userId: session.user.id,
+      resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(session.user.tenantId, "000000000000000000000000", entityType, sourceId)
+    },
   );
 
   job.importedRefs = result.importedRefs;

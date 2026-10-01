@@ -124,13 +124,55 @@ function parseXml(buffer: Buffer): ParsedSource {
   return { columns: deriveColumns(rows), rows };
 }
 
+function parseTallyXml(buffer: Buffer): ParsedSource {
+  const text = buffer.toString("utf-8");
+  if (!text.includes("<TALLYMESSAGE")) return parseXml(buffer);
+  
+  const rows: Record<string, unknown>[] = [];
+  const tallyMsgRe = /<TALLYMESSAGE[^>]*>([\s\S]*?)<\/TALLYMESSAGE>/g;
+  const childRe = /<([A-Za-z_][\w.-]*)\b[^>]*>([\s\S]*?)<\/\1>/g;
+  
+  let msg: RegExpExecArray | null;
+  while ((msg = tallyMsgRe.exec(text)) !== null) {
+    const inner = msg[1];
+    const recordMatch = /<([A-Za-z_][\w.-]*)\b[^>]*>/.exec(inner);
+    if (!recordMatch) continue;
+    const recordType = recordMatch[1];
+    
+    const recordBlockRe = new RegExp(`<${recordType}\\b[^>]*>([\\s\\S]*?)</${recordType}>`);
+    const recordBlockMatch = recordBlockRe.exec(inner);
+    if (!recordBlockMatch) continue;
+    
+    const row: Record<string, unknown> = { _tallyType: recordType };
+    let child: RegExpExecArray | null;
+    while ((child = childRe.exec(recordBlockMatch[1])) !== null) {
+       const key = child[1];
+       const val = child[2].includes("<") ? "" : child[2].trim();
+       if (val && !(key in row)) row[key] = val;
+    }
+    if (Object.keys(row).length > 1) rows.push(row);
+  }
+  
+  return { columns: deriveColumns(rows), rows };
+}
+
+function parseZohoExport(buffer: Buffer, ext: string): ParsedSource {
+  if (SPREADSHEET_EXT.has(ext)) return parseSpreadsheet(buffer);
+  if (ext === "json") return parseJson(buffer);
+  return parseXml(buffer);
+}
+
 /**
  * Parse any supported source file. `fileName` drives format selection by
  * extension; unknown extensions fall back to a best-effort attempt (spreadsheet
  * first, since `xlsx` also reads raw CSV text).
  */
-export function parseSourceFile(fileName: string, buffer: Buffer): ParsedSource {
+export function parseSourceFile(fileName: string, buffer: Buffer, sourceSystem?: string): ParsedSource {
   const ext = extOf(fileName);
+  
+  if (sourceSystem === "tally" && ext === "xml") return parseTallyXml(buffer);
+  if (sourceSystem === "zoho") return parseZohoExport(buffer, ext);
+
   if (SPREADSHEET_EXT.has(ext)) return parseSpreadsheet(buffer);
   if (ext === "json") return parseJson(buffer);
   if (ext === "xml") return parseXml(buffer);

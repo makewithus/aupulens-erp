@@ -46,6 +46,7 @@ const CUSTOMER_SCHEMA: EntitySchema = {
   label: "Customers",
   dedupeKeys: ["gstin", "email", "name"],
   fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
     { key: "name", label: "Name / Company", required: true, aliases: ["name", "customer", "party", "companyname", "company", "ledgername", "account name"], validate: "nonEmpty" },
     { key: "displayName", label: "Display Name", required: false, aliases: ["displayname", "display name", "shortname", "alias"] },
     { key: "email", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
@@ -67,6 +68,7 @@ const VENDOR_SCHEMA: EntitySchema = {
   label: "Vendors",
   dedupeKeys: ["gstin", "contactEmail", "name"],
   fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
     { key: "name", label: "Vendor Name", required: true, aliases: ["name", "vendor", "supplier", "party", "companyname", "ledgername"], validate: "nonEmpty" },
     { key: "category", label: "Category", required: false, aliases: ["category", "type", "group", "vendortype"] },
     { key: "contactEmail", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
@@ -81,6 +83,7 @@ const PRODUCT_SCHEMA: EntitySchema = {
   label: "Products",
   dedupeKeys: ["sku", "name"],
   fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
     { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "item", "itemname", "description", "particulars"], validate: "nonEmpty" },
     { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "default_code", "partno", "productcode"] },
     { key: "type", label: "Type (consu/service/combo)", required: false, aliases: ["type", "producttype", "kind"] },
@@ -92,10 +95,115 @@ const PRODUCT_SCHEMA: EntitySchema = {
   ],
 };
 
-const SCHEMAS: Record<MigrationEntity, EntitySchema> = {
+const SALES_INVOICE_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.SALES_INVOICE,
+  label: "Sales Invoices",
+  dedupeKeys: ["number"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "number", label: "Invoice Number", required: true, aliases: ["invoicenumber", "invno", "docnum", "voucherno"], validate: "nonEmpty" },
+    { key: "customerName", label: "Customer Name", required: true, aliases: ["customer", "party", "buyer", "client"], validate: "nonEmpty" },
+    { key: "invoiceDate", label: "Invoice Date", required: true, aliases: ["date", "invoicedate", "docdate"] },
+    { key: "totalAmount", label: "Total Amount", required: true, aliases: ["total", "amount", "netamount", "grandtotal"], validate: "number" },
+  ],
+};
+
+const INVOICE_ITEM_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.INVOICE_ITEM,
+  label: "Invoice Line Items",
+  dedupeKeys: ["invoiceSourceId", "productName", "qty", "unitPrice"],
+  fields: [
+    { key: "invoiceSourceId", label: "Invoice Number / ID", required: true, aliases: ["invoicenumber", "invno", "docnum", "voucherno", "invoice_id"] },
+    { key: "productSourceId", label: "Product Code / ID", required: false, aliases: ["productcode", "itemcode", "sku", "product_id"] },
+    { key: "productName", label: "Product Name", required: true, aliases: ["itemname", "product", "item", "description", "particulars"] },
+    { key: "qty", label: "Quantity", required: true, aliases: ["quantity", "qty"], validate: "number" },
+    { key: "unitPrice", label: "Unit Price", required: true, aliases: ["rate", "price", "unitprice"], validate: "number" },
+    { key: "lineTotal", label: "Line Total", required: true, aliases: ["amount", "total", "linetotal"], validate: "number" },
+    { key: "discount", label: "Discount", required: false, aliases: ["discount", "disc"] },
+    { key: "taxRate", label: "Tax Rate %", required: false, aliases: ["taxrate", "gst", "tax"] },
+    { key: "hsn", label: "HSN / SAC", required: false, aliases: ["hsn", "sac", "hsncode"] },
+  ],
+};
+
+const PURCHASE_INVOICE_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.PURCHASE_INVOICE,
+  label: "Purchase Invoices",
+  dedupeKeys: ["number", "vendorName"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "number", label: "Bill / Invoice Number", required: true, aliases: ["billno", "invoicenumber", "docnum", "voucherno"], validate: "nonEmpty" },
+    { key: "vendorName", label: "Vendor Name", required: true, aliases: ["vendor", "supplier", "party", "creditor"], validate: "nonEmpty" },
+    { key: "invoiceDate", label: "Bill Date", required: true, aliases: ["date", "billdate", "docdate"] },
+    { key: "totalAmount", label: "Total Amount", required: true, aliases: ["total", "amount", "netamount", "grandtotal"], validate: "number" },
+  ],
+};
+
+const PAYMENT_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.PAYMENT,
+  label: "Payments / Receipts",
+  dedupeKeys: ["reference", "date", "amount"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "type", label: "Type (Payment/Receipt)", required: true, aliases: ["type", "vouchertype", "receipt"] },
+    { key: "partyName", label: "Party Name", required: true, aliases: ["party", "customer", "vendor", "account"] },
+    { key: "amount", label: "Amount", required: true, aliases: ["amount", "value", "total"], validate: "number" },
+    { key: "date", label: "Date", required: true, aliases: ["date", "paymentdate", "receiptdate"] },
+    { key: "reference", label: "Reference / Cheque No", required: false, aliases: ["ref", "reference", "cheque", "utr"] },
+  ],
+};
+
+const EXPENSE_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.EXPENSE,
+  label: "Expenses",
+  dedupeKeys: ["date", "amount", "expenseAccount"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "date", label: "Date", required: true, aliases: ["date", "expensedate"] },
+    { key: "expenseAccount", label: "Expense Account", required: true, aliases: ["account", "category", "head", "expensehead"] },
+    { key: "amount", label: "Amount", required: true, aliases: ["amount", "value"], validate: "number" },
+    { key: "reference", label: "Reference", required: false, aliases: ["ref", "billno", "reference"] },
+    { key: "paidThrough", label: "Paid Through (Bank/Cash)", required: false, aliases: ["paidfrom", "bank", "cash"] },
+  ],
+};
+
+const ACCOUNT_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.ACCOUNT,
+  label: "Chart of Accounts / Ledgers",
+  dedupeKeys: ["accountName"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "accountName", label: "Account Name", required: true, aliases: ["name", "ledgername", "accountname"], validate: "nonEmpty" },
+    { key: "accountCode", label: "Account Code", required: false, aliases: ["code", "accountcode", "ledgercode"] },
+    { key: "accountType", label: "Account Type / Group", required: false, aliases: ["type", "group", "under", "category"] },
+    { key: "openingBalance", label: "Opening Balance", required: false, aliases: ["openingbalance", "balance", "opbal"], validate: "number" },
+  ],
+};
+
+const EMPLOYEE_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.EMPLOYEE,
+  label: "Employees",
+  dedupeKeys: ["email", "employeeId"],
+  fields: [
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "firstName", label: "First Name", required: true, aliases: ["firstname", "fname", "name"], validate: "nonEmpty" },
+    { key: "lastName", label: "Last Name", required: false, aliases: ["lastname", "lname"] },
+    { key: "email", label: "Email", required: false, aliases: ["email", "emailid", "workemail"], validate: "email" },
+    { key: "employeeId", label: "Employee ID", required: false, aliases: ["empid", "employeeid", "id"] },
+    { key: "department", label: "Department", required: false, aliases: ["department", "dept"] },
+  ],
+};
+
+const SCHEMAS: Partial<Record<MigrationEntity, EntitySchema>> = {
   [MIGRATION_ENTITY.CUSTOMER]: CUSTOMER_SCHEMA,
   [MIGRATION_ENTITY.VENDOR]: VENDOR_SCHEMA,
   [MIGRATION_ENTITY.PRODUCT]: PRODUCT_SCHEMA,
+  [MIGRATION_ENTITY.SALES_INVOICE]: SALES_INVOICE_SCHEMA,
+  [MIGRATION_ENTITY.INVOICE_ITEM]: INVOICE_ITEM_SCHEMA,
+  [MIGRATION_ENTITY.PURCHASE_INVOICE]: PURCHASE_INVOICE_SCHEMA,
+  [MIGRATION_ENTITY.PAYMENT]: PAYMENT_SCHEMA,
+  [MIGRATION_ENTITY.EXPENSE]: EXPENSE_SCHEMA,
+  [MIGRATION_ENTITY.ACCOUNT]: ACCOUNT_SCHEMA,
+  [MIGRATION_ENTITY.EMPLOYEE]: EMPLOYEE_SCHEMA,
 };
 
 export function getEntitySchema(entity: string): EntitySchema | null {

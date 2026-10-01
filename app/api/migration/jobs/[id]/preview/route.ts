@@ -5,6 +5,7 @@ import MigrationJob from "@/models/admin/MigrationJob";
 import { previewImport } from "@/lib/migration/importer";
 import { validateRows } from "@/lib/migration/validation";
 import { MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
+import { resolveEntityReference } from "@/lib/migration/resolver";
 
 // POST /api/migration/jobs/[id]/preview — sandbox dry-run. Counts create-vs-skip
 // (skip = missing required, in-file dup, or already exists) with ZERO writes.
@@ -35,7 +36,11 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
     job.entityType,
     (job.rows || []) as Record<string, unknown>[],
     (job.mapping || {}) as Record<string, string>,
-    { tenantId: session.user.tenantId, userId: session.user.id },
+    { 
+      tenantId: session.user.tenantId, 
+      userId: session.user.id,
+      resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(session.user.tenantId, "000000000000000000000000", entityType, sourceId)
+    },
   );
 
   job.preview = { ranAt: new Date(), willCreate: result.willCreate, willSkip: result.willSkip, sample: result.sample };

@@ -143,6 +143,12 @@ export function validateRows(
         seen.set(sig, rowIndex);
       }
     }
+
+    // Business Rules
+    const bizIssues = validateBusinessRules(entity, rec);
+    for (const msg of bizIssues) {
+      issues.push({ rowIndex, severity: "error", message: msg });
+    }
   });
 
   return {
@@ -151,4 +157,40 @@ export function validateRows(
     duplicateCount,
     issues,
   };
+}
+
+function validateBusinessRules(entity: string, rec: Record<string, string>): string[] {
+  const issues: string[] = [];
+
+  if (entity === "SalesInvoice" || entity === "PurchaseInvoice") {
+    const total = Number(rec.totalAmount?.replace(/,/g, ""));
+    if (!isNaN(total) && total < 0) {
+      issues.push("Invoice total amount cannot be negative.");
+    }
+    if (rec.status && !["draft", "sent", "paid", "cancelled", "overdue"].includes(rec.status.toLowerCase())) {
+      issues.push(`Invalid invoice status: ${rec.status}. Expected one of: draft, sent, paid, cancelled, overdue.`);
+    }
+  }
+
+  if (entity === "Payment") {
+    const amt = Number(rec.amount?.replace(/,/g, ""));
+    if (!isNaN(amt) && amt <= 0) {
+      issues.push("Payment amount must be strictly greater than zero.");
+    }
+    if (rec.type && !["receipt", "payment"].includes(rec.type.toLowerCase())) {
+      issues.push("Payment type must be either 'receipt' or 'payment'.");
+    }
+  }
+
+  if (entity === "Product") {
+    const price = Number(rec.salesPrice?.replace(/,/g, ""));
+    if (!isNaN(price) && price < 0) {
+      issues.push("Product sales price cannot be negative.");
+    }
+    if (rec.type && !["consu", "service", "combo"].includes(rec.type.toLowerCase())) {
+      issues.push("Product type must be one of: consu, service, combo.");
+    }
+  }
+
+  return issues;
 }

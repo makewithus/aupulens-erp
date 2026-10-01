@@ -64,6 +64,14 @@ export const MIGRATION_ENTITY = {
   CUSTOMER: "customer",
   VENDOR: "vendor",
   PRODUCT: "product",
+  SALES_INVOICE: "salesInvoice",
+  INVOICE_ITEM: "invoiceItem",
+  PURCHASE_INVOICE: "purchaseInvoice",
+  PAYMENT: "payment",
+  EXPENSE: "expense",
+  ACCOUNT: "account",
+  EMPLOYEE: "employee",
+  OTHER: "other",
 } as const;
 
 export type MigrationEntity =

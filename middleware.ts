@@ -209,7 +209,7 @@ export default auth(async (req) => {
       case "hr":
         return "/hr/dashboard";
       case "project":
-        return "/projects";
+        return "/projects/dashboard";
       case "user":
         return "/calendar";
       default:

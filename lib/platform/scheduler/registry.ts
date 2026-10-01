@@ -24,6 +24,8 @@ import { runRetentionSweep } from "@/lib/platform/audit/retention";
 import AdminAccessRequest from "@/models/platform/AdminAccessRequest";
 import { ADMIN_ACCESS_REQUEST_STATUS } from "@/lib/constants/statuses";
 import { checkAiCostSpike } from "@/lib/platform/alerts/conditions";
+import MigrationBatch from "@/models/admin/MigrationBatch";
+import { processMigrationWorker } from "@/lib/migration/worker";
 
 export interface JobDefinition {
   jobId: string;
@@ -358,6 +360,27 @@ export const JOB_REGISTRY: JobDefinition[] = [
     handler: async () => {
       await checkAiCostSpike();
       return {};
+    },
+  },
+  {
+    jobId: "migration-worker-sweep",
+    description: "Resume stalled migration batches",
+    owner: "platform:sysadmin",
+    scheduleLabel: "*/15 * * * *",
+    intervalMinutes: 15,
+    handler: async () => {
+      // Find batches that are running or validating but haven't had a heartbeat in 5 minutes
+      const stalledDate = new Date(Date.now() - 5 * 60 * 1000);
+      const stalledBatches = await MigrationBatch.find({
+        status: { $in: ["validating", "running"] },
+        workerHeartbeat: { $lt: stalledDate }
+      }).select("_id").lean();
+
+      for (const b of stalledBatches) {
+        // Trigger one chunk to resurrect it, then worker.ts startWorkerDaemon will chain it
+        await processMigrationWorker(b._id.toString(), 500);
+      }
+      return { resumed: stalledBatches.length };
     },
   },
 ];

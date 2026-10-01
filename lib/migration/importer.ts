@@ -13,6 +13,12 @@ import mongoose from "mongoose";
 import Customer from "@/models/sales/Customer";
 import Vendor from "@/models/admin/Vendor";
 import Product from "@/models/inventory/Product";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Invoice from "@/models/finance/Invoice";
+import Payment from "@/models/sales/Payment";
+import Expense from "@/models/finance/Expense";
+import Account from "@/models/finance/Account";
+import Employee from "@/models/hr/Employee";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import {
@@ -30,21 +36,24 @@ interface EntityHandler {
   modelName: string;
   model: mongoose.Model<any>;
   /** Build the document to insert from a canonical record. */
-  transform: (rec: Record<string, string>, ctx: ImportContext) => Record<string, unknown>;
+  transform: (rec: Record<string, string>, ctx: ImportContext) => Promise<Record<string, unknown>>;
   /** Mongo filter that finds an existing duplicate of this record, or null. */
   existingFilter: (rec: Record<string, string>, tenantId: string) => Record<string, unknown> | null;
+  /** Custom action instead of create (e.g. update an embedded document). If undefined, uses standard insertOne. */
+  createOperation?: (doc: Record<string, unknown>, rec: Record<string, string>, ctx: ImportContext) => any;
 }
 
 export interface ImportContext {
   tenantId: string;
   userId: string;
+  resolveRef: (entityType: string, sourceId: string) => Promise<mongoose.Types.ObjectId | null>;
 }
 
 const HANDLERS: Record<string, EntityHandler> = {
   [MIGRATION_ENTITY.CUSTOMER]: {
     modelName: "Customer",
     model: Customer,
-    transform: (rec, ctx) => ({
+    transform: async (rec, ctx) => ({
       tenantId: ctx.tenantId,
       createdBy: new mongoose.Types.ObjectId(ctx.userId),
       header: {
@@ -84,7 +93,7 @@ const HANDLERS: Record<string, EntityHandler> = {
   [MIGRATION_ENTITY.VENDOR]: {
     modelName: "Vendor",
     model: Vendor,
-    transform: (rec, ctx) => ({
+    transform: async (rec, ctx) => ({
       tenantId: ctx.tenantId,
       name: rec.name,
       category: rec.category || "General",
@@ -104,15 +113,20 @@ const HANDLERS: Record<string, EntityHandler> = {
   [MIGRATION_ENTITY.PRODUCT]: {
     modelName: "Product",
     model: Product,
-    transform: (rec, ctx) => {
+    transform: async (rec, ctx) => {
       const type = ["consu", "service", "combo"].includes(rec.type?.toLowerCase())
         ? rec.type.toLowerCase()
         : "consu";
       return {
         tenantId: ctx.tenantId,
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
-        tab_general_information: {
+        header: {
           name: rec.name,
+          sale_ok: true,
+          purchase_ok: true,
+          can_be_expensed: false,
+        },
+        tab_general_information: {
           type,
           default_code: rec.sku || undefined,
           list_price: num(rec.salesPrice) ?? 1,
@@ -123,7 +137,187 @@ const HANDLERS: Record<string, EntityHandler> = {
     },
     existingFilter: (rec, tenantId) => {
       if (rec.sku) return { tenantId, "tab_general_information.default_code": rec.sku };
-      if (rec.name) return { tenantId, "tab_general_information.name": rec.name };
+      if (rec.name) return { tenantId, "header.name": rec.name };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.SALES_INVOICE]: {
+    modelName: "SalesInvoice",
+    model: SalesInvoice,
+    transform: async (rec, ctx) => {
+      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.customerName);
+      if (!customerId) throw new Error(`Missing reference: Customer '${rec.customerName}' not found`);
+      return {
+        tenantId: ctx.tenantId,
+        number: rec.number,
+        customerId,
+      invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
+      totalAmount: num(rec.totalAmount) ?? 0,
+      taxableAmount: num(rec.totalAmount) ?? 0,
+      lineItems: [],
+      taxes: { tds: 0, tcs: 0, gstBreakup: [] },
+        status: "draft",
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+      };
+    },
+    existingFilter: (rec, tenantId) => {
+      if (rec.number) return { tenantId, number: rec.number };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.INVOICE_ITEM]: {
+    modelName: "SalesInvoice",
+    model: SalesInvoice,
+    transform: async (rec, ctx) => {
+      const invoiceId = await ctx.resolveRef(MIGRATION_ENTITY.SALES_INVOICE, rec.invoiceSourceId);
+      if (!invoiceId) throw new Error(`Missing reference: Invoice '${rec.invoiceSourceId}' not found`);
+      
+      let productId = null;
+      if (rec.productSourceId) {
+        productId = await ctx.resolveRef(MIGRATION_ENTITY.PRODUCT, rec.productSourceId);
+      }
+
+      return {
+        _id: invoiceId, // Store parent ID here for createOperation to use
+        name: rec.productName,
+        itemId: productId || undefined,
+        qty: num(rec.qty) ?? 1,
+        unitPrice: num(rec.unitPrice) ?? 0,
+        lineTotal: num(rec.lineTotal) ?? 0,
+        discount: num(rec.discount) ?? 0,
+        discountMode: "percent",
+        taxRate: num(rec.taxRate) ?? 0,
+        hsn: rec.hsn || undefined,
+      };
+    },
+    existingFilter: () => null, // Items are deduplicated during parsing/validation, we just push them
+    createOperation: (doc) => {
+      const invoiceId = doc._id;
+      delete doc._id;
+      return {
+        updateOne: {
+          filter: { _id: invoiceId },
+          update: { $push: { lineItems: doc } }
+        }
+      };
+    }
+  },
+
+  [MIGRATION_ENTITY.PURCHASE_INVOICE]: {
+    modelName: "Invoice",
+    model: Invoice,
+    transform: async (rec, ctx) => {
+      const vendorId = await ctx.resolveRef(MIGRATION_ENTITY.VENDOR, rec.vendorName);
+      if (!vendorId) throw new Error(`Missing reference: Vendor '${rec.vendorName}' not found`);
+      return {
+        tenantId: ctx.tenantId,
+        name: rec.number,
+        moveType: "in_invoice",
+        partnerId: vendorId,
+        invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
+        amountTotal: num(rec.totalAmount) ?? 0,
+        amountUntaxed: num(rec.totalAmount) ?? 0,
+        invoiceLines: [],
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+      };
+    },
+    existingFilter: (rec, tenantId) => {
+      if (rec.number) return { tenantId, name: rec.number, moveType: "in_invoice" };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.PAYMENT]: {
+    modelName: "Payment",
+    model: Payment,
+    transform: async (rec, ctx) => {
+      const isReceipt = rec.type?.toLowerCase() === "receipt";
+      if (!isReceipt) {
+        throw new Error("Vendor outbound payment migration is not supported by the current target payment model.");
+      }
+      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName);
+      if (!customerId) throw new Error(`Missing reference: Customer '${rec.partyName}' not found`);
+      const amount = num(rec.amount) ?? 0;
+
+      return {
+        tenantId: ctx.tenantId,
+        customerId,
+        paymentNumber: rec.reference || `MIG-${new mongoose.Types.ObjectId().toString().slice(-8)}`,
+        paymentDate: rec.date ? new Date(rec.date) : new Date(),
+        amountReceived: amount,
+        bankCharges: 0,
+        mode: "Cash",
+        reference: rec.reference || undefined,
+        taxDeducted: false,
+        tdsAmount: 0,
+        allocations: [],
+        unusedAmount: amount,
+        journalEntryIds: [],
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+      };
+    },
+    existingFilter: (rec, tenantId) => {
+      if (rec.reference) return { tenantId, paymentNumber: rec.reference };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.EXPENSE]: {
+    modelName: "Expense",
+    model: Expense,
+    transform: async (rec, ctx) => {
+      const expenseAccountId = await ctx.resolveRef(MIGRATION_ENTITY.ACCOUNT, rec.expenseAccount);
+      if (!expenseAccountId) throw new Error(`Missing reference: Account '${rec.expenseAccount}' not found`);
+      
+      return {
+        tenantId: ctx.tenantId,
+        date: rec.date ? new Date(rec.date) : new Date(),
+        amount: num(rec.amount) ?? 0,
+        reference: rec.reference || undefined,
+        description: rec.expenseAccount,
+        categoryId: expenseAccountId,
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+      };
+    },
+    existingFilter: (rec, tenantId) => {
+      if (rec.reference) return { tenantId, reference: rec.reference };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.ACCOUNT]: {
+    modelName: "Account",
+    model: Account,
+    transform: async (rec, ctx) => ({
+      tenantId: ctx.tenantId,
+      accountName: rec.accountName,
+      accountCode: rec.accountCode || undefined,
+      internal_group: rec.accountType || undefined,
+      createdBy: new mongoose.Types.ObjectId(ctx.userId),
+    }),
+    existingFilter: (rec, tenantId) => {
+      if (rec.accountName) return { tenantId, accountName: rec.accountName };
+      if (rec.accountCode) return { tenantId, accountCode: rec.accountCode };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.EMPLOYEE]: {
+    modelName: "Employee",
+    model: Employee,
+    transform: async (rec, ctx) => ({
+      tenantId: ctx.tenantId,
+      firstName: rec.firstName,
+      lastName: rec.lastName || undefined,
+      email: rec.email || undefined,
+      employeeId: rec.employeeId || undefined,
+      department: rec.department || undefined,
+    }),
+    existingFilter: (rec, tenantId) => {
+      if (rec.email) return { tenantId, email: rec.email };
+      if (rec.employeeId) return { tenantId, employeeId: rec.employeeId };
       return null;
     },
   },
@@ -174,7 +368,7 @@ export async function previewImport(
       willSkip += 1;
     } else {
       willCreate += 1;
-      if (sample.length < 5) sample.push(handler.transform(rec, ctx));
+      if (sample.length < 5) sample.push(await handler.transform(rec, ctx));
     }
   }
 
@@ -236,7 +430,7 @@ export async function executeImport(
     }
 
     try {
-      const doc = await handler.model.create(handler.transform(rec, ctx));
+      const doc = await handler.model.create(await handler.transform(rec, ctx));
       created += 1;
       importedRefs.push({ model: handler.modelName, id: doc._id });
     } catch (err: unknown) {
