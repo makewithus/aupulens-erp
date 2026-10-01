@@ -469,7 +469,7 @@ export default auth(async (req) => {
     return NextResponse.redirect(new URL("/subscription-inactive", req.url));
   }
 
-  const gateResponse = await applyModuleGating(pathname, user, async () => orgData);
+  const gateResponse = await applyModuleGating(pathname, user, async () => orgData, isApiRoute, req.url);
   if (gateResponse) return gateResponse;
 
   // Apply tenant context to the response

@@ -51,16 +51,18 @@ export async function GET(req: NextRequest) {
   // resolveEntitlements() has already audited its own error at SECURITY
   // severity by the time it returns that fallback value.
   let resolvedModules: string[] | undefined;
+  let activeTier = org.tier ?? "starter";
   const hasEntitlement = await OrganizationEntitlement.exists({ tenantId });
   if (hasEntitlement) {
     const resolved = await resolveEntitlements(tenantId);
     if (resolved.source !== "permissive_default") {
       resolvedModules = resolved.modules;
+      activeTier = resolved.planKey;
     }
   }
 
   return NextResponse.json({
-    tier: org.tier ?? "starter",
+    tier: activeTier,
     enabledModules: org.settings?.enabledModules ?? [],
     subscriptionStatus: org.subscriptionStatus ?? "trial",
     trialEndDate: org.trialEndDate ?? null,

@@ -92,7 +92,7 @@ export function isModuleAccessible(
   subscriptionStatus?: string,
   resolvedModules?: string[]
 ): boolean {
-  const inOrg = orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
+  const inOrg = moduleName === "admin" || orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   if (subscriptionStatus === "trial") return inOrg;
   // resolvedModules, when present, is an admin's deliberate, audited
   // entitlement assignment and takes over as the ceiling in place of the
@@ -142,7 +142,9 @@ export type OrgDataFetcher = (tenantId: string) => Promise<OrgModuleInfo | null>
 export async function applyModuleGating(
   pathname: string,
   user: { role?: string; tenantId?: string } | null | undefined,
-  getOrgData: OrgDataFetcher
+  getOrgData: OrgDataFetcher,
+  isApiRoute: boolean = true,
+  requestUrl?: string
 ): Promise<NextResponse | null> {
   if (!user) return null;
 
@@ -172,10 +174,14 @@ export async function applyModuleGating(
       orgData.resolvedModules,
     )
   ) {
-    return NextResponse.json(
-      buildGateDeniedResponse(moduleName, orgData.tier ?? "starter"),
-      { status: 403 }
-    );
+    const errorBody = buildGateDeniedResponse(moduleName, orgData.tier ?? "starter");
+    if (!isApiRoute && requestUrl) {
+      const url = new URL("/unauthorized", requestUrl);
+      url.searchParams.set("module", errorBody.module as string);
+      url.searchParams.set("tier", errorBody.currentTier as string);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.json(errorBody, { status: 403 });
   }
 
   return null; // allowed — caller continues to NextResponse.next()
