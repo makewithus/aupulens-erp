@@ -142,7 +142,7 @@ export default function NewCustomerViewPage() {
         </div>
 
         <div>
-          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Define the criteria (if any)</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3] mb-3">Define the criteria (if any)</h2>
           <div className="space-y-2">
             {criteria.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function NewCustomerViewPage() {
         </div>
 
         <div>
-          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Columns Preference</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3] mb-3">Columns Preference</h2>
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="grid grid-cols-2 gap-4">
               <div className="border border-border/40 rounded-none">
@@ -266,7 +266,7 @@ export default function NewCustomerViewPage() {
         </div>
 
         <div>
-          <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Visibility Preference</h2>
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3] mb-3">Visibility Preference</h2>
           <RadioGroup value={visibility} onValueChange={setVisibility} className="flex gap-6 text-sm">
             <label className="flex items-center gap-2">
               <RadioGroupItem value={SALES_VIEW_VISIBILITY.ONLY_ME} /> Only Me

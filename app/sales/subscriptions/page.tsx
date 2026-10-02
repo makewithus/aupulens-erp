@@ -108,11 +108,11 @@ function SubscriptionOverview() {
             <span>→</span>
           </div>
           <Node icon={RotateCw} label="Subscription Created" color="text-foreground" />
-          <span className="text-muted-foreground/50">→</span>
+          <span className="text-[#e3e3e3]">→</span>
           <Node icon={FileText} label="Invoice Raised" color="text-purple-500" />
         </div>
 
-        <span className="text-muted-foreground/50">↓</span>
+        <span className="text-[#e3e3e3]">↓</span>
         <Node icon={CreditCard} label="Payment Made" color="text-emerald-500" />
 
         <div className="flex items-center gap-8 mt-2">
@@ -126,7 +126,7 @@ function SubscriptionOverview() {
             <span>Subscription stays active</span>
           </div>
         </div>
-        <p className="text-[10px] font-mono text-muted-foreground/50 border-t border-dashed border-border/40 pt-2 mt-2 w-full text-center">
+        <p className="text-[10px] font-mono text-[#e3e3e3] border-t border-dashed border-border/40 pt-2 mt-2 w-full text-center">
           - - - Subscription renews (End of Billing Cycle loops back up to Invoice Raised) - - -
         </p>
       </div>
@@ -295,7 +295,7 @@ function SubscriptionsPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="p-6 w-full space-y-6">
         <SalesTabNav />
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -442,10 +442,10 @@ function SubscriptionsPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Number</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer Name</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Number</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Customer Name</TableHead>
                     {activeColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                         {columnLabel(key)}
                       </TableHead>
                     ))}

@@ -206,7 +206,7 @@ export default function SalesSummaryPage() {
                       <action.icon className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="text-sm font-medium text-foreground">{action.title}</p>
-                        <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/50 mt-0.5">{action.description}</p>
+                        <p className="font-mono text-[11px] uppercase tracking-wider text-[#e3e3e3] mt-0.5">{action.description}</p>
                       </div>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-1" />

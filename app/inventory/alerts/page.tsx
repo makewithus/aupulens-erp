@@ -277,25 +277,25 @@ function AlertsPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Item
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Location
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Stock Level
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Suggested Reorder
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Valuation
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Alert Status
                     </TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                       Actions
                     </TableHead>
                   </TableRow>

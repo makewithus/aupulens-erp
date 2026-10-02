@@ -58,7 +58,7 @@ export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled =
         className={cn(shared, "pointer-events-none absolute inset-0 whitespace-pre-wrap break-words overflow-hidden border-transparent bg-background text-transparent")}
       >
         {value}
-        {suggestion ? <span className="text-muted-foreground/50">{suggestion}</span> : null}
+        {suggestion ? <span className="text-[#e3e3e3]">{suggestion}</span> : null}
       </div>
       <textarea
         ref={ref}

@@ -103,7 +103,7 @@ export function DashboardSidebar({
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
-              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-[#B3BAC7]">
+              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-[#e3e3e3]">
                 {section.title}
               </div>
             )}
@@ -127,8 +127,8 @@ export function DashboardSidebar({
                     className={cn(
                       "h-4 w-4 transition-all duration-300 shrink-0",
                       isActive
-                        ? "text-[#B3BAC7] opacity-100"
-                        : "text-[#B3BAC7]/75 group-hover:text-[#B3BAC7]"
+                        ? "text-[#f2f2f2] opacity-100"
+                        : "text-[#f2f2f2]/75 group-hover:text-[#f2f2f2]"
                     )}
                   />
 
@@ -138,8 +138,8 @@ export function DashboardSidebar({
                         className={cn(
                           "relative w-fit max-w-[13rem] text-[25px] leading-[0.98] tracking-[-0.055em] transition-colors duration-300",
                           isActive
-                            ? "text-[#B3BAC7]"
-                            : "text-[#B3BAC7]/90 group-hover:text-[#B3BAC7]"
+                            ? "text-[#f2f2f2]"
+                            : "text-[#f2f2f2]/90 group-hover:text-[#f2f2f2]"
                         )}
                       >
                         {item.title}

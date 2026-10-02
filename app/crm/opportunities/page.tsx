@@ -567,7 +567,7 @@ function OpportunitiesPageInner() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
-              <p className="font-mono text-[11px] text-muted-foreground/50 uppercase tracking-[0.05em]">
+              <p className="font-mono text-[11px] text-[#e3e3e3] uppercase tracking-[0.05em]">
                 Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
               </p>
               <div className="flex items-center gap-4">

@@ -564,22 +564,22 @@ function ReceiptsPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Reference
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Vendor
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Scheduled Date
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Status State
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Suggested Action
                     </TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                       Actions
                     </TableHead>
                   </TableRow>

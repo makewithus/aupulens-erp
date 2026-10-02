@@ -115,31 +115,31 @@ export function UsersTable({
           <Table className="w-full">
             <TableHeader className="border-b border-border/40">
               <TableRow className="text-left">
-                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   User
                 </TableHead>
 
-                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Contact
                 </TableHead>
 
-                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Employee ID
                 </TableHead>
 
-                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Role
                 </TableHead>
 
-                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Department
                 </TableHead>
 
-                <TableHead className="px-8 py-5 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Status
                 </TableHead>
 
-                <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                   Actions
                 </TableHead>
               </TableRow>

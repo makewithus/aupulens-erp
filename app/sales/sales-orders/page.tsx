@@ -85,21 +85,21 @@ function LifecycleDiagram() {
             <Node icon={User} label="Customer Request" />
             <Node icon={FileCheck2} label="Accepted Estimate" />
           </div>
-          <span className="text-muted-foreground/50 text-xs font-mono">- - - →</span>
+          <span className="text-[#e3e3e3] text-xs font-mono">- - - →</span>
           <Node icon={ShoppingCart} label="Create Sales Order" color="text-blue-500" />
-          <span className="text-muted-foreground/50 text-xs font-mono">- Convert to Open - →</span>
+          <span className="text-[#e3e3e3] text-xs font-mono">- Convert to Open - →</span>
           <Node icon={ClipboardList} label="Confirm Sales Order" color="text-purple-500" />
-          <span className="text-muted-foreground/50 text-xs font-mono">- Low Stock - →</span>
+          <span className="text-[#e3e3e3] text-xs font-mono">- Low Stock - →</span>
           <Node icon={Boxes} label="Convert to Purchase Order" />
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-muted-foreground/50 text-xs">↓</span>
+          <span className="text-[#e3e3e3] text-xs">↓</span>
         </div>
         <div className="flex items-center gap-6">
           <Node icon={Receipt} label="Convert Sales Order to Invoice" color="text-indigo-500" />
-          <span className="text-muted-foreground/50 text-xs font-mono">← - Receive Goods - -</span>
+          <span className="text-[#e3e3e3] text-xs font-mono">← - Receive Goods - -</span>
         </div>
-        <span className="text-muted-foreground/50 text-xs">↓</span>
+        <span className="text-[#e3e3e3] text-xs">↓</span>
         <Node icon={Banknote} label="Get Paid" color="text-emerald-500" />
       </div>
     </Card>
@@ -238,7 +238,7 @@ function SalesOrdersPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="p-6 w-full space-y-6">
         <SalesTabNav />
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -373,13 +373,13 @@ function SalesOrdersPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Sales Order#</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer Name</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Order Status</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Amount</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Sales Order#</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Customer Name</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Order Status</TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Amount</TableHead>
                     {extraColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                         {columnLabel(key)}
                       </TableHead>
                     ))}

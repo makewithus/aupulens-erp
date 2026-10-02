@@ -679,13 +679,13 @@ export default function SalesOrdersPage() {
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Reference</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Customer</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Total</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Status</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Q2C Stage</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Date</TableHead>
-                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Reference</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Customer</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Total</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Status</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Q2C Stage</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Date</TableHead>
+                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

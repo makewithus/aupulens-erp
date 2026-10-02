@@ -245,7 +245,7 @@ function CasesPageInner() {
 
               {/* Saved Views Dropdown */}
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[11px] text-muted-foreground/50">View:</span>
+                <span className="font-mono text-[11px] text-[#e3e3e3]">View:</span>
                 <Select defaultValue="all">
                   <SelectTrigger className="w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="Saved Views" />

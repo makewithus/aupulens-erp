@@ -335,7 +335,7 @@ export function AIAgentPanel() {
                     )}
                   </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
+                <p className="text-[10px] text-[#e3e3e3] text-center mt-2">
                   Press ⏎ to send · Shift+⏎ for new line
                 </p>
               </div>

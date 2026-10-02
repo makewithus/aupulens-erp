@@ -152,13 +152,13 @@ export default function RemindersSettingsPage() {
           <>
             {manual.length > 0 && (
               <div>
-                <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Manual Reminders</h2>
+                <h2 className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3] mb-3">Manual Reminders</h2>
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Name</TableHead>
-                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Description</TableHead>
-                      <TableHead className="w-16 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Name</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Description</TableHead>
+                      <TableHead className="w-16 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -179,21 +179,21 @@ export default function RemindersSettingsPage() {
             )}
 
             <div>
-              <h2 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50 mb-3">Automated Reminders</h2>
+              <h2 className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3] mb-3">Automated Reminders</h2>
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Name</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Schedule</TableHead>
-                    <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Status</TableHead>
-                    <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Actions</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Name</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Schedule</TableHead>
+                    <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Status</TableHead>
+                    <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Array.from(grouped.entries()).map(([group, rows]) => (
                     <React.Fragment key={group}>
                       <TableRow className="bg-accent/40 hover:bg-accent/40">
-                        <TableCell colSpan={4} className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">
+                        <TableCell colSpan={4} className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">
                           {group}
                         </TableCell>
                       </TableRow>

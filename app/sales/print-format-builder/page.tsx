@@ -147,7 +147,7 @@ export default function PrintFormatBuilder() {
         {/* Controls */}
         <div className="space-y-4">
           <div className="border border-border/40 rounded-none p-4 space-y-3">
-            <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Base template</label>
+            <label className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Base template</label>
             <select
               value={templateKey}
               onChange={(e) => {
@@ -163,14 +163,14 @@ export default function PrintFormatBuilder() {
 
           <div className="border border-border/40 rounded-none p-4 space-y-4">
             <div>
-              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Accent colour</label>
+              <label className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Accent colour</label>
               <div className="flex items-center gap-2 mt-1">
                 <input type="color" value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="h-8 w-12 rounded-none border border-input" />
                 <input value={opts.accentColor} onChange={(e) => setOpts({ ...opts, accentColor: e.target.value })} className="flex-1 text-sm border border-input rounded-none px-2 py-1 bg-background font-mono" />
               </div>
             </div>
             <div>
-              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Font style</label>
+              <label className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Font style</label>
               <select value={opts.fontStyle} onChange={(e) => setOpts({ ...opts, fontStyle: e.target.value })} className="w-full text-sm border border-input rounded-none px-2 py-1.5 bg-background text-foreground mt-1 [&>option]:bg-background [&>option]:text-foreground">
                 {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
@@ -182,7 +182,7 @@ export default function PrintFormatBuilder() {
               <input type="checkbox" checked={opts.hideHsn} onChange={(e) => setOpts({ ...opts, hideHsn: e.target.checked })} /> Hide HSN/SAC column
             </label>
             <div>
-              <label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Footer note</label>
+              <label className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Footer note</label>
               <textarea value={opts.pdfFooterText} onChange={(e) => setOpts({ ...opts, pdfFooterText: e.target.value })} rows={2} placeholder="e.g. Thank you for your business" className="w-full text-sm border border-input rounded-none px-2 py-1 bg-background mt-1" />
             </div>
           </div>

@@ -473,7 +473,7 @@ export default function ReportsPage() {
                 onClick={() => handleExport('csv')}
                 className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
               >
-                <Download className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                <Download className="mr-2 h-4 w-4 text-[#e3e3e3]" />
                 Export CSV
               </Button>
               <Button
@@ -481,7 +481,7 @@ export default function ReportsPage() {
                 onClick={() => handleExport('xlsx')}
                 className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
               >
-                <Download className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                <Download className="mr-2 h-4 w-4 text-[#e3e3e3]" />
                 Export XLSX
               </Button>
               <Button
@@ -489,7 +489,7 @@ export default function ReportsPage() {
                 onClick={handlePrint}
                 className="none-xl h-11 px-4 rounded-none border border-border/40 text-primary hover:bg-muted text-[13px] tracking-tight shadow-none transition-all cursor-pointer font-mono"
               >
-                <Printer className="mr-2 h-4 w-4 text-muted-foreground/50" />
+                <Printer className="mr-2 h-4 w-4 text-[#e3e3e3]" />
                 Print / PDF
               </Button>
             </div>
@@ -580,7 +580,7 @@ export default function ReportsPage() {
                       {generatedReport.headers.map((h, idx) => (
                         <TableHead
                           key={idx}
-                          className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10"
+                          className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10"
                         >
                           {h}
                         </TableHead>

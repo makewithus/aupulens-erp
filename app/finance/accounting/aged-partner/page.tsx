@@ -146,25 +146,25 @@ export default function AgedPartnerReportPage() {
                 <Table className="min-w-full divide-y divide-border/20">
                   <TableHeader className="border-b border-border/40">
                     <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <TableHead className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         Partner
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         Current
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         1 - 30 Days
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         31 - 60 Days
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         61 - 90 Days
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                         90+ Days
                       </TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 bg-primary/5">
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] bg-primary/5">
                         Total
                       </TableHead>
                     </TableRow>

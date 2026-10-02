@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -42,6 +42,7 @@ import {
 import { ExportCustomersDialog } from "@/components/sales/customers/ExportCustomersDialog";
 import { ExportCurrentViewDialog } from "@/components/sales/customers/ExportCurrentViewDialog";
 import { AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
+import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
 
 const SORT_FIELDS = [
@@ -52,18 +53,41 @@ const SORT_FIELDS = [
 
 const LIMIT = 10;
 
+function CustomersPageParamsHandler({ onLoadParams }: { onLoadParams: (params: any) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    onLoadParams({
+      search: searchParams.get("search") || "",
+      dateFrom: searchParams.get("dateFrom") || "",
+      dateTo: searchParams.get("dateTo") || "",
+      amountMin: searchParams.get("amountMin") || "",
+      amountMax: searchParams.get("amountMax") || "",
+    });
+  }, [searchParams, onLoadParams]);
+
+  useSyncStateFromSearchParams({
+    query: () => onLoadParams({ search: searchParams.get("search") || "" }),
+    debouncedQuery: () => onLoadParams({ search: searchParams.get("search") || "" }),
+    dateFrom: () => onLoadParams({ dateFrom: searchParams.get("dateFrom") || "" }),
+    dateTo: () => onLoadParams({ dateTo: searchParams.get("dateTo") || "" }),
+    amountMin: () => onLoadParams({ amountMin: searchParams.get("amountMin") || "" }),
+    amountMax: () => onLoadParams({ amountMax: searchParams.get("amountMax") || "" }),
+  });
+
+  return null;
+}
+
 export default function CustomersPage() {
   return (
-    <Suspense fallback={null}>
-      <CustomersPageInner />
-    </Suspense>
+    <CustomersPageInner />
   );
 }
 
 function CustomersPageInner() {
   const { data: session } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const initialLoadRef = useRef(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [views, setViews] = useState<any[]>([]);
@@ -80,24 +104,27 @@ function CustomersPageInner() {
   // visible flash of the wrong rows on every filtered redirect.
   // `debouncedQuery` is seeded too (not just `query`) so a seeded search
   // term doesn't wait out its normal 300ms typing-debounce first.
-  const [query, setQuery] = useState(() => searchParams.get("search") || "");
-  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("search") || "");
-  const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
-  const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
-  const [amountMin, setAmountMin] = useState(() => searchParams.get("amountMin") || "");
-  const [amountMax, setAmountMax] = useState(() => searchParams.get("amountMax") || "");
+  // We no longer read searchParams synchronously to avoid suspending the entire layout.
+  // Instead, the child ParamsHandler syncs them via onLoadParams.
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [amountMin, setAmountMin] = useState("");
+  const [amountMax, setAmountMax] = useState("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
 
-  // Re-applies the same filters above if the AI assistant redirects here
-  // again with new ones while this page is already open — see the hook's
-  // own doc for why the useState initializers alone aren't enough.
-  useSyncStateFromSearchParams({
-    query: () => setQuery(searchParams.get("search") || ""),
-    debouncedQuery: () => setDebouncedQuery(searchParams.get("search") || ""),
-    dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
-    dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
-    amountMin: () => setAmountMin(searchParams.get("amountMin") || ""),
-    amountMax: () => setAmountMax(searchParams.get("amountMax") || ""),
-  });
+  const handleParamsLoad = useCallback((params: any) => {
+    if (params.search !== undefined) {
+      setQuery(params.search);
+      setDebouncedQuery(params.search);
+    }
+    if (params.dateFrom !== undefined) setDateFrom(params.dateFrom);
+    if (params.dateTo !== undefined) setDateTo(params.dateTo);
+    if (params.amountMin !== undefined) setAmountMin(params.amountMin);
+    if (params.amountMax !== undefined) setAmountMax(params.amountMax);
+    setParamsLoaded(true);
+  }, []);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -122,7 +149,9 @@ function CustomersPageInner() {
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
+      if (initialLoadRef.current) {
+        setLoading(true);
+      }
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
@@ -141,6 +170,7 @@ function CustomersPageInner() {
       toast.error("Failed to load customers");
     } finally {
       setLoading(false);
+      initialLoadRef.current = false;
     }
   }, [activeViewId, sortField, page, debouncedQuery, dateFrom, dateTo, amountMin, amountMax]);
 
@@ -158,8 +188,10 @@ function CustomersPageInner() {
   }, [debouncedQuery, activeViewId, sortField, dateFrom, dateTo, amountMin, amountMax]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (paramsLoaded) {
+      load();
+    }
+  }, [load, paramsLoaded]);
 
   const toggleFavorite = async (view: any) => {
     await cachedFetch(`/api/sales/customer-views/${view._id}`, {
@@ -183,7 +215,10 @@ function CustomersPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <Suspense fallback={null}>
+        <CustomersPageParamsHandler onLoadParams={handleParamsLoad} />
+      </Suspense>
+      <div className="p-6 w-full space-y-6">
         <SalesTabNav />
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -345,9 +380,9 @@ function CustomersPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Name</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Name</TableHead>
                     {activeColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                         {columnLabel(key)}
                       </TableHead>
                     ))}

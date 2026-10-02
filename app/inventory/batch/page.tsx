@@ -665,28 +665,28 @@ function BatchLotPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Batch #
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Lot #
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Item Info
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Quantity
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Manufacture & Expiry
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Warehouse Location
                     </TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">
                       Status
                     </TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">
                       Customs Status
                     </TableHead>
                   </TableRow>
@@ -788,7 +788,7 @@ function BatchLotPageInner() {
                               )}
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground/50 italic mt-0.5 block">No Expiry</span>
+                            <span className="text-xs text-[#e3e3e3] italic mt-0.5 block">No Expiry</span>
                           )}
                         </TableCell>
 
@@ -796,7 +796,7 @@ function BatchLotPageInner() {
                         <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
                           <div className="font-medium">{batch.warehouse}</div>
                           {batch.location && (
-                            <div className="text-xs text-muted-foreground/50 mt-0.5">{batch.location}</div>
+                            <div className="text-xs text-[#e3e3e3] mt-0.5">{batch.location}</div>
                           )}
                         </TableCell>
 
@@ -810,7 +810,7 @@ function BatchLotPageInner() {
                           {batch.bondedWarehouse ? (
                             getCustomsStatusBadge(batch.customsStatus || 'cleared')
                           ) : (
-                            <span className="text-xs text-muted-foreground/50">N/A</span>
+                            <span className="text-xs text-[#e3e3e3]">N/A</span>
                           )}
                         </TableCell>
                       </TableRow>

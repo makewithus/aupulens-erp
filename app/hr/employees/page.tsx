@@ -676,7 +676,7 @@ export default function EmployeesPage() {
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground">
                             Password{" "}
-                            <span className="text-muted-foreground/50">
+                            <span className="text-[#e3e3e3]">
                               (default: Aupulens@123)
                             </span>
                           </label>

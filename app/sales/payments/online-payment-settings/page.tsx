@@ -144,9 +144,9 @@ export default function OnlinePaymentSettingsPage() {
         <Table>
             <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Gateway</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Status</TableHead>
-                <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Action</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Gateway</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Status</TableHead>
+                <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

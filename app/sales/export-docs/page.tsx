@@ -202,7 +202,7 @@ export default function ExportDocsPage() {
                 <h4 className="text-lg font-medium text-foreground">
                   Bill of Lading
                 </h4>
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 mt-1">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#e3e3e3] mt-1">
                   Shipping Documents
                 </p>
                 <p className="text-xs text-muted-foreground mt-3">
@@ -223,7 +223,7 @@ export default function ExportDocsPage() {
                 <h4 className="text-lg font-medium text-foreground">
                   Commercial Invoice
                 </h4>
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 mt-1">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#e3e3e3] mt-1">
                   Export Invoices
                 </p>
                 <p className="text-xs text-muted-foreground mt-3">
@@ -244,7 +244,7 @@ export default function ExportDocsPage() {
                 <h4 className="text-lg font-medium text-foreground">
                   Packing List
                 </h4>
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 mt-1">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#e3e3e3] mt-1">
                   Itemized Details
                 </p>
                 <p className="text-xs text-muted-foreground mt-3">
@@ -279,7 +279,7 @@ export default function ExportDocsPage() {
                 <p className="text-muted-foreground font-mono text-xs">
                   No exportable orders found
                 </p>
-                <p className="text-xs text-muted-foreground/50 mt-1 max-w-sm">
+                <p className="text-xs text-[#e3e3e3] mt-1 max-w-sm">
                   Export documents become available once a deal reaches Quote Accepted or a later stage of the Q2C pipeline.
                 </p>
               </div>

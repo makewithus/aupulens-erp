@@ -67,9 +67,9 @@ export default function EmailNotificationsSettingsPage() {
         <Table>
           <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Notification Type</TableHead>
-              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Enabled</TableHead>
-              <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/50">Template</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Notification Type</TableHead>
+              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Enabled</TableHead>
+              <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Template</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

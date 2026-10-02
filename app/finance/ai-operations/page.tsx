@@ -60,7 +60,7 @@ const DOMAIN_STATUS_STYLE: Record<string, string> = {
   ready: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
   blocked: "bg-red-500/10 text-red-500 border-red-500/30",
   at_risk: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  not_applicable: "bg-muted/40 text-muted-foreground/50 border-border/20 border-dashed",
+  not_applicable: "bg-muted/40 text-[#e3e3e3] border-border/20 border-dashed",
   not_checked: "bg-muted/10 text-muted-foreground/40 border-border/20 border-dashed italic",
 };
 
@@ -91,7 +91,7 @@ const SEVERITY_STYLE: Record<string, string> = {
 const RECON_STATUS_STYLE: Record<string, string> = {
   reconciled: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
   unreconciled: "bg-red-500/10 text-red-500 border-red-500/30",
-  not_applicable: "bg-muted/40 text-muted-foreground/50 border-border/20 border-dashed",
+  not_applicable: "bg-muted/40 text-[#e3e3e3] border-border/20 border-dashed",
   not_implemented: "bg-muted/10 text-muted-foreground/40 border-border/20 border-dashed italic",
   not_covered: "bg-muted/10 text-muted-foreground/30 border-border/20 border-dashed italic",
 };
@@ -100,13 +100,13 @@ const EVIDENCE_STATUS_STYLE: Record<string, string> = {
   verified: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
   unverified: "bg-amber-500/10 text-amber-500 border-amber-500/30",
   not_checked: "bg-muted/10 text-muted-foreground/40 border-border/20 border-dashed italic",
-  not_applicable: "bg-muted/40 text-muted-foreground/50 border-border/20 border-dashed",
+  not_applicable: "bg-muted/40 text-[#e3e3e3] border-border/20 border-dashed",
   not_covered: "bg-muted/10 text-muted-foreground/30 border-border/20 border-dashed italic",
 };
 
 const MATERIALITY_STYLE: Record<string, string> = {
   material: "bg-orange-500/10 text-orange-500 border-orange-500/30",
-  immaterial: "bg-muted/40 text-muted-foreground/50 border-border/20",
+  immaterial: "bg-muted/40 text-[#e3e3e3] border-border/20",
   unclassified: "bg-muted/10 text-muted-foreground/40 border-border/20 border-dashed italic",
   not_available: "bg-muted/10 text-muted-foreground/30 border-border/20 border-dashed italic",
 };
@@ -491,15 +491,15 @@ export default function AiOperationsPage() {
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Priority</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">What / Why</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Workflow</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Owner</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Age</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Evidence</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Proposed Action</TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Actions</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Priority</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">What / Why</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Workflow</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Owner</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Age</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Evidence</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Proposed Action</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/30">
@@ -530,7 +530,7 @@ export default function AiOperationsPage() {
                           </TableCell>
                           <TableCell className="px-6 py-5 font-mono text-xs text-muted-foreground">
                             {item.workflowId}
-                            <div className="text-[10px] text-muted-foreground/50">{AI_WORKFLOW_LABELS[item.workflowId] || ""}</div>
+                            <div className="text-[10px] text-[#e3e3e3]">{AI_WORKFLOW_LABELS[item.workflowId] || ""}</div>
                           </TableCell>
                           <TableCell className="px-6 py-5 font-sans tabular-nums">{fmtMoney(item.impactAmount)}</TableCell>
                           <TableCell className="px-6 py-5">{item.owner?.name || "—"}</TableCell>
@@ -582,12 +582,12 @@ export default function AiOperationsPage() {
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Severity</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Detector</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Observed</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Deviation</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Silent</TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Actions</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Severity</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Detector</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Observed</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Deviation</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Silent</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/30">
@@ -676,7 +676,7 @@ export default function AiOperationsPage() {
                         {closeState.readiness.status}
                       </Badge>
                       <span className="text-sm text-muted-foreground">Period {closeState.period}</span>
-                      <span className="text-xs font-mono text-muted-foreground/50">
+                      <span className="text-xs font-mono text-[#e3e3e3]">
                         score {closeState.readiness.score} · {closeState.readiness.hardBlockers} hard · {closeState.readiness.materialExceptions} material ·{" "}
                         {closeState.readiness.minorExceptions} minor · {closeState.readiness.staleItems} stale · {closeState.readiness.domainsNotChecked} not checked
                       </span>
@@ -727,11 +727,11 @@ export default function AiOperationsPage() {
                                   <Badge variant="outline" className={`rounded-none uppercase text-[10px] tracking-wider ${SEVERITY_STYLE[b.severity] || ""}`}>
                                     {b.severity.replace(/_/g, " ")}
                                   </Badge>
-                                  <span className="text-xs font-mono text-muted-foreground/50 uppercase">{b.domain}</span>
+                                  <span className="text-xs font-mono text-[#e3e3e3] uppercase">{b.domain}</span>
                                 </div>
                                 <div className="font-medium text-foreground text-sm">{b.title}</div>
                                 <div className="text-xs text-muted-foreground/70">{b.detail}</div>
-                                <div className="text-xs text-muted-foreground/50 italic">{b.recommendedAction}</div>
+                                <div className="text-xs text-[#e3e3e3] italic">{b.recommendedAction}</div>
                               </div>
                               <div className="text-right shrink-0 text-xs font-sans tabular-nums text-muted-foreground/60">
                                 {b.amount !== undefined && <div>{fmtMoney(b.amount)}</div>}
@@ -813,7 +813,7 @@ export default function AiOperationsPage() {
                           {statement.balanceCheck.balanced ? "balanced" : "does not balance"}
                         </Badge>
                       )}
-                      <span className="text-xs font-mono text-muted-foreground/50">
+                      <span className="text-xs font-mono text-[#e3e3e3]">
                         debit {fmtMoney(statement.totals?.debit)} · credit {fmtMoney(statement.totals?.credit)}
                       </span>
                     </div>
@@ -827,25 +827,25 @@ export default function AiOperationsPage() {
                         <Table>
                           <TableHeader className="border-border/40">
                             <TableRow>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Account</TableHead>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Materiality</TableHead>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Reconciliation</TableHead>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Evidence</TableHead>
-                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Stale</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Account</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Materiality</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Reconciliation</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Evidence</TableHead>
+                              <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Stale</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-border/30">
                             {group.lines.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={6} className="py-8 text-center text-xs text-muted-foreground/50">No accounts in this group.</TableCell>
+                                <TableCell colSpan={6} className="py-8 text-center text-xs text-[#e3e3e3]">No accounts in this group.</TableCell>
                               </TableRow>
                             ) : (
                               group.lines.map((line: any) => (
                                 <TableRow key={line.accountId} className={`hover:bg-white/[0.015] text-sm ${line.unsupportedMaterial ? "bg-red-500/[0.03]" : ""}`}>
                                   <TableCell className="px-4 py-4">
                                     <div className="font-medium text-foreground">{line.name}</div>
-                                    <div className="text-[10px] font-mono text-muted-foreground/50">{line.code}</div>
+                                    <div className="text-[10px] font-mono text-[#e3e3e3]">{line.code}</div>
                                   </TableCell>
                                   <TableCell className="px-4 py-4 font-sans tabular-nums">{fmtMoney(line.amount)}</TableCell>
                                   <TableCell className="px-4 py-4">
@@ -891,12 +891,12 @@ export default function AiOperationsPage() {
                   <Table>
                     <TableHeader className="border-border/40">
                       <TableRow>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Workflow</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Max Autonomy</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Kill Switch</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Auto-post Schedules</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Materiality (₹)</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Confidence</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Workflow</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Max Autonomy</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Kill Switch</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Auto-post Schedules</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Materiality (₹)</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Confidence</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="divide-y divide-border/30">
@@ -1010,7 +1010,7 @@ export default function AiOperationsPage() {
                           </Button>
                         </div>
                         {registrations.length === 0 ? (
-                          <p className="text-xs text-muted-foreground/50">No registrations on file — AI-12/AI-17 will report not_configured.</p>
+                          <p className="text-xs text-[#e3e3e3]">No registrations on file — AI-12/AI-17 will report not_configured.</p>
                         ) : (
                           <div className="space-y-2">
                             {registrations.map((r, i) => (
@@ -1042,7 +1042,7 @@ export default function AiOperationsPage() {
                           </Button>
                         </div>
                         {obligations.length === 0 ? (
-                          <p className="text-xs text-muted-foreground/50">No obligations configured — AI-17 will report zero due, never an assumed default.</p>
+                          <p className="text-xs text-[#e3e3e3]">No obligations configured — AI-17 will report zero due, never an assumed default.</p>
                         ) : (
                           <div className="space-y-2">
                             {obligations.map((o, i) => (
@@ -1083,7 +1083,7 @@ export default function AiOperationsPage() {
                           </Button>
                         </div>
                         {thresholds.length === 0 ? (
-                          <p className="text-xs text-muted-foreground/50">No thresholds configured — AI-17 will not check for a crossed-threshold registration gap.</p>
+                          <p className="text-xs text-[#e3e3e3]">No thresholds configured — AI-17 will not check for a crossed-threshold registration gap.</p>
                         ) : (
                           <div className="space-y-2">
                             {thresholds.map((t, i) => (
@@ -1124,13 +1124,13 @@ export default function AiOperationsPage() {
                   <Table>
                     <TableHeader className="border-border/40">
                       <TableRow>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Workflow</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Current Autonomy</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Override Rate</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Automation Coverage</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Avg Resolution</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Runs</TableHead>
-                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Meets Bar?</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Workflow</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Current Autonomy</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Override Rate</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Automation Coverage</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Avg Resolution</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Runs</TableHead>
+                        <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Meets Bar?</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="divide-y divide-border/30">
@@ -1148,7 +1148,7 @@ export default function AiOperationsPage() {
                               <div className="text-xs text-muted-foreground/60">{AI_WORKFLOW_LABELS[r.workflowId] || ""}</div>
                             </TableCell>
                             <TableCell className="px-6 py-5 text-xs">
-                              {r.killSwitchEnabled ? (r.currentMaxAutonomy || "").replace(/_/g, " ") : <span className="text-muted-foreground/50">kill switch off</span>}
+                              {r.killSwitchEnabled ? (r.currentMaxAutonomy || "").replace(/_/g, " ") : <span className="text-[#e3e3e3]">kill switch off</span>}
                             </TableCell>
                             <TableCell className="px-6 py-5 text-xs">
                               {r.metrics?.overrideRate !== null && r.metrics?.overrideRate !== undefined

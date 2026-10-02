@@ -71,9 +71,9 @@ export default function DunningRulesPage() {
         <Table>
             <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead className="w-16 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">S.No</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Rule Name</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Status</TableHead>
+                <TableHead className="w-16 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">S.No</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Rule Name</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

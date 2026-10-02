@@ -387,10 +387,10 @@ export function SubscriptionForm() {
         <Table>
           <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Item Details</TableHead>
-              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Quantity</TableHead>
-              <TableHead className="w-28 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Rate</TableHead>
-              <TableHead className="w-28 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground/50">Amount</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Item Details</TableHead>
+              <TableHead className="w-24 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Quantity</TableHead>
+              <TableHead className="w-28 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Rate</TableHead>
+              <TableHead className="w-28 text-right font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Amount</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>

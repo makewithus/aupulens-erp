@@ -330,7 +330,7 @@ export default function DashboardPage() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-6 text-muted-foreground/50 text-sm">
+                <div className="text-center py-6 text-[#e3e3e3] text-sm">
                   No critical risks detected.
                 </div>
               )}
@@ -388,7 +388,7 @@ export default function DashboardPage() {
                       ))}
                       {expansionData?.quarterly?.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className="py-8 text-center text-muted-foreground/50 text-sm">
+                          <TableCell colSpan={4} className="py-8 text-center text-[#e3e3e3] text-sm">
                             No forecast data available.
                           </TableCell>
                         </TableRow>

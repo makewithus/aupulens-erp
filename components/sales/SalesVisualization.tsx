@@ -500,7 +500,7 @@ export function SalesVisualization({
                 "bg-none border-none cursor-pointer py-1 relative transition-colors duration-200 text-[11px] font-semibold",
                 selectedDataType === d.value
                   ? "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-18px] after:w-full after:h-[1px] after:bg-foreground"
-                  : "text-muted-foreground/50 hover:text-foreground",
+                  : "text-[#e3e3e3] hover:text-foreground",
               )}
             >
               {d.label}
@@ -516,7 +516,7 @@ export function SalesVisualization({
       <div className="flex flex-wrap items-center gap-6 p-4 border border-border/40 bg-white/[0.01] rounded-none mb-6">
         {isTimeSeriesData && (
           <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50">
+            <span className="text-[9px] uppercase tracking-wider text-[#e3e3e3]">
               Date Range
             </span>
             <select
@@ -544,7 +544,7 @@ export function SalesVisualization({
 
         {isTimeSeriesData && (
           <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50">
+            <span className="text-[9px] uppercase tracking-wider text-[#e3e3e3]">
               Interval
             </span>
             <select
@@ -570,7 +570,7 @@ export function SalesVisualization({
             setDateRange("30");
             setGroupBy("day");
           }}
-          className="text-[11px] uppercase text-muted-foreground/50 hover:text-foreground cursor-pointer ml-auto select-none"
+          className="text-[11px] uppercase text-[#e3e3e3] hover:text-foreground cursor-pointer ml-auto select-none"
         >
           Reset
         </span>

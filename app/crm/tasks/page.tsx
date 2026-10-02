@@ -273,7 +273,7 @@ export default function TasksPage() {
             <div className="w-full max-w-4xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
               {/* View Filter */}
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[11px] text-muted-foreground/50">View:</span>
+                <span className="font-mono text-[11px] text-[#e3e3e3]">View:</span>
                 <Select value={view} onValueChange={setView}>
                   <SelectTrigger className="w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue />
@@ -287,7 +287,7 @@ export default function TasksPage() {
 
               {/* Status Filter */}
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[11px] text-muted-foreground/50">Status:</span>
+                <span className="font-mono text-[11px] text-[#e3e3e3]">Status:</span>
                 <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
                   <SelectTrigger className="w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="All Statuses" />
@@ -305,7 +305,7 @@ export default function TasksPage() {
 
               {/* Priority Filter */}
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[11px] text-muted-foreground/50">Priority:</span>
+                <span className="font-mono text-[11px] text-[#e3e3e3]">Priority:</span>
                 <Select value={priorityFilter || "all"} onValueChange={(v) => setPriorityFilter(v === "all" ? "" : v)}>
                   <SelectTrigger className="w-[140px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="All" />

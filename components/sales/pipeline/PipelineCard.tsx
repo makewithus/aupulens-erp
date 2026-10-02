@@ -61,7 +61,7 @@ export function PipelineCard({
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground/75 truncate">
+        <p className="text-xs text-[#e3e3e3] truncate">
           {order.header.partnerId?.header?.name || "No customer"}
         </p>
 
@@ -79,7 +79,7 @@ export function PipelineCard({
           <div className="pt-3 border-t border-border/20 space-y-2">
             {Array.isArray(order.refHistory) && order.refHistory.length > 1 && (
               <div className="font-mono text-[10px] text-muted-foreground/70 leading-relaxed">
-                <span className="uppercase tracking-wider text-muted-foreground/50">History: </span>
+                <span className="uppercase tracking-wider text-[#e3e3e3]">History: </span>
                 {order.refHistory.map((h: any) => h.ref).join(" → ")}
               </div>
             )}

@@ -142,8 +142,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Invoice #</TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount Applied</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Invoice #</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount Applied</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/30">

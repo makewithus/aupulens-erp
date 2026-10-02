@@ -51,7 +51,7 @@ function SummaryCard({
       <CardContent className="p-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/60 mb-2">{label}</p>
         <p className={`text-3xl font-bold tracking-tight text-foreground ${color || ""}`}>{value}</p>
-        {sub && <p className="text-xs text-muted-foreground/50 mt-1.5">{sub}</p>}
+        {sub && <p className="text-xs text-[#e3e3e3] mt-1.5">{sub}</p>}
       </CardContent>
     </Card>
   );

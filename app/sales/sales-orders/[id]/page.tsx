@@ -144,10 +144,10 @@ export default function SalesOrderDetailPage() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Item</TableHead>
-                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Qty</TableHead>
-                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Rate</TableHead>
-                    <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Item</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Qty</TableHead>
+                    <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Rate</TableHead>
+                    <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/30">
@@ -171,9 +171,9 @@ export default function SalesOrderDetailPage() {
                 <Table>
                   <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Number</TableHead>
-                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
-                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Number</TableHead>
+                      <TableHead className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/30">

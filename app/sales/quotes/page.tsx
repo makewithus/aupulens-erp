@@ -68,18 +68,18 @@ function LifecycleDiagram() {
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-3">
           <Node icon={FileText} label="Quote" color="text-foreground" />
-          <span className="text-muted-foreground/50">→</span>
+          <span className="text-[#e3e3e3]">→</span>
           <Node icon={Mail} label="Sent to Customer" color="text-blue-500" />
         </div>
         <div className="flex items-center gap-16">
           <div className="flex flex-col items-center gap-2">
-            <span className="text-xs text-muted-foreground/50">- - - - ↓</span>
+            <span className="text-xs text-[#e3e3e3]">- - - - ↓</span>
             <Node icon={CheckCircle2} label="Accept" color="text-emerald-500" />
-            <span className="text-muted-foreground/50">↓</span>
+            <span className="text-[#e3e3e3]">↓</span>
             <Node icon={FileCheck} label="Invoice" color="text-purple-500" />
           </div>
           <div className="flex flex-col items-center gap-2">
-            <span className="text-xs text-muted-foreground/50">- - - - ↓</span>
+            <span className="text-xs text-[#e3e3e3]">- - - - ↓</span>
             <Node icon={XCircle} label="Reject" color="text-red-500" />
           </div>
         </div>
@@ -221,7 +221,7 @@ function QuotesPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="p-6 w-full space-y-6">
         <SalesTabNav />
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -345,12 +345,12 @@ function QuotesPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Quote #</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Customer</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Quote Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Expiry Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 border-r last:border-0 border-border/10">Status</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">Amount</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Quote #</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Customer</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Quote Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Expiry Date</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Status</TableHead>
+                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/30">

@@ -254,7 +254,7 @@ const JournalForm = ({ accounts }: { accounts: any[] }) => {
               <TableBody className="divide-y divide-border/20">
                 {rows.map((row) => (
                   <TableRow key={row.id} className="group bg-card hover:bg-white/[0.01] transition-colors">
-                    <TableCell className="p-2 text-center text-muted-foreground/50 hover:text-red-500 cursor-pointer font-bold" onClick={() => removeRow(row.id)}>✕</TableCell>
+                    <TableCell className="p-2 text-center text-[#e3e3e3] hover:text-red-500 cursor-pointer font-bold" onClick={() => removeRow(row.id)}>✕</TableCell>
                     <TableCell className="p-0 border-r border-border/10">
                       <AccountPicker
                         accounts={accounts}
@@ -787,14 +787,14 @@ function ChartOfAccountsPageInner() {
                         <TableHead className="w-12 text-center py-5">
                           <Checkbox className="rounded-none" />
                         </TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACCOUNT NAME</TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">ACCOUNT NAME</TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
                           ACCOUNT CODE
                           <ArrowUpDown className="h-3 w-3 inline-block ml-1 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                         </TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACCOUNT TYPE</TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">PARENT ACCOUNT</TableHead>
-                        <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50">ACTIONS</TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">ACCOUNT TYPE</TableHead>
+                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">PARENT ACCOUNT</TableHead>
+                        <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">ACTIONS</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="divide-y divide-border/30">
@@ -830,7 +830,7 @@ function ChartOfAccountsPageInner() {
                             <TableCell className="px-8 py-7 text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground/50 hover:text-foreground cursor-pointer rounded-none">
+                                  <Button variant="ghost" className="h-8 w-8 p-0 text-[#e3e3e3] hover:text-foreground cursor-pointer rounded-none">
                                     <SettingsIcon className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -913,7 +913,7 @@ function ChartOfAccountsPageInner() {
                   <div key={acc._id} className="p-4 border border-border/30 rounded-none cursor-pointer hover:bg-white/[0.015] transition-colors" onClick={() => setSelectedAccountant(acc)}>
                     <h3 className="font-bold text-lg text-foreground">{acc.name}</h3>
                     <p className="text-sm font-medium text-muted-foreground">{acc.firmName}</p>
-                    <p className="text-xs text-muted-foreground/50 mt-1 font-mono">{acc.state}, {acc.country}</p>
+                    <p className="text-xs text-[#e3e3e3] mt-1 font-mono">{acc.state}, {acc.country}</p>
                   </div>
                 ))}
               </div>
@@ -999,7 +999,7 @@ function ChartOfAccountsPageInner() {
             <div className="space-y-6 px-10 py-6">
               <div className="border border-dashed border-border/50 rounded-none p-10 text-center bg-white/[0.005]">
                 <div className="mx-auto h-12 w-12 bg-white/[0.01] rounded-none flex items-center justify-center shadow-sm border border-border/20 mb-4">
-                  <Upload className="h-5 w-5 text-muted-foreground/50" />
+                  <Upload className="h-5 w-5 text-[#e3e3e3]" />
                 </div>
                 <h3 className="font-semibold text-foreground mb-4">Drag and drop file to import</h3>
                 <input type="file" id="import-file" accept=".csv,.tsv,.xls,.xlsx" className="hidden" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
@@ -1201,7 +1201,7 @@ function ChartOfAccountsPageInner() {
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/75 font-mono">File Protection Password</label>
               <div className="relative w-full">
                 <Input type="password" className="rounded-none pr-10" />
-                <Eye className="absolute right-3 top-3 h-4 w-4 text-muted-foreground/50 cursor-pointer" />
+                <Eye className="absolute right-3 top-3 h-4 w-4 text-[#e3e3e3] cursor-pointer" />
               </div>
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed font-mono mt-1">
                 Your password must be at least 12 characters and include one uppercase letter, lowercase letter, number, and special character.

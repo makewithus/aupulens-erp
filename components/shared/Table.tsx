@@ -20,7 +20,7 @@ export function TableHead({ children, className = "", ...props }: React.HTMLAttr
 
 export function TableHeaderCell({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th className={`px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/50 ${className}`} {...props}>
+    <th className={`px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] ${className}`} {...props}>
       {children}
     </th>
   );

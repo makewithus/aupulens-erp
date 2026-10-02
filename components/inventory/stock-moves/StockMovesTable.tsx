@@ -112,7 +112,7 @@ export function StockMovesTable({
               <TableCell className="text-sm text-muted-foreground">
                 {m.sourceLocation?.warehouseName || "—"}
                 {m.sourceLocation?.zone && (
-                  <span className="text-muted-foreground/50 text-xs ml-1">
+                  <span className="text-[#e3e3e3] text-xs ml-1">
                     / {m.sourceLocation.zone}
                   </span>
                 )}
@@ -122,7 +122,7 @@ export function StockMovesTable({
               <TableCell className="text-sm text-muted-foreground">
                 {m.destinationLocation?.warehouseName || "—"}
                 {m.destinationLocation?.zone && (
-                  <span className="text-muted-foreground/50 text-xs ml-1">
+                  <span className="text-[#e3e3e3] text-xs ml-1">
                     / {m.destinationLocation.zone}
                   </span>
                 )}

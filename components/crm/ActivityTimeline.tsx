@@ -236,7 +236,7 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
                       {relatedRecordLabel && (
                         <>
                           <span className="text-muted-foreground/30 font-mono text-[11px]">•</span>
-                          <span className="font-mono text-[11px] text-muted-foreground/50 uppercase tracking-[0.05em]">
+                          <span className="font-mono text-[11px] text-[#e3e3e3] uppercase tracking-[0.05em]">
                             {relatedRecordLabel}
                           </span>
                         </>
@@ -257,7 +257,7 @@ export default function ActivityTimeline({ linkedRecordId }: { linkedRecordId?: 
                     <p className="font-mono text-[11px] text-muted-foreground/85">
                       {format(new Date(a.activity_date), 'MMM d, yyyy h:mm a')}
                     </p>
-                    <p className="text-xs text-muted-foreground/50">
+                    <p className="text-xs text-[#e3e3e3]">
                       by <span className="font-mono text-[11px] text-muted-foreground/70">{a.performed_by_id?.name || 'System User'}</span>
                     </p>
                   </div>
