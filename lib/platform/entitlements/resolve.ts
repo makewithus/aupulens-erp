@@ -25,9 +25,15 @@ interface CacheEntry {
 const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, CacheEntry>();
 
+import { revalidateTag } from "next/cache";
+
 export function invalidateEntitlementsCache(tenantId?: string): void {
-  if (tenantId) cache.delete(tenantId);
-  else cache.clear();
+  if (tenantId) {
+    cache.delete(tenantId);
+    try { revalidateTag(`org-${tenantId}`); } catch (e) {} // May throw if not in Next.js edge context
+  } else {
+    cache.clear();
+  }
 }
 
 /** Bridges a pre-existing Organization.tier value (starter/professional/

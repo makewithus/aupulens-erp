@@ -87,7 +87,7 @@ const PRODUCT_SCHEMA: EntitySchema = {
     { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "item", "itemname", "description", "particulars"], validate: "nonEmpty" },
     { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "default_code", "partno", "productcode"] },
     { key: "type", label: "Type (consu/service/combo)", required: false, aliases: ["type", "producttype", "kind"] },
-    { key: "salesPrice", label: "Sales Price", required: false, aliases: ["salesprice", "sales price", "listprice", "price", "rate", "mrp", "sellingprice"], validate: "number" },
+    { key: "salesPrice", label: "Sales Price", required: false, aliases: ["salesprice", "sales price", "unitprice", "unit price", "listprice", "price", "rate", "mrp", "sellingprice"], validate: "number" },
     { key: "cost", label: "Cost Price", required: false, aliases: ["cost", "costprice", "purchaseprice", "standardprice", "buyprice"], validate: "number" },
     // NOTE: HSN/SAC is intentionally omitted — the Product model has no HSN field
     // yet (invoices carry HSN as free text). Add it here once Product gains one.

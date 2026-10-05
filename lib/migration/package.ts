@@ -8,6 +8,7 @@ import {
 } from "@/lib/migration/constants";
 import {
   parseSourceFile,
+  parseSpreadsheetSheets,
   validateSourceFile,
 } from "@/lib/migration/sourceAdapters";
 
@@ -24,6 +25,7 @@ export interface PreparedMigrationFile extends UploadedMigrationFile {
 
 const MAX_ZIP_ENTRIES = 100;
 const MAX_UNCOMPRESSED_ZIP_BYTES = 50 * 1024 * 1024;
+const MULTI_SHEET_EXTENSIONS = new Set(["xls", "xlsx"]);
 
 function extOf(fileName: string): string {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -150,32 +152,52 @@ export function prepareMigrationFiles(
   const prepared: PreparedMigrationFile[] = [];
 
   for (const file of expanded) {
-    let parsed;
+    let parsedFiles;
     try {
-      parsed = parseSourceFile(file.name, file.buffer, sourceSystem);
+      parsedFiles = MULTI_SHEET_EXTENSIONS.has(extOf(file.name))
+        ? parseSpreadsheetSheets(file.buffer)
+            .filter(({ parsed }) => parsed.rows.length > 0)
+            .map(({ sheetName, parsed }) => ({
+              name: `${file.name} - ${sheetName}`,
+              inferName: sheetName,
+              buffer: file.buffer,
+              parsed,
+            }))
+        : [{
+            name: file.name,
+            inferName: file.name,
+            buffer: file.buffer,
+            parsed: parseSourceFile(file.name, file.buffer, sourceSystem),
+          }];
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not parse file.";
       throw new Error(`${file.name}: ${message}`);
     }
 
-    if (parsed.rows.length === 0) {
+    if (parsedFiles.length === 0) {
       throw new Error(`${file.name}: File contains no records.`);
     }
-    if (parsed.rows.length > MIGRATION_MAX_ROWS) {
-      throw new Error(`${file.name}: File has ${parsed.rows.length} rows; the per-file limit is ${MIGRATION_MAX_ROWS}. Split it into smaller files.`);
-    }
 
-    const entityType = inferEntityType(file.name, parsed.columns);
-    if (!entityType) {
-      throw new Error(`${file.name}: Could not infer a supported migration entity from filename or headers.`);
-    }
+    for (const parsedFile of parsedFiles) {
+      const { parsed } = parsedFile;
 
-    prepared.push({
-      ...file,
-      entityType,
-      columns: parsed.columns,
-      rows: parsed.rows,
-    });
+      if (parsed.rows.length > MIGRATION_MAX_ROWS) {
+        throw new Error(`${parsedFile.name}: File has ${parsed.rows.length} rows; the per-file limit is ${MIGRATION_MAX_ROWS}. Split it into smaller files.`);
+      }
+
+      const entityType = inferEntityType(parsedFile.inferName, parsed.columns);
+      if (!entityType) {
+        throw new Error(`${parsedFile.name}: Could not infer a supported migration entity from filename or headers.`);
+      }
+
+      prepared.push({
+        name: parsedFile.name,
+        buffer: parsedFile.buffer,
+        entityType,
+        columns: parsed.columns,
+        rows: parsed.rows,
+      });
+    }
   }
 
   return prepared;

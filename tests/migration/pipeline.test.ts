@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import AdmZip from "adm-zip";
+import * as xlsx from "xlsx";
 import { parseSourceFile, validateSourceFile } from "@/lib/migration/sourceAdapters";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
@@ -106,6 +107,36 @@ describe("migration package preparation", () => {
     expect(() =>
       prepareMigrationFiles([{ name: "unknown.csv", buffer: buf("Foo,Bar\n1,2") }], "other"),
     ).toThrow(/Could not infer/);
+  });
+
+  it("prepares each non-empty Excel sheet as a separate migration file", () => {
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(
+      workbook,
+      xlsx.utils.json_to_sheet([
+        { "Employee ID": "EMP001", "Employee Name": "Arjun Menon", Email: "arjun@example.com" },
+      ]),
+      "Employees",
+    );
+    xlsx.utils.book_append_sheet(
+      workbook,
+      xlsx.utils.json_to_sheet([
+        { "Product ID": "PROD001", "Product Name": "Lens", "Unit Price": 1200 },
+      ]),
+      "Products",
+    );
+
+    const prepared = prepareMigrationFiles(
+      [{ name: "Aupulens_Employee_Product_Migration_Test_Data.xlsx", buffer: xlsx.write(workbook, { type: "buffer", bookType: "xlsx" }) }],
+      "tally",
+    );
+
+    expect(prepared.map((file) => file.entityType)).toEqual(["employee", "product"]);
+    expect(prepared.map((file) => file.rows.length)).toEqual([1, 1]);
+    expect(prepared.map((file) => file.name)).toEqual([
+      "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Employees",
+      "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Products",
+    ]);
   });
 
   it("normalizes unknown source systems instead of persisting invalid enum values", () => {

@@ -12,6 +12,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 
   const searchParams = req.nextUrl.searchParams;
   const entityType = searchParams.get("entityType");
+  const page = Math.max(1, Number(searchParams.get("page") || "1"));
+  const pageSize = Math.min(100, Math.max(10, Number(searchParams.get("pageSize") || "10")));
 
   await dbConnect();
   
@@ -26,6 +28,24 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     return NextResponse.json({ success: true, data: counts });
   }
 
-  const records = await MigrationRecord.find({ batchId: id, tenantId: session.user.tenantId, status: "valid", entityType }).limit(10).lean();
-  return NextResponse.json({ success: true, data: records });
+  const query = { batchId: id, tenantId: session.user.tenantId, status: "valid", entityType };
+  const [total, records] = await Promise.all([
+    MigrationRecord.countDocuments(query),
+    MigrationRecord.find(query)
+      .sort({ _id: 1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+  ]);
+
+  return NextResponse.json({
+    success: true,
+    data: records,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+  });
 }

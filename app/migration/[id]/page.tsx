@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Play, AlertTriangle, DatabaseZap } from "lucide-react";
+import { Loader2, CheckCircle2, Play, AlertTriangle, DatabaseZap, Download, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { PreviewAndResolution } from "@/components/migration/PreviewAndResolution";
@@ -30,9 +30,71 @@ function getStepIndex(status: string) {
   if (status === "validating") return 3;
   if (status === "preview") return 4;
   if (status === "running") return 6;
+  if (status === "verifying") return 6;
   if (status === "completed" || status === "verified") return 7;
   if (status === "failed") return 6;
   return 0;
+}
+
+function batchStatusCopy(status: string) {
+  if (status === "analyzing") {
+    return {
+      label: "Analyzing upload",
+      description: "Reading files and preparing field mapping.",
+    };
+  }
+  if (status === "mapping") {
+    return {
+      label: "Mapping required",
+      description: "Review the detected fields and save mapping to validate records.",
+    };
+  }
+  if (status === "validating") {
+    return {
+      label: "Validating records",
+      description: "Checking required fields, relationships, and duplicates before preview.",
+    };
+  }
+  if (status === "preview") {
+    return {
+      label: "Ready for migration",
+      description: "Validation is complete. Review the preview before writing live data.",
+    };
+  }
+  if (status === "running") {
+    return {
+      label: "Migrating data",
+      description: "Writing approved records to the live workspace in the background.",
+    };
+  }
+  if (status === "verifying") {
+    return {
+      label: "Verifying migrated data",
+      description: "Records have been written. Aupulens is checking source and target counts before the final report.",
+    };
+  }
+  if (status === "verified") {
+    return {
+      label: "Verified and completed",
+      description: "Migration finished and post-migration verification passed.",
+    };
+  }
+  if (status === "completed") {
+    return {
+      label: "Migration completed",
+      description: "Migration finished. Review the report for verification details.",
+    };
+  }
+  if (status === "failed") {
+    return {
+      label: "Migration failed",
+      description: "The batch stopped before completion. Review the error below.",
+    };
+  }
+  return {
+    label: status || "Pending",
+    description: "Preparing the migration batch.",
+  };
 }
 
 function batchErrorMessage(batch: any) {
@@ -111,7 +173,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   // Polling for background tasks
   useEffect(() => {
     if (!batch) return;
-    if (batch.status === "validating" || batch.status === "running") {
+    if (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") {
       const interval = setInterval(loadData, 2000); // UI poll
       return () => clearInterval(interval);
     }
@@ -179,6 +241,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   if (!batch) return <div>Batch not found</div>;
 
   const currentStep = getStepIndex(batch.status);
+  const statusCopy = batchStatusCopy(batch.status);
 
   return (
     <DashboardLayout
@@ -196,7 +259,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
       onRefresh={loadData}
     >
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Progress Stepper */}
         <div className="flex items-center justify-between border-b pb-4">
@@ -215,9 +278,10 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
           <div>
             <h2 className="text-xl font-bold">Batch Migration <span className="text-muted-foreground font-mono">#{id.slice(-6)}</span></h2>
             <p className="text-sm text-muted-foreground mt-1">Source: {batch.sourceSystem.toUpperCase()} • {batch.totalFiles} files • {batch.totalRecords} records</p>
+            <p className="text-xs text-muted-foreground mt-2">{statusCopy.description}</p>
           </div>
           <div className="text-right">
-            <div className="text-sm font-semibold capitalize text-emerald-600">{batch.status}</div>
+            <div className="text-sm font-semibold text-emerald-600">{statusCopy.label}</div>
             <div className="text-xs text-muted-foreground">Started {format(new Date(batch.createdAt), "PPp")}</div>
           </div>
         </div>
@@ -259,15 +323,15 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
           </div>
         )}
 
-        {(batch.status === "validating" || batch.status === "running") && (
+        {(batch.status === "validating" || batch.status === "running" || batch.status === "verifying") && (
           <div className="border rounded-xl p-8 bg-card flex flex-col items-center justify-center space-y-4 text-center">
             <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
-            <h3 className="text-xl font-semibold capitalize">{batch.status} records...</h3>
+            <h3 className="text-xl font-semibold">{statusCopy.label}</h3>
             <div className="w-full max-w-md bg-secondary rounded-full h-3">
               <div className="bg-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${batch.progress || 0}%` }}></div>
             </div>
             <p className="text-sm text-muted-foreground">{batch.progress || 0}% Complete</p>
-            <p className="text-xs text-muted-foreground">This is running in the background. You can safely leave this page.</p>
+            <p className="text-xs text-muted-foreground max-w-lg">{statusCopy.description} This is running in the background. You can safely leave this page.</p>
           </div>
         )}
 
@@ -342,15 +406,83 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                   <div className="text-3xl font-bold text-rose-600">{batch.summary?.failed || 0}</div>
                 </div>
             </div>
+
+            <div className="bg-card border rounded-xl overflow-hidden">
+              <div className="border-b p-5">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" /> Migration Report
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Final import summary, source-to-target verification, and downloadable audit files.
+                </p>
+              </div>
+
+              <div className="grid gap-4 p-5 md:grid-cols-4">
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-xs uppercase text-muted-foreground">Total Records</div>
+                  <div className="mt-1 text-2xl font-bold">{batch.totalRecords || 0}</div>
+                </div>
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-xs uppercase text-muted-foreground">Valid</div>
+                  <div className="mt-1 text-2xl font-bold text-emerald-600">{batch.summary?.valid || 0}</div>
+                </div>
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-xs uppercase text-muted-foreground">Migrated</div>
+                  <div className="mt-1 text-2xl font-bold text-emerald-600">{batch.summary?.migrated || 0}</div>
+                </div>
+                <div className="rounded-lg border bg-background p-4">
+                  <div className="text-xs uppercase text-muted-foreground">Failed</div>
+                  <div className="mt-1 text-2xl font-bold text-rose-600">{batch.summary?.failed || 0}</div>
+                </div>
+              </div>
+
+              {Array.isArray(batch.summary?.verification?.sourceVsTarget) && batch.summary.verification.sourceVsTarget.length > 0 && (
+                <div className="px-5 pb-5">
+                  <div className="max-h-[360px] overflow-auto rounded-lg border">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                      <thead className="sticky top-0 bg-secondary text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Entity</th>
+                          <th className="px-4 py-3 font-semibold">Source</th>
+                          <th className="px-4 py-3 font-semibold">Target</th>
+                          <th className="px-4 py-3 font-semibold">Orphans</th>
+                          <th className="px-4 py-3 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batch.summary.verification.sourceVsTarget.map((row: any) => (
+                          <tr key={row.entity} className="border-t">
+                            <td className="px-4 py-3 font-medium">{row.entity}</td>
+                            <td className="px-4 py-3">{row.sourceCount || 0}</td>
+                            <td className="px-4 py-3">{row.targetCount || 0}</td>
+                            <td className="px-4 py-3">{row.orphanCount || 0}</td>
+                            <td className={`px-4 py-3 font-semibold ${row.status === "PASS" ? "text-emerald-600" : "text-rose-600"}`}>
+                              {row.status}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             
-            <div className="flex justify-center mt-6">
-              <a 
-                href={`/api/migration/batches/${id}/report/download`}
-                target="_blank"
-                className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-md shadow text-sm font-medium transition-colors"
-              >
-                Download CSV Report
-              </a>
+              <div className="flex flex-wrap justify-center gap-3 border-t p-5">
+                <a 
+                  href={`/api/migration/batches/${id}/report/download`}
+                  target="_blank"
+                  className="inline-flex items-center gap-2 rounded-md bg-slate-800 px-6 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-slate-900"
+                >
+                  <Download className="h-4 w-4" /> Download CSV Report
+                </a>
+                <a
+                  href={`/api/migration/batches/${id}/report`}
+                  target="_blank"
+                  className="inline-flex items-center gap-2 rounded-md border bg-background px-6 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  <FileText className="h-4 w-4" /> Download Text Report
+                </a>
+              </div>
             </div>
           </div>
         )}

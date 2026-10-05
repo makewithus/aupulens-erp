@@ -224,8 +224,8 @@ function CustomersPageInner() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
-                {activeView?.name || "All Customers"} <ChevronDown className="w-8 h-8 mb-2" />
+              <button className={`flex items-center gap-3 ${SALES_PAGE_TITLE_CLASS}`}>
+                {activeView?.name || "All Customers"} <ChevronDown className="w-8 h-8 opacity-50 transition-transform duration-200" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72 rounded-none">

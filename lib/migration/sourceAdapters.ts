@@ -51,6 +51,22 @@ function parseSpreadsheet(buffer: Buffer): ParsedSource {
   return { columns: deriveColumns(rows), rows };
 }
 
+export function parseSpreadsheetSheets(buffer: Buffer): { sheetName: string; parsed: ParsedSource }[] {
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  return workbook.SheetNames.map((sheetName) => {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return { sheetName, parsed: { columns: [], rows: [] } };
+    const rows = xlsx.utils.sheet_to_json(worksheet, {
+      raw: false,
+      defval: "",
+    }) as Record<string, unknown>[];
+    return {
+      sheetName,
+      parsed: { columns: deriveColumns(rows), rows },
+    };
+  });
+}
+
 function parseJson(buffer: Buffer): ParsedSource {
   const text = buffer.toString("utf-8").trim();
   let data: unknown;
