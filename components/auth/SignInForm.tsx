@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { signIn, getProviders } from "next-auth/react";
 
 type OAuthProvider = NonNullable<Awaited<ReturnType<typeof getProviders>>>[string];
@@ -36,6 +36,8 @@ export function SignInForm() {
 function SignInFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const authError = searchParams.get("error");
+  const isSessionExpired = authError === "SessionExpired";
 
   const { tenantId } = useTenantStore();
 
@@ -56,6 +58,11 @@ function SignInFormContent() {
   // safe) lives in lib/auth/safeCallbackUrl so it's unit-tested. Returns null
   // when there's no safe callback, leaving the normal role-dashboard flow.
   const getSafeCallbackUrl = (): string | null => safeCallbackUrl(searchParams.get("callbackUrl"));
+
+  const passwordInputName = useMemo(
+    () => isSessionExpired ? `reauth-password-${Date.now()}` : "password",
+    [isSessionExpired],
+  );
 
   useEffect(() => {
     // Only shows buttons for providers actually configured server-side
@@ -92,7 +99,7 @@ function SignInFormContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    const errorParam = searchParams.get("error");
+    const errorParam = authError;
 
     if (errorParam) {
       const errorMap: Record<string, string> = {
@@ -127,7 +134,23 @@ function SignInFormContent() {
       setError(message);
       toast.error(message);
     }
-  }, [searchParams]);
+  }, [authError]);
+
+  useEffect(() => {
+    if (!isSessionExpired) return;
+
+    setFormData((prev) => ({ ...prev, password: "" }));
+    setShowPassword(false);
+
+    const clearPassword = () => {
+      const input = document.getElementById("password") as HTMLInputElement | null;
+      if (input) input.value = "";
+    };
+
+    clearPassword();
+    const timer = window.setTimeout(clearPassword, 250);
+    return () => window.clearTimeout(timer);
+  }, [isSessionExpired]);
 
   const handleSubmit = async (
     e: React.FormEvent
@@ -229,7 +252,9 @@ function SignInFormContent() {
 
         <Input
           id="email"
+          name="email"
           type="email"
+          autoComplete="username"
           placeholder="admin@aupulens.com"
           value={formData.email}
           onChange={(e) =>
@@ -263,11 +288,13 @@ function SignInFormContent() {
         <div className="relative">
           <Input
             id="password"
+            name={passwordInputName}
             type={
               showPassword
                 ? "text"
                 : "password"
             }
+            autoComplete={isSessionExpired ? "new-password" : "current-password"}
             placeholder="••••••••"
             value={formData.password}
             onChange={(e) =>

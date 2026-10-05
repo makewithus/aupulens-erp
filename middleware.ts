@@ -55,6 +55,15 @@ function clearTenantAuthCookies(response: NextResponse): NextResponse {
   return response;
 }
 
+function appendReturnToLogin(loginUrl: URL, req: NextRequest, error: string): URL {
+  loginUrl.searchParams.set("error", error);
+  const callbackPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  if (!callbackPath.startsWith("/auth") && !callbackPath.startsWith("/api")) {
+    loginUrl.searchParams.set("callbackUrl", callbackPath);
+  }
+  return loginUrl;
+}
+
 function staleTenantSessionResponse(req: NextRequest, isApiRoute: boolean, role?: string): NextResponse {
   const wantsHtml = req.headers.get("accept")?.includes("text/html");
   if (isApiRoute && !wantsHtml) {
@@ -66,7 +75,7 @@ function staleTenantSessionResponse(req: NextRequest, isApiRoute: boolean, role?
     );
   }
   const loginUrl = new URL(role === "master-admin" ? "/auth/master" : "/auth", req.url);
-  loginUrl.searchParams.set("error", "SessionExpired");
+  appendReturnToLogin(loginUrl, req, "SessionExpired");
   return clearTenantAuthCookies(NextResponse.redirect(loginUrl));
 }
 
@@ -222,7 +231,11 @@ export default auth(async (req) => {
     if (isApi) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL(redirectPath, req.url));
+    return clearTenantAuthCookies(
+      NextResponse.redirect(
+        appendReturnToLogin(new URL(redirectPath, req.url), req, "SessionRequired"),
+      ),
+    );
   };
 
   const handleForbidden = (isApi: boolean, role: string) => {

@@ -72,7 +72,10 @@ export function SessionTimeout() {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else if (showWarning && countdown === 0) {
-      signOut({ callbackUrl: '/auth' });
+      const callbackUrl = typeof window === "undefined"
+        ? "/auth?error=SessionExpired"
+        : `/auth?error=SessionExpired&callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      signOut({ callbackUrl });
     }
 
     return () => {
