@@ -60,9 +60,12 @@ function SignInFormContent() {
   const getSafeCallbackUrl = (): string | null => safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const passwordInputName = useMemo(
-    () => isSessionExpired ? `reauth-password-${Date.now()}` : "password",
+    () => isSessionExpired ? "reauth-secret" : "password",
     [isSessionExpired],
   );
+  const emailInputId = isSessionExpired ? "reauth-identifier" : "email";
+  const emailInputName = isSessionExpired ? "reauth-identifier" : "email";
+  const passwordInputId = isSessionExpired ? "reauth-secret" : "password";
 
   useEffect(() => {
     // Only shows buttons for providers actually configured server-side
@@ -139,18 +142,22 @@ function SignInFormContent() {
   useEffect(() => {
     if (!isSessionExpired) return;
 
-    setFormData((prev) => ({ ...prev, password: "" }));
+    setFormData({ email: "", password: "" });
     setShowPassword(false);
 
-    const clearPassword = () => {
-      const input = document.getElementById("password") as HTMLInputElement | null;
-      if (input) input.value = "";
+    const clearExpiredSessionFields = () => {
+      const emailInput = document.getElementById(emailInputId) as HTMLInputElement | null;
+      const passwordInput = document.getElementById(passwordInputId) as HTMLInputElement | null;
+      if (emailInput) emailInput.value = "";
+      if (passwordInput) passwordInput.value = "";
     };
 
-    clearPassword();
-    const timer = window.setTimeout(clearPassword, 250);
-    return () => window.clearTimeout(timer);
-  }, [isSessionExpired]);
+    clearExpiredSessionFields();
+    const timers = [100, 300, 800, 1600].map((delay) =>
+      window.setTimeout(clearExpiredSessionFields, delay),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [emailInputId, isSessionExpired, passwordInputId]);
 
   const handleSubmit = async (
     e: React.FormEvent
@@ -235,7 +242,16 @@ function SignInFormContent() {
     <form
       onSubmit={handleSubmit}
       className="space-y-6"
+      autoComplete={isSessionExpired ? "off" : "on"}
+      data-form-kind={isSessionExpired ? "expired-session-reauth" : "signin"}
     >
+      {isSessionExpired && (
+        <div className="fixed -left-[10000px] top-auto h-px w-px overflow-hidden opacity-0" aria-hidden="true">
+          <input tabIndex={-1} type="text" name="email" autoComplete="username" />
+          <input tabIndex={-1} type="password" name="password" autoComplete="current-password" />
+        </div>
+      )}
+
       {error && (
         <div className="text-xs text-destructive bg-destructive/10 p-3 font-mono">
           {error}
@@ -244,18 +260,22 @@ function SignInFormContent() {
 
       <div className="space-y-1">
         <Label
-          htmlFor="email"
+          htmlFor={emailInputId}
           className="font-mono text-[11px] text-muted-foreground/60"
         >
           Email Address
         </Label>
 
         <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          placeholder="admin@aupulens.com"
+          id={emailInputId}
+          name={emailInputName}
+          type={isSessionExpired ? "text" : "email"}
+          inputMode="email"
+          autoComplete={isSessionExpired ? "off" : "username"}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder={isSessionExpired ? "Enter your email" : "admin@aupulens.com"}
           value={formData.email}
           onChange={(e) =>
             setFormData({
@@ -272,7 +292,7 @@ function SignInFormContent() {
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <Label
-            htmlFor="password"
+            htmlFor={passwordInputId}
             className="font-mono text-[11px] text-muted-foreground/60"
           >
             Password
@@ -287,14 +307,14 @@ function SignInFormContent() {
 
         <div className="relative">
           <Input
-            id="password"
+            id={passwordInputId}
             name={passwordInputName}
             type={
               showPassword
                 ? "text"
                 : "password"
             }
-            autoComplete={isSessionExpired ? "new-password" : "current-password"}
+            autoComplete={isSessionExpired ? "off" : "current-password"}
             placeholder="••••••••"
             value={formData.password}
             onChange={(e) =>
