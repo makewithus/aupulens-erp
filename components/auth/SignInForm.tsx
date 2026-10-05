@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { signIn, getProviders } from "next-auth/react";
 
 type OAuthProvider = NonNullable<Awaited<ReturnType<typeof getProviders>>>[string];
@@ -44,6 +44,7 @@ function SignInFormContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const handledAuthErrorRef = useRef<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -104,7 +105,8 @@ function SignInFormContent() {
   useEffect(() => {
     const errorParam = authError;
 
-    if (errorParam) {
+    if (errorParam && handledAuthErrorRef.current !== errorParam) {
+      handledAuthErrorRef.current = errorParam;
       const errorMap: Record<string, string> = {
         Configuration:
           "Invalid email, password, or organization domain.",
@@ -136,6 +138,12 @@ function SignInFormContent() {
 
       setError(message);
       toast.error(message);
+
+      if (typeof window !== "undefined" && errorParam === "SessionExpired") {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("error");
+        window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+      }
     }
   }, [authError]);
 
@@ -153,10 +161,8 @@ function SignInFormContent() {
     };
 
     clearExpiredSessionFields();
-    const timers = [100, 300, 800, 1600].map((delay) =>
-      window.setTimeout(clearExpiredSessionFields, delay),
-    );
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    const animationFrame = window.requestAnimationFrame(clearExpiredSessionFields);
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [emailInputId, isSessionExpired, passwordInputId]);
 
   const handleSubmit = async (
@@ -168,11 +174,20 @@ function SignInFormContent() {
     setError("");
 
     try {
+      const emailValue =
+        formData.email ||
+        (document.getElementById(emailInputId) as HTMLInputElement | null)?.value ||
+        "";
+      const passwordValue =
+        formData.password ||
+        (document.getElementById(passwordInputId) as HTMLInputElement | null)?.value ||
+        "";
+
       const result = await signIn(
         "credentials",
         {
-          email: formData.email,
-          password: formData.password,
+          email: emailValue.trim(),
+          password: passwordValue,
           tenantId:
             tenantId || "default",
           portal:
