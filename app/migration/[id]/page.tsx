@@ -110,6 +110,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const { data: session, status: sessionStatus } = useSession();
   const [batch, setBatch] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
+  const [failedRecords, setFailedRecords] = useState<any[]>([]);
   const [mappings, setMappings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -132,6 +133,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const nextBatch = json.data.batch;
       setBatch(nextBatch);
       setJobs(json.data.jobs);
+      setFailedRecords(Array.isArray(json.data.failedRecords) ? json.data.failedRecords : []);
 
       if (nextBatch.status !== notifiedStatusRef.current) {
         if (nextBatch.status === "failed") {
@@ -200,12 +202,9 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   }, [loadData]);
 
   const handleInvalidResolved = async () => {
-    // If we resolved invalid records, we should let the worker process them.
-    // The easiest way is to restart the worker loop or change batch state
-    // But actually, changing record to 'pending' is enough, we just need to restart validation loop
     toast.success("Validation re-running for updated records...");
-    await fetch(`/api/migration/batches/${id}/mapping`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobMappings: mappings.map(m => ({ jobId: m.jobId, mapping: m.mapping })) }) });
-    loadData();
+    await tickWorker();
+    await loadData();
   };
 
   const saveMapping = async () => {
@@ -254,6 +253,25 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     } finally {
       setBusy(false);
       setShowConfirmModal(false);
+    }
+  };
+
+  const recoverFailedRecords = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/migration/batches/${id}/recover-failed`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Failed records reopened for review.");
+        setReviewRefreshKey((current) => current + 1);
+        await loadData();
+      } else {
+        toast.error(data.message || "Failed to reopen records.");
+      }
+    } catch {
+      toast.error("Failed to reopen records.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -420,6 +438,17 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                   : "The batch was successfully processed."}
                 {batch.summary?.failed === 0 && batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
               </p>
+              {batch.summary?.failed > 0 && (
+                <button
+                  type="button"
+                  onClick={recoverFailedRecords}
+                  disabled={busy}
+                  className="mt-4 inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Review Failed Rows
+                </button>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
@@ -491,6 +520,57 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {failedRecords.length > 0 && (
+                <div className="px-5 pb-5">
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+                    <h4 className="mb-1 text-sm font-semibold text-rose-600">Rows That Need Attention</h4>
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      These rows were not saved. Review the reason and choose the suggested action before treating this migration as complete.
+                    </p>
+                    <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
+                      {failedRecords.map((record, index) => (
+                        <div key={record._id || index} className="rounded-md border bg-background p-4 text-sm">
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-600">
+                              Row {index + 1}
+                            </span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {record.entityType || "record"}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <div className="text-xs font-semibold uppercase text-muted-foreground">What went wrong</div>
+                              <div className="mt-1 font-medium text-foreground">
+                                {record.friendlyError?.title || "This row could not be migrated"}
+                              </div>
+                              <div className="mt-1 text-rose-600">
+                                {record.friendlyError?.message || "The system could not save this row safely."}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold uppercase text-muted-foreground">What to do</div>
+                              <div className="mt-1 text-muted-foreground">
+                                {record.friendlyError?.action || "Review this row, fix the data if needed, then retry the migration."}
+                              </div>
+                            </div>
+                            {Array.isArray(record.rowSummary) && record.rowSummary.length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {record.rowSummary.map((item: any, itemIndex: number) => (
+                                  <span key={`${item.label}-${itemIndex}`} className="rounded border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                                    <span className="font-medium text-foreground">{item.label}:</span> {item.value}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

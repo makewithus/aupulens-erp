@@ -9,6 +9,18 @@ import {
   normalizeSourceSystem,
   prepareMigrationFiles,
 } from "@/lib/migration/package";
+import { MIGRATION_SOURCE_SYSTEM, type MigrationSourceSystem } from "@/lib/migration/constants";
+
+function sourceSystemFromFiles(files: File[], selected: MigrationSourceSystem): MigrationSourceSystem {
+  const extensions = new Set(files.map((file) => file.name.split(".").pop()?.toLowerCase()));
+  if (extensions.size === 1) {
+    if (extensions.has("xlsx") || extensions.has("xls")) return MIGRATION_SOURCE_SYSTEM.EXCEL;
+    if (extensions.has("csv") || extensions.has("tsv")) return MIGRATION_SOURCE_SYSTEM.CSV;
+    if (extensions.has("json")) return MIGRATION_SOURCE_SYSTEM.JSON;
+    if (extensions.has("xml")) return MIGRATION_SOURCE_SYSTEM.XML;
+  }
+  return selected;
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -29,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   const form = await req.formData();
-  const sourceSystem = normalizeSourceSystem(form.get("sourceSystem"));
+  let sourceSystem = normalizeSourceSystem(form.get("sourceSystem"));
   
   const files: File[] = [];
   for (const [key, value] of form.entries()) {
@@ -41,6 +53,7 @@ export async function POST(req: NextRequest) {
   if (files.length === 0) {
     return NextResponse.json({ success: false, message: "No files provided." }, { status: 400 });
   }
+  sourceSystem = sourceSystemFromFiles(files, sourceSystem);
 
   const uploadedFiles = await Promise.all(
     files.map(async (file) => ({

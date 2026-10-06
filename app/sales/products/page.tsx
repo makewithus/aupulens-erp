@@ -239,7 +239,7 @@ function ProductsPageInner() {
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
       if (statusF) params.set("status", statusF);
-      const res = await cachedFetch(`/api/sales/products?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/products?${params.toString()}`, undefined, { force: true });
       const json = await res.json();
       setData(json.items || []);
       setTotal(json.pagination?.total ?? 0);

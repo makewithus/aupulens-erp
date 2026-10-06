@@ -154,7 +154,7 @@ describe("migration package preparation", () => {
     const product = prepared.find((file) => file.entityType === "product")!;
     const productMapping = deterministicMapping(getEntitySchema("product")!, product.columns);
     expect(productMapping).toMatchObject({
-      sku: "Product ID",
+      sourceId: "Product ID",
       name: "Product Name",
       category: "Category",
       subcategory: "Subcategory",
@@ -175,6 +175,44 @@ describe("migration package preparation", () => {
       designation: "Designation",
       joiningDate: "Joining Date",
       status: "Status",
+    });
+  });
+
+  it("maps the MD_V2 workbook identifiers and fields for employee/product preview", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "MD_V2.xlsx", buffer: fs.readFileSync("MD_V2.xlsx") }],
+      "excel",
+    );
+
+    expect(prepared.map((file) => [file.entityType, file.rows.length])).toEqual([
+      ["employee", 20],
+      ["product", 20],
+    ]);
+
+    const employee = prepared.find((file) => file.entityType === "employee")!;
+    const employeeMapping = deterministicMapping(getEntitySchema("employee")!, employee.columns);
+    expect(employeeMapping).toMatchObject({
+      employeeId: "Employee Code",
+      firstName: "Full Name",
+      email: "Work Email",
+      phone: "Mobile Number",
+      department: "Department",
+      designation: "Job Title",
+      joiningDate: "Date Joined",
+      status: "Employment Status",
+    });
+
+    const product = prepared.find((file) => file.entityType === "product")!;
+    const productMapping = deterministicMapping(getEntitySchema("product")!, product.columns);
+    expect(productMapping).toMatchObject({
+      sourceId: "Product Code",
+      name: "Product Name",
+      category: "Product Category",
+      type: "Product Type",
+      brand: "Brand",
+      salesPrice: "Selling Price",
+      stockQuantity: "Available Quantity",
+      status: "Product Status",
     });
   });
 

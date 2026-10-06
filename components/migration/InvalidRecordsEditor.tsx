@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, XCircle, Save, X } from "lucide-react";
+import { Loader2, XCircle, Save, X, Sparkles } from "lucide-react";
 
 export function InvalidRecordsEditor({
   batchId,
@@ -18,6 +18,7 @@ export function InvalidRecordsEditor({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [aiFixing, setAiFixing] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/migration/batches/${batchId}/invalid`)
@@ -58,6 +59,35 @@ export function InvalidRecordsEditor({
     }
   };
 
+  const handleAiFix = async (recordId?: string) => {
+    const key = recordId || "all";
+    setAiFixing(key);
+    try {
+      const res = await fetch(`/api/migration/batches/${batchId}/ai-fix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recordId ? { recordId } : { scope: "all" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "AI fix applied.");
+        if (recordId) {
+          setInvalidRecords(prev => prev.filter(r => r._id !== recordId));
+        } else {
+          setInvalidRecords([]);
+        }
+        setEditingId(null);
+        onResolved();
+      } else {
+        toast.error(data.message || "AI fix failed.");
+      }
+    } catch {
+      toast.error("AI fix failed.");
+    } finally {
+      setAiFixing(null);
+    }
+  };
+
   if (loading) {
     if (!showInitialLoader) return null;
     return <div className="p-8 text-center"><Loader2 className="animate-spin w-8 h-8 mx-auto text-rose-600" /></div>;
@@ -66,9 +96,20 @@ export function InvalidRecordsEditor({
 
   return (
     <div className="bg-rose-50 border border-rose-200 rounded-xl p-5 mt-4">
-      <h3 className="text-rose-800 font-semibold mb-2 flex items-center gap-2">
-        <XCircle className="w-5 h-5" /> Invalid Records Detected
-      </h3>
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <h3 className="text-rose-800 font-semibold flex items-center gap-2">
+          <XCircle className="w-5 h-5" /> Invalid Records Detected
+        </h3>
+        <button
+          type="button"
+          onClick={() => handleAiFix()}
+          disabled={!!aiFixing || submitting}
+          className="inline-flex items-center gap-1 rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {aiFixing === "all" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Fix All With AI
+        </button>
+      </div>
       <p className="text-rose-900 text-sm mb-4">
         The following records have validation errors (missing required fields or unresolved references). Please fix them to proceed.
       </p>
@@ -81,12 +122,23 @@ export function InvalidRecordsEditor({
                 Entity: {record.entityType.toUpperCase()}
               </div>
               {editingId !== record._id && (
-                <button 
-                  onClick={() => handleEdit(record)}
-                  className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
-                >
-                  Edit Record
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button 
+                    onClick={() => handleAiFix(record._id)}
+                    disabled={!!aiFixing || submitting}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-rose-700 hover:bg-rose-800 text-white rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {aiFixing === record._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    Fix with AI
+                  </button>
+                  <button 
+                    onClick={() => handleEdit(record)}
+                    disabled={!!aiFixing}
+                    className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Edit Record
+                  </button>
+                </div>
               )}
             </div>
             

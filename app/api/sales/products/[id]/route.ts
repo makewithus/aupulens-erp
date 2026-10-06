@@ -4,6 +4,21 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Product from "@/models/inventory/Product";
 import { sanitizeProductPayload } from "@/lib/sales/productSanitize";
+import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
+
+function productIdentityFilter(body: any, tenantId: string, excludeId?: string) {
+  const code = String(body.tab_general_information?.default_code || "").trim();
+  const name = String(body.header?.name || "").trim();
+  const clauses = [];
+  if (code) clauses.push({ "tab_general_information.default_code": code });
+  if (name) clauses.push({ "header.name": name });
+  if (!clauses.length) return null;
+  return {
+    tenantId,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    $or: clauses,
+  };
+}
 
 export async function GET(
   request: Request,
@@ -58,6 +73,21 @@ export async function PATCH(
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
 
+    const duplicateFilter = productIdentityFilter(body, tenantId, id);
+    const duplicate = duplicateFilter
+      ? await Product.findOne(duplicateFilter).select("_id").lean()
+      : null;
+    if (duplicate) {
+      await Product.updateOne(
+        { _id: duplicate._id, tenantId },
+        { $set: body },
+        { runValidators: true },
+      );
+      await dedupeProductsForTenant(tenantId);
+      const merged = await Product.findOne({ _id: duplicate._id, tenantId }).lean();
+      return NextResponse.json({ product: merged, mergedDuplicate: true });
+    }
+
     const product = await Product.findOneAndUpdate(
       { _id: id, tenantId },
       { $set: body },
@@ -67,6 +97,8 @@ export async function PATCH(
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
+
+    await dedupeProductsForTenant(tenantId);
 
     return NextResponse.json({ product });
   } catch (error: any) {

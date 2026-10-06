@@ -38,23 +38,23 @@ export function EmployeeToolbar({
   setDateTo,
 }: EmployeeToolbarProps) {
   return (
-    <div className="px-8 py-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+    <div className="w-full">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         {/* Search */}
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
+        <div className="relative w-full xl:min-w-[360px] xl:flex-[1_1_430px]">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/45 transition-colors" />
 
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search employees..."
+            placeholder="Search by name, employee code, email, or phone"
             className="
               h-11
               rounded-none
-              border-border/40
+              border-border/45
               bg-transparent
-              pl-11
-              pr-4
+              pl-12
+              pr-5
 
               text-[14px]
               tracking-tight
@@ -63,11 +63,11 @@ export function EmployeeToolbar({
               transition-all
               duration-300
 
-              placeholder:text-muted-foreground/60
+              placeholder:text-muted-foreground/70
 
-              hover:border-border/40
+              hover:border-border/55
 
-              focus-visible:border-primary/40
+              focus-visible:border-primary/45
               focus-visible:bg-white/[0.015]
               focus-visible:ring-0
             "
@@ -98,7 +98,7 @@ export function EmployeeToolbar({
               hover:border-border/40
 
               focus:ring-0
-              lg:w-[210px]
+              xl:w-[150px] 2xl:w-[170px]
             "
           >
             <SelectValue placeholder="Lifecycle" />
@@ -142,7 +142,7 @@ export function EmployeeToolbar({
               hover:border-border/40
 
               focus:ring-0
-              lg:w-[210px]
+              xl:w-[150px] 2xl:w-[170px]
             "
           >
             <SelectValue placeholder="Account" />
@@ -160,6 +160,7 @@ export function EmployeeToolbar({
           dateTo={dateTo}
           onDateFromChange={setDateFrom}
           onDateToChange={setDateTo}
+          inputClassName="xl:w-[128px] 2xl:w-[136px]"
         />
       </div>
     </div>

@@ -5,12 +5,14 @@ import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import { startWorkerDaemon } from "@/lib/migration/worker";
 import { getHandler } from "@/lib/migration/importer";
+import { resolveEntityReference } from "@/lib/migration/resolver";
 
 async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
   const records = await MigrationRecord.find({
     batchId: batch._id,
     tenantId,
-    status: "valid",
+    status: "duplicate",
+    duplicateAction: "update",
   });
 
   let conflicts = 0;
@@ -19,7 +21,10 @@ async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
     const conflict = handler?.uniqueConflictFilter?.((record.mappedData || {}) as Record<string, string>, tenantId);
     if (!handler || !conflict) continue;
 
-    const existing = await handler.model.findOne(conflict.filter).select("_id").lean();
+    const filter = record.duplicateAction === "update" && record.duplicateTargetId
+      ? { ...conflict.filter, _id: { $ne: record.duplicateTargetId } }
+      : conflict.filter;
+    const existing = await handler.model.findOne(filter).select("_id").lean();
     if (!existing) continue;
 
     conflicts += 1;
@@ -32,7 +37,7 @@ async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
           duplicateFields: conflict.fields,
           duplicateTargetId: (existing as any)._id,
           errors: [{
-            message: `Existing workspace record uses unique field ${conflict.fields.join(", ")}. Choose Merge / Update or Skip before migration.`,
+            message: `Merge / Update would conflict with another existing record using ${conflict.fields.join(", ")}. Choose Force Create or Skip before migration.`,
           }],
         },
         $unset: { duplicateAction: "" },
@@ -44,13 +49,66 @@ async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
     const [valid, invalid, duplicate] = await Promise.all([
       MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "valid" }),
       MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "invalid" }),
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "duplicate" }),
+      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
     ]);
     batch.summary = { ...batch.summary, valid, invalid, duplicate };
     await batch.save();
   }
 
   return conflicts;
+}
+
+async function runWriteReadinessCheck(batch: any, tenantId: string) {
+  const records = await MigrationRecord.find({
+    batchId: batch._id,
+    tenantId,
+    $or: [
+      { status: "valid" },
+      { status: "duplicate", duplicateAction: { $in: ["update", "create"] } },
+    ],
+  });
+
+  let invalid = 0;
+  for (const record of records) {
+    const handler = getHandler(record.entityType);
+    if (!handler || handler.createOperation) continue;
+
+    try {
+      const transformed = await handler.transform((record.mappedData || {}) as Record<string, string>, {
+        tenantId,
+        userId: batch.createdBy.toString(),
+        resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(tenantId, batch._id.toString(), entityType, sourceId),
+      });
+      const doc = new handler.model(transformed);
+      const validationError = doc.validateSync();
+      if (validationError) throw validationError;
+    } catch (error) {
+      invalid += 1;
+      const message = error instanceof Error ? error.message : "Record cannot be written to the target module.";
+      await MigrationRecord.updateOne(
+        { _id: record._id, tenantId },
+        {
+          $set: {
+            status: "invalid",
+            errors: [{ message: `Pre-migration write check failed: ${message}` }],
+          },
+          $unset: { duplicateAction: "", duplicateTargetId: "", duplicateReason: "", duplicateFields: "" },
+        },
+      );
+    }
+  }
+
+  if (invalid > 0) {
+    const [valid, invalidCount, duplicate] = await Promise.all([
+      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "valid" }),
+      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "invalid" }),
+      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
+    ]);
+    batch.summary = { ...batch.summary, valid, invalid: invalidCount, duplicate };
+    await batch.save();
+  }
+
+  return invalid;
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -82,6 +140,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   }
 
   const preMigrationConflicts = await runPreMigrationConflictCheck(batch, session.user.tenantId);
+  const writeReadinessFailures = await runWriteReadinessCheck(batch, session.user.tenantId);
 
   const [unresolvedDuplicates, invalidRecords] = await Promise.all([
     MigrationRecord.countDocuments({
@@ -98,7 +157,12 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   ]);
   if (invalidRecords > 0) {
     return NextResponse.json(
-      { success: false, message: "Fix invalid records before starting migration." },
+      {
+        success: false,
+        message: writeReadinessFailures > 0
+          ? `Found ${writeReadinessFailures} record${writeReadinessFailures === 1 ? "" : "s"} that cannot be written safely. Fix the highlighted invalid records before starting migration.`
+          : "Fix invalid records before starting migration.",
+      },
       { status: 400 },
     );
   }

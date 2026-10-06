@@ -1,15 +1,34 @@
 import { sanitizeEmployeePayload, validateEmployee } from "@/lib/hr/employeeValidation";
 import { friendlyError } from "@/lib/errors/friendlyError";
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Employee from "@/models/hr/Employee";
 import User from "@/models/auth/User";
+import Department from "@/models/hr/Department";
 import "@/models/hr/Department";
 import bcrypt from "bcryptjs";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { syncMigratedEmployeeDepartments } from "@/lib/migration/employeeDepartmentSync";
+
+const departmentSyncLastRun = new Map<string, number>();
+const DEPARTMENT_SYNC_INTERVAL_MS = 60_000;
+
+function scheduleDepartmentSync(tenantId: string, userId?: string) {
+  const lastRun = departmentSyncLastRun.get(tenantId) || 0;
+  if (Date.now() - lastRun < DEPARTMENT_SYNC_INTERVAL_MS) return;
+  departmentSyncLastRun.set(tenantId, Date.now());
+  after(async () => {
+    try {
+      await syncMigratedEmployeeDepartments(tenantId, userId);
+    } catch (error) {
+      console.error("Employee department background sync failed:", error);
+    }
+  });
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +41,7 @@ export async function GET(req: NextRequest) {
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
     await connectDB();
+    scheduleDepartmentSync(tenantId, session.user.id);
 
     const { searchParams } = new URL(req.url);
     // Accepts either a single lifecycle status or a comma-separated list
@@ -42,12 +62,36 @@ export async function GET(req: NextRequest) {
     if (account === "linked") query.userId = { $ne: null };
     else if (account === "unlinked") query.userId = null;
     if (search) {
+      const deptIds = await Department.find({
+        tenantId,
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { code: { $regex: search, $options: "i" } },
+        ],
+      }).select("_id").lean();
+
+      const searchRegex = { $regex: search, $options: "i" };
       query.$or = [
-        { firstName: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
-        { employeeCode: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { employeeCode: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+        { designation: searchRegex },
+        { workLocation: searchRegex },
+        ...(deptIds.length ? [{ departmentId: { $in: deptIds.map((dept) => dept._id) } }] : []),
       ];
+
+      // Replace slow $expr + $concat with separated regex searches
+      if (search.includes(" ")) {
+        const parts = search.split(" ");
+        const first = parts[0];
+        const last = parts.slice(1).join(" ");
+        query.$or.push({
+          firstName: { $regex: first, $options: "i" },
+          lastName: { $regex: last, $options: "i" },
+        });
+      }
     }
 
     // Filters by dateOfJoining ("who joined in this window") — additive,

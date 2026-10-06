@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationJob from "@/models/admin/MigrationJob";
+import { friendlyMigrationRecordError } from "@/lib/migration/friendlyRecordError";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -38,7 +39,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   
   reportText += `\n--- RECORD DETAILS ---\n`;
   for (const rec of records) {
-    const errorMsg = rec.errors && rec.errors.length > 0 ? rec.errors.map((e: any) => e.message).join("; ") : "";
+    const errorMsg = rec.errors && rec.errors.length > 0
+      ? (() => {
+          const friendly = friendlyMigrationRecordError(rec);
+          return `${friendly.title}: ${friendly.message} ${friendly.action}`;
+        })()
+      : "";
     reportText += `[${rec.entityType.toUpperCase()}] Status: ${rec.status} | Source: ${JSON.stringify(rec.sourceData)} ${errorMsg ? '| ERR: ' + errorMsg : ''}\n`;
   }
 

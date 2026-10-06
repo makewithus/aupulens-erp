@@ -26,6 +26,7 @@ import {
   toCanonicalRecord,
   dedupeSignature,
 } from "@/lib/migration/validation";
+import { ensureDepartmentForTenant } from "@/lib/migration/employeeDepartmentSync";
 
 function num(v: string): number | undefined {
   if (!v) return undefined;
@@ -175,6 +176,11 @@ const HANDLERS: Record<string, EntityHandler> = {
     existingFilter: (rec, tenantId) => {
       if (rec.sku) return { tenantId, "tab_general_information.default_code": rec.sku };
       if (rec.name) return { tenantId, "header.name": rec.name };
+      return null;
+    },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.sku) return { filter: { tenantId, "tab_general_information.default_code": rec.sku }, fields: ["sku"] };
+      if (rec.name) return { filter: { tenantId, "header.name": rec.name }, fields: ["name"] };
       return null;
     },
   },
@@ -371,6 +377,7 @@ const HANDLERS: Record<string, EntityHandler> = {
     model: Employee,
     transform: async (rec, ctx) => {
       const name = splitName(rec.firstName, rec.lastName);
+      const departmentId = await ensureDepartmentForTenant(ctx.tenantId, rec.department, ctx.userId);
       return {
         tenantId: ctx.tenantId,
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
@@ -379,6 +386,7 @@ const HANDLERS: Record<string, EntityHandler> = {
         email: rec.email || `${rec.employeeId || new mongoose.Types.ObjectId().toString().slice(-8)}@migration.local`,
         phone: rec.phone || "0000000000",
         employeeCode: rec.employeeId || rec.sourceId || `MIG-${new mongoose.Types.ObjectId().toString().slice(-8)}`,
+        departmentId,
         designation: rec.designation || undefined,
         dateOfJoining: rec.joiningDate ? new Date(rec.joiningDate) : new Date(),
         employmentType: "full-time",

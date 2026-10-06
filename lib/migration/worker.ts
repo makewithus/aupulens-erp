@@ -9,6 +9,7 @@ import { resolveEntityReference, validateRelationships } from "@/lib/migration/r
 import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { after } from "next/server";
+import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
 
 const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.ACCOUNT]: 10,
@@ -99,6 +100,10 @@ function identitySourceIds(entityType: string, canonical: Record<string, string>
   return [...ids];
 }
 
+function stableFilterKey(filter: Record<string, unknown>) {
+  return JSON.stringify(Object.keys(filter).sort().map((key) => [key, filter[key]]));
+}
+
 function normalizeCanonicalRecord(entityType: string, canonical: Record<string, string>): Record<string, string> {
   if (entityType === MIGRATION_ENTITY.EMPLOYEE && canonical.firstName && !canonical.lastName && canonical.firstName.includes(" ")) {
     const parts = canonical.firstName.trim().split(/\s+/);
@@ -107,6 +112,12 @@ function normalizeCanonicalRecord(entityType: string, canonical: Record<string, 
   }
   if (entityType === MIGRATION_ENTITY.PRODUCT && !canonical.sku && canonical.sourceId) {
     canonical.sku = canonical.sourceId;
+  }
+  if (entityType === MIGRATION_ENTITY.PRODUCT && !canonical.sourceId && canonical.sku) {
+    canonical.sourceId = canonical.sku;
+  }
+  if (entityType === MIGRATION_ENTITY.EMPLOYEE && !canonical.sourceId && canonical.employeeId) {
+    canonical.sourceId = canonical.employeeId;
   }
   return canonical;
 }
@@ -134,6 +145,62 @@ async function applyForceCreateUniqueSuffix(
   }
 
   return canonical;
+}
+
+async function returnBatchToPreviewForConflicts(batch: any) {
+  const records = await MigrationRecord.find({
+    batchId: batch._id,
+    tenantId: batch.tenantId,
+    status: "duplicate",
+    duplicateAction: "update",
+  }).select("entityType mappedData duplicateAction duplicateTargetId");
+
+  let conflicts = 0;
+  for (const rec of records) {
+    const handler = getHandler(rec.entityType);
+    const conflict = handler?.uniqueConflictFilter?.((rec.mappedData || {}) as Record<string, string>, batch.tenantId);
+    if (!handler || !conflict) continue;
+
+    const filter = rec.duplicateAction === "update" && rec.duplicateTargetId
+      ? { ...conflict.filter, _id: { $ne: rec.duplicateTargetId } }
+      : conflict.filter;
+    const existing = await handler.model.findOne(filter).select("_id").lean();
+    if (!existing) continue;
+
+    conflicts += 1;
+    await MigrationRecord.updateOne(
+      { _id: rec._id, tenantId: batch.tenantId },
+      {
+        $set: {
+          status: "duplicate",
+          duplicateReason: "database",
+          duplicateFields: conflict.fields,
+          duplicateTargetId: (existing as any)._id,
+          errors: [{
+            message: rec.duplicateAction === "update"
+              ? `Merge / Update would conflict with another existing record using ${conflict.fields.join(", ")}. Choose Force Create or Skip before migration.`
+              : `Existing workspace record uses unique field ${conflict.fields.join(", ")}. Resolve this duplicate before migration.`,
+          }],
+        },
+        $unset: { duplicateAction: "" },
+      },
+    );
+  }
+
+  if (conflicts === 0) return false;
+
+  const [valid, invalid, duplicate] = await Promise.all([
+    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "valid" }),
+    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "invalid" }),
+    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
+  ]);
+  batch.status = "preview";
+  batch.progress = 100;
+  batch.summary = { ...batch.summary, valid, invalid, duplicate };
+  batch.workerLock = null;
+  batch.workerHeartbeat = null;
+  await batch.save();
+  return true;
 }
 
 export async function startWorkerDaemon(batchId: string, origin: string) {
@@ -294,6 +361,10 @@ async function runValidationChunk(batch: any, limit: number) {
 }
 
 async function runMigrationChunk(batch: any, limit: number) {
+  if (await returnBatchToPreviewForConflicts(batch)) {
+    return { done: true, processed: 0, message: "Migration paused for duplicate review." };
+  }
+
   await MigrationRecord.updateMany(
     { batchId: batch._id, tenantId: batch.tenantId, status: "duplicate", duplicateAction: "skip" },
     { $set: { status: "skipped" } },
@@ -349,6 +420,7 @@ async function runMigrationChunk(batch: any, limit: number) {
     const bulkRecordIds: any[] = [];
     const migrationRecordUpdates: any[] = [];
     const identityMapInserts: any[] = [];
+    const pendingTargets = new Map<string, { docId: any; insertOpIndex: number | null }>();
 
     for (const rec of jobRecords) {
       if (rec.duplicateAction === "skip") {
@@ -377,14 +449,33 @@ async function runMigrationChunk(batch: any, limit: number) {
           docId = rec.duplicateTargetId;
           bulkOps.push({ updateOne: { filter: { _id: docId }, update: { $set: transformData } } });
         } else {
-          if (handler.createOperation) {
+          const conflict = rec.duplicateAction !== "create"
+            ? handler.uniqueConflictFilter?.(canonical, batch.tenantId)
+            : null;
+          const conflictKey = conflict ? stableFilterKey(conflict.filter) : null;
+          const pendingTarget = conflictKey ? pendingTargets.get(conflictKey) : null;
+          const existingDoc = !pendingTarget && conflict
+            ? await handler.model.findOne(conflict.filter).select("_id").lean()
+            : null;
+
+          if (pendingTarget) {
+            docId = pendingTarget.docId;
+            bulkOps.push({ updateOne: { filter: { _id: docId }, update: { $set: transformData } } });
+          } else if (existingDoc) {
+            docId = (existingDoc as any)._id;
+            bulkOps.push({ updateOne: { filter: { _id: docId }, update: { $set: transformData } } });
+            if (conflictKey) pendingTargets.set(conflictKey, { docId, insertOpIndex: null });
+          } else if (handler.createOperation) {
             docId = transformData._id || new mongoose.Types.ObjectId();
             if (!transformData._id) transformData._id = docId;
             bulkOps.push(handler.createOperation(transformData, canonical, importContext));
+            if (conflictKey) pendingTargets.set(conflictKey, { docId, insertOpIndex: null });
           } else {
             docId = new mongoose.Types.ObjectId();
             transformData._id = docId;
+            const insertOpIndex = bulkOps.length;
             bulkOps.push({ insertOne: { document: transformData } });
+            if (conflictKey) pendingTargets.set(conflictKey, { docId, insertOpIndex });
           }
         }
         bulkRecordIds.push(rec._id);
@@ -409,7 +500,10 @@ async function runMigrationChunk(batch: any, limit: number) {
     
     if (bulkOps.length > 0) {
       try {
-        await handler.model.bulkWrite(bulkOps, { ordered: false });
+        await handler.model.bulkWrite(bulkOps, { ordered: job.entityType === MIGRATION_ENTITY.PRODUCT });
+        if (job.entityType === MIGRATION_ENTITY.PRODUCT) {
+          await dedupeProductsForTenant(batch.tenantId);
+        }
       } catch (err: any) {
         if (err.writeErrors) {
           for (const writeError of err.writeErrors) {
@@ -460,6 +554,11 @@ async function runMigrationChunk(batch: any, limit: number) {
 async function finalizeMigrationBatch(batch: any) {
   batch.status = "verifying";
   await batch.save();
+
+  const hasProductJob = await MigrationJob.exists({ batchId: batch._id, tenantId: batch.tenantId, entityType: MIGRATION_ENTITY.PRODUCT });
+  if (hasProductJob) {
+    await dedupeProductsForTenant(batch.tenantId);
+  }
 
   await runPostMigrationVerification(batch);
 

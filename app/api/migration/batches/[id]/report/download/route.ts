@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationBatch from "@/models/admin/MigrationBatch";
+import { friendlyMigrationRecordError } from "@/lib/migration/friendlyRecordError";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -30,8 +31,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     const targetId = `"${r.targetRecordId || ""}"`;
     
     let errorsStr = "";
-    if (r.errors && Array.isArray(r.errors)) {
-      errorsStr = r.errors.map(e => e.message).join("; ");
+    if (r.errors && Array.isArray(r.errors) && r.errors.length > 0) {
+      const friendly = friendlyMigrationRecordError(r);
+      errorsStr = `${friendly.title}: ${friendly.message} ${friendly.action}`;
     }
     const errors = `"${errorsStr.replace(/"/g, '""')}"`;
     

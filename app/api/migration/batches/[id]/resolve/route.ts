@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationRecord from "@/models/admin/MigrationRecord";
+import { getHandler } from "@/lib/migration/importer";
 
 async function refreshDuplicateSummary(batch: any, tenantId: string) {
   const duplicate = await MigrationRecord.countDocuments({
@@ -14,6 +15,19 @@ async function refreshDuplicateSummary(batch: any, tenantId: string) {
   batch.summary = { ...batch.summary, duplicate };
   await batch.save();
   return duplicate;
+}
+
+async function findUnsafeUpdateConflict(record: any, tenantId: string) {
+  if (!record.duplicateTargetId) return null;
+  const handler = getHandler(record.entityType);
+  const conflict = handler?.uniqueConflictFilter?.((record.mappedData || {}) as Record<string, string>, tenantId);
+  if (!handler || !conflict) return null;
+
+  const existing = await handler.model
+    .findOne({ ...conflict.filter, _id: { $ne: record.duplicateTargetId } })
+    .select("_id")
+    .lean();
+  return existing ? conflict.fields : null;
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +60,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       query.duplicateTargetId = { $exists: true };
     }
 
+    if (action === "update") {
+      const candidates = await MigrationRecord.find(query).select("_id entityType mappedData duplicateTargetId").lean();
+      const unsafeIds = [];
+      for (const candidate of candidates) {
+        if (await findUnsafeUpdateConflict(candidate, session.user.tenantId)) {
+          unsafeIds.push(candidate._id);
+        }
+      }
+      if (unsafeIds.length > 0) {
+        query._id = { $nin: unsafeIds };
+      }
+    }
+
     const update: Record<string, unknown> = { duplicateAction: action };
     if (action === "create" || action === "update") {
       update.errors = [];
@@ -75,6 +102,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { success: false, message: "This duplicate has no existing workspace record to update. Choose Skip or Force Create." },
       { status: 400 },
     );
+  }
+  if (action === "update") {
+    const conflictFields = await findUnsafeUpdateConflict(record, session.user.tenantId);
+    if (conflictFields) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Merge / Update would conflict with another existing record using ${conflictFields.join(", ")}. Choose Force Create or Skip for this row.`,
+        },
+        { status: 400 },
+      );
+    }
   }
 
   record.duplicateAction = action;

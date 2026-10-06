@@ -8,6 +8,21 @@ import InventoryItem from "@/models/inventory/InventoryItem";
 import { escapeRegex } from "@/lib/utils/regex";
 import { sanitizeProductPayload } from "@/lib/sales/productSanitize";
 import { STOCK_LEVEL_STATUS } from "@/lib/constants/statuses";
+import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
+
+function productIdentityFilter(body: any, tenantId: string, excludeId?: string) {
+  const code = String(body.tab_general_information?.default_code || "").trim();
+  const name = String(body.header?.name || "").trim();
+  const clauses = [];
+  if (code) clauses.push({ "tab_general_information.default_code": code });
+  if (name) clauses.push({ "header.name": name });
+  if (!clauses.length) return null;
+  return {
+    tenantId,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    $or: clauses,
+  };
+}
 
 export async function GET(req: any) {
   try {
@@ -25,6 +40,7 @@ export async function GET(req: any) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
+    await dedupeProductsForTenant(tenantId);
 
     // Build Filter
     const filter: any = {
@@ -145,17 +161,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const product = await Product.create({
-      ...body,
-      tenantId,
-      createdBy: session.user.id,
-      status: body.status || "published",
-    });
+    const existingFilter = productIdentityFilter(body, tenantId);
+    const existingProduct = existingFilter
+      ? await Product.findOne(existingFilter).select("_id").lean()
+      : null;
+
+    const product = existingProduct
+      ? await Product.findOneAndUpdate(
+          { _id: existingProduct._id, tenantId },
+          { $set: { ...body, status: body.status || "published" } },
+          { new: true, runValidators: true },
+        )
+      : await Product.create({
+          ...body,
+          tenantId,
+          createdBy: session.user.id,
+          status: body.status || "published",
+        });
+
+    await dedupeProductsForTenant(tenantId);
 
     const productType = body.tab_general_information?.type || "consu";
     
     // Auto-create InventoryItem for non-service products
-    if (productType !== "service") {
+    if (!existingProduct && productType !== "service") {
       try {
         const itemCode = body.tab_general_information?.default_code || product._id.toString();
         await InventoryItem.create({

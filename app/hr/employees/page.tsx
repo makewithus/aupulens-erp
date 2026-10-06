@@ -145,7 +145,7 @@ export default function EmployeesPage() {
   }, [status, session, router, load]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 150);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -386,7 +386,8 @@ export default function EmployeesPage() {
 
           <EmployeeTable
             employees={filteredEmployees}
-            isLoading={isLoading}
+            totalEmployees={total}
+            isLoading={isLoading && filteredEmployees.length === 0}
             hasFilters={
               !!(
                 searchQuery ||

@@ -45,6 +45,7 @@ interface Employee {
 
 interface EmployeeTableProps {
   employees: Employee[];
+  totalEmployees: number;
   isLoading: boolean;
   hasFilters: boolean;
 
@@ -73,6 +74,7 @@ interface EmployeeTableProps {
 
 export function EmployeeTable({
   employees,
+  totalEmployees,
   isLoading,
   hasFilters,
 
@@ -102,19 +104,19 @@ export function EmployeeTable({
     <Card className="overflow-hidden border-border/40 shadow-none bg-background">
       {/* Header */}
       <div className="border-b border-border/20 px-8 py-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid gap-6 xl:grid-cols-[minmax(220px,0.8fr)_minmax(720px,1.6fr)] xl:items-end">
           <div className="shrink-0">
             <h2 className="text-[30px] font-medium tracking-[-0.05em]">
               All Employees
             </h2>
 
             <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-              {employees.length}{" "}
-              {employees.length === 1 ? "Employee" : "Employees"}
+              {totalEmployees}{" "}
+              {totalEmployees === 1 ? "Employee" : "Employees"}
             </p>
           </div>
 
-          <div className="w-full max-w-3xl">
+          <div className="w-full justify-self-end">
             <EmployeeToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -170,7 +172,7 @@ export function EmployeeTable({
           </TableHeader>
 
           <TableBody className="divide-y divide-border/30">
-            {isLoading ? (
+            {isLoading && employees.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell className="px-8 py-7">
@@ -217,7 +219,7 @@ export function EmployeeTable({
                   </TableCell>
                 </TableRow>
               ))
-            ) : employees.length === 0 ? (
+            ) : employees.length === 0 && !isLoading ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-24 text-center">
                   <UsersIcon className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
+import fs from "fs";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_migration_e2e_worker";
 
@@ -10,17 +11,22 @@ import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
 import Customer from "@/models/sales/Customer";
 import Product from "@/models/inventory/Product";
 import Employee from "@/models/hr/Employee";
+import Department from "@/models/hr/Department";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import { MIGRATION_ENTITY, MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
 import { processMigrationWorker } from "@/lib/migration/worker";
+import { prepareMigrationFiles } from "@/lib/migration/package";
+import { deterministicMapping } from "@/lib/migration/deterministicMapping";
+import { getEntitySchema } from "@/lib/migration/entitySchemas";
+import { ensureDepartmentForTenant } from "@/lib/migration/employeeDepartmentSync";
 
 const TENANT = "tenant-migration-e2e";
 const USER_ID = new mongoose.Types.ObjectId();
 
 async function runWorkerUntilDone(batchId: string) {
   let result = { done: false, processed: 0 };
-  for (let i = 0; i < 20 && !result.done; i++) {
+  for (let i = 0; i < 100 && !result.done; i++) {
     result = await processMigrationWorker(batchId, 2);
   }
   expect(result.done).toBe(true);
@@ -434,5 +440,248 @@ describe("migration worker E2E workflow", () => {
     expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(2);
     const forced = await Employee.findOne({ tenantId: TENANT, email: "akshay.nair@example.com" }).lean();
     expect(forced?.employeeCode).toMatch(/^EMP009-MIG-/);
+  });
+
+  it("creates imported departments with collision-safe codes", async () => {
+    const salesId = await ensureDepartmentForTenant(TENANT, "Sales", String(USER_ID));
+    const supportId = await ensureDepartmentForTenant(TENANT, "Support", String(USER_ID));
+
+    expect(String(salesId)).not.toBe(String(supportId));
+    const departments = await Department.find({ tenantId: TENANT, name: { $in: ["Sales", "Support"] } }).select("name code").lean();
+    expect(departments.map((department) => department.name).sort()).toEqual(["Sales", "Support"]);
+    expect(new Set(departments.map((department) => department.code)).size).toBe(2);
+  });
+
+  it("updates an existing employee instead of failing when a valid row reuses employee code", async () => {
+    await Employee.create({
+      tenantId: TENANT,
+      employeeCode: "EMPX2601",
+      firstName: "Existing",
+      lastName: "Employee",
+      email: "existing.empx2601@example.com",
+      phone: "9000009999",
+      dateOfJoining: new Date("2024-01-01"),
+      employmentType: "full-time",
+      lifecycleStatus: "active",
+      status: "active",
+      createdBy: USER_ID,
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "running",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await MigrationJob.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      name: "employees.xlsx - Employees",
+      sourceSystem: "excel",
+      entityType: MIGRATION_ENTITY.EMPLOYEE,
+      status: MIGRATION_JOB_STATUS.MAPPED,
+      fileName: "employees.xlsx",
+      columns: ["Employee ID", "Employee Name", "Email", "Phone", "Joining Date"],
+      totalRows: 1,
+      mapping: {
+        employeeId: "Employee ID",
+        firstName: "Employee Name",
+        email: "Email",
+        phone: "Phone",
+        joiningDate: "Joining Date",
+      },
+      importedRefs: [],
+      createdBy: USER_ID,
+    });
+
+    await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: job._id,
+      entityType: MIGRATION_ENTITY.EMPLOYEE,
+      sourceData: { "Employee ID": "EMPX2601", "Employee Name": "Aadvik Acharya", Email: "aadvik@example.com", Phone: "8100000001", "Joining Date": "2022-01-03" },
+      mappedData: { employeeId: "EMPX2601", firstName: "Aadvik Acharya", email: "aadvik@example.com", phone: "8100000001", joiningDate: "2022-01-03" },
+      status: "valid",
+    });
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const finalBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(finalBatch?.status).toBe("verified");
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id }).lean();
+    expect(record?.status).toBe("migrated");
+    expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(1);
+    const employee = await Employee.findOne({ tenantId: TENANT, employeeCode: "EMPX2601" }).lean();
+    expect(employee?.firstName).toBe("Aadvik");
+    expect(employee?.lastName).toBe("Acharya");
+    expect(employee?.email).toBe("aadvik@example.com");
+  });
+
+  it("updates an existing product instead of creating a duplicate when SKU already exists", async () => {
+    await Product.create({
+      tenantId: TENANT,
+      createdBy: USER_ID,
+      header: { name: "Thermal Receipt Printer", sale_ok: true, purchase_ok: true, can_be_expensed: false },
+      tab_general_information: { type: "consu", default_code: "AUP-PRD-202", list_price: 6450, standard_price: 0 },
+      status: "published",
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "running",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await MigrationJob.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      name: "MD_V2.xlsx - Product Master",
+      sourceSystem: "excel",
+      entityType: MIGRATION_ENTITY.PRODUCT,
+      status: MIGRATION_JOB_STATUS.MAPPED,
+      fileName: "MD_V2.xlsx",
+      columns: ["Product Code", "Product Name", "Selling Price"],
+      totalRows: 1,
+      mapping: { sourceId: "Product Code", name: "Product Name", salesPrice: "Selling Price" },
+      importedRefs: [],
+      createdBy: USER_ID,
+    });
+
+    await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: job._id,
+      entityType: MIGRATION_ENTITY.PRODUCT,
+      sourceData: { "Product Code": "AUP-PRD-202", "Product Name": "Thermal Receipt Printer", "Selling Price": 6450 },
+      mappedData: { sourceId: "AUP-PRD-202", sku: "AUP-PRD-202", name: "Thermal Receipt Printer", salesPrice: "6450" },
+      status: "valid",
+    });
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const finalBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(finalBatch?.status).toBe("verified");
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id }).lean();
+    expect(record?.status).toBe("migrated");
+    expect(await Product.countDocuments({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" })).toBe(1);
+    const product = await Product.findOne({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" }).lean();
+    expect(product?.tab_general_information.list_price).toBe(6450);
+  });
+
+  it("removes existing duplicate products during migration and keeps one product per SKU", async () => {
+    await Product.create([
+      {
+        tenantId: TENANT,
+        createdBy: USER_ID,
+        header: { name: "Thermal Receipt Printer", sale_ok: true, purchase_ok: true, can_be_expensed: false },
+        tab_general_information: { type: "consu", default_code: "AUP-PRD-202", list_price: 6000, standard_price: 0 },
+        status: "published",
+      },
+      {
+        tenantId: TENANT,
+        createdBy: USER_ID,
+        header: { name: "Thermal Receipt Printer", sale_ok: true, purchase_ok: true, can_be_expensed: false },
+        tab_general_information: { type: "consu", default_code: "AUP-PRD-202", list_price: 6450, standard_price: 0 },
+        status: "published",
+      },
+    ]);
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "running",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await MigrationJob.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      name: "MD_V2.xlsx - Product Master",
+      sourceSystem: "excel",
+      entityType: MIGRATION_ENTITY.PRODUCT,
+      status: MIGRATION_JOB_STATUS.MAPPED,
+      fileName: "MD_V2.xlsx",
+      columns: ["Product Code", "Product Name", "Selling Price"],
+      totalRows: 1,
+      mapping: { sourceId: "Product Code", name: "Product Name", salesPrice: "Selling Price" },
+      importedRefs: [],
+      createdBy: USER_ID,
+    });
+
+    await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: job._id,
+      entityType: MIGRATION_ENTITY.PRODUCT,
+      sourceData: { "Product Code": "AUP-PRD-202", "Product Name": "Thermal Receipt Printer", "Selling Price": 7000 },
+      mappedData: { sourceId: "AUP-PRD-202", sku: "AUP-PRD-202", name: "Thermal Receipt Printer", salesPrice: "7000" },
+      status: "valid",
+    });
+
+    await runWorkerUntilDone(String(batch._id));
+
+    expect(await Product.countDocuments({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" })).toBe(1);
+    const product = await Product.findOne({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" }).lean();
+    expect(product?.tab_general_information.list_price).toBe(7000);
+  });
+
+  it("validates and migrates the MD_V2 workbook end to end without product duplicates", async () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "MD_V2.xlsx", buffer: fs.readFileSync("MD_V2.xlsx") }],
+      "excel",
+    );
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: prepared.length,
+      totalRecords: prepared.reduce((sum, file) => sum + file.rows.length, 0),
+      totalModules: prepared.length,
+    });
+
+    for (const file of prepared) {
+      const schema = getEntitySchema(file.entityType)!;
+      await createJobWithRecords(
+        batch._id,
+        file.entityType,
+        file.name,
+        deterministicMapping(schema, file.columns),
+        file.rows,
+      );
+    }
+
+    await runWorkerUntilDone(String(batch._id));
+    const statuses = await MigrationRecord.find({ batchId: batch._id }).select("status").lean();
+    expect(statuses.every((record) => record.status === "valid")).toBe(true);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(20);
+    expect(await Department.countDocuments({ tenantId: TENANT })).toBeGreaterThan(0);
+    const employee = await Employee.findOne({ tenantId: TENANT, employeeCode: "AUP-EMP-101" })
+      .populate("departmentId", "name")
+      .lean();
+    expect((employee?.departmentId as any)?.name).toBe("Product");
+    expect(await Product.countDocuments({ tenantId: TENANT })).toBe(20);
+    expect(await Product.countDocuments({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" })).toBe(1);
+    const product = await Product.findOne({ tenantId: TENANT, "tab_general_information.default_code": "AUP-PRD-202" }).lean();
+    expect(product?.header.name).toBe("Thermal Receipt Printer");
+    expect(product?.tab_general_information.list_price).toBe(6450);
   });
 });
