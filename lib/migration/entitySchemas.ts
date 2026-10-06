@@ -81,14 +81,19 @@ const VENDOR_SCHEMA: EntitySchema = {
 const PRODUCT_SCHEMA: EntitySchema = {
   entity: MIGRATION_ENTITY.PRODUCT,
   label: "Products",
-  dedupeKeys: ["sku", "name"],
+  dedupeKeys: ["sku"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id"] },
     { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "item", "itemname", "description", "particulars"], validate: "nonEmpty" },
-    { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "default_code", "partno", "productcode"] },
+    { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "item code", "default_code", "partno", "productcode", "product code", "productid", "product id"] },
+    { key: "category", label: "Category", required: false, aliases: ["category", "categ", "group"] },
+    { key: "subcategory", label: "Subcategory", required: false, aliases: ["subcategory", "sub category", "subcat"] },
+    { key: "brand", label: "Brand", required: false, aliases: ["brand", "manufacturer", "make"] },
     { key: "type", label: "Type (consu/service/combo)", required: false, aliases: ["type", "producttype", "kind"] },
     { key: "salesPrice", label: "Sales Price", required: false, aliases: ["salesprice", "sales price", "unitprice", "unit price", "listprice", "price", "rate", "mrp", "sellingprice"], validate: "number" },
     { key: "cost", label: "Cost Price", required: false, aliases: ["cost", "costprice", "purchaseprice", "standardprice", "buyprice"], validate: "number" },
+    { key: "stockQuantity", label: "Stock Quantity", required: false, aliases: ["stockquantity", "stock quantity", "qty", "quantity", "onhand", "on hand"], validate: "number" },
+    { key: "status", label: "Status", required: false, aliases: ["status", "state"] },
     // NOTE: HSN/SAC is intentionally omitted — the Product model has no HSN field
     // yet (invoices carry HSN as free text). Add it here once Product gains one.
     { key: "description", label: "Description", required: false, aliases: ["description", "desc", "details", "notes"] },
@@ -184,12 +189,16 @@ const EMPLOYEE_SCHEMA: EntitySchema = {
   label: "Employees",
   dedupeKeys: ["email", "employeeId"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "guid", "externalid"] },
-    { key: "firstName", label: "First Name", required: true, aliases: ["firstname", "fname", "name"], validate: "nonEmpty" },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id"] },
+    { key: "firstName", label: "First Name", required: true, aliases: ["firstname", "first name", "fname", "name", "employee name"], validate: "nonEmpty" },
     { key: "lastName", label: "Last Name", required: false, aliases: ["lastname", "lname"] },
     { key: "email", label: "Email", required: false, aliases: ["email", "emailid", "workemail"], validate: "email" },
-    { key: "employeeId", label: "Employee ID", required: false, aliases: ["empid", "employeeid", "id"] },
+    { key: "employeeId", label: "Employee ID", required: false, aliases: ["empid", "employeeid", "employee id", "employee code", "employeecode", "id"] },
+    { key: "phone", label: "Phone", required: false, aliases: ["phone", "mobile", "contact"], validate: "phone" },
     { key: "department", label: "Department", required: false, aliases: ["department", "dept"] },
+    { key: "designation", label: "Designation", required: false, aliases: ["designation", "title", "jobtitle", "job title"] },
+    { key: "joiningDate", label: "Joining Date", required: false, aliases: ["joiningdate", "joining date", "dateofjoining", "date of joining", "doj"] },
+    { key: "status", label: "Status", required: false, aliases: ["status", "state"] },
   ],
 };
 

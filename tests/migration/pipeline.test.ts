@@ -10,6 +10,7 @@
 import { describe, it, expect } from "vitest";
 import AdmZip from "adm-zip";
 import * as xlsx from "xlsx";
+import fs from "fs";
 import { parseSourceFile, validateSourceFile } from "@/lib/migration/sourceAdapters";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
@@ -137,6 +138,44 @@ describe("migration package preparation", () => {
       "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Employees",
       "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Products",
     ]);
+  });
+
+  it("maps the root employee/product workbook without dropping simple fields", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "Aupulens_Employee_Product_Migration_Test_Data.xlsx", buffer: fs.readFileSync("Aupulens_Employee_Product_Migration_Test_Data.xlsx") }],
+      "excel",
+    );
+
+    expect(prepared.map((file) => [file.entityType, file.rows.length])).toEqual([
+      ["employee", 15],
+      ["product", 15],
+    ]);
+
+    const product = prepared.find((file) => file.entityType === "product")!;
+    const productMapping = deterministicMapping(getEntitySchema("product")!, product.columns);
+    expect(productMapping).toMatchObject({
+      sku: "Product ID",
+      name: "Product Name",
+      category: "Category",
+      subcategory: "Subcategory",
+      brand: "Brand",
+      salesPrice: "Unit Price",
+      stockQuantity: "Stock Quantity",
+      status: "Status",
+    });
+
+    const employee = prepared.find((file) => file.entityType === "employee")!;
+    const employeeMapping = deterministicMapping(getEntitySchema("employee")!, employee.columns);
+    expect(employeeMapping).toMatchObject({
+      employeeId: "Employee ID",
+      firstName: "Employee Name",
+      email: "Email",
+      phone: "Phone",
+      department: "Department",
+      designation: "Designation",
+      joiningDate: "Joining Date",
+      status: "Status",
+    });
   });
 
   it("normalizes unknown source systems instead of persisting invalid enum values", () => {

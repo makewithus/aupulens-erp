@@ -162,7 +162,7 @@ export function validateRows(
 function validateBusinessRules(entity: string, rec: Record<string, string>): string[] {
   const issues: string[] = [];
 
-  if (entity === "SalesInvoice" || entity === "PurchaseInvoice") {
+  if (entity === "salesInvoice" || entity === "purchaseInvoice") {
     const total = Number(rec.totalAmount?.replace(/,/g, ""));
     if (!isNaN(total) && total < 0) {
       issues.push("Invoice total amount cannot be negative.");
@@ -172,7 +172,7 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     }
   }
 
-  if (entity === "Payment") {
+  if (entity === "payment") {
     const amt = Number(rec.amount?.replace(/,/g, ""));
     if (!isNaN(amt) && amt <= 0) {
       issues.push("Payment amount must be strictly greater than zero.");
@@ -182,7 +182,7 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     }
   }
 
-  if (entity === "Product") {
+  if (entity === "product") {
     const price = Number(rec.salesPrice?.replace(/,/g, ""));
     if (!isNaN(price) && price < 0) {
       issues.push("Product sales price cannot be negative.");

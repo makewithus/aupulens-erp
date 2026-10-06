@@ -116,6 +116,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const [saving, setSaving] = useState(false);
   const [fetchingMappings, setFetchingMappings] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
   const notifiedStatusRef = useRef<string | null>(null);
   const router = useRouter();
 
@@ -153,6 +154,14 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     }
   }, [id, mappings.length]);
 
+  const tickWorker = useCallback(async () => {
+    try {
+      await fetch(`/api/migration/batches/${id}/worker`, { method: "POST" });
+    } catch {
+      // The next poll will surface any persisted worker failure from the batch.
+    }
+  }, [id]);
+
   const fetchMappings = async () => {
     setFetchingMappings(true);
     try {
@@ -174,10 +183,17 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     if (!batch) return;
     if (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") {
-      const interval = setInterval(loadData, 2000); // UI poll
+      const poll = async () => {
+        if (batch.status === "validating" || batch.status === "running") {
+          await tickWorker();
+        }
+        await loadData();
+      };
+      poll();
+      const interval = setInterval(poll, 2000); // UI poll + production-safe worker tick
       return () => clearInterval(interval);
     }
-  }, [batch?.status, loadData]);
+  }, [batch?.status, loadData, tickWorker]);
 
   useEffect(() => {
     loadData();
@@ -203,6 +219,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success("Mappings saved. Starting validation...");
+        await tickWorker();
         loadData();
       } else {
         toast.error(data.message || "Failed to save mappings.");
@@ -225,9 +242,12 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const data = await res.json();
       if (res.ok) {
         toast.success("Migration started!");
+        await tickWorker();
         await loadData();
       } else {
         toast.error(data.message || "Failed to start migration.");
+        setReviewRefreshKey((current) => current + 1);
+        await loadData();
       }
     } catch {
       toast.error("Failed to start migration.");
@@ -371,9 +391,9 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
             
-            <InvalidRecordsEditor batchId={id} onResolved={handleInvalidResolved} showInitialLoader={false} />
-            <PreviewAndResolution batchId={id} />
-            <AupulensPreview batchId={id} showInitialLoader={false} />
+            <InvalidRecordsEditor key={`invalid-${reviewRefreshKey}`} batchId={id} onResolved={handleInvalidResolved} showInitialLoader={false} />
+            <PreviewAndResolution key={`duplicates-${reviewRefreshKey}`} batchId={id} onResolved={loadData} />
+            <AupulensPreview key={`preview-${reviewRefreshKey}`} batchId={id} showInitialLoader={false} />
 
             <div className="flex justify-end pt-2">
               <button onClick={startMigration} disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md font-bold shadow flex items-center gap-2">
@@ -385,14 +405,20 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
 
         {(batch.status === "completed" || batch.status === "verified") && (
           <div className="space-y-6">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center">
-              <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
-              <h3 className="text-emerald-800 font-bold text-xl mb-1">
-                {batch.status === "verified" ? "Migration Verified & Completed" : "Migration Completed"}
+            <div className={`${batch.summary?.failed > 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50 border-emerald-200"} border rounded-xl p-5 text-center`}>
+              {batch.summary?.failed > 0 ? (
+                <AlertTriangle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
+              ) : (
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+              )}
+              <h3 className={`${batch.summary?.failed > 0 ? "text-rose-800" : "text-emerald-800"} font-bold text-xl mb-1`}>
+                {batch.summary?.failed > 0 ? "Migration Completed With Failures" : batch.status === "verified" ? "Migration Verified & Completed" : "Migration Completed"}
               </h3>
-              <p className="text-emerald-900 text-sm">
-                The batch was successfully processed.
-                {batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
+              <p className={`${batch.summary?.failed > 0 ? "text-rose-900" : "text-emerald-900"} text-sm`}>
+                {batch.summary?.failed > 0
+                  ? "Some records failed during migration. Download the report and resolve the failed rows before treating this import as complete."
+                  : "The batch was successfully processed."}
+                {batch.summary?.failed === 0 && batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
               </p>
             </div>
             
@@ -445,6 +471,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                           <th className="px-4 py-3 font-semibold">Entity</th>
                           <th className="px-4 py-3 font-semibold">Source</th>
                           <th className="px-4 py-3 font-semibold">Target</th>
+                          <th className="px-4 py-3 font-semibold">Failed</th>
                           <th className="px-4 py-3 font-semibold">Orphans</th>
                           <th className="px-4 py-3 font-semibold">Status</th>
                         </tr>
@@ -455,6 +482,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                             <td className="px-4 py-3 font-medium">{row.entity}</td>
                             <td className="px-4 py-3">{row.sourceCount || 0}</td>
                             <td className="px-4 py-3">{row.targetCount || 0}</td>
+                            <td className="px-4 py-3">{row.failedCount || 0}</td>
                             <td className="px-4 py-3">{row.orphanCount || 0}</td>
                             <td className={`px-4 py-3 font-semibold ${row.status === "PASS" ? "text-emerald-600" : "text-rose-600"}`}>
                               {row.status}

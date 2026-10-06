@@ -32,6 +32,10 @@ function duplicateSignature(entityType: string, schema: any, canonical: Record<s
   return dedupeSignature(schema, canonical);
 }
 
+function duplicateFields(schema: any, canonical: Record<string, string>): string[] {
+  return (schema.dedupeKeys || []).filter((key: string) => !!canonical[key]);
+}
+
 function duplicateFilterFromSignature(
   batch: any,
   schema: any,
@@ -93,6 +97,43 @@ function identitySourceIds(entityType: string, canonical: Record<string, string>
   }
 
   return [...ids];
+}
+
+function normalizeCanonicalRecord(entityType: string, canonical: Record<string, string>): Record<string, string> {
+  if (entityType === MIGRATION_ENTITY.EMPLOYEE && canonical.firstName && !canonical.lastName && canonical.firstName.includes(" ")) {
+    const parts = canonical.firstName.trim().split(/\s+/);
+    canonical.firstName = parts.shift() || canonical.firstName;
+    canonical.lastName = parts.join(" ");
+  }
+  if (entityType === MIGRATION_ENTITY.PRODUCT && !canonical.sku && canonical.sourceId) {
+    canonical.sku = canonical.sourceId;
+  }
+  return canonical;
+}
+
+async function applyForceCreateUniqueSuffix(
+  handler: ReturnType<typeof getHandler>,
+  rec: any,
+  canonical: Record<string, string>,
+  tenantId: string,
+) {
+  if (!handler?.uniqueConflictFilter || rec.duplicateAction !== "create") return canonical;
+
+  const conflict = handler.uniqueConflictFilter(canonical, tenantId);
+  if (!conflict) return canonical;
+
+  const existing = await handler.model.exists(conflict.filter);
+  if (!existing) return canonical;
+
+  const suffix = `MIG-${rec._id.toString().slice(-6)}`;
+  for (const field of conflict.fields || []) {
+    const current = canonical[field];
+    if (!current) continue;
+    if (!canonical.sourceId) canonical.sourceId = current;
+    canonical[field] = `${current}-${suffix}`;
+  }
+
+  return canonical;
 }
 
 export async function startWorkerDaemon(batchId: string, origin: string) {
@@ -194,7 +235,7 @@ async function runValidationChunk(batch: any, limit: number) {
     const mapping = (job.mapping || {}) as Record<string, string>;
     
     for (const rec of jobRecords) {
-      const canonical = toCanonicalRecord(schema, rec.sourceData, mapping);
+      const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
       rec.mappedData = canonical;
       
       const missingRequired = schema.fields.filter(f => f.required && !canonical[f.key]);
@@ -217,7 +258,9 @@ async function runValidationChunk(batch: any, limit: number) {
 
           if (priorUploadDuplicate) {
             rec.status = "duplicate";
-            rec.errors = [{ message: "Duplicate record found in uploaded data." }] as any;
+            rec.duplicateReason = "upload";
+            rec.duplicateFields = duplicateFields(schema, canonical);
+            rec.errors = [{ message: `Duplicate record found in uploaded data using ${rec.duplicateFields.join(", ")}.` }] as any;
           } else {
             seenInThisChunk.add(sig);
 
@@ -228,7 +271,9 @@ async function runValidationChunk(batch: any, limit: number) {
               if (existingDoc) {
                 rec.status = "duplicate";
                 rec.duplicateTargetId = (existingDoc as any)._id;
-                rec.errors = [{ message: "Duplicate record found in database." }] as any;
+                rec.duplicateReason = "database";
+                rec.duplicateFields = duplicateFields(schema, canonical);
+                rec.errors = [{ message: `Duplicate record found in workspace using ${rec.duplicateFields.join(", ")}.` }] as any;
               }
             }
           }
@@ -251,7 +296,7 @@ async function runValidationChunk(batch: any, limit: number) {
 async function runMigrationChunk(batch: any, limit: number) {
   await MigrationRecord.updateMany(
     { batchId: batch._id, tenantId: batch.tenantId, status: "duplicate", duplicateAction: "skip" },
-    { $set: { status: "migrated" } },
+    { $set: { status: "skipped" } },
   );
 
   const records = await MigrationRecord.find({
@@ -307,12 +352,17 @@ async function runMigrationChunk(batch: any, limit: number) {
 
     for (const rec of jobRecords) {
       if (rec.duplicateAction === "skip") {
-        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "migrated" } } } });
+        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "skipped" } } } });
         processed++;
         continue;
       }
       
-      const canonical = toCanonicalRecord(schema, rec.sourceData, job.mapping as Record<string, string>);
+      const canonical = await applyForceCreateUniqueSuffix(
+        handler,
+        rec,
+        normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, job.mapping as Record<string, string>)),
+        batch.tenantId,
+      );
       
       try {
         const importContext = {
@@ -416,6 +466,9 @@ async function finalizeMigrationBatch(batch: any) {
   const migrated = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "migrated" });
   const failed = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "failed" });
   batch.summary = { ...batch.summary, migrated, failed };
+  if (failed > 0 && batch.status === "verified") {
+    batch.status = "completed";
+  }
   batch.progress = 100;
   batch.workerLock = null;
   batch.workerHeartbeat = null;
@@ -448,7 +501,7 @@ async function runPostMigrationVerification(batch: any) {
 
     const sourceCount = await MigrationRecord.countDocuments({ jobId: job._id, tenantId: batch.tenantId });
     const failedCount = await MigrationRecord.countDocuments({ jobId: job._id, tenantId: batch.tenantId, status: "failed" });
-    const skippedCount = await MigrationRecord.countDocuments({ jobId: job._id, tenantId: batch.tenantId, status: "migrated", duplicateAction: "skip" });
+    const skippedCount = await MigrationRecord.countDocuments({ jobId: job._id, tenantId: batch.tenantId, status: "skipped" });
     const validMigrated = await MigrationRecord.find({ jobId: job._id, tenantId: batch.tenantId, status: "migrated", targetRecordId: { $exists: true } }).select("targetRecordId");
     
     let targetCount = 0;
@@ -464,8 +517,8 @@ async function runPostMigrationVerification(batch: any) {
       }
     }
 
-    const expectedTarget = sourceCount - failedCount - skippedCount;
-    let passed = targetCount === expectedTarget;
+    const expectedTarget = sourceCount - skippedCount;
+    let passed = targetCount === expectedTarget && failedCount === 0;
     let orphanCount = 0;
 
     if (job.entityType === MIGRATION_ENTITY.SALES_INVOICE) {
@@ -492,6 +545,7 @@ async function runPostMigrationVerification(batch: any) {
       entity: job.entityType,
       sourceCount,
       targetCount,
+      failedCount,
       orphanCount,
       status: passed ? "PASS" : "FAIL"
     });

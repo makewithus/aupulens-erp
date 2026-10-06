@@ -7,12 +7,14 @@ export interface IMigrationRecord extends Document {
   entityType: string;
   sourceData: Record<string, unknown>;
   mappedData?: Record<string, unknown>;
-  status: "pending" | "valid" | "invalid" | "duplicate" | "migrated" | "failed";
+  status: "pending" | "valid" | "invalid" | "duplicate" | "migrated" | "skipped" | "failed";
   errors: any;
   warnings: { field?: string; message: string }[];
   targetRecordId?: mongoose.Types.ObjectId;
   duplicateAction?: "skip" | "update" | "create";
   duplicateTargetId?: mongoose.Types.ObjectId;
+  duplicateReason?: string;
+  duplicateFields?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,7 +29,7 @@ const MigrationRecordSchema = new Schema<IMigrationRecord>(
     mappedData: { type: Schema.Types.Mixed },
     status: {
       type: String,
-      enum: ["pending", "valid", "invalid", "duplicate", "migrated", "failed"],
+      enum: ["pending", "valid", "invalid", "duplicate", "migrated", "skipped", "failed"],
       default: "pending",
       index: true
     },
@@ -37,6 +39,8 @@ const MigrationRecordSchema = new Schema<IMigrationRecord>(
     targetRecordId: { type: Schema.Types.ObjectId },
     duplicateAction: { type: String, enum: ["skip", "update", "create"] },
     duplicateTargetId: { type: Schema.Types.ObjectId },
+    duplicateReason: { type: String },
+    duplicateFields: { type: [String], default: [] },
   },
   { timestamps: true, suppressReservedKeysWarning: true }
 );

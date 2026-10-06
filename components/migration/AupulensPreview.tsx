@@ -163,7 +163,7 @@ export function AupulensPreview({
         </div>
       </div>
 
-      <div className="max-h-[560px] overflow-auto">
+      <div className="overflow-x-auto">
         {recordsLoading ? (
           <div className="p-8 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-emerald-600" /></div>
         ) : records.length === 0 ? (
@@ -175,6 +175,7 @@ export function AupulensPreview({
           >
             <thead className="sticky top-0 z-10 text-xs text-slate-700 uppercase bg-slate-50 border-b">
               <tr>
+                <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-50 px-4 py-3 font-semibold">S.NO</th>
                 {columns.map(k => (
                   <th key={k} className="whitespace-nowrap px-6 py-3 font-semibold">{k}</th>
                 ))}
@@ -183,6 +184,9 @@ export function AupulensPreview({
             <tbody>
               {records.map((r, i) => (
                 <tr key={i} className="bg-white border-b hover:bg-slate-50 transition-colors">
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-4 py-3 font-semibold text-slate-500">
+                    {(page - 1) * pageSize + i + 1}
+                  </td>
                   {columns.map(k => (
                     <td key={k} className="whitespace-nowrap px-6 py-3">
                       {String(r.mappedData?.[k] || "")}

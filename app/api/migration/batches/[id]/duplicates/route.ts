@@ -16,7 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const duplicates = await MigrationRecord.find({ 
     batchId: id, 
     tenantId: session.user.tenantId,
-    status: "duplicate"
+    status: "duplicate",
+    duplicateAction: { $exists: false },
   }).limit(50).lean();
 
   return NextResponse.json({ success: true, data: duplicates });

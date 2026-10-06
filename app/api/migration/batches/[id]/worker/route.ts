@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
-import { startWorkerDaemon } from "@/lib/migration/worker";
+import { markBatchFailed, processMigrationWorker } from "@/lib/migration/worker";
 import MigrationBatch from "@/models/admin/MigrationBatch";
+
+const WORKER_CHUNK_LIMIT = 1000;
+const WORKER_TIME_BUDGET_MS = 8000;
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -28,10 +31,28 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   }
 
   try {
-    await startWorkerDaemon(id, req.nextUrl.origin);
-    
-    return NextResponse.json({ success: true, message: "Worker loop started in background", done: false });
+    const startedAt = Date.now();
+    let done = false;
+    let processed = 0;
+    let iterations = 0;
+
+    while (!done && Date.now() - startedAt < WORKER_TIME_BUDGET_MS) {
+      const result = await processMigrationWorker(id, WORKER_CHUNK_LIMIT);
+      done = result.done;
+      processed += result.processed || 0;
+      iterations += 1;
+      if (result.processed === 0) break;
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: done ? "Worker completed." : "Worker processed a chunk.",
+      done,
+      processed,
+      iterations,
+    });
   } catch (err: any) {
+    await markBatchFailed(id, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

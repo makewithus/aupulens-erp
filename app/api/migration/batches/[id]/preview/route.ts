@@ -20,15 +20,23 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const batch = await MigrationBatch.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
   if (!batch) return NextResponse.json({ success: false }, { status: 404 });
 
+  const previewMatch = {
+    $or: [
+      { status: "valid" },
+      { status: "duplicate", duplicateAction: { $ne: "skip" } },
+    ],
+  };
+
   if (!entityType) {
     const counts = await MigrationRecord.aggregate([
-      { $match: { batchId: new mongoose.Types.ObjectId(id), tenantId: session.user.tenantId, status: "valid" } },
-      { $group: { _id: "$entityType", count: { $sum: 1 } } }
+      { $match: { batchId: new mongoose.Types.ObjectId(id), tenantId: session.user.tenantId, ...previewMatch } },
+      { $group: { _id: "$entityType", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
     ]);
     return NextResponse.json({ success: true, data: counts });
   }
 
-  const query = { batchId: id, tenantId: session.user.tenantId, status: "valid", entityType };
+  const query = { batchId: id, tenantId: session.user.tenantId, entityType, ...previewMatch };
   const [total, records] = await Promise.all([
     MigrationRecord.countDocuments(query),
     MigrationRecord.find(query)

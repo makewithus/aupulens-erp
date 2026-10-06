@@ -19,12 +19,14 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   }
 
   // Generate CSV
-  let csv = "Entity,Status,Action,Target ID,Errors,Source Data\n";
+  let csv = "Entity,Status,Action,Duplicate Reason,Duplicate Fields,Target ID,Errors,Source Data,Mapped Data\n";
   
   for (const r of records) {
     const entity = `"${r.entityType || ""}"`;
     const status = `"${r.status || ""}"`;
     const action = `"${r.duplicateAction || ""}"`;
+    const duplicateReason = `"${r.duplicateReason || ""}"`;
+    const duplicateFields = `"${Array.isArray(r.duplicateFields) ? r.duplicateFields.join("; ") : ""}"`;
     const targetId = `"${r.targetRecordId || ""}"`;
     
     let errorsStr = "";
@@ -38,8 +40,10 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       sourceStr = JSON.stringify(r.sourceData);
     }
     const sourceData = `"${sourceStr.replace(/"/g, '""')}"`;
+    const mappedStr = r.mappedData ? JSON.stringify(r.mappedData) : "";
+    const mappedData = `"${mappedStr.replace(/"/g, '""')}"`;
     
-    csv += `${entity},${status},${action},${targetId},${errors},${sourceData}\n`;
+    csv += `${entity},${status},${action},${duplicateReason},${duplicateFields},${targetId},${errors},${sourceData},${mappedData}\n`;
   }
 
   return new NextResponse(csv, {

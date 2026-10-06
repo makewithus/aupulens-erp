@@ -9,6 +9,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
 import Customer from "@/models/sales/Customer";
 import Product from "@/models/inventory/Product";
+import Employee from "@/models/hr/Employee";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import { MIGRATION_ENTITY, MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
@@ -70,6 +71,7 @@ describe("migration worker E2E workflow", () => {
     await MigrationIdentityMap.init();
     await Customer.init();
     await Product.init();
+    await Employee.init();
     await SalesInvoice.init();
     await Payment.init();
   });
@@ -86,6 +88,7 @@ describe("migration worker E2E workflow", () => {
     await MigrationIdentityMap.deleteMany({ tenantId: TENANT });
     await Customer.deleteMany({ tenantId: TENANT });
     await Product.deleteMany({ tenantId: TENANT });
+    await Employee.deleteMany({ tenantId: TENANT });
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
     await Payment.deleteMany({ tenantId: TENANT });
   });
@@ -241,12 +244,195 @@ describe("migration worker E2E workflow", () => {
       entityType: MIGRATION_ENTITY.CUSTOMER,
     }).select("status errors").lean();
     expect(customerStatuses.map((record) => record.status).sort()).toEqual(["duplicate", "valid"]);
-    expect(customerStatuses.some((record) => record.errors?.[0]?.message === "Duplicate record found in uploaded data.")).toBe(true);
+    expect(customerStatuses.some((record) => /Duplicate record found in uploaded data using/.test(record.errors?.[0]?.message || ""))).toBe(true);
 
     const lineStatuses = await MigrationRecord.find({
       batchId: batch._id,
       entityType: MIGRATION_ENTITY.INVOICE_ITEM,
     }).select("status").lean();
     expect(lineStatuses.map((record) => record.status)).toEqual(["valid", "valid"]);
+  });
+
+  it("validates and migrates the simple root employee/product workbook without false product duplicates", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 2,
+      totalRecords: 4,
+      totalModules: 2,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.EMPLOYEE,
+      "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Employees",
+      {
+        employeeId: "Employee ID",
+        firstName: "Employee Name",
+        email: "Email",
+        phone: "Phone",
+        department: "Department",
+        designation: "Designation",
+        joiningDate: "Joining Date",
+        status: "Status",
+      },
+      [
+        { "Employee ID": "EMP001", "Employee Name": "Arjun Menon", Email: "arjun.menon@example.com", Phone: "9000000001", Department: "Engineering", Designation: "Software Engineer", "Joining Date": "2025-01-15", Status: "Active" },
+        { "Employee ID": "EMP002", "Employee Name": "Meera Nair", Email: "meera.nair@example.com", Phone: "9000000002", Department: "Engineering", Designation: "Frontend Developer", "Joining Date": "2025-02-10", Status: "Active" },
+      ],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "Aupulens_Employee_Product_Migration_Test_Data.xlsx - Products",
+      {
+        sku: "Product ID",
+        name: "Product Name",
+        category: "Category",
+        subcategory: "Subcategory",
+        brand: "Brand",
+        salesPrice: "Unit Price",
+        stockQuantity: "Stock Quantity",
+        status: "Status",
+      },
+      [
+        { "Product ID": "PRD001", "Product Name": "Aupulens Laptop Pro 14", Category: "Electronics", Subcategory: "Laptop", Brand: "Dell", "Unit Price": "34999.00", "Stock Quantity": "50", Status: "Active" },
+        { "Product ID": "PRD002", "Product Name": "Aupulens Laptop Pro 15", Category: "Electronics", Subcategory: "Laptop", Brand: "HP", "Unit Price": "42999.00", "Stock Quantity": "35", Status: "Active" },
+      ],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const statuses = await MigrationRecord.find({ batchId: batch._id }).select("entityType status mappedData duplicateReason duplicateFields").lean();
+    expect(statuses.map((record) => record.status)).toEqual(["valid", "valid", "valid", "valid"]);
+    expect(statuses.filter((record) => record.entityType === MIGRATION_ENTITY.PRODUCT).map((record: any) => record.mappedData.sku)).toEqual(["PRD001", "PRD002"]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(2);
+    expect(await Product.countDocuments({ tenantId: TENANT })).toBe(2);
+
+    const product = await Product.findOne({ tenantId: TENANT, "tab_general_information.default_code": "PRD001" }).lean();
+    expect(product?.header.name).toBe("Aupulens Laptop Pro 14");
+    expect(product?.tab_general_information.list_price).toBe(34999);
+
+    const employee = await Employee.findOne({ tenantId: TENANT, employeeCode: "EMP001" }).lean();
+    expect(employee?.firstName).toBe("Arjun");
+    expect(employee?.lastName).toBe("Menon");
+    expect(employee?.designation).toBe("Software Engineer");
+  });
+
+  it("flags an existing employee code before migration even when the uploaded email is different", async () => {
+    await Employee.create({
+      tenantId: TENANT,
+      employeeCode: "EMP009",
+      firstName: "Existing",
+      lastName: "Employee",
+      email: "existing.emp009@example.com",
+      phone: "9000009999",
+      dateOfJoining: new Date("2024-01-01"),
+      employmentType: "full-time",
+      lifecycleStatus: "active",
+      status: "active",
+      createdBy: USER_ID,
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.EMPLOYEE,
+      "employees.xlsx - Employees",
+      {
+        employeeId: "Employee ID",
+        firstName: "Employee Name",
+        email: "Email",
+        phone: "Phone",
+        department: "Department",
+        designation: "Designation",
+        joiningDate: "Joining Date",
+        status: "Status",
+      },
+      [
+        { "Employee ID": "EMP009", "Employee Name": "Akshay Nair", Email: "akshay.nair@example.com", Phone: "9000000009", Department: "Engineering", Designation: "QA Engineer", "Joining Date": "2025-06-15", Status: "Active" },
+      ],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.EMPLOYEE }).lean();
+    expect(record?.status).toBe("duplicate");
+    expect(record?.duplicateReason).toBe("database");
+    expect(record?.duplicateFields).toEqual(["email", "employeeId"]);
+    expect(record?.duplicateTargetId).toBeTruthy();
+  });
+
+  it("force creates an employee duplicate with an import-safe employee code", async () => {
+    await Employee.create({
+      tenantId: TENANT,
+      employeeCode: "EMP009",
+      firstName: "Existing",
+      lastName: "Employee",
+      email: "existing.emp009@example.com",
+      phone: "9000009999",
+      dateOfJoining: new Date("2024-01-01"),
+      employmentType: "full-time",
+      lifecycleStatus: "active",
+      status: "active",
+      createdBy: USER_ID,
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.EMPLOYEE,
+      "employees.xlsx - Employees",
+      {
+        employeeId: "Employee ID",
+        firstName: "Employee Name",
+        email: "Email",
+        phone: "Phone",
+        designation: "Designation",
+        joiningDate: "Joining Date",
+        status: "Status",
+      },
+      [
+        { "Employee ID": "EMP009", "Employee Name": "Akshay Nair", Email: "akshay.nair@example.com", Phone: "9000000009", Designation: "QA Engineer", "Joining Date": "2025-06-15", Status: "Active" },
+      ],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const duplicate = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.EMPLOYEE });
+    expect(duplicate?.status).toBe("duplicate");
+    duplicate!.duplicateAction = "create";
+    await duplicate!.save();
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(2);
+    const forced = await Employee.findOne({ tenantId: TENANT, email: "akshay.nair@example.com" }).lean();
+    expect(forced?.employeeCode).toMatch(/^EMP009-MIG-/);
   });
 });

@@ -20,6 +20,7 @@ import Expense from "@/models/finance/Expense";
 import Account from "@/models/finance/Account";
 import Employee from "@/models/hr/Employee";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
+import { ENTITY_STATUS, PRODUCT_STATUS } from "@/lib/constants/statuses";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import {
   toCanonicalRecord,
@@ -32,6 +33,32 @@ function num(v: string): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
+function statusFromText(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["active", "published", "enabled"].includes(normalized)) return "published";
+  if (["inactive", "draft", "disabled"].includes(normalized)) return "draft";
+  return fallback;
+}
+
+function entityStatusFromText(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return ENTITY_STATUS.ACTIVE;
+  if (["inactive", "disabled"].includes(normalized)) return ENTITY_STATUS.INACTIVE;
+  return ENTITY_STATUS.ACTIVE;
+}
+
+function splitName(firstName: string, lastName: string): { firstName: string; lastName: string } {
+  if (lastName || !firstName.includes(" ")) {
+    return { firstName, lastName: lastName || "-" };
+  }
+  const parts = firstName.trim().split(/\s+/);
+  return {
+    firstName: parts.shift() || firstName,
+    lastName: parts.join(" ") || "-",
+  };
+}
+
 interface EntityHandler {
   modelName: string;
   model: mongoose.Model<any>;
@@ -39,6 +66,8 @@ interface EntityHandler {
   transform: (rec: Record<string, string>, ctx: ImportContext) => Promise<Record<string, unknown>>;
   /** Mongo filter that finds an existing duplicate of this record, or null. */
   existingFilter: (rec: Record<string, string>, tenantId: string) => Record<string, unknown> | null;
+  /** Mongo filter for target unique indexes that would make force-create fail. */
+  uniqueConflictFilter?: (rec: Record<string, string>, tenantId: string) => { filter: Record<string, unknown>; fields: string[] } | null;
   /** Custom action instead of create (e.g. update an embedded document). If undefined, uses standard insertOne. */
   createOperation?: (doc: Record<string, unknown>, rec: Record<string, string>, ctx: ImportContext) => any;
 }
@@ -117,6 +146,13 @@ const HANDLERS: Record<string, EntityHandler> = {
       const type = ["consu", "service", "combo"].includes(rec.type?.toLowerCase())
         ? rec.type.toLowerCase()
         : "consu";
+      const descriptionParts = [
+        rec.description,
+        rec.category ? `Category: ${rec.category}` : "",
+        rec.subcategory ? `Subcategory: ${rec.subcategory}` : "",
+        rec.brand ? `Brand: ${rec.brand}` : "",
+        rec.stockQuantity ? `Opening stock: ${rec.stockQuantity}` : "",
+      ].filter(Boolean);
       return {
         tenantId: ctx.tenantId,
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
@@ -131,8 +167,9 @@ const HANDLERS: Record<string, EntityHandler> = {
           default_code: rec.sku || undefined,
           list_price: num(rec.salesPrice) ?? 1,
           standard_price: num(rec.cost) ?? 0,
-          description: rec.description || undefined,
+          description: descriptionParts.length ? descriptionParts.join("\n") : undefined,
         },
+        status: statusFromText(rec.status, PRODUCT_STATUS.PUBLISHED),
       };
     },
     existingFilter: (rec, tenantId) => {
@@ -163,6 +200,10 @@ const HANDLERS: Record<string, EntityHandler> = {
     },
     existingFilter: (rec, tenantId) => {
       if (rec.number) return { tenantId, number: rec.number };
+      return null;
+    },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.number) return { filter: { tenantId, number: rec.number }, fields: ["number"] };
       return null;
     },
   },
@@ -227,6 +268,10 @@ const HANDLERS: Record<string, EntityHandler> = {
       if (rec.number) return { tenantId, name: rec.number, moveType: "in_invoice" };
       return null;
     },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.number) return { filter: { tenantId, name: rec.number }, fields: ["number"] };
+      return null;
+    },
   },
 
   [MIGRATION_ENTITY.PAYMENT]: {
@@ -260,6 +305,10 @@ const HANDLERS: Record<string, EntityHandler> = {
     },
     existingFilter: (rec, tenantId) => {
       if (rec.reference) return { tenantId, paymentNumber: rec.reference };
+      return null;
+    },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.reference) return { filter: { tenantId, paymentNumber: rec.reference }, fields: ["reference"] };
       return null;
     },
   },
@@ -302,22 +351,49 @@ const HANDLERS: Record<string, EntityHandler> = {
       if (rec.accountCode) return { tenantId, accountCode: rec.accountCode };
       return null;
     },
+    uniqueConflictFilter: (rec, tenantId) => {
+      const clauses = [];
+      const fields = [];
+      if (rec.accountName) {
+        clauses.push({ accountName: rec.accountName });
+        fields.push("accountName");
+      }
+      if (rec.accountCode) {
+        clauses.push({ accountCode: rec.accountCode });
+        fields.push("accountCode");
+      }
+      return clauses.length ? { filter: { tenantId, $or: clauses }, fields } : null;
+    },
   },
 
   [MIGRATION_ENTITY.EMPLOYEE]: {
     modelName: "Employee",
     model: Employee,
-    transform: async (rec, ctx) => ({
-      tenantId: ctx.tenantId,
-      firstName: rec.firstName,
-      lastName: rec.lastName || undefined,
-      email: rec.email || undefined,
-      employeeId: rec.employeeId || undefined,
-      department: rec.department || undefined,
-    }),
+    transform: async (rec, ctx) => {
+      const name = splitName(rec.firstName, rec.lastName);
+      return {
+        tenantId: ctx.tenantId,
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+        firstName: name.firstName,
+        lastName: name.lastName,
+        email: rec.email || `${rec.employeeId || new mongoose.Types.ObjectId().toString().slice(-8)}@migration.local`,
+        phone: rec.phone || "0000000000",
+        employeeCode: rec.employeeId || rec.sourceId || `MIG-${new mongoose.Types.ObjectId().toString().slice(-8)}`,
+        designation: rec.designation || undefined,
+        dateOfJoining: rec.joiningDate ? new Date(rec.joiningDate) : new Date(),
+        employmentType: "full-time",
+        lifecycleStatus: "active",
+        status: entityStatusFromText(rec.status),
+      };
+    },
     existingFilter: (rec, tenantId) => {
-      if (rec.email) return { tenantId, email: rec.email };
-      if (rec.employeeId) return { tenantId, employeeId: rec.employeeId };
+      const clauses = [];
+      if (rec.email) clauses.push({ email: rec.email });
+      if (rec.employeeId) clauses.push({ employeeCode: rec.employeeId });
+      return clauses.length ? { tenantId, $or: clauses } : null;
+    },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.employeeId) return { filter: { tenantId, employeeCode: rec.employeeId }, fields: ["employeeId"] };
       return null;
     },
   },
