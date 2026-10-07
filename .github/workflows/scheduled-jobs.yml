@@ -14,18 +14,23 @@
 # runs whichever of the 12 registered jobs are currently due — it does not
 # need to know the individual schedules itself, only how often to check.
 # Every 15 minutes covers the shortest real interval among the 12 jobs
-# (platform-access-session-expiry).
+# (platform-access-session-expiry). The non-round minutes avoid GitHub's
+# busiest scheduled-run slots and reduce hosted-runner acquisition delays.
 
 name: Aupulens scheduled jobs
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch: {}
 
 jobs:
   run-due:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: aupulens-scheduled-jobs
+      cancel-in-progress: false
     steps:
       - name: Call the scheduler's run-due endpoint
         env:
@@ -34,8 +39,8 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
-            echo "::notice title=Scheduler not triggered::GitHub Actions secret CRON_SECRET is not configured. Add it with the same value as the production CRON_SECRET."
-            exit 0
+            echo "::error title=Scheduler not triggered::GitHub Actions secret CRON_SECRET is not configured. Add it with the same value as the production CRON_SECRET."
+            exit 1
           fi
 
           BODY_FILE="$RUNNER_TEMP/scheduler-run-due-response.json"
@@ -78,8 +83,8 @@ jobs:
               fi
 
               if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
-                echo "::notice title=Scheduler auth rejected::The endpoint exists but rejected CRON_SECRET. Check that GitHub Actions secret CRON_SECRET matches production."
-                exit 0
+                echo "::error title=Scheduler auth rejected::The endpoint exists but rejected CRON_SECRET. Check that GitHub Actions secret CRON_SECRET matches production."
+                exit 1
               fi
 
               if [ "$HTTP_STATUS" = "404" ] && grep -q "DEPLOYMENT_NOT_FOUND" "$BODY_FILE"; then
@@ -91,5 +96,5 @@ jobs:
             done
           done
 
-          echo "::notice title=Scheduler trigger skipped::The external timer could not reach run-due after retries. The workflow stays non-failing to avoid repeated email noise; fix DEPLOYMENT_URL/SCHEDULER_FALLBACK_URL or CRON_SECRET if this notice repeats."
-          exit 0
+          echo "::error title=Scheduler trigger failed::The external timer could not reach run-due after retries. Check DEPLOYMENT_URL/SCHEDULER_FALLBACK_URL, production availability, and CRON_SECRET."
+          exit 1

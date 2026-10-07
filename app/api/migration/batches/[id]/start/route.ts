@@ -6,6 +6,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import { startWorkerDaemon } from "@/lib/migration/worker";
 import { getHandler } from "@/lib/migration/importer";
 import { resolveEntityReference } from "@/lib/migration/resolver";
+import { productionMigrationError } from "@/lib/migration/errors";
 
 async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
   const records = await MigrationRecord.find({
@@ -84,7 +85,7 @@ async function runWriteReadinessCheck(batch: any, tenantId: string) {
       if (validationError) throw validationError;
     } catch (error) {
       invalid += 1;
-      const message = error instanceof Error ? error.message : "Record cannot be written to the target module.";
+      const message = productionMigrationError(error);
       await MigrationRecord.updateOne(
         { _id: record._id, tenantId },
         {
@@ -120,69 +121,79 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const batch = await MigrationBatch.findOne({ _id: id, tenantId: session.user.tenantId });
   if (!batch) return NextResponse.json({ success: false }, { status: 404 });
 
-  if (batch.status !== "preview") {
-    return NextResponse.json(
-      { success: false, message: "Wait for validation and preview review to finish before starting migration." },
-      { status: 400 },
-    );
-  }
+  try {
+    if (batch.status !== "preview") {
+      return NextResponse.json(
+        { success: false, message: "Wait for validation and preview review to finish before starting migration." },
+        { status: 400 },
+      );
+    }
 
-  const pendingRecords = await MigrationRecord.countDocuments({
-    batchId: batch._id,
-    tenantId: session.user.tenantId,
-    status: "pending",
-  });
-  if (pendingRecords > 0) {
-    return NextResponse.json(
-      { success: false, message: "Validation is still running. Please wait for preview to finish." },
-      { status: 400 },
-    );
-  }
-
-  const preMigrationConflicts = await runPreMigrationConflictCheck(batch, session.user.tenantId);
-  const writeReadinessFailures = await runWriteReadinessCheck(batch, session.user.tenantId);
-
-  const [unresolvedDuplicates, invalidRecords] = await Promise.all([
-    MigrationRecord.countDocuments({
+    const pendingRecords = await MigrationRecord.countDocuments({
       batchId: batch._id,
       tenantId: session.user.tenantId,
-      status: "duplicate",
-      duplicateAction: { $exists: false },
-    }),
-    MigrationRecord.countDocuments({
-      batchId: batch._id,
-      tenantId: session.user.tenantId,
-      status: "invalid",
-    }),
-  ]);
-  if (invalidRecords > 0) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: writeReadinessFailures > 0
-          ? `Found ${writeReadinessFailures} record${writeReadinessFailures === 1 ? "" : "s"} that cannot be written safely. Fix the highlighted invalid records before starting migration.`
-          : "Fix invalid records before starting migration.",
-      },
-      { status: 400 },
+      status: "pending",
+    });
+    if (pendingRecords > 0) {
+      return NextResponse.json(
+        { success: false, message: "Validation is still running. Please wait for preview to finish." },
+        { status: 400 },
+      );
+    }
+
+    const preMigrationConflicts = await runPreMigrationConflictCheck(batch, session.user.tenantId);
+    const writeReadinessFailures = await runWriteReadinessCheck(batch, session.user.tenantId);
+
+    const [unresolvedDuplicates, invalidRecords] = await Promise.all([
+      MigrationRecord.countDocuments({
+        batchId: batch._id,
+        tenantId: session.user.tenantId,
+        status: "duplicate",
+        duplicateAction: { $exists: false },
+      }),
+      MigrationRecord.countDocuments({
+        batchId: batch._id,
+        tenantId: session.user.tenantId,
+        status: "invalid",
+      }),
+    ]);
+    if (invalidRecords > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: writeReadinessFailures > 0
+            ? `Found ${writeReadinessFailures} record${writeReadinessFailures === 1 ? "" : "s"} that cannot be written safely. Fix the highlighted invalid records before starting migration.`
+            : "Fix invalid records before starting migration.",
+        },
+        { status: 400 },
+      );
+    }
+    if (unresolvedDuplicates > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: preMigrationConflicts > 0
+            ? `Found ${preMigrationConflicts} live database conflict${preMigrationConflicts === 1 ? "" : "s"}. Resolve the highlighted duplicate records before starting migration.`
+            : "Resolve duplicate records before starting migration.",
+        },
+        { status: 400 },
+      );
+    }
+
+    await MigrationBatch.updateOne(
+      { _id: batch._id, tenantId: session.user.tenantId, status: "preview" },
+      { $set: { status: "running", progress: 0 } },
     );
-  }
-  if (unresolvedDuplicates > 0) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: preMigrationConflicts > 0
-          ? `Found ${preMigrationConflicts} live database conflict${preMigrationConflicts === 1 ? "" : "s"}. Resolve the highlighted duplicate records before starting migration.`
-          : "Resolve duplicate records before starting migration.",
-      },
-      { status: 400 },
+
+    await startWorkerDaemon(id, req.nextUrl.origin);
+
+    return NextResponse.json({ success: true, data: { ...batch.toObject(), status: "running", progress: 0 } });
+  } catch (err) {
+    const message = productionMigrationError(err);
+    await MigrationBatch.updateOne(
+      { _id: batch._id, tenantId: session.user.tenantId },
+      { $set: { status: "failed", errors: [{ message }], workerLock: null, workerHeartbeat: null } },
     );
+    return NextResponse.json({ success: false, message }, { status: 200 });
   }
-
-  batch.status = "running";
-  batch.progress = 0; // reset for migration phase
-  await batch.save();
-
-  await startWorkerDaemon(id, req.nextUrl.origin);
-
-  return NextResponse.json({ success: true, data: batch });
 }

@@ -60,6 +60,62 @@ function splitName(firstName: string, lastName: string): { firstName: string; la
   };
 }
 
+async function ensurePlaceholderCustomer(
+  tenantId: string,
+  userId: string,
+  externalId: string,
+): Promise<mongoose.Types.ObjectId> {
+  const name = `Imported Customer ${externalId}`;
+  const existing = await Customer.findOne({
+    tenantId,
+    $or: [
+      { "header.name": externalId },
+      { "header.name": name },
+    ],
+  }).select("_id").lean();
+  if (existing?._id) return existing._id as mongoose.Types.ObjectId;
+
+  const created = await Customer.create({
+    tenantId,
+    createdBy: new mongoose.Types.ObjectId(userId),
+    header: {
+      name,
+      displayName: name,
+      is_company: true,
+    },
+    contact_details: {},
+    address_tab: { type: "contact" },
+    sales_purchase_tab: {},
+    accounting_tab: {},
+    customFields: { migrationExternalId: externalId },
+    remarks: `Created automatically during migration because legacy reference "${externalId}" was not present in the customer master export.`,
+    isActive: true,
+  });
+  return created._id;
+}
+
+async function ensurePlaceholderVendor(
+  tenantId: string,
+  externalId: string,
+): Promise<mongoose.Types.ObjectId> {
+  const name = `Imported Vendor ${externalId}`;
+  const existing = await Vendor.findOne({
+    tenantId,
+    $or: [
+      { name: externalId },
+      { name },
+    ],
+  }).select("_id").lean();
+  if (existing?._id) return existing._id as mongoose.Types.ObjectId;
+
+  const created = await Vendor.create({
+    tenantId,
+    name,
+    category: "Imported",
+  });
+  return created._id;
+}
+
 interface EntityHandler {
   modelName: string;
   model: mongoose.Model<any>;
@@ -98,6 +154,7 @@ const HANDLERS: Record<string, EntityHandler> = {
       gstin: rec.gstin ? rec.gstin.toUpperCase() : undefined,
       pan: rec.pan || undefined,
       openingBalance: num(rec.openingBalance) ?? 0,
+      isActive: entityStatusFromText(rec.status) === ENTITY_STATUS.ACTIVE,
       addresses:
         rec.street || rec.city || rec.stateName || rec.zip
           ? [
@@ -189,8 +246,8 @@ const HANDLERS: Record<string, EntityHandler> = {
     modelName: "SalesInvoice",
     model: SalesInvoice,
     transform: async (rec, ctx) => {
-      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.customerName);
-      if (!customerId) throw new Error(`Missing reference: Customer '${rec.customerName}' not found`);
+      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.customerName)
+        || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.customerName);
       return {
         tenantId: ctx.tenantId,
         number: rec.number,
@@ -228,7 +285,7 @@ const HANDLERS: Record<string, EntityHandler> = {
 
       return {
         _id: invoiceId, // Store parent ID here for createOperation to use
-        name: rec.productName,
+        name: rec.productName || rec.productSourceId || "Imported line item",
         itemId: productId || undefined,
         qty: num(rec.qty) ?? 1,
         unitPrice: num(rec.unitPrice) ?? 0,
@@ -256,8 +313,8 @@ const HANDLERS: Record<string, EntityHandler> = {
     modelName: "Invoice",
     model: Invoice,
     transform: async (rec, ctx) => {
-      const vendorId = await ctx.resolveRef(MIGRATION_ENTITY.VENDOR, rec.vendorName);
-      if (!vendorId) throw new Error(`Missing reference: Vendor '${rec.vendorName}' not found`);
+      const vendorId = await ctx.resolveRef(MIGRATION_ENTITY.VENDOR, rec.vendorName)
+        || await ensurePlaceholderVendor(ctx.tenantId, rec.vendorName);
       return {
         tenantId: ctx.tenantId,
         name: rec.number,
@@ -284,12 +341,13 @@ const HANDLERS: Record<string, EntityHandler> = {
     modelName: "Payment",
     model: Payment,
     transform: async (rec, ctx) => {
-      const isReceipt = rec.type?.toLowerCase() === "receipt";
+      const type = rec.type?.trim().toLowerCase();
+      const isReceipt = !type || ["receipt", "customer receipt", "inbound", "inbound receipt", "cleared", "paid", "posted", "received", "reconciled"].includes(type);
       if (!isReceipt) {
         throw new Error("Vendor outbound payment migration is not supported by the current target payment model.");
       }
-      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName);
-      if (!customerId) throw new Error(`Missing reference: Customer '${rec.partyName}' not found`);
+      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName)
+        || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.partyName);
       const amount = num(rec.amount) ?? 0;
 
       return {

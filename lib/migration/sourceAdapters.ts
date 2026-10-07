@@ -7,9 +7,10 @@
  * XML export or a REST/JSON dump can be migrated without first re-saving as a
  * spreadsheet.
  *
- * IMPORTANT: `sheet_to_json` is called with { raw: false } — a repeatedly-hit
- * gotcha in this repo is that raw:true returns Excel serial-day numbers for date
- * cells, which then silently corrupt on `new Date()`. Always keep raw:false.
+ * IMPORTANT: spreadsheets are read with `cellDates: true` and `raw: true`.
+ * `raw:false` asks xlsx to format General numeric cells, which turns phone
+ * numbers such as 919810000001 into 9.1981E+11. We preserve raw values and
+ * normalize Date objects to YYYY-MM-DD strings ourselves.
  */
 
 import * as xlsx from "xlsx";
@@ -41,29 +42,41 @@ function deriveColumns(rows: Record<string, unknown>[]): string[] {
 }
 
 function parseSpreadsheet(buffer: Buffer): ParsedSource {
-  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const workbook = xlsx.read(buffer, { type: "buffer", cellDates: true });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!worksheet) return { columns: [], rows: [] };
   const rows = xlsx.utils.sheet_to_json(worksheet, {
-    raw: false,
+    raw: true,
     defval: "",
   }) as Record<string, unknown>[];
-  return { columns: deriveColumns(rows), rows };
+  const normalizedRows = normalizeRows(rows);
+  return { columns: deriveColumns(normalizedRows), rows: normalizedRows };
 }
 
 export function parseSpreadsheetSheets(buffer: Buffer): { sheetName: string; parsed: ParsedSource }[] {
-  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const workbook = xlsx.read(buffer, { type: "buffer", cellDates: true });
   return workbook.SheetNames.map((sheetName) => {
     const worksheet = workbook.Sheets[sheetName];
     if (!worksheet) return { sheetName, parsed: { columns: [], rows: [] } };
     const rows = xlsx.utils.sheet_to_json(worksheet, {
-      raw: false,
+      raw: true,
       defval: "",
     }) as Record<string, unknown>[];
+    const normalizedRows = normalizeRows(rows);
     return {
       sheetName,
-      parsed: { columns: deriveColumns(rows), rows },
+      parsed: { columns: deriveColumns(normalizedRows), rows: normalizedRows },
     };
+  });
+}
+
+function normalizeRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.map((row) => {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      normalized[key] = value instanceof Date ? value.toISOString().slice(0, 10) : value;
+    }
+    return normalized;
   });
 }
 

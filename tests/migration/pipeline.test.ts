@@ -14,7 +14,7 @@ import fs from "fs";
 import { parseSourceFile, validateSourceFile } from "@/lib/migration/sourceAdapters";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
-import { validateRows, toCanonicalRecord, dedupeSignature } from "@/lib/migration/validation";
+import { validateRows, toCanonicalRecord, dedupeSignature, normalizePhoneLikeValue } from "@/lib/migration/validation";
 import {
   expandMigrationPackage,
   inferEntityType,
@@ -216,6 +216,50 @@ describe("migration package preparation", () => {
     });
   });
 
+  it("uploads the root Odoo legacy workbook without failing on unsupported sheets", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx", buffer: fs.readFileSync("Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx") }],
+      "odoo",
+    );
+
+    expect(prepared.map((file) => [file.entityType, file.rows.length])).toEqual([
+      ["customer", 6],
+      ["vendor", 4],
+      ["employee", 8],
+      ["product", 10],
+      ["salesInvoice", 4],
+      ["invoiceItem", 7],
+      ["payment", 2],
+    ]);
+    expect(prepared.map((file) => file.name)).not.toContain(
+      "Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx - Departments",
+    );
+    expect(prepared.map((file) => file.name)).not.toContain(
+      "Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx - Product Categories",
+    );
+
+    const customer = prepared.find((file) => file.entityType === "customer")!;
+    expect(customer.rows[0].Phone).toBe(919810000001);
+    expect(deterministicMapping(getEntitySchema("customer")!, customer.columns)).toMatchObject({
+      sourceId: "Legacy Customer ID",
+      name: "Customer Name",
+      email: "Email",
+      phone: "Phone",
+      gstin: "GSTIN",
+      city: "City",
+      stateName: "State",
+    });
+
+    const invoiceItem = prepared.find((file) => file.entityType === "invoiceItem")!;
+    expect(deterministicMapping(getEntitySchema("invoiceItem")!, invoiceItem.columns)).toMatchObject({
+      invoiceSourceId: "Invoice Legacy ID",
+      productSourceId: "Product Legacy ID",
+      qty: "Quantity",
+      unitPrice: "Unit Price",
+      taxRate: "Tax Rate %",
+    });
+  });
+
   it("normalizes unknown source systems instead of persisting invalid enum values", () => {
     expect(normalizeSourceSystem("tally")).toBe("tally");
     expect(normalizeSourceSystem("definitely-not-real")).toBe("other");
@@ -252,6 +296,20 @@ describe("fieldMapping.deterministicMapping", () => {
 });
 
 describe("validation.toCanonicalRecord + dedupeSignature", () => {
+  it("expands spreadsheet scientific notation for phone-like fields", () => {
+    expect(normalizePhoneLikeValue("9.1981E+11")).toBe("919810000000");
+
+    const schema = getEntitySchema("customer")!;
+    const rec = toCanonicalRecord(
+      schema,
+      { Name: "Acme", Phone: "9.1981E+11", Mobile: "9.1982E+11" },
+      { name: "Name", phone: "Phone", mobile: "Mobile" },
+    );
+
+    expect(rec.phone).toBe("919810000000");
+    expect(rec.mobile).toBe("919820000000");
+  });
+
   it("pulls mapped values by field key", () => {
     const schema = getEntitySchema("customer")!;
     const rec = toCanonicalRecord(schema, { CN: "Acme", GST: "27ABCDE1234F1Z5" }, { name: "CN", gstin: "GST" });

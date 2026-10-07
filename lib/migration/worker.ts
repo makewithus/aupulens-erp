@@ -10,6 +10,7 @@ import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { after } from "next/server";
 import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
+import { productionMigrationError } from "@/lib/migration/errors";
 
 const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.ACCOUNT]: 10,
@@ -105,6 +106,11 @@ function stableFilterKey(filter: Record<string, unknown>) {
 }
 
 function normalizeCanonicalRecord(entityType: string, canonical: Record<string, string>): Record<string, string> {
+  const numeric = (value?: string) => {
+    const parsed = Number(String(value || "").replace(/,/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   if (entityType === MIGRATION_ENTITY.EMPLOYEE && canonical.firstName && !canonical.lastName && canonical.firstName.includes(" ")) {
     const parts = canonical.firstName.trim().split(/\s+/);
     canonical.firstName = parts.shift() || canonical.firstName;
@@ -118,6 +124,22 @@ function normalizeCanonicalRecord(entityType: string, canonical: Record<string, 
   }
   if (entityType === MIGRATION_ENTITY.EMPLOYEE && !canonical.sourceId && canonical.employeeId) {
     canonical.sourceId = canonical.employeeId;
+  }
+  if (entityType === MIGRATION_ENTITY.SALES_INVOICE) {
+    if (!canonical.sourceId && canonical.number) canonical.sourceId = canonical.number;
+    if (!canonical.number && canonical.sourceId) canonical.number = canonical.sourceId;
+    if (!canonical.totalAmount) canonical.totalAmount = "0";
+  }
+  if (entityType === MIGRATION_ENTITY.INVOICE_ITEM) {
+    if (!canonical.productName && canonical.productSourceId) canonical.productName = canonical.productSourceId;
+    if (!canonical.lineTotal) canonical.lineTotal = String(numeric(canonical.qty) * numeric(canonical.unitPrice));
+  }
+  if (entityType === MIGRATION_ENTITY.PAYMENT) {
+    const type = canonical.type?.trim().toLowerCase();
+    if (!type || ["cleared", "paid", "posted", "received", "reconciled", "banktransfer", "bank transfer", "upi"].includes(type)) {
+      canonical.type = "Receipt";
+    }
+    if (!canonical.reference && canonical.sourceId) canonical.reference = canonical.sourceId;
   }
   return canonical;
 }
@@ -303,20 +325,22 @@ async function runValidationChunk(batch: any, limit: number) {
     
     for (const rec of jobRecords) {
       const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
-      rec.mappedData = canonical;
       
       const missingRequired = schema.fields.filter(f => f.required && !canonical[f.key]);
       const relationshipErrors = await validateRelationships(batch.tenantId, batch._id.toString(), job.entityType, canonical);
+      const update: Record<string, any> = {
+        mappedData: canonical,
+      };
       
       if (missingRequired.length > 0 || relationshipErrors.length > 0) {
-        rec.status = "invalid";
-        rec.errors = [
+        update.status = "invalid";
+        update.errors = [
           ...missingRequired.map(f => ({ field: f.key, message: `Missing required field: ${f.label}` })),
           ...relationshipErrors
-        ] as any;
+        ];
       } else {
-        rec.status = "valid";
-        rec.errors = [] as any;
+        update.status = "valid";
+        update.errors = [];
         
         const sig = duplicateSignature(job.entityType, schema, canonical);
         if (sig) {
@@ -324,10 +348,10 @@ async function runValidationChunk(batch: any, limit: number) {
             || (await MigrationRecord.exists(duplicateFilterFromSignature(batch, schema, canonical, rec._id)));
 
           if (priorUploadDuplicate) {
-            rec.status = "duplicate";
-            rec.duplicateReason = "upload";
-            rec.duplicateFields = duplicateFields(schema, canonical);
-            rec.errors = [{ message: `Duplicate record found in uploaded data using ${rec.duplicateFields.join(", ")}.` }] as any;
+            update.status = "duplicate";
+            update.duplicateReason = "upload";
+            update.duplicateFields = duplicateFields(schema, canonical);
+            update.errors = [{ message: `Duplicate record found in uploaded data using ${update.duplicateFields.join(", ")}.` }];
           } else {
             seenInThisChunk.add(sig);
 
@@ -336,18 +360,25 @@ async function runValidationChunk(batch: any, limit: number) {
             if (filter) {
               const existingDoc = await handler.model.findOne(filter).select("_id").lean();
               if (existingDoc) {
-                rec.status = "duplicate";
-                rec.duplicateTargetId = (existingDoc as any)._id;
-                rec.duplicateReason = "database";
-                rec.duplicateFields = duplicateFields(schema, canonical);
-                rec.errors = [{ message: `Duplicate record found in workspace using ${rec.duplicateFields.join(", ")}.` }] as any;
+                update.status = "duplicate";
+                update.duplicateTargetId = (existingDoc as any)._id;
+                update.duplicateReason = "database";
+                update.duplicateFields = duplicateFields(schema, canonical);
+                update.errors = [{ message: `Duplicate record found in workspace using ${update.duplicateFields.join(", ")}.` }];
               }
             }
           }
         }
       }
-      await rec.save();
-      processed++;
+      const updateDoc: Record<string, any> = { $set: update };
+      if (update.status !== "duplicate") {
+        updateDoc.$unset = { duplicateAction: "", duplicateTargetId: "", duplicateReason: "", duplicateFields: "" };
+      }
+      const write = await MigrationRecord.updateOne(
+        { _id: rec._id, tenantId: batch.tenantId, status: "pending" },
+        updateDoc,
+      );
+      processed += write.modifiedCount || 0;
     }
   }
 
@@ -493,7 +524,7 @@ async function runMigrationChunk(batch: any, limit: number) {
           });
         }
       } catch (err: any) {
-        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "failed", errors: [{ message: err.message }] } } } });
+        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "failed", errors: [{ message: productionMigrationError(err) }] } } } });
       }
       processed++;
     }
@@ -511,7 +542,7 @@ async function runMigrationChunk(batch: any, limit: number) {
             const recId = bulkRecordIds[index];
             const updateObj = migrationRecordUpdates.find(u => u.updateOne.filter._id === recId);
             if (updateObj) {
-              updateObj.updateOne.update = { $set: { status: "failed", errors: [{ message: writeError.errmsg || "Database error" }] } };
+              updateObj.updateOne.update = { $set: { status: "failed", errors: [{ message: productionMigrationError(writeError.errmsg || "Database error") }] } };
             }
           }
         } else {
@@ -575,7 +606,7 @@ async function finalizeMigrationBatch(batch: any) {
 }
 
 export async function markBatchFailed(batchId: string, error: unknown) {
-  const message = error instanceof Error ? error.message : "Migration worker failed.";
+  const message = productionMigrationError(error);
   await MigrationBatch.findByIdAndUpdate(batchId, {
     $set: {
       status: "failed",

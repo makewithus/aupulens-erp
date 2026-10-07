@@ -45,7 +45,21 @@ export function mapValue(
   if (!col) return "";
   const v = row[col];
   if (v === null || v === undefined) return "";
-  return String(v).trim();
+  const value = String(v).trim();
+  if (["phone", "mobile"].includes(fieldKey)) {
+    return normalizePhoneLikeValue(value);
+  }
+  return value;
+}
+
+export function normalizePhoneLikeValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[+-]?\d+(?:\.\d+)?e[+-]?\d+$/i.test(trimmed)) {
+    const expanded = Number(trimmed);
+    if (Number.isFinite(expanded)) return expanded.toFixed(0);
+  }
+  return trimmed;
 }
 
 /** Build the full canonical record { fieldKey: value } for a row. */

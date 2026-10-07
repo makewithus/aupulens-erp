@@ -197,6 +197,135 @@ describe("migration worker E2E workflow", () => {
     expect(String(invoiceMap?.targetId)).toBe(String(invoice?._id));
   });
 
+  it("accepts Odoo-style invoice headers whose totals live on invoice lines", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "odoo",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 4,
+      totalRecords: 4,
+      totalModules: 4,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.CUSTOMER,
+      "Odoo.xlsx - Customers",
+      { sourceId: "Legacy Customer ID", name: "Customer Name", email: "Email" },
+      [{ "Legacy Customer ID": "CUS-34984", "Customer Name": "Northstar Retail Solutions Pvt Ltd", Email: "northstar@legacy.example" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "Odoo.xlsx - Products",
+      { sourceId: "Legacy Product ID", name: "Product Name", sku: "SKU", salesPrice: "Unit Price" },
+      [{ "Legacy Product ID": "PRD-49087", "Product Name": "NovaBook Business 14", SKU: "NB14-BUS-001", "Unit Price": "68500" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.SALES_INVOICE,
+      "Odoo.xlsx - Invoices",
+      { sourceId: "Legacy Invoice ID", number: "Legacy Invoice ID", customerName: "Customer Legacy ID", invoiceDate: "Invoice Date" },
+      [{ "Legacy Invoice ID": "INV-65332", "Invoice Date": "2026-01-09", "Customer Legacy ID": "CUS-34984", "Invoice Status": "Posted" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.INVOICE_ITEM,
+      "Odoo.xlsx - Invoice Lines",
+      { invoiceSourceId: "Invoice Legacy ID", productSourceId: "Product Legacy ID", qty: "Quantity", unitPrice: "Unit Price", taxRate: "Tax Rate %" },
+      [{ "Invoice Legacy ID": "INV-65332", "Product Legacy ID": "PRD-49087", Quantity: "3", "Unit Price": "68500", "Tax Rate %": "18" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const invalid = await MigrationRecord.find({ batchId: batch._id, status: "invalid" }).lean();
+    expect(invalid).toEqual([]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    const invoice = await SalesInvoice.findOne({ tenantId: TENANT, number: "INV-65332" }).lean();
+    expect(invoice?.lineItems).toHaveLength(1);
+    expect(invoice?.lineItems[0].name).toBe("PRD-49087");
+    expect(invoice?.lineItems[0].lineTotal).toBe(205500);
+  });
+
+  it("preserves sales invoices with missing legacy customers by creating placeholders", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "odoo",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.SALES_INVOICE,
+      "Odoo.xlsx - Invoices",
+      { sourceId: "Legacy Invoice ID", number: "Legacy Invoice ID", customerName: "Customer Legacy ID", invoiceDate: "Invoice Date" },
+      [{ "Legacy Invoice ID": "INV-MISSING-CUST", "Invoice Date": "2026-01-09", "Customer Legacy ID": "CUS-00000", "Invoice Status": "Posted" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const invalid = await MigrationRecord.find({ batchId: batch._id, status: "invalid" }).lean();
+    expect(invalid).toEqual([]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    const placeholder = await Customer.findOne({ tenantId: TENANT, "header.name": "Imported Customer CUS-00000" }).lean();
+    expect(placeholder?._id).toBeTruthy();
+
+    const invoice = await SalesInvoice.findOne({ tenantId: TENANT, number: "INV-MISSING-CUST" }).lean();
+    expect(String(invoice?.customerId)).toBe(String(placeholder?._id));
+  });
+
+  it("treats Odoo customer payment rows with cleared status as receipts", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "odoo",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 2,
+      totalRecords: 2,
+      totalModules: 2,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.CUSTOMER,
+      "Odoo.xlsx - Customers",
+      { sourceId: "Legacy Customer ID", name: "Customer Name", email: "Email" },
+      [{ "Legacy Customer ID": "CUS-40234", "Customer Name": "BluePeak Manufacturing Pvt Ltd", Email: "bluepeak@legacy.example" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PAYMENT,
+      "Odoo.xlsx - Payments",
+      { sourceId: "Legacy Payment ID", reference: "Legacy Payment ID", type: "Payment Status", partyName: "Customer Legacy ID", amount: "Amount", date: "Payment Date" },
+      [{ "Legacy Payment ID": "PAY-72155", "Payment Date": "2026-02-18", "Invoice Legacy ID": "INV-37257", "Customer Legacy ID": "CUS-40234", Amount: "285000", "Payment Method": "Bank Transfer", "Payment Status": "Cleared" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const invalid = await MigrationRecord.find({ batchId: batch._id, status: "invalid" }).lean();
+    expect(invalid).toEqual([]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    const customer = await Customer.findOne({ tenantId: TENANT, "header.name": "BluePeak Manufacturing Pvt Ltd" }).lean();
+    const payment = await Payment.findOne({ tenantId: TENANT, paymentNumber: "PAY-72155" }).lean();
+    expect(String(payment?.customerId)).toBe(String(customer?._id));
+    expect(payment?.amountReceived).toBe(285000);
+    expect(payment?.unusedAmount).toBe(285000);
+  });
+
   it("flags duplicate uploaded master records during validation without blocking repeated invoice lines", async () => {
     const batch = await MigrationBatch.create({
       tenantId: TENANT,

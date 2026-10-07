@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { friendlyMigrationRecordError, summarizeMigrationRow } from "@/lib/migration/friendlyRecordError";
+import { productionMigrationError } from "@/lib/migration/errors";
 
 describe("friendlyMigrationRecordError", () => {
   it("turns duplicate database errors into user-readable migration guidance", () => {
@@ -40,5 +41,16 @@ describe("friendlyMigrationRecordError", () => {
       { label: "Work Email", value: "arjun@example.com" },
       { label: "Department", value: "Engineering" },
     ]);
+  });
+});
+
+describe("productionMigrationError", () => {
+  it("hides raw Mongoose versioning details from production migration errors", () => {
+    const message = productionMigrationError(
+      'No matching document found for id "6ac5d27361fdac5e37658293" version 0 modifiedPaths "mappedData, status, errors"',
+    );
+
+    expect(message).toBe("Migration was interrupted by a concurrent update. Please retry from the migration preview.");
+    expect(message).not.toMatch(/modifiedPaths|No matching document|6ac5/i);
   });
 });

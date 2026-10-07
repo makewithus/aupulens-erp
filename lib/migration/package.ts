@@ -35,6 +35,25 @@ function normalizeHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isKnownNonImportableSheet(fileName: string): boolean {
+  const name = normalizeHeader(fileName);
+  return [
+    "readme",
+    "department",
+    "departments",
+    "productcategory",
+    "productcategories",
+    "salesorder",
+    "salesorders",
+    "salesorderline",
+    "salesorderlines",
+    "purchaseorder",
+    "purchaseorders",
+    "purchaseorderline",
+    "purchaseorderlines",
+  ].some((token) => name.includes(token));
+}
+
 export function normalizeSourceSystem(value: unknown): MigrationSourceSystem {
   return MIGRATION_SOURCE_SYSTEM_VALUES.includes(value as MigrationSourceSystem)
     ? (value as MigrationSourceSystem)
@@ -105,6 +124,8 @@ export function expandMigrationPackage(files: UploadedMigrationFile[]): Uploaded
 }
 
 export function inferEntityType(fileName: string, columns: string[]): MigrationEntity | null {
+  if (isKnownNonImportableSheet(fileName)) return null;
+
   const name = normalizeHeader(fileName);
   const headers = new Set(columns.map(normalizeHeader));
   const has = (...tokens: string[]) => tokens.some((token) => headers.has(normalizeHeader(token)));
@@ -187,6 +208,7 @@ export function prepareMigrationFiles(
 
       const entityType = inferEntityType(parsedFile.inferName, parsed.columns);
       if (!entityType) {
+        if (parsedFiles.length > 1) continue;
         throw new Error(`${parsedFile.name}: Could not infer a supported migration entity from filename or headers.`);
       }
 
@@ -198,6 +220,10 @@ export function prepareMigrationFiles(
         rows: parsed.rows,
       });
     }
+  }
+
+  if (prepared.length === 0) {
+    throw new Error("Could not infer a supported migration entity from filename or headers.");
   }
 
   return prepared;

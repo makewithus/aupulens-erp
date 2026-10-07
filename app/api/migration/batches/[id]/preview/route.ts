@@ -4,6 +4,8 @@ import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationBatch from "@/models/admin/MigrationBatch";
+import MigrationJob from "@/models/admin/MigrationJob";
+import { getEntitySchema } from "@/lib/migration/entitySchemas";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -37,14 +39,59 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   }
 
   const query = { batchId: id, tenantId: session.user.tenantId, entityType, ...previewMatch };
-  const [total, records] = await Promise.all([
+  const [total, records, jobs] = await Promise.all([
     MigrationRecord.countDocuments(query),
     MigrationRecord.find(query)
       .sort({ _id: 1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .lean(),
+    MigrationJob.find({ batchId: id, tenantId: session.user.tenantId, entityType })
+      .select("columns mapping")
+      .lean(),
   ]);
+
+  const schema = getEntitySchema(entityType);
+  const labelByKey = new Map((schema?.fields || []).map((field) => [field.key, field.label]));
+  const mappedKeys = new Set<string>();
+  const sourceColumnByField = new Map<string, string>();
+  const mappedSourceColumns = new Set<string>();
+  const sourceColumns = new Set<string>();
+
+  for (const job of jobs) {
+    Object.entries((job.mapping || {}) as Record<string, string>).forEach(([fieldKey, sourceColumn]) => {
+      mappedKeys.add(fieldKey);
+      if (sourceColumn) {
+        mappedSourceColumns.add(sourceColumn);
+        if (!sourceColumnByField.has(fieldKey)) sourceColumnByField.set(fieldKey, sourceColumn);
+      }
+    });
+    ((job.columns || []) as string[]).forEach((column) => sourceColumns.add(column));
+  }
+  for (const record of records) {
+    Object.entries(record.mappedData || {}).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && String(value).trim() !== "") {
+        mappedKeys.add(key);
+      }
+    });
+    Object.keys(record.sourceData || {}).forEach((key) => sourceColumns.add(key));
+  }
+
+  const columns = [
+    ...Array.from(mappedKeys).map((key) => ({
+      key,
+      label: labelByKey.get(key) || key,
+      source: "mapped" as const,
+      sourceColumn: sourceColumnByField.get(key) || null,
+    })),
+    ...Array.from(sourceColumns)
+      .filter((key) => !mappedSourceColumns.has(key))
+      .map((key) => ({
+        key,
+        label: key,
+        source: "source" as const,
+      })),
+  ];
 
   return NextResponse.json({
     success: true,
@@ -54,6 +101,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       pageSize,
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      columns,
     },
   });
 }

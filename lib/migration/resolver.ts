@@ -123,6 +123,18 @@ async function hasWorkspaceReference(
       { "sourceData.Account Name": sourceMatcher },
       { "sourceData.Email": sourceMatcher },
       { "sourceData.email": sourceMatcher },
+      { "sourceData.Legacy Customer ID": sourceMatcher },
+      { "sourceData.Customer Legacy ID": sourceMatcher },
+      { "sourceData.Legacy Vendor ID": sourceMatcher },
+      { "sourceData.Vendor Legacy ID": sourceMatcher },
+      { "sourceData.Legacy Product ID": sourceMatcher },
+      { "sourceData.Product Legacy ID": sourceMatcher },
+      { "sourceData.Legacy Invoice ID": sourceMatcher },
+      { "sourceData.Invoice Legacy ID": sourceMatcher },
+      { "sourceData.Legacy Payment ID": sourceMatcher },
+      { "sourceData.Payment Legacy ID": sourceMatcher },
+      { "sourceData.Legacy Employee ID": sourceMatcher },
+      { "sourceData.Employee Legacy ID": sourceMatcher },
     ],
   })
     .select("_id")
@@ -142,14 +154,16 @@ export async function validateRelationships(
     if (canonical.customerName) {
       const ref = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.CUSTOMER, canonical.customerName);
       if (!ref && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.CUSTOMER, canonical.customerName))) {
-        errors.push({ field: "customerName", message: `Missing reference: Customer '${canonical.customerName}' not found` });
+        // Legacy ERP exports often contain transactional rows for archived or
+        // deleted customers absent from the customer master export. We preserve
+        // the invoice by creating a placeholder customer during import.
       }
     }
   } else if (entityType === MIGRATION_ENTITY.PURCHASE_INVOICE) {
     if (canonical.vendorName) {
       const ref = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.VENDOR, canonical.vendorName);
       if (!ref && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.VENDOR, canonical.vendorName))) {
-        errors.push({ field: "vendorName", message: `Missing reference: Vendor '${canonical.vendorName}' not found` });
+        // Placeholder vendor will be created during import if still missing.
       }
     }
   } else if (entityType === MIGRATION_ENTITY.PAYMENT) {
@@ -158,7 +172,7 @@ export async function validateRelationships(
       const partyEntityType = type === "inbound" ? MIGRATION_ENTITY.CUSTOMER : MIGRATION_ENTITY.VENDOR;
       const ref = await resolveEntityReference(tenantId, batchId, partyEntityType, canonical.partyName);
       if (!ref && !(await hasWorkspaceReference(tenantId, batchId, partyEntityType, canonical.partyName))) {
-        errors.push({ field: "partyName", message: `Missing reference: ${partyEntityType} '${canonical.partyName}' not found` });
+        // Placeholder party will be created during import if still missing.
       }
     }
   } else if (entityType === MIGRATION_ENTITY.EXPENSE) {
@@ -178,7 +192,8 @@ export async function validateRelationships(
     if (canonical.productSourceId) {
       const productRef = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.PRODUCT, canonical.productSourceId);
       if (!productRef && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.PRODUCT, canonical.productSourceId))) {
-        errors.push({ field: "productSourceId", message: `Missing reference: Product '${canonical.productSourceId}' not found` });
+        // Invoice lines can still be preserved with a free-text item name when
+        // the referenced product is absent from the product master export.
       }
     }
   }

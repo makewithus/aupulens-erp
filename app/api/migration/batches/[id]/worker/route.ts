@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import { markBatchFailed, processMigrationWorker } from "@/lib/migration/worker";
 import MigrationBatch from "@/models/admin/MigrationBatch";
+import { productionMigrationError } from "@/lib/migration/errors";
 
 const WORKER_CHUNK_LIMIT = 1000;
 const WORKER_TIME_BUDGET_MS = 8000;
@@ -53,6 +54,6 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     });
   } catch (err: any) {
     await markBatchFailed(id, err);
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, message: productionMigrationError(err), done: true }, { status: 200 });
   }
 }

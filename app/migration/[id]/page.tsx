@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { PreviewAndResolution } from "@/components/migration/PreviewAndResolution";
 import { InvalidRecordsEditor } from "@/components/migration/InvalidRecordsEditor";
 import { AupulensPreview } from "@/components/migration/AupulensPreview";
+import { productionMigrationError } from "@/lib/migration/errors";
 
 const STEPS = [
   "UPLOAD",
@@ -99,8 +100,8 @@ function batchStatusCopy(status: string) {
 
 function batchErrorMessage(batch: any) {
   const firstError = Array.isArray(batch?.errors) ? batch.errors[0] : batch?.errors;
-  if (typeof firstError === "string") return firstError;
-  if (firstError?.message) return firstError.message;
+  if (typeof firstError === "string") return productionMigrationError(firstError);
+  if (firstError?.message) return productionMigrationError(firstError.message);
   return "Migration failed. Please review the batch and try again.";
 }
 
@@ -239,7 +240,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     try {
       const res = await fetch(`/api/migration/batches/${id}/start`, { method: "POST" });
       const data = await res.json();
-      if (res.ok) {
+      if (res.ok && data.success !== false) {
         toast.success("Migration started!");
         await tickWorker();
         await loadData();

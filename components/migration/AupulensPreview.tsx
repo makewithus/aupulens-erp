@@ -6,6 +6,61 @@ import { ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut } from "lucide-reac
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const ZOOM_OPTIONS = [0.75, 1, 1.25, 1.5];
 
+type PreviewColumn = {
+  key: string;
+  label: string;
+  source: "mapped" | "source";
+  sourceColumn?: string | null;
+};
+
+function titleCase(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function normalizePhoneLikeValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[+-]?\d+(?:\.\d+)?e[+-]?\d+$/i.test(trimmed)) {
+    const expanded = Number(trimmed);
+    if (Number.isFinite(expanded)) return formatIndianPhone(expanded.toFixed(0));
+  }
+  return formatIndianPhone(trimmed);
+}
+
+function formatIndianPhone(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+91 ${digits.slice(2)}`;
+  }
+  if (digits.length === 10) {
+    return `+91 ${digits}`;
+  }
+  return value.trim();
+}
+
+function formatPreviewValue(column: PreviewColumn, value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const raw = String(value);
+  if (/phone|mobile|contact/i.test(column.key) || /phone|mobile|contact/i.test(column.label)) {
+    return normalizePhoneLikeValue(raw);
+  }
+  return raw;
+}
+
+function previewCellValue(record: any, column: PreviewColumn): unknown {
+  if (column.source === "source") return record.sourceData?.[column.key];
+  const mappedValue = record.mappedData?.[column.key];
+  if (mappedValue !== null && mappedValue !== undefined && String(mappedValue).trim() !== "") {
+    return mappedValue;
+  }
+  return column.sourceColumn ? record.sourceData?.[column.sourceColumn] : mappedValue;
+}
+
 export function AupulensPreview({
   batchId,
   showInitialLoader = true,
@@ -23,6 +78,7 @@ export function AupulensPreview({
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [zoom, setZoom] = useState(1);
+  const [columns, setColumns] = useState<PreviewColumn[]>([]);
 
   useEffect(() => {
     fetch(`/api/migration/batches/${batchId}/preview`)
@@ -51,18 +107,13 @@ export function AupulensPreview({
           setRecords(Array.isArray(data.data) ? data.data : []);
           setTotalRecords(data.meta?.total ?? data.data?.length ?? 0);
           setTotalPages(data.meta?.totalPages ?? 1);
+          setColumns(Array.isArray(data.meta?.columns) ? data.meta.columns : []);
         }
       })
       .finally(() => setRecordsLoading(false));
   }, [batchId, activeTab, page, pageSize]);
 
   const activeEntityCount = entities.find(e => e._id === activeTab)?.count ?? totalRecords;
-  const columns = Array.from(
-    records.reduce<Set<string>>((keys, record) => {
-      Object.keys(record.mappedData || {}).forEach((key) => keys.add(key));
-      return keys;
-    }, new Set<string>()),
-  );
   const firstRow = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastRow = Math.min(page * pageSize, totalRecords);
 
@@ -176,8 +227,13 @@ export function AupulensPreview({
             <thead className="sticky top-0 z-10 text-xs text-slate-700 uppercase bg-slate-50 border-b">
               <tr>
                 <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-50 px-4 py-3 font-semibold">S.NO</th>
-                {columns.map(k => (
-                  <th key={k} className="whitespace-nowrap px-6 py-3 font-semibold">{k}</th>
+                {columns.map((column) => (
+                  <th key={`${column.source}:${column.key}`} className="whitespace-nowrap px-6 py-3 font-semibold">
+                    <span>{titleCase(column.label)}</span>
+                    {column.source === "source" && (
+                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Source</span>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -187,9 +243,12 @@ export function AupulensPreview({
                   <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-4 py-3 font-semibold text-slate-500">
                     {(page - 1) * pageSize + i + 1}
                   </td>
-                  {columns.map(k => (
-                    <td key={k} className="whitespace-nowrap px-6 py-3">
-                      {String(r.mappedData?.[k] || "")}
+                  {columns.map((column) => (
+                    <td key={`${column.source}:${column.key}`} className="whitespace-nowrap px-6 py-3">
+                      {formatPreviewValue(
+                        column,
+                        previewCellValue(r, column),
+                      )}
                     </td>
                   ))}
                 </tr>
