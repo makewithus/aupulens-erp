@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import { getHandler } from "@/lib/migration/importer";
+import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -47,10 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await record.save();
   }
 
-  const [valid, invalid, duplicate, migrated] = await Promise.all([
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: session.user.tenantId, status: "valid" }),
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: session.user.tenantId, status: "invalid" }),
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: session.user.tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
+  const [{ valid, invalid, duplicate }, migrated] = await Promise.all([
+    computeMigrationReviewSummary(batch._id, session.user.tenantId),
     MigrationRecord.countDocuments({ batchId: batch._id, tenantId: session.user.tenantId, status: "migrated" }),
   ]);
 

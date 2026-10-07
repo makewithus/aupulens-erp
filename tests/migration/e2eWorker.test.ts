@@ -20,14 +20,17 @@ import { prepareMigrationFiles } from "@/lib/migration/package";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { ensureDepartmentForTenant } from "@/lib/migration/employeeDepartmentSync";
+import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
+import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 
 const TENANT = "tenant-migration-e2e";
 const USER_ID = new mongoose.Types.ObjectId();
+const itIfFile = (fileName: string) => fs.existsSync(fileName) ? it : it.skip;
 
-async function runWorkerUntilDone(batchId: string) {
+async function runWorkerUntilDone(batchId: string, limit = 2, maxIterations = 100) {
   let result = { done: false, processed: 0 };
-  for (let i = 0; i < 100 && !result.done; i++) {
-    result = await processMigrationWorker(batchId, 2);
+  for (let i = 0; i < maxIterations && !result.done; i++) {
+    result = await processMigrationWorker(batchId, limit);
   }
   expect(result.done).toBe(true);
 }
@@ -149,7 +152,7 @@ describe("migration worker E2E workflow", () => {
       [{ "Payment ID": "PAY-001", Type: "Receipt", "Customer Name": "Acme Industries", Amount: "2501.00", Date: "2026-09-05", "Receipt No": "RCPT-001" }],
     );
 
-    await runWorkerUntilDone(String(batch._id));
+    await runWorkerUntilDone(String(batch._id), 50, 20);
 
     const previewBatch = await MigrationBatch.findById(batch._id).lean();
     expect(previewBatch?.status).toBe("preview");
@@ -159,7 +162,7 @@ describe("migration worker E2E workflow", () => {
     expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(0);
 
     await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
-    await runWorkerUntilDone(String(batch._id));
+    await runWorkerUntilDone(String(batch._id), 50, 20);
 
     const finalBatch = await MigrationBatch.findById(batch._id).lean();
     expect(finalBatch?.status).toBe("verified");
@@ -175,8 +178,9 @@ describe("migration worker E2E workflow", () => {
     expect(invoice?.lineItems).toHaveLength(2);
     expect(invoice?.lineItems.map((line) => String(line.itemId))).toEqual([String(product?._id), String(product?._id)]);
 
-    const receipt = await Payment.findOne({ tenantId: TENANT, paymentNumber: "RCPT-001" }).lean();
+    const receipt = await Payment.findOne({ tenantId: TENANT, paymentNumber: "PAY-001" }).lean();
     expect(String(receipt?.customerId)).toBe(String(customer?._id));
+    expect(receipt?.reference).toBe("RCPT-001");
     expect(receipt?.amountReceived).toBe(2501);
     expect(receipt?.unusedAmount).toBe(2501);
 
@@ -326,6 +330,54 @@ describe("migration worker E2E workflow", () => {
     expect(payment?.unusedAmount).toBe(285000);
   });
 
+  it("resolves customer receipts through invoice number when payment rows omit customer code", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 3,
+      totalRecords: 3,
+      totalModules: 3,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.CUSTOMER,
+      "MD_V3.xlsx - Customers",
+      { sourceId: "Customer Code", name: "Customer Name", email: "Email Address" },
+      [{ "Customer Code": "CUSV3-41000", "Customer Name": "Arjun Menon", "Email Address": "arjun_menon@demo-customer.example" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.SALES_INVOICE,
+      "MD_V3.xlsx - Invoices",
+      { sourceId: "Invoice No", number: "Invoice No", customerName: "Customer Code", invoiceDate: "Invoice Date", totalAmount: "Invoice Total" },
+      [{ "Invoice No": "INV-V3-91000", "Customer Code": "CUSV3-41000", "Invoice Date": "2026-01-31", "Invoice Total": "3675" }],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PAYMENT,
+      "MD_V3.xlsx - Payments",
+      { sourceId: "Payment Ref", invoiceSourceId: "Invoice No", type: "Payment Mode", reference: "Reference No", amount: "Amount", date: "Payment Date" },
+      [{ "Payment Ref": "PAY-V3-95000", "Invoice No": "INV-V3-91000", "Payment Date": "2026-02-09", "Payment Mode": "Payment", "Reference No": "REF-330000", Amount: "3675", Status: "Cleared" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const invalid = await MigrationRecord.find({ batchId: batch._id, status: "invalid" }).lean();
+    expect(invalid).toEqual([]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 0 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    const customer = await Customer.findOne({ tenantId: TENANT, "header.name": "Arjun Menon" }).lean();
+    const payment = await Payment.findOne({ tenantId: TENANT, paymentNumber: "PAY-V3-95000" }).lean();
+    expect(String(payment?.customerId)).toBe(String(customer?._id));
+    expect(payment?.reference).toBe("REF-330000");
+    expect(payment?.amountReceived).toBe(3675);
+  });
+
   it("flags duplicate uploaded master records during validation without blocking repeated invoice lines", async () => {
     const batch = await MigrationBatch.create({
       tenantId: TENANT,
@@ -386,6 +438,360 @@ describe("migration worker E2E workflow", () => {
       entityType: MIGRATION_ENTITY.INVOICE_ITEM,
     }).select("status").lean();
     expect(lineStatuses.map((record) => record.status)).toEqual(["valid", "valid"]);
+  });
+
+  it("counts duplicates with null duplicateAction as unresolved blockers", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "products.xlsx - Products",
+      { sourceId: "Item Code", sku: "SKU", name: "Item Description" },
+      [{ "Item Code": "ITM-DUP", SKU: "SKU-DUP", "Item Description": "Duplicate Product" }],
+    );
+
+    await MigrationRecord.updateOne(
+      { batchId: batch._id, jobId: job._id },
+      {
+        $set: {
+          status: "duplicate",
+          duplicateAction: null,
+          duplicateReason: "upload",
+          duplicateFields: ["sku"],
+          mappedData: { sourceId: "ITM-DUP", sku: "SKU-DUP", name: "Duplicate Product" },
+        },
+      },
+    );
+
+    const unresolved = await MigrationRecord.countDocuments(unresolvedDuplicateFilter({ batchId: batch._id, tenantId: TENANT }));
+    expect(unresolved).toBe(1);
+  });
+
+  it("counts merge/update and force-create duplicate decisions as valid review records", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 3,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "products.xlsx - Products",
+      { sourceId: "Item Code", sku: "SKU", name: "Item Description" },
+      [
+        { "Item Code": "ITM-1", SKU: "SKU-1", "Item Description": "Valid Product" },
+        { "Item Code": "ITM-2", SKU: "SKU-2", "Item Description": "Merge Product" },
+        { "Item Code": "ITM-3", SKU: "SKU-3", "Item Description": "Create Product" },
+      ],
+    );
+
+    const records = await MigrationRecord.find({ batchId: batch._id, jobId: job._id }).sort({ _id: 1 });
+    records[0].status = "valid";
+    records[1].status = "duplicate";
+    records[1].duplicateAction = "update";
+    records[2].status = "duplicate";
+    records[2].duplicateAction = "create";
+    await Promise.all(records.map((record) => record.save()));
+
+    const summary = await computeMigrationReviewSummary(batch._id, TENANT);
+    expect(summary).toEqual({ valid: 3, invalid: 0, duplicate: 0 });
+  });
+
+  it("surfaces duplicates, optional warnings, and invalid values during preview validation", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 4,
+      totalRecords: 10,
+      totalModules: 4,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.CUSTOMER,
+      "MD_V3.xlsx - Customers",
+      { sourceId: "Customer Code", name: "Customer Name", email: "Email", phone: "Phone" },
+      [
+        { "Customer Code": "CUS-A", "Customer Name": "Acme Retail", Email: "billing@acme.example", Phone: "8600000000" },
+        { "Customer Code": "CUS-B", "Customer Name": "Acme Retail", Email: "billing@acme.example", Phone: "8600000001" },
+      ],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "MD_V3.xlsx - Products",
+      { sourceId: "Item Code", sku: "SKU", name: "Item Name", brand: "Brand", category: "Category", stockQuantity: "Stock" },
+      [
+        { "Item Code": "ITM-A", SKU: "SKU-1", "Item Name": "Bluetooth Speaker", Brand: "", Category: "", Stock: "10" },
+        { "Item Code": "ITM-B", SKU: "SKU-1", "Item Name": "Bluetooth Speaker", Brand: "Proline", Category: "Audio", Stock: "10" },
+        { "Item Code": "ITM-C", SKU: "SKU-2", "Item Name": "Invalid Stock", Brand: "Proline", Category: "Audio", Stock: "-1" },
+      ],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.SALES_INVOICE,
+      "MD_V3.xlsx - Invoices",
+      { sourceId: "Invoice No", number: "Invoice No", customerName: "Customer Code", invoiceDate: "Invoice Date" },
+      [
+        { "Invoice No": "INV-GOOD", "Customer Code": "CUS-A", "Invoice Date": "2026-02-28" },
+        { "Invoice No": "INV-BAD", "Customer Code": "CUS-A", "Invoice Date": "31/02/2026" },
+      ],
+    );
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PAYMENT,
+      "MD_V3.xlsx - Payments",
+      { sourceId: "Payment Ref", partyName: "Customer Code", reference: "Reference No", amount: "Amount", date: "Payment Date", type: "Payment Mode" },
+      [
+        { "Payment Ref": "PAY-A", "Customer Code": "CUS-A", "Reference No": "REF-DUP", Amount: "100", "Payment Date": "2026-03-01", "Payment Mode": "UPI" },
+        { "Payment Ref": "PAY-B", "Customer Code": "CUS-A", "Reference No": "REF-DUP", Amount: "200", "Payment Date": "2026-03-02", "Payment Mode": "Cheque" },
+      ],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const customerDuplicates = await MigrationRecord.find({ batchId: batch._id, entityType: MIGRATION_ENTITY.CUSTOMER, status: "duplicate" }).lean();
+    expect(customerDuplicates).toHaveLength(1);
+    expect(customerDuplicates[0].duplicateFields).toEqual(["email", "name"]);
+
+    const productDuplicate = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.PRODUCT, status: "duplicate" }).lean();
+    expect(productDuplicate?.duplicateFields).toEqual(["sku"]);
+
+    const paymentDuplicate = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.PAYMENT, status: "duplicate" }).lean();
+    expect(paymentDuplicate?.duplicateFields).toEqual(["reference"]);
+
+    const warnedProduct = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.PRODUCT, "mappedData.sku": "SKU-1", status: "valid" }).lean();
+    expect(warnedProduct?.warnings?.map((warning: any) => warning.field).sort()).toEqual(["brand", "category"]);
+
+    const invalidRecords = await MigrationRecord.find({ batchId: batch._id, status: "invalid" }).select("entityType errors").lean();
+    expect(invalidRecords).toHaveLength(2);
+    expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.PRODUCT && /stock quantity cannot be negative/.test(record.errors?.[0]?.message || ""))).toBe(true);
+    expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.SALES_INVOICE && /valid calendar date/.test(record.errors?.[0]?.message || ""))).toBe(true);
+  });
+
+  itIfFile("MD_V3.xlsx")("validates the MD_V3 workbook to preview without product taxonomy false errors", async () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "MD_V3.xlsx", buffer: fs.readFileSync("MD_V3.xlsx") }],
+      "excel",
+    );
+
+    expect(prepared.map((file) => file.entityType)).toEqual([
+      MIGRATION_ENTITY.CUSTOMER,
+      MIGRATION_ENTITY.VENDOR,
+      MIGRATION_ENTITY.PRODUCT,
+      MIGRATION_ENTITY.SALES_ORDER,
+      MIGRATION_ENTITY.SALES_ORDER_LINE,
+      MIGRATION_ENTITY.SALES_INVOICE,
+      MIGRATION_ENTITY.PAYMENT,
+    ]);
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: prepared.length,
+      totalRecords: prepared.reduce((sum, file) => sum + file.rows.length, 0),
+      totalModules: prepared.length,
+    });
+
+    for (const file of prepared) {
+      const schema = getEntitySchema(file.entityType)!;
+      await createJobWithRecords(
+        batch._id,
+        file.entityType,
+        file.name,
+        deterministicMapping(schema, file.columns),
+        file.rows,
+      );
+    }
+
+    await runWorkerUntilDone(String(batch._id), 50, 20);
+
+    const finalBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(finalBatch?.status).toBe("preview");
+
+    const productTypeErrors = await MigrationRecord.find({
+      batchId: batch._id,
+      entityType: MIGRATION_ENTITY.PRODUCT,
+      status: "invalid",
+      "errors.message": /Product type must be one of/i,
+    }).lean();
+    expect(productTypeErrors).toEqual([]);
+  });
+
+  it("revalidates stale invalid product taxonomy rows after automatic fixes", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "MD_V3.xlsx - Products",
+      { sourceId: "Item Code", sku: "SKU", name: "Item Description", type: "Product Type", brand: "Brand", category: "Category" },
+      [{ "Item Code": "ITMV3-61003", SKU: "SKU-V3-73003", "Item Description": "Pulse Barcode Scanner", Category: "Printing", "Product Type": "Equipment", Brand: "Kryton" }],
+    );
+
+    await MigrationRecord.updateOne(
+      { batchId: batch._id, jobId: job._id },
+      {
+        $set: {
+          status: "invalid",
+          mappedData: { sourceId: "ITMV3-61003", sku: "SKU-V3-73003", name: "Pulse Barcode Scanner", type: "Equipment" },
+          errors: [{ message: "Product type must be one of: consumable, service, combo, hardware, accessory, goods, or item." }],
+        },
+      },
+    );
+
+    const invalid = await MigrationRecord.findOne({ batchId: batch._id, status: "invalid" }).lean();
+    const { fastFixMigrationRecord } = await import("@/lib/migration/aiFix");
+    const result = await fastFixMigrationRecord(String(batch._id), TENANT, String(invalid?._id));
+    expect(result.fixed).toBe(true);
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id }).lean();
+    expect(record?.status).toBe("valid");
+    expect(record?.errors).toEqual([]);
+  });
+
+  it("does not show automatic fix success when a required source value is still missing", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.CUSTOMER,
+      "customers.csv",
+      { sourceId: "Customer Code", name: "Customer Name", email: "Email" },
+      [{ "Customer Code": "CUS-MISSING-NAME", "Customer Name": "", Email: "billing@example.com" }],
+    );
+
+    await MigrationRecord.updateOne(
+      { batchId: batch._id, jobId: job._id },
+      {
+        $set: {
+          status: "invalid",
+          mappedData: { sourceId: "CUS-MISSING-NAME", name: "", email: "billing@example.com" },
+          errors: [{ field: "name", message: "Missing required field: Name / Company" }],
+        },
+      },
+    );
+
+    const invalid = await MigrationRecord.findOne({ batchId: batch._id, status: "invalid" }).lean();
+    const { fixMigrationRecordWithAi } = await import("@/lib/migration/aiFix");
+    const result = await fixMigrationRecordWithAi(String(batch._id), TENANT, String(invalid?._id));
+    expect(result.fixed).toBe(false);
+
+    const record = await MigrationRecord.findById(invalid?._id).lean();
+    expect(record?.status).toBe("invalid");
+    expect(record?.errors?.[0]?.message).toBe("Missing required field: Name / Company");
+  });
+
+  it("repairs negative product quantities after an explicit automatic fix", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PRODUCT,
+      "MD_V3.xlsx - Products",
+      { sourceId: "Item Code", sku: "SKU", name: "Item Description", stockQuantity: "Stock Qty" },
+      [{ "Item Code": "ITMV3-61032", SKU: "SKU-V3-73032", "Item Description": "Nexus Conference Mic", "Stock Qty": "-15" }],
+    );
+
+    await MigrationRecord.updateOne(
+      { batchId: batch._id, jobId: job._id },
+      {
+        $set: {
+          status: "invalid",
+          mappedData: { sourceId: "ITMV3-61032", sku: "SKU-V3-73032", name: "Nexus Conference Mic", stockQuantity: "-15" },
+          errors: [{ message: "Product stock quantity cannot be negative." }],
+        },
+      },
+    );
+
+    const invalid = await MigrationRecord.findOne({ batchId: batch._id, status: "invalid" }).lean();
+    const { fastFixMigrationRecord } = await import("@/lib/migration/aiFix");
+    const result = await fastFixMigrationRecord(String(batch._id), TENANT, String(invalid?._id));
+    expect(result.fixed).toBe(true);
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id }).lean();
+    expect(record?.status).toBe("valid");
+    expect(record?.mappedData?.stockQuantity).toBe("0");
+  });
+
+  it("preserves payments with missing invoice history as unapplied receipts", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.PAYMENT,
+      "MD_V3.xlsx - Payments",
+      { sourceId: "Payment Ref", invoiceSourceId: "Invoice No", type: "Payment Mode", reference: "Reference No", amount: "Amount", date: "Payment Date" },
+      [{ "Payment Ref": "PAY-V3-95054", "Invoice No": "INV-V3-99999", "Payment Date": "2026-05-28", "Payment Mode": "Cheque", "Reference No": "REF-330054", Amount: "4389.15", Status: "Cleared" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const record = await MigrationRecord.findOne({ batchId: batch._id }).lean();
+    expect(record?.status).toBe("valid");
+    expect(record?.errors).toEqual([]);
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 1 } });
+    await runWorkerUntilDone(String(batch._id));
+
+    const payment = await Payment.findOne({ tenantId: TENANT, paymentNumber: "PAY-V3-95054" }).lean();
+    expect(payment?.amountReceived).toBe(4389.15);
+    expect(payment?.unusedAmount).toBe(4389.15);
+    expect(payment?.allocations).toEqual([]);
   });
 
   it("validates and migrates the simple root employee/product workbook without false product duplicates", async () => {
@@ -767,7 +1173,7 @@ describe("migration worker E2E workflow", () => {
     expect(product?.tab_general_information.list_price).toBe(7000);
   });
 
-  it("validates and migrates the MD_V2 workbook end to end without product duplicates", async () => {
+  itIfFile("MD_V2.xlsx")("validates and migrates the MD_V2 workbook end to end without product duplicates", async () => {
     const prepared = prepareMigrationFiles(
       [{ name: "MD_V2.xlsx", buffer: fs.readFileSync("MD_V2.xlsx") }],
       "excel",

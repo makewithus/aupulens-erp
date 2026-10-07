@@ -3,7 +3,7 @@ import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationJob from "@/models/admin/MigrationJob";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import { getHandler } from "@/lib/migration/importer";
-import { toCanonicalRecord, dedupeSignature } from "@/lib/migration/validation";
+import { toCanonicalRecord, dedupeSignature, validateRows } from "@/lib/migration/validation";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { resolveEntityReference, validateRelationships } from "@/lib/migration/resolver";
 import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
@@ -11,6 +11,9 @@ import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { after } from "next/server";
 import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
 import { productionMigrationError } from "@/lib/migration/errors";
+import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
+import { computeMigrationReviewSummary } from "@/lib/migration/summary";
+import { deterministicMapping as buildDeterministicMapping } from "@/lib/migration/deterministicMapping";
 
 const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.ACCOUNT]: 10,
@@ -18,8 +21,10 @@ const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.VENDOR]: 20,
   [MIGRATION_ENTITY.PRODUCT]: 20,
   [MIGRATION_ENTITY.EMPLOYEE]: 20,
+  [MIGRATION_ENTITY.SALES_ORDER]: 30,
   [MIGRATION_ENTITY.SALES_INVOICE]: 30,
   [MIGRATION_ENTITY.PURCHASE_INVOICE]: 30,
+  [MIGRATION_ENTITY.SALES_ORDER_LINE]: 40,
   [MIGRATION_ENTITY.INVOICE_ITEM]: 40,
   [MIGRATION_ENTITY.PAYMENT]: 50,
   [MIGRATION_ENTITY.EXPENSE]: 50,
@@ -27,6 +32,7 @@ const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
 
 const IN_FILE_DUPLICATE_EXEMPT_ENTITIES = new Set<string>([
   MIGRATION_ENTITY.INVOICE_ITEM,
+  MIGRATION_ENTITY.SALES_ORDER_LINE,
 ]);
 
 function duplicateSignature(entityType: string, schema: any, canonical: Record<string, string>): string | null {
@@ -79,6 +85,9 @@ function identitySourceIds(entityType: string, canonical: Record<string, string>
     add(canonical.name);
     add(canonical.sku);
   }
+  if (entityType === MIGRATION_ENTITY.SALES_ORDER) {
+    add(canonical.number);
+  }
   if (entityType === MIGRATION_ENTITY.ACCOUNT) {
     add(canonical.accountName);
     add(canonical.accountCode);
@@ -93,6 +102,9 @@ function identitySourceIds(entityType: string, canonical: Record<string, string>
   }
   if (entityType === MIGRATION_ENTITY.INVOICE_ITEM) {
     add(`${canonical.invoiceSourceId || ""}-${canonical.productName || ""}`);
+  }
+  if (entityType === MIGRATION_ENTITY.SALES_ORDER_LINE) {
+    add(`${canonical.orderSourceId || ""}-${canonical.productName || ""}`);
   }
   if (entityType === MIGRATION_ENTITY.PAYMENT) {
     add(canonical.reference);
@@ -130,7 +142,16 @@ function normalizeCanonicalRecord(entityType: string, canonical: Record<string, 
     if (!canonical.number && canonical.sourceId) canonical.number = canonical.sourceId;
     if (!canonical.totalAmount) canonical.totalAmount = "0";
   }
+  if (entityType === MIGRATION_ENTITY.SALES_ORDER) {
+    if (!canonical.sourceId && canonical.number) canonical.sourceId = canonical.number;
+    if (!canonical.number && canonical.sourceId) canonical.number = canonical.sourceId;
+    if (!canonical.totalAmount) canonical.totalAmount = "0";
+  }
   if (entityType === MIGRATION_ENTITY.INVOICE_ITEM) {
+    if (!canonical.productName && canonical.productSourceId) canonical.productName = canonical.productSourceId;
+    if (!canonical.lineTotal) canonical.lineTotal = String(numeric(canonical.qty) * numeric(canonical.unitPrice));
+  }
+  if (entityType === MIGRATION_ENTITY.SALES_ORDER_LINE) {
     if (!canonical.productName && canonical.productSourceId) canonical.productName = canonical.productSourceId;
     if (!canonical.lineTotal) canonical.lineTotal = String(numeric(canonical.qty) * numeric(canonical.unitPrice));
   }
@@ -211,11 +232,7 @@ async function returnBatchToPreviewForConflicts(batch: any) {
 
   if (conflicts === 0) return false;
 
-  const [valid, invalid, duplicate] = await Promise.all([
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "valid" }),
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "invalid" }),
-    MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
-  ]);
+  const { valid, invalid, duplicate } = await computeMigrationReviewSummary(batch._id, batch.tenantId);
   batch.status = "preview";
   batch.progress = 100;
   batch.summary = { ...batch.summary, valid, invalid, duplicate };
@@ -272,6 +289,11 @@ export async function processMigrationWorker(batchId: string, limit = 500) {
 }
 
 async function runValidationChunk(batch: any, limit: number) {
+  if (!batch.progress || batch.progress < 1) {
+    batch.progress = 1;
+    await batch.save();
+  }
+
   const records = await MigrationRecord.find({
     batchId: batch._id,
     tenantId: batch.tenantId,
@@ -282,9 +304,7 @@ async function runValidationChunk(batch: any, limit: number) {
     batch.status = "preview";
     
     // Update summary counts
-    const valid = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "valid" });
-    const invalid = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "invalid" });
-    const duplicate = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "duplicate" });
+    const { valid, invalid, duplicate } = await computeMigrationReviewSummary(batch._id, batch.tenantId);
     batch.summary = { ...batch.summary, valid, invalid, duplicate };
     batch.progress = 100;
     await batch.save();
@@ -321,21 +341,45 @@ async function runValidationChunk(batch: any, limit: number) {
       continue;
     }
 
-    const mapping = (job.mapping || {}) as Record<string, string>;
+    // Heal stale mappings: if a required field is unmapped, try fresh deterministic mapping.
+    // This fixes batches created before alias updates (e.g. 'Invoice No' → 'number').
+    let mapping = (job.mapping || {}) as Record<string, string>;
+    const missingRequiredFields = schema.fields.filter(f => f.required && !mapping[f.key]);
+    if (missingRequiredFields.length > 0) {
+      const freshMapping = buildDeterministicMapping(schema, job.columns || []);
+      let healed = false;
+      for (const field of missingRequiredFields) {
+        if (freshMapping[field.key] && !mapping[field.key]) {
+          mapping = { ...mapping, [field.key]: freshMapping[field.key] };
+          healed = true;
+        }
+      }
+      if (healed) {
+        job.mapping = mapping as any;
+        await job.save();
+      }
+    }
     
     for (const rec of jobRecords) {
       const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
+      const validation = validateRows(job.entityType, [rec.sourceData as Record<string, unknown>], mapping);
+      const rowValidationErrors = validation.issues
+        .filter((issue) => issue.rowIndex === 0 && issue.severity === "error")
+        .map((issue) => ({ field: issue.field, message: issue.message }));
+      const rowValidationWarnings = validation.issues
+        .filter((issue) => issue.rowIndex === 0 && issue.severity === "warning")
+        .map((issue) => ({ field: issue.field, message: issue.message }));
       
-      const missingRequired = schema.fields.filter(f => f.required && !canonical[f.key]);
       const relationshipErrors = await validateRelationships(batch.tenantId, batch._id.toString(), job.entityType, canonical);
       const update: Record<string, any> = {
         mappedData: canonical,
+        warnings: rowValidationWarnings,
       };
       
-      if (missingRequired.length > 0 || relationshipErrors.length > 0) {
+      if (relationshipErrors.length > 0 || rowValidationErrors.length > 0) {
         update.status = "invalid";
         update.errors = [
-          ...missingRequired.map(f => ({ field: f.key, message: `Missing required field: ${f.label}` })),
+          ...rowValidationErrors,
           ...relationshipErrors
         ];
       } else {
@@ -385,13 +429,18 @@ async function runValidationChunk(batch: any, limit: number) {
   // Update validation progress
   const pendingCount = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "pending" });
   const total = batch.totalRecords || 1;
-  batch.progress = Math.min(99, Math.floor(((total - pendingCount) / total) * 100));
+  batch.progress = Math.min(99, Math.max(1, Math.floor(((total - pendingCount) / total) * 100)));
   await batch.save();
 
   return { done: false, processed };
 }
 
 async function runMigrationChunk(batch: any, limit: number) {
+  if (!batch.progress || batch.progress < 1) {
+    batch.progress = 1;
+    await batch.save();
+  }
+
   if (await returnBatchToPreviewForConflicts(batch)) {
     return { done: true, processed: 0, message: "Migration paused for duplicate review." };
   }
@@ -563,7 +612,7 @@ async function runMigrationChunk(batch: any, limit: number) {
   const migratedCount = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "migrated" });
   const failedCount = await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "failed" });
   const total = batch.totalRecords || 1;
-  batch.progress = Math.min(100, Math.floor(((migratedCount + failedCount) / total) * 100));
+  batch.progress = Math.min(100, Math.max(1, Math.floor(((migratedCount + failedCount) / total) * 100)));
   await batch.save();
 
   const remainingCount = await MigrationRecord.countDocuments({

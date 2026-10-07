@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationBatch from "@/models/admin/MigrationBatch";
-import { fixMigrationRecordWithAi } from "@/lib/migration/aiFix";
+import { fastFixMigrationRecord, fixMigrationRecordWithAi } from "@/lib/migration/aiFix";
 import { processMigrationWorker } from "@/lib/migration/worker";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,22 +31,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const messages: string[] = [];
 
   for (const item of recordIds) {
-    const result = await fixMigrationRecordWithAi(id, session.user.tenantId, String(item._id));
+    const result = scope === "all"
+      ? await fastFixMigrationRecord(id, session.user.tenantId, String(item._id))
+      : await fixMigrationRecordWithAi(id, session.user.tenantId, String(item._id));
     if (result.fixed) fixedCount += 1;
-    if (result.aiUsed) aiUsedCount += 1;
+    if ("aiUsed" in result && result.aiUsed) aiUsedCount += 1;
     if (!result.fixed) messages.push(result.message);
   }
 
   if (fixedCount > 0) {
-    await processMigrationWorker(id, 1000);
+    let done = false;
+    for (let i = 0; i < 5 && !done; i += 1) {
+      const result = await processMigrationWorker(id, 50);
+      done = result.done;
+      if (result.processed === 0) break;
+    }
   }
 
   return NextResponse.json({
-    success: true,
+    success: fixedCount > 0,
     fixedCount,
     aiUsedCount,
     message: fixedCount > 0
       ? `${fixedCount} invalid record${fixedCount === 1 ? "" : "s"} fixed and sent back through validation.`
-      : messages[0] || "No invalid records were available to fix.",
+      : messages[0] || "No automatic fix was available for these rows. Please edit the highlighted fields.",
   });
 }

@@ -25,6 +25,7 @@ import {
 import { MIGRATION_MAX_ROWS } from "@/lib/migration/constants";
 
 const buf = (s: string) => Buffer.from(s, "utf-8");
+const itIfFile = (fileName: string) => fs.existsSync(fileName) ? it : it.skip;
 
 describe("sourceAdapters.validateSourceFile", () => {
   it("accepts supported formats", () => {
@@ -96,6 +97,9 @@ describe("migration package preparation", () => {
     expect(inferEntityType("ledger-export.csv", ["Ledger Name", "Under"])).toBe("account");
     expect(inferEntityType("mystery.csv", ["Customer Name", "GST No", "Email ID"])).toBe("customer");
     expect(inferEntityType("invoice-lines.csv", ["Invoice Number", "Item Name", "Qty", "Rate"])).toBe("invoiceItem");
+    expect(inferEntityType("Sales Orders", ["Sales Order No", "Customer Code", "Order Date", "Order Total"])).toBe("salesOrder");
+    expect(inferEntityType("Sales Order Lines", ["Sales Order No", "Item Code", "Quantity", "Unit Price"])).toBe("salesOrderLine");
+    expect(inferEntityType("README", ["Notes"])).toBeNull();
   });
 
   it("prepares files atomically and fails unsupported entity data", () => {
@@ -140,7 +144,7 @@ describe("migration package preparation", () => {
     ]);
   });
 
-  it("maps the root employee/product workbook without dropping simple fields", () => {
+  itIfFile("Aupulens_Employee_Product_Migration_Test_Data.xlsx")("maps the root employee/product workbook without dropping simple fields", () => {
     const prepared = prepareMigrationFiles(
       [{ name: "Aupulens_Employee_Product_Migration_Test_Data.xlsx", buffer: fs.readFileSync("Aupulens_Employee_Product_Migration_Test_Data.xlsx") }],
       "excel",
@@ -178,7 +182,7 @@ describe("migration package preparation", () => {
     });
   });
 
-  it("maps the MD_V2 workbook identifiers and fields for employee/product preview", () => {
+  itIfFile("MD_V2.xlsx")("maps the MD_V2 workbook identifiers and fields for employee/product preview", () => {
     const prepared = prepareMigrationFiles(
       [{ name: "MD_V2.xlsx", buffer: fs.readFileSync("MD_V2.xlsx") }],
       "excel",
@@ -216,7 +220,46 @@ describe("migration package preparation", () => {
     });
   });
 
-  it("uploads the root Odoo legacy workbook without failing on unsupported sheets", () => {
+  itIfFile("MD_V3.xlsx")("maps MD_V3 payments through invoice references without needing AI", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "MD_V3.xlsx", buffer: fs.readFileSync("MD_V3.xlsx") }],
+      "excel",
+    );
+
+    const payments = prepared.find((file) => file.entityType === "payment")!;
+    expect(payments.rows.length).toBe(55);
+
+    const mapping = deterministicMapping(getEntitySchema("payment")!, payments.columns);
+    expect(mapping).toMatchObject({
+      sourceId: "Payment Ref",
+      invoiceSourceId: "Invoice No",
+      date: "Payment Date",
+      type: "Payment Mode",
+      reference: "Reference No",
+      amount: "Amount",
+    });
+    expect(mapping.partyName).toBeUndefined();
+  });
+
+  itIfFile("MD_V3.xlsx")("detects all MD_V3 workbook entities and ignores README", () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "MD_V3.xlsx", buffer: fs.readFileSync("MD_V3.xlsx") }],
+      "excel",
+    );
+
+    expect(prepared.map((file) => file.entityType)).toEqual([
+      "customer",
+      "vendor",
+      "product",
+      "salesOrder",
+      "salesOrderLine",
+      "salesInvoice",
+      "payment",
+    ]);
+    expect(prepared.map((file) => file.name)).not.toContain("MD_V3.xlsx - README");
+  });
+
+  itIfFile("Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx")("uploads the root Odoo legacy workbook without failing on unsupported sheets", () => {
     const prepared = prepareMigrationFiles(
       [{ name: "Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx", buffer: fs.readFileSync("Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx") }],
       "odoo",
@@ -355,6 +398,47 @@ describe("validation.validateRows", () => {
     expect(res.issues.some((i) => i.field === "gstin" && /state code/.test(i.message))).toBe(true);
   });
 
+  it("warns for blank optional mapped fields without blocking migration", () => {
+    const res = validateRows(
+      "product",
+      [{ Name: "Speaker", SKU: "SPK-1", Brand: "", Category: "" }],
+      { name: "Name", sku: "SKU", brand: "Brand", category: "Category" },
+    );
+    expect(res.errorCount).toBe(0);
+    expect(res.issues.filter((i) => i.severity === "warning").map((i) => i.field).sort()).toEqual(["brand", "category"]);
+  });
+
+  it("flags negative stock as invalid product data", () => {
+    const res = validateRows(
+      "product",
+      [{ Name: "Speaker", SKU: "SPK-1", Stock: "-5" }],
+      { name: "Name", sku: "SKU", stockQuantity: "Stock" },
+    );
+    expect(res.errorCount).toBeGreaterThan(0);
+    expect(res.issues.some((i) => /stock quantity cannot be negative/.test(i.message))).toBe(true);
+  });
+
+  it("accepts legacy product type taxonomy without blocking migration", () => {
+    for (const productType of ["Hardware", "Accessory", "Consumable", "Goods", "Item", "Equipment", "Printing"]) {
+      const res = validateRows(
+        "product",
+        [{ Name: "Speaker", SKU: "SPK-1", Type: productType }],
+        { name: "Name", sku: "SKU", type: "Type" },
+      );
+      expect(res.errorCount, productType).toBe(0);
+    }
+  });
+
+  it("flags impossible calendar dates before write checks", () => {
+    const res = validateRows(
+      "salesInvoice",
+      [{ "Invoice No": "INV-V3-91019", "Customer Code": "CUSV3-41019", "Invoice Date": "31/02/2026" }],
+      { number: "Invoice No", customerName: "Customer Code", invoiceDate: "Invoice Date" },
+    );
+    expect(res.errorCount).toBeGreaterThan(0);
+    expect(res.issues.some((i) => i.field === "invoiceDate" && /valid calendar date/.test(i.message))).toBe(true);
+  });
+
   it("detects in-file duplicates", () => {
     const res = validateRows(
       "customer",
@@ -362,5 +446,12 @@ describe("validation.validateRows", () => {
       custMapping,
     );
     expect(res.duplicateCount).toBe(1);
+  });
+
+  it("detects duplicate payment references independent of source id", () => {
+    const schema = getEntitySchema("payment")!;
+    const a = dedupeSignature(schema, toCanonicalRecord(schema, { Ref: "PAY-REF-1", Source: "PAY-A", Amount: "10", Date: "2026-01-01" }, { reference: "Ref", sourceId: "Source", amount: "Amount", date: "Date" }));
+    const b = dedupeSignature(schema, toCanonicalRecord(schema, { Ref: "PAY-REF-1", Source: "PAY-B", Amount: "20", Date: "2026-01-02" }, { reference: "Ref", sourceId: "Source", amount: "Amount", date: "Date" }));
+    expect(a).toBe(b);
   });
 });

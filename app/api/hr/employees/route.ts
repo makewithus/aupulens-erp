@@ -65,32 +65,18 @@ export async function GET(req: NextRequest) {
       const deptIds = await Department.find({
         tenantId,
         $or: [
-          { name: { $regex: search, $options: "i" } },
-          { code: { $regex: search, $options: "i" } },
+          { name: { $regex: search.trim().split(/\s+/).join(".*"), $options: "i" } },
+          { code: { $regex: search.trim().split(/\s+/).join(".*"), $options: "i" } },
         ],
       }).select("_id").lean();
 
-      const searchRegex = { $regex: search, $options: "i" };
-      query.$or = [
-        { firstName: searchRegex },
-        { lastName: searchRegex },
-        { employeeCode: searchRegex },
-        { email: searchRegex },
-        { phone: searchRegex },
-        { designation: searchRegex },
-        { workLocation: searchRegex },
-        ...(deptIds.length ? [{ departmentId: { $in: deptIds.map((dept) => dept._id) } }] : []),
-      ];
-
-      // Replace slow $expr + $concat with separated regex searches
-      if (search.includes(" ")) {
-        const parts = search.split(" ");
-        const first = parts[0];
-        const last = parts.slice(1).join(" ");
-        query.$or.push({
-          firstName: { $regex: first, $options: "i" },
-          lastName: { $regex: last, $options: "i" },
-        });
+      if (deptIds.length > 0) {
+        query.$or = [
+          { $text: { $search: search } },
+          { departmentId: { $in: deptIds.map((dept) => dept._id) } }
+        ];
+      } else {
+        query.$text = { $search: search };
       }
     }
 
@@ -115,13 +101,20 @@ export async function GET(req: NextRequest) {
     // by the current search/lifecycle/department/account filters, matching
     // the original page's behavior of computing KPIs from the full,
     // unfiltered employee set rather than just the current page.
-    const [statsTotal, statsActive, statsLinked, statsUnlinked] = await Promise.all([
-      Employee.countDocuments({ tenantId }),
-      Employee.countDocuments({ tenantId, lifecycleStatus: "active" }),
-      Employee.countDocuments({ tenantId, userId: { $ne: null } }),
-      Employee.countDocuments({ tenantId, userId: null }),
+    const statsResult = await Employee.aggregate([
+      { $match: { tenantId } },
+      { $group: {
+        _id: null,
+        total: { $sum: 1 },
+        active: { $sum: { $cond: [{ $eq: ["$lifecycleStatus", "active"] }, 1, 0] } },
+        linked: { $sum: { $cond: [{ $and: [{ $ne: ["$userId", null] }, { $ne: [{ $type: "$userId" }, "missing"] }] }, 1, 0] } },
+        unlinked: { $sum: { $cond: [{ $or: [{ $eq: ["$userId", null] }, { $eq: [{ $type: "$userId" }, "missing"] }] }, 1, 0] } },
+      }}
     ]);
-    const stats = { total: statsTotal, active: statsActive, linked: statsLinked, unlinked: statsUnlinked };
+
+    const stats = statsResult[0] || { total: 0, active: 0, linked: 0, unlinked: 0 };
+    // Remove _id from stats if it exists
+    delete stats._id;
 
     const pageParam = searchParams.get("page");
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));

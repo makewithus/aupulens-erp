@@ -202,7 +202,12 @@ function CustomersPageInner() {
     fetchViews();
   };
 
-  const getPath = (obj: any, path: string) => path.split(".").reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
+  const getPath = (obj: any, path: string) => {
+    if (path === "contact_details.phone") {
+      return obj.contact_details?.phone || obj.contact_details?.mobile;
+    }
+    return path.split(".").reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
+  };
   const columnLabel = (key: string) => AVAILABLE_CUSTOMER_COLUMNS.find((c) => c.key === key)?.label || key;
 
   return (

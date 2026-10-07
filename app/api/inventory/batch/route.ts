@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 
     const search = searchParams.get('search')?.trim();
     if (search) {
-      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const re = { $regex: words.join(".*"), $options: "i" };
       query.$or = [{ batchNumber: re }, { lotNumber: re }, { itemName: re }, { itemCode: re }];
     }
 

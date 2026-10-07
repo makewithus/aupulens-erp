@@ -3,8 +3,8 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationJob from "@/models/admin/MigrationJob";
-import { suggestMapping } from "@/lib/migration/fieldMapping";
-import { markBatchFailed, processMigrationWorker } from "@/lib/migration/worker";
+import { deterministicMapping } from "@/lib/migration/fieldMapping";
+import { getEntitySchema } from "@/lib/migration/entitySchemas";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -20,17 +20,27 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   // Return columns and suggested mapping for all jobs
   const mappings = [];
   for (const job of jobs) {
+    const schema = getEntitySchema(job.entityType);
     if (!job.mapping || Object.keys(job.mapping).length === 0) {
-      // Suggest mapping
-      const { mapping, aiUsed } = await suggestMapping(
-        session.user.tenantId,
-        job.entityType,
-        job.columns,
-        [] // We don't have rows loaded here easily. We'll skip AI row sampling or load 3 records.
-      );
-      mappings.push({ jobId: job._id, entityType: job.entityType, columns: job.columns, mapping, aiUsed });
+      const mapping = schema ? deterministicMapping(schema, job.columns || []) : {};
+      mappings.push({ jobId: job._id, entityType: job.entityType, columns: job.columns, mapping, aiUsed: false });
     } else {
-      mappings.push({ jobId: job._id, entityType: job.entityType, columns: job.columns, mapping: job.mapping, aiUsed: job.aiMappingUsed });
+      // Heal stale mappings: required fields that are unmapped may now be detectable
+      // because aliases were updated. Merge fresh auto-mapping for missing required
+      // fields only — never overwrite fields the user has already mapped.
+      let mapping = { ...(job.mapping as Record<string, string>) };
+      if (schema) {
+        const missingRequired = schema.fields.filter(f => f.required && !mapping[f.key]);
+        if (missingRequired.length > 0) {
+          const fresh = deterministicMapping(schema, job.columns || []);
+          for (const field of missingRequired) {
+            if (fresh[field.key] && !mapping[field.key]) {
+              mapping[field.key] = fresh[field.key];
+            }
+          }
+        }
+      }
+      mappings.push({ jobId: job._id, entityType: job.entityType, columns: job.columns, mapping, aiUsed: job.aiMappingUsed });
     }
   }
 
@@ -52,33 +62,16 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const batch = await MigrationBatch.findOne({ _id: id, tenantId: session.user.tenantId });
   if (!batch) return NextResponse.json({ success: false }, { status: 404 });
 
-  for (const jm of jobMappings) {
-    await MigrationJob.updateOne(
+  await Promise.all(jobMappings.map((jm) =>
+    MigrationJob.updateOne(
       { _id: jm.jobId, batchId: batch._id, tenantId: session.user.tenantId },
-      { $set: { mapping: jm.mapping, status: "mapped" } }
-    );
-  }
+      { $set: { mapping: jm.mapping, status: "mapped" } },
+    ),
+  ));
 
   batch.status = "validating";
+  batch.progress = 1;
   await batch.save();
-
-  // Fire and forget loop for durable background processing
-  const runLoop = async () => {
-    let done = false;
-    while (!done) {
-      try {
-        const result = await processMigrationWorker(id, 500);
-        done = result.done;
-        if (!done) await new Promise(r => setTimeout(r, 200));
-      } catch (e) {
-        console.error("Worker loop chunk error:", e);
-        await markBatchFailed(id, e);
-        done = true; // Stop loop on fatal error
-      }
-    }
-  };
-  
-  runLoop().catch(console.error);
 
   return NextResponse.json({ success: true });
 }

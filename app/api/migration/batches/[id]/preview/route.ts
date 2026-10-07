@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const previewMatch = {
     $or: [
       { status: "valid" },
-      { status: "duplicate", duplicateAction: { $ne: "skip" } },
+      { status: "duplicate", duplicateAction: { $in: ["update", "create"] } },
     ],
   };
 

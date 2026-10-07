@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
     };
 
     if (search) {
-      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const re = { $regex: words.join(".*"), $options: "i" };
       const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
       // Narrow the base "is a return" $or down further by search terms —
       // combine both conditions with $and so search doesn't undo the

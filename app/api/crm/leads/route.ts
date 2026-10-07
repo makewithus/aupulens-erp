@@ -19,12 +19,15 @@ export async function GET(req: NextRequest) {
 
   const query: any = { tenantId: session.user.tenantId };
   if (search) {
-    query.$or = [
-      { lead_name: { $regex: search, $options: 'i' } },
-      { company_name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { phone: { $regex: search, $options: 'i' } }
-    ];
+    const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "lead_name": { $regex: word, $options: "i" } },
+          { "company_name": { $regex: word, $options: "i" } },
+          { "email": { $regex: word, $options: "i" } },
+          { "phone": { $regex: word, $options: "i" } }
+        ]
+      }));
   }
 
   const dateFrom = searchParams.get('dateFrom');

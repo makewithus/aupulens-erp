@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationRecord from "@/models/admin/MigrationRecord";
+import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -13,12 +14,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   await dbConnect();
   
   // Get records with status "duplicate"
-  const duplicates = await MigrationRecord.find({ 
-    batchId: id, 
+  const duplicates = await MigrationRecord.find(unresolvedDuplicateFilter({
+    batchId: id,
     tenantId: session.user.tenantId,
-    status: "duplicate",
-    duplicateAction: { $exists: false },
-  }).limit(50).lean();
+  })).limit(50).lean();
 
   return NextResponse.json({ success: true, data: duplicates });
 }

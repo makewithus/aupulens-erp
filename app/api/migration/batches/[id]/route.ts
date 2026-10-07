@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
@@ -10,10 +11,15 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const { id } = await props.params;
   const session = await auth();
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
+  if (!mongoose.isValidObjectId(id)) {
+    return NextResponse.json({ success: false, message: "Invalid migration batch link." }, { status: 400 });
+  }
 
   await dbConnect();
   const batch = await MigrationBatch.findOne({ _id: id, tenantId: session.user.tenantId }).lean();
-  if (!batch) return NextResponse.json({ success: false }, { status: 404 });
+  if (!batch) {
+    return NextResponse.json({ success: false, message: "Migration batch not found. It may have been deleted or belongs to another workspace." }, { status: 404 });
+  }
 
   const jobs = await MigrationJob.find({ batchId: id, tenantId: session.user.tenantId }).select("-rows").lean();
   const failedRecordsRaw = (batch.summary?.failed || 0) > 0

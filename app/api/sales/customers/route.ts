@@ -63,12 +63,19 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      query.$or = [
-        { "header.name": { $regex: search, $options: "i" } },
-        { "header.displayName": { $regex: search, $options: "i" } },
-        { "header.companyName": { $regex: search, $options: "i" } },
-        { "contact_details.email": { $regex: search, $options: "i" } },
-      ];
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "header.name": { $regex: word, $options: "i" } },
+          { "header.displayName": { $regex: word, $options: "i" } },
+          { "header.companyName": { $regex: word, $options: "i" } },
+          { "header.firstName": { $regex: word, $options: "i" } },
+          { "header.lastName": { $regex: word, $options: "i" } },
+          { "contact_details.email": { $regex: word, $options: "i" } },
+          { "contact_details.phone": { $regex: word, $options: "i" } },
+          { "contact_details.mobile": { $regex: word, $options: "i" } },
+        ]
+      }));
     }
 
     // AI-native "redirect with filters" support (lib/ai/memoryFlow.ts) — a

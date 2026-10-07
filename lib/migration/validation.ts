@@ -34,6 +34,31 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_STATE_CODES = new Set(
   Array.from({ length: 38 }, (_, i) => String(i + 1).padStart(2, "0")).concat(["97"]),
 );
+const OPTIONAL_MISSING_WARNING_FIELDS = new Set(["email", "phone", "mobile", "contactEmail", "brand", "category"]);
+
+function parseStrictDateParts(value: string): { year: number; month: number; day: number } | null {
+  const text = value.trim();
+  let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  }
+  match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) {
+    return { year: Number(match[3]), month: Number(match[2]), day: Number(match[1]) };
+  }
+  return null;
+}
+
+function isStrictCalendarDate(value: string): boolean {
+  const parts = parseStrictDateParts(value);
+  if (!parts) return !Number.isNaN(Date.parse(value));
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  return (
+    date.getUTCFullYear() === parts.year &&
+    date.getUTCMonth() === parts.month - 1 &&
+    date.getUTCDate() === parts.day
+  );
+}
 
 /** Pull the canonical value for a target field out of a raw source row. */
 export function mapValue(
@@ -85,6 +110,8 @@ function checkFormat(validator: FieldValidator, value: string): string | null {
       return /\d/.test(value) ? null : "does not contain any digits";
     case "number":
       return Number.isNaN(Number(value.replace(/,/g, ""))) ? "is not a number" : null;
+    case "date":
+      return isStrictCalendarDate(value) ? null : "is not a valid calendar date";
     case "gstin": {
       const up = value.toUpperCase();
       if (!GSTIN_RE.test(up)) return "is not a valid GSTIN (format check failed)";
@@ -138,12 +165,17 @@ export function validateRows(
         issues.push({ rowIndex, field: f.key, severity: "error", message: `${f.label} is required but empty.` });
         continue;
       }
+      if (!f.required && mapping[f.key] && !value && OPTIONAL_MISSING_WARNING_FIELDS.has(f.key)) {
+        issues.push({ rowIndex, field: f.key, severity: "warning", message: `${f.label} is blank.` });
+        continue;
+      }
       if (value && f.validate) {
         const err = checkFormat(f.validate, value);
         if (err) {
           // Bad GSTIN/email etc. is a warning, not a blocker — the record is
-          // still importable; the field just won't pass downstream compliance.
-          issues.push({ rowIndex, field: f.key, severity: "warning", message: `${f.label} ${err}.` });
+          // still importable; invalid dates are blockers because they cannot be
+          // written safely to target modules.
+          issues.push({ rowIndex, field: f.key, severity: f.validate === "date" ? "error" : "warning", message: `${f.label} ${err}.` });
         }
       }
     }
@@ -191,7 +223,10 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     if (!isNaN(amt) && amt <= 0) {
       issues.push("Payment amount must be strictly greater than zero.");
     }
-    if (rec.type && !["receipt", "payment"].includes(rec.type.toLowerCase())) {
+    if (!rec.partyName && !rec.invoiceSourceId) {
+      issues.push("Payment must reference either a customer/vendor or an invoice.");
+    }
+    if (rec.type && !["receipt", "payment", "customer receipt", "inbound", "inbound receipt", "cleared", "paid", "posted", "received", "reconciled", "bank transfer", "banktransfer", "upi", "cash", "cheque", "check", "neft", "rtgs", "imps", "card", "online"].includes(rec.type.toLowerCase())) {
       issues.push("Payment type must be either 'receipt' or 'payment'.");
     }
   }
@@ -201,9 +236,22 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     if (!isNaN(price) && price < 0) {
       issues.push("Product sales price cannot be negative.");
     }
-    if (rec.type && !["consu", "service", "combo"].includes(rec.type.toLowerCase())) {
-      issues.push("Product type must be one of: consu, service, combo.");
+    const stock = Number(rec.stockQuantity?.replace(/,/g, ""));
+    if (!isNaN(stock) && stock < 0) {
+      issues.push("Product stock quantity cannot be negative.");
     }
+  }
+
+  if (entity === "salesOrder") {
+    const total = Number(rec.totalAmount?.replace(/,/g, ""));
+    if (!isNaN(total) && total < 0) issues.push("Sales order total amount cannot be negative.");
+  }
+
+  if (entity === "salesOrderLine") {
+    const qty = Number(rec.qty?.replace(/,/g, ""));
+    const unitPrice = Number(rec.unitPrice?.replace(/,/g, ""));
+    if (!isNaN(qty) && qty <= 0) issues.push("Sales order line quantity must be greater than zero.");
+    if (!isNaN(unitPrice) && unitPrice < 0) issues.push("Sales order line unit price cannot be negative.");
   }
 
   return issues;

@@ -4,17 +4,14 @@ import dbConnect from "@/lib/db";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import { getHandler } from "@/lib/migration/importer";
+import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
+import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 
 async function refreshDuplicateSummary(batch: any, tenantId: string) {
-  const duplicate = await MigrationRecord.countDocuments({
-    batchId: batch._id,
-    tenantId,
-    status: "duplicate",
-    duplicateAction: { $exists: false },
-  });
-  batch.summary = { ...batch.summary, duplicate };
+  const summary = await computeMigrationReviewSummary(batch._id, tenantId);
+  batch.summary = { ...batch.summary, ...summary };
   await batch.save();
-  return duplicate;
+  return summary.duplicate;
 }
 
 async function findUnsafeUpdateConflict(record: any, tenantId: string) {
@@ -50,12 +47,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (scope === "all") {
-    const query: Record<string, unknown> = {
+    const query: Record<string, unknown> = unresolvedDuplicateFilter({
       batchId: id,
       tenantId: session.user.tenantId,
-      status: "duplicate",
-      duplicateAction: { $exists: false },
-    };
+    });
     if (action === "update") {
       query.duplicateTargetId = { $exists: true };
     }
@@ -97,13 +92,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!record) {
     return NextResponse.json({ success: false, message: "Record not found" }, { status: 404 });
   }
-  if (action === "update" && !record.duplicateTargetId) {
+  const resolvedAction = action;
+  if (resolvedAction === "update" && !record.duplicateTargetId) {
     return NextResponse.json(
       { success: false, message: "This duplicate has no existing workspace record to update. Choose Skip or Force Create." },
       { status: 400 },
     );
   }
-  if (action === "update") {
+  if (resolvedAction === "update") {
     const conflictFields = await findUnsafeUpdateConflict(record, session.user.tenantId);
     if (conflictFields) {
       return NextResponse.json(
@@ -116,13 +112,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  record.duplicateAction = action;
-  if (action === "create" || action === "update") {
+  record.duplicateAction = resolvedAction;
+  if (resolvedAction === "create" || resolvedAction === "update") {
     record.errors = [] as any;
   }
   await record.save();
   const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);
 
-  const actionLabel = action === "create" ? "force create" : action === "update" ? "merge/update" : "skip";
+  const actionLabel = resolvedAction === "create" ? "force create" : resolvedAction === "update" ? "merge/update" : "skip";
   return NextResponse.json({ success: true, remainingDuplicates, message: `Duplicate resolution saved: ${actionLabel}.` });
 }

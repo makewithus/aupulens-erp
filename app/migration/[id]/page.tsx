@@ -114,12 +114,14 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const [failedRecords, setFailedRecords] = useState<any[]>([]);
   const [mappings, setMappings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetchingMappings, setFetchingMappings] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
   const notifiedStatusRef = useRef<string | null>(null);
+  const workerTickInFlightRef = useRef(false);
   const router = useRouter();
 
   const loadData = useCallback(async () => {
@@ -127,10 +129,13 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const res = await fetch(`/api/migration/batches/${id}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to load migration batch");
+        const message = json.message || "Failed to load migration batch.";
+        setLoadError(message);
+        toast.error(message);
         return;
       }
 
+      setLoadError(null);
       const nextBatch = json.data.batch;
       setBatch(nextBatch);
       setJobs(json.data.jobs);
@@ -151,17 +156,23 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         fetchMappings();
       }
     } catch {
-      toast.error("Failed to load batch");
+      const message = "Failed to load migration batch. Please refresh and try again.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }, [id, mappings.length]);
 
   const tickWorker = useCallback(async () => {
+    if (workerTickInFlightRef.current) return;
+    workerTickInFlightRef.current = true;
     try {
       await fetch(`/api/migration/batches/${id}/worker`, { method: "POST" });
     } catch {
       // The next poll will surface any persisted worker failure from the batch.
+    } finally {
+      workerTickInFlightRef.current = false;
     }
   }, [id]);
 
@@ -188,7 +199,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     if (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") {
       const poll = async () => {
         if (batch.status === "validating" || batch.status === "running") {
-          await tickWorker();
+          void tickWorker();
         }
         await loadData();
       };
@@ -203,9 +214,10 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   }, [loadData]);
 
   const handleInvalidResolved = async () => {
-    toast.success("Validation re-running for updated records...");
-    await tickWorker();
-    await loadData();
+    setBatch((current: any) => current ? { ...current, status: "validating", progress: Math.max(Number(current.progress || 0), 1) } : current);
+    setReviewRefreshKey((current) => current + 1);
+    toast.success("Validation started for updated records.");
+    void tickWorker().then(loadData).catch(() => loadData());
   };
 
   const saveMapping = async () => {
@@ -218,9 +230,9 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success("Mappings saved. Starting validation...");
-        await tickWorker();
-        loadData();
+        setBatch((current: any) => current ? { ...current, status: "validating", progress: 1 } : current);
+        toast.success("Mappings saved. Validation started.");
+        void tickWorker().then(loadData).catch(() => loadData());
       } else {
         toast.error(data.message || "Failed to save mappings.");
       }
@@ -241,9 +253,9 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const res = await fetch(`/api/migration/batches/${id}/start`, { method: "POST" });
       const data = await res.json();
       if (res.ok && data.success !== false) {
+        setBatch((current: any) => current ? { ...current, status: "running", progress: 1 } : current);
         toast.success("Migration started!");
-        await tickWorker();
-        await loadData();
+        void tickWorker().then(loadData).catch(() => loadData());
       } else {
         toast.error(data.message || "Failed to start migration.");
         setReviewRefreshKey((current) => current + 1);
@@ -277,10 +289,34 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   };
 
   if (sessionStatus === "loading" || loading) return <AuthSplash />;
-  if (!batch) return <div>Batch not found</div>;
+  if (!batch) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
+          <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-amber-500" />
+          <h1 className="text-lg font-semibold">Migration batch unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {loadError || "This migration batch could not be loaded."}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/migration")}
+            className="mt-5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          >
+            Back to migrations
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const currentStep = getStepIndex(batch.status);
   const statusCopy = batchStatusCopy(batch.status);
+  const activeProgress = Math.min(100, Math.max(Number(batch.progress || 0), (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") ? 1 : 0));
+  const processedEstimate = Math.min(Number(batch.totalRecords || 0), Math.floor((Number(batch.totalRecords || 0) * activeProgress) / 100));
+  const unresolvedDuplicateCount = Number(batch.summary?.duplicate || 0);
+  const invalidRecordCount = Number(batch.summary?.invalid || 0);
+  const isMigrationClean = batch.status === "preview" && invalidRecordCount === 0 && unresolvedDuplicateCount === 0;
 
   return (
     <DashboardLayout
@@ -329,7 +365,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         {batch.status === "mapping" && (
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Field Mapping</h3>
-            {fetchingMappings && mappings.length === 0 && <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Generating AI suggestions...</div>}
+            {fetchingMappings && mappings.length === 0 && <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/> Preparing field mappings...</div>}
             
             {mappings.map((m, idx) => {
               const job = jobs.find(j => j._id === m.jobId);
@@ -337,7 +373,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                 <div key={m.jobId} className="border rounded-lg p-4 bg-card">
                   <div className="font-medium flex items-center justify-between mb-3">
                     <span>{job?.fileName} <span className="text-muted-foreground text-sm font-normal">({job?.entityType})</span></span>
-                    {m.aiUsed && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">✨ AI Mapped</span>}
+                    {m.aiUsed && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">AI Mapped</span>}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm max-h-[300px] overflow-y-auto pr-2">
                     {/* Just displaying raw mappings since schema isn't fully loaded here for brevity. 
@@ -367,9 +403,14 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
             <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
             <h3 className="text-xl font-semibold">{statusCopy.label}</h3>
             <div className="w-full max-w-md bg-secondary rounded-full h-3">
-              <div className="bg-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${batch.progress || 0}%` }}></div>
+              <div className="bg-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${activeProgress}%` }}></div>
             </div>
-            <p className="text-sm text-muted-foreground">{batch.progress || 0}% Complete</p>
+            <p className="text-sm text-muted-foreground">{activeProgress}% Complete</p>
+            {Number(batch.totalRecords || 0) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Processed about {processedEstimate} of {batch.totalRecords} records.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground max-w-lg">{statusCopy.description} This is running in the background. You can safely leave this page.</p>
           </div>
         )}
@@ -389,9 +430,11 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         {batch.status === "preview" && (
           <div className="space-y-6">
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
-              <h3 className="text-blue-500 font-semibold mb-2 flex items-center gap-2"><Play className="w-4 h-4" /> Ready for Migration</h3>
+              <h3 className="text-blue-500 font-semibold mb-2 flex items-center gap-2"><Play className="w-4 h-4" /> {isMigrationClean ? "Ready for Migration" : "Review Required"}</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Validation complete. Please review the summary below before executing the migration to the live database.
+                {isMigrationClean
+                  ? "Validation complete. The batch is clean and ready to migrate."
+                  : "Resolve every invalid and duplicate record before executing the migration to the live database."}
               </p>
               
               <div className="grid grid-cols-3 gap-4">
@@ -399,23 +442,33 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                   <div className="text-sm text-muted-foreground">Valid Records</div>
                   <div className="text-2xl font-bold text-emerald-500">{batch.summary?.valid || 0}</div>
                 </div>
-                <div className="bg-card p-3 rounded-lg border">
+                <div className={`bg-card p-3 rounded-lg border ${unresolvedDuplicateCount > 0 ? "border-amber-500/50" : ""}`}>
                   <div className="text-sm text-muted-foreground">Duplicates</div>
-                  <div className="text-2xl font-bold text-amber-500">{batch.summary?.duplicate || 0}</div>
+                  <div className={`text-2xl font-bold ${unresolvedDuplicateCount > 0 ? "text-amber-500" : "text-emerald-500"}`}>{unresolvedDuplicateCount}</div>
                 </div>
-                <div className="bg-card p-3 rounded-lg border">
+                <div className={`bg-card p-3 rounded-lg border ${invalidRecordCount > 0 ? "border-red-500/50" : ""}`}>
                   <div className="text-sm text-muted-foreground">Invalid Records</div>
-                  <div className="text-2xl font-bold text-red-500">{batch.summary?.invalid || 0}</div>
+                  <div className={`text-2xl font-bold ${invalidRecordCount > 0 ? "text-red-500" : "text-emerald-500"}`}>{invalidRecordCount}</div>
                 </div>
               </div>
             </div>
             
             <InvalidRecordsEditor key={`invalid-${reviewRefreshKey}`} batchId={id} onResolved={handleInvalidResolved} showInitialLoader={false} />
-            <PreviewAndResolution key={`duplicates-${reviewRefreshKey}`} batchId={id} onResolved={loadData} />
+            <PreviewAndResolution key={`duplicates-${reviewRefreshKey}`} batchId={id} onResolved={loadData} expectedCount={unresolvedDuplicateCount} />
             <AupulensPreview key={`preview-${reviewRefreshKey}`} batchId={id} showInitialLoader={false} />
 
-            <div className="flex justify-end pt-2">
-              <button onClick={startMigration} disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md font-bold shadow flex items-center gap-2">
+            <div className="flex flex-col items-end gap-2 pt-2">
+              {!isMigrationClean && (
+                <p className="text-sm text-amber-500">
+                  Migration is locked until duplicates and invalid records are resolved.
+                </p>
+              )}
+              <button
+                onClick={startMigration}
+                disabled={busy || !isMigrationClean}
+                title={!isMigrationClean ? "Resolve all duplicates and invalid records before migration." : "Start migration"}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md font-bold shadow flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 {busy && <Loader2 className="w-4 h-4 animate-spin" />} START MIGRATION
               </button>
             </div>

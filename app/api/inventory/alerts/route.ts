@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
     const query: any = { tenantId, $expr: buildExprConditions(statusFilter) };
     if (warehouse && warehouse !== 'all') query.warehouse = warehouse;
     if (search) {
-      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const re = { $regex: words.join(".*"), $options: "i" };
       query.$or = [{ name: re }, { itemCode: re }, { category: re }];
     }
 

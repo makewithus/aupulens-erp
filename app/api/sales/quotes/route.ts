@@ -38,7 +38,13 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get("search")?.trim();
     if (search) {
-      query.$or = [{ quoteNumber: { $regex: search, $options: "i" } }, { subject: { $regex: search, $options: "i" } }];
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "quoteNumber": { $regex: word, $options: "i" } },
+          { "subject": { $regex: word, $options: "i" } }
+        ]
+      }));
     }
 
     const customerId = searchParams.get("customerId");

@@ -4,6 +4,7 @@ import Customer from "@/models/sales/Customer";
 import Vendor from "@/models/admin/Vendor";
 import Product from "@/models/inventory/Product";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import SaleOrder from "@/models/sales/SaleOrder";
 import Invoice from "@/models/finance/Invoice";
 import Account from "@/models/finance/Account";
 import Employee from "@/models/hr/Employee";
@@ -52,6 +53,10 @@ export async function resolveEntityReference(
     }
     case MIGRATION_ENTITY.SALES_INVOICE: {
       const doc = await SalesInvoice.findOne({ tenantId, number: sourceId }).select("_id").lean();
+      return doc ? (doc._id as mongoose.Types.ObjectId) : null;
+    }
+    case MIGRATION_ENTITY.SALES_ORDER: {
+      const doc = await SaleOrder.findOne({ tenantId, "header.name": sourceId }).select("_id").lean();
       return doc ? (doc._id as mongoose.Types.ObjectId) : null;
     }
     case MIGRATION_ENTITY.PURCHASE_INVOICE: {
@@ -159,6 +164,26 @@ export async function validateRelationships(
         // the invoice by creating a placeholder customer during import.
       }
     }
+  } else if (entityType === MIGRATION_ENTITY.SALES_ORDER) {
+    if (canonical.customerName) {
+      const ref = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.CUSTOMER, canonical.customerName);
+      if (!ref && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.CUSTOMER, canonical.customerName))) {
+        // Placeholder customer will be created during import if still missing.
+      }
+    }
+  } else if (entityType === MIGRATION_ENTITY.SALES_ORDER_LINE) {
+    if (canonical.orderSourceId) {
+      const orderRef = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.SALES_ORDER, canonical.orderSourceId);
+      if (!orderRef && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.SALES_ORDER, canonical.orderSourceId))) {
+        errors.push({ field: "orderSourceId", message: `Missing reference: Sales order '${canonical.orderSourceId}' not found` });
+      }
+    }
+    if (canonical.productSourceId) {
+      const productRef = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.PRODUCT, canonical.productSourceId);
+      if (!productRef && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.PRODUCT, canonical.productSourceId))) {
+        // Sales order lines can still be preserved with a free-text item name.
+      }
+    }
   } else if (entityType === MIGRATION_ENTITY.PURCHASE_INVOICE) {
     if (canonical.vendorName) {
       const ref = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.VENDOR, canonical.vendorName);
@@ -167,7 +192,12 @@ export async function validateRelationships(
       }
     }
   } else if (entityType === MIGRATION_ENTITY.PAYMENT) {
-    if (canonical.partyName) {
+    if (canonical.invoiceSourceId) {
+      // Payments are preserved even when the referenced invoice is absent or
+      // currently invalid. The importer stores them as unapplied receipts using
+      // the invoice/reference as the placeholder customer key, so a legacy
+      // workbook with partial invoice history does not block the whole batch.
+    } else if (canonical.partyName) {
       const type = canonical.type?.toLowerCase() === "receipt" ? "inbound" : "outbound";
       const partyEntityType = type === "inbound" ? MIGRATION_ENTITY.CUSTOMER : MIGRATION_ENTITY.VENDOR;
       const ref = await resolveEntityReference(tenantId, batchId, partyEntityType, canonical.partyName);

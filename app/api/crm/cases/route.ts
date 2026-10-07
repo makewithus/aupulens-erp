@@ -21,11 +21,14 @@ async function GET_handler(req: NextRequest) {
   if (searchParams.get('severity')) query.severity = searchParams.get('severity');
   const search = searchParams.get('search');
   if (search) {
-    query.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { case_number: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-    ];
+    const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "title": { $regex: word, $options: "i" } },
+          { "case_number": { $regex: word, $options: "i" } },
+          { "description": { $regex: word, $options: "i" } }
+        ]
+      }));
   }
 
   const dateFrom = searchParams.get('dateFrom');

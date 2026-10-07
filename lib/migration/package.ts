@@ -43,10 +43,6 @@ function isKnownNonImportableSheet(fileName: string): boolean {
     "departments",
     "productcategory",
     "productcategories",
-    "salesorder",
-    "salesorders",
-    "salesorderline",
-    "salesorderlines",
     "purchaseorder",
     "purchaseorders",
     "purchaseorderline",
@@ -133,6 +129,12 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
 
   if (nameHas("invoiceitem", "invoiceline", "lineitem") || (has("invoice number", "inv no", "voucher no") && has("qty", "quantity") && has("rate", "unit price"))) {
     return MIGRATION_ENTITY.INVOICE_ITEM;
+  }
+  if (!nameHas("invoice", "salesinvoice") && (nameHas("salesorderline", "salesorderlines", "orderline", "orderlines") || (has("sales order no", "sales order number", "order no", "order ref") && has("qty", "quantity") && has("rate", "unit price", "price")))) {
+    return MIGRATION_ENTITY.SALES_ORDER_LINE;
+  }
+  if (!nameHas("invoice", "salesinvoice") && (nameHas("salesorder", "salesorders") || (has("sales order no", "sales order number", "order no", "order ref") && has("customer", "customer name", "customer code") && !has("invoice number", "invoice no", "inv no")))) {
+    return MIGRATION_ENTITY.SALES_ORDER;
   }
   if (nameHas("customer", "debtor", "client") || (has("customer name", "cust name", "company name") && has("email", "email id", "gstin", "gst no"))) {
     return MIGRATION_ENTITY.CUSTOMER;

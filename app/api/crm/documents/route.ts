@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   if (!include_archived) query.is_archived = false;
   if (linked_record_id) query.linked_record_id = linked_record_id;
   if (linked_record_type) query.linked_record_type = linked_record_type;
-  if (search) query.name = { $regex: search, $options: "i" };
+  if (search) {
+    const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    query.name = { $regex: words.join(".*"), $options: "i" };
+  }
 
   const documents = await CrmDocument.find(query)
     .populate("uploaded_by_id", "name email")

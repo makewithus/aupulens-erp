@@ -65,7 +65,8 @@ export async function GET(req: NextRequest) {
 
     if (partnerId) query.partnerId = partnerId;
     if (search) {
-      query.name = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query.name = { $regex: words.join(".*"), $options: "i" };
     }
     if (state === "pending") {
       query.state = DOCUMENT_STATUS.PENDING_APPROVAL;

@@ -85,7 +85,8 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      const re = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const re = { $regex: words.join(".*"), $options: "i" };
       const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
       query.$or = [
         { "header.name": re },

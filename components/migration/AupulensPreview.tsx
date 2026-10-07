@@ -124,7 +124,7 @@ export function AupulensPreview({
   if (entities.length === 0) return null;
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm mt-6">
+    <div className="mt-6 max-w-full overflow-hidden rounded-xl border bg-white shadow-sm">
       <div className="border-b px-5 py-4">
         <h3 className="text-lg font-bold text-slate-800">Aupulens Data Preview</h3>
         <p className="text-sm text-slate-500">Previewing how your valid records will appear in the system.</p>
@@ -214,21 +214,21 @@ export function AupulensPreview({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="max-w-full overflow-x-scroll overflow-y-hidden pb-2">
         {recordsLoading ? (
           <div className="p-8 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-emerald-600" /></div>
         ) : records.length === 0 ? (
           <div className="p-8 text-center text-slate-500">No sample records found.</div>
         ) : (
           <table
-            className="min-w-max w-full text-left text-slate-600"
+            className="w-max min-w-full table-auto text-left text-slate-600"
             style={{ fontSize: `${14 * zoom}px` }}
           >
             <thead className="sticky top-0 z-10 text-xs text-slate-700 uppercase bg-slate-50 border-b">
               <tr>
                 <th className="sticky left-0 z-20 whitespace-nowrap bg-slate-50 px-4 py-3 font-semibold">S.NO</th>
                 {columns.map((column) => (
-                  <th key={`${column.source}:${column.key}`} className="whitespace-nowrap px-6 py-3 font-semibold">
+                  <th key={`${column.source}:${column.key}`} className="whitespace-nowrap px-4 py-3 font-semibold">
                     <span>{titleCase(column.label)}</span>
                     {column.source === "source" && (
                       <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Source</span>
@@ -244,7 +244,7 @@ export function AupulensPreview({
                     {(page - 1) * pageSize + i + 1}
                   </td>
                   {columns.map((column) => (
-                    <td key={`${column.source}:${column.key}`} className="whitespace-nowrap px-6 py-3">
+                    <td key={`${column.source}:${column.key}`} className="max-w-[280px] whitespace-nowrap px-4 py-3">
                       {formatPreviewValue(
                         column,
                         previewCellValue(r, column),

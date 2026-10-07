@@ -49,10 +49,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query.$or = [
-        { "header.name": { $regex: search, $options: "i" } },
-        { "otherInfo.clientOrderRef": { $regex: search, $options: "i" } },
-      ];
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "header.name": { $regex: word, $options: "i" } },
+          { "otherInfo.clientOrderRef": { $regex: word, $options: "i" } }
+        ]
+      }));
     }
 
     // AI-native "redirect with filters" support — additive: omitting these

@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get("search");
     if (search) {
-      query.number = { $regex: search, $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query.number = { $regex: words.join(".*"), $options: "i" };
     }
 
     const status = searchParams.get("status");

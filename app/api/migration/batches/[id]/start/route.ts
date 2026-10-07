@@ -7,6 +7,8 @@ import { startWorkerDaemon } from "@/lib/migration/worker";
 import { getHandler } from "@/lib/migration/importer";
 import { resolveEntityReference } from "@/lib/migration/resolver";
 import { productionMigrationError } from "@/lib/migration/errors";
+import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
+import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 
 async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
   const records = await MigrationRecord.find({
@@ -47,11 +49,7 @@ async function runPreMigrationConflictCheck(batch: any, tenantId: string) {
   }
 
   if (conflicts > 0) {
-    const [valid, invalid, duplicate] = await Promise.all([
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "valid" }),
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "invalid" }),
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
-    ]);
+    const { valid, invalid, duplicate } = await computeMigrationReviewSummary(batch._id, tenantId);
     batch.summary = { ...batch.summary, valid, invalid, duplicate };
     await batch.save();
   }
@@ -100,11 +98,7 @@ async function runWriteReadinessCheck(batch: any, tenantId: string) {
   }
 
   if (invalid > 0) {
-    const [valid, invalidCount, duplicate] = await Promise.all([
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "valid" }),
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "invalid" }),
-      MigrationRecord.countDocuments({ batchId: batch._id, tenantId, status: "duplicate", duplicateAction: { $exists: false } }),
-    ]);
+    const { valid, invalid: invalidCount, duplicate } = await computeMigrationReviewSummary(batch._id, tenantId);
     batch.summary = { ...batch.summary, valid, invalid: invalidCount, duplicate };
     await batch.save();
   }
@@ -145,12 +139,10 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     const writeReadinessFailures = await runWriteReadinessCheck(batch, session.user.tenantId);
 
     const [unresolvedDuplicates, invalidRecords] = await Promise.all([
-      MigrationRecord.countDocuments({
+      MigrationRecord.countDocuments(unresolvedDuplicateFilter({
         batchId: batch._id,
         tenantId: session.user.tenantId,
-        status: "duplicate",
-        duplicateAction: { $exists: false },
-      }),
+      })),
       MigrationRecord.countDocuments({
         batchId: batch._id,
         tenantId: session.user.tenantId,
@@ -182,12 +174,12 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
     await MigrationBatch.updateOne(
       { _id: batch._id, tenantId: session.user.tenantId, status: "preview" },
-      { $set: { status: "running", progress: 0 } },
+      { $set: { status: "running", progress: 1 } },
     );
 
     await startWorkerDaemon(id, req.nextUrl.origin);
 
-    return NextResponse.json({ success: true, data: { ...batch.toObject(), status: "running", progress: 0 } });
+    return NextResponse.json({ success: true, data: { ...batch.toObject(), status: "running", progress: 1 } });
   } catch (err) {
     const message = productionMigrationError(err);
     await MigrationBatch.updateOne(

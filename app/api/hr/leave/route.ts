@@ -42,13 +42,17 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const searchConditions = words.map(word => ({
+        $or: [
+          { firstName: { $regex: word, $options: "i" } },
+          { lastName: { $regex: word, $options: "i" } },
+          { employeeCode: { $regex: word, $options: "i" } },
+        ]
+      }));
       const employeeIds = await Employee.find({
         tenantId,
-        $or: [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
-          { employeeCode: { $regex: search, $options: "i" } },
-        ],
+        $and: searchConditions
       }).distinct("_id");
       query.employeeId = employeeId ? employeeId : { $in: employeeIds };
     }

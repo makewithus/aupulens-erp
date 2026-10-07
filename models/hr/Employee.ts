@@ -231,6 +231,15 @@ EmployeeSchema.index({ tenantId: 1, lifecycleStatus: 1, createdAt: -1 });
 EmployeeSchema.index({ tenantId: 1, departmentId: 1, createdAt: -1 });
 EmployeeSchema.index({ tenantId: 1, createdAt: -1 });
 EmployeeSchema.index({ tenantId: 1, dateOfJoining: 1 });
+EmployeeSchema.index({ 
+  firstName: "text", 
+  lastName: "text", 
+  employeeCode: "text", 
+  email: "text", 
+  phone: "text",
+  designation: "text",
+  workLocation: "text"
+});
 
 const Employee: Model<IEmployee> =
   (mongoose.models.Employee as Model<IEmployee>) ||

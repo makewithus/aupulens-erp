@@ -64,6 +64,8 @@ export const MIGRATION_ENTITY = {
   CUSTOMER: "customer",
   VENDOR: "vendor",
   PRODUCT: "product",
+  SALES_ORDER: "salesOrder",
+  SALES_ORDER_LINE: "salesOrderLine",
   SALES_INVOICE: "salesInvoice",
   INVOICE_ITEM: "invoiceItem",
   PURCHASE_INVOICE: "purchaseInvoice",

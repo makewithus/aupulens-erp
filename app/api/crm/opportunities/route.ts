@@ -32,11 +32,14 @@ export async function GET(req: NextRequest) {
 
     const search = searchParams.get('search');
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { deal_name: { $regex: search, $options: 'i' } },
-        { tags: { $regex: search, $options: 'i' } },
-      ];
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { "name": { $regex: word, $options: "i" } },
+          { "deal_name": { $regex: word, $options: "i" } },
+          { "tags": { $regex: word, $options: "i" } }
+        ]
+      }));
     }
 
     const dateFrom = searchParams.get('dateFrom');

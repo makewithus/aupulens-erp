@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
     // params leaves every existing caller's behavior unchanged.
     const search = searchParams.get("search")?.trim();
     if (search) {
-      query.reference = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query.reference = { $regex: words.join(".*"), $options: "i" };
     }
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");

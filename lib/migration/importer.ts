@@ -14,6 +14,7 @@ import Customer from "@/models/sales/Customer";
 import Vendor from "@/models/admin/Vendor";
 import Product from "@/models/inventory/Product";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import SaleOrder from "@/models/sales/SaleOrder";
 import Invoice from "@/models/finance/Invoice";
 import Payment from "@/models/sales/Payment";
 import Expense from "@/models/finance/Expense";
@@ -201,9 +202,12 @@ const HANDLERS: Record<string, EntityHandler> = {
     modelName: "Product",
     model: Product,
     transform: async (rec, ctx) => {
-      const type = ["consu", "service", "combo"].includes(rec.type?.toLowerCase())
-        ? rec.type.toLowerCase()
-        : "consu";
+      const rawType = rec.type?.toLowerCase();
+      const type = rawType === "service"
+        ? "service"
+        : rawType === "combo"
+          ? "combo"
+          : "consu";
       const descriptionParts = [
         rec.description,
         rec.category ? `Category: ${rec.category}` : "",
@@ -239,6 +243,82 @@ const HANDLERS: Record<string, EntityHandler> = {
       if (rec.sku) return { filter: { tenantId, "tab_general_information.default_code": rec.sku }, fields: ["sku"] };
       if (rec.name) return { filter: { tenantId, "header.name": rec.name }, fields: ["name"] };
       return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.SALES_ORDER]: {
+    modelName: "SaleOrder",
+    model: SaleOrder,
+    transform: async (rec, ctx) => {
+      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.customerName)
+        || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.customerName);
+      return {
+        tenantId: ctx.tenantId,
+        header: {
+          name: rec.number,
+          partnerId: customerId,
+          dateOrder: rec.orderDate ? new Date(rec.orderDate) : new Date(),
+        },
+        orderLines: [],
+        otherInfo: { clientOrderRef: rec.sourceId || undefined },
+        totals: {
+          amountUntaxed: num(rec.totalAmount) ?? 0,
+          amountTax: 0,
+          amountTotal: num(rec.totalAmount) ?? 0,
+        },
+        status: "draft",
+        q2cStatus: "sales_order",
+        chatter: [],
+      };
+    },
+    existingFilter: (rec, tenantId) => {
+      if (rec.number) return { tenantId, "header.name": rec.number };
+      return null;
+    },
+    uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.number) return { filter: { tenantId, "header.name": rec.number }, fields: ["number"] };
+      return null;
+    },
+  },
+
+  [MIGRATION_ENTITY.SALES_ORDER_LINE]: {
+    modelName: "SaleOrder",
+    model: SaleOrder,
+    transform: async (rec, ctx) => {
+      const orderId = await ctx.resolveRef(MIGRATION_ENTITY.SALES_ORDER, rec.orderSourceId);
+      if (!orderId) throw new Error(`Missing reference: Sales Order '${rec.orderSourceId}' not found`);
+
+      let productId = null;
+      if (rec.productSourceId) {
+        productId = await ctx.resolveRef(MIGRATION_ENTITY.PRODUCT, rec.productSourceId);
+      }
+      const qty = num(rec.qty) ?? 1;
+      const priceUnit = num(rec.unitPrice) ?? 0;
+
+      return {
+        _id: orderId,
+        productId: productId || undefined,
+        name: rec.productName || rec.productSourceId || "Imported sales order line",
+        productQty: qty,
+        priceUnit,
+        taxIds: [],
+        discount: num(rec.discount) ?? 0,
+        discountMode: "percent",
+        taxRate: num(rec.taxRate) ?? 0,
+        hsn: rec.hsn || undefined,
+        priceSubtotal: num(rec.lineTotal) ?? qty * priceUnit,
+      };
+    },
+    existingFilter: () => null,
+    createOperation: (doc) => {
+      const orderId = doc._id;
+      delete doc._id;
+      return {
+        updateOne: {
+          filter: { _id: orderId },
+          update: { $push: { orderLines: doc } },
+        },
+      };
     },
   },
 
@@ -342,18 +422,49 @@ const HANDLERS: Record<string, EntityHandler> = {
     model: Payment,
     transform: async (rec, ctx) => {
       const type = rec.type?.trim().toLowerCase();
-      const isReceipt = !type || ["receipt", "customer receipt", "inbound", "inbound receipt", "cleared", "paid", "posted", "received", "reconciled"].includes(type);
+      const receiptLikeValues = [
+        "receipt",
+        "customer receipt",
+        "inbound",
+        "inbound receipt",
+        "cleared",
+        "paid",
+        "posted",
+        "received",
+        "reconciled",
+        "bank transfer",
+        "banktransfer",
+        "upi",
+        "cash",
+        "cheque",
+        "check",
+        "neft",
+        "rtgs",
+        "imps",
+        "card",
+        "online",
+      ];
+      const isReceipt = !type || receiptLikeValues.includes(type) || !!rec.invoiceSourceId;
       if (!isReceipt) {
         throw new Error("Vendor outbound payment migration is not supported by the current target payment model.");
       }
-      const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName)
-        || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.partyName);
+      let customerId = rec.partyName
+        ? await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName)
+        : null;
+      if (!customerId && rec.invoiceSourceId) {
+        const invoiceId = await ctx.resolveRef(MIGRATION_ENTITY.SALES_INVOICE, rec.invoiceSourceId);
+        if (invoiceId) {
+          const invoice = await SalesInvoice.findOne({ _id: invoiceId, tenantId: ctx.tenantId }).select("customerId").lean();
+          customerId = (invoice?.customerId as mongoose.Types.ObjectId | undefined) || null;
+        }
+      }
+      customerId = customerId || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.partyName || rec.invoiceSourceId || rec.sourceId || "unknown");
       const amount = num(rec.amount) ?? 0;
 
       return {
         tenantId: ctx.tenantId,
         customerId,
-        paymentNumber: rec.reference || `MIG-${new mongoose.Types.ObjectId().toString().slice(-8)}`,
+        paymentNumber: rec.sourceId || rec.reference || `MIG-${new mongoose.Types.ObjectId().toString().slice(-8)}`,
         paymentDate: rec.date ? new Date(rec.date) : new Date(),
         amountReceived: amount,
         bankCharges: 0,
@@ -368,10 +479,12 @@ const HANDLERS: Record<string, EntityHandler> = {
       };
     },
     existingFilter: (rec, tenantId) => {
+      if (rec.sourceId) return { tenantId, paymentNumber: rec.sourceId };
       if (rec.reference) return { tenantId, paymentNumber: rec.reference };
       return null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
+      if (rec.sourceId) return { filter: { tenantId, paymentNumber: rec.sourceId }, fields: ["sourceId"] };
       if (rec.reference) return { filter: { tenantId, paymentNumber: rec.reference }, fields: ["reference"] };
       return null;
     },

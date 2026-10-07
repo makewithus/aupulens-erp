@@ -18,7 +18,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     batchId: id, 
     tenantId: session.user.tenantId,
     status: "invalid"
-  }).limit(50).lean();
+  })
+    .sort({ createdAt: 1, _id: 1 })
+    .limit(500)
+    .lean();
 
   return NextResponse.json({ success: true, data: invalid });
 }
@@ -46,8 +49,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Ensure the batch moves back to validating so the worker picks it up
   await MigrationBatch.updateOne(
     { _id: id, tenantId: session.user.tenantId, status: "preview" },
-    { $set: { status: "validating" } }
+    { $set: { status: "validating", progress: 1 } }
   );
+  
+  // Immediately process the pending record so the UI gets instant feedback
+  const { processMigrationWorker } = await import("@/lib/migration/worker");
+  await processMigrationWorker(id, 5);
   
   return NextResponse.json({ success: true });
 }

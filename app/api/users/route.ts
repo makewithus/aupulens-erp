@@ -35,12 +35,15 @@ export async function GET(req: NextRequest) {
     if (role && role !== "all") query.role = role;
     if (userStatus && userStatus !== "all") query.status = userStatus;
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-        { employeeId: { $regex: search, $options: "i" } },
-      ];
+      const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query.$and = words.map(word => ({
+        $or: [
+          { name: { $regex: word, $options: "i" } },
+          { email: { $regex: word, $options: "i" } },
+          { phone: { $regex: word, $options: "i" } },
+          { employeeId: { $regex: word, $options: "i" } },
+        ]
+      }));
     }
 
     // Additive: omitting these params leaves every existing unbounded

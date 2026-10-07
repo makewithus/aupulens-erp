@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
       query.productionStatus = statusFilter;
     }
     if (search) {
-      query["header.name"] = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      query["header.name"] = { $regex: words.join(".*"), $options: "i" };
     }
 
     // AI-native "redirect with filters" support — additive: omitting these
