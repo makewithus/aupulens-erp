@@ -919,7 +919,7 @@ describe("migration worker E2E workflow", () => {
     expect(record?.duplicateTargetId).toBeTruthy();
   });
 
-  it("force creates an employee duplicate with an import-safe employee code", async () => {
+  it("force creates an employee duplicate with an import-safe employee code and email", async () => {
     await Employee.create({
       tenantId: TENANT,
       employeeCode: "EMP009",
@@ -973,8 +973,10 @@ describe("migration worker E2E workflow", () => {
     await runWorkerUntilDone(String(batch._id));
 
     expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(2);
-    const forced = await Employee.findOne({ tenantId: TENANT, email: "akshay.nair@example.com" }).lean();
+    const forced = await Employee.findOne({ tenantId: TENANT, employeeCode: /^EMP009-MIG-/ }).lean();
     expect(forced?.employeeCode).toMatch(/^EMP009-MIG-/);
+    expect(forced?.email).toMatch(/^akshay\.nair\+mig-[a-f0-9]{6}@example\.com$/i);
+    expect(forced?.email).not.toBe("akshay.nair@example.com");
   });
 
   it("creates imported departments with collision-safe codes", async () => {

@@ -146,14 +146,19 @@ export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }:
                   Matched {record.duplicateReason === "database" ? "existing workspace data" : "another uploaded row"}
                   {Array.isArray(record.duplicateFields) && record.duplicateFields.length > 0 ? ` using: ${record.duplicateFields.join(", ")}` : ""}.
                 </div>
-                <div className="text-xs text-muted-foreground mt-2 flex flex-wrap gap-2">
-                  {Object.entries(record.mappedData || {})
-                    .filter(([k, v]) => v && k !== '_id' && k !== 'tenantId')
-                    .map(([k, v]) => (
-                      <span key={k} className="bg-secondary/50 border border-secondary px-2 py-0.5 rounded-md">
-                        <span className="font-medium opacity-80">{k}:</span> {String(v)}
-                      </span>
-                    ))}
+                <div className="mt-3 rounded-lg border border-amber-500/40 bg-sidebar/80 p-3 shadow-inner">
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-500">
+                    Duplicate row data
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-sidebar-foreground">
+                    {Object.entries(record.mappedData || {})
+                      .filter(([k, v]) => v && k !== '_id' && k !== 'tenantId')
+                      .map(([k, v]) => (
+                        <span key={k} className="rounded-md border border-amber-500/30 bg-background/80 px-2 py-1">
+                          <span className="font-semibold text-amber-500">{k}:</span> {String(v)}
+                        </span>
+                      ))}
+                  </div>
                 </div>
               </div>
               

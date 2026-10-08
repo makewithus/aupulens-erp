@@ -177,14 +177,22 @@ async function applyForceCreateUniqueSuffix(
   if (!conflict) return canonical;
 
   const existing = await handler.model.exists(conflict.filter);
-  if (!existing) return canonical;
+  const shouldMakeImportSafe = !!existing || rec.status === "duplicate" || !!rec.duplicateReason;
+  if (!shouldMakeImportSafe) return canonical;
 
   const suffix = `MIG-${rec._id.toString().slice(-6)}`;
   for (const field of conflict.fields || []) {
     const current = canonical[field];
     if (!current) continue;
     if (!canonical.sourceId) canonical.sourceId = current;
-    canonical[field] = `${current}-${suffix}`;
+    if (field === "email") {
+      const atIndex = current.indexOf("@");
+      canonical[field] = atIndex > 0
+        ? `${current.slice(0, atIndex)}+${suffix.toLowerCase()}${current.slice(atIndex)}`
+        : `${current}-${suffix}`;
+    } else {
+      canonical[field] = `${current}-${suffix}`;
+    }
   }
 
   return canonical;

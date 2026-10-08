@@ -572,8 +572,17 @@ const HANDLERS: Record<string, EntityHandler> = {
       return clauses.length ? { tenantId, $or: clauses } : null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
-      if (rec.employeeId) return { filter: { tenantId, employeeCode: rec.employeeId }, fields: ["employeeId"] };
-      return null;
+      const clauses = [];
+      const fields = [];
+      if (rec.email) {
+        clauses.push({ email: rec.email });
+        fields.push("email");
+      }
+      if (rec.employeeId) {
+        clauses.push({ employeeCode: rec.employeeId });
+        fields.push("employeeId");
+      }
+      return clauses.length ? { filter: { tenantId, $or: clauses }, fields } : null;
     },
   },
 };
