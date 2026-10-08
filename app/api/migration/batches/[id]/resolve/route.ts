@@ -58,11 +58,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (action === "update") {
       const candidates = await MigrationRecord.find(query).select("_id entityType mappedData duplicateTargetId").lean();
       const unsafeIds = [];
-      for (const candidate of candidates) {
-        if (await findUnsafeUpdateConflict(candidate, session.user.tenantId)) {
-          unsafeIds.push(candidate._id);
-        }
-      }
+      const conflicts = await Promise.all(
+        candidates.map(candidate => findUnsafeUpdateConflict(candidate, session.user.tenantId).then(conflict => conflict ? candidate._id : null))
+      );
+      unsafeIds.push(...conflicts.filter(id => id !== null));
       if (unsafeIds.length > 0) {
         query._id = { $nin: unsafeIds };
       }

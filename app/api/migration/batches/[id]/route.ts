@@ -6,6 +6,7 @@ import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationJob from "@/models/admin/MigrationJob";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import { friendlyMigrationRecordError, summarizeMigrationRow } from "@/lib/migration/friendlyRecordError";
+import { buildMigrationProgress } from "@/lib/migration/progress";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   }
 
   const jobs = await MigrationJob.find({ batchId: id, tenantId: session.user.tenantId }).select("-rows").lean();
+  const progress = await buildMigrationProgress(batch, jobs);
   const failedRecordsRaw = (batch.summary?.failed || 0) > 0
     ? await MigrationRecord.find({ batchId: id, tenantId: session.user.tenantId, status: "failed" })
         .select("entityType sourceData mappedData errors")
@@ -34,5 +36,5 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     rowSummary: summarizeMigrationRow(record),
   }));
 
-  return NextResponse.json({ success: true, data: { batch, jobs, failedRecords } });
+  return NextResponse.json({ success: true, data: { batch, jobs, failedRecords, progress } });
 }

@@ -112,6 +112,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const [batch, setBatch] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [failedRecords, setFailedRecords] = useState<any[]>([]);
+  const [progressDetail, setProgressDetail] = useState<any>(null);
   const [mappings, setMappings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -140,6 +141,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       setBatch(nextBatch);
       setJobs(json.data.jobs);
       setFailedRecords(Array.isArray(json.data.failedRecords) ? json.data.failedRecords : []);
+      setProgressDetail(json.data.progress || null);
 
       if (nextBatch.status !== notifiedStatusRef.current) {
         if (nextBatch.status === "failed") {
@@ -314,6 +316,9 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const statusCopy = batchStatusCopy(batch.status);
   const activeProgress = Math.min(100, Math.max(Number(batch.progress || 0), (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") ? 1 : 0));
   const processedEstimate = Math.min(Number(batch.totalRecords || 0), Math.floor((Number(batch.totalRecords || 0) * activeProgress) / 100));
+  const progressRows = Array.isArray(progressDetail?.rows) ? progressDetail.rows : [];
+  const visibleProcessed = Number(progressDetail?.recordsProcessed || processedEstimate || 0);
+  const visibleTotal = Number(progressDetail?.totalRecords || batch.totalRecords || 0);
   const unresolvedDuplicateCount = Number(batch.summary?.duplicate || 0);
   const invalidRecordCount = Number(batch.summary?.invalid || 0);
   const isMigrationClean = batch.status === "preview" && invalidRecordCount === 0 && unresolvedDuplicateCount === 0;
@@ -399,19 +404,64 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         )}
 
         {(batch.status === "validating" || batch.status === "running" || batch.status === "verifying") && (
-          <div className="border rounded-xl p-8 bg-card flex flex-col items-center justify-center space-y-4 text-center">
-            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
-            <h3 className="text-xl font-semibold">{statusCopy.label}</h3>
-            <div className="w-full max-w-md bg-secondary rounded-full h-3">
-              <div className="bg-emerald-500 h-3 rounded-full transition-all duration-500" style={{ width: `${activeProgress}%` }}></div>
+          <div className="border rounded-xl bg-card p-6">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold">{batch.status === "running" || batch.status === "verifying" ? "Migration in progress" : "Validation in progress"}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {batch.status === "running" || batch.status === "verifying" ? "Importing your data..." : "Checking your data before import..."}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Please don't close this page.</p>
+              </div>
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
             </div>
-            <p className="text-sm text-muted-foreground">{activeProgress}% Complete</p>
-            {Number(batch.totalRecords || 0) > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Processed about {processedEstimate} of {batch.totalRecords} records.
-              </p>
+
+            <div className="mb-3 flex items-center gap-3">
+              <div className="h-3 flex-1 rounded-full bg-secondary">
+                <div className="h-3 rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${activeProgress}%` }} />
+              </div>
+              <div className="w-12 text-right text-sm font-semibold text-emerald-500">{activeProgress}%</div>
+            </div>
+            <p className="mb-5 text-sm text-muted-foreground">
+              {batch.status === "running" || batch.status === "verifying" ? "Processing records..." : "Validating records..."}
+            </p>
+
+            {progressRows.length > 0 && (
+              <div className="mb-5 grid gap-2 rounded-lg border bg-background/40 p-4">
+                {progressRows.map((row: any) => {
+                  const complete = row.total > 0 && row.processed >= row.total;
+                  const active = !complete && progressDetail?.currentStep?.includes(row.label);
+                  return (
+                    <div key={row.entityType} className="grid grid-cols-[minmax(120px,1fr)_24px_auto] items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">{row.label}</span>
+                      <span className={complete ? "text-emerald-500" : active ? "text-amber-500" : "text-muted-foreground"}>
+                        {complete ? "✓" : active ? "●" : "○"}
+                      </span>
+                      <span className="font-mono text-foreground">{row.processed} / {row.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-            <p className="text-xs text-muted-foreground max-w-lg">{statusCopy.description} This is running in the background. You can safely leave this page.</p>
+
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <span className="text-muted-foreground">Current step:</span>
+                <span className="ml-2 font-medium">{progressDetail?.currentStep || statusCopy.label}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Records processed:</span>
+                <span className="ml-2 font-medium">{visibleProcessed}{visibleTotal ? ` / ${visibleTotal}` : ""}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Errors:</span>
+                <span className="ml-2 font-medium text-rose-500">{progressDetail?.errors ?? 0}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Duplicates:</span>
+                <span className="ml-2 font-medium text-amber-500">{progressDetail?.duplicates ?? 0}</span>
+              </div>
+            </div>
           </div>
         )}
 

@@ -360,7 +360,10 @@ async function runValidationChunk(batch: any, limit: number) {
       }
     }
     
-    for (const rec of jobRecords) {
+    const bulkWriteOps: any[] = [];
+    
+    // Process all records in parallel
+    const processedRecords = await Promise.all(jobRecords.map(async (rec) => {
       const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
       const validation = validateRows(job.entityType, [rec.sourceData as Record<string, unknown>], mapping);
       const rowValidationErrors = validation.issues
@@ -371,6 +374,11 @@ async function runValidationChunk(batch: any, limit: number) {
         .map((issue) => ({ field: issue.field, message: issue.message }));
       
       const relationshipErrors = await validateRelationships(batch.tenantId, batch._id.toString(), job.entityType, canonical);
+      return { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors };
+    }));
+
+    // Evaluate duplicates sequentially to maintain `seenInThisChunk` state properly
+    for (const { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors } of processedRecords) {
       const update: Record<string, any> = {
         mappedData: canonical,
         warnings: rowValidationWarnings,
@@ -414,14 +422,21 @@ async function runValidationChunk(batch: any, limit: number) {
           }
         }
       }
+      
       const updateDoc: Record<string, any> = { $set: update };
       if (update.status !== "duplicate") {
         updateDoc.$unset = { duplicateAction: "", duplicateTargetId: "", duplicateReason: "", duplicateFields: "" };
       }
-      const write = await MigrationRecord.updateOne(
-        { _id: rec._id, tenantId: batch.tenantId, status: "pending" },
-        updateDoc,
-      );
+      bulkWriteOps.push({
+        updateOne: {
+          filter: { _id: rec._id, tenantId: batch.tenantId, status: "pending" },
+          update: updateDoc
+        }
+      });
+    }
+
+    if (bulkWriteOps.length > 0) {
+      const write = await MigrationRecord.bulkWrite(bulkWriteOps);
       processed += write.modifiedCount || 0;
     }
   }
@@ -502,12 +517,14 @@ async function runMigrationChunk(batch: any, limit: number) {
     const identityMapInserts: any[] = [];
     const pendingTargets = new Map<string, { docId: any; insertOpIndex: number | null }>();
 
-    for (const rec of jobRecords) {
-      if (rec.duplicateAction === "skip") {
-        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "skipped" } } } });
-        processed++;
-        continue;
-      }
+    const importContext = {
+      tenantId: batch.tenantId, 
+      userId: batch.createdBy.toString(),
+      resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(batch.tenantId, batch._id.toString(), entityType, sourceId)
+    };
+
+    const transformedRecords = await Promise.all(jobRecords.map(async (rec) => {
+      if (rec.duplicateAction === "skip") return { rec, skip: true };
       
       const canonical = await applyForceCreateUniqueSuffix(
         handler,
@@ -517,13 +534,29 @@ async function runMigrationChunk(batch: any, limit: number) {
       );
       
       try {
-        const importContext = {
-          tenantId: batch.tenantId, 
-          userId: batch.createdBy.toString(),
-          resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(batch.tenantId, batch._id.toString(), entityType, sourceId)
-        };
         const transformData = await handler.transform(canonical, importContext);
-        
+        return { rec, canonical, transformData, error: null };
+      } catch (err) {
+        return { rec, canonical, transformData: null, error: err };
+      }
+    }));
+
+    for (const { rec, skip, canonical, transformData, error } of transformedRecords) {
+      if (skip) {
+        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "skipped" } } } });
+        processed++;
+        continue;
+      }
+      
+      if (error) {
+        migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "failed", errors: [{ message: productionMigrationError(error) }] } } } });
+        processed++;
+        continue;
+      }
+      
+      if (!transformData || !canonical) continue;
+      
+      try {
         let docId: any;
         if (rec.duplicateAction === "update" && rec.duplicateTargetId) {
           docId = rec.duplicateTargetId;

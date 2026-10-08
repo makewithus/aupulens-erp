@@ -30,10 +30,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let aiUsedCount = 0;
   const messages: string[] = [];
 
-  for (const item of recordIds) {
-    const result = scope === "all"
-      ? await fastFixMigrationRecord(id, session.user.tenantId, String(item._id))
-      : await fixMigrationRecordWithAi(id, session.user.tenantId, String(item._id));
+  const results = await Promise.all(recordIds.map(item => scope === "all"
+    ? fastFixMigrationRecord(id, session.user.tenantId, String(item._id))
+    : fixMigrationRecordWithAi(id, session.user.tenantId, String(item._id))
+  ));
+
+  for (const result of results) {
     if (result.fixed) fixedCount += 1;
     if ("aiUsed" in result && result.aiUsed) aiUsedCount += 1;
     if (!result.fixed) messages.push(result.message);
