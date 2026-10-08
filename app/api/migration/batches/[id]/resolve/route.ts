@@ -69,6 +69,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const update: Record<string, unknown> = { duplicateAction: action };
     if (action === "create" || action === "update") {
+      update.status = "duplicate";
+      update.errors = [];
+    } else if (action === "skip") {
+      update.status = "skipped";
       update.errors = [];
     }
 
@@ -113,7 +117,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   record.duplicateAction = resolvedAction;
   if (resolvedAction === "create" || resolvedAction === "update") {
+    record.status = "duplicate";
     record.errors = [] as any;
+  } else if (resolvedAction === "skip") {
+    record.status = "skipped";
+    record.errors = [] as any;
+    record.targetRecordId = undefined;
   }
   await record.save();
   const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);

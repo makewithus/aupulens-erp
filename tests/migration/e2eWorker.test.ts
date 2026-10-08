@@ -979,6 +979,77 @@ describe("migration worker E2E workflow", () => {
     expect(forced?.email).not.toBe("akshay.nair@example.com");
   });
 
+  it("skips an employee duplicate without creating another employee", async () => {
+    await Employee.create({
+      tenantId: TENANT,
+      employeeCode: "EMP010",
+      firstName: "Sneha",
+      lastName: "Varghese",
+      email: "sneha.varghese@northstar-demo.example",
+      phone: "9746123488",
+      dateOfJoining: new Date("2022-11-21"),
+      employmentType: "full-time",
+      lifecycleStatus: "active",
+      status: "active",
+      createdBy: USER_ID,
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "running",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.EMPLOYEE,
+      "employees.xlsx - Employees",
+      {
+        employeeId: "Employee ID",
+        firstName: "First Name",
+        lastName: "Last Name",
+        email: "Email",
+        phone: "Phone",
+        department: "Department",
+        designation: "Designation",
+        joiningDate: "Joining Date",
+        status: "Status",
+      },
+      [
+        {
+          "Employee ID": "MIG-3E836A5C",
+          "First Name": "Sneha",
+          "Last Name": "Varghese",
+          Email: "sneha.varghese@northstar-demo.example",
+          Phone: "9746123488",
+          Department: "Human Resources",
+          Designation: "HR Executive",
+          "Joining Date": "2022-11-21",
+          Status: "Active",
+        },
+      ],
+    );
+
+    const duplicate = await MigrationRecord.findOne({ batchId: batch._id, jobId: job._id });
+    duplicate!.status = "duplicate";
+    duplicate!.duplicateAction = "skip";
+    duplicate!.duplicateReason = "database";
+    duplicate!.duplicateFields = ["email"];
+    await duplicate!.save();
+
+    await runWorkerUntilDone(String(batch._id));
+
+    expect(await Employee.countDocuments({ tenantId: TENANT })).toBe(1);
+    expect(await Employee.countDocuments({ tenantId: TENANT, email: "sneha.varghese@northstar-demo.example" })).toBe(1);
+    const skipped = await MigrationRecord.findById(duplicate!._id).lean();
+    expect(skipped?.status).toBe("skipped");
+    expect(skipped?.targetRecordId).toBeUndefined();
+  });
+
   it("creates imported departments with collision-safe codes", async () => {
     const salesId = await ensureDepartmentForTenant(TENANT, "Sales", String(USER_ID));
     const supportId = await ensureDepartmentForTenant(TENANT, "Support", String(USER_ID));
