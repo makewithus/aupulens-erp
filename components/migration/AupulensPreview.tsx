@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Search, ZoomIn, ZoomOut } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const ZOOM_OPTIONS = [0.75, 1, 1.25, 1.5];
@@ -79,6 +79,8 @@ export function AupulensPreview({
   const [totalPages, setTotalPages] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [columns, setColumns] = useState<PreviewColumn[]>([]);
+  const [searchText, setSearchText] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
 
   useEffect(() => {
     fetch(`/api/migration/batches/${batchId}/preview`)
@@ -93,6 +95,16 @@ export function AupulensPreview({
   }, [batchId]);
 
   useEffect(() => {
+    const trimmed = searchText.trim();
+    const timer = window.setTimeout(() => {
+      const nextSearch = trimmed.length >= 3 ? trimmed : "";
+      setActiveSearch((current) => current === nextSearch ? current : nextSearch);
+      setPage(1);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
     if (!activeTab) return;
     setRecordsLoading(true);
     const params = new URLSearchParams({
@@ -100,6 +112,7 @@ export function AupulensPreview({
       page: String(page),
       pageSize: String(pageSize),
     });
+    if (activeSearch) params.set("search", activeSearch);
     fetch(`/api/migration/batches/${batchId}/preview?${params.toString()}`)
       .then(r => r.json())
       .then(data => {
@@ -111,7 +124,7 @@ export function AupulensPreview({
         }
       })
       .finally(() => setRecordsLoading(false));
-  }, [batchId, activeTab, page, pageSize]);
+  }, [batchId, activeTab, page, pageSize, activeSearch]);
 
   const activeEntityCount = entities.find(e => e._id === activeTab)?.count ?? totalRecords;
   const firstRow = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -150,6 +163,16 @@ export function AupulensPreview({
           Showing {firstRow}-{lastRow} of {totalRecords || activeEntityCount} records
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-2 h-4 w-4 text-slate-400" />
+            <input
+              type="search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search 3+ chars"
+              className="w-56 rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2 text-xs outline-none focus:border-emerald-500"
+            />
+          </label>
           <label className="flex items-center gap-2">
             Rows
             <select
@@ -218,7 +241,9 @@ export function AupulensPreview({
         {recordsLoading ? (
           <div className="p-8 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-emerald-600" /></div>
         ) : records.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No sample records found.</div>
+          <div className="p-8 text-center text-slate-500">
+            {activeSearch ? `No records matched "${activeSearch}".` : "No sample records found."}
+          </div>
         ) : (
           <table
             className="w-max min-w-full table-auto text-left text-slate-600"
