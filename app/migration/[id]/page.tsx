@@ -411,7 +411,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                 <p className="mt-1 text-sm text-muted-foreground">
                   {batch.status === "running" || batch.status === "verifying" ? "Importing your data..." : "Checking your data before import..."}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Please don't close this page.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Please don&apos;t close this page.</p>
               </div>
               <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
             </div>

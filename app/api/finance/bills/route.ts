@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import Invoice from "@/models/finance/Invoice";
 import Customer from "@/models/sales/Customer";
+import Product from "@/models/inventory/Product";
 import {
   DOCUMENT_STATUS,
   DOCUMENT_STATUS_VALUES,
@@ -12,6 +13,7 @@ import {
   PAYMENT_STATE_VALUES,
 } from "@/lib/constants/statuses";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { comparePurchaseLineTax } from "@/lib/tax/purchaseTaxCompare";
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
@@ -195,7 +197,21 @@ export async function POST(req: NextRequest) {
           priceSubtotal: Number(item.amount) || 0,
           taxIds: [],
         }));
-    const computed = invoiceLines.length && invoiceLines.every((l: any) => l.taxRate !== undefined) ? computeBillTotals(invoiceLines) : null;
+    const productIds = invoiceLines.map((line: any) => line.productId).filter(Boolean);
+    const products = productIds.length ? await Product.find({ _id: { $in: productIds }, tenantId }).lean() : [];
+    const productById = new Map(products.map((product: any) => [String(product._id), product]));
+    const comparedLines = invoiceLines.map((line: any) => {
+      const comparison = line.productId
+        ? comparePurchaseLineTax(line, productById.get(String(line.productId)))
+        : { status: "not_applicable", differences: [] };
+      return { ...line, taxComparison: comparison };
+    });
+    const taxMismatchStatus = comparedLines.some((line: any) => line.taxComparison?.status === "mismatch")
+      ? "mismatch"
+      : comparedLines.some((line: any) => line.taxComparison?.status === "matched")
+        ? "matched"
+        : "not_applicable";
+    const computed = comparedLines.length && comparedLines.every((l: any) => l.taxRate !== undefined) ? computeBillTotals(comparedLines) : null;
     const amountUntaxed = Number(computed?.amountUntaxed ?? body.amountUntaxed ?? body.subtotal) || 0;
     const amountTax = Number(computed?.amountTax ?? body.amountTax ?? body.taxAmount) || 0;
     const amountTotal =
@@ -218,7 +234,7 @@ export async function POST(req: NextRequest) {
       moveType: "in_invoice",
       invoiceDate: body.invoiceDate ? new Date(body.invoiceDate) : new Date(),
       dueDate: body.dueDate ? new Date(body.dueDate) : new Date(),
-      invoiceLines: computed?.invoiceLines || invoiceLines,
+      invoiceLines: computed?.invoiceLines || comparedLines,
       currencyId: body.currencyId || body.currency || "INR",
       amountUntaxed,
       amountTax,
@@ -231,7 +247,9 @@ export async function POST(req: NextRequest) {
       paymentState: body.paymentState || PAYMENT_STATE.NOT_PAID,
       poMatchType: body.poMatchType || "2_way",
       poMatchStatus: body.poMatchStatus || "pending",
-      manualReviewRequired: body.manualReviewRequired || false,
+      taxMismatchStatus,
+      manualReviewRequired: body.manualReviewRequired || taxMismatchStatus === "mismatch",
+      discrepancyNotes: body.discrepancyNotes || (taxMismatchStatus === "mismatch" ? "Supplier bill tax details differ from product master." : undefined),
       tenantId,
       createdBy: session.user.id,
     });

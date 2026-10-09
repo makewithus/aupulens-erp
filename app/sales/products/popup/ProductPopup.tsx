@@ -21,6 +21,18 @@ import { PricelistPopupContent } from "../../pricelist/popup/PricelistPopup";
 import { CURRENCIES } from "@/config/currencies";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
+type HsnCandidate = {
+  code: string;
+  type: "goods" | "service";
+  description: string;
+  gstRate: number;
+  gstTreatment: string;
+  score?: number;
+  matchedTokens?: string[];
+  sourceId?: string;
+  effectiveDate?: string;
+};
+
 // Helper components and sub-sections for the Product Modal
 export function ProductPopupContent({
   formData,
@@ -100,6 +112,86 @@ export function ProductPopupContent({
       toast.error(error.message);
     }
   };
+
+  const [isSuggestingHsn, setIsSuggestingHsn] = useState(false);
+  const [taxSuggestion, setTaxSuggestion] = useState<any>(null);
+  const [manualSearch, setManualSearch] = useState("");
+
+  const applyTaxCandidate = (candidate: HsnCandidate) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      tab_general_information: {
+        ...prev.tab_general_information,
+        hsnSacCode: candidate.code,
+        gstRate: candidate.gstRate,
+        gstTreatment: candidate.gstTreatment,
+        hsnSacUserConfirmed: true,
+        taxReference: {
+          sourceId: candidate.sourceId || candidate.code,
+          description: candidate.description,
+          effectiveDate: candidate.effectiveDate || new Date().toISOString(),
+        },
+      },
+    }));
+    setTaxSuggestion(null);
+    toast.success(`HSN/SAC ${candidate.code} applied`);
+  };
+
+  const handleAiSuggest = async () => {
+    if (!formData.header.name && !formData.tab_general_information?.description) {
+      toast.error("Please enter a product name or description first.");
+      return;
+    }
+    
+    setIsSuggestingHsn(true);
+    try {
+      const res = await fetch("/api/tax/hsn-sac-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: `${formData.header.name || ""} ${formData.tab_general_information?.description || ""}`.trim(),
+          productType: formData.tab_general_information?.type === "service" ? "service" : "goods",
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to get AI suggestion");
+      }
+      
+      const data = await res.json();
+      setTaxSuggestion(data);
+      setManualSearch("");
+      toast.success(`Review HSN/SAC suggestion: ${data.code} (${data.confidence} confidence)`);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsSuggestingHsn(false);
+    }
+  };
+
+  const suggestionCandidates: HsnCandidate[] = taxSuggestion
+    ? [
+        {
+          code: taxSuggestion.code,
+          type: taxSuggestion.type,
+          description: taxSuggestion.description,
+          gstRate: taxSuggestion.gstRate,
+          gstTreatment: taxSuggestion.gstTreatment,
+          sourceId: taxSuggestion.source?.sourceId,
+          effectiveDate: taxSuggestion.source?.effectiveDate,
+        },
+        ...(taxSuggestion.candidates || []),
+      ].filter((candidate, index, list) => list.findIndex((c) => c.code === candidate.code) === index)
+    : [];
+  const filteredSuggestionCandidates = manualSearch
+    ? suggestionCandidates.filter((candidate) =>
+        [candidate.code, candidate.description, candidate.gstTreatment]
+          .join(" ")
+          .toLowerCase()
+          .includes(manualSearch.toLowerCase()),
+      )
+    : suggestionCandidates;
 
   const effectiveHandleCreatePricelist =
     handleCreatePricelist || handleLocalCreatePricelist;
@@ -424,10 +516,100 @@ export function ProductPopupContent({
                       tab_general_information: {
                         ...formData.tab_general_information,
                         gstRate: parseFloat(e.target.value) || 0,
+                        hsnSacUserConfirmed: true,
                       },
                     })
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>HSN/SAC Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.tab_general_information.hsnSacCode || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tab_general_information: {
+                          ...formData.tab_general_information,
+                          hsnSacCode: e.target.value,
+                          hsnSacUserConfirmed: true,
+                        },
+                      })
+                    }
+                    placeholder="e.g. 9983"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="secondary"
+                    onClick={handleAiSuggest} 
+                    disabled={isSuggestingHsn}
+                    className="whitespace-nowrap"
+                  >
+                    {isSuggestingHsn ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Suggest AI
+                  </Button>
+                </div>
+              </div>
+              {taxSuggestion && (
+                <div className="space-y-3 border border-border/40 bg-muted/20 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Review HSN/SAC candidates</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {taxSuggestion.reviewRequired ? "Multiple or low-confidence matches need review." : "Reference match found. Accept it or choose another candidate."}
+                      </p>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setTaxSuggestion(null)}>Ignore</Button>
+                  </div>
+                  <Input value={manualSearch} onChange={(e) => setManualSearch(e.target.value)} placeholder="Search returned candidates" className="h-8 rounded-none" />
+                  <div className="max-h-72 space-y-2 overflow-auto">
+                    {filteredSuggestionCandidates.map((candidate) => (
+                      <div key={candidate.code} className="border border-border/30 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-mono text-sm font-semibold">{candidate.code} · {candidate.type === "service" ? "SAC" : "HSN"}</div>
+                            <p className="mt-1 text-xs text-muted-foreground">{candidate.description}</p>
+                            <p className="mt-2 text-xs">GST {candidate.gstRate}% · {candidate.gstTreatment} · {candidate.sourceId || "reference"} {candidate.effectiveDate ? `· effective ${candidate.effectiveDate}` : ""}</p>
+                          </div>
+                          <Button type="button" size="sm" className="rounded-none" onClick={() => applyTaxCandidate(candidate)}>
+                            Accept
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredSuggestionCandidates.length === 0 && (
+                      <p className="py-4 text-center text-xs text-muted-foreground">No returned candidate matches that search. You can still type HSN/SAC and GST manually.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>GST Treatment</Label>
+                <Select
+                  value={formData.tab_general_information.gstTreatment || "taxable"}
+                  onValueChange={(val) =>
+                    setFormData({
+                      ...formData,
+                      tab_general_information: {
+                        ...formData.tab_general_information,
+                        gstTreatment: val,
+                        hsnSacUserConfirmed: true,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Treatment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="taxable">Taxable</SelectItem>
+                    <SelectItem value="exempt">Exempt</SelectItem>
+                    <SelectItem value="nil">Nil Rated</SelectItem>
+                    <SelectItem value="non-gst">Non GST</SelectItem>
+                    <SelectItem value="out-of-scope">Out of Scope</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Internal Reference</Label>

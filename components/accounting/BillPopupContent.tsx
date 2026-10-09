@@ -159,6 +159,9 @@ export default function BillPopupContent({
       if (prod) {
         newLines[index].name = prod.header?.name;
         newLines[index].taxRate = prod.tab_general_information?.gstRate ?? 0;
+        newLines[index].hsnSacCode = prod.tab_general_information?.hsnSacCode || "";
+        newLines[index].gstTreatment = prod.tab_general_information?.gstTreatment || "taxable";
+        newLines[index].taxReference = prod.tab_general_information?.taxReference;
         newLines[index].priceUnit =
           prod.tab_general_information?.standard_price || 0;
       }
@@ -169,6 +172,28 @@ export default function BillPopupContent({
         newLines[index].quantity * newLines[index].priceUnit;
     }
 
+    calculateTotals(newLines);
+  };
+
+  const updateLineWithProductTax = (index: number) => {
+    const line = formData.invoiceLines?.[index];
+    const prod = products.find((p) => p._id === line?.productId);
+    if (!prod) return;
+    updateLine(index, "taxRate", prod.tab_general_information?.gstRate ?? 0);
+    const newLines = [...(formData.invoiceLines || [])];
+    newLines[index] = {
+      ...newLines[index],
+      hsnSacCode: prod.tab_general_information?.hsnSacCode || "",
+      gstTreatment: prod.tab_general_information?.gstTreatment || "taxable",
+      taxReference: prod.tab_general_information?.taxReference,
+      taxComparisonDecision: "product",
+    };
+    calculateTotals(newLines);
+  };
+
+  const updateLineDecision = (index: number, decision: string) => {
+    const newLines = [...(formData.invoiceLines || [])];
+    newLines[index] = { ...newLines[index], taxComparisonDecision: decision };
     calculateTotals(newLines);
   };
 
@@ -396,6 +421,8 @@ export default function BillPopupContent({
                           Subtotal
                         </TableHead>
                         <TableHead>GST %</TableHead>
+                        <TableHead>HSN/SAC</TableHead>
+                        <TableHead>Treatment</TableHead>
                         {!isViewOnly && <TableHead className="p-4 w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -456,6 +483,19 @@ export default function BillPopupContent({
                               ₹ {line.priceSubtotal?.toLocaleString()}
                             </TableCell>
                             <TableCell><Input aria-label="Line GST rate" type="number" min="0" max="100" step="0.01" disabled={isViewOnly} value={line.taxRate ?? 0} onChange={(e) => updateLine(idx, "taxRate", Number(e.target.value))} /></TableCell>
+                            <TableCell><Input aria-label="Supplier HSN/SAC" disabled={isViewOnly} value={line.hsnSacCode || ""} onChange={(e) => updateLine(idx, "hsnSacCode", e.target.value)} placeholder="HSN/SAC" /></TableCell>
+                            <TableCell>
+                              <Select disabled={isViewOnly} value={line.gstTreatment || "taxable"} onValueChange={(v) => updateLine(idx, "gstTreatment", v)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="taxable">Taxable</SelectItem>
+                                  <SelectItem value="exempt">Exempt</SelectItem>
+                                  <SelectItem value="nil">Nil</SelectItem>
+                                  <SelectItem value="non-gst">Non GST</SelectItem>
+                                  <SelectItem value="out-of-scope">Out of scope</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
                             {!isViewOnly && (
                               <TableCell className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
@@ -485,6 +525,37 @@ export default function BillPopupContent({
                     </div>
                   )}
                 </div>
+                {(formData.invoiceLines || []).some((line: any) => line.taxComparison?.status === "mismatch") && (
+                  <div className="mt-4 space-y-3 border border-amber-500/40 bg-amber-500/5 p-4">
+                    <div className="flex items-center gap-2 font-semibold text-amber-600">
+                      <AlertCircle className="h-4 w-4" /> Tax information difference
+                    </div>
+                    {(formData.invoiceLines || []).map((line: any, idx: number) => line.taxComparison?.status === "mismatch" ? (
+                      <div key={idx} className="border border-border/30 p-3 text-sm">
+                        <div className="font-medium">{line.name || `Line ${idx + 1}`}</div>
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs uppercase text-muted-foreground">Supplier</p>
+                            <p>HSN {line.taxComparison.supplier?.hsnSacCode || "missing"}</p>
+                            <p>GST {line.taxComparison.supplier?.gstRate ?? 0}% · {line.taxComparison.supplier?.gstTreatment || "taxable"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase text-muted-foreground">Saved product</p>
+                            <p>HSN {line.taxComparison.product?.hsnSacCode || "missing"}</p>
+                            <p>GST {line.taxComparison.product?.gstRate ?? 0}% · {line.taxComparison.product?.gstTreatment || "taxable"}</p>
+                          </div>
+                        </div>
+                        {!isViewOnly && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => updateLineDecision(idx, "supplier")}>Use Supplier Information</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => updateLineWithProductTax(idx)}>Use Product Information</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => updateLineDecision(idx, "manual")}>Edit Manually</Button>
+                          </div>
+                        )}
+                      </div>
+                    ) : null)}
+                  </div>
+                )}
               </div>
             )}
 

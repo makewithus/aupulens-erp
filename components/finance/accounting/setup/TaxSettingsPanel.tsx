@@ -14,6 +14,7 @@ export function TaxSettingsPanel() {
   const [rates, setRates] = useState<any[]>([]);
   const [defaultSalesTaxRateId, setDefaultSalesTaxRateId] = useState("");
   const [defaultPurchaseTaxRateId, setDefaultPurchaseTaxRateId] = useState("");
+  const [requireHsnSacOnInvoices, setRequireHsnSacOnInvoices] = useState(false);
 
   useEffect(() => {
     if (settings?.taxSettings) {
@@ -21,6 +22,7 @@ export function TaxSettingsPanel() {
       setGstin(settings.taxSettings.gstin || "");
       setDefaultSalesTaxRateId(settings.taxSettings.defaultSalesTaxRateId?._id || settings.taxSettings.defaultSalesTaxRateId || "");
       setDefaultPurchaseTaxRateId(settings.taxSettings.defaultPurchaseTaxRateId?._id || settings.taxSettings.defaultPurchaseTaxRateId || "");
+      setRequireHsnSacOnInvoices(!!settings.taxSettings.requireHsnSacOnInvoices);
     }
   }, [settings]);
 
@@ -47,6 +49,12 @@ export function TaxSettingsPanel() {
           Prices are tax inclusive by default
         </label>
       </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox id="requireHsnSacOnInvoices" checked={requireHsnSacOnInvoices} onCheckedChange={(v) => setRequireHsnSacOnInvoices(!!v)} />
+        <label htmlFor="requireHsnSacOnInvoices" className="text-sm">
+          Require HSN/SAC on sales invoices
+        </label>
+      </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Default Sales Tax Rate</label>
         <AccountPicker accounts={rateAsAccounts} value={defaultSalesTaxRateId} onChange={setDefaultSalesTaxRateId} placeholder="Select a tax rate" />
@@ -62,7 +70,7 @@ export function TaxSettingsPanel() {
       </div>
       <Button
         disabled={saving}
-        onClick={() => save("taxSettings", { pricesIncludeTax, gstin, defaultSalesTaxRateId, defaultPurchaseTaxRateId })}
+        onClick={() => save("taxSettings", { pricesIncludeTax, gstin, defaultSalesTaxRateId, defaultPurchaseTaxRateId, requireHsnSacOnInvoices })}
       >
         {saving ? "Saving..." : "Save"}
       </Button>

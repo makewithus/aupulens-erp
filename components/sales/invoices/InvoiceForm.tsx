@@ -49,6 +49,8 @@ interface LineItemState {
   discount: number;
   discountMode: "percent" | "amount";
   taxRate: number;
+  gstTreatment?: string;
+  taxReference?: any;
 }
 
 interface AdditionalChargeState {
@@ -69,6 +71,7 @@ interface PaymentState {
 const emptyLine = (): LineItemState => ({
   id: crypto.randomUUID(), itemId: "", name: "", description: "", hsn: "",
   qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0,
+  gstTreatment: "", taxReference: undefined,
 });
 
 export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create" | "edit"; invoiceId?: string; initialInvoice?: any }) {
@@ -171,6 +174,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
           unitPrice: Number(li.unitPrice) || 0,
           taxRate: Number(li.taxRate) || 0,
+          gstTreatment: li.gstTreatment || "",
         }));
       if (mapped.length) setLineItems(mapped);
     }
@@ -254,6 +258,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             id: crypto.randomUUID(), itemId: li.itemId || "", name: li.name || "", description: li.description || "",
             hsn: li.hsn || "", qty: li.qty ?? 1, unitPrice: li.unitPrice ?? 0, discount: li.discount ?? 0,
             discountMode: li.discountMode || "percent", taxRate: li.taxRate ?? 0,
+            gstTreatment: li.gstTreatment || "", taxReference: li.taxReference || undefined,
           }))
         : [emptyLine()],
     );
@@ -302,6 +307,9 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
       name: p.header?.name || "",
       unitPrice: p.tab_general_information?.list_price || 0,
       taxRate: p._taxRate ?? p.tab_general_information?.gstRate ?? 0,
+      hsn: p.tab_general_information?.hsnSacCode || "",
+      gstTreatment: p.tab_general_information?.gstTreatment || "",
+      taxReference: p.tab_general_information?.taxReference,
     });
   };
 
@@ -317,6 +325,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
   const totals = useMemo(() => {
     const inputs: InvoiceLineInput[] = lineItems.map((li) => ({
       qty: li.qty, unitPrice: li.unitPrice, discount: li.discount, discountMode: li.discountMode, taxRate: li.taxRate, hsn: li.hsn, name: li.name,
+      gstTreatment: li.gstTreatment, taxReference: li.taxReference,
     }));
     return computeInvoiceTotals({
       lineItems: inputs,
@@ -411,6 +420,7 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
           draft.lineItems.map((li: any) => ({
             id: crypto.randomUUID(), itemId: li.itemId || "", name: li.name || li.itemId || "Item", description: "",
             hsn: li.hsn || "", qty: li.qty || 1, unitPrice: li.unitPrice || 0, discount: 0, discountMode: "percent", taxRate: li.taxRate || 0,
+            gstTreatment: li.gstTreatment || "", taxReference: li.taxReference || undefined,
           })),
         );
       }

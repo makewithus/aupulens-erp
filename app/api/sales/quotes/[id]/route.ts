@@ -61,6 +61,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         rate: taxRate,
         amount: taxMode === "tds" ? totals.tdsAmount : totals.tcsAmount,
       };
+      update.lineItems = totals.computedLines;
     }
 
     const quote = await SalesQuotation.findOneAndUpdate({ _id: id, tenantId }, { $set: update }, { new: true });

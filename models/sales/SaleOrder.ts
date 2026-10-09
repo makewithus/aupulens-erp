@@ -28,6 +28,12 @@ export interface ISaleOrderLine {
   discountMode?: "percent" | "amount";
   taxRate?: number;
   hsn?: string;
+  gstTreatment?: string;
+  taxReference?: {
+    sourceId?: string;
+    effectiveDate?: string;
+    description?: string;
+  };
   priceSubtotal: number;
 }
 
@@ -159,6 +165,12 @@ const SaleOrderSchema = new Schema<ISaleOrder>(
         discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
         taxRate: { type: Number, default: 0 },
         hsn: { type: String },
+        gstTreatment: { type: String },
+        taxReference: {
+          sourceId: { type: String },
+          effectiveDate: { type: String },
+          description: { type: String },
+        },
         priceSubtotal: { type: Number, required: true },
       },
     ],

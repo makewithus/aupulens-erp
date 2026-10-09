@@ -11,6 +11,16 @@ export interface ISalesInvoiceLineItem {
   discountMode: "percent" | "amount";
   taxRate: number;
   hsn?: string;
+  gstTreatment?: string;
+  taxReference?: {
+    sourceId?: string;
+    effectiveDate?: string;
+    description?: string;
+  };
+  gross?: number;
+  lineDiscountAmount?: number;
+  taxableValue?: number;
+  taxAmount?: number;
   lineTotal: number;
 }
 
@@ -111,6 +121,16 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
         discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
         taxRate: { type: Number, default: 0 },
         hsn: { type: String },
+        gstTreatment: { type: String },
+        taxReference: {
+          sourceId: { type: String },
+          effectiveDate: { type: String },
+          description: { type: String },
+        },
+        gross: { type: Number },
+        lineDiscountAmount: { type: Number },
+        taxableValue: { type: Number },
+        taxAmount: { type: Number },
         lineTotal: { type: Number, required: true },
       },
     ],

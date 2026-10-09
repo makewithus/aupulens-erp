@@ -13,6 +13,7 @@ import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
 import Payment from "@/models/sales/Payment";
 import JournalEntry from "@/models/finance/JournalEntry";
 import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below (a bound `import X from` here gets tree-shaken by Next's bundler since X is otherwise unused)
+import { validateInvoiceTaxRequirements } from "@/lib/tax/invoiceValidation";
 
 const REVENUE_RECOGNIZED_STATUSES = new Set([
   SALES_INVOICE_STATUS.SAVED,
@@ -39,7 +40,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      query.number = { $regex: words.join(".*"), $options: "i" };
+      query.$and = words.map(word => ({
+        $or: [
+          { number: { $regex: word, $options: "i" } }
+        ]
+      }));
     }
 
     const status = searchParams.get("status");
@@ -132,6 +137,10 @@ export async function POST(request: NextRequest) {
       if (!Array.isArray(body.lineItems) || body.lineItems.length === 0) {
         return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
       }
+      const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, body.lineItems);
+      if (taxRequirementError) {
+        return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
+      }
     }
 
     const org = await Organization.findOne({ subdomain: tenantId }).lean();
@@ -171,10 +180,17 @@ export async function POST(request: NextRequest) {
     // computes the correct lineTotal per line as part of totals.computedLines,
     // so merge it back in here as the single, robust point of truth (not
     // relying on any caller to supply it).
-    const lineItemsWithTotals = (body.lineItems || []).map((li: any, i: number) => ({
-      ...li,
-      lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
-    }));
+    const lineItemsWithTotals = (body.lineItems || []).map((li: any, i: number) => {
+      const computed = totals.computedLines[i];
+      return {
+        ...li,
+        gross: computed?.gross ?? li.gross,
+        lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
+        taxableValue: computed?.taxableValue ?? li.taxableValue,
+        taxAmount: computed?.taxAmount ?? li.taxAmount,
+        lineTotal: computed?.lineTotal ?? 0,
+      };
+    });
 
     const newInvoice = new SalesInvoice({
       ...body,

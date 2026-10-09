@@ -26,6 +26,9 @@ interface QuoteLineItem {
   discount: number;
   discountMode: "percent" | "amount";
   taxRate: number;
+  hsn?: string;
+  gstTreatment?: string;
+  taxReference?: any;
 }
 
 export interface QuoteFormValue {
@@ -48,7 +51,7 @@ export interface QuoteFormValue {
 export const EMPTY_QUOTE: QuoteFormValue = {
   customerId: "",
   quoteDate: new Date().toISOString().slice(0, 10),
-  lineItems: [{ name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0 }],
+  lineItems: [{ name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0, hsn: "", gstTreatment: "", taxReference: undefined }],
   extraDiscount: 0,
   extraDiscountMode: "amount",
   taxes: { mode: "none", rate: 0 },
@@ -187,7 +190,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
   };
 
   const addLine = () =>
-    update({ lineItems: [...form.lineItems, { name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0 }] });
+    update({ lineItems: [...form.lineItems, { name: "", qty: 1, unitPrice: 0, discount: 0, discountMode: "percent", taxRate: 0, hsn: "", gstTreatment: "", taxReference: undefined }] });
   const removeLine = (i: number) => update({ lineItems: form.lineItems.filter((_, idx) => idx !== i) });
 
   const totals = useMemo(() => {
@@ -484,6 +487,9 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
                             unitPrice: match ? match.tab_general_information?.list_price ?? li.unitPrice : li.unitPrice,
                             taxRate: match ? match._taxRate ?? match.tab_general_information?.gstRate ?? li.taxRate : li.taxRate,
                             itemId: match?._id,
+                            hsn: match ? match.tab_general_information?.hsnSacCode ?? li.hsn : li.hsn,
+                            gstTreatment: match ? match.tab_general_information?.gstTreatment ?? li.gstTreatment : li.gstTreatment,
+                            taxReference: match ? match.tab_general_information?.taxReference ?? li.taxReference : li.taxReference,
                           });
                         }}
                       />

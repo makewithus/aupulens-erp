@@ -22,6 +22,7 @@ const RULES: RateLimitRule[] = [
   { pattern: "/api/auth/callback/credentials", limit: 10, windowMs: 60_000 },
   { pattern: "/api/crm/search", limit: 30, windowMs: 60_000 },
   { pattern: "/api/sales/products", limit: 60, windowMs: 60_000 },
+  { pattern: "/api/tax/hsn-sac-lookup", limit: 20, windowMs: 60_000 },
   { pattern: "/api/crm/accounts", limit: 60, windowMs: 60_000 },
   { pattern: "/api/finance/assets/compute", limit: 20, windowMs: 60_000 },
   { pattern: "/ai-assistant", isSuffix: true, limit: 20, windowMs: 60_000 },

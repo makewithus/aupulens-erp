@@ -32,6 +32,7 @@ export interface IAccountingSettings extends Document {
     gstin?: string;
     defaultSalesTaxRateId?: mongoose.Types.ObjectId;
     defaultPurchaseTaxRateId?: mongoose.Types.ObjectId;
+    requireHsnSacOnInvoices: boolean;
   };
   tds: {
     enabled: boolean;
@@ -79,6 +80,7 @@ const AccountingSettingsSchema: Schema<IAccountingSettings> = new Schema(
       gstin: { type: String, trim: true },
       defaultSalesTaxRateId: { type: Schema.Types.ObjectId, ref: "TaxRate" },
       defaultPurchaseTaxRateId: { type: Schema.Types.ObjectId, ref: "TaxRate" },
+      requireHsnSacOnInvoices: { type: Boolean, default: false },
     },
     tds: {
       enabled: { type: Boolean, default: false },

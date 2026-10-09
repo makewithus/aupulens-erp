@@ -79,6 +79,8 @@ interface Product {
     default_code?: string;
     description?: string;
     gstRate?: number;
+    hsnSacCode?: string;
+    gstTreatment?: string;
   };
   tab_sales: {
     upsell_cross_sell: { optional_product_ids: number[] };
@@ -191,6 +193,10 @@ function ProductsPageInner() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "");
   const [dateFrom, setDateFrom] = useState(() => searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(() => searchParams.get("dateTo") || "");
+  const [hsnFilter, setHsnFilter] = useState(() => searchParams.get("hsnSacCode") || searchParams.get("hsn") || "");
+  const [gstRateFilter, setGstRateFilter] = useState(() => searchParams.get("gstRate") || "");
+  const [gstTreatmentFilter, setGstTreatmentFilter] = useState(() => searchParams.get("gstTreatment") || "");
+  const [missingHsnFilter, setMissingHsnFilter] = useState(() => searchParams.get("missingHsn") === "true");
 
   // Re-applies the same filters above if the AI assistant redirects here
   // again with new ones while this page is already open — see the hook's
@@ -201,6 +207,10 @@ function ProductsPageInner() {
     statusFilter: () => setStatusFilter(searchParams.get("status") || ""),
     dateFrom: () => setDateFrom(searchParams.get("dateFrom") || ""),
     dateTo: () => setDateTo(searchParams.get("dateTo") || ""),
+    hsnFilter: () => setHsnFilter(searchParams.get("hsnSacCode") || searchParams.get("hsn") || ""),
+    gstRateFilter: () => setGstRateFilter(searchParams.get("gstRate") || ""),
+    gstTreatmentFilter: () => setGstTreatmentFilter(searchParams.get("gstTreatment") || ""),
+    missingHsnFilter: () => setMissingHsnFilter(searchParams.get("missingHsn") === "true"),
   });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -239,6 +249,10 @@ function ProductsPageInner() {
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
       if (statusF) params.set("status", statusF);
+      if (hsnFilter) params.set("hsnSacCode", hsnFilter);
+      if (gstRateFilter) params.set("gstRate", gstRateFilter);
+      if (gstTreatmentFilter) params.set("gstTreatment", gstTreatmentFilter);
+      if (missingHsnFilter) params.set("missingHsn", "true");
       const res = await cachedFetch(`/api/sales/products?${params.toString()}`, undefined, { force: true });
       const json = await res.json();
       setData(json.items || []);
@@ -250,7 +264,7 @@ function ProductsPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery, dateFrom, dateTo, statusFilter]);
+  }, [page, debouncedQuery, dateFrom, dateTo, statusFilter, hsnFilter, gstRateFilter, gstTreatmentFilter, missingHsnFilter]);
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -295,7 +309,7 @@ function ProductsPageInner() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, dateFrom, dateTo, statusFilter]);
+  }, [debouncedQuery, dateFrom, dateTo, statusFilter, hsnFilter, gstRateFilter, gstTreatmentFilter, missingHsnFilter]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -303,7 +317,7 @@ function ProductsPageInner() {
       loadAccounts();
       loadPricelists();
     }
-  }, [status, loadAccounts, loadPricelists, page, debouncedQuery, dateFrom, dateTo, statusFilter]);
+  }, [status, loadAccounts, loadPricelists, page, debouncedQuery, dateFrom, dateTo, statusFilter, hsnFilter, gstRateFilter, gstTreatmentFilter, missingHsnFilter, load]);
 
   const filtered = data;
 
@@ -587,6 +601,49 @@ function ProductsPageInner() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 gap-3 border border-border/30 p-4 md:grid-cols-5">
+          <div className="space-y-1">
+            <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">HSN/SAC</Label>
+            <Input value={hsnFilter} disabled={missingHsnFilter} onChange={(e) => setHsnFilter(e.target.value)} placeholder="4820" className="h-9 rounded-none" />
+          </div>
+          <div className="space-y-1">
+            <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">GST Rate</Label>
+            <Input value={gstRateFilter} onChange={(e) => setGstRateFilter(e.target.value)} placeholder="18" className="h-9 rounded-none" />
+          </div>
+          <div className="space-y-1">
+            <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Treatment</Label>
+            <Select value={gstTreatmentFilter || "all"} onValueChange={(v) => setGstTreatmentFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="h-9 rounded-none"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="taxable">Taxable</SelectItem>
+                <SelectItem value="exempt">Exempt</SelectItem>
+                <SelectItem value="nil">Nil</SelectItem>
+                <SelectItem value="non-gst">Non GST</SelectItem>
+                <SelectItem value="out-of-scope">Out of scope</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="flex items-end gap-2 pb-2 text-sm">
+            <Switch checked={missingHsnFilter} onCheckedChange={(v) => setMissingHsnFilter(!!v)} />
+            Missing HSN/SAC
+          </label>
+          <div className="flex items-end">
+            <Button
+              variant="outline"
+              className="h-9 w-full rounded-none"
+              onClick={() => {
+                setHsnFilter("");
+                setGstRateFilter("");
+                setGstTreatmentFilter("");
+                setMissingHsnFilter(false);
+              }}
+            >
+              Clear Tax Filters
+            </Button>
+          </div>
+        </div>
+
         <ModularModal
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
@@ -709,6 +766,7 @@ function ProductsPageInner() {
                   <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Type</TableHead>
                   <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Status</TableHead>
                   <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Price</TableHead>
+                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Tax</TableHead>
                   <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Cost</TableHead>
                   <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Actions</TableHead>
                 </TableRow>
@@ -720,6 +778,7 @@ function ProductsPageInner() {
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell className="px-8 py-7 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
@@ -727,7 +786,7 @@ function ProductsPageInner() {
                   ))
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-24 text-center">
+                    <TableCell colSpan={7} className="py-24 text-center">
                       <Package className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
                       <h3 className="text-lg font-medium text-foreground">No products found</h3>
                     </TableCell>
@@ -751,6 +810,12 @@ function ProductsPageInner() {
                       </TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground">
                         {formatCurrency(p.tab_general_information.list_price)}
+                      </TableCell>
+                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                        <div className="font-mono text-xs">{p.tab_general_information.hsnSacCode || "No HSN/SAC"}</div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {p.tab_general_information.gstRate ?? 0}% · {p.tab_general_information.gstTreatment || "taxable"}
+                        </div>
                       </TableCell>
                       <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground/80">
                         {formatCurrency(p.tab_general_information.standard_price)}

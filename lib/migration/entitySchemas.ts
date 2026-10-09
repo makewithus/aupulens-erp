@@ -47,7 +47,7 @@ const CUSTOMER_SCHEMA: EntitySchema = {
   label: "Customers",
   dedupeKeys: ["gstin", "email", "name"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacycustomerid", "legacy customer id"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacycustomerid", "legacy customer id", "customercode", "customer code", "code"] },
     { key: "name", label: "Name / Company", required: true, aliases: ["name", "customer", "party", "companyname", "company", "ledgername", "account name"], validate: "nonEmpty" },
     { key: "displayName", label: "Display Name", required: false, aliases: ["displayname", "display name", "shortname", "alias"] },
     { key: "email", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
@@ -70,7 +70,7 @@ const VENDOR_SCHEMA: EntitySchema = {
   label: "Vendors",
   dedupeKeys: ["gstin", "contactEmail", "name"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyvendorid", "legacy vendor id"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyvendorid", "legacy vendor id", "vendorcode", "vendor code", "code"] },
     { key: "name", label: "Vendor Name", required: true, aliases: ["name", "vendor", "supplier", "party", "companyname", "ledgername"], validate: "nonEmpty" },
     { key: "category", label: "Category", required: false, aliases: ["category", "type", "group", "vendortype"] },
     { key: "contactEmail", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },

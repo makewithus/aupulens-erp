@@ -9,6 +9,8 @@ export interface InvoiceLineInput {
   taxRate: number;
   hsn?: string;
   name?: string;
+  gstTreatment?: string;
+  taxReference?: any;
 }
 
 export interface ComputedLine extends InvoiceLineInput {
@@ -31,7 +33,10 @@ export function computeLine(item: InvoiceLineInput, itemLevelDiscountPercent = 0
     ? (afterLineDiscount * itemLevelDiscountPercent) / 100
     : 0;
   const taxableValue = Math.max(0, afterLineDiscount - globalDiscountAmount);
-  const taxRate = Number(item.taxRate) || 0;
+  let taxRate = Number(item.taxRate) || 0;
+  if (item.gstTreatment && ["exempt", "nil", "non-gst", "out-of-scope"].includes(item.gstTreatment)) {
+    taxRate = 0;
+  }
   const taxAmount = (taxableValue * taxRate) / 100;
   const lineTotal = taxableValue + taxAmount;
 

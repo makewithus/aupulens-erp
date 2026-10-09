@@ -86,12 +86,15 @@ export async function GET(request: Request) {
 
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      const re = { $regex: words.join(".*"), $options: "i" };
-      const matchingPartners = await Customer.find({ tenantId, "header.name": re }, { _id: 1 }).lean();
-      query.$or = [
-        { "header.name": re },
-        { "header.partnerId": { $in: matchingPartners.map((p) => p._id) } },
-      ];
+      const partnerQuery: any = { tenantId, $and: words.map(word => ({ "header.name": { $regex: word, $options: "i" } })) };
+      const matchingPartners = await Customer.find(partnerQuery, { _id: 1 }).lean();
+      
+      query.$and = words.map(word => ({
+        $or: [
+          { "header.name": { $regex: word, $options: "i" } },
+          { "header.partnerId": { $in: matchingPartners.map((p) => p._id) } },
+        ]
+      }));
     }
 
     const baseQuery = SaleOrder.find(query)

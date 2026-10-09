@@ -40,6 +40,10 @@ export function SaleOrderPopupContent({
       productQty: 1,
       priceUnit: 0,
       taxIds: [],
+      taxRate: 0,
+      hsn: "",
+      gstTreatment: "",
+      taxReference: undefined,
       discount: 0,
       priceSubtotal: 0,
     };
@@ -68,6 +72,16 @@ export function SaleOrderPopupContent({
         newLines[index].name = product.header.name;
         newLines[index].priceUnit =
           product.tab_general_information.list_price || 0;
+        
+        // Inherit GST fields from product
+        if (product.tab_general_information) {
+          newLines[index].hsn = product.tab_general_information.hsnSacCode || "";
+          newLines[index].gstTreatment = product.tab_general_information.gstTreatment || "";
+          newLines[index].taxRate = product.tab_general_information.gstRate || 0;
+          if (product.tab_general_information.taxReference) {
+            newLines[index].taxReference = product.tab_general_information.taxReference;
+          }
+        }
       }
     }
 

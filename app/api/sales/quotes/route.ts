@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
 
     const quote = await SalesQuotation.create({
       ...body,
+      lineItems: totals.computedLines,
       tenantId,
       quoteNumber,
       taxes: { mode: taxMode, taxId: body.taxes?.taxId || undefined, rate: taxRate, amount: taxMode === "tds" ? totals.tdsAmount : totals.tcsAmount },

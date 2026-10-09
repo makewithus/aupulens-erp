@@ -28,6 +28,14 @@ export interface IProduct extends Document {
     default_code?: string;
     description?: string;
     gstRate?: number;
+    hsnSacCode?: string;
+    gstTreatment?: "taxable" | "exempt" | "nil" | "non-gst" | "out-of-scope" | string;
+    hsnSacUserConfirmed?: boolean;
+    taxReference?: {
+      sourceId?: string;
+      effectiveDate?: string;
+      description?: string;
+    };
   };
   tab_sales: {
     upsell_cross_sell: {
@@ -86,6 +94,14 @@ const ProductSchema: Schema<IProduct> = new Schema(
       default_code: { type: String, trim: true },
       description: { type: String },
       gstRate: { type: Number, min: 0, max: 100 },
+      hsnSacCode: { type: String, trim: true },
+      gstTreatment: { type: String },
+      hsnSacUserConfirmed: { type: Boolean },
+      taxReference: {
+        sourceId: { type: String },
+        effectiveDate: { type: String },
+        description: { type: String },
+      },
     },
     tab_sales: {
       upsell_cross_sell: {

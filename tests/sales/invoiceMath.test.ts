@@ -109,6 +109,28 @@ describe("computeInvoiceTotals", () => {
     expect(totals.taxableAmount).toBe(900);
   });
 
+  it("computes taxable value and GST after line discount", () => {
+    const totals = computeInvoiceTotals({
+      lineItems: [{ qty: 1, unitPrice: 10000, discount: 5, discountMode: "percent", taxRate: 18 }],
+    });
+    expect(totals.subtotal).toBe(10000);
+    expect(totals.totalDiscount).toBe(500);
+    expect(totals.taxableAmount).toBe(9500);
+    expect(totals.totalTax).toBe(1710);
+    expect(totals.totalAmount).toBe(11210);
+  });
+
+  it("preserves GST treatment while zeroing tax for non-taxable treatments", () => {
+    for (const treatment of ["nil", "exempt", "non-gst", "out-of-scope"]) {
+      const totals = computeInvoiceTotals({
+        lineItems: [{ qty: 1, unitPrice: 100, discount: 0, discountMode: "percent", taxRate: 18, gstTreatment: treatment }],
+      });
+      expect(totals.totalTax).toBe(0);
+      expect(totals.computedLines[0].gstTreatment).toBe(treatment);
+      expect(totals.computedLines[0].taxRate).toBe(18);
+    }
+  });
+
   it("keeps a flat ₹ document-level discount flat regardless of subtotal", () => {
     const totals = computeInvoiceTotals({ lineItems: [{ qty: 1, unitPrice: 5000, discount: 0, discountMode: "percent", taxRate: 0 }], extraDiscount: 500, extraDiscountMode: "amount" });
     expect(totals.extraDiscountAmount).toBe(500);

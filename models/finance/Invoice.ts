@@ -21,6 +21,28 @@ export interface IInvoiceLine {
   accountId?: mongoose.Types.ObjectId; // Income/Expense Account
   discount?: number;
   taxRate?: number;
+  hsnSacCode?: string;
+  gstTreatment?: string;
+  taxReference?: {
+    sourceId?: string;
+    effectiveDate?: string;
+    description?: string;
+  };
+  taxComparison?: {
+    status: "matched" | "mismatch" | "not_applicable";
+    differences: string[];
+    product?: {
+      hsnSacCode?: string;
+      gstRate?: number;
+      gstTreatment?: string;
+    };
+    supplier?: {
+      hsnSacCode?: string;
+      gstRate?: number;
+      gstTreatment?: string;
+    };
+  };
+  taxComparisonDecision?: "supplier" | "product" | "manual";
 }
 
 export interface IInvoice extends Document {
@@ -59,6 +81,7 @@ export interface IInvoice extends Document {
   grnReference?: string;
   poMatchType?: "2_way" | "3_way";
   poMatchStatus?: "pending" | "matched" | "mismatch";
+  taxMismatchStatus?: "matched" | "mismatch" | "not_applicable";
   manualReviewRequired?: boolean;
   discrepancyNotes?: string;
   paymentScheduledDate?: Date;
@@ -97,6 +120,28 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
         accountId: { type: Schema.Types.ObjectId, ref: "Account" },
         discount: { type: Number, default: 0 },
         taxRate: { type: Number, min: 0, max: 100 },
+        hsnSacCode: { type: String, trim: true },
+        gstTreatment: { type: String },
+        taxReference: {
+          sourceId: { type: String },
+          effectiveDate: { type: String },
+          description: { type: String },
+        },
+        taxComparison: {
+          status: { type: String, enum: ["matched", "mismatch", "not_applicable"] },
+          differences: [{ type: String }],
+          product: {
+            hsnSacCode: { type: String },
+            gstRate: { type: Number },
+            gstTreatment: { type: String },
+          },
+          supplier: {
+            hsnSacCode: { type: String },
+            gstRate: { type: Number },
+            gstTreatment: { type: String },
+          },
+        },
+        taxComparisonDecision: { type: String, enum: ["supplier", "product", "manual"] },
       },
     ],
     currencyId: { type: String, default: "INR" },
@@ -131,6 +176,11 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
       type: String,
       enum: ["pending", "matched", "mismatch"],
       default: "pending",
+    },
+    taxMismatchStatus: {
+      type: String,
+      enum: ["matched", "mismatch", "not_applicable"],
+      default: "not_applicable",
     },
     manualReviewRequired: { type: Boolean, default: false },
     discrepancyNotes: { type: String },

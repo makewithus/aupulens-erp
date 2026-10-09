@@ -11,6 +11,12 @@ export interface IQuoteLineItem {
   discountMode: "percent" | "amount";
   taxRate: number;
   hsn?: string;
+  gstTreatment?: string;
+  taxReference?: {
+    sourceId?: string;
+    effectiveDate?: string;
+    description?: string;
+  };
   lineTotal: number;
 }
 
@@ -83,6 +89,12 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
         discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
         taxRate: { type: Number, default: 0 },
         hsn: { type: String },
+        gstTreatment: { type: String },
+        taxReference: {
+          sourceId: { type: String },
+          effectiveDate: { type: String },
+          description: { type: String },
+        },
         lineTotal: { type: Number, required: true, default: 0 },
       },
     ],

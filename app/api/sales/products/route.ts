@@ -52,6 +52,29 @@ export async function GET(req: any) {
       filter.status = status;
     }
 
+    const hsnSacCode = searchParams.get("hsnSacCode") || searchParams.get("hsn");
+    if (hsnSacCode) {
+      filter["tab_general_information.hsnSacCode"] = new RegExp(escapeRegex(hsnSacCode.trim()), "i");
+    }
+
+    const gstRate = searchParams.get("gstRate");
+    if (gstRate !== null && gstRate !== "" && !Number.isNaN(Number(gstRate))) {
+      filter["tab_general_information.gstRate"] = Number(gstRate);
+    }
+
+    const gstTreatment = searchParams.get("gstTreatment");
+    if (gstTreatment) {
+      filter["tab_general_information.gstTreatment"] = gstTreatment;
+    }
+
+    if (searchParams.get("missingHsn") === "true") {
+      filter.$or = [
+        { "tab_general_information.hsnSacCode": { $exists: false } },
+        { "tab_general_information.hsnSacCode": "" },
+        { "tab_general_information.hsnSacCode": null },
+      ];
+    }
+
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
     if (dateFrom || dateTo) {
@@ -66,16 +89,14 @@ export async function GET(req: any) {
     }
 
     if (query) {
-      const regex = new RegExp(escapeRegex(query), "i");
-      filter.$and = [
-        {
-          $or: [
-            { "header.name": regex },
-            { "tab_general_information.default_code": regex },
-            { "tab_general_information.description": regex },
-          ],
-        },
-      ];
+      const words = query.trim().split(/\\s+/).map(w => escapeRegex(w));
+      filter.$and = words.map(word => ({
+        $or: [
+          { "header.name": { $regex: word, $options: "i" } },
+          { "tab_general_information.default_code": { $regex: word, $options: "i" } },
+          { "tab_general_information.description": { $regex: word, $options: "i" } },
+        ],
+      }));
     }
 
     // Pagination is opt-in via `page` — omitting it returns every matching

@@ -370,20 +370,51 @@ async function runValidationChunk(batch: any, limit: number) {
     
     const bulkWriteOps: any[] = [];
     
-    // Process all records in parallel
-    const processedRecords = await Promise.all(jobRecords.map(async (rec) => {
-      const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
-      const validation = validateRows(job.entityType, [rec.sourceData as Record<string, unknown>], mapping);
-      const rowValidationErrors = validation.issues
-        .filter((issue) => issue.rowIndex === 0 && issue.severity === "error")
-        .map((issue) => ({ field: issue.field, message: issue.message }));
-      const rowValidationWarnings = validation.issues
-        .filter((issue) => issue.rowIndex === 0 && issue.severity === "warning")
-        .map((issue) => ({ field: issue.field, message: issue.message }));
-      
-      const relationshipErrors = await validateRelationships(batch.tenantId, batch._id.toString(), job.entityType, canonical);
-      return { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors };
-    }));
+    const relationshipCache = new Map<string, any>();
+    // Process records in chunks of 50 to avoid connection pool exhaustion
+    const processedRecords = [];
+    for (let i = 0; i < jobRecords.length; i += 50) {
+      const chunk = jobRecords.slice(i, i + 50);
+      const chunkResults = await Promise.all(chunk.map(async (rec) => {
+        const canonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, mapping));
+        const validation = validateRows(job.entityType, [rec.sourceData as Record<string, unknown>], mapping);
+        const rowValidationErrors = validation.issues
+          .filter((issue) => issue.rowIndex === 0 && issue.severity === "error")
+          .map((issue) => ({ field: issue.field, message: issue.message }));
+        const rowValidationWarnings = validation.issues
+          .filter((issue) => issue.rowIndex === 0 && issue.severity === "warning")
+          .map((issue) => ({ field: issue.field, message: issue.message }));
+        
+        const relationshipErrors = await validateRelationships(batch.tenantId, batch._id.toString(), job.entityType, canonical, relationshipCache);
+        return { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors };
+      }));
+      processedRecords.push(...chunkResults);
+    }
+
+    const preFetchUploadMap = new Map<string, boolean>();
+    const preFetchDbMap = new Map<string, any>();
+    
+    // Process pre-fetches in chunks of 25 to avoid connection pool exhaustion while being much faster than sequential
+    for (let i = 0; i < processedRecords.length; i += 25) {
+      const chunk = processedRecords.slice(i, i + 25);
+      await Promise.all(chunk.map(async ({ rec, canonical, relationshipErrors, rowValidationErrors }) => {
+        if (relationshipErrors.length > 0 || rowValidationErrors.length > 0) return;
+        const sig = duplicateSignature(job.entityType, schema, canonical);
+        if (!sig) return;
+        
+        const uFilter = duplicateFilterFromSignature(batch, schema, canonical, rec._id);
+        if (uFilter) {
+          const exists = await MigrationRecord.exists(uFilter);
+          preFetchUploadMap.set(rec._id.toString(), !!exists);
+        }
+        
+        const dFilter = handler.existingFilter(canonical, batch.tenantId);
+        if (dFilter) {
+          const existingDoc = await handler.model.findOne(dFilter).select("_id").lean();
+          preFetchDbMap.set(rec._id.toString(), existingDoc ? (existingDoc as any)._id : null);
+        }
+      }));
+    }
 
     // Evaluate duplicates sequentially to maintain `seenInThisChunk` state properly
     for (const { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors } of processedRecords) {
@@ -404,8 +435,7 @@ async function runValidationChunk(batch: any, limit: number) {
         
         const sig = duplicateSignature(job.entityType, schema, canonical);
         if (sig) {
-          const priorUploadDuplicate = seenInThisChunk.has(sig)
-            || (await MigrationRecord.exists(duplicateFilterFromSignature(batch, schema, canonical, rec._id)));
+          const priorUploadDuplicate = seenInThisChunk.has(sig) || preFetchUploadMap.get(rec._id.toString());
 
           if (priorUploadDuplicate) {
             update.status = "duplicate";
@@ -416,16 +446,13 @@ async function runValidationChunk(batch: any, limit: number) {
             seenInThisChunk.add(sig);
 
             // Check real DB
-            const filter = handler.existingFilter(canonical, batch.tenantId);
-            if (filter) {
-              const existingDoc = await handler.model.findOne(filter).select("_id").lean();
-              if (existingDoc) {
-                update.status = "duplicate";
-                update.duplicateTargetId = (existingDoc as any)._id;
-                update.duplicateReason = "database";
-                update.duplicateFields = duplicateFields(schema, canonical);
-                update.errors = [{ message: `Duplicate record found in workspace using ${update.duplicateFields.join(", ")}.` }];
-              }
+            const existingDocId = preFetchDbMap.get(rec._id.toString());
+            if (existingDocId) {
+              update.status = "duplicate";
+              update.duplicateTargetId = existingDocId;
+              update.duplicateReason = "database";
+              update.duplicateFields = duplicateFields(schema, canonical);
+              update.errors = [{ message: `Duplicate record found in workspace using ${update.duplicateFields.join(", ")}.` }];
             }
           }
         }
@@ -525,10 +552,11 @@ async function runMigrationChunk(batch: any, limit: number) {
     const identityMapInserts: any[] = [];
     const pendingTargets = new Map<string, { docId: any; insertOpIndex: number | null }>();
 
+    const resolveCache = new Map<string, any>();
     const importContext = {
       tenantId: batch.tenantId, 
       userId: batch.createdBy.toString(),
-      resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(batch.tenantId, batch._id.toString(), entityType, sourceId)
+      resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(batch.tenantId, batch._id.toString(), entityType, sourceId, resolveCache)
     };
 
     const transformedRecords = await Promise.all(jobRecords.map(async (rec) => {
@@ -575,9 +603,16 @@ async function runMigrationChunk(batch: any, limit: number) {
             : null;
           const conflictKey = conflict ? stableFilterKey(conflict.filter) : null;
           const pendingTarget = conflictKey ? pendingTargets.get(conflictKey) : null;
-          const existingDoc = !pendingTarget && conflict
-            ? await handler.model.findOne(conflict.filter).select("_id").lean()
-            : null;
+          
+          let existingDoc = null;
+          if (!pendingTarget && conflict && conflictKey) {
+            if (resolveCache.has(`conflict:${conflictKey}`)) {
+               existingDoc = resolveCache.get(`conflict:${conflictKey}`);
+            } else {
+               existingDoc = await handler.model.findOne(conflict.filter).select("_id").lean();
+               resolveCache.set(`conflict:${conflictKey}`, existingDoc);
+            }
+          }
 
           if (pendingTarget) {
             docId = pendingTarget.docId;

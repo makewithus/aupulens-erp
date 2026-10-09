@@ -17,6 +17,16 @@ type GstLedgerSummary = {
   totalCreditUsed: number;
   totalCashPayable: number;
 };
+type GstReportRow = {
+  hsn: string;
+  gstRate: number;
+  gstTreatment: string;
+  taxableValue: number;
+  taxAmount: number;
+  total: number;
+  missingHsnCount: number;
+  lineCount: number;
+};
 
 function previousCompletedMonth() {
   const date = new Date();
@@ -28,13 +38,21 @@ export default function GstPage() {
   const { data: session } = useSession();
   const [period, setPeriod] = useState(previousCompletedMonth);
   const [data, setData] = useState<GstLedgerSummary | null>(null);
+  const [reportRows, setReportRows] = useState<GstReportRow[]>([]);
+  const [reportTotals, setReportTotals] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
     setData(null);
-    const res = await fetch(`/api/finance/gst?period=${period}`);
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error);
-    setData(json.data);
+    const [ledgerRes, reportRes] = await Promise.all([
+      fetch(`/api/finance/gst?period=${period}`),
+      fetch(`/api/finance/reports/gst?dateFrom=${period}-01&dateTo=${period}-31`),
+    ]);
+    const [ledgerJson, reportJson] = await Promise.all([ledgerRes.json(), reportRes.json()]);
+    if (!ledgerRes.ok) throw new Error(ledgerJson.error);
+    if (!reportRes.ok) throw new Error(reportJson.message || "Failed to load GST report");
+    setData(ledgerJson.data);
+    setReportRows(reportJson.rows || []);
+    setReportTotals(reportJson.totals || null);
   }, [period]);
   useEffect(() => { load().catch((e) => toast.error(e.message)); }, [load]);
   const apply = async () => {
@@ -57,6 +75,43 @@ export default function GstPage() {
         <p>Credit to apply: {money(data.totalCreditUsed)} · Net cash payable: {money(data.totalCashPayable)}</p>
         <Button disabled={busy || !data.totalCreditUsed || !!data.unclassifiedOutput} onClick={apply}>{busy ? "Posting…" : "Post reviewed input credit adjustment"}</Button>
       </>}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold">HSN/SAC Sales Summary</h2>
+          <p className="text-sm text-muted-foreground">Grouped from saved sales invoice line snapshots for the selected month. Missing HSN rows indicate invoices that may need review before reporting.</p>
+        </div>
+        <table className="w-full text-left">
+          <thead>
+            <tr>{["HSN/SAC", "GST", "Treatment", "Lines", "Taxable", "GST amount", "Total", "Missing HSN"].map((s) => <th className="p-3 border-b" key={s}>{s}</th>)}</tr>
+          </thead>
+          <tbody>
+            {reportRows.map((row) => (
+              <tr key={`${row.hsn}-${row.gstRate}-${row.gstTreatment}`}>
+                <td className="p-3 font-mono">{row.hsn}</td>
+                <td className="p-3">{row.gstRate}%</td>
+                <td className="p-3 capitalize">{row.gstTreatment}</td>
+                <td className="p-3">{row.lineCount}</td>
+                <td className="p-3">{money(row.taxableValue)}</td>
+                <td className="p-3">{money(row.taxAmount)}</td>
+                <td className="p-3">{money(row.total)}</td>
+                <td className="p-3">{row.missingHsnCount}</td>
+              </tr>
+            ))}
+            {reportRows.length === 0 && <tr><td className="p-6 text-center text-muted-foreground" colSpan={8}>No sales invoice lines found for this period.</td></tr>}
+          </tbody>
+          {reportTotals && (
+            <tfoot>
+              <tr className="font-semibold">
+                <td className="p-3" colSpan={4}>Total</td>
+                <td className="p-3">{money(reportTotals.taxableValue || 0)}</td>
+                <td className="p-3">{money(reportTotals.taxAmount || 0)}</td>
+                <td className="p-3">{money(reportTotals.total || 0)}</td>
+                <td className="p-3">{reportTotals.missingHsnCount || 0}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </section>
     </div>
   </DashboardLayout>;
 }

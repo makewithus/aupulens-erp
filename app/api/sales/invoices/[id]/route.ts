@@ -13,6 +13,7 @@ import { settleInvoiceShortfallWithSystemPayment } from "@/lib/sales/paymentAllo
 import { advanceSaleOrderOnInvoicePaid } from "@/lib/sales/q2cSync";
 import Payment from "@/models/sales/Payment";
 import JournalEntry from "@/models/finance/JournalEntry";
+import { validateInvoiceTaxRequirements } from "@/lib/tax/invoiceValidation";
 
 const ZERO_SNAPSHOT: SalesInvoiceSnapshot = { taxableAmount: 0, totalTax: 0, tcsAmount: 0, tdsAmount: 0 };
 const REVENUE_RECOGNIZED_STATUSES = new Set([
@@ -82,6 +83,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!Array.isArray(merged.lineItems) || merged.lineItems.length === 0) {
         return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
       }
+      const taxRequirementError = await validateInvoiceTaxRequirements(tenantId, merged.lineItems);
+      if (taxRequirementError) {
+        return NextResponse.json({ success: false, message: taxRequirementError }, { status: 400 });
+      }
     }
 
     const org = await Organization.findOne({ subdomain: tenantId }).lean();
@@ -114,10 +119,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // supply it. This is also what unblocks recording a payment against an
     // invoice whose lineTotal was never set on creation (applyAllocationsToInvoices
     // re-saves the whole document, which re-validates every path).
-    const lineItemsWithTotals = (merged.lineItems || []).map((li: any, i: number) => ({
-      ...li,
-      lineTotal: totals.computedLines[i]?.lineTotal ?? 0,
-    }));
+    const lineItemsWithTotals = (merged.lineItems || []).map((li: any, i: number) => {
+      const computed = totals.computedLines[i];
+      return {
+        ...li,
+        gross: computed?.gross ?? li.gross,
+        lineDiscountAmount: computed?.lineDiscountAmount ?? li.lineDiscountAmount,
+        taxableValue: computed?.taxableValue ?? li.taxableValue,
+        taxAmount: computed?.taxAmount ?? li.taxAmount,
+        lineTotal: computed?.lineTotal ?? 0,
+      };
+    });
 
     const update = {
       ...body,

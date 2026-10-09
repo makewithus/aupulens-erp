@@ -4,6 +4,7 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
 import Invoice from "@/models/finance/Invoice";
+import Product from "@/models/inventory/Product";
 import JournalEntry from "@/models/finance/JournalEntry";
 import Account from "@/models/finance/Account";
 import {
@@ -19,6 +20,7 @@ import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postInvoicePayment } from "@/lib/accounting/payments";
 import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { assertTransactionNotLocked, TransactionLockError } from "@/lib/accounting/transactionLock";
+import { comparePurchaseLineTax } from "@/lib/tax/purchaseTaxCompare";
 
 import { splitGst, GST_INPUT_CODES } from "@/lib/accounting/gst";
 
@@ -245,6 +247,26 @@ export async function PATCH(
     }
     if (currentBill.state !== DOCUMENT_STATUS.POSTED) {
       for (const key of financialFields) if (key in body) (currentBill as any)[key] = body[key];
+    }
+    if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length) {
+      const productIds = body.invoiceLines.map((line: any) => line.productId).filter(Boolean);
+      const products = productIds.length ? await Product.find({ _id: { $in: productIds }, tenantId }).lean() : [];
+      const productById = new Map(products.map((product: any) => [String(product._id), product]));
+      body.invoiceLines = body.invoiceLines.map((line: any) => {
+        const comparison = line.productId
+          ? comparePurchaseLineTax(line, productById.get(String(line.productId)))
+          : { status: "not_applicable", differences: [] };
+        return { ...line, taxComparison: comparison };
+      });
+      body.taxMismatchStatus = body.invoiceLines.some((line: any) => line.taxComparison?.status === "mismatch")
+        ? "mismatch"
+        : body.invoiceLines.some((line: any) => line.taxComparison?.status === "matched")
+          ? "matched"
+          : "not_applicable";
+      if (body.taxMismatchStatus === "mismatch") {
+        body.manualReviewRequired = true;
+        body.discrepancyNotes = body.discrepancyNotes || "Supplier bill tax details differ from product master.";
+      }
     }
     if (currentBill.state !== DOCUMENT_STATUS.POSTED && body.invoiceLines?.length && body.invoiceLines.every((l: any) => l.taxRate !== undefined)) {
       const computed = computeBillTotals(body.invoiceLines);
