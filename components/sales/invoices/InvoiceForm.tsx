@@ -683,7 +683,20 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
                           <Input type="number" value={item.unitPrice} onChange={(e) => updateLineItem(item.id, { unitPrice: Number(e.target.value) })} className="h-8 w-full" />
                         </TableCell>
                         <TableCell className="px-4 py-3">
-                          <Input type="number" value={item.taxRate} onChange={(e) => updateLineItem(item.id, { taxRate: Number(e.target.value) })} className="h-8 w-full" />
+                          <Select value={String(item.taxRate)} onValueChange={(v) => updateLineItem(item.id, { taxRate: Number(v) })}>
+                            <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                            <SelectContent position="popper" side="bottom" sideOffset={4} avoidCollisions={false}>
+                              <SelectItem value="0">0%</SelectItem>
+                              <SelectItem value="0.25">0.25%</SelectItem>
+                              <SelectItem value="1.5">1.5%</SelectItem>
+                              <SelectItem value="3">3%</SelectItem>
+                              <SelectItem value="5">5%</SelectItem>
+                              <SelectItem value="12">12%</SelectItem>
+                              <SelectItem value="18">18%</SelectItem>
+                              <SelectItem value="28">28%</SelectItem>
+                              <SelectItem value="40">40%</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="px-4 py-3 flex items-center gap-1">
                           <Input type="number" value={item.discount} onChange={(e) => updateLineItem(item.id, { discount: Number(e.target.value) })} className="h-8 w-16" />

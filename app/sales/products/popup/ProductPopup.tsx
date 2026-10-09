@@ -504,23 +504,34 @@ export function ProductPopupContent({
               </div>
               <div className="space-y-2">
                 <Label>GST Rate (%)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={formData.tab_general_information.gstRate ?? 0}
-                  onChange={(e) =>
+                <Select
+                  value={String(formData.tab_general_information.gstRate ?? 0)}
+                  onValueChange={(val) =>
                     setFormData({
                       ...formData,
                       tab_general_information: {
                         ...formData.tab_general_information,
-                        gstRate: parseFloat(e.target.value) || 0,
+                        gstRate: parseFloat(val) || 0,
                         hsnSacUserConfirmed: true,
                       },
                     })
                   }
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select GST Rate" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" sideOffset={4} avoidCollisions={false}>
+                    <SelectItem value="0">0% / Exempted</SelectItem>
+                    <SelectItem value="0.25">0.25%</SelectItem>
+                    <SelectItem value="1.5">1.5%</SelectItem>
+                    <SelectItem value="3">3%</SelectItem>
+                    <SelectItem value="5">5%</SelectItem>
+                    <SelectItem value="12">12%</SelectItem>
+                    <SelectItem value="18">18%</SelectItem>
+                    <SelectItem value="28">28%</SelectItem>
+                    <SelectItem value="40">40%</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>HSN/SAC Code</Label>
