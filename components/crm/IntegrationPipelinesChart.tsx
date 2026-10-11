@@ -68,7 +68,7 @@ export function IntegrationPipelinesChart() {
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
             Active Pipelines
           </span>
-          <span className="text-base font-bold text-amber-400">
+          <span className="text-base font-bold text-white">
             {latestCount.toLocaleString()}
           </span>
         </div>
@@ -82,7 +82,7 @@ export function IntegrationPipelinesChart() {
           metricLabel="Active Pipelines"
           title="INTEGRATION PIPELINES"
           currencyPrefix=""
-          colorTheme="binance-gold"
+          colorTheme="white"
           height={380}
           showTopStats={true}
           showToolbar={true}

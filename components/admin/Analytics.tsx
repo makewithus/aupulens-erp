@@ -496,7 +496,7 @@ export default function AdminAnalytics() {
                     valueKey="count"
                     metricLabel="Shipments"
                     currencyPrefix=""
-                    colorTheme="binance-gold"
+                    colorTheme="white"
                     title="MANUFACTURING SHIPMENTS"
                     height="100%"
                   />
@@ -687,7 +687,7 @@ export default function AdminAnalytics() {
                   valueKey="count"
                   metricLabel="Shipments"
                   currencyPrefix=""
-                  colorTheme="binance-gold"
+                  colorTheme="white"
                   title="MANUFACTURING SHIPMENTS"
                   height="100%"
                 />

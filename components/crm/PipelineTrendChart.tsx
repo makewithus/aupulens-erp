@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Loader2, ZoomIn, ZoomOut, RotateCcw, Calendar, Sliders } from "lucide-react";
+import { Loader2, Calendar } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 import { TradingLineChart, LineDataPoint, generate730HistoricalData } from "@/components/charts/TradingLineChart";
 import { cn } from "@/lib/utils";
@@ -179,6 +179,12 @@ export function PipelineTrendChart() {
 
   // Visible points for "By Stage" mode
   const [stageStartIdx, stageEndIdx] = stageRange;
+  const stageRangeRef = useRef<[number, number]>(stageRange);
+  const rafIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    stageRangeRef.current = stageRange;
+  }, [stageRange]);
   const visibleStageData = useMemo(() => {
     return fullDailyDataset.slice(stageStartIdx, stageEndIdx);
   }, [fullDailyDataset, stageStartIdx, stageEndIdx]);
@@ -458,13 +464,69 @@ export function PipelineTrendChart() {
       draw();
     };
 
-    // Wheel Zoom for "By Stage"
+    // Smooth, firm, controlled wheel zoom for "By Stage"
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.deltaY < 0) {
-        handleStageZoom("in");
-      } else {
-        handleStageZoom("out");
+      e.stopPropagation();
+
+      const totalLen = fullDailyDataset.length;
+      if (totalLen <= 1) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const PAD_LEFT = 10;
+      const PAD_RIGHT = 70;
+      const cW = Math.max(10, rect.width - PAD_LEFT - PAD_RIGHT);
+      const mouseRatio = Math.max(0, Math.min(1, (mx - PAD_LEFT) / cW));
+
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) dy *= 28;
+      else if (e.deltaMode === 2) dy *= 120;
+
+      const clampedDelta = Math.max(-100, Math.min(100, dy));
+      const [start, end] = stageRangeRef.current;
+      const span = end - start;
+      const minSpan = 5;
+      const maxSpan = totalLen;
+
+      const sensitivity = 0.0015;
+      const factor = Math.exp(clampedDelta * sensitivity);
+      let newSpan = Math.round(span * factor);
+
+      const minStep = span > 60 ? 3 : span > 20 ? 2 : 1;
+      if (Math.abs(newSpan - span) < minStep) {
+        if (clampedDelta > 0 && span < maxSpan) {
+          newSpan = Math.min(maxSpan, span + minStep);
+        } else if (clampedDelta < 0 && span > minSpan) {
+          newSpan = Math.max(minSpan, span - minStep);
+        }
+      }
+
+      newSpan = Math.max(minSpan, Math.min(maxSpan, newSpan));
+      if (newSpan === span && ((clampedDelta > 0 && span >= maxSpan) || (clampedDelta < 0 && span <= minSpan))) {
+        return;
+      }
+
+      const centerIdx = start + mouseRatio * span;
+      let newStart = Math.round(centerIdx - mouseRatio * newSpan);
+      let newEnd = newStart + newSpan;
+
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = Math.min(totalLen, newSpan);
+      }
+      if (newEnd > totalLen) {
+        newEnd = totalLen;
+        newStart = Math.max(0, totalLen - newSpan);
+      }
+
+      stageRangeRef.current = [newStart, newEnd];
+
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          setStageRange([...stageRangeRef.current]);
+        });
       }
     };
 
@@ -481,6 +543,10 @@ export function PipelineTrendChart() {
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("resize", resize);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [
     isAdvanced,
@@ -501,11 +567,11 @@ export function PipelineTrendChart() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-border/60">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
             <h2 className="text-base font-semibold uppercase tracking-wider">
               Sales Pipeline Trend
             </h2>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-white border border-white/20">
               Live Daily
             </span>
           </div>
@@ -521,7 +587,7 @@ export function PipelineTrendChart() {
             className={cn(
               "px-3 py-1 rounded transition-all font-medium cursor-pointer",
               !isAdvanced
-                ? "bg-amber-400/15 text-amber-400 border border-amber-400/30 shadow-sm"
+                ? "bg-white/20 text-white border border-white/40 shadow-sm"
                 : "text-muted-foreground hover:text-white"
             )}
           >
@@ -532,7 +598,7 @@ export function PipelineTrendChart() {
             className={cn(
               "px-3 py-1 rounded transition-all font-medium cursor-pointer",
               isAdvanced
-                ? "bg-amber-400/15 text-amber-400 border border-amber-400/30 shadow-sm"
+                ? "bg-white/20 text-white border border-white/40 shadow-sm"
                 : "text-muted-foreground hover:text-white"
             )}
           >
@@ -544,7 +610,7 @@ export function PipelineTrendChart() {
       {/* ── Content View ── */}
       {loading ? (
         <div className="flex items-center justify-center min-h-[460px] gap-2 text-muted-foreground text-sm">
-          <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+          <Loader2 className="h-4 w-4 animate-spin text-white" />
           Loading pipeline telemetry…
         </div>
       ) : !isAdvanced ? (
@@ -557,7 +623,7 @@ export function PipelineTrendChart() {
             metricLabel="Pipeline Value"
             title="SALES PIPELINE TREND"
             currencyPrefix="₹"
-            colorTheme="binance-gold"
+            colorTheme="white"
             height={440}
             showTopStats={true}
             showToolbar={true}
@@ -566,7 +632,7 @@ export function PipelineTrendChart() {
           />
         </div>
       ) : (
-        /* ── By Stage Mode: Binance-styled Multi-Stage Stacked Area ── */
+        /* ── By Stage Mode: Multi-Stage Stacked Area ── */
         <div className="p-4 space-y-3">
           {/* Timeframe Presets & Custom Days Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -581,7 +647,7 @@ export function PipelineTrendChart() {
                     className={cn(
                       "px-2.5 py-1 text-xs rounded transition-colors font-medium cursor-pointer border",
                       isActive
-                        ? "bg-amber-400/20 text-amber-400 border-amber-400/40"
+                        ? "bg-white/20 text-white border-white/50 shadow-sm"
                         : "bg-transparent text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
                     )}
                   >
@@ -599,40 +665,20 @@ export function PipelineTrendChart() {
                   placeholder="Custom days..."
                   value={stageCustomDays}
                   onChange={(e) => setStageCustomDays(e.target.value)}
-                  className="w-24 px-2 py-0.5 text-xs bg-[#181a20] border border-border/80 rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-400"
+                  className="w-24 px-2 py-0.5 text-xs bg-[#181a20] border border-border/80 rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-white"
                 />
                 <button
                   type="submit"
-                  className="px-2 py-0.5 text-xs bg-amber-400/20 text-amber-400 border border-amber-400/40 rounded hover:bg-amber-400/30 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 text-xs bg-white/15 text-white border border-white/40 rounded hover:bg-white/25 transition-colors cursor-pointer"
                 >
                   Apply
                 </button>
               </form>
             </div>
 
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => handleStageZoom("in")}
-                title="Zoom In (Detailed Days)"
-                className="p-1.5 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors cursor-pointer"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => handleStageZoom("out")}
-                title="Zoom Out (Historical Days)"
-                className="p-1.5 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors cursor-pointer"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handleStageReset}
-                title="Reset Zoom"
-                className="p-1.5 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
+            {/* Hint for mouse wheel zoom & drag */}
+            <div className="text-[10px] text-muted-foreground hidden sm:block">
+              Mouse Wheel to Zoom • Drag to Pan
             </div>
           </div>
 
@@ -643,7 +689,7 @@ export function PipelineTrendChart() {
               className={cn(
                 "px-2 py-0.5 rounded cursor-pointer transition-colors border",
                 activeStageFilter === null
-                  ? "bg-amber-400/20 text-amber-400 border-amber-400/40 font-semibold"
+                  ? "bg-white/20 text-white border-white/50 font-semibold shadow-sm"
                   : "text-muted-foreground border-border/40 hover:text-white"
               )}
             >
@@ -671,8 +717,18 @@ export function PipelineTrendChart() {
           </div>
 
           {/* Interactive Stacked Canvas */}
-          <div ref={containerRef} className="relative w-full h-[400px]">
-            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair"></canvas>
+          <div
+            ref={containerRef}
+            className="relative w-full h-[400px] touch-none"
+            style={{ touchAction: "none", overscrollBehavior: "contain" }}
+          >
+            <canvas
+              ref={canvasRef}
+              onDoubleClick={handleStageReset}
+              className="block w-full h-full cursor-crosshair touch-none"
+              style={{ touchAction: "none", overscrollBehavior: "contain" }}
+              title="Mouse wheel to zoom in/out • Click and drag to pan • Double-click to reset"
+            ></canvas>
             <div
               ref={tooltipRef}
               className={cn(

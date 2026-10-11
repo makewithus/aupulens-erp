@@ -99,20 +99,20 @@ export default function ChartsDemoPage() {
 
       <main className="max-w-7xl mx-auto space-y-10">
         {/* ========================================================================= */}
-        {/* 1. BINANCE / TRADINGVIEW LINE CHART SHOWCASE                              */}
+        {/* 1. ENTERPRISE INTERACTIVE LINE CHART SHOWCASE                             */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-l-4 border-amber-500 pl-3">
+          <div className="flex items-center justify-between border-l-4 border-white pl-3">
             <div>
               <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-                <LineChartIcon className="w-4 h-4 text-amber-400" />
-                1. Binance / TradingView Interactive Line Chart
+                <LineChartIcon className="w-4 h-4 text-white" />
+                1. Enterprise Interactive Line Chart
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                Features: <b>Mouse-wheel zoom in/out</b>, <b>drag-to-pan</b>, timeframe buttons (<b>7D, 14D, 30D, 90D, 180D, 1Y, ALL</b>), <b>custom days input</b>, moving averages (<b>MA7 / MA25 / MA99</b>), and real-time hover crosshairs.
+                Features: <b>Mouse-wheel zoom in/out</b>, <b>drag-to-pan</b>, timeframe buttons (<b>7D, 14D, 30D, 90D, 180D, 1Y, ALL</b>), <b>custom days input</b>, double-click to reset, and real-time hover crosshairs.
               </p>
             </div>
-            <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-1 border border-amber-500/20">
+            <span className="text-[10px] font-mono text-white bg-white/10 px-2 py-1 border border-white/20">
               730-Day Historical Range
             </span>
           </div>
@@ -123,6 +123,7 @@ export default function ChartsDemoPage() {
                 title="CONSOLIDATED REVENUE & CASHFLOW (2-YEAR TIMELINE)"
                 metricLabel="Net Revenue"
                 currencyPrefix="₹"
+                colorTheme="white"
                 height={460}
               />
             </CardContent>
@@ -133,17 +134,17 @@ export default function ChartsDemoPage() {
         {/* 2. 365-DAY DISCRETE SEGMENTED BRICK BAR CHART SHOWCASE                    */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-l-4 border-slate-400 pl-3">
+          <div className="flex items-center justify-between border-l-4 border-slate-300 pl-3">
             <div>
               <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-slate-300" />
+                <BarChart3 className="w-4 h-4 text-white" />
                 2. 365-Day Daily Segmented Brick Bar Chart
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                Tracks each of the 365 days individually. Columns are rendered with discrete horizontal brick segment slices, HiDPI Retina canvas, hover tooltips showing date and value, and formatted axes.
+                Tracks each of the 365 days individually. Features <b>mouse-wheel zoom in/out</b>, <b>drag-to-pan</b>, discrete horizontal brick slices, hover tooltips showing date and value, and ERP theme markers.
               </p>
             </div>
-            <span className="text-[10px] font-mono text-slate-300 bg-slate-500/10 px-2 py-1 border border-slate-500/20">
+            <span className="text-[10px] font-mono text-white bg-white/10 px-2 py-1 border border-white/20">
               365 Individual Daily Bricks
             </span>
           </div>
@@ -152,6 +153,7 @@ export default function ChartsDemoPage() {
             <DailyBrickBarChart
               metricLabel="Daily Throughput Units"
               valueKey="value"
+              colorTheme="white"
               yAxisFormatter={(v) => `${v} units`}
               tooltipValueFormatter={(v) => `${v.toLocaleString()} units`}
               height={280}
