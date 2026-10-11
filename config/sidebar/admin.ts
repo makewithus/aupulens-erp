@@ -24,6 +24,7 @@ import {
   Plug,
   ScanText,
   Workflow,
+  Zap,
 } from "lucide-react";
 import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
@@ -161,6 +162,21 @@ export const adminSidebarConfig: SidebarSection[] = [
         title: "AI Studio",
         href: "/admin/ai-studio",
         icon: Sparkles,
+      },
+      {
+        title: "Automations",
+        href: "/crm/automations",
+        icon: Zap,
+      },
+      {
+        title: "AI Insights",
+        href: "/crm/ai",
+        icon: Sparkles,
+      },
+      {
+        title: "AI Control Center",
+        href: "/crm/ai/dashboard",
+        icon: LayoutDashboard,
       },
       {
         title: "Settings",

@@ -30,12 +30,14 @@ async function connectDB() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      // Connection pool — keep up to 10 connections warm for fast concurrent requests
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      // Fail fast if server is unreachable
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 30000,
+      // Connection pool — keep up to 20 connections warm for fast concurrent requests
+      maxPoolSize: 20,
+      minPoolSize: 1,
+      // Generous timeout for cloud Atlas clusters & cold start compilations
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      heartbeatFrequencyMS: 10000,
       family: 4, // Force IPv4 to prevent Node.js IPv6 resolution hangs
     };
 

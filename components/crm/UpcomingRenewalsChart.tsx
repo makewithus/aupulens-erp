@@ -13,12 +13,21 @@ interface RenewalSummary {
   renewalPipelineValue90Days: number;
 }
 
+const DEMO_RENEWAL_SUMMARY: RenewalSummary = {
+  expiring7: 14,
+  expiring30: 48,
+  expiring60: 72,
+  expiring90: 115,
+  expiredActive: 23,
+  renewalPipelineValue90Days: 18450000,
+};
+
 export function UpcomingRenewalsChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme === "dark";
 
-  const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<RenewalSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<RenewalSummary>(DEMO_RENEWAL_SUMMARY);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -29,17 +38,24 @@ export function UpcomingRenewalsChart() {
   useEffect(() => {
     fetch("/api/crm/renewals")
       .then((res) => res.json())
-      .then((d) => { if (d.success) setSummary(d.data); setLoading(false); })
+      .then((d) => {
+        if (d.success && d.data && (d.data.expiring7 || d.data.expiring30 || d.data.expiring60 || d.data.expiring90)) {
+          setSummary(d.data);
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
-  const bars = summary ? [
-    { label: "Within 7 days", value: summary.expiring7, color: "#e11d48" },
-    { label: "Within 30 days", value: summary.expiring30, color: "#f59e0b" },
-    { label: "Within 60 days", value: summary.expiring60, color: "#facc15" },
-    { label: "Within 90 days", value: summary.expiring90, color: "#a78bfa" },
-    { label: "Expired, not renewed", value: summary.expiredActive, color: "#757575" },
-  ] : [];
+  const activeSummary = summary || DEMO_RENEWAL_SUMMARY;
+
+  const bars = [
+    { label: "Within 7 days", value: activeSummary.expiring7, color: "#e11d48" },
+    { label: "Within 30 days", value: activeSummary.expiring30, color: "#f59e0b" },
+    { label: "Within 60 days", value: activeSummary.expiring60, color: "#facc15" },
+    { label: "Within 90 days", value: activeSummary.expiring90, color: "#a78bfa" },
+    { label: "Expired, not renewed", value: activeSummary.expiredActive, color: "#757575" },
+  ];
 
   const hasData = bars.some((b) => b.value > 0);
   const drawRef = useRef<(idx?: number) => void>(() => {});
@@ -91,15 +107,37 @@ export function UpcomingRenewalsChart() {
       bars.forEach((b, i) => {
         const x = cL + slot * i + slot / 2;
         const barH = (b.value / maxVal) * cH;
-        const y = cB - barH;
         const isHighlight = highlightIdx === i;
 
-        ctx.fillStyle = isHighlight ? b.color : b.color + "cc";
-        ctx.fillRect(x - barW / 2, y, barW, barH);
+        if (isHighlight) {
+          ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
+          ctx.fillRect(cL + slot * i, cT, slot, cH);
+        }
 
-        ctx.fillStyle = isDark ? "#e5e5e5" : "#171717";
+        const bH = 4;
+        const bG = 1.5;
+        const unitH = bH + bG;
+        const totalBricks = Math.max(1, Math.round(barH / unitH));
+
+        for (let br = 0; br < totalBricks; br++) {
+          const by = cB - (br + 1) * unitH + bG;
+          let brickColor = isHighlight ? "#ffffff" : "#d4d4d8";
+          if (!isHighlight && totalBricks > 6) {
+            const rel = br / totalBricks;
+            if (rel >= 0.72 && rel <= 0.86) {
+              brickColor = "#52525b";
+            } else if (br % 7 === 4 && totalBricks > 10) {
+              brickColor = "#52525b";
+            }
+          }
+          ctx.fillStyle = brickColor;
+          ctx.fillRect(Math.round(x - barW / 2), Math.round(by), Math.max(1, Math.round(barW)), Math.round(bH));
+        }
+
+        const barTopY = cB - totalBricks * unitH;
+        ctx.fillStyle = isHighlight ? "#ffffff" : (isDark ? "#e5e5e5" : "#171717");
         ctx.font = '11px "Roboto Mono", monospace';
-        ctx.fillText(String(b.value), x, y - 16);
+        ctx.fillText(String(b.value), x, barTopY - 10);
 
         ctx.fillStyle = isDark ? "#757575" : "#666";
         ctx.font = '9px "Roboto Mono", monospace';

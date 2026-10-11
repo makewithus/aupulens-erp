@@ -131,27 +131,12 @@ export const crmSidebarConfig: SidebarSection[] = [
     ],
   },
   {
-    title: "Automation & AI",
+    title: "AI Automation for CRM",
     items: [
-      {
-        title: "Automations",
-        href: "/crm/automations",
-        icon: Zap,
-      },
       {
         title: "Workflows",
         href: "/crm/workflows",
         icon: Activity,
-      },
-      {
-        title: "AI Insights",
-        href: "/crm/ai",
-        icon: Sparkles,
-      },
-      {
-        title: "AI Control Center",
-        href: "/crm/ai/dashboard",
-        icon: LayoutDashboard,
       },
     ],
   },

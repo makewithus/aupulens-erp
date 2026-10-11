@@ -366,33 +366,50 @@ export function CanvasBarChart({
           ctx.fillText(String(d[xAxisKey]), x, cB + 10);
         });
 
-        // Draw vertical bars
+        // Draw vertical segmented brick bars
         const groupW = cW / data.length;
-        const totalBarW = groupW * 0.7;
-        const singleBarW = totalBarW / series.length;
+        const totalBarW = Math.max(1, groupW * 0.75);
+        const singleBarW = Math.max(1, totalBarW / series.length);
         const groupGap = (groupW - totalBarW) / 2;
+
+        const bH = 3.5;
+        const bG = 1.2;
+        const unitH = bH + bG;
 
         data.forEach((d, i) => {
           const isSelected = highlightIdx === i;
           
           if (isSelected) {
-            // Draw background hover row card
-            ctx.fillStyle = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)";
+            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
             ctx.fillRect(cL + i * groupW, cT, groupW, cH);
           }
 
           series.forEach((s, sIdx) => {
             const val = Number(d[s.key]) || 0;
+            if (val <= 0) return;
             const barH = (val / ticksMax) * cH;
             const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
-            const by = cB - barH;
+            const totalBricks = Math.max(1, Math.round(barH / unitH));
 
-            ctx.fillStyle = s.color;
-            ctx.globalAlpha = isSelected ? 1 : 0.85;
-            
-            drawRoundRect(ctx, bx, by, singleBarW - 1, barH, Math.min(3, barH), { tl: true, tr: true });
-            ctx.fill();
-            ctx.globalAlpha = 1;
+            for (let b = 0; b < totalBricks; b++) {
+              const by = cB - (b + 1) * unitH + bG;
+              let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
+
+              if (!isSelected) {
+                // If specific series color is provided and not default blue, blend or use texture
+                if (totalBricks > 6) {
+                  const rel = b / totalBricks;
+                  if (rel >= 0.72 && rel <= 0.86) {
+                    brickColor = "#52525b";
+                  } else if (b % 7 === 4 && totalBricks > 10) {
+                    brickColor = "#52525b";
+                  }
+                }
+              }
+
+              ctx.fillStyle = brickColor;
+              ctx.fillRect(Math.round(bx), Math.round(by), Math.max(1, Math.round(singleBarW - 1)), Math.round(bH));
+            }
           });
         });
       } else {
@@ -421,32 +438,47 @@ export function CanvasBarChart({
           ctx.fillText(dispName, cL - 10, y);
         });
 
-        // Draw horizontal bars
+        // Draw horizontal segmented brick bars
         const groupH = cH / data.length;
-        const totalBarH = groupH * 0.7;
-        const singleBarH = totalBarH / series.length;
+        const totalBarH = Math.max(2, groupH * 0.75);
+        const singleBarH = Math.max(1, totalBarH / series.length);
         const groupGap = (groupH - totalBarH) / 2;
+
+        const bW = 4;
+        const bG = 1.5;
+        const unitW = bW + bG;
 
         data.forEach((d, i) => {
           const isSelected = highlightIdx === i;
 
           if (isSelected) {
-            ctx.fillStyle = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)";
+            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
             ctx.fillRect(cL, cT + i * groupH, cW, groupH);
           }
 
           series.forEach((s, sIdx) => {
             const val = Number(d[s.key]) || 0;
+            if (val <= 0) return;
             const barW = (val / ticksMax) * cW;
-            const bx = cL;
             const by = cT + i * groupH + groupGap + sIdx * singleBarH;
+            const totalBricks = Math.max(1, Math.round(barW / unitW));
 
-            ctx.fillStyle = s.color;
-            ctx.globalAlpha = isSelected ? 1 : 0.85;
+            for (let b = 0; b < totalBricks; b++) {
+              const bx = cL + b * unitW;
+              let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
 
-            drawRoundRect(ctx, bx, by, barW, singleBarH - 1, Math.min(3, barW), { tr: true, br: true });
-            ctx.fill();
-            ctx.globalAlpha = 1;
+              if (!isSelected && totalBricks > 6) {
+                const rel = b / totalBricks;
+                if (rel >= 0.72 && rel <= 0.86) {
+                  brickColor = "#52525b";
+                } else if (b % 7 === 4 && totalBricks > 10) {
+                  brickColor = "#52525b";
+                }
+              }
+
+              ctx.fillStyle = brickColor;
+              ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bW), Math.max(1, Math.round(singleBarH - 1)));
+            }
           });
         });
       }
@@ -848,32 +880,47 @@ export function CanvasComposedChart({
         ctx.fillText(String(d[xAxisKey]), x, cB + 10);
       });
 
-      // Draw vertical bars
+      // Draw vertical segmented brick bars
       const groupW = cW / data.length;
-      const totalBarW = groupW * 0.65;
-      const singleBarW = totalBarW / barSeries.length;
+      const totalBarW = Math.max(1, groupW * 0.7);
+      const singleBarW = Math.max(1, totalBarW / barSeries.length);
       const groupGap = (groupW - totalBarW) / 2;
+
+      const bH = 3.5;
+      const bG = 1.2;
+      const unitH = bH + bG;
 
       data.forEach((d, i) => {
         const isSelected = highlightIdx === i;
 
         if (isSelected) {
-          ctx.fillStyle = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)";
+          ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
           ctx.fillRect(cL + i * groupW, cT, groupW, cH);
         }
 
         barSeries.forEach((s, sIdx) => {
           const val = Number(d[s.key]) || 0;
+          if (val <= 0) return;
           const barH = (val / yBarMax) * cH;
           const bx = cL + i * groupW + groupGap + sIdx * singleBarW;
-          const by = cB - barH;
+          const totalBricks = Math.max(1, Math.round(barH / unitH));
 
-          ctx.fillStyle = s.color;
-          ctx.globalAlpha = isSelected ? 1 : 0.85;
+          for (let b = 0; b < totalBricks; b++) {
+            const by = cB - (b + 1) * unitH + bG;
+            let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
 
-          drawRoundRect(ctx, bx, by, singleBarW - 1, barH, Math.min(3, barH), { tl: true, tr: true });
-          ctx.fill();
-          ctx.globalAlpha = 1;
+            if (!isSelected && totalBricks > 6) {
+              const rel = b / totalBricks;
+              if (rel >= 0.72 && rel <= 0.86) {
+                brickColor = "#52525b";
+              } else if (b % 7 === 4 && totalBricks > 10) {
+                brickColor = "#52525b";
+              }
+            }
+
+            ctx.fillStyle = brickColor;
+            ctx.fillRect(Math.round(bx), Math.round(by), Math.max(1, Math.round(singleBarW - 1)), Math.round(bH));
+          }
         });
       });
 

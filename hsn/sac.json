@@ -1,0 +1,3407 @@
+[
+  {
+    "code": "99",
+    "desc": "All Services",
+    "type": "services"
+  },
+  {
+    "code": "9954",
+    "desc": "Construction services",
+    "type": "services"
+  },
+  {
+    "code": "995411",
+    "desc": "Construction services of single dwelling or multi dwelling or multi-storied residential buildings",
+    "type": "services"
+  },
+  {
+    "code": "995412",
+    "desc": "Construction services of other residential buildings such as old age homes, homeless shelters, hostels and the like",
+    "type": "services"
+  },
+  {
+    "code": "995413",
+    "desc": "Construction services of industrial buildings such as buildings used for production activities (used for assembly line activities), workshops, storage buildings and other similar industrial buildings",
+    "type": "services"
+  },
+  {
+    "code": "995414",
+    "desc": "Construction services of commercial buildings such as office buildings, exhibition and marriage halls, malls, hotels, restaurants, airports, rail or road terminals, parking garages, petrol and service stations, theatres and other similar buildings",
+    "type": "services"
+  },
+  {
+    "code": "995415",
+    "desc": "Construction services of other non-residential buildings such as educational institutions, hospitals, clinics including veterinary clinics, religious establishments, courts, prisons, museums and other similar buildings",
+    "type": "services"
+  },
+  {
+    "code": "995416",
+    "desc": "Construction services of other buildings nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995417",
+    "desc": "(i) Construction services of commercial buildings such as office buildings, exhibition and marriage halls, malls, hotels, restaurants, airports, rail or road terminals, parking garages, petrol and service stations, theatres and other similar buildings (i...",
+    "type": "services"
+  },
+  {
+    "code": "995418",
+    "desc": "Services by way of house-keeping, such as plumbing, carpentering, etc. where the person supplying such service through electronic commerce operator is not liable for registration under sub-section (1) of section 22 of the Central Goods and Services Tax A...",
+    "type": "services"
+  },
+  {
+    "code": "995419",
+    "desc": "Services involving repair, alterations, additions, replacements, renovation, maintenance or remodeling of the buildings covered above",
+    "type": "services"
+  },
+  {
+    "code": "995421",
+    "desc": "General construction services of highways, streets, roads, railways and airfield runways, bridges and tunnels",
+    "type": "services"
+  },
+  {
+    "code": "995422",
+    "desc": "General construction services of harbours, waterways, dams, water mains and lines, irrigation and other waterworks",
+    "type": "services"
+  },
+  {
+    "code": "995423",
+    "desc": "General construction services of long-distance underground/ overland/ submarine pipelines, communication and electric power lines (cables); pumping stations and related works; transformer stations and related works",
+    "type": "services"
+  },
+  {
+    "code": "995424",
+    "desc": "General construction services of local water and sewage pipelines, electricity and communication cables and related works",
+    "type": "services"
+  },
+  {
+    "code": "995425",
+    "desc": "General construction services of mines and industrial plants",
+    "type": "services"
+  },
+  {
+    "code": "995426",
+    "desc": "General Construction services of Power Plants and its related infrastructure",
+    "type": "services"
+  },
+  {
+    "code": "995427",
+    "desc": "General construction services of outdoor sport and recreation facilities",
+    "type": "services"
+  },
+  {
+    "code": "995428",
+    "desc": "General construction services of other civil engineering works nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995429",
+    "desc": "Services involving repair, alterations, additions, replacements, renovation, maintenance or remodeling of the constructions covered above",
+    "type": "services"
+  },
+  {
+    "code": "995431",
+    "desc": "Demolition services",
+    "type": "services"
+  },
+  {
+    "code": "995432",
+    "desc": "Site formation and clearance services including preparation services to make sites ready for subsequent construction work, test drilling and boring and core extraction, digging of trenches",
+    "type": "services"
+  },
+  {
+    "code": "995433",
+    "desc": "Excavating and earthmoving services",
+    "type": "services"
+  },
+  {
+    "code": "995434",
+    "desc": "Water well drilling services and septic system installation services",
+    "type": "services"
+  },
+  {
+    "code": "995435",
+    "desc": "Other site preparation services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995439",
+    "desc": "Services involving repair, alterations, additions, replacements, maintenance of the constructions covered above",
+    "type": "services"
+  },
+  {
+    "code": "995441",
+    "desc": "Installation, assembly and erection services of prefabricated buildings",
+    "type": "services"
+  },
+  {
+    "code": "995442",
+    "desc": "Installation, assembly and erection services of other prefabricated structures and constructions",
+    "type": "services"
+  },
+  {
+    "code": "995443",
+    "desc": "Installation services of all types of street furniture (such as bus shelters, benches, telephone booths, public toilets, and the like)",
+    "type": "services"
+  },
+  {
+    "code": "995444",
+    "desc": "Other assembly and erection services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995449",
+    "desc": "Services involving repair, alterations, additions, replacements, maintenance of the constructions covered above",
+    "type": "services"
+  },
+  {
+    "code": "995451",
+    "desc": "Pile driving and foundation services",
+    "type": "services"
+  },
+  {
+    "code": "995452",
+    "desc": "Building framing and roof framing services",
+    "type": "services"
+  },
+  {
+    "code": "995453",
+    "desc": "Roofing and waterproofing services",
+    "type": "services"
+  },
+  {
+    "code": "995454",
+    "desc": "Concrete services",
+    "type": "services"
+  },
+  {
+    "code": "995455",
+    "desc": "Structural steel erection services",
+    "type": "services"
+  },
+  {
+    "code": "995456",
+    "desc": "Masonry services",
+    "type": "services"
+  },
+  {
+    "code": "995457",
+    "desc": "Scaffolding services",
+    "type": "services"
+  },
+  {
+    "code": "995458",
+    "desc": "Other special trade construction services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995459",
+    "desc": "Services involving repair, alterations, additions, replacements, maintenance of the constructions covered above",
+    "type": "services"
+  },
+  {
+    "code": "995461",
+    "desc": "Electrical installation services including Electrical wiring and fitting services, fire alarm installation services, burglar alarm system installation services",
+    "type": "services"
+  },
+  {
+    "code": "995462",
+    "desc": "Water plumbing and drain laying services",
+    "type": "services"
+  },
+  {
+    "code": "995463",
+    "desc": "Heating, ventilation and air conditioning equipment installation services",
+    "type": "services"
+  },
+  {
+    "code": "995464",
+    "desc": "Gas fitting installation services",
+    "type": "services"
+  },
+  {
+    "code": "995465",
+    "desc": "Insulation services",
+    "type": "services"
+  },
+  {
+    "code": "995466",
+    "desc": "Lift and escalator installation services",
+    "type": "services"
+  },
+  {
+    "code": "995468",
+    "desc": "Other installation services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995469",
+    "desc": "Services involving repair, alterations, additions, replacements, maintenance of the installations covered above",
+    "type": "services"
+  },
+  {
+    "code": "995471",
+    "desc": "Glazing services",
+    "type": "services"
+  },
+  {
+    "code": "995472",
+    "desc": "Plastering services",
+    "type": "services"
+  },
+  {
+    "code": "995473",
+    "desc": "Painting services",
+    "type": "services"
+  },
+  {
+    "code": "995474",
+    "desc": "Floor and wall tiling services",
+    "type": "services"
+  },
+  {
+    "code": "995475",
+    "desc": "Other floor laying, wall covering and wall papering services",
+    "type": "services"
+  },
+  {
+    "code": "995476",
+    "desc": "Joinery and carpentry services",
+    "type": "services"
+  },
+  {
+    "code": "995477",
+    "desc": "Fencing and railing services",
+    "type": "services"
+  },
+  {
+    "code": "995478",
+    "desc": "Other building completion and finishing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "995479",
+    "desc": "Services involving repair, alterations, additions, replacements, maintenance of the completion/finishing works covered above",
+    "type": "services"
+  },
+  {
+    "code": "9961",
+    "desc": "Services in wholesale trade",
+    "type": "services"
+  },
+  {
+    "code": "996111",
+    "desc": "Services provided for a fee or commission or on contract basis on wholesale trade",
+    "type": "services"
+  },
+  {
+    "code": "9962",
+    "desc": "Services in retail trade",
+    "type": "services"
+  },
+  {
+    "code": "996211",
+    "desc": "Services provided for a fee or commission or on contract basis on retail trade",
+    "type": "services"
+  },
+  {
+    "code": "9963",
+    "desc": "Accommodation, food and beverage services",
+    "type": "services"
+  },
+  {
+    "code": "996311",
+    "desc": "Room or unit accommodation services provided by Hotels, Inn, Guest House, Club and the like",
+    "type": "services"
+  },
+  {
+    "code": "996312",
+    "desc": "Camp site services",
+    "type": "services"
+  },
+  {
+    "code": "996313",
+    "desc": "Recreational and vacation camp services",
+    "type": "services"
+  },
+  {
+    "code": "996321",
+    "desc": "Room or unit accommodation services for students in student residences",
+    "type": "services"
+  },
+  {
+    "code": "996322",
+    "desc": "Room or unit accommodation services provided by Hostels, Camps, Paying Guest and the like",
+    "type": "services"
+  },
+  {
+    "code": "996329",
+    "desc": "Other room or unit accommodation services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996331",
+    "desc": "Services provided by restaurants, cafes and similar eating facilities including takeaway services, room services and door delivery of food",
+    "type": "services"
+  },
+  {
+    "code": "996332",
+    "desc": "Services provided by Hotels, Inn, Guest House, Club and the like including room services, takeaway services and door delivery of food",
+    "type": "services"
+  },
+  {
+    "code": "996333",
+    "desc": "Services provided in canteen and other similar establishments",
+    "type": "services"
+  },
+  {
+    "code": "996334",
+    "desc": "Catering Services in exhibition halls, events, marriage halls and other outdoor/indoor functions",
+    "type": "services"
+  },
+  {
+    "code": "996335",
+    "desc": "Catering services in trains, flights and the like",
+    "type": "services"
+  },
+  {
+    "code": "996336",
+    "desc": "Preparation or supply services of food, edible preparations, alcoholic and non-alcoholic beverages to airlines and other transportation operators",
+    "type": "services"
+  },
+  {
+    "code": "996337",
+    "desc": "Other contract food services",
+    "type": "services"
+  },
+  {
+    "code": "996339",
+    "desc": "Other food, edible preparations, alcoholic and non-alcoholic beverages serving services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9964",
+    "desc": "Passenger transport services",
+    "type": "services"
+  },
+  {
+    "code": "996411",
+    "desc": "Local land transport services of passengers by railways, metro, monorail, bus, tramway, autos, three wheelers, scooters and other motor vehicles",
+    "type": "services"
+  },
+  {
+    "code": "996412",
+    "desc": "Taxi services including radio taxi and other similar services",
+    "type": "services"
+  },
+  {
+    "code": "996413",
+    "desc": "Non-scheduled local bus and coach charter services",
+    "type": "services"
+  },
+  {
+    "code": "996414",
+    "desc": "Other land transportation services of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996415",
+    "desc": "Local water transport services of passengers by ferries, cruises and the like",
+    "type": "services"
+  },
+  {
+    "code": "996416",
+    "desc": "Sightseeing transportation services by rail, land, water and air",
+    "type": "services"
+  },
+  {
+    "code": "996417",
+    "desc": "Transport services of passengers by ropeways",
+    "type": "services"
+  },
+  {
+    "code": "996418",
+    "desc": "Sightseeing transportation services by rail or road",
+    "type": "services"
+  },
+  {
+    "code": "996419",
+    "desc": "Other local transportation services of passengers nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996421",
+    "desc": "Long-distance transport services of passengers through rail network by railways, metro and the like",
+    "type": "services"
+  },
+  {
+    "code": "996422",
+    "desc": "Long-distance transport services of passengers through road by bus, car, non-scheduled long distance bus and coach services, stage carriage and the like",
+    "type": "services"
+  },
+  {
+    "code": "996423",
+    "desc": "Taxi services including radio taxi and other similar services",
+    "type": "services"
+  },
+  {
+    "code": "996424",
+    "desc": "Coastal and transoceanic (overseas) water transport services of passengers by Ferries, Cruise Ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996425",
+    "desc": "Domestic/ international scheduled air transport services of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996426",
+    "desc": "Domestic/ international non-scheduled air transport services of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996427",
+    "desc": "Space transport services of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996429",
+    "desc": "Other long-distance transportation services of passengers nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996431",
+    "desc": "Long-distance transport service of passengers through rail network by railways",
+    "type": "services"
+  },
+  {
+    "code": "996432",
+    "desc": "Scheduled long-distance transport services of passengers through road by bus and coach services including stage carriage, contract carriage and the like",
+    "type": "services"
+  },
+  {
+    "code": "996433",
+    "desc": "Non-scheduled long-distance transport services of passengers through road by bus and coach services including stage carriage, contract carriage and the like",
+    "type": "services"
+  },
+  {
+    "code": "996434",
+    "desc": "Long-distance transport service of passengers by any motor vehicle other than bus including motorcab, maxicab  and radio taxi",
+    "type": "services"
+  },
+  {
+    "code": "996439",
+    "desc": "Other long distance transport service of passengers by land nowhere else specified",
+    "type": "services"
+  },
+  {
+    "code": "996441",
+    "desc": "Coastal water transport service of passengers by ferries and the like",
+    "type": "services"
+  },
+  {
+    "code": "996442",
+    "desc": "Coastal  water transport service of passengers by cruise ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996443",
+    "desc": "Inland water transport service of passengers by ferries and the like",
+    "type": "services"
+  },
+  {
+    "code": "996444",
+    "desc": "Inland water transport service of passengers by cruise ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996445",
+    "desc": "International water transport services of passengers by ferries, cruise ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996449",
+    "desc": "Other long distance transport service of passengers by water nowhere else specified",
+    "type": "services"
+  },
+  {
+    "code": "996451",
+    "desc": "Domestic scheduled air transport service of passengers in economy class",
+    "type": "services"
+  },
+  {
+    "code": "996452",
+    "desc": "Domestic scheduled air transport service of passengers in other than economy class",
+    "type": "services"
+  },
+  {
+    "code": "996453",
+    "desc": "Domestic non-scheduled air transport service of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996454",
+    "desc": "International scheduled air transport service of passengers in economy class",
+    "type": "services"
+  },
+  {
+    "code": "996455",
+    "desc": "International scheduled air transport service of passengers in other than economy class",
+    "type": "services"
+  },
+  {
+    "code": "996456",
+    "desc": "International non-scheduled air transport service of passengers",
+    "type": "services"
+  },
+  {
+    "code": "996459",
+    "desc": "Other long-distance transportation service of passengers by air nowhere else specified including space transport service of passengers",
+    "type": "services"
+  },
+  {
+    "code": "9965",
+    "desc": "Goods Transport Services",
+    "type": "services"
+  },
+  {
+    "code": "996511",
+    "desc": "Road transport services of Goods including letters, parcels, live animals, household and office furniture, containers and the like by refrigerator vehicles, trucks, trailers, man or animal drawn vehicles or any other vehicles",
+    "type": "services"
+  },
+  {
+    "code": "996512",
+    "desc": "Railway transport services of Goods including letters, parcels, live animals, household and office furniture, intermodal containers, bulk cargo and the like",
+    "type": "services"
+  },
+  {
+    "code": "996513",
+    "desc": "Transport services of petroleum and natural gas, water, sewerage and other goods via pipeline",
+    "type": "services"
+  },
+  {
+    "code": "996514",
+    "desc": "Transport services via pipeline of other chemicals, coal slurry and of other goods",
+    "type": "services"
+  },
+  {
+    "code": "996515",
+    "desc": "Moving services of household goods, office equipment and furniture",
+    "type": "services"
+  },
+  {
+    "code": "996516",
+    "desc": "Road transport services of goods including letters, parcels, live animals, containers and the like in referigerated vehicles, trucks, trailers or any other motor vehicle or in man or animal driven vehicles by any person other than a goods transport agency",
+    "type": "services"
+  },
+  {
+    "code": "996517",
+    "desc": "Railway transport services of goods including letters, parcels, live animals, household and office furniture, intermodal containers, bulk cargo and the like by  Container Transport Operators (CTOs) other than Railways",
+    "type": "services"
+  },
+  {
+    "code": "996518",
+    "desc": "Transport of goods by ropeways",
+    "type": "services"
+  },
+  {
+    "code": "996519",
+    "desc": "Other land transport services of goods nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996521",
+    "desc": "Coastal and transoceanic (overseas) water transport services of goods by refrigerator vessels, tankers, bulk cargo vessels, container ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996522",
+    "desc": "Inland water transport services of goods by refrigerator vessels, tankers and other vessels",
+    "type": "services"
+  },
+  {
+    "code": "996523",
+    "desc": "International water transport services of goods by refrigerated vessels,  tankers, bulk cargo vessels, container ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996531",
+    "desc": "Air transport services of letters and parcels and other goods",
+    "type": "services"
+  },
+  {
+    "code": "996532",
+    "desc": "Space transport services of freight",
+    "type": "services"
+  },
+  {
+    "code": "996540",
+    "desc": "Multimodal Transport of goods from a place in India to another place in India",
+    "type": "services"
+  },
+  {
+    "code": "996541",
+    "desc": "Multimodal Transport of goods from a place in India to another place in India",
+    "type": "services"
+  },
+  {
+    "code": "9966",
+    "desc": "Rental services of transport vehicles with operators",
+    "type": "services"
+  },
+  {
+    "code": "996601",
+    "desc": "Rental services of road vehicles including buses, coaches, cars, trucks and other motor vehicles, operator",
+    "type": "services"
+  },
+  {
+    "code": "996602",
+    "desc": "Rental services of water vessels including passenger vessels, freight vessels and the like operator",
+    "type": "services"
+  },
+  {
+    "code": "996603",
+    "desc": "Rental services of aircraft including passenger aircrafts, freight aircrafts and the like operator",
+    "type": "services"
+  },
+  {
+    "code": "996604",
+    "desc": "Rental services of passenger vessels  with operator",
+    "type": "services"
+  },
+  {
+    "code": "996605",
+    "desc": "Rental services of goods vessels with operator",
+    "type": "services"
+  },
+  {
+    "code": "996606",
+    "desc": "Rental service of passenger aircraft with operator",
+    "type": "services"
+  },
+  {
+    "code": "996607",
+    "desc": "Rental service of goods aircraft with operator",
+    "type": "services"
+  },
+  {
+    "code": "996609",
+    "desc": "Rental services of other transport vehicles nowhere else classified operator",
+    "type": "services"
+  },
+  {
+    "code": "9967",
+    "desc": "Supporting services in transport",
+    "type": "services"
+  },
+  {
+    "code": "996711",
+    "desc": "Container handling services",
+    "type": "services"
+  },
+  {
+    "code": "996712",
+    "desc": "Customs House Agent services",
+    "type": "services"
+  },
+  {
+    "code": "996713",
+    "desc": "Clearing and forwarding services",
+    "type": "services"
+  },
+  {
+    "code": "996719",
+    "desc": "Other cargo and baggage handling services",
+    "type": "services"
+  },
+  {
+    "code": "996721",
+    "desc": "Refrigerated storage services",
+    "type": "services"
+  },
+  {
+    "code": "996722",
+    "desc": "Bulk liquid or gas storage services",
+    "type": "services"
+  },
+  {
+    "code": "996729",
+    "desc": "Other storage and warehousing services",
+    "type": "services"
+  },
+  {
+    "code": "996731",
+    "desc": "Railway pushing or towing services",
+    "type": "services"
+  },
+  {
+    "code": "996739",
+    "desc": "Other supporting services for railway transport nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996741",
+    "desc": "Bus station services",
+    "type": "services"
+  },
+  {
+    "code": "996742",
+    "desc": "Operation services of national highways, state highways, expressways, roads and streets; bridges and tunnel operation services",
+    "type": "services"
+  },
+  {
+    "code": "996743",
+    "desc": "Parking lot services",
+    "type": "services"
+  },
+  {
+    "code": "996744",
+    "desc": "Towing services for commercial and private vehicles",
+    "type": "services"
+  },
+  {
+    "code": "996749",
+    "desc": "Other supporting services for road transport nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996751",
+    "desc": "Port and waterway operation services (excluding cargo handling) such as operation services of ports, docks, light houses, light ships and the like",
+    "type": "services"
+  },
+  {
+    "code": "996752",
+    "desc": "Pilotage and berthing services",
+    "type": "services"
+  },
+  {
+    "code": "996753",
+    "desc": "Vessel salvage and refloating services",
+    "type": "services"
+  },
+  {
+    "code": "996754",
+    "desc": "Maintenance, repair or overhaul services in respect of ships and other vessels, their engines and other components or parts",
+    "type": "services"
+  },
+  {
+    "code": "996759",
+    "desc": "Other supporting services for water transport nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "996761",
+    "desc": "Airport operation services (excluding cargo handling)",
+    "type": "services"
+  },
+  {
+    "code": "996762",
+    "desc": "Air traffic control services",
+    "type": "services"
+  },
+  {
+    "code": "996763",
+    "desc": "Other supporting services for air transport",
+    "type": "services"
+  },
+  {
+    "code": "996764",
+    "desc": "Supporting services for space transport",
+    "type": "services"
+  },
+  {
+    "code": "996768",
+    "desc": "Other supporting services for air transport",
+    "type": "services"
+  },
+  {
+    "code": "996769",
+    "desc": "Supporting services for space transport",
+    "type": "services"
+  },
+  {
+    "code": "996791",
+    "desc": "Goods transport agency services for road transport",
+    "type": "services"
+  },
+  {
+    "code": "996792",
+    "desc": "Goods transport agency services for other modes of transport",
+    "type": "services"
+  },
+  {
+    "code": "996793",
+    "desc": "Other goods transport services",
+    "type": "services"
+  },
+  {
+    "code": "996799",
+    "desc": "Other supporting transport services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9968",
+    "desc": "Postal and courier services",
+    "type": "services"
+  },
+  {
+    "code": "996811",
+    "desc": "Postal services including post office counter services, mail box rental services",
+    "type": "services"
+  },
+  {
+    "code": "996812",
+    "desc": "Courier services",
+    "type": "services"
+  },
+  {
+    "code": "996813",
+    "desc": "Local delivery services",
+    "type": "services"
+  },
+  {
+    "code": "996819",
+    "desc": "Other Delivery Services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9969",
+    "desc": "Electricity, gas, water and other distribution services",
+    "type": "services"
+  },
+  {
+    "code": "996911",
+    "desc": "Electricity transmission services",
+    "type": "services"
+  },
+  {
+    "code": "996912",
+    "desc": "Electricity distribution services",
+    "type": "services"
+  },
+  {
+    "code": "996913",
+    "desc": "Gas distribution services",
+    "type": "services"
+  },
+  {
+    "code": "996921",
+    "desc": "Water distribution services",
+    "type": "services"
+  },
+  {
+    "code": "996922",
+    "desc": "Services involving distribution of steam, hot water and air conditioning supply and the like",
+    "type": "services"
+  },
+  {
+    "code": "996929",
+    "desc": "Other similar services",
+    "type": "services"
+  },
+  {
+    "code": "9971",
+    "desc": "Financial and related services",
+    "type": "services"
+  },
+  {
+    "code": "997111",
+    "desc": "Central banking services",
+    "type": "services"
+  },
+  {
+    "code": "997112",
+    "desc": "Deposit services",
+    "type": "services"
+  },
+  {
+    "code": "997113",
+    "desc": "Credit-granting services including stand-by commitment, guarantees and securities",
+    "type": "services"
+  },
+  {
+    "code": "997114",
+    "desc": "Financial leasing services",
+    "type": "services"
+  },
+  {
+    "code": "997115",
+    "desc": "Transfer of the right to use any goods for any purpose (whether or not for a specified period) for cash, deferred payment or other valuable consideration.",
+    "type": "services"
+  },
+  {
+    "code": "997116",
+    "desc": "Any transfer of right in goods or of undivided share in goods without the transfer of title thereof.",
+    "type": "services"
+  },
+  {
+    "code": "997119",
+    "desc": "Other financial services (except investment banking, insurance services and pension services)",
+    "type": "services"
+  },
+  {
+    "code": "997120",
+    "desc": "Investment banking services",
+    "type": "services"
+  },
+  {
+    "code": "997131",
+    "desc": "pension services",
+    "type": "services"
+  },
+  {
+    "code": "997132",
+    "desc": "Life insurance services  (excluding reinsurance services)",
+    "type": "services"
+  },
+  {
+    "code": "997133",
+    "desc": "Accident and health insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997134",
+    "desc": "Motor vehicle insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997135",
+    "desc": "Marine, aviation, and other transport insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997136",
+    "desc": "Freight insurance services and travel insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997137",
+    "desc": "Other property insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997138",
+    "desc": "Freight insurance services and travel insurance services",
+    "type": "services"
+  },
+  {
+    "code": "997139",
+    "desc": "Other non-life insurance services (excluding reinsurance services)",
+    "type": "services"
+  },
+  {
+    "code": "997141",
+    "desc": "Life reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997142",
+    "desc": "Accident and health reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997143",
+    "desc": "Motor vehicle reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997144",
+    "desc": "Marine, aviation and other transport reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997145",
+    "desc": "Freight reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997146",
+    "desc": "Other property reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997147",
+    "desc": "Other property reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997149",
+    "desc": "Other non-life reinsurance services",
+    "type": "services"
+  },
+  {
+    "code": "997151",
+    "desc": "Services related to investment banking such as mergers and acquisition services, corporate finance and venture capital services",
+    "type": "services"
+  },
+  {
+    "code": "997152",
+    "desc": "Brokerage and related securities and commodities services including commodity exchange services",
+    "type": "services"
+  },
+  {
+    "code": "997153",
+    "desc": "Portfolio management services except pension funds",
+    "type": "services"
+  },
+  {
+    "code": "997154",
+    "desc": "Trust and custody services",
+    "type": "services"
+  },
+  {
+    "code": "997155",
+    "desc": "Services related to the administration of financial markets",
+    "type": "services"
+  },
+  {
+    "code": "997156",
+    "desc": "Financial consultancy services",
+    "type": "services"
+  },
+  {
+    "code": "997157",
+    "desc": "Foreign exchange services",
+    "type": "services"
+  },
+  {
+    "code": "997158",
+    "desc": "Financial transactions processing and clearing house services",
+    "type": "services"
+  },
+  {
+    "code": "997159",
+    "desc": "Other services auxiliary to financial services",
+    "type": "services"
+  },
+  {
+    "code": "997161",
+    "desc": "Services auxiliary to insurance and pensions",
+    "type": "services"
+  },
+  {
+    "code": "997162",
+    "desc": "Insurance claims adjustment services",
+    "type": "services"
+  },
+  {
+    "code": "997163",
+    "desc": "Actuarial services",
+    "type": "services"
+  },
+  {
+    "code": "997164",
+    "desc": "Pension fund management services",
+    "type": "services"
+  },
+  {
+    "code": "997169",
+    "desc": "Other services auxiliary to insurance and pensions",
+    "type": "services"
+  },
+  {
+    "code": "997171",
+    "desc": "Services of holding equity of subsidiary companies",
+    "type": "services"
+  },
+  {
+    "code": "997172",
+    "desc": "Services of holding securities and other assets of trusts and funds and similar financial entities",
+    "type": "services"
+  },
+  {
+    "code": "9972",
+    "desc": "Real estate services",
+    "type": "services"
+  },
+  {
+    "code": "997211",
+    "desc": "Rental or leasing services involving own or leased residential property",
+    "type": "services"
+  },
+  {
+    "code": "997212",
+    "desc": "Rental or leasing services involving own or leased non-residential property",
+    "type": "services"
+  },
+  {
+    "code": "997213",
+    "desc": "Trade services of buildings",
+    "type": "services"
+  },
+  {
+    "code": "997214",
+    "desc": "Trade services of time-share properties",
+    "type": "services"
+  },
+  {
+    "code": "997215",
+    "desc": "Trade services of vacant and subdivided land",
+    "type": "services"
+  },
+  {
+    "code": "997219",
+    "desc": "Other real estate services involving owned or leased property",
+    "type": "services"
+  },
+  {
+    "code": "997221",
+    "desc": "Property management services on a fee or commission basis or on contract basis",
+    "type": "services"
+  },
+  {
+    "code": "997222",
+    "desc": "Building sales on a fee or commission basis or on contract basis",
+    "type": "services"
+  },
+  {
+    "code": "997223",
+    "desc": "Land sales on a fee or commission basis or on contract basis",
+    "type": "services"
+  },
+  {
+    "code": "997224",
+    "desc": "Real estate appraisal services on a fee or commission basis or on contract basis",
+    "type": "services"
+  },
+  {
+    "code": "997229",
+    "desc": "Other real estate services on a fee or commission basis or on contract basis",
+    "type": "services"
+  },
+  {
+    "code": "997231",
+    "desc": "Services by way of grant of development rights, FSI or additional FSI",
+    "type": "services"
+  },
+  {
+    "code": "9973",
+    "desc": "Leasing or rental services without operator",
+    "type": "services"
+  },
+  {
+    "code": "997311",
+    "desc": "Leasing or rental services concerning transport equipments including containers, without operator",
+    "type": "services"
+  },
+  {
+    "code": "997312",
+    "desc": "Leasing or rental services concerning agricultural machinery and equipment without operator",
+    "type": "services"
+  },
+  {
+    "code": "997313",
+    "desc": "Leasing or rental services concerning construction machinery and equipment without operator",
+    "type": "services"
+  },
+  {
+    "code": "997314",
+    "desc": "Leasing or rental services concerning office machinery and equipment (except computers) without operator",
+    "type": "services"
+  },
+  {
+    "code": "997315",
+    "desc": "Leasing or rental services concerning computers without operators",
+    "type": "services"
+  },
+  {
+    "code": "997316",
+    "desc": "Leasing or rental services concerning telecommunications equipment without operator",
+    "type": "services"
+  },
+  {
+    "code": "997317",
+    "desc": "Leasing or rental services concerning other machinery and equipment without operator",
+    "type": "services"
+  },
+  {
+    "code": "997318",
+    "desc": "Transfer of the right to use any goods for any purpose (whether or not for a specified period) for cash, deferred payment or other valuable consideration.",
+    "type": "services"
+  },
+  {
+    "code": "997319",
+    "desc": "Leasing or rental services concerning other machinery and equipments without operator",
+    "type": "services"
+  },
+  {
+    "code": "997321",
+    "desc": "Leasing or rental services concerning televisions, radios, video cassette recorders, projectors, audio systems and related equipment and accessories (home entertainment equipment )",
+    "type": "services"
+  },
+  {
+    "code": "997322",
+    "desc": "Leasing or rental services concerning video tapes and disks (home entertainment equipment )",
+    "type": "services"
+  },
+  {
+    "code": "997323",
+    "desc": "Leasing or rental services concerning furniture and other household appliances",
+    "type": "services"
+  },
+  {
+    "code": "997324",
+    "desc": "Leasing or rental services concerning pleasure and leisure equipment",
+    "type": "services"
+  },
+  {
+    "code": "997325",
+    "desc": "Leasing or rental services concerning household linen",
+    "type": "services"
+  },
+  {
+    "code": "997326",
+    "desc": "Leasing or rental services concerning textiles, clothing and footwear",
+    "type": "services"
+  },
+  {
+    "code": "997327",
+    "desc": "Leasing or rental services concerning do-it-yourself machinery and equipment",
+    "type": "services"
+  },
+  {
+    "code": "997328",
+    "desc": "Transfer of the right to use any goods for any purpose (whether or not for a specified period) for cash, deferred payment or other valuable consideration.",
+    "type": "services"
+  },
+  {
+    "code": "997329",
+    "desc": "Leasing or rental services concerning other goods",
+    "type": "services"
+  },
+  {
+    "code": "997331",
+    "desc": "Licensing services for the right to use computer software and databases",
+    "type": "services"
+  },
+  {
+    "code": "997332",
+    "desc": "Licensing services for the right to broadcast and show original films, sound recordings, radio and television programme and the like",
+    "type": "services"
+  },
+  {
+    "code": "997333",
+    "desc": "Licensing services for the right to reproduce original art works",
+    "type": "services"
+  },
+  {
+    "code": "997334",
+    "desc": "Licensing services for the right to reprint and copy manuscripts, books, journals and periodicals",
+    "type": "services"
+  },
+  {
+    "code": "997335",
+    "desc": "Licensing services for the right to use research and development  products",
+    "type": "services"
+  },
+  {
+    "code": "997336",
+    "desc": "Licensing services for the right to use trademarks and franchises",
+    "type": "services"
+  },
+  {
+    "code": "997337",
+    "desc": "Licensing services for the right to use minerals including its exploration and evaluation",
+    "type": "services"
+  },
+  {
+    "code": "997338",
+    "desc": "Licensing services for right to use other natural resources including telecommunication spectrum",
+    "type": "services"
+  },
+  {
+    "code": "997339",
+    "desc": "Licensing services for the right to use other intellectual property products and other resources nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9981",
+    "desc": "Research and development services",
+    "type": "services"
+  },
+  {
+    "code": "998111",
+    "desc": "Research and experimental development services in natural sciences",
+    "type": "services"
+  },
+  {
+    "code": "998112",
+    "desc": "Research and experimental development services in engineering and technology",
+    "type": "services"
+  },
+  {
+    "code": "998113",
+    "desc": "Research and experimental development services in medical sciences and pharmacy",
+    "type": "services"
+  },
+  {
+    "code": "998114",
+    "desc": "Research and experimental development services in agricultural sciences",
+    "type": "services"
+  },
+  {
+    "code": "998121",
+    "desc": "Research and experimental development services in social sciences",
+    "type": "services"
+  },
+  {
+    "code": "998122",
+    "desc": "Research and experimental development services in humanities",
+    "type": "services"
+  },
+  {
+    "code": "998130",
+    "desc": "Interdisciplinary research and experimental development services",
+    "type": "services"
+  },
+  {
+    "code": "998141",
+    "desc": "Research and development originals in pharmaceuticals",
+    "type": "services"
+  },
+  {
+    "code": "998142",
+    "desc": "Research and development originals in agriculture",
+    "type": "services"
+  },
+  {
+    "code": "998143",
+    "desc": "Research and development originals in biotechnology",
+    "type": "services"
+  },
+  {
+    "code": "998144",
+    "desc": "Research and development originals in computer related sciences",
+    "type": "services"
+  },
+  {
+    "code": "998145",
+    "desc": "Research and development originals in other fields nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998149",
+    "desc": "Research and development originals in other fields nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9982",
+    "desc": "Legal and accounting services",
+    "type": "services"
+  },
+  {
+    "code": "998211",
+    "desc": "Legal advisory and representation services concerning criminal law",
+    "type": "services"
+  },
+  {
+    "code": "998212",
+    "desc": "Legal advisory and representation services concerning other fields of law",
+    "type": "services"
+  },
+  {
+    "code": "998213",
+    "desc": "Legal documentation and certification services concerning patents, copyrights and other intellectual property rights",
+    "type": "services"
+  },
+  {
+    "code": "998214",
+    "desc": "Legal documentation and certification services concerning other documents",
+    "type": "services"
+  },
+  {
+    "code": "998215",
+    "desc": "Arbitration and conciliation services",
+    "type": "services"
+  },
+  {
+    "code": "998216",
+    "desc": "Other legal services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998219",
+    "desc": "Other legal services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998221",
+    "desc": "Financial auditing services",
+    "type": "services"
+  },
+  {
+    "code": "998222",
+    "desc": "Accounting and bookkeeping services",
+    "type": "services"
+  },
+  {
+    "code": "998223",
+    "desc": "Payroll services",
+    "type": "services"
+  },
+  {
+    "code": "998224",
+    "desc": "Other similar services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998229",
+    "desc": "Other similar services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998231",
+    "desc": "Corporate tax consulting and preparation services",
+    "type": "services"
+  },
+  {
+    "code": "998232",
+    "desc": "Individual tax preparation and planning services",
+    "type": "services"
+  },
+  {
+    "code": "998239",
+    "desc": "Other tax consultancy and preparation services",
+    "type": "services"
+  },
+  {
+    "code": "998240",
+    "desc": "Insolvency and receivership services",
+    "type": "services"
+  },
+  {
+    "code": "9983",
+    "desc": "Other professional, technical and business services",
+    "type": "services"
+  },
+  {
+    "code": "998311",
+    "desc": "Management consulting and management services including financial, strategic, human resources, marketing, operations and supply chain management",
+    "type": "services"
+  },
+  {
+    "code": "998312",
+    "desc": "Business consulting services including public relations services",
+    "type": "services"
+  },
+  {
+    "code": "998313",
+    "desc": "Information technology consulting and support services",
+    "type": "services"
+  },
+  {
+    "code": "998314",
+    "desc": "Information technology design and development services",
+    "type": "services"
+  },
+  {
+    "code": "998315",
+    "desc": "Hosting and information technology infrastructure provisioning services",
+    "type": "services"
+  },
+  {
+    "code": "998316",
+    "desc": "Information technology infrastructure and network management services",
+    "type": "services"
+  },
+  {
+    "code": "998319",
+    "desc": "Other information technology services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998321",
+    "desc": "Architectural advisory services",
+    "type": "services"
+  },
+  {
+    "code": "998322",
+    "desc": "Architectural services for residential building projects",
+    "type": "services"
+  },
+  {
+    "code": "998323",
+    "desc": "Architectural services for non-residential building projects",
+    "type": "services"
+  },
+  {
+    "code": "998324",
+    "desc": "Historical restoration architectural services",
+    "type": "services"
+  },
+  {
+    "code": "998325",
+    "desc": "Urban planning services",
+    "type": "services"
+  },
+  {
+    "code": "998326",
+    "desc": "Rural land planning services",
+    "type": "services"
+  },
+  {
+    "code": "998327",
+    "desc": "Project site master planning services",
+    "type": "services"
+  },
+  {
+    "code": "998328",
+    "desc": "Landscape architectural services and advisory services",
+    "type": "services"
+  },
+  {
+    "code": "998329",
+    "desc": "Other architectural services, urban and land planning and landscape architectural services",
+    "type": "services"
+  },
+  {
+    "code": "998331",
+    "desc": "Engineering advisory services",
+    "type": "services"
+  },
+  {
+    "code": "998332",
+    "desc": "Engineering services for building projects",
+    "type": "services"
+  },
+  {
+    "code": "998333",
+    "desc": "Engineering services for industrial and manufacturing projects",
+    "type": "services"
+  },
+  {
+    "code": "998334",
+    "desc": "Engineering services for transportation projects",
+    "type": "services"
+  },
+  {
+    "code": "998335",
+    "desc": "Engineering services for power projects",
+    "type": "services"
+  },
+  {
+    "code": "998336",
+    "desc": "Engineering services for telecommunications and broadcasting projects",
+    "type": "services"
+  },
+  {
+    "code": "998337",
+    "desc": "Engineering services for waste management projects (hazardous and non-hazardous), for water, sewerage and drainage projects",
+    "type": "services"
+  },
+  {
+    "code": "998338",
+    "desc": "Engineering services for other projects nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998339",
+    "desc": "Project management services for construction projects",
+    "type": "services"
+  },
+  {
+    "code": "998341",
+    "desc": "Geological and geophysical consulting services",
+    "type": "services"
+  },
+  {
+    "code": "998342",
+    "desc": "Subsurface surveying services",
+    "type": "services"
+  },
+  {
+    "code": "998343",
+    "desc": "Mineral exploration and evaluation",
+    "type": "services"
+  },
+  {
+    "code": "998344",
+    "desc": "Surface surveying and map-making services",
+    "type": "services"
+  },
+  {
+    "code": "998345",
+    "desc": "Weather forecasting and meteorological services",
+    "type": "services"
+  },
+  {
+    "code": "998346",
+    "desc": "Technical testing and analysis services",
+    "type": "services"
+  },
+  {
+    "code": "998347",
+    "desc": "Certification of ships, aircraft, dams, and the like",
+    "type": "services"
+  },
+  {
+    "code": "998348",
+    "desc": "Certification and authentication of works of art",
+    "type": "services"
+  },
+  {
+    "code": "998349",
+    "desc": "Other technical and scientific services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998351",
+    "desc": "Veterinary services for pet animals",
+    "type": "services"
+  },
+  {
+    "code": "998352",
+    "desc": "Veterinary services for livestock",
+    "type": "services"
+  },
+  {
+    "code": "998359",
+    "desc": "Other veterinary services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998361",
+    "desc": "Advertising Services",
+    "type": "services"
+  },
+  {
+    "code": "998362",
+    "desc": "Purchase or sale of advertising space or time, on commission",
+    "type": "services"
+  },
+  {
+    "code": "998363",
+    "desc": "Sale of advertising space in print media (except on commission)",
+    "type": "services"
+  },
+  {
+    "code": "998364",
+    "desc": "Sale of television and radio advertising time",
+    "type": "services"
+  },
+  {
+    "code": "998365",
+    "desc": "Sale of Internet advertising space",
+    "type": "services"
+  },
+  {
+    "code": "998366",
+    "desc": "Sale of other advertising space or time (except on commission)",
+    "type": "services"
+  },
+  {
+    "code": "998371",
+    "desc": "Market research services",
+    "type": "services"
+  },
+  {
+    "code": "998372",
+    "desc": "Public opinion polling services",
+    "type": "services"
+  },
+  {
+    "code": "998381",
+    "desc": "Portrait photography services",
+    "type": "services"
+  },
+  {
+    "code": "998382",
+    "desc": "Advertising and related photography services",
+    "type": "services"
+  },
+  {
+    "code": "998383",
+    "desc": "Event photography and event videography services",
+    "type": "services"
+  },
+  {
+    "code": "998384",
+    "desc": "Specialty photography services",
+    "type": "services"
+  },
+  {
+    "code": "998385",
+    "desc": "Restoration and retouching services of photography",
+    "type": "services"
+  },
+  {
+    "code": "998386",
+    "desc": "Photographic and videographic processing services",
+    "type": "services"
+  },
+  {
+    "code": "998387",
+    "desc": "Other photography and videography and their processing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998389",
+    "desc": "Other photography and videography and their processing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998391",
+    "desc": "Specialty design services including interior design, fashion design, industrial design and other specialty design services",
+    "type": "services"
+  },
+  {
+    "code": "998392",
+    "desc": "Design originals",
+    "type": "services"
+  },
+  {
+    "code": "998393",
+    "desc": "Scientific and technical consulting services",
+    "type": "services"
+  },
+  {
+    "code": "998394",
+    "desc": "Original compilations of facts or information",
+    "type": "services"
+  },
+  {
+    "code": "998395",
+    "desc": "Translation and interpretation services",
+    "type": "services"
+  },
+  {
+    "code": "998396",
+    "desc": "Trademarks and franchises",
+    "type": "services"
+  },
+  {
+    "code": "998397",
+    "desc": "Sponsorship services and brand promotion services",
+    "type": "services"
+  },
+  {
+    "code": "998398",
+    "desc": "Sponsorship services and brand promotion services",
+    "type": "services"
+  },
+  {
+    "code": "998399",
+    "desc": "Other professional, technical and business services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9984",
+    "desc": "Telecommunications, broadcasting and information supply services",
+    "type": "services"
+  },
+  {
+    "code": "998411",
+    "desc": "Carrier services",
+    "type": "services"
+  },
+  {
+    "code": "998412",
+    "desc": "Fixed telephony services",
+    "type": "services"
+  },
+  {
+    "code": "998413",
+    "desc": "Mobile telecommunications services",
+    "type": "services"
+  },
+  {
+    "code": "998414",
+    "desc": "Private network services",
+    "type": "services"
+  },
+  {
+    "code": "998415",
+    "desc": "Data transmission services",
+    "type": "services"
+  },
+  {
+    "code": "998419",
+    "desc": "Other telecommunications services including fax services, telex services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998421",
+    "desc": "Internet backbone services",
+    "type": "services"
+  },
+  {
+    "code": "998422",
+    "desc": "Internet access services in wired and wireless mode",
+    "type": "services"
+  },
+  {
+    "code": "998423",
+    "desc": "Fax, telephony over the Internet",
+    "type": "services"
+  },
+  {
+    "code": "998424",
+    "desc": "Audio conferencing and video conferencing over the Internet",
+    "type": "services"
+  },
+  {
+    "code": "998429",
+    "desc": "Other internet telecommunications services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998431",
+    "desc": "On-line text based information such as online books, newspapers, periodicals, directories and the like",
+    "type": "services"
+  },
+  {
+    "code": "998432",
+    "desc": "On-line audio content",
+    "type": "services"
+  },
+  {
+    "code": "998433",
+    "desc": "On-line video content",
+    "type": "services"
+  },
+  {
+    "code": "998434",
+    "desc": "Software downloads",
+    "type": "services"
+  },
+  {
+    "code": "998435",
+    "desc": "Supply consisting only of e-book.",
+    "type": "services"
+  },
+  {
+    "code": "998439",
+    "desc": "Other on-line contents nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998441",
+    "desc": "News agency services to newspapers and periodicals",
+    "type": "services"
+  },
+  {
+    "code": "998442",
+    "desc": "Services of independent journalists and press photographers",
+    "type": "services"
+  },
+  {
+    "code": "998443",
+    "desc": "News agency services to audiovisual media",
+    "type": "services"
+  },
+  {
+    "code": "998451",
+    "desc": "Library services",
+    "type": "services"
+  },
+  {
+    "code": "998452",
+    "desc": "Operation services of public archives including digital archives",
+    "type": "services"
+  },
+  {
+    "code": "998453",
+    "desc": "Operation services of historical archives including digital archives",
+    "type": "services"
+  },
+  {
+    "code": "998461",
+    "desc": "Radio broadcast originals",
+    "type": "services"
+  },
+  {
+    "code": "998462",
+    "desc": "Television broadcast originals",
+    "type": "services"
+  },
+  {
+    "code": "998463",
+    "desc": "Radio channel programmes",
+    "type": "services"
+  },
+  {
+    "code": "998464",
+    "desc": "Television channel programmes",
+    "type": "services"
+  },
+  {
+    "code": "998465",
+    "desc": "Broadcasting services",
+    "type": "services"
+  },
+  {
+    "code": "998466",
+    "desc": "Home programme distribution services",
+    "type": "services"
+  },
+  {
+    "code": "998469",
+    "desc": "Other broadcasting, programming and programme distribution services",
+    "type": "services"
+  },
+  {
+    "code": "9985",
+    "desc": "Support services",
+    "type": "services"
+  },
+  {
+    "code": "998511",
+    "desc": "Executive or retained personnel search services",
+    "type": "services"
+  },
+  {
+    "code": "998512",
+    "desc": "Permanent placement services, other than executive search services",
+    "type": "services"
+  },
+  {
+    "code": "998513",
+    "desc": "Contract staffing services",
+    "type": "services"
+  },
+  {
+    "code": "998514",
+    "desc": "Temporary staffing services",
+    "type": "services"
+  },
+  {
+    "code": "998515",
+    "desc": "Long-term staffing (pay rolling) services",
+    "type": "services"
+  },
+  {
+    "code": "998516",
+    "desc": "Temporary staffing-to-permanent placement services",
+    "type": "services"
+  },
+  {
+    "code": "998517",
+    "desc": "Co-employment staffing services",
+    "type": "services"
+  },
+  {
+    "code": "998519",
+    "desc": "Other employment and labour supply services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998521",
+    "desc": "Investigation services",
+    "type": "services"
+  },
+  {
+    "code": "998522",
+    "desc": "Security consulting services",
+    "type": "services"
+  },
+  {
+    "code": "998523",
+    "desc": "Security systems services",
+    "type": "services"
+  },
+  {
+    "code": "998524",
+    "desc": "Armoured car services",
+    "type": "services"
+  },
+  {
+    "code": "998525",
+    "desc": "Guard services",
+    "type": "services"
+  },
+  {
+    "code": "998526",
+    "desc": "Training of guard dogs",
+    "type": "services"
+  },
+  {
+    "code": "998527",
+    "desc": "Polygraph services",
+    "type": "services"
+  },
+  {
+    "code": "998528",
+    "desc": "Fingerprinting services",
+    "type": "services"
+  },
+  {
+    "code": "998529",
+    "desc": "Other security services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998531",
+    "desc": "Disinfecting and exterminating services",
+    "type": "services"
+  },
+  {
+    "code": "998532",
+    "desc": "Window cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "998533",
+    "desc": "General cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "998534",
+    "desc": "Specialised cleaning services for reservoirs and tanks",
+    "type": "services"
+  },
+  {
+    "code": "998535",
+    "desc": "Sterilisation of objects or premises (operating rooms)",
+    "type": "services"
+  },
+  {
+    "code": "998536",
+    "desc": "Furnace and chimney cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "998537",
+    "desc": "Exterior cleaning of buildings of all types",
+    "type": "services"
+  },
+  {
+    "code": "998538",
+    "desc": "Cleaning of transportation equipment",
+    "type": "services"
+  },
+  {
+    "code": "998539",
+    "desc": "Other cleaning services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998540",
+    "desc": "Packaging services of goods for others",
+    "type": "services"
+  },
+  {
+    "code": "998541",
+    "desc": "Parcel packing and gift wrapping",
+    "type": "services"
+  },
+  {
+    "code": "998542",
+    "desc": "Coin and currency packing services",
+    "type": "services"
+  },
+  {
+    "code": "998543",
+    "desc": "Coin and currency packing services",
+    "type": "services"
+  },
+  {
+    "code": "998549",
+    "desc": "Other packaging services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998551",
+    "desc": "Reservation services for transportation",
+    "type": "services"
+  },
+  {
+    "code": "998552",
+    "desc": "Reservation services for accommodation, cruises and package tours",
+    "type": "services"
+  },
+  {
+    "code": "998553",
+    "desc": "Reservation services for convention centres, congress centres and exhibition halls",
+    "type": "services"
+  },
+  {
+    "code": "998554",
+    "desc": "Reservation services for event tickets, cinema halls, entertainment and recreational services and other reservation services",
+    "type": "services"
+  },
+  {
+    "code": "998555",
+    "desc": "Tour operator services",
+    "type": "services"
+  },
+  {
+    "code": "998556",
+    "desc": "Tourist guide services",
+    "type": "services"
+  },
+  {
+    "code": "998557",
+    "desc": "Tourism promotion and visitor information services",
+    "type": "services"
+  },
+  {
+    "code": "998559",
+    "desc": "Other travel arrangement and related services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998591",
+    "desc": "Credit reporting and rating services",
+    "type": "services"
+  },
+  {
+    "code": "998592",
+    "desc": "Collection agency services",
+    "type": "services"
+  },
+  {
+    "code": "998593",
+    "desc": "Telephone-based support services",
+    "type": "services"
+  },
+  {
+    "code": "998594",
+    "desc": "Combined office administrative services",
+    "type": "services"
+  },
+  {
+    "code": "998595",
+    "desc": "Specialised office support services such as duplicating services, mailing services, document preparation and the like",
+    "type": "services"
+  },
+  {
+    "code": "998596",
+    "desc": "Events, Exhibitions, Conventions and trade shows organisation and assistance services",
+    "type": "services"
+  },
+  {
+    "code": "998597",
+    "desc": "Landscape care and maintenance services",
+    "type": "services"
+  },
+  {
+    "code": "998598",
+    "desc": "Other information services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998599",
+    "desc": "Other support services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9986",
+    "desc": "Support services to agriculture, hunting, forestry, fishing, mining and utilities",
+    "type": "services"
+  },
+  {
+    "code": "998611",
+    "desc": "Support services to crop production",
+    "type": "services"
+  },
+  {
+    "code": "998612",
+    "desc": "Animal husbandry services",
+    "type": "services"
+  },
+  {
+    "code": "998613",
+    "desc": "Support services to hunting",
+    "type": "services"
+  },
+  {
+    "code": "998614",
+    "desc": "Support services to forestry and logging",
+    "type": "services"
+  },
+  {
+    "code": "998615",
+    "desc": "Support services to fishing",
+    "type": "services"
+  },
+  {
+    "code": "998619",
+    "desc": "Other support services to agriculture, hunting, forestry and fishing",
+    "type": "services"
+  },
+  {
+    "code": "998621",
+    "desc": "Support services to oil and gas extraction",
+    "type": "services"
+  },
+  {
+    "code": "998622",
+    "desc": "Support services to other mining nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998631",
+    "desc": "Support services to electricity transmission and distribution",
+    "type": "services"
+  },
+  {
+    "code": "998632",
+    "desc": "Support services to gas distribution",
+    "type": "services"
+  },
+  {
+    "code": "998633",
+    "desc": "Support services to water distribution",
+    "type": "services"
+  },
+  {
+    "code": "998634",
+    "desc": "Support services to Distribution services of steam, hot water and air-conditioning supply",
+    "type": "services"
+  },
+  {
+    "code": "998635",
+    "desc": "Other support services to electricity , gas and water distribution",
+    "type": "services"
+  },
+  {
+    "code": "9987",
+    "desc": "Maintenance, repair and installation (except construction) services",
+    "type": "services"
+  },
+  {
+    "code": "998711",
+    "desc": "Maintenance and repair services of fabricated metal products, except machinery and equipment",
+    "type": "services"
+  },
+  {
+    "code": "998712",
+    "desc": "Maintenance and repair services of office and accounting machinery",
+    "type": "services"
+  },
+  {
+    "code": "998713",
+    "desc": "Maintenance and repair services of computers and peripheral equipment",
+    "type": "services"
+  },
+  {
+    "code": "998714",
+    "desc": "Maintenance and repair services of transport machinery and equipment",
+    "type": "services"
+  },
+  {
+    "code": "998715",
+    "desc": "Maintenance and repair services of electrical household appliances",
+    "type": "services"
+  },
+  {
+    "code": "998716",
+    "desc": "Maintenance and repair services of telecommunication equipments and apparatus",
+    "type": "services"
+  },
+  {
+    "code": "998717",
+    "desc": "Maintenance and repair services of commercial and industrial machinery",
+    "type": "services"
+  },
+  {
+    "code": "998718",
+    "desc": "Maintenance and repair services of elevators and escalators",
+    "type": "services"
+  },
+  {
+    "code": "998719",
+    "desc": "Maintenance and repair services of other machinery and equipments",
+    "type": "services"
+  },
+  {
+    "code": "998721",
+    "desc": "Repair services of footwear and leather goods",
+    "type": "services"
+  },
+  {
+    "code": "998722",
+    "desc": "Repair services of watches, clocks and jewellery",
+    "type": "services"
+  },
+  {
+    "code": "998723",
+    "desc": "Repair services of garments and household textiles",
+    "type": "services"
+  },
+  {
+    "code": "998724",
+    "desc": "Repair services of furniture",
+    "type": "services"
+  },
+  {
+    "code": "998725",
+    "desc": "Repair services of bicycles",
+    "type": "services"
+  },
+  {
+    "code": "998726",
+    "desc": "Maintenance and repair services of musical instruments",
+    "type": "services"
+  },
+  {
+    "code": "998727",
+    "desc": "Repair services for photographic equipment and cameras",
+    "type": "services"
+  },
+  {
+    "code": "998729",
+    "desc": "Maintenance and repair services of other goods nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998731",
+    "desc": "Installation services of fabricated metal products, except machinery and equipment",
+    "type": "services"
+  },
+  {
+    "code": "998732",
+    "desc": "Installation services of industrial, manufacturing and service industry machinery and equipment",
+    "type": "services"
+  },
+  {
+    "code": "998733",
+    "desc": "Installation services of office and accounting machinery and computers",
+    "type": "services"
+  },
+  {
+    "code": "998734",
+    "desc": "Installation services of radio, television and communications equipment and apparatus",
+    "type": "services"
+  },
+  {
+    "code": "998735",
+    "desc": "Installation services of professional medical machinery and equipment, and precision and optical instruments",
+    "type": "services"
+  },
+  {
+    "code": "998736",
+    "desc": "Installation services of electrical machinery and apparatus nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998739",
+    "desc": "Installation services of other goods nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9988",
+    "desc": "Manufacturing services on physical inputs (goods) owned by others",
+    "type": "services"
+  },
+  {
+    "code": "998811",
+    "desc": "Meat processing services",
+    "type": "services"
+  },
+  {
+    "code": "998812",
+    "desc": "Fish processing services",
+    "type": "services"
+  },
+  {
+    "code": "998813",
+    "desc": "Fruit and vegetables processing services",
+    "type": "services"
+  },
+  {
+    "code": "998814",
+    "desc": "Vegetable and animal oil and fat manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998815",
+    "desc": "Dairy product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998816",
+    "desc": "Other food product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998817",
+    "desc": "Prepared animal feeds manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998818",
+    "desc": "Beverage manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998819",
+    "desc": "Tobacco manufacturing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998821",
+    "desc": "Textile manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998822",
+    "desc": "Wearing apparel manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998823",
+    "desc": "Leather and leather product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998829",
+    "desc": "Textile, wearing apparel and leather manufacturing services other than services by way of job work specified above.",
+    "type": "services"
+  },
+  {
+    "code": "998831",
+    "desc": "Wood and wood product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998832",
+    "desc": "Paper and paper product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998839",
+    "desc": "Wood and paper manufacturing services other than services by way of job work specified above",
+    "type": "services"
+  },
+  {
+    "code": "998841",
+    "desc": "Coke and refined petroleum product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998842",
+    "desc": "Chemical product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998843",
+    "desc": "Pharmaceutical product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998849",
+    "desc": "Petroleum, chemical and pharmaceutical products manufacturing services other than services by way of job work specified above",
+    "type": "services"
+  },
+  {
+    "code": "998851",
+    "desc": "Rubber and plastic product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998852",
+    "desc": "Plastic product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998853",
+    "desc": "Other non-metallic mineral product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998859",
+    "desc": "Rubber, plastic and other non-metallic mineral product manufacturing services, other than services by way of job work specified above.",
+    "type": "services"
+  },
+  {
+    "code": "998860",
+    "desc": "Basic metal manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998861",
+    "desc": "Services by way of job work in relation to basic metals",
+    "type": "services"
+  },
+  {
+    "code": "998869",
+    "desc": "Basic metal manufacturing services, other than services by way of job work specified above",
+    "type": "services"
+  },
+  {
+    "code": "998871",
+    "desc": "Structural metal product, tank, reservoir and steam generator manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998872",
+    "desc": "Weapon and ammunition manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998873",
+    "desc": "Other fabricated metal product manufacturing and metal treatment services",
+    "type": "services"
+  },
+  {
+    "code": "998874",
+    "desc": "Computer, electronic and optical product manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998875",
+    "desc": "Electrical equipment manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998876",
+    "desc": "General-purpose machinery manufacturing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998877",
+    "desc": "Special-purpose machinery manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998879",
+    "desc": "Fabricated metal product, machinery and equipment manufacturing services, other than services by way of job work specified above",
+    "type": "services"
+  },
+  {
+    "code": "998881",
+    "desc": "Motor vehicle and trailer manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998882",
+    "desc": "Other transport equipment manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998883",
+    "desc": "Services  by way of job work in relation to bus body building",
+    "type": "services"
+  },
+  {
+    "code": "998889",
+    "desc": "Transport equipment manufacturing services, other than job work services specified above",
+    "type": "services"
+  },
+  {
+    "code": "998891",
+    "desc": "Furniture manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998892",
+    "desc": "Jewellery manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998893",
+    "desc": "Imitation jewellery manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998894",
+    "desc": "Musical instrument manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998895",
+    "desc": "Sports goods manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998896",
+    "desc": "Game and toy manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998897",
+    "desc": "Medical and dental instrument and supply manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998898",
+    "desc": "Other manufacturing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "998899",
+    "desc": "Other manufacturing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9989",
+    "desc": "Other manufacturing services; publishing, printing and reproduction services; materials recovery services",
+    "type": "services"
+  },
+  {
+    "code": "998911",
+    "desc": "Publishing, on a fee or contract basis",
+    "type": "services"
+  },
+  {
+    "code": "998912",
+    "desc": "Printing and reproduction services of recorded media, on a fee or contract basis",
+    "type": "services"
+  },
+  {
+    "code": "998920",
+    "desc": "Moulding, pressing, stamping, extruding and similar plastic manufacturing services",
+    "type": "services"
+  },
+  {
+    "code": "998931",
+    "desc": "Iron and steel casting services",
+    "type": "services"
+  },
+  {
+    "code": "998932",
+    "desc": "Non-ferrous metal casting services",
+    "type": "services"
+  },
+  {
+    "code": "998933",
+    "desc": "Metal forging, pressing, stamping, roll forming and powder metallurgy services",
+    "type": "services"
+  },
+  {
+    "code": "998941",
+    "desc": "Metal waste and scrap recovery (recycling) services, on a fee or contract basis",
+    "type": "services"
+  },
+  {
+    "code": "998942",
+    "desc": "Non-metal waste and scrap recovery (recycling) services, on a fee or contract basis",
+    "type": "services"
+  },
+  {
+    "code": "998950",
+    "desc": "Other manufacturing services, publishing, printing and reproduction services, materials recovery services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9991",
+    "desc": "Public administration and other services provided to the community as a whole; compulsory social security services",
+    "type": "services"
+  },
+  {
+    "code": "999111",
+    "desc": "Overall Government public services",
+    "type": "services"
+  },
+  {
+    "code": "999112",
+    "desc": "Public administrative services related to the provision of educational, health care, cultural and other social services, excluding social security service",
+    "type": "services"
+  },
+  {
+    "code": "999113",
+    "desc": "Public administrative services related to the more efficient operation of business",
+    "type": "services"
+  },
+  {
+    "code": "999119",
+    "desc": "Other administrative services of the government nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999121",
+    "desc": "Public administrative services related to External Affairs, Diplomatic and Consular services abroad",
+    "type": "services"
+  },
+  {
+    "code": "999122",
+    "desc": "Services related to foreign economic aid",
+    "type": "services"
+  },
+  {
+    "code": "999123",
+    "desc": "Services related to foreign military aid",
+    "type": "services"
+  },
+  {
+    "code": "999124",
+    "desc": "Military defence services",
+    "type": "services"
+  },
+  {
+    "code": "999125",
+    "desc": "Civil defence services",
+    "type": "services"
+  },
+  {
+    "code": "999126",
+    "desc": "Police and fire protection services",
+    "type": "services"
+  },
+  {
+    "code": "999127",
+    "desc": "Public administrative services related to law courts",
+    "type": "services"
+  },
+  {
+    "code": "999128",
+    "desc": "Administrative services related to the detention or rehabilitation of criminals",
+    "type": "services"
+  },
+  {
+    "code": "999129",
+    "desc": "Public administrative services related to other public order and safety affairs nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999131",
+    "desc": "Administrative services related to sickness, maternity or temporary disablement benefit schemes",
+    "type": "services"
+  },
+  {
+    "code": "999132",
+    "desc": "Administrative services related to government employee pension schemes; old-age disability or survivors' benefit schemes, other than for government employees",
+    "type": "services"
+  },
+  {
+    "code": "999133",
+    "desc": "Administrative services related to unemployment compensation benefit schemes",
+    "type": "services"
+  },
+  {
+    "code": "999134",
+    "desc": "Administrative services related to family and child allowance programmes",
+    "type": "services"
+  },
+  {
+    "code": "999139",
+    "desc": "Other administrative services related to compulsory social security schemes",
+    "type": "services"
+  },
+  {
+    "code": "9992",
+    "desc": "Education services",
+    "type": "services"
+  },
+  {
+    "code": "999210",
+    "desc": "Pre-primary education services",
+    "type": "services"
+  },
+  {
+    "code": "999220",
+    "desc": "Primary education services",
+    "type": "services"
+  },
+  {
+    "code": "999231",
+    "desc": "Secondary education services, general",
+    "type": "services"
+  },
+  {
+    "code": "999232",
+    "desc": "Secondary education services, technical and vocational",
+    "type": "services"
+  },
+  {
+    "code": "999241",
+    "desc": "Higher education services, general",
+    "type": "services"
+  },
+  {
+    "code": "999242",
+    "desc": "Higher education services, technical",
+    "type": "services"
+  },
+  {
+    "code": "999243",
+    "desc": "Higher education services, vocational",
+    "type": "services"
+  },
+  {
+    "code": "999249",
+    "desc": "Other higher education services",
+    "type": "services"
+  },
+  {
+    "code": "999250",
+    "desc": "Specialised education services",
+    "type": "services"
+  },
+  {
+    "code": "999259",
+    "desc": "Specialised education services",
+    "type": "services"
+  },
+  {
+    "code": "999291",
+    "desc": "Cultural education services",
+    "type": "services"
+  },
+  {
+    "code": "999292",
+    "desc": "Sports and recreation education services",
+    "type": "services"
+  },
+  {
+    "code": "999293",
+    "desc": "Commercial training and coaching services",
+    "type": "services"
+  },
+  {
+    "code": "999294",
+    "desc": "Other education and training services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999295",
+    "desc": "services involving conduct of examination for admission to educational institutions",
+    "type": "services"
+  },
+  {
+    "code": "999299",
+    "desc": "Other Educational support services",
+    "type": "services"
+  },
+  {
+    "code": "9993",
+    "desc": "Human health and social care services",
+    "type": "services"
+  },
+  {
+    "code": "999311",
+    "desc": "Inpatient services",
+    "type": "services"
+  },
+  {
+    "code": "999312",
+    "desc": "Medical and dental services",
+    "type": "services"
+  },
+  {
+    "code": "999313",
+    "desc": "Childbirth and related services",
+    "type": "services"
+  },
+  {
+    "code": "999314",
+    "desc": "Nursing and physiotherapeutic services",
+    "type": "services"
+  },
+  {
+    "code": "999315",
+    "desc": "Ambulance services",
+    "type": "services"
+  },
+  {
+    "code": "999316",
+    "desc": "Medical laboratory and diagnostic-imaging services",
+    "type": "services"
+  },
+  {
+    "code": "999317",
+    "desc": "Blood, sperm and organ bank services",
+    "type": "services"
+  },
+  {
+    "code": "999318",
+    "desc": "Blood, sperm and organ bank services",
+    "type": "services"
+  },
+  {
+    "code": "999319",
+    "desc": "Other human health services including homeopathy, unani, ayurveda, naturopathy, acupuncture and the like",
+    "type": "services"
+  },
+  {
+    "code": "999321",
+    "desc": "Residential health-care services other than by hospitals",
+    "type": "services"
+  },
+  {
+    "code": "999322",
+    "desc": "Residential care services for the elderly and persons with disabilities",
+    "type": "services"
+  },
+  {
+    "code": "999331",
+    "desc": "Residential care services for children suffering from mental retardation, mental health illnesses or substance abuse",
+    "type": "services"
+  },
+  {
+    "code": "999332",
+    "desc": "Other social services with accommodation for children",
+    "type": "services"
+  },
+  {
+    "code": "999333",
+    "desc": "Residential care services for adults suffering from mental retardation, mental health illnesses or substance abuse",
+    "type": "services"
+  },
+  {
+    "code": "999334",
+    "desc": "Other social services with accommodation for adults",
+    "type": "services"
+  },
+  {
+    "code": "999341",
+    "desc": "Vocational rehabilitation services",
+    "type": "services"
+  },
+  {
+    "code": "999349",
+    "desc": "Other social services without accommodation for the elderly and disabled nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999351",
+    "desc": "Child day-care services",
+    "type": "services"
+  },
+  {
+    "code": "999352",
+    "desc": "Guidance and counseling services nowhere else classified related to children",
+    "type": "services"
+  },
+  {
+    "code": "999353",
+    "desc": "Welfare services without accommodation",
+    "type": "services"
+  },
+  {
+    "code": "999359",
+    "desc": "Other social services without accommodation nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9994",
+    "desc": "Sewage and waste collection, treatment and disposal and other environmental protection services",
+    "type": "services"
+  },
+  {
+    "code": "999411",
+    "desc": "Sewerage and sewage treatment services",
+    "type": "services"
+  },
+  {
+    "code": "999412",
+    "desc": "Septic tank emptying and cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "999413",
+    "desc": "Septic tank emptying and cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "999419",
+    "desc": "Other sewerage, sewage treatment and septic tank cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "999421",
+    "desc": "Collection services of hazardous waste",
+    "type": "services"
+  },
+  {
+    "code": "999422",
+    "desc": "Collection services of non-hazardous recyclable materials",
+    "type": "services"
+  },
+  {
+    "code": "999423",
+    "desc": "General waste collection services, residential",
+    "type": "services"
+  },
+  {
+    "code": "999424",
+    "desc": "General waste collection services, other nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999429",
+    "desc": "Other sewage and waste collection services",
+    "type": "services"
+  },
+  {
+    "code": "999431",
+    "desc": "Waste preparation, consolidation and storage services",
+    "type": "services"
+  },
+  {
+    "code": "999432",
+    "desc": "Hazardous waste treatment and disposal services",
+    "type": "services"
+  },
+  {
+    "code": "999433",
+    "desc": "Non-hazardous waste treatment and disposal services",
+    "type": "services"
+  },
+  {
+    "code": "999439",
+    "desc": "Other waste treatment and disposal services",
+    "type": "services"
+  },
+  {
+    "code": "999441",
+    "desc": "Site remediation and clean-up services",
+    "type": "services"
+  },
+  {
+    "code": "999442",
+    "desc": "Containment, control and monitoring services and other site remediation services",
+    "type": "services"
+  },
+  {
+    "code": "999443",
+    "desc": "Building remediation services",
+    "type": "services"
+  },
+  {
+    "code": "999449",
+    "desc": "Other remediation services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999451",
+    "desc": "Sweeping and snow removal services",
+    "type": "services"
+  },
+  {
+    "code": "999459",
+    "desc": "Other sanitation services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999490",
+    "desc": "Other environmental protection services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999491",
+    "desc": "Services by way of treatment or disposal of biomedical waste or the processes incidental thereto by a common biomedical waste treatment facility to a clinical establishment.",
+    "type": "services"
+  },
+  {
+    "code": "999499",
+    "desc": "Other environmental protection services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9995",
+    "desc": "Services of membership organisations",
+    "type": "services"
+  },
+  {
+    "code": "999511",
+    "desc": "Services furnished by business and employers organisations",
+    "type": "services"
+  },
+  {
+    "code": "999512",
+    "desc": "Services furnished by professional organisations",
+    "type": "services"
+  },
+  {
+    "code": "999520",
+    "desc": "Services furnished by trade unions",
+    "type": "services"
+  },
+  {
+    "code": "999591",
+    "desc": "Religious services",
+    "type": "services"
+  },
+  {
+    "code": "999592",
+    "desc": "Services furnished by political organisations",
+    "type": "services"
+  },
+  {
+    "code": "999593",
+    "desc": "Services furnished by human rights organisations",
+    "type": "services"
+  },
+  {
+    "code": "999594",
+    "desc": "Cultural and recreational associations",
+    "type": "services"
+  },
+  {
+    "code": "999595",
+    "desc": "Services furnished by environmental advocacy groups",
+    "type": "services"
+  },
+  {
+    "code": "999596",
+    "desc": "Services provided by youth associations",
+    "type": "services"
+  },
+  {
+    "code": "999597",
+    "desc": "Other civic and social organisations",
+    "type": "services"
+  },
+  {
+    "code": "999598",
+    "desc": "Home owners associations",
+    "type": "services"
+  },
+  {
+    "code": "999599",
+    "desc": "Services provided by other membership organisations nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9996",
+    "desc": "Recreational, cultural and sporting services",
+    "type": "services"
+  },
+  {
+    "code": "999611",
+    "desc": "Sound recording services",
+    "type": "services"
+  },
+  {
+    "code": "999612",
+    "desc": "Motion picture, videotape, television and radio programme production services",
+    "type": "services"
+  },
+  {
+    "code": "999613",
+    "desc": "Audiovisual post-production services",
+    "type": "services"
+  },
+  {
+    "code": "999614",
+    "desc": "Motion picture, videotape and television programme distribution services",
+    "type": "services"
+  },
+  {
+    "code": "999615",
+    "desc": "Motion picture projection services",
+    "type": "services"
+  },
+  {
+    "code": "999616",
+    "desc": "Services by way of admission to exhibition of cinematograph films where price of admission ticket is one hundred rupees or less",
+    "type": "services"
+  },
+  {
+    "code": "999617",
+    "desc": "Services by way of admission to exhibition of cinematograph films where price of admission ticket is above one hundred rupees.",
+    "type": "services"
+  },
+  {
+    "code": "999621",
+    "desc": "Performing arts event promotion and organisation services",
+    "type": "services"
+  },
+  {
+    "code": "999622",
+    "desc": "Performing arts event production and presentation services",
+    "type": "services"
+  },
+  {
+    "code": "999623",
+    "desc": "Performing arts facility operation services",
+    "type": "services"
+  },
+  {
+    "code": "999624",
+    "desc": "Services by way of admission or access to circus, Indian classical dance including folk dance, theatrical performance, drama [or planetarium], ballet etc.",
+    "type": "services"
+  },
+  {
+    "code": "999629",
+    "desc": "Other performing arts and live entertainment services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999631",
+    "desc": "Services of performing artists including actors, readers, musicians, singers, dancers, television personalities, independent models and the like",
+    "type": "services"
+  },
+  {
+    "code": "999632",
+    "desc": "Services of authors, composers, sculptors and other artists, except performing artists",
+    "type": "services"
+  },
+  {
+    "code": "999633",
+    "desc": "Original works of authors, composers and other artists except performing artists, painters and sculptors",
+    "type": "services"
+  },
+  {
+    "code": "999641",
+    "desc": "Museum and preservation services of historical sites and buildings",
+    "type": "services"
+  },
+  {
+    "code": "999642",
+    "desc": "Botanical, zoological and nature reserve services",
+    "type": "services"
+  },
+  {
+    "code": "999651",
+    "desc": "Sports and recreational sports event promotion and organisation services",
+    "type": "services"
+  },
+  {
+    "code": "999652",
+    "desc": "Sports and recreational sports facility operation services",
+    "type": "services"
+  },
+  {
+    "code": "999653",
+    "desc": "Services by way of admission to sporting events like Indian Premier League.",
+    "type": "services"
+  },
+  {
+    "code": "999659",
+    "desc": "Other sports and recreational sports services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999661",
+    "desc": "Services of athletes",
+    "type": "services"
+  },
+  {
+    "code": "999662",
+    "desc": "Support services related to sports and recreation",
+    "type": "services"
+  },
+  {
+    "code": "999691",
+    "desc": "Amusement park and similar attraction services",
+    "type": "services"
+  },
+  {
+    "code": "999692",
+    "desc": "Coin-operated amusement machine services",
+    "type": "services"
+  },
+  {
+    "code": "999693",
+    "desc": "Coin-operated amusement machine services",
+    "type": "services"
+  },
+  {
+    "code": "999694",
+    "desc": "Services by way of admission to casinos or race clubs or any place having casinos or race clubs",
+    "type": "services"
+  },
+  {
+    "code": "999699",
+    "desc": "Other recreation and amusement services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9997",
+    "desc": "Other services",
+    "type": "services"
+  },
+  {
+    "code": "999711",
+    "desc": "Coin-operated laundry services",
+    "type": "services"
+  },
+  {
+    "code": "999712",
+    "desc": "Dry-cleaning services (including fur product cleaning services)",
+    "type": "services"
+  },
+  {
+    "code": "999713",
+    "desc": "Other textile cleaning services",
+    "type": "services"
+  },
+  {
+    "code": "999714",
+    "desc": "Pressing services",
+    "type": "services"
+  },
+  {
+    "code": "999715",
+    "desc": "Dyeing and colouring services",
+    "type": "services"
+  },
+  {
+    "code": "999719",
+    "desc": "Other washing, cleaning and dyeing services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999721",
+    "desc": "Hairdressing and barbers services",
+    "type": "services"
+  },
+  {
+    "code": "999722",
+    "desc": "Cosmetic treatment (including cosmetic or plastic surgery), manicuring and pedicuring services",
+    "type": "services"
+  },
+  {
+    "code": "999723",
+    "desc": "Physical well-being services including health club and fitness centre",
+    "type": "services"
+  },
+  {
+    "code": "999729",
+    "desc": "Other beauty treatment services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "999731",
+    "desc": "Cemeteries and cremation services",
+    "type": "services"
+  },
+  {
+    "code": "999732",
+    "desc": "Undertaking services",
+    "type": "services"
+  },
+  {
+    "code": "999791",
+    "desc": "Services involving commercial use or exploitation of any event",
+    "type": "services"
+  },
+  {
+    "code": "999792",
+    "desc": "Agreeing to do an act",
+    "type": "services"
+  },
+  {
+    "code": "999793",
+    "desc": "Agreeing to refrain from doing an act",
+    "type": "services"
+  },
+  {
+    "code": "999794",
+    "desc": "Agreeing to tolerate an act",
+    "type": "services"
+  },
+  {
+    "code": "999795",
+    "desc": "Conduct of religious ceremonies or rituals by persons",
+    "type": "services"
+  },
+  {
+    "code": "999799",
+    "desc": "Other services nowhere else classified",
+    "type": "services"
+  },
+  {
+    "code": "9998",
+    "desc": "Domestic services",
+    "type": "services"
+  },
+  {
+    "code": "999800",
+    "desc": "Domestic services both part time and full time",
+    "type": "services"
+  },
+  {
+    "code": "9999",
+    "desc": "Services provided by extraterritorial organisations and bodies",
+    "type": "services"
+  },
+  {
+    "code": "999900",
+    "desc": "Services provided by extraterritorial organisations and bodies",
+    "type": "services"
+  }
+]

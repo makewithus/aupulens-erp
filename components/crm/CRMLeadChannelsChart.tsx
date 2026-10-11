@@ -109,15 +109,35 @@ export function CRMLeadChannelsChart() {
 
       for (let i = 0; i < n; i++) {
         const x = cL + i * groupWidth + gap;
-        const barH = (values[i] / yMax) * cH;
-        const y = cB - barH;
+        const isHighlight = highlightIdx === i;
 
-        // Bar gradient
-        const grad = ctx.createLinearGradient(x, y, x, cB);
-        grad.addColorStop(0, highlightIdx === i ? "#c4b5fd" : barColors[i % 2]);
-        grad.addColorStop(1, highlightIdx === i ? "#7c3aed" : i % 2 === 0 ? "#6d28d9" : "#4c1d95");
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, y, barWidth, barH);
+        if (isHighlight) {
+          ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
+          ctx.fillRect(cL + i * groupWidth, cT, groupWidth, cH);
+        }
+
+        const barH = (values[i] / yMax) * cH;
+        const bH = 4;
+        const bG = 1.5;
+        const unitH = bH + bG;
+        const totalBricks = Math.max(1, Math.round(barH / unitH));
+
+        for (let b = 0; b < totalBricks; b++) {
+          const by = cB - (b + 1) * unitH + bG;
+          let brickColor = isHighlight ? "#ffffff" : "#d4d4d8";
+
+          if (!isHighlight && totalBricks > 6) {
+            const rel = b / totalBricks;
+            if (rel >= 0.72 && rel <= 0.86) {
+              brickColor = "#52525b";
+            } else if (b % 7 === 4 && totalBricks > 10) {
+              brickColor = "#52525b";
+            }
+          }
+
+          ctx.fillStyle = brickColor;
+          ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
+        }
 
         // X label (rotated)
         ctx.save();

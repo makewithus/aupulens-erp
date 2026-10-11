@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -25,6 +25,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { DailyBrickBarChart, generate365DailyData } from '@/components/charts/DailyBrickBarChart';
+import { TradingLineChart } from '@/components/charts/TradingLineChart';
 
 type Tab = 'overview' | 'finance' | 'sales' | 'inventory' | 'manufacturing';
 
@@ -83,6 +85,7 @@ export default function AdminAnalytics() {
   const [destination, setDestination] = useState('all-resources');
   const [showBy, setShowBy] = useState('department');
   const [interval, setInterval] = useState('day');
+  const [chartMode, setChartMode] = useState<'bar' | 'area'>('bar');
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
@@ -318,6 +321,21 @@ export default function AdminAnalytics() {
         return analyticsData.finance.chartData;
     }
   };
+
+  const dailySeedData = useMemo(() => {
+    switch (activeTab) {
+      case 'sales':
+        return generate365DailyData(2026, { base: 14000, variance: 6000, seed: 101 });
+      case 'inventory':
+        return generate365DailyData(2026, { base: 11000, variance: 5000, seed: 202 });
+      case 'manufacturing':
+        return generate365DailyData(2026, { base: 8000, variance: 4000, seed: 303 });
+      case 'finance':
+      case 'overview':
+      default:
+        return generate365DailyData(2026, { base: 18000, variance: 8000, seed: 404 });
+    }
+  }, [activeTab]);
 
   const getMetrics = () => {
     if (!analyticsData) return { primary: 0, secondary: 0, tertiary: 0 };
@@ -561,6 +579,32 @@ export default function AdminAnalytics() {
               </Select>
             </div>
 
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 border border-border/40 p-0.5 bg-background">
+              <button
+                type="button"
+                onClick={() => setChartMode('bar')}
+                className={`px-3 py-1 text-xs font-mono transition-colors ${
+                  chartMode === 'bar'
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Daily Bar (365D)
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartMode('area')}
+                className={`px-3 py-1 text-xs font-mono transition-colors ${
+                  chartMode === 'area'
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Area Trend
+              </button>
+            </div>
+
             <Button
               variant="outline"
               className="ml-auto rounded-none border-border/40 text-foreground hover:bg-white/5 text-sm"
@@ -606,166 +650,21 @@ export default function AdminAnalytics() {
           </div>
 
           {/* Chart */}
-          <div className="mt-6 bg-background rounded-none" style={{ height: '400px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="gradient-primary" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradient-secondary" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradient-tertiary" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1f1f1f' : '#e5e5e5'} vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  stroke={isDark ? '#4a4a4a' : '#a3a3a3'}
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={{ stroke: isDark ? '#1f1f1f' : '#e5e5e5' }}
-                />
-                <YAxis
-                  stroke={isDark ? '#4a4a4a' : '#a3a3a3'}
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  axisLine={{ stroke: isDark ? '#1f1f1f' : '#e5e5e5' }}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return value;
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: isDark ? '#161616' : '#ffffff',
-                    border: `1px solid ${isDark ? '#333' : '#e5e5e5'}`,
-                    borderRadius: '0px',
-                    fontSize: '12px',
-                    color: isDark ? '#f2f2f2' : '#171717',
-                  }}
-                  labelStyle={{ color: '#9ca3af' }}
-                />
-                
-                {/* Render different metrics based on active tab */}
-                {activeTab === 'finance' && (
-                  <>
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-primary)"
-                      fillOpacity={1}
-                      name="Revenue"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="expenses"
-                      stroke="#f97316"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-tertiary)"
-                      fillOpacity={1}
-                      name="Expenses"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      stroke="#22c55e"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-secondary)"
-                      fillOpacity={1}
-                      name="Profit"
-                    />
-                  </>
-                )}
-                
-                {activeTab === 'sales' && (
-                  <>
-                    <Area
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-primary)"
-                      fillOpacity={1}
-                      name="Orders"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#22c55e"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-secondary)"
-                      fillOpacity={1}
-                      name="Revenue"
-                    />
-                  </>
-                )}
-                
-                {activeTab === 'inventory' && (
-                  <Area
-                    type="monotone"
-                    dataKey="stockLevel"
-                    stroke="#3b82f6"
-                    strokeWidth={1.5}
-                    fill="url(#gradient-primary)"
-                    fillOpacity={1}
-                    name="Stock Level"
-                  />
-                )}
-                
-                {activeTab === 'manufacturing' && (
-                  <>
-                    <Area
-                      type="monotone"
-                      dataKey="production"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-primary)"
-                      fillOpacity={1}
-                      name="Production"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="shipments"
-                      stroke="#22c55e"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-secondary)"
-                      fillOpacity={1}
-                      name="Shipments"
-                    />
-                  </>
-                )}
-                
-                {activeTab === 'overview' && (
-                  <>
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-primary)"
-                      fillOpacity={1}
-                      name="Revenue"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#22c55e"
-                      strokeWidth={1.5}
-                      fill="url(#gradient-secondary)"
-                      fillOpacity={1}
-                      name="Orders"
-                    />
-                  </>
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="mt-6 bg-background rounded-none" style={{ height: '440px' }}>
+            {chartMode === 'bar' ? (
+              <DailyBrickBarChart
+                data={dailySeedData}
+                metricLabel={metrics.labels[0]}
+                height="100%"
+              />
+            ) : (
+              <TradingLineChart
+                data={dailySeedData}
+                metricLabel={metrics.labels[0]}
+                title={`${activeTab.toUpperCase()} TRADING TREND`}
+                height="100%"
+              />
+            )}
           </div>
         </div>
       </div>

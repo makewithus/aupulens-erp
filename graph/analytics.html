@@ -815,11 +815,9 @@
 
                     <script>
                         (function () {
-                            'use strict';
-
-                            // ── Data generation ──
-                            const startDate = new Date(2025, 5, 12);
-                            const days = 366;
+                                                       // ── Data generation (Full 365 Calendar Year) ──
+                            const startDate = new Date(2026, 0, 1);
+                            const days = 365;
                             const chains = [
                                 { name: 'Finance', color: '#6366f1' },
                                 { name: 'Supply Chain', color: '#e11d48' },
@@ -838,7 +836,7 @@
                             let seed = 42;
                             function rng() { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; }
 
-                            // Generate daily data with spike in early Jul '25 and March '26
+                            // Generate daily data with March 2026 spike matching reference image
                             const dailyData = [];
                             const chainDaily = chains.map(() => []);
 
@@ -849,32 +847,60 @@
 
                                 let base = 18000 + rng() * 8000;
 
-                                // Big spike around day 20-35 (early July 2025)
-                                if (dayOfYear >= 18 && dayOfYear <= 40) {
-                                    const peak = 1 - Math.abs(dayOfYear - 28) / 12;
-                                    base += peak * 170000 * (0.6 + rng() * 0.4);
+                                // Early Jan mini-spike (day ~10-18)
+                                if (dayOfYear >= 10 && dayOfYear <= 18) {
+                                    const peak = 1 - Math.abs(dayOfYear - 14) / 5;
+                                    base += Math.max(0, peak) * 35000 * (0.7 + rng() * 0.5);
                                 }
-                                // Secondary smaller spikes
-                                if (dayOfYear >= 55 && dayOfYear <= 65) {
-                                    base += (1 - Math.abs(dayOfYear - 60) / 6) * 50000 * rng();
+                                // February oscillation
+                                if (dayOfYear >= 40 && dayOfYear <= 55) {
+                                    base += (rng() - 0.2) * 16000;
                                 }
-                                // Elevated period around Sep-Oct '25 (day 80-130)
-                                if (dayOfYear >= 80 && dayOfYear <= 130) {
-                                    base += rng() * 25000;
+                                // March 2026 spike (day ~68-82) matching the exact spike in the screenshot!
+                                if (dayOfYear >= 66 && dayOfYear <= 82) {
+                                    const peak = 1 - Math.abs(dayOfYear - 73) / 8;
+                                    base += Math.max(0, peak) * 145000 * (0.8 + rng() * 0.4);
                                 }
-                                // March 2026 spike (day ~265-290)
-                                if (dayOfYear >= 265 && dayOfYear <= 295) {
-                                    const peak2 = 1 - Math.abs(dayOfYear - 280) / 15;
-                                    base += peak2 * 40000 * (0.5 + rng() * 0.5);
+                                // Post-March elevated
+                                if (dayOfYear >= 83 && dayOfYear <= 95) {
+                                    base += rng() * 22000;
+                                }
+                                // April bumps
+                                if (dayOfYear >= 100 && dayOfYear <= 125) {
+                                    if (dayOfYear % 6 === 0) base += 18000 * rng();
+                                }
+                                // May & June rhythm
+                                if (dayOfYear >= 135 && dayOfYear <= 175) {
+                                    base += Math.sin(dayOfYear * 0.3) * 6000 + rng() * 12000;
+                                }
+                                // July spike (around day ~195)
+                                if (dayOfYear >= 190 && dayOfYear <= 202) {
+                                    const peak = 1 - Math.abs(dayOfYear - 196) / 6;
+                                    base += Math.max(0, peak) * 38000 * (0.7 + rng() * 0.5);
+                                }
+                                // August activity
+                                if (dayOfYear >= 220 && dayOfYear <= 240) {
+                                    base += rng() * 19000;
+                                }
+                                // September-October elevated period (days 250-290)
+                                if (dayOfYear >= 250 && dayOfYear <= 290) {
+                                    base += 12000 + rng() * 24000;
+                                    if (dayOfYear === 268 || dayOfYear === 282) base += 32000 * rng();
+                                }
+                                // November peaks
+                                if (dayOfYear >= 310 && dayOfYear <= 330) {
+                                    base += 15000 + rng() * 32000;
+                                }
+                                // December end-of-year rush
+                                if (dayOfYear >= 340 && dayOfYear <= 360) {
+                                    base += rng() * 26000;
                                 }
 
-                                // Add noise
-                                base += (rng() - 0.5) * 8000;
-                                base = Math.max(5000, base);
+                                base += (rng() - 0.5) * 6000;
+                                base = Math.max(3500, Math.round(base));
 
-                                dailyData.push({ date, value: Math.round(base) });
+                                dailyData.push({ date, value: base });
 
-                                // Split among chains
                                 const weights = chains.map(() => 0.3 + rng() * 0.7);
                                 const wSum = weights.reduce((a, b) => a + b, 0);
                                 chains.forEach((_, i) => {
@@ -896,21 +922,21 @@
                             const tooltipValue = document.getElementById('ca-tooltip-value');
 
                             let isAdvanced = false;
-                            const PAD = { top: 20, right: 60, bottom: 50, left: 10 };
+                            const PAD = { top: 20, right: 60, bottom: 45, left: 14 };
 
                             function formatK(v) {
                                 if (v >= 1000) return (v / 1000).toFixed(0) + 'K';
                                 return v.toString();
                             }
 
+                            const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
                             function formatDate(d) {
-                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                return months[d.getMonth()] + " '" + String(d.getFullYear()).slice(2);
+                                return monthShort[d.getMonth()];
                             }
 
                             function formatFullDate(d) {
-                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+                                return monthShort[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
                             }
 
                             function resize() {
@@ -924,7 +950,7 @@
                                 draw();
                             }
 
-                            function draw() {
+                            function draw(highlightIdx) {
                                 const W = canvas.width / (window.devicePixelRatio || 1);
                                 const H = canvas.height / (window.devicePixelRatio || 1);
                                 ctx.clearRect(0, 0, W, H);
@@ -938,7 +964,7 @@
 
                                 // Y-axis grid + labels
                                 ctx.font = '10px "Roboto Mono", monospace';
-                                ctx.textAlign = 'right';
+                                ctx.textAlign = 'left';
                                 ctx.textBaseline = 'middle';
                                 yTicks.forEach(v => {
                                     const y = chartB - (v / yMax) * chartH;
@@ -948,24 +974,55 @@
                                     ctx.moveTo(chartL, y);
                                     ctx.lineTo(chartR, y);
                                     ctx.stroke();
-                                    ctx.fillStyle = '#555';
-                                    ctx.fillText(formatK(v), chartR + 40, y);
+                                    ctx.fillStyle = '#71717a';
+                                    ctx.fillText(formatK(v), chartR + 10, y);
                                 });
 
-                                // X-axis labels
+                                // X-axis baseline
+                                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                                ctx.lineWidth = 1;
+                                ctx.beginPath();
+                                ctx.moveTo(chartL, chartB);
+                                ctx.lineTo(chartR, chartB);
+                                ctx.stroke();
+
+                                // X-axis month markers & labels (Jan ... Dec)
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'top';
-                                const xLabelStep = Math.floor(days / 12);
-                                for (let i = 0; i < days; i += xLabelStep) {
-                                    const x = chartL + (i / (days - 1)) * chartW;
-                                    ctx.fillStyle = '#555';
-                                    ctx.fillText(formatDate(dailyData[i].date), x, chartB + 12);
+                                ctx.font = '10px "Roboto Mono", monospace';
+
+                                // Find first day of each month
+                                const monthFirstDays = {};
+                                const monthLengths = {};
+                                for (let i = 0; i < days; i++) {
+                                    const m = dailyData[i].date.getMonth();
+                                    if (monthFirstDays[m] === undefined) {
+                                        monthFirstDays[m] = i;
+                                        monthLengths[m] = 0;
+                                    }
+                                    monthLengths[m]++;
+                                }
+
+                                for (let m = 0; m < 12; m++) {
+                                    if (monthFirstDays[m] !== undefined) {
+                                        const startIdx = monthFirstDays[m];
+                                        const count = monthLengths[m] || 30;
+                                        const centerIdx = startIdx + count * 0.45;
+                                        const x = chartL + (centerIdx / (days - 1)) * chartW;
+                                        ctx.fillStyle = '#71717a';
+                                        ctx.fillText(monthShort[m], x, chartB + 10);
+
+                                        // Tick mark
+                                        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                                        ctx.beginPath();
+                                        ctx.moveTo(x, chartB);
+                                        ctx.lineTo(x, chartB + 4);
+                                        ctx.stroke();
+                                    }
                                 }
 
                                 if (isAdvanced) {
                                     // Stacked area chart
-                                    // Draw each chain as a filled area from bottom
-                                    // Build stacked values
                                     const stacked = [];
                                     for (let d = 0; d < days; d++) {
                                         let cumulative = 0;
@@ -977,17 +1034,14 @@
                                         stacked.push(row);
                                     }
 
-                                    // Draw from top chain to bottom so bottom paints last
                                     for (let c = chains.length - 1; c >= 0; c--) {
                                         ctx.beginPath();
-                                        // Top edge
                                         for (let d = 0; d < days; d++) {
                                             const x = chartL + (d / (days - 1)) * chartW;
                                             const y = chartB - (stacked[d][c] / yMax) * chartH;
                                             if (d === 0) ctx.moveTo(x, y);
                                             else ctx.lineTo(x, y);
                                         }
-                                        // Bottom edge
                                         for (let d = days - 1; d >= 0; d--) {
                                             const x = chartL + (d / (days - 1)) * chartW;
                                             const bottomVal = c > 0 ? stacked[d][c - 1] : 0;
@@ -998,7 +1052,6 @@
                                         ctx.fillStyle = chains[c].color + '55';
                                         ctx.fill();
 
-                                        // Line on top
                                         ctx.beginPath();
                                         for (let d = 0; d < days; d++) {
                                             const x = chartL + (d / (days - 1)) * chartW;
@@ -1011,27 +1064,45 @@
                                         ctx.stroke();
                                     }
                                 } else {
-                                    // Overview: single white line with subtle fill
-                                    ctx.beginPath();
-                                    for (let d = 0; d < days; d++) {
-                                        const x = chartL + (d / (days - 1)) * chartW;
-                                        const y = chartB - (dailyData[d].value / yMax) * chartH;
-                                        if (d === 0) ctx.moveTo(x, y);
-                                        else ctx.lineTo(x, y);
-                                    }
-                                    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-                                    ctx.lineWidth = 1.5;
-                                    ctx.stroke();
+                                    // Overview: EXACT DAILY SEGMENTED BRICK BAR CHART MATCHING IMAGE
+                                    const colW = chartW / days;
+                                    const barW = Math.max(1, colW - 0.7);
+                                    const bH = 3.5;
+                                    const bG = 1.2;
+                                    const unitH = bH + bG;
 
-                                    // Fill
-                                    ctx.lineTo(chartR, chartB);
-                                    ctx.lineTo(chartL, chartB);
-                                    ctx.closePath();
-                                    const grad = ctx.createLinearGradient(0, chartT, 0, chartB);
-                                    grad.addColorStop(0, 'rgba(255,255,255,0.06)');
-                                    grad.addColorStop(1, 'rgba(255,255,255,0)');
-                                    ctx.fillStyle = grad;
-                                    ctx.fill();
+                                    for (let d = 0; d < days; d++) {
+                                        const val = dailyData[d].value;
+                                        const x = chartL + d * colW + (colW - barW) / 2;
+                                        const isHovered = (highlightIdx === d);
+
+                                        if (isHovered) {
+                                            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                                            ctx.fillRect(chartL + d * colW, chartT, colW, chartH);
+                                        }
+
+                                        if (val <= 0) continue;
+                                        const barH = (val / yMax) * chartH;
+                                        const totalBricks = Math.max(1, Math.round(barH / unitH));
+
+                                        for (let b = 0; b < totalBricks; b++) {
+                                            const by = chartB - (b + 1) * unitH + bG;
+                                            let brickColor = isHovered ? '#ffffff' : '#d4d4d8';
+
+                                            if (!isHovered && totalBricks > 6) {
+                                                const rel = b / totalBricks;
+                                                // Dark slate texture bands matching image
+                                                if (rel >= 0.72 && rel <= 0.86) {
+                                                    brickColor = '#52525b';
+                                                } else if (b % 7 === 4 && totalBricks > 12) {
+                                                    brickColor = '#52525b';
+                                                }
+                                            }
+
+                                            ctx.fillStyle = brickColor;
+                                            ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barW)), Math.round(bH));
+                                        }
+                                    }
                                 }
                             }
 
@@ -1040,20 +1111,16 @@
                                 const rect = canvas.getBoundingClientRect();
                                 const mx = e.clientX - rect.left;
                                 const W = rect.width;
-                                const H = rect.height;
                                 const chartL = PAD.left;
                                 const chartR = W - PAD.right;
                                 const chartW = chartR - chartL;
-                                const chartB = H - PAD.bottom;
-                                const chartH = chartB - PAD.top;
 
-                                if (mx < chartL || mx > chartR) { tooltip.style.display = 'none'; return; }
+                                if (mx < chartL || mx > chartR) { tooltip.style.display = 'none'; draw(); return; }
 
                                 const ratio = (mx - chartL) / chartW;
-                                const idx = Math.round(ratio * (days - 1));
-                                if (idx < 0 || idx >= days) { tooltip.style.display = 'none'; return; }
-
+                                const idx = Math.min(days - 1, Math.max(0, Math.floor(ratio * days)));
                                 const d = dailyData[idx];
+
                                 tooltipDate.textContent = formatFullDate(d.date);
                                 tooltipValue.textContent = d.value.toLocaleString() + ' workflows';
 
@@ -1063,33 +1130,17 @@
                                 tooltip.style.left = (tipX + 160 > W ? mx - 170 : tipX) + 'px';
                                 tooltip.style.top = Math.max(0, tipY) + 'px';
 
-                                // Crosshair
-                                draw();
-                                const x = chartL + (idx / (days - 1)) * chartW;
-                                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-                                ctx.lineWidth = 1;
-                                ctx.setLineDash([4, 4]);
-                                ctx.beginPath();
-                                ctx.moveTo(x, PAD.top);
-                                ctx.lineTo(x, chartB);
-                                ctx.stroke();
-                                ctx.setLineDash([]);
-
-                                // Dot
-                                const y = chartB - (d.value / yMax) * chartH;
-                                ctx.beginPath();
-                                ctx.arc(x, y, 4, 0, Math.PI * 2);
-                                ctx.fillStyle = '#fff';
-                                ctx.fill();
-                                ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-                                ctx.lineWidth = 2;
-                                ctx.stroke();
+                                draw(idx);
                             });
 
                             canvas.addEventListener('mouseleave', function () {
                                 tooltip.style.display = 'none';
                                 draw();
                             });
+                            
+                            window.addEventListener('resize', resize);
+                            setTimeout(resize, 100);
+                            resize();
 
                             // ── Tab switching ──
                             const tabs = document.querySelectorAll('.ca-tab');
@@ -1224,6 +1275,20 @@
                                 <span class="mc-panel-sep">|</span>
                                 <span class="mc-panel-value">71,235</span>
                             </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:4px 10px; font-family:'Roboto Mono',monospace; font-size:11px; background:#0e1118; border-bottom:1px solid rgba(255,255,255,0.06);">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color:#64748b; font-weight:600;">Time:</span>
+                                    <span style="color:#fff; font-weight:bold; background:rgba(255,255,255,0.12); padding:1px 6px;">30D</span>
+                                    <span style="color:#94a3b8;">90D</span>
+                                    <span style="color:#94a3b8;">180D</span>
+                                    <span style="color:#94a3b8;">1Y</span>
+                                    <span style="color:#94a3b8;">ALL</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color:#f0b90b;">● Price</span>
+                                    <span style="color:#e0248a;">● MA(7)</span>
+                                </div>
+                            </div>
                             <div class="mc-chart-wrap" id="mc-uac-container">
                                 <canvas id="mc-uac-canvas"></canvas>
                                 <div class="mc-tooltip" id="mc-uac-tooltip">
@@ -1239,6 +1304,20 @@
                                 <span class="mc-panel-title">Scheduled Integration Pipelines</span>
                                 <span class="mc-panel-sep">|</span>
                                 <span class="mc-panel-value">2,961</span>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:4px 10px; font-family:'Roboto Mono',monospace; font-size:11px; background:#0e1118; border-bottom:1px solid rgba(255,255,255,0.06);">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color:#64748b; font-weight:600;">Time:</span>
+                                    <span style="color:#fff; font-weight:bold; background:rgba(255,255,255,0.12); padding:1px 6px;">30D</span>
+                                    <span style="color:#94a3b8;">90D</span>
+                                    <span style="color:#94a3b8;">180D</span>
+                                    <span style="color:#94a3b8;">1Y</span>
+                                    <span style="color:#94a3b8;">ALL</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="color:#a78bfa;">● Pipelines</span>
+                                    <span style="color:#e0248a;">● MA(7)</span>
+                                </div>
                             </div>
                             <div class="mc-chart-wrap" id="mc-oft-container">
                                 <canvas id="mc-oft-canvas"></canvas>
@@ -1303,8 +1382,8 @@
                         const oftScale = 2961 / oftCum;
                         oftData.forEach(d => d.value = Math.round(d.value * oftScale));
 
-                        // ── Generic cumulative area chart drawer ──
-                        function drawCumulativeChart(canvasId, containerId, tooltipId, tooltipDateId, tooltipValueId, data, label, color) {
+                        // ── Generic cumulative area chart drawer with Binance TradingView style ──
+                        function drawCumulativeChart(canvasId, containerId, tooltipId, tooltipDateId, tooltipValueId, fullData, label, customColor) {
                             const canvas = document.getElementById(canvasId);
                             const ctx = canvas.getContext('2d');
                             const container = document.getElementById(containerId);
@@ -1312,13 +1391,25 @@
                             const tooltipDate = document.getElementById(tooltipDateId);
                             const tooltipValue = document.getElementById(tooltipValueId);
 
-                            const maxVal = Math.max(...data.map(d => d.value));
-                            const yMax = Math.ceil(maxVal / (maxVal > 10000 ? 10000 : 500)) * (maxVal > 10000 ? 10000 : 500);
-                            const yTicks = [];
-                            const step = maxVal > 10000 ? 10000 : 500;
-                            for (let v = 0; v <= yMax; v += step) yTicks.push(v);
+                            // Calculate 7-period moving average
+                            const ma7 = [];
+                            for (let i = 0; i < fullData.length; i++) {
+                                if (i < 6) ma7.push(null);
+                                else {
+                                    let sum = 0;
+                                    for (let j = 0; j < 7; j++) sum += fullData[i - j].value;
+                                    ma7.push(sum / 7);
+                                }
+                            }
 
-                            const PAD = { top: 16, right: 50, bottom: 40, left: 10 };
+                            // View Window: [startIndex, endIndex] - defaults to last 24 points
+                            let viewSpan = Math.min(24, fullData.length);
+                            let startIndex = Math.max(0, fullData.length - viewSpan);
+                            let endIndex = fullData.length;
+
+                            const PAD = { top: 20, right: 65, bottom: 35, left: 15 };
+                            const mainColor = customColor || '#f0b90b';
+                            const maColor = '#e0248a';
 
                             function resize() {
                                 const dpr = window.devicePixelRatio || 1;
@@ -1331,6 +1422,8 @@
                                 draw();
                             }
 
+                            let hoveredIdx = null;
+
                             function draw(highlightIdx) {
                                 const W = canvas.width / (window.devicePixelRatio || 1);
                                 const H = canvas.height / (window.devicePixelRatio || 1);
@@ -1339,88 +1432,176 @@
                                 const cL = PAD.left, cR = W - PAD.right, cT = PAD.top, cB = H - PAD.bottom;
                                 const cW = cR - cL, cH = cB - cT;
 
+                                const currentData = fullData.slice(startIndex, endIndex);
+                                const currentMA7 = ma7.slice(startIndex, endIndex);
+                                const n = currentData.length;
+                                if (n === 0) return;
+
+                                const maxVal = Math.max(...currentData.map(d => d.value), 10);
+                                const minVal = Math.min(...currentData.map(d => d.value), 0);
+                                const yPadding = (maxVal - minVal) * 0.1 || 10;
+                                const yMin = Math.max(0, minVal - yPadding);
+                                const yMax = maxVal + yPadding;
+                                const yRange = yMax - yMin;
+
+                                const getX = (i) => cL + (n === 1 ? cW / 2 : (i / (n - 1)) * cW);
+                                const getY = (v) => cB - ((v - yMin) / yRange) * cH;
+
                                 // Grid lines + Y labels
                                 ctx.font = '10px "Roboto Mono", monospace';
-                                ctx.textAlign = 'right';
+                                ctx.textAlign = 'left';
                                 ctx.textBaseline = 'middle';
-                                yTicks.forEach(v => {
-                                    const y = cB - (v / yMax) * cH;
-                                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                                for (let k = 0; k <= 5; k++) {
+                                    const v = yMin + (yRange * k) / 5;
+                                    const y = getY(v);
+                                    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
                                     ctx.lineWidth = 1;
                                     ctx.beginPath();
                                     ctx.moveTo(cL, y);
                                     ctx.lineTo(cR, y);
                                     ctx.stroke();
-                                    ctx.fillStyle = '#555';
-                                    ctx.fillText(fmtK(v), cR + 38, y);
-                                });
+
+                                    ctx.fillStyle = '#64748b';
+                                    ctx.fillText(fmtK(v), cR + 8, y);
+                                }
 
                                 // X labels
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'top';
-                                const xStep = Math.max(1, Math.floor(data.length / 8));
-                                for (let i = 0; i < data.length; i += xStep) {
-                                    const x = cL + (i / (data.length - 1)) * cW;
-                                    ctx.fillStyle = '#555';
-                                    ctx.fillText(fmtDate(data[i].date), x, cB + 10);
+                                const xStep = Math.max(1, Math.floor(n / 6));
+                                for (let i = 0; i < n; i += xStep) {
+                                    const x = getX(i);
+                                    ctx.fillStyle = '#64748b';
+                                    ctx.fillText(fmtDate(currentData[i].date), x, cB + 8);
                                 }
 
-                                // Area fill
+                                // Area gradient fill
+                                const grad = ctx.createLinearGradient(0, cT, 0, cB);
+                                grad.addColorStop(0, mainColor === '#f0b90b' ? 'rgba(240, 185, 11, 0.18)' : 'rgba(167, 139, 250, 0.18)');
+                                grad.addColorStop(1, 'rgba(0,0,0,0)');
+
                                 ctx.beginPath();
-                                for (let i = 0; i < data.length; i++) {
-                                    const x = cL + (i / (data.length - 1)) * cW;
-                                    const y = cB - (data[i].value / yMax) * cH;
+                                currentData.forEach((d, i) => {
+                                    const x = getX(i);
+                                    const y = getY(d.value);
                                     if (i === 0) ctx.moveTo(x, y);
                                     else ctx.lineTo(x, y);
-                                }
-                                ctx.strokeStyle = color || 'rgba(255,255,255,0.85)';
-                                ctx.lineWidth = 1.5;
-                                ctx.stroke();
-
-                                // Fill under
-                                ctx.lineTo(cR, cB);
-                                ctx.lineTo(cL, cB);
+                                });
+                                ctx.lineTo(getX(n - 1), cB);
+                                ctx.lineTo(getX(0), cB);
                                 ctx.closePath();
-                                const grad = ctx.createLinearGradient(0, cT, 0, cB);
-                                // Helper to create semi-transparent fill from any color
-                                const hexToFill = (c, a) => {
-                                    if (!c) return `rgba(255,255,255,${a})`;
-                                    if (c.startsWith('rgba')) return c + a + ')';
-                                    const h = c.replace('#','');
-                                    const full = h.length === 3 ? h[0]+h[0]+h[1]+h[1]+h[2]+h[2] : h;
-                                    const rv = parseInt(full.substring(0,2),16);
-                                    const gv = parseInt(full.substring(2,4),16);
-                                    const bv = parseInt(full.substring(4,6),16);
-                                    return `rgba(${rv},${gv},${bv},${a})`;
-                                };
-                                grad.addColorStop(0, hexToFill(color, 0.08));
-                                grad.addColorStop(1, 'rgba(255,255,255,0)');
                                 ctx.fillStyle = grad;
                                 ctx.fill();
 
-                                // Highlight point
-                                if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < data.length) {
-                                    const hx = cL + (highlightIdx / (data.length - 1)) * cW;
-                                    const hy = cB - (data[highlightIdx].value / yMax) * cH;
-                                    // Vertical dashed line
-                                    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                                // MA7 line
+                                ctx.strokeStyle = maColor;
+                                ctx.lineWidth = 1.2;
+                                ctx.beginPath();
+                                let maStarted = false;
+                                currentMA7.forEach((v, i) => {
+                                    if (v !== null) {
+                                        const x = getX(i);
+                                        const y = getY(v);
+                                        if (!maStarted) { ctx.moveTo(x, y); maStarted = true; }
+                                        else ctx.lineTo(x, y);
+                                    }
+                                });
+                                if (maStarted) ctx.stroke();
+
+                                // Main line
+                                ctx.save();
+                                ctx.strokeStyle = mainColor;
+                                ctx.lineWidth = 2;
+                                ctx.shadowColor = mainColor;
+                                ctx.shadowBlur = 6;
+                                ctx.beginPath();
+                                currentData.forEach((d, i) => {
+                                    const x = getX(i);
+                                    const y = getY(d.value);
+                                    if (i === 0) ctx.moveTo(x, y);
+                                    else ctx.lineTo(x, y);
+                                });
+                                ctx.stroke();
+                                ctx.restore();
+
+                                // Latest value badge on right
+                                const latest = currentData[n - 1];
+                                if (latest) {
+                                    const ly = getY(latest.value);
+                                    ctx.strokeStyle = 'rgba(224, 36, 138, 0.5)';
+                                    ctx.setLineDash([3, 3]);
+                                    ctx.beginPath();
+                                    ctx.moveTo(cL, ly);
+                                    ctx.lineTo(cR, ly);
+                                    ctx.stroke();
+                                    ctx.setLineDash([]);
+
+                                    ctx.fillStyle = maColor;
+                                    ctx.fillRect(cR + 2, ly - 9, 58, 18);
+                                    ctx.fillStyle = '#fff';
+                                    ctx.font = 'bold 9px "Roboto Mono", monospace';
+                                    ctx.textAlign = 'left';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.fillText(fmtK(latest.value), cR + 6, ly);
+                                }
+
+                                // Interactive crosshair
+                                if (highlightIdx !== undefined && highlightIdx !== null && highlightIdx >= 0 && highlightIdx < n) {
+                                    const hx = getX(highlightIdx);
+                                    const hy = getY(currentData[highlightIdx].value);
+
+                                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
                                     ctx.lineWidth = 1;
                                     ctx.setLineDash([4, 4]);
                                     ctx.beginPath();
                                     ctx.moveTo(hx, cT);
                                     ctx.lineTo(hx, cB);
+                                    ctx.moveTo(cL, hy);
+                                    ctx.lineTo(cR, hy);
                                     ctx.stroke();
                                     ctx.setLineDash([]);
-                                    // Dot
+
+                                    ctx.fillStyle = '#fff';
                                     ctx.beginPath();
                                     ctx.arc(hx, hy, 4, 0, Math.PI * 2);
-                                    ctx.fillStyle = '#fff';
                                     ctx.fill();
-                                    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+                                    ctx.strokeStyle = mainColor;
                                     ctx.lineWidth = 2;
                                     ctx.stroke();
                                 }
                             }
+
+                            // Zoom with scroll wheel (scroll down zooms out to see previous data!)
+                            canvas.addEventListener('wheel', function(e) {
+                                e.preventDefault();
+                                const span = endIndex - startIndex;
+                                const step = Math.max(1, Math.round(span * 0.25));
+                                if (e.deltaY < 0) {
+                                    // Zoom in
+                                    if (span > 5) startIndex = Math.min(endIndex - 5, startIndex + step);
+                                } else {
+                                    // Zoom out
+                                    startIndex = Math.max(0, startIndex - step);
+                                }
+                                draw(hoveredIdx);
+                            }, { passive: false });
+
+                            // Mouse drag panning
+                            let isDragging = false;
+                            let dragStartX = 0;
+                            let dragStartStart = 0;
+                            let dragStartEnd = 0;
+
+                            canvas.addEventListener('mousedown', function(e) {
+                                isDragging = true;
+                                dragStartX = e.clientX;
+                                dragStartStart = startIndex;
+                                dragStartEnd = endIndex;
+                            });
+
+                            window.addEventListener('mouseup', function() {
+                                isDragging = false;
+                            });
 
                             canvas.addEventListener('mousemove', function(e) {
                                 const rect = canvas.getBoundingClientRect();
@@ -1429,15 +1610,31 @@
                                 const cL = PAD.left, cR = W - PAD.right;
                                 const cW = cR - cL;
 
-                                if (mx < cL || mx > cR) { tooltip.style.display = 'none'; draw(); return; }
+                                if (isDragging) {
+                                    const deltaX = e.clientX - dragStartX;
+                                    const span = dragStartEnd - dragStartStart;
+                                    const shift = Math.round((deltaX / cW) * span);
+                                    let newStart = dragStartStart - shift;
+                                    let newEnd = dragStartEnd - shift;
+                                    if (newStart < 0) { newStart = 0; newEnd = span; }
+                                    if (newEnd > fullData.length) { newEnd = fullData.length; newStart = Math.max(0, fullData.length - span); }
+                                    startIndex = newStart;
+                                    endIndex = newEnd;
+                                    draw();
+                                    return;
+                                }
 
-                                const ratio = (mx - cL) / cW;
-                                const idx = Math.round(ratio * (data.length - 1));
-                                if (idx < 0 || idx >= data.length) { tooltip.style.display = 'none'; draw(); return; }
+                                if (mx < cL || mx > cR) { tooltip.style.display = 'none'; hoveredIdx = null; draw(); return; }
 
-                                const d = data[idx];
+                                const currentData = fullData.slice(startIndex, endIndex);
+                                const n = currentData.length;
+                                const ratio = Math.max(0, Math.min(1, (mx - cL) / cW));
+                                const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
+
+                                hoveredIdx = idx;
+                                const d = currentData[idx];
                                 tooltipDate.textContent = fmtFullDate(d.date);
-                                tooltipValue.innerHTML = '<span class="mc-tooltip-swatch" style="background:' + (color || '#fff') + '"></span> ' + label + '  <b>' + d.value.toLocaleString() + '</b>';
+                                tooltipValue.innerHTML = '<span class="mc-tooltip-swatch" style="background:' + mainColor + '"></span> ' + label + '  <b>' + d.value.toLocaleString() + '</b>';
 
                                 tooltip.style.display = 'block';
                                 const tipX = mx + 16;
@@ -1448,8 +1645,11 @@
                             });
 
                             canvas.addEventListener('mouseleave', function() {
-                                tooltip.style.display = 'none';
-                                draw();
+                                if (!isDragging) {
+                                    tooltip.style.display = 'none';
+                                    hoveredIdx = null;
+                                    draw();
+                                }
                             });
 
                             window.addEventListener('resize', resize);
@@ -1652,15 +1852,33 @@
 
                                 for (let i = 0; i < n; i++) {
                                     const x = cL + i * groupWidth + gap;
-                                    const barH = (values[i] / yMax) * cH;
-                                    const y = cB - barH;
+                                    const isHighlight = (highlightIdx === i);
 
-                                    // Bar gradient
-                                    const grad = ctx.createLinearGradient(x, y, x, cB);
-                                    grad.addColorStop(0, highlightIdx === i ? '#c4b5fd' : barColors[i % 2]);
-                                    grad.addColorStop(1, highlightIdx === i ? '#7c3aed' : (i % 2 === 0 ? '#6d28d9' : '#4c1d95'));
-                                    ctx.fillStyle = grad;
-                                    ctx.fillRect(x, y, barWidth, barH);
+                                    if (isHighlight) {
+                                        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                                        ctx.fillRect(cL + i * groupWidth, cT, groupWidth, cH);
+                                    }
+
+                                    const barH = (values[i] / yMax) * cH;
+                                    const bH = 4;
+                                    const bG = 1.5;
+                                    const unitH = bH + bG;
+                                    const totalBricks = Math.max(1, Math.round(barH / unitH));
+
+                                    for (let b = 0; b < totalBricks; b++) {
+                                        const by = cB - (b + 1) * unitH + bG;
+                                        let brickColor = isHighlight ? '#ffffff' : '#d4d4d8';
+                                        if (!isHighlight && totalBricks > 6) {
+                                            const rel = b / totalBricks;
+                                            if (rel >= 0.72 && rel <= 0.86) {
+                                                brickColor = '#52525b';
+                                            } else if (b % 7 === 4 && totalBricks > 10) {
+                                                brickColor = '#52525b';
+                                            }
+                                        }
+                                        ctx.fillStyle = brickColor;
+                                        ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
+                                    }
 
                                     // X label (rotated)
                                     ctx.save();

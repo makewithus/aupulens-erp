@@ -16,6 +16,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { DailyBrickBarChart } from '@/components/charts/DailyBrickBarChart';
+import { TradingLineChart } from '@/components/charts/TradingLineChart';
 
 interface DraggableVisualizationProps {
   isOpen: boolean;
@@ -178,79 +180,33 @@ export function DraggableVisualization({
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-auto bg-background" style={{ minHeight: '300px' }}>
-        <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-          {chartType === 'bar' ? (
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-              <XAxis
-                dataKey={xAxisKey}
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                tickFormatter={(value) => `₹${value.toLocaleString()}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Legend />
-              {dataKeys.map((key) => (
-                <Bar
-                  key={key.key}
-                  dataKey={key.key}
-                  name={key.name}
-                  fill={key.color}
-                  radius={[4, 4, 0, 0]}
-                />
-              ))}
-            </BarChart>
-          ) : (
-            <RechartsLineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-              <XAxis
-                dataKey={xAxisKey}
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                tickFormatter={(value) => `₹${value.toLocaleString()}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Legend />
-              {dataKeys.map((key) => (
-                <Line
-                  key={key.key}
-                  type="monotone"
-                  dataKey={key.key}
-                  name={key.name}
-                  stroke={key.color}
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              ))}
-            </RechartsLineChart>
-          )}
-        </ResponsiveContainer>
+      <div className="flex-1 p-4 overflow-auto bg-background flex flex-col justify-center" style={{ minHeight: '320px' }}>
+        {chartType === 'bar' ? (
+          <div className="w-full h-full min-h-[300px]">
+            <DailyBrickBarChart
+              data={data && data.length > 0 ? (data as any) : undefined}
+              dateKey={xAxisKey}
+              valueKey={dataKeys[0]?.key || 'value'}
+              metricLabel={dataKeys[0]?.name || 'Amount'}
+              yAxisFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
+              tooltipValueFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
+              seedDemonstration={!data || data.length === 0}
+              height="100%"
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full min-h-[320px]">
+            <TradingLineChart
+              data={data && data.length > 0 ? data : undefined}
+              valueKey={dataKeys[0]?.key || 'value'}
+              dateKey={xAxisKey}
+              metricLabel={dataKeys[0]?.name || 'Amount'}
+              title={title}
+              currencyPrefix="₹"
+              height="100%"
+            />
+          </div>
+        )}
       </div>
 
       {/* Resize Handle */}

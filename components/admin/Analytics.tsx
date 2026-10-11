@@ -36,6 +36,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { DailyBrickBarChart, generate365DailyData } from '@/components/charts/DailyBrickBarChart';
+import { TradingLineChart } from '@/components/charts/TradingLineChart';
 
 // Type Definitions
 interface AnalyticsData {
@@ -45,13 +47,13 @@ interface AnalyticsData {
     cashFlow: Array<{ month: string; inflow: number; outflow: number }>;
   };
   sales: {
-    orders: Array<{ month: string; count: number }>;
+    orders: Array<any>;
     revenue: Array<{ month: string; amount: number }>;
     topProducts: Array<{ name: string; value: number }>;
   };
   inventory: {
     stockLevels: Array<{ month: string; level: number }>;
-    movements: Array<{ month: string; inbound: number; outbound: number }>;
+    movements: Array<any>;
     alerts: Array<{ type: string; count: number }>;
   };
   manufacturing: {
@@ -62,6 +64,7 @@ interface AnalyticsData {
   users: {
     activity: Array<{ month: string; logins: number }>;
     byRole: Array<{ role: string; count: number }>;
+    dailyActivity?: Array<any>;
   };
 }
 
@@ -104,10 +107,13 @@ export default function AdminAnalytics() {
 
   const getMockSalesData = useCallback(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    // 365-day granular daily order tracking matching the segmented brick styling
+    const dailyPoints = generate365DailyData(2026, { base: 28, variance: 16, seed: 101 });
     return {
-      orders: months.map((month) => ({
-        month,
-        count: Math.floor(Math.random() * 200) + 100,
+      orders: dailyPoints.map((d) => ({
+        ...d,
+        month: d.label,
+        count: d.value,
       })),
       revenue: months.map((month) => ({
         month,
@@ -124,15 +130,19 @@ export default function AdminAnalytics() {
 
   const getMockInventoryData = useCallback(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    // 365-day daily stock movement tracking
+    const dailyPoints = generate365DailyData(2026, { base: 140, variance: 75, seed: 202 });
     return {
       stockLevels: months.map((month) => ({
         month,
         level: Math.floor(Math.random() * 5000) + 3000,
       })),
-      movements: months.map((month) => ({
-        month,
-        inbound: Math.floor(Math.random() * 1000) + 500,
-        outbound: Math.floor(Math.random() * 1200) + 600,
+      movements: dailyPoints.map((d) => ({
+        ...d,
+        month: d.label,
+        inbound: d.value,
+        outbound: Math.round(d.value * 0.8),
+        count: d.value,
       })),
       alerts: [
         { type: 'Low Stock', count: 12 },
@@ -164,6 +174,8 @@ export default function AdminAnalytics() {
 
   const getMockUsersData = useCallback(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    // 365-day daily active user sessions
+    const dailyUserPoints = generate365DailyData(2026, { base: 65, variance: 35, seed: 303 });
     return {
       activity: months.map((month) => ({
         month,
@@ -176,6 +188,12 @@ export default function AdminAnalytics() {
         { role: 'Inventory', count: 15 },
         { role: 'Manufacturing', count: 10 },
       ],
+      dailyActivity: dailyUserPoints.map((d) => ({
+        date: String(d.date),
+        value: d.value,
+        label: d.label || String(d.date),
+        count: d.value,
+      })),
     };
   }, []);
 
@@ -315,28 +333,18 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('finance-revenue')}
                 isRefreshing={refreshing['finance-revenue']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={analyticsData.finance.revenue}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1e40af" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#1e40af" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="#1e40af"
-                      fillOpacity={1}
-                      fill="url(#colorRevenue)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <TradingLineChart
+                    data={analyticsData.finance.revenue}
+                    xAxisKey="month"
+                    valueKey="amount"
+                    metricLabel="Revenue"
+                    currencyPrefix="₹"
+                    colorTheme="emerald"
+                    title="FINANCE REVENUE"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
 
@@ -349,29 +357,15 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('finance-cashflow')}
                 isRefreshing={refreshing['finance-cashflow']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analyticsData.finance.cashFlow}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="inflow"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      name="Inflow"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="outflow"
-                      stroke="#ef4444"
-                      strokeWidth={2}
-                      name="Outflow"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <TradingLineChart
+                    data={analyticsData.finance.cashFlow}
+                    valueKey="inflow"
+                    metricLabel="Cash Inflow"
+                    title="Cash Flow Trend"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -390,15 +384,14 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('sales-orders')}
                 isRefreshing={refreshing['sales-orders']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.sales.orders}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#1e40af" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <DailyBrickBarChart
+                    data={analyticsData.sales.orders}
+                    valueKey="count"
+                    metricLabel="Orders"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
 
@@ -449,21 +442,15 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('inventory-stock')}
                 isRefreshing={refreshing['inventory-stock']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analyticsData.inventory.stockLevels}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="level"
-                      stroke="#1e40af"
-                      strokeWidth={2}
-                      dot={{ fill: '#1e40af', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <TradingLineChart
+                    data={analyticsData.inventory.stockLevels}
+                    valueKey="level"
+                    metricLabel="Stock Level"
+                    title="Stock Levels Trend"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
 
@@ -476,17 +463,14 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('inventory-movements')}
                 isRefreshing={refreshing['inventory-movements']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.inventory.movements}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="inbound" fill="#10b981" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="outflow" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <DailyBrickBarChart
+                    data={analyticsData.inventory.movements}
+                    valueKey="count"
+                    metricLabel="Movements"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -505,28 +489,18 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('manufacturing-shipments')}
                 isRefreshing={refreshing['manufacturing-shipments']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={analyticsData.manufacturing.shipments}>
-                    <defs>
-                      <linearGradient id="colorShipments" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#3b82f6"
-                      fillOpacity={1}
-                      fill="url(#colorShipments)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <TradingLineChart
+                    data={analyticsData.manufacturing.shipments}
+                    xAxisKey="month"
+                    valueKey="count"
+                    metricLabel="Shipments"
+                    currencyPrefix=""
+                    colorTheme="binance-gold"
+                    title="MANUFACTURING SHIPMENTS"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
 
@@ -577,21 +551,15 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('users-activity')}
                 isRefreshing={refreshing['users-activity']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analyticsData.users.activity}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#888" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="logins"
-                      stroke="#1e40af"
-                      strokeWidth={2}
-                      dot={{ fill: '#1e40af', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <TradingLineChart
+                    data={analyticsData.users.activity}
+                    valueKey="logins"
+                    metricLabel="Logins"
+                    title="User Activity Trend"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
 
@@ -604,21 +572,14 @@ export default function AdminAnalytics() {
                 onRefresh={() => refreshGraph('users-role')}
                 isRefreshing={refreshing['users-role']}
               >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.users.byRole} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis type="number" tick={{ fontSize: 12 }} stroke="#888" />
-                    <YAxis
-                      type="category"
-                      dataKey="role"
-                      tick={{ fontSize: 12 }}
-                      stroke="#888"
-                      width={100}
-                    />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#1e40af" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-full min-h-[300px]">
+                  <DailyBrickBarChart
+                    data={analyticsData.users.dailyActivity || analyticsData.users.byRole}
+                    valueKey="count"
+                    metricLabel="Active Users"
+                    height="100%"
+                  />
+                </div>
               </GraphCard>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -635,54 +596,41 @@ export default function AdminAnalytics() {
           </DialogHeader>
           <div className="flex-1 h-[calc(80vh-8rem)]">
             {expandedGraph === 'finance-revenue' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData.finance.revenue}>
-                  <defs>
-                    <linearGradient id="colorRevenueExpanded" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1e40af" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#1e40af" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="#1e40af"
-                    fillOpacity={1}
-                    fill="url(#colorRevenueExpanded)"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <TradingLineChart
+                  data={analyticsData.finance.revenue}
+                  xAxisKey="month"
+                  valueKey="amount"
+                  metricLabel="Revenue"
+                  currencyPrefix="₹"
+                  colorTheme="emerald"
+                  title="FINANCE REVENUE"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'finance-cashflow' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analyticsData.finance.cashFlow}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="inflow" stroke="#10b981" strokeWidth={3} name="Inflow" />
-                  <Line type="monotone" dataKey="outflow" stroke="#ef4444" strokeWidth={3} name="Outflow" />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <TradingLineChart
+                  data={analyticsData.finance.cashFlow}
+                  valueKey="inflow"
+                  metricLabel="Cash Inflow"
+                  title="Cash Flow Trend"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'sales-orders' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.sales.orders}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#1e40af" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <DailyBrickBarChart
+                  data={analyticsData.sales.orders}
+                  valueKey="count"
+                  metricLabel="Orders"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'sales-products' && (
@@ -709,60 +657,41 @@ export default function AdminAnalytics() {
             )}
 
             {expandedGraph === 'inventory-stock' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analyticsData.inventory.stockLevels}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="level"
-                    stroke="#1e40af"
-                    strokeWidth={3}
-                    dot={{ fill: '#1e40af', r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <TradingLineChart
+                  data={analyticsData.inventory.stockLevels}
+                  valueKey="level"
+                  metricLabel="Stock Level"
+                  title="Stock Levels Trend"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'inventory-movements' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.inventory.movements}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="inbound" fill="#10b981" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="outbound" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <DailyBrickBarChart
+                  data={analyticsData.inventory.movements}
+                  valueKey="count"
+                  metricLabel="Movements"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'manufacturing-shipments' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData.manufacturing.shipments}>
-                  <defs>
-                    <linearGradient id="colorShipmentsExpanded" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#3b82f6"
-                    fillOpacity={1}
-                    fill="url(#colorShipmentsExpanded)"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <TradingLineChart
+                  data={analyticsData.manufacturing.shipments}
+                  xAxisKey="month"
+                  valueKey="count"
+                  metricLabel="Shipments"
+                  currencyPrefix=""
+                  colorTheme="binance-gold"
+                  title="MANUFACTURING SHIPMENTS"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'manufacturing-status' && (
@@ -789,33 +718,26 @@ export default function AdminAnalytics() {
             )}
 
             {expandedGraph === 'users-activity' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analyticsData.users.activity}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="logins"
-                    stroke="#1e40af"
-                    strokeWidth={3}
-                    dot={{ fill: '#1e40af', r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <TradingLineChart
+                  data={analyticsData.users.activity}
+                  valueKey="logins"
+                  metricLabel="Logins"
+                  title="User Activity Trend"
+                  height="100%"
+                />
+              </div>
             )}
 
             {expandedGraph === 'users-role' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.users.byRole} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="role" width={120} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#1e40af" radius={[0, 8, 8, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full min-h-[450px]">
+                <DailyBrickBarChart
+                  data={analyticsData.users.dailyActivity || analyticsData.users.byRole}
+                  valueKey="count"
+                  metricLabel="Active Users"
+                  height="100%"
+                />
+              </div>
             )}
 
             {!expandedGraph && (

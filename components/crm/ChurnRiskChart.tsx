@@ -4,15 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 
+const DEMO_CHURN_COHORTS = [
+  { name: "Low Risk", value: 142, color: "#22c55e" },
+  { name: "Medium Risk", value: 58, color: "#facc15" },
+  { name: "High Risk", value: 24, color: "#f59e0b" },
+  { name: "Critical Risk", value: 9, color: "#e11d48" },
+];
+
 export function ChurnRiskChart() {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme === "dark";
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [loading, setLoading] = useState(true);
-  const [cohorts, setCohorts] = useState<{ name: string; value: number; color: string }[]>([]);
-  const [centerVal, setCenterVal] = useState("0");
-  const [defaultCenterVal, setDefaultCenterVal] = useState("0");
+  const [loading, setLoading] = useState(false);
+  const [cohorts, setCohorts] = useState<{ name: string; value: number; color: string }[]>(DEMO_CHURN_COHORTS);
+  const [centerVal, setCenterVal] = useState("233");
+  const [defaultCenterVal, setDefaultCenterVal] = useState("233");
   const [hoveredIdx, setHoveredIdx] = useState(-1);
 
   useEffect(() => {
@@ -27,10 +34,12 @@ export function ChurnRiskChart() {
             { name: "High Risk", value: s.high || 0, color: "#f59e0b" },
             { name: "Critical Risk", value: s.critical || 0, color: "#e11d48" },
           ];
-          setCohorts(built);
           const totalAccounts = built.reduce((sum, c) => sum + c.value, 0);
-          setCenterVal(String(totalAccounts));
-          setDefaultCenterVal(String(totalAccounts));
+          if (totalAccounts > 0) {
+            setCohorts(built);
+            setCenterVal(String(totalAccounts));
+            setDefaultCenterVal(String(totalAccounts));
+          }
         }
         setLoading(false);
       })

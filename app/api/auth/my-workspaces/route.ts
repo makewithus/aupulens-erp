@@ -29,26 +29,43 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.email) return NextResponse.json({ success: false }, { status: 401 });
 
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const memberships = await User.find({ email: session.user.email.toLowerCase() })
-    .select("tenantId role")
-    .lean();
+    const memberships = await User.find({ email: session.user.email.toLowerCase() })
+      .select("tenantId role")
+      .lean();
 
-  const tenantIds = memberships.map((m) => m.tenantId);
-  const orgs = await Organization.find({ subdomain: { $in: tenantIds } })
-    .select("subdomain name")
-    .lean();
-  const orgBySubdomain = new Map(orgs.map((o) => [o.subdomain, o]));
+    const tenantIds = memberships.map((m) => m.tenantId);
+    const orgs = await Organization.find({ subdomain: { $in: tenantIds } })
+      .select("subdomain name")
+      .lean();
+    const orgBySubdomain = new Map(orgs.map((o) => [o.subdomain, o]));
 
-  const workspaces = memberships.map((m) => ({
-    tenantId: m.tenantId,
-    role: m.role,
-    name: orgBySubdomain.get(m.tenantId)?.name
-      || (m.tenantId === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : m.tenantId),
-    url: m.tenantId === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(m.tenantId),
-    current: m.tenantId === session.user.tenantId,
-  }));
+    const workspaces = memberships.map((m) => ({
+      tenantId: m.tenantId,
+      role: m.role,
+      name: orgBySubdomain.get(m.tenantId)?.name
+        || (m.tenantId === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : m.tenantId),
+      url: m.tenantId === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(m.tenantId),
+      current: m.tenantId === session.user.tenantId,
+    }));
 
-  return NextResponse.json({ success: true, data: workspaces });
+    return NextResponse.json({ success: true, data: workspaces });
+  } catch (error) {
+    console.warn("Failed to fetch workspaces list, using session fallback:", error);
+    const fallbackTenant = session.user.tenantId || DEFAULT_TENANT_ID;
+    return NextResponse.json({
+      success: true,
+      data: [
+        {
+          tenantId: fallbackTenant,
+          role: session.user.role,
+          name: fallbackTenant === DEFAULT_TENANT_ID ? "Aupulens (no organization)" : fallbackTenant,
+          url: fallbackTenant === DEFAULT_TENANT_ID ? APP_BASE_URL : buildTenantUrl(fallbackTenant),
+          current: true,
+        },
+      ],
+    });
+  }
 }

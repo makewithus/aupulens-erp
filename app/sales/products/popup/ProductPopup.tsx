@@ -118,28 +118,37 @@ export function ProductPopupContent({
   const [manualSearch, setManualSearch] = useState("");
 
   const applyTaxCandidate = (candidate: HsnCandidate) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      tab_general_information: {
-        ...prev.tab_general_information,
-        hsnSacCode: candidate.code,
-        gstRate: candidate.gstRate,
-        gstTreatment: candidate.gstTreatment,
-        hsnSacUserConfirmed: true,
-        taxReference: {
-          sourceId: candidate.sourceId || candidate.code,
-          description: candidate.description,
-          effectiveDate: candidate.effectiveDate || new Date().toISOString(),
+    setFormData((prev: any) => {
+      return {
+        ...prev,
+        header: {
+          ...prev.header,
+          name: candidate.description,
         },
-      },
-    }));
+        tab_general_information: {
+          ...prev.tab_general_information,
+          hsnSacCode: candidate.code,
+          gstRate: candidate.gstRate,
+          gstTreatment: candidate.gstTreatment,
+          hsnSacUserConfirmed: true,
+          taxReference: {
+            sourceId: candidate.sourceId || candidate.code,
+            description: candidate.description,
+            effectiveDate: candidate.effectiveDate || new Date().toISOString(),
+          },
+        },
+      };
+    });
     setTaxSuggestion(null);
     toast.success(`HSN/SAC ${candidate.code} applied`);
   };
 
   const handleAiSuggest = async () => {
-    if (!formData.header.name && !formData.tab_general_information?.description) {
-      toast.error("Please enter a product name or description first.");
+    const hasDescription = !!(formData.header.name || formData.tab_general_information?.description);
+    const hasHsnCode = !!formData.tab_general_information?.hsnSacCode;
+
+    if (!hasDescription && !hasHsnCode) {
+      toast.error("Please enter a product name, description, or HSN/SAC code first.");
       return;
     }
     
@@ -150,6 +159,7 @@ export function ProductPopupContent({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: `${formData.header.name || ""} ${formData.tab_general_information?.description || ""}`.trim(),
+          hsnCode: formData.tab_general_information?.hsnSacCode || "",
           productType: formData.tab_general_information?.type === "service" ? "service" : "goods",
         })
       });
@@ -504,34 +514,23 @@ export function ProductPopupContent({
               </div>
               <div className="space-y-2">
                 <Label>GST Rate (%)</Label>
-                <Select
-                  value={String(formData.tab_general_information.gstRate ?? 0)}
-                  onValueChange={(val) =>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.tab_general_information.gstRate ?? 0}
+                  onChange={(e) =>
                     setFormData({
                       ...formData,
                       tab_general_information: {
                         ...formData.tab_general_information,
-                        gstRate: parseFloat(val) || 0,
+                        gstRate: parseFloat(e.target.value) || 0,
                         hsnSacUserConfirmed: true,
                       },
                     })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select GST Rate" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" side="bottom" sideOffset={4} avoidCollisions={false}>
-                    <SelectItem value="0">0% / Exempted</SelectItem>
-                    <SelectItem value="0.25">0.25%</SelectItem>
-                    <SelectItem value="1.5">1.5%</SelectItem>
-                    <SelectItem value="3">3%</SelectItem>
-                    <SelectItem value="5">5%</SelectItem>
-                    <SelectItem value="12">12%</SelectItem>
-                    <SelectItem value="18">18%</SelectItem>
-                    <SelectItem value="28">28%</SelectItem>
-                    <SelectItem value="40">40%</SelectItem>
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="space-y-2">
                 <Label>HSN/SAC Code</Label>

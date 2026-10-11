@@ -39,8 +39,17 @@ export interface MonthlyPipelinePoint {
   byStage: Record<string, number>;
 }
 
+export interface DailyPipelinePoint {
+  date: string;
+  value: number;
+  weightedValue: number;
+  count: number;
+  byStage: Record<string, number>;
+}
+
 export interface PipelineTrendResult {
   months: MonthlyPipelinePoint[];
+  dailyPoints: DailyPipelinePoint[];
   stages: string[];
   openStageTotals: Record<string, number>;
   openPipelineValue: number;
@@ -49,9 +58,25 @@ export interface PipelineTrendResult {
 export async function computePipelineTrend(tenantId: string, months = 12): Promise<PipelineTrendResult> {
   const windowMonths = monthWindow(months);
   const since = windowMonths[0];
+  const now = new Date();
 
   const buckets = new Map<string, MonthlyPipelinePoint>();
   for (const d of windowMonths) buckets.set(monthKey(d), { monthKey: monthKey(d), label: monthLabel(d), totalValue: 0, weightedValue: 0, byStage: {} });
+
+  // Continuous daily timeline map from `since` until `now`
+  const dailyBuckets = new Map<string, DailyPipelinePoint>();
+  const dayCursor = new Date(since);
+  while (dayCursor <= now) {
+    const dayStr = dayCursor.toISOString().split("T")[0];
+    dailyBuckets.set(dayStr, {
+      date: dayStr,
+      value: 0,
+      weightedValue: 0,
+      count: 0,
+      byStage: {},
+    });
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
 
   const created = await CrmOpportunity.find({ tenantId, createdAt: { $gte: since } })
     .select("stage amount probability createdAt")
@@ -59,13 +84,29 @@ export async function computePipelineTrend(tenantId: string, months = 12): Promi
 
   const stageSet = new Set<string>();
   for (const o of created as any[]) {
-    const key = monthKey(new Date(o.createdAt));
-    const bucket = buckets.get(key);
-    if (!bucket) continue;
+    const oppDate = new Date(o.createdAt);
+    const mKey = monthKey(oppDate);
+    const dayKey = oppDate.toISOString().split("T")[0];
     const amount = o.amount || 0;
-    bucket.totalValue += amount;
-    bucket.weightedValue += amount * ((o.probability || 0) / 100);
-    bucket.byStage[o.stage] = (bucket.byStage[o.stage] || 0) + amount;
+    const weighted = amount * ((o.probability || 0) / 100);
+
+    // Monthly bucket
+    const bucket = buckets.get(mKey);
+    if (bucket) {
+      bucket.totalValue += amount;
+      bucket.weightedValue += weighted;
+      bucket.byStage[o.stage] = (bucket.byStage[o.stage] || 0) + amount;
+    }
+
+    // Daily bucket
+    const dayBucket = dailyBuckets.get(dayKey);
+    if (dayBucket) {
+      dayBucket.value += amount;
+      dayBucket.weightedValue += weighted;
+      dayBucket.count += 1;
+      dayBucket.byStage[o.stage] = (dayBucket.byStage[o.stage] || 0) + amount;
+    }
+
     stageSet.add(o.stage);
   }
 
@@ -84,6 +125,7 @@ export async function computePipelineTrend(tenantId: string, months = 12): Promi
 
   return {
     months: Array.from(buckets.values()),
+    dailyPoints: Array.from(dailyBuckets.values()),
     stages: Array.from(stageSet),
     openStageTotals,
     openPipelineValue,
@@ -97,14 +139,22 @@ export interface RevenueTrendPoint {
   cumulativeValue: number;
 }
 
+export interface DailyRevenuePoint {
+  date: string;
+  dayValue: number;
+  cumulativeValue: number;
+}
+
 export interface RevenueTrendResult {
   points: RevenueTrendPoint[];
+  dailyPoints: DailyRevenuePoint[];
   totalRevenue: number;
 }
 
 export async function computeRevenueTrend(tenantId: string, months = 12): Promise<RevenueTrendResult> {
   const windowMonths = monthWindow(months);
   const since = windowMonths[0];
+  const now = new Date();
 
   const won = await CrmOpportunity.find({ tenantId, stage: CLOSED_WON, stage_entered_at: { $gte: since } })
     .select("amount stage_entered_at")
@@ -112,9 +162,23 @@ export async function computeRevenueTrend(tenantId: string, months = 12): Promis
 
   const monthTotals = new Map<string, number>();
   for (const d of windowMonths) monthTotals.set(monthKey(d), 0);
+
+  // Daily map
+  const dailyTotals = new Map<string, number>();
+  const dayCursor = new Date(since);
+  while (dayCursor <= now) {
+    dailyTotals.set(dayCursor.toISOString().split("T")[0], 0);
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
+
   for (const o of won as any[]) {
-    const key = monthKey(new Date(o.stage_entered_at));
-    if (monthTotals.has(key)) monthTotals.set(key, (monthTotals.get(key) || 0) + (o.amount || 0));
+    const wonDate = new Date(o.stage_entered_at);
+    const mKey = monthKey(wonDate);
+    const dKey = wonDate.toISOString().split("T")[0];
+    const amount = o.amount || 0;
+
+    if (monthTotals.has(mKey)) monthTotals.set(mKey, (monthTotals.get(mKey) || 0) + amount);
+    if (dailyTotals.has(dKey)) dailyTotals.set(dKey, (dailyTotals.get(dKey) || 0) + amount);
   }
 
   let cumulative = 0;
@@ -125,5 +189,15 @@ export async function computeRevenueTrend(tenantId: string, months = 12): Promis
     return { monthKey: key, label: monthLabel(d), monthValue, cumulativeValue: cumulative };
   });
 
-  return { points, totalRevenue: cumulative };
+  let dailyCumulative = 0;
+  const dailyPoints: DailyRevenuePoint[] = Array.from(dailyTotals.entries()).map(([dateStr, val]) => {
+    dailyCumulative += val;
+    return {
+      date: dateStr,
+      dayValue: val,
+      cumulativeValue: dailyCumulative,
+    };
+  });
+
+  return { points, dailyPoints, totalRevenue: cumulative };
 }
