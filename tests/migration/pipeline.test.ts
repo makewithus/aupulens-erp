@@ -20,6 +20,7 @@ import {
   inferEntityType,
   normalizeSourceSystem,
   prepareMigrationFiles,
+  prepareMigrationPackage,
   validateZipEntryPath,
 } from "@/lib/migration/package";
 import { MIGRATION_MAX_ROWS } from "@/lib/migration/constants";
@@ -79,6 +80,46 @@ describe("migration package preparation", () => {
     expect(validateZipEntryPath("../customers.csv")).toMatch(/Unsafe/);
     expect(validateZipEntryPath("/tmp/customers.csv")).toMatch(/Unsafe/);
     expect(validateZipEntryPath("nested/customers.csv")).toBeNull();
+  });
+
+  it("uses source aliases as validation fallbacks when a stale mapping points required fields at empty columns", () => {
+    const schema = getEntitySchema("vendor")!;
+    const row = {
+      bill_id: "BILL-000011",
+      vendor_id: "VEND-005",
+      bill_date: "2021-05-13",
+      total_inr: "21240",
+      vendor_name: "",
+    };
+    const staleMapping = {
+      sourceId: "vendor_id",
+      name: "vendor_name",
+    };
+
+    expect(toCanonicalRecord(schema, row, staleMapping).name).toBe("VEND-005");
+    expect(validateRows("vendor", [row], staleMapping).errorCount).toBe(0);
+  });
+
+  it("uses SKU as a product-name fallback for stock movement rows misclassified as products", () => {
+    const schema = getEntitySchema("product")!;
+    const row = {
+      stock_movement_id: "STK-000001",
+      movement_date: "2021-04-21",
+      sku: "SKU-HW-ROUTER",
+      movement_type: "Sale",
+      quantity: "0",
+      unit_cost_inr: "5600",
+      source_document_id: "INV-000005",
+      product_name: "",
+    };
+    const staleMapping = {
+      sourceId: "stock_movement_id",
+      name: "product_name",
+      sku: "sku",
+    };
+
+    expect(toCanonicalRecord(schema, row, staleMapping).name).toBe("SKU-HW-ROUTER");
+    expect(validateRows("product", [row], staleMapping).errorCount).toBe(0);
   });
 
   it("expands valid ZIP packages and rejects unsupported files inside ZIPs", () => {
@@ -257,6 +298,29 @@ describe("migration package preparation", () => {
       "payment",
     ]);
     expect(prepared.map((file) => file.name)).not.toContain("MD_V3.xlsx - README");
+  });
+
+  itIfFile("Northstar_Cloud_5Y_Migration_Test.xlsx")("classifies only supported Northstar workbook sheets", () => {
+    const preparedPackage = prepareMigrationPackage(
+      [{ name: "Northstar_Cloud_5Y_Migration_Test.xlsx", buffer: fs.readFileSync("Northstar_Cloud_5Y_Migration_Test.xlsx") }],
+      "excel",
+    );
+    const prepared = preparedPackage.files;
+
+    expect(prepared.map((file) => [file.name.split(" - ").pop(), file.entityType, file.rows.length])).toEqual([
+      ["Accounts", "account", 25],
+      ["Customers", "customer", 12],
+      ["Vendors", "vendor", 7],
+      ["Products", "product", 7],
+      ["Invoices", "salesInvoice", 215],
+      ["Receipts", "payment", 213],
+      ["Vendor Bills", "purchaseInvoice", 381],
+    ]);
+    expect(prepared.reduce((sum, file) => sum + file.rows.length, 0)).toBe(860);
+    expect(preparedPackage.importableRecordCount).toBe(860);
+    expect(preparedPackage.sourceRecordCount).toBe(4737);
+    expect(preparedPackage.sourceRecordCount).toBeGreaterThan(preparedPackage.importableRecordCount);
+    expect(preparedPackage.sourceFileCount).toBeGreaterThan(preparedPackage.importableFileCount);
   });
 
   itIfFile("Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx")("uploads the root Odoo legacy workbook without failing on unsupported sheets", () => {

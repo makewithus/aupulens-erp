@@ -71,7 +71,7 @@ export function DashboardSidebar({
   return (
     <aside
       className={cn(
-        "hidden lg:flex shrink-0 flex-col border-r border-border/30 bg-background py-8 transition-all duration-300",
+        "hidden lg:flex shrink-0 flex-col border-r border-border/50 bg-background py-8 transition-all duration-300",
         isCollapsed ? "w-20" : "w-72",
         className
       )}
@@ -85,7 +85,7 @@ export function DashboardSidebar({
             h-8
             w-8
             rounded-none
-            text-[#B3BAC7]
+            text-muted-foreground
             hover:bg-transparent
             hover:text-foreground
           "
@@ -103,7 +103,7 @@ export function DashboardSidebar({
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
-              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-[#e3e3e3]">
+              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-muted-foreground">
                 {section.title}
               </div>
             )}
@@ -127,8 +127,8 @@ export function DashboardSidebar({
                     className={cn(
                       "h-4 w-4 transition-all duration-300 shrink-0",
                       isActive
-                        ? "text-[#f2f2f2] opacity-100"
-                        : "text-[#f2f2f2]/75 group-hover:text-[#f2f2f2]"
+                        ? "text-foreground opacity-100"
+                        : "text-muted-foreground group-hover:text-foreground"
                     )}
                   />
 
@@ -138,8 +138,8 @@ export function DashboardSidebar({
                         className={cn(
                           "relative w-fit max-w-[13rem] text-[25px] leading-[0.98] tracking-[-0.055em] transition-colors duration-300",
                           isActive
-                            ? "text-[#f2f2f2]"
-                            : "text-[#f2f2f2]/90 group-hover:text-[#f2f2f2]"
+                            ? "text-foreground"
+                            : "text-muted-foreground group-hover:text-foreground"
                         )}
                       >
                         {item.title}

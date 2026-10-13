@@ -8,6 +8,8 @@ export async function computeMigrationReviewSummary(batchId: unknown, tenantId: 
       tenantId,
       $or: [
         { status: "valid" },
+        { status: "skipped" },
+        { status: "migrated" },
         { status: "duplicate", duplicateAction: { $in: ["update", "create"] } },
       ],
     }),

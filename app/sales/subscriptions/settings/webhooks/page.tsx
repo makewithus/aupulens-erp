@@ -128,10 +128,10 @@ export default function WebhooksSettingsPage() {
           <Table>
             <TableHeader className="border-border/40">
               <TableRow>
-                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Name</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">URL</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Events</TableHead>
-                <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-[#e3e3e3]">Active</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Name</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">URL</TableHead>
+                <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Events</TableHead>
+                <TableHead className="w-20 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Active</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>

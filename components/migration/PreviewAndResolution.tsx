@@ -9,7 +9,7 @@ type ResolvingState =
   | { scope: "record"; recordId: string; action: string }
   | null;
 
-export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }: { batchId: string; onResolved?: () => void; expectedCount?: number }) {
+export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }: { batchId: string; onResolved?: () => void | Promise<void>; expectedCount?: number }) {
   const [duplicates, setDuplicates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState<ResolvingState>(null);
@@ -47,12 +47,13 @@ export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }:
       if (res.ok && data.success) {
         toast.success(data.message || `Action '${action}' applied.`);
         if (isBulkAction) {
-          loadDuplicates({ showLoading: false });
+          setDuplicates([]);
+          void loadDuplicates({ showLoading: false });
         } else {
           setDuplicates((current) => current.filter((record) => record._id !== payload.recordId));
-          loadDuplicates({ showLoading: false });
+          void loadDuplicates({ showLoading: false });
         }
-        onResolved?.();
+        await onResolved?.();
       } else {
         toast.error(data.message || "Failed to apply resolution.");
       }
@@ -67,7 +68,7 @@ export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }:
     await applyResolution({ scope: "all", action });
   };
 
-  const databaseDuplicateCount = duplicates.filter((record) => record.duplicateTargetId).length;
+  const unresolvedCount = Math.max(duplicates.length, expectedCount);
   const resolvingBulkAction = resolving?.scope === "all" ? resolving.action : null;
 
   const handleAction = async (recordId: string, action: string) => {
@@ -95,11 +96,11 @@ export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }:
           <button
             type="button"
             onClick={() => handleBulkAction("update")}
-            disabled={!!resolving || databaseDuplicateCount === 0}
-            title={databaseDuplicateCount === 0 ? "Merge / Update is available only for duplicates that match existing workspace records" : "Merge all duplicates that matched existing workspace records"}
+            disabled={!!resolving || unresolvedCount === 0}
+            title="Merge database duplicates into existing workspace records and merge uploaded-row duplicates into their first matching uploaded row"
             className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded transition-colors border border-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {resolvingBulkAction === "update" ? <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span> : `Merge Existing (${databaseDuplicateCount})`}
+            {resolvingBulkAction === "update" ? <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span> : `Merge Existing (${unresolvedCount})`}
           </button>
           <button
             type="button"
@@ -172,8 +173,8 @@ export function PreviewAndResolution({ batchId, onResolved, expectedCount = 0 }:
                 </button>
                 <button 
                   onClick={() => handleAction(record._id, "update")}
-                  disabled={recordBusy || !record.duplicateTargetId}
-                  title={record.duplicateTargetId ? "Update the existing workspace record with this uploaded row" : "Merge / Update is available only when the duplicate matches an existing workspace record"}
+                  disabled={recordBusy}
+                  title={record.duplicateTargetId ? "Update the existing workspace record with this uploaded row" : "Merge this uploaded duplicate into the first matching uploaded row"}
                   className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded transition-colors border border-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {resolvingRecordAction === "update" ? <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span> : "Merge / Update"}

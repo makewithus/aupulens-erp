@@ -12,6 +12,9 @@ import Customer from "@/models/sales/Customer";
 import Product from "@/models/inventory/Product";
 import Employee from "@/models/hr/Employee";
 import Department from "@/models/hr/Department";
+import Account from "@/models/finance/Account";
+import Vendor from "@/models/admin/Vendor";
+import Invoice from "@/models/finance/Invoice";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import { MIGRATION_ENTITY, MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
@@ -81,8 +84,23 @@ describe("migration worker E2E workflow", () => {
     await Customer.init();
     await Product.init();
     await Employee.init();
+    await Account.init();
+    await Vendor.init();
+    await Invoice.init();
     await SalesInvoice.init();
     await Payment.init();
+    await MigrationBatch.deleteMany({ tenantId: TENANT });
+    await MigrationJob.deleteMany({ tenantId: TENANT });
+    await MigrationRecord.deleteMany({ tenantId: TENANT });
+    await MigrationIdentityMap.deleteMany({ tenantId: TENANT });
+    await Customer.deleteMany({ tenantId: TENANT });
+    await Product.deleteMany({ tenantId: TENANT });
+    await Employee.deleteMany({ tenantId: TENANT });
+    await Account.deleteMany({ tenantId: TENANT });
+    await Vendor.deleteMany({ tenantId: TENANT });
+    await Invoice.deleteMany({ tenantId: TENANT });
+    await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
+    await Payment.deleteMany({ tenantId: TENANT });
   });
 
   afterAll(async () => {
@@ -98,6 +116,9 @@ describe("migration worker E2E workflow", () => {
     await Customer.deleteMany({ tenantId: TENANT });
     await Product.deleteMany({ tenantId: TENANT });
     await Employee.deleteMany({ tenantId: TENANT });
+    await Account.deleteMany({ tenantId: TENANT });
+    await Vendor.deleteMany({ tenantId: TENANT });
+    await Invoice.deleteMany({ tenantId: TENANT });
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
     await Payment.deleteMany({ tenantId: TENANT });
   });
@@ -583,6 +604,96 @@ describe("migration worker E2E workflow", () => {
     expect(invalidRecords).toHaveLength(2);
     expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.PRODUCT && /stock quantity cannot be negative/.test(record.errors?.[0]?.message || ""))).toBe(true);
     expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.SALES_INVOICE && /valid calendar date/.test(record.errors?.[0]?.message || ""))).toBe(true);
+  });
+
+  it("promotes existing account conflicts to duplicate review before migration", async () => {
+    const existing = await Account.create({
+      tenantId: TENANT,
+      accountName: "Cash and Bank",
+      accountCode: "1000",
+      name: "Cash and Bank",
+      code: "1000",
+      account_type: "asset_cash",
+      internal_group: "asset",
+      status: "active",
+      isActive: true,
+      createdBy: USER_ID,
+    });
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+
+    await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.ACCOUNT,
+      "MD_V3.xlsx - Chart of Accounts",
+      { accountName: "Account name", accountCode: "Account code", accountType: "Account type" },
+      [{ "Account name": "Cash and Bank", "Account code": "1000", "Account type": "Asset" }],
+    );
+
+    await runWorkerUntilDone(String(batch._id));
+
+    const duplicate = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.ACCOUNT }).lean();
+    expect(duplicate?.status).toBe("duplicate");
+    expect(duplicate?.duplicateReason).toBe("database");
+    expect(String(duplicate?.duplicateTargetId)).toBe(String(existing._id));
+    expect(duplicate?.duplicateFields).toEqual(["accountName", "accountCode"]);
+
+    const refreshedBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(refreshedBatch?.status).toBe("preview");
+    expect(refreshedBatch?.summary?.duplicate).toBe(1);
+  });
+
+  itIfFile("Northstar_Cloud_5Y_Migration_Test.xlsx")("validates and migrates the Northstar workbook without failed rows", async () => {
+    const prepared = prepareMigrationFiles(
+      [{ name: "Northstar_Cloud_5Y_Migration_Test.xlsx", buffer: fs.readFileSync("Northstar_Cloud_5Y_Migration_Test.xlsx") }],
+      "excel",
+    );
+    const totalRecords = prepared.reduce((sum, file) => sum + file.rows.length, 0);
+
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "validating",
+      createdBy: USER_ID,
+      totalFiles: prepared.length,
+      totalRecords,
+      totalModules: prepared.length,
+    });
+
+    for (const file of prepared) {
+      const schema = getEntitySchema(file.entityType)!;
+      await createJobWithRecords(
+        batch._id,
+        file.entityType,
+        file.name,
+        deterministicMapping(schema, file.columns),
+        file.rows,
+      );
+    }
+
+    await runWorkerUntilDone(String(batch._id), 500, 50);
+
+    const previewSummary = {
+      invalid: await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "invalid" }),
+      duplicate: await MigrationRecord.countDocuments(unresolvedDuplicateFilter({ batchId: batch._id, tenantId: TENANT })),
+    };
+    expect(previewSummary).toEqual({ invalid: 0, duplicate: 0 });
+
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 1 } });
+    await runWorkerUntilDone(String(batch._id), 500, 50);
+
+    const finalBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(finalBatch?.summary?.failed || 0).toBe(0);
+    expect(["completed", "verified"]).toContain(finalBatch?.status);
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "failed" })).toBe(0);
   });
 
   itIfFile("MD_V3.xlsx")("validates the MD_V3 workbook to preview without product taxonomy false errors", async () => {

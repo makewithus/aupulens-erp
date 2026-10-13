@@ -10,7 +10,7 @@ export function InvalidRecordsEditor({
   showInitialLoader = true,
 }: {
   batchId: string;
-  onResolved: () => void;
+  onResolved: () => void | Promise<void>;
   showInitialLoader?: boolean;
 }) {
   const [invalidRecords, setInvalidRecords] = useState<any[]>([]);
@@ -20,18 +20,19 @@ export function InvalidRecordsEditor({
   const [submitting, setSubmitting] = useState(false);
   const [aiFixing, setAiFixing] = useState<string | null>(null);
 
-  const loadInvalidRecords = useCallback((showLoader = false) => {
+  const loadInvalidRecords = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
-    fetch(`/api/migration/batches/${batchId}/invalid`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setInvalidRecords(data.data);
-        }
-      })
-      .finally(() => {
-        if (showLoader) setLoading(false);
-      });
+    try {
+      const res = await fetch(`/api/migration/batches/${batchId}/invalid`);
+      const data = await res.json();
+      if (data.success) {
+        setInvalidRecords(data.data);
+        return data.data;
+      }
+      return [];
+    } finally {
+      if (showLoader) setLoading(false);
+    }
   }, [batchId]);
 
   useEffect(() => {
@@ -79,10 +80,24 @@ export function InvalidRecordsEditor({
       if (res.ok && data.success) {
         toast.success(data.message || "Fix applied.");
         setEditingId(null);
+        if (Array.isArray(data.fixedRecordIds) && data.fixedRecordIds.length > 0) {
+          const fixed = new Set(data.fixedRecordIds.map(String));
+          setInvalidRecords((current) => current.filter((record) => !fixed.has(String(record._id))));
+        }
         await loadInvalidRecords(false);
-        onResolved();
+        await onResolved();
+        if (data.unresolvedCount > 0) {
+          toast.warning(
+            data.unresolvedMessages?.length
+              ? data.unresolvedMessages.join(" ")
+              : `${data.unresolvedCount} record${data.unresolvedCount === 1 ? "" : "s"} still need manual review.`,
+          );
+        }
       } else {
-        toast.error(data.message || "No automatic fix was available.");
+        const detail = Array.isArray(data.unresolvedMessages) && data.unresolvedMessages.length > 0
+          ? data.unresolvedMessages.join(" ")
+          : data.message;
+        toast.error(detail || "No automatic fix was available.");
         await loadInvalidRecords(false);
       }
     } catch {
@@ -119,8 +134,8 @@ export function InvalidRecordsEditor({
       </p>
       
       <div
-        className="space-y-3 overflow-y-auto overscroll-contain pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-rose-100/50 [&::-webkit-scrollbar-thumb]:bg-rose-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-rose-400"
-        style={{ maxHeight: "400px", minHeight: "220px", scrollbarGutter: "stable" }}
+        className="space-y-3 overflow-y-auto overscroll-contain rounded-md border border-rose-200 bg-white/35 p-3 pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-rose-100/50 [&::-webkit-scrollbar-thumb]:bg-rose-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-rose-400"
+        style={{ maxHeight: "min(55vh, 560px)", minHeight: "240px", scrollbarGutter: "stable" }}
         tabIndex={0}
       >
         {invalidRecords.map(record => {
@@ -153,7 +168,7 @@ export function InvalidRecordsEditor({
               )}
             </div>
             
-            <div className="text-xs text-rose-600 bg-rose-50/50 p-2 rounded border border-rose-100">
+            <div className="max-h-24 overflow-y-auto overscroll-contain text-xs text-rose-600 bg-rose-50/50 p-2 rounded border border-rose-100">
               {record.errors?.map((err: any, i: number) => (
                 <div key={i}>• {err.message}</div>
               ))}
@@ -192,7 +207,7 @@ export function InvalidRecordsEditor({
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 font-mono break-all line-clamp-2">
+              <div className="max-h-20 overflow-y-auto rounded border border-slate-100 bg-slate-50/70 p-2 text-xs text-slate-500 font-mono break-all">
                 {JSON.stringify(record.sourceData)}
               </div>
             )}

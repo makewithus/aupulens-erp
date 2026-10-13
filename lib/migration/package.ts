@@ -23,6 +23,14 @@ export interface PreparedMigrationFile extends UploadedMigrationFile {
   rows: Record<string, unknown>[];
 }
 
+export interface PreparedMigrationPackage {
+  files: PreparedMigrationFile[];
+  sourceFileCount: number;
+  sourceRecordCount: number;
+  importableFileCount: number;
+  importableRecordCount: number;
+}
+
 const MAX_ZIP_ENTRIES = 100;
 const MAX_UNCOMPRESSED_ZIP_BYTES = 50 * 1024 * 1024;
 const MULTI_SHEET_EXTENSIONS = new Set(["xls", "xlsx"]);
@@ -39,6 +47,25 @@ function isKnownNonImportableSheet(fileName: string): boolean {
   const name = normalizeHeader(fileName);
   return [
     "readme",
+    "company",
+    "banktransaction",
+    "banktransactions",
+    "journalline",
+    "journallines",
+    "journal",
+    "journals",
+    "trialbalance",
+    "profitandloss",
+    "pandl",
+    "plannual",
+    "balancesheet",
+    "edgecase",
+    "edgecasematrix",
+    "invalid",
+    "stockmovement",
+    "stockmovements",
+    "vendorpayment",
+    "vendorpayments",
     "department",
     "departments",
     "productcategory",
@@ -47,6 +74,15 @@ function isKnownNonImportableSheet(fileName: string): boolean {
     "purchaseorders",
     "purchaseorderline",
     "purchaseorderlines",
+  ].some((token) => name.includes(token));
+}
+
+function isSourceMetadataSheet(fileName: string): boolean {
+  const name = normalizeHeader(fileName);
+  return [
+    "company",
+    "banktransaction",
+    "banktransactions",
   ].some((token) => name.includes(token));
 }
 
@@ -136,23 +172,23 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   if (!nameHas("invoice", "salesinvoice") && (nameHas("salesorder", "salesorders") || (has("sales order no", "sales order number", "order no", "order ref") && has("customer", "customer name", "customer code") && !has("invoice number", "invoice no", "inv no")))) {
     return MIGRATION_ENTITY.SALES_ORDER;
   }
-  if (nameHas("customer", "debtor", "client") || (has("customer name", "cust name", "company name") && has("email", "email id", "gstin", "gst no"))) {
-    return MIGRATION_ENTITY.CUSTOMER;
+  if (nameHas("vendorbill", "vendorbills", "purchase", "bill") || has("bill id", "bill_id", "bill no")) {
+    return MIGRATION_ENTITY.PURCHASE_INVOICE;
+  }
+  if (nameHas("receipt", "receipts", "payment", "payments") || has("payment date", "receipt date", "cheque", "utr", "receipt_id", "receipt id")) {
+    return MIGRATION_ENTITY.PAYMENT;
   }
   if (nameHas("vendor", "creditor", "supplier") || has("vendor name", "supplier name")) {
     return MIGRATION_ENTITY.VENDOR;
   }
+  if (nameHas("customer", "debtor", "client") || (has("customer name", "cust name", "company name") && has("email", "email id", "gstin", "gst no"))) {
+    return MIGRATION_ENTITY.CUSTOMER;
+  }
   if (nameHas("product", "item", "stock") || has("item name", "product name", "sku", "item code")) {
     return MIGRATION_ENTITY.PRODUCT;
   }
-  if (nameHas("purchase", "bill") || has("vendor", "supplier", "bill no")) {
-    return MIGRATION_ENTITY.PURCHASE_INVOICE;
-  }
   if (nameHas("invoice", "salesinvoice", "sale") || has("invoice number", "inv no", "customer", "buyer")) {
     return MIGRATION_ENTITY.SALES_INVOICE;
-  }
-  if (nameHas("payment", "receipt") || has("payment date", "receipt date", "cheque", "utr")) {
-    return MIGRATION_ENTITY.PAYMENT;
   }
   if (nameHas("expense") || has("expense date", "expense head")) {
     return MIGRATION_ENTITY.EXPENSE;
@@ -171,8 +207,17 @@ export function prepareMigrationFiles(
   files: UploadedMigrationFile[],
   sourceSystem: MigrationSourceSystem,
 ): PreparedMigrationFile[] {
+  return prepareMigrationPackage(files, sourceSystem).files;
+}
+
+export function prepareMigrationPackage(
+  files: UploadedMigrationFile[],
+  sourceSystem: MigrationSourceSystem,
+): PreparedMigrationPackage {
   const expanded = expandMigrationPackage(files);
   const prepared: PreparedMigrationFile[] = [];
+  let sourceFileCount = 0;
+  let sourceRecordCount = 0;
 
   for (const file of expanded) {
     let parsedFiles;
@@ -203,6 +248,10 @@ export function prepareMigrationFiles(
 
     for (const parsedFile of parsedFiles) {
       const { parsed } = parsedFile;
+      if (parsed.rows.length > 0 && !isSourceMetadataSheet(parsedFile.inferName)) {
+        sourceFileCount += 1;
+        sourceRecordCount += parsed.rows.length;
+      }
 
       if (parsed.rows.length > MIGRATION_MAX_ROWS) {
         throw new Error(`${parsedFile.name}: File has ${parsed.rows.length} rows; the per-file limit is ${MIGRATION_MAX_ROWS}. Split it into smaller files.`);
@@ -228,5 +277,11 @@ export function prepareMigrationFiles(
     throw new Error("Could not infer a supported migration entity from filename or headers.");
   }
 
-  return prepared;
+  return {
+    files: prepared,
+    sourceFileCount,
+    sourceRecordCount,
+    importableFileCount: prepared.length,
+    importableRecordCount: prepared.reduce((sum, file) => sum + file.rows.length, 0),
+  };
 }

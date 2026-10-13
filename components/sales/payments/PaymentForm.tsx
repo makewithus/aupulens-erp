@@ -467,11 +467,11 @@ export function PaymentForm() {
         <Table className="mt-2">
           <TableHeader className="border-border/40">
             <TableRow>
-              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Date</TableHead>
-              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Invoice Number</TableHead>
-              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Invoice Amount</TableHead>
-              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Amount Due</TableHead>
-              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3]">Payment</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Date</TableHead>
+              <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Invoice Number</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Invoice Amount</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Amount Due</TableHead>
+              <TableHead className="text-right font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Payment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -31,7 +31,7 @@ export function StatementSection({
         </span>
       </div>
       {accounts.length === 0 ? (
-        <p className="py-6 text-center font-mono text-xs text-[#e3e3e3]">{emptyText}</p>
+        <p className="py-6 text-center font-mono text-xs text-muted-foreground">{emptyText}</p>
       ) : (
         <ul className="divide-y divide-border/20">
           {accounts.map((acc: any) => (

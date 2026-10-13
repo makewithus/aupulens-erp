@@ -15,6 +15,20 @@ function setMappedSource(sourceData: Record<string, unknown>, mapping: Record<st
   if (column) sourceData[column] = value;
 }
 
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function firstNonEmptySourceValue(sourceData: Record<string, unknown>, candidates: string[]) {
+  const wanted = new Set(candidates.map(normalizeHeader));
+  for (const [key, value] of Object.entries(sourceData)) {
+    if (!wanted.has(normalizeHeader(key))) continue;
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
 function numberFromText(value: unknown) {
   const parsed = Number(String(value ?? "").replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : null;
@@ -23,19 +37,87 @@ function numberFromText(value: unknown) {
 function mergeDeterministicMapping(entityType: string, sourceData: Record<string, unknown>, mapping: Record<string, string>) {
   const schema = getEntitySchema(entityType);
   if (!schema) return mapping;
-  return {
+  const merged = {
     ...deterministicMapping(schema, Object.keys(sourceData)),
     ...mapping,
   };
+
+  for (const field of schema.fields) {
+    if (!field.required) continue;
+    const currentValue = toCanonicalRecord(schema, sourceData, merged)[field.key];
+    if (currentValue) continue;
+
+    const betterColumn = findSourceColumn(sourceData, [field.key, field.label, ...field.aliases]);
+    if (betterColumn) merged[field.key] = betterColumn;
+  }
+
+  return merged;
 }
 
 function jsonStable(value: unknown) {
   return JSON.stringify(value, Object.keys(value as Record<string, unknown>).sort());
 }
 
+const PAYMENT_RECEIPT_TYPES = new Set([
+  "receipt",
+  "payment",
+  "customer receipt",
+  "inbound",
+  "inbound receipt",
+  "cleared",
+  "paid",
+  "posted",
+  "received",
+  "reconciled",
+  "bank transfer",
+  "banktransfer",
+  "upi",
+  "cash",
+  "cheque",
+  "check",
+  "neft",
+  "rtgs",
+  "imps",
+  "card",
+  "online",
+]);
+
+function findSourceColumn(sourceData: Record<string, unknown>, candidates: string[]) {
+  const wanted = new Set(candidates.map(normalizeHeader));
+  for (const key of Object.keys(sourceData)) {
+    if (wanted.has(normalizeHeader(key))) return key;
+  }
+  return "";
+}
+
+function repairKnownStaleMapping(entityType: string, sourceData: Record<string, unknown>, mapping: Record<string, string>) {
+  if (entityType !== "payment") return mapping;
+  const next = { ...mapping };
+  const current = toCanonicalRecord(getEntitySchema(entityType)!, sourceData, next);
+  const type = current.type.trim().toLowerCase();
+  const paymentMethodColumn = findSourceColumn(sourceData, ["payment_method", "payment method", "paymentmethod", "mode"]);
+  if (paymentMethodColumn && (!type || !PAYMENT_RECEIPT_TYPES.has(type))) {
+    next.type = paymentMethodColumn;
+  }
+
+  const partyColumn = findSourceColumn(sourceData, ["customer_id", "customer id", "customerid", "customer"]);
+  if (partyColumn && !current.partyName) next.partyName = partyColumn;
+
+  const amountColumn = findSourceColumn(sourceData, ["amount_inr", "amount inr", "amountinr", "amount"]);
+  if (amountColumn && !current.amount) next.amount = amountColumn;
+
+  const dateColumn = findSourceColumn(sourceData, ["receipt_date", "receipt date", "receiptdate", "payment_date", "payment date", "paymentdate"]);
+  if (dateColumn && !current.date) next.date = dateColumn;
+
+  const sourceColumn = findSourceColumn(sourceData, ["receipt_id", "receipt id", "receiptid", "payment_id", "payment id", "paymentid"]);
+  if (sourceColumn && !current.sourceId) next.sourceId = sourceColumn;
+
+  return next;
+}
+
 function hasRevalidatableSystemError(errors: unknown) {
   return Array.isArray(errors)
-    && errors.some((error: any) => /Pre-migration write check failed|Product type must be one of|Vendor outbound payment migration|Missing reference: Sales invoice/i.test(String(error?.message || "")));
+    && errors.some((error: any) => /is required but empty|Pre-migration write check failed|Product type must be one of|Vendor outbound payment migration|Missing reference: Sales invoice/i.test(String(error?.message || "")));
 }
 
 function lastDayOfMonth(year: number, month: number) {
@@ -71,6 +153,23 @@ export function deterministicMigrationRepair(entityType: string, sourceData: Rec
   if (!schema) return sourceData;
 
   const repaired = { ...sourceData };
+
+  for (const field of schema.fields) {
+    if (!field.required) continue;
+    const canonical = toCanonicalRecord(schema, repaired, mapping);
+    if (canonical[field.key]) continue;
+
+    const fallback = firstNonEmptySourceValue(repaired, [field.key, field.label, ...field.aliases]);
+    if (fallback) {
+      setMappedSource(repaired, mapping, field.key, fallback);
+      continue;
+    }
+
+    if (field.key === "number") {
+      const sourceId = canonical.sourceId || firstNonEmptySourceValue(repaired, ["sourceId", "source id", "externalId", "external id", "legacyId", "legacy id", "id"]);
+      if (sourceId) setMappedSource(repaired, mapping, field.key, sourceId);
+    }
+  }
 
   for (const field of schema.fields) {
     if (field.validate !== "date") continue;
@@ -174,7 +273,7 @@ export async function fixMigrationRecordWithAi(batchId: string, tenantId: string
 
   const sourceData = { ...(record.sourceData || {}) };
   const originalMapping = (job.mapping || {}) as Record<string, string>;
-  const mapping = mergeDeterministicMapping(record.entityType, sourceData, originalMapping);
+  const mapping = repairKnownStaleMapping(record.entityType, sourceData, mergeDeterministicMapping(record.entityType, sourceData, originalMapping));
   const mappingChanged = jsonStable(mapping) !== jsonStable(originalMapping);
   const deterministic = deterministicMigrationRepair(record.entityType, sourceData, mapping);
   const deterministicChanged = jsonStable(deterministic) !== jsonStable(sourceData);
@@ -228,7 +327,7 @@ export async function fastFixMigrationRecord(batchId: string, tenantId: string, 
 
   const sourceData = { ...(record.sourceData || {}) };
   const originalMapping = (job.mapping || {}) as Record<string, string>;
-  const mapping = mergeDeterministicMapping(record.entityType, sourceData, originalMapping);
+  const mapping = repairKnownStaleMapping(record.entityType, sourceData, mergeDeterministicMapping(record.entityType, sourceData, originalMapping));
   const repaired = deterministicMigrationRepair(record.entityType, sourceData, mapping);
   const changed = jsonStable(repaired) !== jsonStable(sourceData) || jsonStable(mapping) !== jsonStable(originalMapping);
   const hasStaleSystemError = hasRevalidatableSystemError(record.errors);

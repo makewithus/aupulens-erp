@@ -62,7 +62,15 @@ export async function buildMigrationProgress(batch: any, jobs: any[]) {
   const isRunning = batch.status === "running" || batch.status === "verifying";
   const rows = entityTypes.map((entityType) => {
     const counts = countsByEntity.get(entityType) || {};
-    const total = totalsByEntity.get(entityType) || Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const uploadTotal = totalsByEntity.get(entityType) || Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const migrationTotal = (
+      statusCount(counts, "valid") +
+      statusCount(counts, "duplicate") +
+      statusCount(counts, "migrated") +
+      statusCount(counts, "skipped") +
+      statusCount(counts, "failed")
+    );
+    const total = isRunning ? migrationTotal : uploadTotal;
     const processed = isRunning
       ? statusCount(counts, "migrated") + statusCount(counts, "skipped") + statusCount(counts, "failed")
       : Math.max(0, total - statusCount(counts, "pending"));

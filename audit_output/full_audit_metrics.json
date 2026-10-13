@@ -1,0 +1,41 @@
+{
+  "combinedCatalogTotal": 22616,
+  "goodsTotal": 21935,
+  "servicesTotal": 681,
+  "strictVerifiedCount": 1161,
+  "potentialCount": 13622,
+  "totalResolvable": 14783,
+  "unresolvedCount": 7833,
+  "goodsStrict": 1062,
+  "goodsPotential": 13622,
+  "goodsUnresolved": 7251,
+  "servicesStrict": 99,
+  "servicesPotential": 0,
+  "servicesUnresolved": 582,
+  "descOnlyMatches": [
+    {
+      "newCode": "13021950",
+      "newDesc": "Cashew shell liquid (CNSL), crude",
+      "matchedMasterCodes": "13021920",
+      "matchedMasterDesc": "CASHEW SHELL LIQUID (CNSL), CRUDE"
+    },
+    {
+      "newCode": "13021960",
+      "newDesc": "Purified and distilled CNSL (Cardanol)",
+      "matchedMasterCodes": "13021930",
+      "matchedMasterDesc": "PURIFIED AND DISTILLED CNSL (CARDANOL)"
+    },
+    {
+      "newCode": "29322040",
+      "newDesc": "Gibberellic acid",
+      "matchedMasterCodes": "38089330",
+      "matchedMasterDesc": "GIBBERELLIC ACID"
+    },
+    {
+      "newCode": "81019920",
+      "newDesc": "Bars and rods, other than those obtained simply by sintering, profiles, plates, sheets, strip and foil",
+      "matchedMasterCodes": "810295",
+      "matchedMasterDesc": "BARS AND RODS, OTHER THAN THOSE OBTAINED SIMPLY BY SINTERING, PROFILES, PLATES, SHEETS, STRIP AND FOIL :"
+    }
+  ]
+}

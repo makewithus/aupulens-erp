@@ -1,0 +1,150 @@
+{
+  "newDatasetTotal": 22616,
+  "newGoodsTotal": 21935,
+  "newServicesTotal": 681,
+  "masterTotal": 22470,
+  "masterGoodsTotal": 21789,
+  "masterServicesTotal": 681,
+  "codesInBoth": 22470,
+  "newCodesOnlyCount": 146,
+  "masterCodesOnlyCount": 0,
+  "conflictingDescriptionsCount": 16,
+  "rateRuleCoverageOverNew": 1161,
+  "indiaHsnRateCoverageOverGoods": 14377,
+  "conflictingRatesCount": 489,
+  "conflictingRatesSamples": [
+    {
+      "code": "04011000",
+      "desc": "OF A FAT CONTENT, BY WEIGHT, NOT EXCEEDING 1%",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04012000",
+      "desc": "OF A FAT CONTENT, BY WEIGHT, EXCEEDING 1% BUT NOT EXCEEDING 6%",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04014000",
+      "desc": "OF A FAT CONTENT, BY WEIGHT, EXCEEDING 6% BUT NOT EXCEEDING 10%",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04015000",
+      "desc": "OF A FAT CONTENT, BY WEIGHT, EXCEEDING 10%",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04031000",
+      "desc": "BUTTERMILK, CURDLED MILK AND CREAM, YOGURT, KEPHIR AND OTHER FERMENTED OR ACIDIFIED MILK AND CREAM, WHETHER OR NOT CONCENTRATED OR CONTAINING ADDED SUGAR OR OTHER SWEETENING MATTER OR FLAVOURED OR CONTAINING ADDED FRUIT, NUTS OR COCOA YOGURT",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04032000",
+      "desc": "YOGURT",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04039010",
+      "desc": "BUTTER MILK",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "04039090",
+      "desc": "OTHER",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "10061010",
+      "desc": "OF SEED QUALITY",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    },
+    {
+      "code": "10061090",
+      "desc": "OTHER",
+      "ruleRate": 0,
+      "ruleNotification": "Notification No. 2/2017-Central Tax (Rate)",
+      "indiaHsnRate": 5,
+      "indiaHsnSource": "cleartax-cbic-gst"
+    }
+  ],
+  "newCodesSamples": [
+    {
+      "code": "52083110",
+      "desc": "",
+      "type": "goods"
+    },
+    {
+      "code": "03061910",
+      "desc": "Krill",
+      "type": "goods"
+    },
+    {
+      "code": "03061990",
+      "desc": "Other",
+      "type": "goods"
+    },
+    {
+      "code": "08029910",
+      "desc": "Pecan nuts",
+      "type": "goods"
+    },
+    {
+      "code": "08029990",
+      "desc": "Other",
+      "type": "goods"
+    },
+    {
+      "code": "08104010",
+      "desc": "Cranberries, bilberries and other fruits of the  genus Vaccinium : Cranberries",
+      "type": "goods"
+    },
+    {
+      "code": "08104020",
+      "desc": "Cranberries, bilberries and other fruits of the  genus Vaccinium : Blueberries",
+      "type": "goods"
+    },
+    {
+      "code": "08104090",
+      "desc": "Cranberries, bilberries and other fruits of the  genus Vaccinium : Other",
+      "type": "goods"
+    },
+    {
+      "code": "08119011",
+      "desc": "Containing added sugar : Cranberries",
+      "type": "goods"
+    },
+    {
+      "code": "08119012",
+      "desc": "Containing added sugar :Blueberries",
+      "type": "goods"
+    }
+  ],
+  "missingCodesSamples": []
+}

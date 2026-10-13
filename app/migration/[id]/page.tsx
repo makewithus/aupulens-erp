@@ -321,6 +321,35 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const visibleTotal = Number(progressDetail?.totalRecords || batch.totalRecords || 0);
   const unresolvedDuplicateCount = Number(batch.summary?.duplicate || 0);
   const invalidRecordCount = Number(batch.summary?.invalid || 0);
+  const importableRecordCount = jobs.reduce((sum: number, job: any) => sum + Number(job.totalRows || 0), 0);
+  const importableFileCount = jobs.length;
+  const hasSeparateImportableCount = importableRecordCount > 0 && importableRecordCount !== Number(batch.totalRecords || 0);
+  const migratedRecordCount = Number(batch.summary?.migrated || 0);
+  const failedRecordCount = Number(batch.summary?.failed || 0);
+  const reportTotalRecords = Number(batch.summary?.valid || 0) + failedRecordCount || Number(visibleTotal || batch.totalRecords || 0);
+  const verificationRows = Array.isArray(batch.summary?.verification?.sourceVsTarget)
+    ? Object.values(
+        batch.summary.verification.sourceVsTarget.reduce((acc: Record<string, any>, row: any) => {
+          const key = String(row.entity || "record");
+          if (!acc[key]) {
+            acc[key] = {
+              entity: key,
+              sourceCount: 0,
+              targetCount: 0,
+              failedCount: 0,
+              orphanCount: 0,
+              status: "PASS",
+            };
+          }
+          acc[key].sourceCount += Number(row.sourceCount || 0);
+          acc[key].targetCount += Number(row.targetCount || 0);
+          acc[key].failedCount += Number(row.failedCount || 0);
+          acc[key].orphanCount += Number(row.orphanCount || 0);
+          if (row.status !== "PASS") acc[key].status = "FAIL";
+          return acc;
+        }, {}),
+      )
+    : [];
   const isMigrationClean = batch.status === "preview" && invalidRecordCount === 0 && unresolvedDuplicateCount === 0;
 
   return (
@@ -357,7 +386,12 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         <div className="bg-card border rounded-xl p-5 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold">Batch Migration <span className="text-muted-foreground font-mono">#{id.slice(-6)}</span></h2>
-            <p className="text-sm text-muted-foreground mt-1">Source: {batch.sourceSystem.toUpperCase()} • {batch.totalFiles} files • {batch.totalRecords} records</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Source: {batch.sourceSystem.toUpperCase()} • {batch.totalFiles} files • {batch.totalRecords} records
+              {hasSeparateImportableCount && (
+                <span> • {importableFileCount} migration-ready datasets • {importableRecordCount} migration-ready records</span>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground mt-2">{statusCopy.description}</p>
           </div>
           <div className="text-right">
@@ -428,11 +462,11 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
 
             {progressRows.length > 0 && (
               <div className="mb-5 grid gap-2 rounded-lg border bg-background/40 p-4">
-                {progressRows.map((row: any) => {
+                {progressRows.map((row: any, rowIndex: number) => {
                   const complete = row.total > 0 && row.processed >= row.total;
                   const active = !complete && progressDetail?.currentStep?.includes(row.label);
                   return (
-                    <div key={row.entityType} className="grid grid-cols-[minmax(120px,1fr)_24px_auto] items-center gap-3 text-sm">
+                    <div key={`${row.entityType || row.label}-${rowIndex}`} className="grid grid-cols-[minmax(120px,1fr)_24px_auto] items-center gap-3 text-sm">
                       <span className="text-muted-foreground">{row.label}</span>
                       <span className={complete ? "text-emerald-500" : active ? "text-amber-500" : "text-muted-foreground"}>
                         {complete ? "✓" : active ? "●" : "○"}
@@ -527,22 +561,22 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
 
         {(batch.status === "completed" || batch.status === "verified") && (
           <div className="space-y-6">
-            <div className={`${batch.summary?.failed > 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50 border-emerald-200"} border rounded-xl p-5 text-center`}>
-              {batch.summary?.failed > 0 ? (
+            <div className={`${failedRecordCount > 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50 border-emerald-200"} border rounded-xl p-5 text-center`}>
+              {failedRecordCount > 0 ? (
                 <AlertTriangle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
               ) : (
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
               )}
-              <h3 className={`${batch.summary?.failed > 0 ? "text-rose-800" : "text-emerald-800"} font-bold text-xl mb-1`}>
-                {batch.summary?.failed > 0 ? "Migration Completed With Failures" : batch.status === "verified" ? "Migration Verified & Completed" : "Migration Completed"}
+              <h3 className={`${failedRecordCount > 0 ? "text-rose-800" : "text-emerald-800"} font-bold text-xl mb-1`}>
+                {failedRecordCount > 0 ? "Migration Completed With Failures" : batch.status === "verified" ? "Migration Verified & Completed" : "Migration Completed"}
               </h3>
-              <p className={`${batch.summary?.failed > 0 ? "text-rose-900" : "text-emerald-900"} text-sm`}>
-                {batch.summary?.failed > 0
+              <p className={`${failedRecordCount > 0 ? "text-rose-900" : "text-emerald-900"} text-sm`}>
+                {failedRecordCount > 0
                   ? "Some records failed during migration. Download the report and resolve the failed rows before treating this import as complete."
                   : "The batch was successfully processed."}
-                {batch.summary?.failed === 0 && batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
+                {failedRecordCount === 0 && batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
               </p>
-              {batch.summary?.failed > 0 && (
+              {failedRecordCount > 0 && (
                 <button
                   type="button"
                   onClick={recoverFailedRecords}
@@ -558,11 +592,11 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
             <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
                 <div className="bg-card p-4 rounded-lg border text-center">
                   <div className="text-sm text-muted-foreground">Successfully Migrated</div>
-                  <div className="text-3xl font-bold text-emerald-600">{batch.summary?.migrated || 0}</div>
+                  <div className="text-3xl font-bold text-emerald-600">{migratedRecordCount}</div>
                 </div>
                 <div className="bg-card p-4 rounded-lg border text-center">
                   <div className="text-sm text-muted-foreground">Failed</div>
-                  <div className="text-3xl font-bold text-rose-600">{batch.summary?.failed || 0}</div>
+                  <div className="text-3xl font-bold text-rose-600">{failedRecordCount}</div>
                 </div>
             </div>
 
@@ -579,7 +613,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
               <div className="grid gap-4 p-5 md:grid-cols-4">
                 <div className="rounded-lg border bg-background p-4">
                   <div className="text-xs uppercase text-muted-foreground">Total Records</div>
-                  <div className="mt-1 text-2xl font-bold">{batch.totalRecords || 0}</div>
+                  <div className="mt-1 text-2xl font-bold">{reportTotalRecords}</div>
                 </div>
                 <div className="rounded-lg border bg-background p-4">
                   <div className="text-xs uppercase text-muted-foreground">Valid</div>
@@ -587,15 +621,15 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                 </div>
                 <div className="rounded-lg border bg-background p-4">
                   <div className="text-xs uppercase text-muted-foreground">Migrated</div>
-                  <div className="mt-1 text-2xl font-bold text-emerald-600">{batch.summary?.migrated || 0}</div>
+                  <div className="mt-1 text-2xl font-bold text-emerald-600">{migratedRecordCount}</div>
                 </div>
                 <div className="rounded-lg border bg-background p-4">
                   <div className="text-xs uppercase text-muted-foreground">Failed</div>
-                  <div className="mt-1 text-2xl font-bold text-rose-600">{batch.summary?.failed || 0}</div>
+                  <div className="mt-1 text-2xl font-bold text-rose-600">{failedRecordCount}</div>
                 </div>
               </div>
 
-              {Array.isArray(batch.summary?.verification?.sourceVsTarget) && batch.summary.verification.sourceVsTarget.length > 0 && (
+              {verificationRows.length > 0 && (
                 <div className="px-5 pb-5">
                   <div className="max-h-[360px] overflow-auto rounded-lg border">
                     <table className="w-full min-w-[720px] text-left text-sm">
@@ -610,8 +644,8 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
                         </tr>
                       </thead>
                       <tbody>
-                        {batch.summary.verification.sourceVsTarget.map((row: any) => (
-                          <tr key={row.entity} className="border-t">
+                        {verificationRows.map((row: any, rowIndex: number) => (
+                          <tr key={`${row.entity}-${rowIndex}`} className="border-t">
                             <td className="px-4 py-3 font-medium">{row.entity}</td>
                             <td className="px-4 py-3">{row.sourceCount || 0}</td>
                             <td className="px-4 py-3">{row.targetCount || 0}</td>

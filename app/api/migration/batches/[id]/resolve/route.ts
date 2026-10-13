@@ -52,11 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       tenantId: session.user.tenantId,
     });
     if (action === "update") {
-      query.duplicateTargetId = { $exists: true };
-    }
-
-    if (action === "update") {
-      const candidates = await MigrationRecord.find(query).select("_id entityType mappedData duplicateTargetId").lean();
+      const candidates = await MigrationRecord.find({ ...query, duplicateTargetId: { $exists: true } }).select("_id entityType mappedData duplicateTargetId").lean();
       const unsafeIds = [];
       const conflicts = await Promise.all(
         candidates.map(candidate => findUnsafeUpdateConflict(candidate, session.user.tenantId).then(conflict => conflict ? candidate._id : null))
@@ -67,27 +63,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    const update: Record<string, unknown> = { duplicateAction: action };
-    if (action === "create" || action === "update") {
-      update.status = "duplicate";
-      update.errors = [];
-    } else if (action === "skip") {
-      update.status = "skipped";
-      update.errors = [];
+    let result;
+    if (action === "update") {
+      const [databaseResult, uploadResult] = await Promise.all([
+        MigrationRecord.updateMany(
+          { ...query, duplicateTargetId: { $exists: true } },
+          { $set: { duplicateAction: "update", status: "duplicate", errors: [] } },
+        ),
+        MigrationRecord.updateMany(
+          { ...query, duplicateTargetId: { $exists: false } },
+          { $set: { duplicateAction: "skip", status: "skipped", errors: [] }, $unset: { targetRecordId: "" } },
+        ),
+      ]);
+      result = { modifiedCount: databaseResult.modifiedCount + uploadResult.modifiedCount };
+    } else {
+      const update: Record<string, unknown> = { duplicateAction: action };
+      if (action === "create") {
+        update.status = "duplicate";
+        update.errors = [];
+      } else if (action === "skip") {
+        update.status = "skipped";
+        update.errors = [];
+      }
+      result = await MigrationRecord.updateMany(query, { $set: update });
     }
 
-    const result = await MigrationRecord.updateMany(query, { $set: update });
+    if (action === "skip") {
+      await MigrationRecord.updateMany(query, { $unset: { targetRecordId: "" } });
+    }
     const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);
-    const actionLabel = action === "create" ? "force create" : action === "update" ? "merge/update" : "skip";
+    const successMessage =
+      action === "update"
+        ? "Duplicates merged successfully."
+        : action === "create"
+          ? "Duplicates marked to be created separately."
+          : "Duplicates skipped successfully.";
+    const emptyMessage =
+      action === "update"
+        ? "No duplicates are available to merge."
+        : "No duplicate records need action.";
     return NextResponse.json({
       success: true,
       resolvedCount: result.modifiedCount,
       remainingDuplicates,
       message: result.modifiedCount > 0
-        ? `Saved ${actionLabel} for ${result.modifiedCount} duplicate record${result.modifiedCount === 1 ? "" : "s"}.`
-        : action === "update"
-          ? "No database duplicates are available for merge/update."
-          : "No unresolved duplicates found.",
+        ? successMessage
+        : emptyMessage,
     });
   }
 
@@ -96,13 +117,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: false, message: "Record not found" }, { status: 404 });
   }
   const resolvedAction = action;
-  if (resolvedAction === "update" && !record.duplicateTargetId) {
-    return NextResponse.json(
-      { success: false, message: "This duplicate has no existing workspace record to update. Choose Skip or Force Create." },
-      { status: 400 },
-    );
-  }
-  if (resolvedAction === "update") {
+  if (resolvedAction === "update" && record.duplicateTargetId) {
     const conflictFields = await findUnsafeUpdateConflict(record, session.user.tenantId);
     if (conflictFields) {
       return NextResponse.json(
@@ -116,7 +131,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   record.duplicateAction = resolvedAction;
-  if (resolvedAction === "create" || resolvedAction === "update") {
+  if (resolvedAction === "update" && !record.duplicateTargetId) {
+    record.duplicateAction = "skip";
+    record.status = "skipped";
+    record.errors = [] as any;
+    record.targetRecordId = undefined;
+  } else if (resolvedAction === "create" || resolvedAction === "update") {
     record.status = "duplicate";
     record.errors = [] as any;
   } else if (resolvedAction === "skip") {
@@ -127,6 +147,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await record.save();
   const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);
 
-  const actionLabel = resolvedAction === "create" ? "force create" : resolvedAction === "update" ? "merge/update" : "skip";
-  return NextResponse.json({ success: true, remainingDuplicates, message: `Duplicate resolution saved: ${actionLabel}.` });
+  const message =
+    resolvedAction === "update"
+      ? "Duplicate merged successfully."
+      : resolvedAction === "create"
+        ? "Duplicate marked to be created separately."
+        : "Duplicate skipped successfully.";
+  return NextResponse.json({ success: true, remainingDuplicates, message });
 }

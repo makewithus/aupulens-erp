@@ -87,6 +87,36 @@ export function normalizePhoneLikeValue(value: string): string {
   return trimmed;
 }
 
+function normalizeHeader(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function fallbackSourceValue(
+  entity: string,
+  fieldKey: string,
+  row: Record<string, unknown>,
+  candidates: string[],
+): string {
+  const extraCandidates = [...candidates];
+  if (entity === "product" && fieldKey === "name") {
+    extraCandidates.push("sku", "SKU", "product_id", "product id", "productid", "item_code", "item code", "itemcode");
+  }
+  if (entity === "product" && fieldKey === "sourceId") {
+    extraCandidates.push("stock_movement_id", "stock movement id", "stockmovementid", "sku", "SKU");
+  }
+  if (entity === "vendor" && fieldKey === "name") {
+    extraCandidates.push("vendor_id", "vendorid", "vendor id");
+  }
+  const wanted = new Set(extraCandidates.map(normalizeHeader));
+  for (const [key, value] of Object.entries(row)) {
+    if (!wanted.has(normalizeHeader(key))) continue;
+    if (value === null || value === undefined) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
 /** Build the full canonical record { fieldKey: value } for a row. */
 export function toCanonicalRecord(
   schema: EntitySchema,
@@ -95,7 +125,8 @@ export function toCanonicalRecord(
 ): Record<string, string> {
   const rec: Record<string, string> = {};
   for (const f of schema.fields) {
-    rec[f.key] = mapValue(row, mapping, f.key);
+    const mapped = mapValue(row, mapping, f.key);
+    rec[f.key] = mapped || fallbackSourceValue(schema.entity, f.key, row, [f.key, f.label, ...f.aliases]);
   }
   return rec;
 }
@@ -172,10 +203,8 @@ export function validateRows(
       if (value && f.validate) {
         const err = checkFormat(f.validate, value);
         if (err) {
-          // Bad GSTIN/email etc. is a warning, not a blocker — the record is
-          // still importable; invalid dates are blockers because they cannot be
-          // written safely to target modules.
-          issues.push({ rowIndex, field: f.key, severity: f.validate === "date" ? "error" : "warning", message: `${f.label} ${err}.` });
+          const severity = f.validate === "date" || f.validate === "email" ? "error" : "warning";
+          issues.push({ rowIndex, field: f.key, severity, message: `${f.label} ${err}.` });
         }
       }
     }

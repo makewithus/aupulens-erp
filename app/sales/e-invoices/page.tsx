@@ -16,13 +16,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlayCircle, Link2, Search, RefreshCw, FileText } from "lucide-react";
+import { Clock3, Link2, Search, RefreshCw, FileText } from "lucide-react";
 import { EInvoiceConnectWizard } from "@/components/sales/einvoices/EInvoiceConnectWizard";
 import { EINVOICE_STATUS } from "@/lib/constants/statuses";
 import { cachedFetch } from "@/lib/api/cachedFetch";
-
-// TODO: replace with the final YouTube tutorial link.
-const EINVOICE_TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 const TABS = [
   { key: "all", label: "All E-Invoices" },
@@ -135,14 +132,14 @@ export default function EInvoicingPage() {
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-full max-w-xl aspect-video mb-6 rounded-none overflow-hidden border border-border/40">
-        <iframe
-          className="w-full h-full"
-          src={EINVOICE_TUTORIAL_VIDEO_URL}
-          title="Generate E-Invoice tutorial"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+      <div className="w-full max-w-xl aspect-video mb-6 border border-border/60 bg-muted/30 flex flex-col items-center justify-center gap-4">
+        <div className="flex h-14 w-14 items-center justify-center border border-border bg-background">
+          <Clock3 className="h-7 w-7 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+          <p className="font-mono text-[12px] uppercase tracking-[0.2em] text-muted-foreground">Tutorial</p>
+          <p className="text-2xl font-medium tracking-[-0.04em] text-foreground">Coming Soon</p>
+        </div>
       </div>
       <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground mb-3">Generate E-Invoice in less than 10 seconds</h2>
       <p className="text-sm text-emerald-500 max-w-md mb-6">
@@ -175,7 +172,7 @@ export default function EInvoicingPage() {
             <h1 className={SALES_PAGE_TITLE_CLASS}>
               E-Invoicing
             </h1>
-            <PlayCircle className="w-8 h-8 text-[#e3e3e3]" />
+            <Clock3 className="w-8 h-8 text-muted-foreground" />
           </div>
           {isConnected ? (
             <Badge className="rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none text-emerald-500">
@@ -248,13 +245,13 @@ export default function EInvoicingPage() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Amount</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Status</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Invoice #</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Ack No.</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Customer</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3] border-r last:border-0 border-border/10">Date/Created Time</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#e3e3e3]">Actions</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Amount</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Status</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Invoice #</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Ack No.</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Date/Created Time</TableHead>
+                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/30">

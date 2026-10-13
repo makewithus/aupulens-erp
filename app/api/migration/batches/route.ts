@@ -7,7 +7,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import { MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
 import {
   normalizeSourceSystem,
-  prepareMigrationFiles,
+  prepareMigrationPackage,
 } from "@/lib/migration/package";
 import { MIGRATION_SOURCE_SYSTEM, type MigrationSourceSystem } from "@/lib/migration/constants";
 
@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
     })),
   );
 
-  let preparedFiles;
+  let preparedPackage;
   try {
-    preparedFiles = prepareMigrationFiles(uploadedFiles, sourceSystem);
+    preparedPackage = prepareMigrationPackage(uploadedFiles, sourceSystem);
   } catch (err) {
     return NextResponse.json(
       {
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
+  const preparedFiles = preparedPackage.files;
   
   const batch = await MigrationBatch.create({
     tenantId: session.user.tenantId,
@@ -120,8 +121,15 @@ export async function POST(req: NextRequest) {
     totalRecords += fileData.rows.length;
   }
 
-  batch.totalFiles = preparedFiles.length;
-  batch.totalRecords = totalRecords;
+  batch.totalFiles = preparedPackage.sourceFileCount || preparedFiles.length;
+  batch.totalRecords = preparedPackage.sourceRecordCount || totalRecords;
+  batch.totalModules = preparedPackage.importableFileCount;
+  batch.summary = {
+    ...(batch.summary || {}),
+    sourceRecords: preparedPackage.sourceRecordCount,
+    importableRecords: preparedPackage.importableRecordCount,
+    ignoredRecords: Math.max(0, preparedPackage.sourceRecordCount - preparedPackage.importableRecordCount),
+  };
   batch.status = "mapping"; // ready for user mapping
   await batch.save();
 

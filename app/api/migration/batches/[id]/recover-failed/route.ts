@@ -30,11 +30,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       : null;
 
     if (existing && conflict) {
-      record.status = "valid";
-      record.duplicateReason = undefined;
-      record.duplicateFields = [];
-      record.duplicateTargetId = undefined;
-      record.duplicateAction = undefined;
+      record.status = "duplicate";
+      record.duplicateReason = "database";
+      record.duplicateFields = conflict.fields;
+      record.duplicateTargetId = (existing as any)._id;
+      record.duplicateAction = "update";
       record.errors = [] as any;
       retryCount += 1;
     } else {

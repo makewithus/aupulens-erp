@@ -48,7 +48,7 @@ const CUSTOMER_SCHEMA: EntitySchema = {
   dedupeKeys: ["gstin", "email", "name"],
   fields: [
     { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacycustomerid", "legacy customer id", "customercode", "customer code", "code"] },
-    { key: "name", label: "Name / Company", required: true, aliases: ["name", "customer", "party", "companyname", "company", "ledgername", "account name"], validate: "nonEmpty" },
+    { key: "name", label: "Name / Company", required: true, aliases: ["customer_name", "customername", "customer name", "name", "customer", "party", "companyname", "company", "ledgername", "account name"], validate: "nonEmpty" },
     { key: "displayName", label: "Display Name", required: false, aliases: ["displayname", "display name", "shortname", "alias"] },
     { key: "email", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
     { key: "phone", label: "Phone", required: false, aliases: ["phone", "telephone", "landline", "contact"], validate: "phone" },
@@ -70,8 +70,8 @@ const VENDOR_SCHEMA: EntitySchema = {
   label: "Vendors",
   dedupeKeys: ["gstin", "contactEmail", "name"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyvendorid", "legacy vendor id", "vendorcode", "vendor code", "code"] },
-    { key: "name", label: "Vendor Name", required: true, aliases: ["name", "vendor", "supplier", "party", "companyname", "ledgername"], validate: "nonEmpty" },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["vendor_id", "vendorid", "vendor id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyvendorid", "legacy vendor id", "vendorcode", "vendor code", "code"] },
+    { key: "name", label: "Vendor Name", required: true, aliases: ["vendor_name", "vendorname", "vendor name", "name", "vendor", "supplier", "party", "companyname", "ledgername"], validate: "nonEmpty" },
     { key: "category", label: "Category", required: false, aliases: ["category", "type", "group", "vendortype"] },
     { key: "contactEmail", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
     { key: "phone", label: "Phone", required: false, aliases: ["phone", "mobile", "contact", "telephone"], validate: "phone" },
@@ -85,7 +85,7 @@ const PRODUCT_SCHEMA: EntitySchema = {
   label: "Products",
   dedupeKeys: ["sku"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyproductid", "legacy product id", "productcode", "product code", "productid", "product id"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["stock_movement_id", "stockmovementid", "stock movement id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyproductid", "legacy product id", "productcode", "product code", "productid", "product id"] },
     { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "productname", "product name", "item", "itemname", "description", "particulars"], validate: "nonEmpty" },
     { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "item code", "default_code", "partno", "productcode", "product code", "productid", "product id"] },
     { key: "category", label: "Category", required: false, aliases: ["category", "productcategory", "product category", "categ", "group"] },
@@ -108,7 +108,7 @@ const SALES_ORDER_SCHEMA: EntitySchema = {
   dedupeKeys: ["number"],
   fields: [
     { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "salesorderid", "sales order id", "orderid", "order id"] },
-    { key: "number", label: "Sales Order Number", required: true, aliases: ["salesorderno", "sales order no", "salesordernumber", "sales order number", "orderno", "order no", "orderref", "order ref"], validate: "nonEmpty" },
+    { key: "number", label: "Sales Order Number", required: true, aliases: ["salesorderno", "sales order no", "salesordernumber", "sales order number", "order_id", "orderid", "orderno", "order no", "orderref", "order ref"], validate: "nonEmpty" },
     { key: "customerName", label: "Customer Name / Code", required: true, aliases: ["customer", "customername", "customer name", "customercode", "customer code", "client", "buyer"], validate: "nonEmpty" },
     { key: "orderDate", label: "Order Date", required: true, aliases: ["date", "orderdate", "order date", "salesorderdate", "sales order date"], validate: "date" },
     { key: "totalAmount", label: "Order Total", required: false, aliases: ["total", "amount", "ordertotal", "order total", "grandtotal"], validate: "number" },
@@ -139,8 +139,8 @@ const SALES_INVOICE_SCHEMA: EntitySchema = {
   dedupeKeys: ["number"],
   fields: [
     { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyinvoiceid", "legacy invoice id"] },
-    { key: "number", label: "Invoice Number", required: true, aliases: ["invoicenumber", "invno", "invoiceno", "invoice no", "docnum", "voucherno", "legacyinvoiceid", "legacy invoice id"], validate: "nonEmpty" },
-    { key: "customerName", label: "Customer Name", required: true, aliases: ["customer", "party", "buyer", "client", "customerlegacyid", "customer legacy id"], validate: "nonEmpty" },
+    { key: "number", label: "Invoice Number", required: true, aliases: ["invoice_id", "invoiceid", "invoice id", "invoicenumber", "invoice number", "invno", "invoiceno", "invoice no", "docnum", "voucherno", "external_reference", "external reference", "legacyinvoiceid", "legacy invoice id"], validate: "nonEmpty" },
+    { key: "customerName", label: "Customer Name", required: true, aliases: ["customer_id", "customerid", "customer id", "customer", "customername", "customer name", "party", "buyer", "client", "customerlegacyid", "customer legacy id"], validate: "nonEmpty" },
     { key: "invoiceDate", label: "Invoice Date", required: true, aliases: ["date", "invoicedate", "docdate"], validate: "date" },
     { key: "totalAmount", label: "Total Amount", required: false, aliases: ["total", "amount", "netamount", "grandtotal"], validate: "number" },
   ],
@@ -168,11 +168,11 @@ const PURCHASE_INVOICE_SCHEMA: EntitySchema = {
   label: "Purchase Invoices",
   dedupeKeys: ["number", "vendorName"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacybillid", "legacy bill id", "legacypurchaseinvoiceid", "legacy purchase invoice id"] },
-    { key: "number", label: "Bill / Invoice Number", required: true, aliases: ["billno", "invoicenumber", "invno", "invoiceno", "invoice no", "docnum", "voucherno"], validate: "nonEmpty" },
-    { key: "vendorName", label: "Vendor Name", required: true, aliases: ["vendor", "supplier", "party", "creditor"], validate: "nonEmpty" },
-    { key: "invoiceDate", label: "Bill Date", required: true, aliases: ["date", "billdate", "docdate"], validate: "date" },
-    { key: "totalAmount", label: "Total Amount", required: true, aliases: ["total", "amount", "netamount", "grandtotal"], validate: "number" },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["bill_id", "billid", "bill id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacybillid", "legacy bill id", "legacypurchaseinvoiceid", "legacy purchase invoice id"] },
+    { key: "number", label: "Bill / Invoice Number", required: true, aliases: ["bill_id", "billid", "bill id", "billno", "invoice_id", "invoiceid", "invoice id", "invoicenumber", "invoice number", "invno", "invoiceno", "invoice no", "docnum", "voucherno"], validate: "nonEmpty" },
+    { key: "vendorName", label: "Vendor Name", required: true, aliases: ["vendor_id", "vendorid", "vendor id", "vendor", "supplier", "party", "creditor"], validate: "nonEmpty" },
+    { key: "invoiceDate", label: "Bill Date", required: true, aliases: ["bill_date", "billdate", "bill date", "date", "docdate"], validate: "date" },
+    { key: "totalAmount", label: "Total Amount", required: true, aliases: ["total_inr", "totalinr", "total inr", "total", "amount", "netamount", "grandtotal"], validate: "number" },
   ],
 };
 
@@ -181,12 +181,12 @@ const PAYMENT_SCHEMA: EntitySchema = {
   label: "Payments / Receipts",
   dedupeKeys: ["reference"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacypaymentid", "legacy payment id", "paymentref", "payment ref"] },
-    { key: "type", label: "Type (Payment/Receipt)", required: false, aliases: ["type", "vouchertype", "paymentdirection", "payment direction", "paymentmode", "payment mode", "mode", "receipt"] },
-    { key: "partyName", label: "Party Name", required: false, aliases: ["party", "customer", "vendor", "account", "customercode", "customer code", "customerlegacyid", "customer legacy id", "vendorlegacyid", "vendor legacy id"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["receipt_id", "receiptid", "receipt id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacypaymentid", "legacy payment id", "paymentref", "payment ref"] },
+    { key: "type", label: "Type (Payment/Receipt)", required: false, aliases: ["payment_method", "paymentmethod", "payment method", "type", "vouchertype", "paymentdirection", "payment direction", "paymentmode", "payment mode", "mode", "receipt"] },
+    { key: "partyName", label: "Party Name", required: false, aliases: ["customer_id", "customerid", "customer id", "party", "customer", "vendor", "account", "customercode", "customer code", "customerlegacyid", "customer legacy id", "vendorlegacyid", "vendor legacy id"] },
     { key: "invoiceSourceId", label: "Invoice Number / ID", required: false, aliases: ["invoicenumber", "invoice number", "invoiceno", "invoice no", "invoice_id", "invoicelegacyid", "invoice legacy id"] },
-    { key: "amount", label: "Amount", required: true, aliases: ["amount", "value", "total"], validate: "number" },
-    { key: "date", label: "Date", required: true, aliases: ["date", "paymentdate", "receiptdate"], validate: "date" },
+    { key: "amount", label: "Amount", required: true, aliases: ["amount_inr", "amountinr", "amount inr", "amount", "value", "total"], validate: "number" },
+    { key: "date", label: "Date", required: true, aliases: ["receipt_date", "receiptdate", "receipt date", "date", "paymentdate"], validate: "date" },
     { key: "reference", label: "Reference / Cheque No", required: false, aliases: ["ref", "reference", "referenceno", "reference no", "cheque", "utr", "legacypaymentid", "legacy payment id"] },
   ],
 };

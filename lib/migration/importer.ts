@@ -50,6 +50,27 @@ function entityStatusFromText(value: string | undefined): string {
   return ENTITY_STATUS.ACTIVE;
 }
 
+function accountGroupsFromText(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (!normalized) {
+    return { account_type: "off_balance", internal_group: "off_balance" };
+  }
+
+  if (/receivable|debtor/.test(normalized)) return { account_type: "asset_receivable", internal_group: "asset" };
+  if (/cash|bank/.test(normalized)) return { account_type: "asset_cash", internal_group: "asset" };
+  if (/fixed/.test(normalized)) return { account_type: "asset_fixed", internal_group: "asset" };
+  if (/asset/.test(normalized)) return { account_type: "asset_current", internal_group: "asset" };
+  if (/payable|creditor/.test(normalized)) return { account_type: "liability_payable", internal_group: "liability" };
+  if (/credit card/.test(normalized)) return { account_type: "liability_credit_card", internal_group: "liability" };
+  if (/liabil/.test(normalized)) return { account_type: "liability_current", internal_group: "liability" };
+  if (/equity|capital|retained/.test(normalized)) return { account_type: "equity", internal_group: "equity" };
+  if (/income|revenue|sales/.test(normalized)) return { account_type: "income", internal_group: "income" };
+  if (/direct cost|cogs|cost of goods/.test(normalized)) return { account_type: "expense_direct_cost", internal_group: "expense" };
+  if (/depreciation/.test(normalized)) return { account_type: "expense_depreciation", internal_group: "expense" };
+  if (/expense|cost/.test(normalized)) return { account_type: "expense", internal_group: "expense" };
+  return { account_type: "off_balance", internal_group: "off_balance" };
+}
+
 function splitName(firstName: string, lastName: string): { firstName: string; lastName: string } {
   if (lastName || !firstName.includes(" ")) {
     return { firstName, lastName: lastName || "-" };
@@ -171,10 +192,11 @@ const HANDLERS: Record<string, EntityHandler> = {
           : [],
     }),
     existingFilter: (rec, tenantId) => {
-      if (rec.gstin) return { tenantId, gstin: rec.gstin.toUpperCase() };
-      if (rec.email) return { tenantId, "contact_details.email": rec.email.toLowerCase() };
-      if (rec.name) return { tenantId, "header.name": rec.name };
-      return null;
+      const clauses = [];
+      if (rec.gstin) clauses.push({ gstin: rec.gstin.toUpperCase() });
+      if (rec.email) clauses.push({ "contact_details.email": rec.email.toLowerCase() });
+      if (rec.name) clauses.push({ "header.name": rec.name });
+      return clauses.length ? { tenantId, $or: clauses } : null;
     },
   },
 
@@ -191,10 +213,11 @@ const HANDLERS: Record<string, EntityHandler> = {
       address: rec.address || undefined,
     }),
     existingFilter: (rec, tenantId) => {
-      if (rec.gstin) return { tenantId, gstin: rec.gstin.toUpperCase() };
-      if (rec.contactEmail) return { tenantId, contactEmail: rec.contactEmail };
-      if (rec.name) return { tenantId, name: rec.name };
-      return null;
+      const clauses = [];
+      if (rec.gstin) clauses.push({ gstin: rec.gstin.toUpperCase() });
+      if (rec.contactEmail) clauses.push({ contactEmail: rec.contactEmail });
+      if (rec.name) clauses.push({ name: rec.name });
+      return clauses.length ? { tenantId, $or: clauses } : null;
     },
   },
 
@@ -235,14 +258,23 @@ const HANDLERS: Record<string, EntityHandler> = {
       };
     },
     existingFilter: (rec, tenantId) => {
-      if (rec.sku) return { tenantId, "tab_general_information.default_code": rec.sku };
-      if (rec.name) return { tenantId, "header.name": rec.name };
-      return null;
+      const clauses = [];
+      if (rec.sku) clauses.push({ "tab_general_information.default_code": rec.sku });
+      if (rec.name) clauses.push({ "header.name": rec.name });
+      return clauses.length ? { tenantId, $or: clauses } : null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
-      if (rec.sku) return { filter: { tenantId, "tab_general_information.default_code": rec.sku }, fields: ["sku"] };
-      if (rec.name) return { filter: { tenantId, "header.name": rec.name }, fields: ["name"] };
-      return null;
+      const clauses = [];
+      const fields = [];
+      if (rec.sku) {
+        clauses.push({ "tab_general_information.default_code": rec.sku });
+        fields.push("sku");
+      }
+      if (rec.name) {
+        clauses.push({ "header.name": rec.name });
+        fields.push("name");
+      }
+      return clauses.length ? { filter: { tenantId, $or: clauses }, fields } : null;
     },
   },
 
@@ -479,14 +511,27 @@ const HANDLERS: Record<string, EntityHandler> = {
       };
     },
     existingFilter: (rec, tenantId) => {
-      if (rec.sourceId) return { tenantId, paymentNumber: rec.sourceId };
-      if (rec.reference) return { tenantId, paymentNumber: rec.reference };
-      return null;
+      const clauses = [];
+      if (rec.sourceId) clauses.push({ paymentNumber: rec.sourceId });
+      if (rec.reference) {
+        clauses.push({ paymentNumber: rec.reference });
+        clauses.push({ reference: rec.reference });
+      }
+      return clauses.length ? { tenantId, $or: clauses } : null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
-      if (rec.sourceId) return { filter: { tenantId, paymentNumber: rec.sourceId }, fields: ["sourceId"] };
-      if (rec.reference) return { filter: { tenantId, paymentNumber: rec.reference }, fields: ["reference"] };
-      return null;
+      const clauses = [];
+      const fields = [];
+      if (rec.sourceId) {
+        clauses.push({ paymentNumber: rec.sourceId });
+        fields.push("sourceId");
+      }
+      if (rec.reference) {
+        clauses.push({ paymentNumber: rec.reference });
+        clauses.push({ reference: rec.reference });
+        fields.push("reference");
+      }
+      return clauses.length ? { filter: { tenantId, $or: clauses }, fields } : null;
     },
   },
 
@@ -516,17 +561,29 @@ const HANDLERS: Record<string, EntityHandler> = {
   [MIGRATION_ENTITY.ACCOUNT]: {
     modelName: "Account",
     model: Account,
-    transform: async (rec, ctx) => ({
-      tenantId: ctx.tenantId,
-      accountName: rec.accountName,
-      accountCode: rec.accountCode || undefined,
-      internal_group: rec.accountType || undefined,
-      createdBy: new mongoose.Types.ObjectId(ctx.userId),
-    }),
+    transform: async (rec, ctx) => {
+      const groups = accountGroupsFromText(rec.accountType);
+      return {
+        tenantId: ctx.tenantId,
+        accountName: rec.accountName,
+        accountCode: rec.accountCode || undefined,
+        name: rec.accountName,
+        code: rec.accountCode || undefined,
+        account_type: groups.account_type,
+        internal_group: groups.internal_group,
+        isActive: true,
+        status: "active",
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+      };
+    },
     existingFilter: (rec, tenantId) => {
-      if (rec.accountName) return { tenantId, accountName: rec.accountName };
-      if (rec.accountCode) return { tenantId, accountCode: rec.accountCode };
-      return null;
+      const clauses = [];
+      if (rec.accountName) clauses.push({ accountName: rec.accountName });
+      if (rec.accountCode) {
+        clauses.push({ accountCode: rec.accountCode });
+        clauses.push({ code: rec.accountCode });
+      }
+      return clauses.length ? { tenantId, $or: clauses } : null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
       const clauses = [];
@@ -537,6 +594,7 @@ const HANDLERS: Record<string, EntityHandler> = {
       }
       if (rec.accountCode) {
         clauses.push({ accountCode: rec.accountCode });
+        clauses.push({ code: rec.accountCode });
         fields.push("accountCode");
       }
       return clauses.length ? { filter: { tenantId, $or: clauses }, fields } : null;

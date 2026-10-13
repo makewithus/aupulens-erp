@@ -36,10 +36,11 @@ export function deterministicMapping(
     for (const col of normCols) {
       if (used.has(col.raw)) continue;
       let score = 0;
-      for (const a of aliasNorms) {
-        if (col.norm === a) score = Math.max(score, 100);
-        else if (col.norm.includes(a) && a.length >= 3) score = Math.max(score, 70);
-        else if (a.includes(col.norm) && col.norm.length >= 3) score = Math.max(score, 60);
+      for (const [aliasIndex, a] of aliasNorms.entries()) {
+        const priority = Math.max(0, 99 - aliasIndex);
+        if (col.norm === a) score = Math.max(score, 1000 + priority);
+        else if (col.norm.includes(a) && a.length >= 3) score = Math.max(score, 700 + priority);
+        else if (a.includes(col.norm) && col.norm.length >= 3) score = Math.max(score, 600 + priority);
       }
       if (score > bestScore) {
         bestScore = score;

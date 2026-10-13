@@ -634,14 +634,14 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             <Table className="w-full text-sm">
               <TableHeader className="border-border/40">
                 <TableRow>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-12">#</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-[32%]">Product Name</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-28">HSN</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-20">Quantity</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-28">Unit Price</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-24">Tax %</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-32">Discount</TableHead>
-                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[#e3e3e3] w-28 text-right">Total</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-12">#</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-[32%]">Product Name</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-28">HSN</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-20">Quantity</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-28">Unit Price</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-24">Tax %</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-32">Discount</TableHead>
+                  <TableHead className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground w-28 text-right">Total</TableHead>
                   <TableHead className="px-4 py-3 font-medium w-12" />
                 </TableRow>
               </TableHeader>

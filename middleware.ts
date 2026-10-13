@@ -502,6 +502,8 @@ export const config = {
     "/admin/:path*",
     "/finance/:path*",
     "/sales/:path*",
+    "/crm/:path*",
+    "/api/crm/:path*",
     "/inventory/:path*",
     "/manufacturing/:path*",
     "/hr/:path*",

@@ -106,8 +106,16 @@ const HSN_SAC_DATA: HsnSacRecord[] = [
   }
 ];
 
-// Lazy load the huge datasets
+// Lazy load and in-memory index for the dataset
 let _masterHsnSac: HsnSacRecord[] | null = null;
+let _lowerDescs: string[] = [];
+let _codeMap: Map<string, HsnSacRecord[]> = new Map();
+let _tokenInvertedIndex: Map<string, number[]> = new Map();
+
+// Bounded LRU cache for search results (max 500 entries)
+const MAX_CACHE_ENTRIES = 500;
+const _searchCache = new Map<string, RankedHsnSacRecord[]>();
+
 function getMasterData(): HsnSacRecord[] {
   if (_masterHsnSac) return _masterHsnSac;
   try {
@@ -130,15 +138,47 @@ function getMasterData(): HsnSacRecord[] {
         _masterHsnSac.push(legacy);
       }
     }
+
+    // Build indexes for fast lookups
+    _codeMap = new Map();
+    _tokenInvertedIndex = new Map();
+    _lowerDescs = new Array(_masterHsnSac.length);
+
+    for (let i = 0; i < _masterHsnSac.length; i++) {
+      const item = _masterHsnSac[i];
+      const lower = item.description.toLowerCase();
+      _lowerDescs[i] = lower;
+
+      // Code map
+      const existing = _codeMap.get(item.code);
+      if (existing) {
+        existing.push(item);
+      } else {
+        _codeMap.set(item.code, [item]);
+      }
+
+      // Token inverted index
+      const itemTokens = new Set([...tokenize(lower), item.code.toLowerCase()]);
+      for (const t of itemTokens) {
+        const list = _tokenInvertedIndex.get(t);
+        if (list) {
+          list.push(i);
+        } else {
+          _tokenInvertedIndex.set(t, [i]);
+        }
+      }
+    }
   } catch (e) {
     console.error("Failed to load master_hsn_sac.json", e);
     _masterHsnSac = [];
+    _lowerDescs = [];
+    _codeMap = new Map();
+    _tokenInvertedIndex = new Map();
   }
   return _masterHsnSac;
 }
 
-function scoreRecord(record: HsnSacRecord, tokens: string[]): RankedHsnSacRecord {
-  const desc = record.description.toLowerCase();
+function scoreRecordWithIndex(record: HsnSacRecord, lowerDesc: string, tokens: string[]): RankedHsnSacRecord {
   const matchedTokens: string[] = [];
   let score = 0;
   for (const token of tokens) {
@@ -148,12 +188,16 @@ function scoreRecord(record: HsnSacRecord, tokens: string[]): RankedHsnSacRecord
     } else if (/^\d+$/.test(token) && token.length >= 4 && record.code.includes(token)) {
       score += 20;
       matchedTokens.push(token);
-    } else if (desc.includes(token)) {
+    } else if (lowerDesc.includes(token)) {
       score += token.length >= 5 ? 5 : 2;
       matchedTokens.push(token);
     }
   }
   return { ...record, score, matchedTokens: Array.from(new Set(matchedTokens)) };
+}
+
+function scoreRecord(record: HsnSacRecord, tokens: string[]): RankedHsnSacRecord {
+  return scoreRecordWithIndex(record, record.description.toLowerCase(), tokens);
 }
 
 function applyRateRules(candidate: RankedHsnSacRecord): RankedHsnSacRecord {
@@ -184,28 +228,78 @@ function applyRateRules(candidate: RankedHsnSacRecord): RankedHsnSacRecord {
 }
 
 export function searchHsnSac(query: string, type?: "goods" | "service"): RankedHsnSacRecord[] {
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = query.toLowerCase().trim();
   const tokens = tokenize(normalizedQuery);
   if (tokens.length === 0) return [];
+
+  // Check bounded cache
+  const cacheKey = `${type || "all"}:${normalizedQuery}`;
+  const cached = _searchCache.get(cacheKey);
+  if (cached) return cached;
   
   const allData = getMasterData();
   
-  const scored = allData.map((item) => {
-    if (type && item.type !== type) return null;
-    return scoreRecord(item, tokens);
-  }).filter((item): item is RankedHsnSacRecord => !!item && item.score > 0);
+  // Fast candidate discovery via token inverted index
+  const candidateIndices = new Set<number>();
+  for (const token of tokens) {
+    const directMatches = _tokenInvertedIndex.get(token);
+    if (directMatches) {
+      for (const idx of directMatches) candidateIndices.add(idx);
+    }
+    // For numeric tokens >= 4, check code substrings
+    if (/^\d+$/.test(token) && token.length >= 4) {
+      for (const [code, items] of _codeMap.entries()) {
+        if (code.includes(token)) {
+          for (const item of items) {
+            const idx = allData.indexOf(item);
+            if (idx >= 0) candidateIndices.add(idx);
+          }
+        }
+      }
+    }
+  }
+
+  // If candidate index found matches, score only candidates
+  let scored: RankedHsnSacRecord[];
+  if (candidateIndices.size > 0) {
+    scored = [];
+    for (const idx of candidateIndices) {
+      const item = allData[idx];
+      if (type && item.type !== type) continue;
+      const sr = scoreRecordWithIndex(item, _lowerDescs[idx], tokens);
+      if (sr.score > 0) scored.push(sr);
+    }
+  } else {
+    // Fallback full scan if tokens don't match index (e.g. partial substrings)
+    scored = allData.map((item, idx) => {
+      if (type && item.type !== type) return null;
+      return scoreRecordWithIndex(item, _lowerDescs[idx], tokens);
+    }).filter((item): item is RankedHsnSacRecord => !!item && item.score > 0);
+  }
   
   scored.sort((a, b) => b.score - a.score || b.code.length - a.code.length);
   
-  return scored.slice(0, 10).map(applyRateRules);
+  const result = scored.slice(0, 10).map(applyRateRules);
+
+  // Store in bounded cache
+  if (_searchCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = _searchCache.keys().next().value;
+    if (oldestKey) _searchCache.delete(oldestKey);
+  }
+  _searchCache.set(cacheKey, result);
+
+  return result;
 }
 
 export function findHsnSacReference(code: string, type?: "goods" | "service"): RankedHsnSacRecord | undefined {
   const normalized = String(code || "").trim();
-  const allData = getMasterData();
-  const exact = allData.find((record) => record.code === normalized && (!type || record.type === type));
-  if (exact) {
-    return applyRateRules({ ...exact, score: 100, matchedTokens: [normalized] });
+  getMasterData();
+  const candidates = _codeMap.get(normalized);
+  if (candidates && candidates.length > 0) {
+    const exact = candidates.find((record) => !type || record.type === type);
+    if (exact) {
+      return applyRateRules({ ...exact, score: 100, matchedTokens: [normalized] });
+    }
   }
   return undefined;
 }

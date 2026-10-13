@@ -1,10 +1,16 @@
 "use client";
 
-export function UsersGraph() {
+import { cn } from "@/lib/utils";
+
+interface UsersGraphProps {
+  className?: string;
+}
+
+export function UsersGraph({ className }: UsersGraphProps = {}) {
   return (
     <svg
       viewBox="0 0 140 140"
-      className="h-28 w-28 opacity-20"
+      className={cn("h-28 w-28 opacity-20", className)}
       fill="none"
     >
       <g stroke="currentColor" strokeWidth="1">
