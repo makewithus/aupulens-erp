@@ -44,6 +44,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: process.env.ELECTRON_BUILD === "true" ? "export" : undefined,
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  experimental: {
+    middlewareClientMaxBodySize: "100mb",
+  },
 
   // Keep these Node-only document parsers OUT of the webpack server bundle.
   // Bundling pdf-parse (pdf.js) / mammoth mangles their module init and throws

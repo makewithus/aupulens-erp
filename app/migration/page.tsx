@@ -34,11 +34,40 @@ const SOURCE_SYSTEMS = [
   { value: "other", label: "Other" },
 ];
 
+const UPLOAD_CHUNK_BYTES = 700 * 1024;
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const blockSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += blockSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + blockSize));
+  }
+  return btoa(binary);
+}
+
+async function postMigrationUpload(payload: Record<string, unknown>) {
+  const res = await fetch("/api/migration/batches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.success === false) {
+    const message = res.status === 413
+      ? "This migration upload is too large for a single request. Please try again; Aupulens will upload it in smaller parts."
+      : json.message || "Upload failed";
+    throw new Error(message);
+  }
+  return json;
+}
+
 export default function MigrationCenterPage() {
   const { data: session, status } = useSession();
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   
   const [files, setFiles] = useState<File[]>([]);
   const [sourceSystem, setSourceSystem] = useState("tally");
@@ -64,21 +93,57 @@ export default function MigrationCenterPage() {
   const createBatch = async () => {
     if (files.length === 0) return toast.error("Choose at least one file or a ZIP to upload");
     setBusy(true);
+    setUploadProgress(0);
+    const uploadId = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     try {
-      const fd = new FormData();
-      fd.append("sourceSystem", sourceSystem);
-      files.forEach(f => fd.append("files", f));
-      
-      const res = await fetch("/api/migration/batches", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!json.success) return toast.error(json.message || "Upload failed");
+      const fileMeta = files.map((file) => ({
+        name: file.name,
+        size: file.size,
+        totalChunks: Math.max(1, Math.ceil(file.size / UPLOAD_CHUNK_BYTES)),
+      }));
+      const totalChunks = fileMeta.reduce((sum, file) => sum + file.totalChunks, 0);
+      let uploadedChunks = 0;
+
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+        const file = files[fileIndex];
+        const totalFileChunks = fileMeta[fileIndex].totalChunks;
+        for (let chunkIndex = 0; chunkIndex < totalFileChunks; chunkIndex += 1) {
+          const start = chunkIndex * UPLOAD_CHUNK_BYTES;
+          const end = Math.min(file.size, start + UPLOAD_CHUNK_BYTES);
+          const bytes = new Uint8Array(await file.slice(start, end).arrayBuffer());
+          await postMigrationUpload({
+            action: "uploadChunk",
+            uploadId,
+            sourceSystem,
+            fileIndex,
+            fileName: file.name,
+            chunkIndex,
+            totalChunks: totalFileChunks,
+            byteLength: bytes.byteLength,
+            data: bytesToBase64(bytes),
+          });
+          uploadedChunks += 1;
+          setUploadProgress(Math.round((uploadedChunks / Math.max(totalChunks, 1)) * 100));
+        }
+      }
+
+      const json = await postMigrationUpload({
+        action: "finalizeUpload",
+        uploadId,
+        sourceSystem,
+        files: fileMeta,
+      });
       
       toast.success(`Created migration batch with ${json.data.totalRecords} records`);
       router.push(`/migration/${json.data._id}`);
-    } catch {
-      toast.error("Upload failed");
+    } catch (error) {
+      await postMigrationUpload({ action: "abortUpload", uploadId }).catch(() => {});
+      toast.error(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setBusy(false);
+      setUploadProgress(0);
     }
   };
 
@@ -167,7 +232,7 @@ export default function MigrationCenterPage() {
             className="mt-4 inline-flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 text-sm font-medium disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} 
-            Upload & Start Analysis
+            {busy ? `Uploading ${uploadProgress}%` : "Upload & Start Analysis"}
           </button>
         </div>
 

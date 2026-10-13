@@ -48,6 +48,9 @@ export function friendlyError(raw: unknown, fallback = "Something went wrong. Pl
   msg = (msg || "").trim();
   if (!msg) return fallback;
 
+  if (/\b413\b|payload too large|request entity too large|content too large/i.test(msg)) {
+    return "This upload is too large for a single request. Aupulens will upload migration files in smaller parts.";
+  }
   if (/Failed to fetch|NetworkError|Load failed|fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(msg)) {
     return "We couldn't reach the server. Please check your internet connection and try again.";
   }
