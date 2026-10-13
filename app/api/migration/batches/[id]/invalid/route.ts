@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationJob from "@/models/admin/MigrationJob";
 import MigrationBatch from "@/models/admin/MigrationBatch";
+import { moveDuplicateWriteErrorsToReview } from "@/lib/migration/duplicateReview";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session?.user?.tenantId) return NextResponse.json({ success: false }, { status: 401 });
 
   await dbConnect();
+  await moveDuplicateWriteErrorsToReview(id, session.user.tenantId);
   
   const invalid = await MigrationRecord.find({ 
     batchId: id, 

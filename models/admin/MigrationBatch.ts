@@ -28,6 +28,21 @@ export interface IMigrationBatch extends Document {
     duplicate?: number;
     migrated?: number;
     failed?: number;
+    sourceRecords?: number;
+    importableRecords?: number;
+    ignoredRecords?: number;
+    verification?: {
+      sourceVsTarget?: Array<{
+        entity: string;
+        sourceCount: number;
+        targetCount: number;
+        actualTargetCount?: number;
+        failedCount: number;
+        orphanCount: number;
+        status: "PASS" | "FAIL";
+      }>;
+      status?: "PASS" | "FAIL";
+    };
   };
   errors?: any;
   warnings?: { message: string; code?: string }[];

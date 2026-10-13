@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, XCircle, Save, X, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2, XCircle, Save, X, Sparkles } from "lucide-react";
+
+function recordHasDuplicateError(record: any) {
+  return Array.isArray(record?.errors)
+    && record.errors.some((error: any) => /duplicate record|duplicate key|E11000|already exists|found while writing data/i.test(String(error?.message || "")));
+}
 
 export function InvalidRecordsEditor({
   batchId,
@@ -119,15 +124,17 @@ export function InvalidRecordsEditor({
         <h3 className="text-rose-800 font-semibold flex items-center gap-2">
           <XCircle className="w-5 h-5" /> Invalid Records Detected
         </h3>
-        <button
-          type="button"
-          onClick={() => handleAiFix()}
-          disabled={!!aiFixing || submitting}
-          className="inline-flex items-center gap-1 rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {aiFixing === "all" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          Fix All
-        </button>
+        {invalidRecords.some((record) => !recordHasDuplicateError(record)) && (
+          <button
+            type="button"
+            onClick={() => handleAiFix()}
+            disabled={!!aiFixing || submitting}
+            className="inline-flex items-center gap-1 rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {aiFixing === "all" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Fix All
+          </button>
+        )}
       </div>
       <p className="text-rose-900 text-sm mb-4">
         The following records have validation errors (missing required fields or unresolved references). Please fix them to proceed.
@@ -141,6 +148,7 @@ export function InvalidRecordsEditor({
         {invalidRecords.map(record => {
           const rowFixing = aiFixing === record._id;
           const bulkFixing = aiFixing === "all";
+          const duplicateError = recordHasDuplicateError(record);
           return (
           <div key={record._id} className={`bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-3 transition-opacity ${rowFixing ? "opacity-80" : ""}`}>
             <div className="flex items-center justify-between">
@@ -149,14 +157,16 @@ export function InvalidRecordsEditor({
               </div>
               {editingId !== record._id && (
                 <div className="flex flex-wrap justify-end gap-2">
-                  <button 
-                    onClick={() => handleAiFix(record._id)}
-                    disabled={rowFixing || bulkFixing || submitting}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-rose-700 hover:bg-rose-800 text-white rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {rowFixing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    Fix
-                  </button>
+                  {!duplicateError && (
+                    <button 
+                      onClick={() => handleAiFix(record._id)}
+                      disabled={rowFixing || bulkFixing || submitting}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-rose-700 hover:bg-rose-800 text-white rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {rowFixing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      Fix
+                    </button>
+                  )}
                   <button 
                     onClick={() => handleEdit(record)}
                     disabled={rowFixing || bulkFixing}
@@ -167,6 +177,15 @@ export function InvalidRecordsEditor({
                 </div>
               )}
             </div>
+
+            {duplicateError && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  This is not a field repair. It is a duplicate decision. Refreshing this review will move it to the duplicate-resolution panel where you can merge, force create, or skip it.
+                </div>
+              </div>
+            )}
             
             <div className="max-h-24 overflow-y-auto overscroll-contain text-xs text-rose-600 bg-rose-50/50 p-2 rounded border border-rose-100">
               {record.errors?.map((err: any, i: number) => (
@@ -184,7 +203,7 @@ export function InvalidRecordsEditor({
                         type="text" 
                         value={(value as string) || ""} 
                         onChange={(e) => setEditData({...editData, [key]: e.target.value})}
-                        className="w-full text-sm border rounded px-2 py-1.5 focus:ring-1 focus:ring-emerald-500 outline-none"
+                        className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 caret-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:caret-slate-100"
                       />
                     </div>
                   ))}

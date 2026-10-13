@@ -5,6 +5,7 @@ import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { toCanonicalRecord } from "@/lib/migration/validation";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
+import { migrationErrorsContainDuplicate } from "@/lib/migration/duplicateResolution";
 
 function sourceColumnFor(mapping: Record<string, string>, field: string) {
   return mapping[field];
@@ -264,6 +265,13 @@ async function aiRepairWithTimeout(
 export async function fixMigrationRecordWithAi(batchId: string, tenantId: string, recordId: string) {
   const record = await MigrationRecord.findOne({ _id: recordId, batchId, tenantId });
   if (!record) return { fixed: false, aiUsed: false, message: "Record not found." };
+  if (migrationErrorsContainDuplicate(record.errors)) {
+    return {
+      fixed: false,
+      aiUsed: false,
+      message: "This row is a duplicate decision, not a field repair. Use Merge / Update, Force Create, or Skip in the duplicate review panel.",
+    };
+  }
 
   const [batch, job] = await Promise.all([
     MigrationBatch.findOne({ _id: batchId, tenantId }),
@@ -318,6 +326,13 @@ export async function fixMigrationRecordWithAi(batchId: string, tenantId: string
 export async function fastFixMigrationRecord(batchId: string, tenantId: string, recordId: string) {
   const record = await MigrationRecord.findOne({ _id: recordId, batchId, tenantId });
   if (!record) return { fixed: false, changed: false, message: "Record not found." };
+  if (migrationErrorsContainDuplicate(record.errors)) {
+    return {
+      fixed: false,
+      changed: false,
+      message: "This row is a duplicate decision, not a field repair. Use the duplicate review panel.",
+    };
+  }
 
   const [batch, job] = await Promise.all([
     MigrationBatch.findOne({ _id: batchId, tenantId }),

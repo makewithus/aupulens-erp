@@ -8,6 +8,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import { friendlyMigrationRecordError, summarizeMigrationRow } from "@/lib/migration/friendlyRecordError";
 import { buildMigrationProgress } from "@/lib/migration/progress";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
+import { moveDuplicateWriteErrorsToReview } from "@/lib/migration/duplicateReview";
 
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!batch) {
     return NextResponse.json({ success: false, message: "Migration batch not found. It may have been deleted or belongs to another workspace." }, { status: 404 });
   }
+  await moveDuplicateWriteErrorsToReview(id, session.user.tenantId);
 
   const jobs = await MigrationJob.find({ batchId: id, tenantId: session.user.tenantId }).select("-rows").lean();
   const progress = await buildMigrationProgress(batch, jobs);
