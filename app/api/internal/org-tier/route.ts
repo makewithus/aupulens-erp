@@ -23,21 +23,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "tenantId required" }, { status: 400 });
   }
 
-  await connectDB();
+  try {
+    await connectDB();
 
-  const org = await Organization.findOne(
-    { subdomain: tenantId },
-    { tier: 1, "settings.enabledModules": 1, subscriptionStatus: 1, trialEndDate: 1 }
-  ).lean<{
-    tier?: string;
-    settings?: { enabledModules?: string[] };
-    subscriptionStatus?: string;
-    trialEndDate?: Date;
-  }>();
+    const org = await Organization.findOne(
+      { subdomain: tenantId },
+      { tier: 1, "settings.enabledModules": 1, subscriptionStatus: 1, trialEndDate: 1 }
+    ).lean<{
+      tier?: string;
+      settings?: { enabledModules?: string[] };
+      subscriptionStatus?: string;
+      trialEndDate?: Date;
+    }>();
 
-  if (!org) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    if (!org) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
   // docs/admin/BRIEF-PHASE-9a-ADDENDUM.md Part 1.2's resolution order: an
   // untouched tenant (no OrganizationEntitlement row) never calls
@@ -50,22 +51,33 @@ export async function GET(req: NextRequest) {
   // resolvedModules staying undefined, i.e. the legacy tiers.ts ceiling —
   // resolveEntitlements() has already audited its own error at SECURITY
   // severity by the time it returns that fallback value.
-  let resolvedModules: string[] | undefined;
-  let activeTier = org.tier ?? "starter";
-  const hasEntitlement = await OrganizationEntitlement.exists({ tenantId });
-  if (hasEntitlement) {
-    const resolved = await resolveEntitlements(tenantId);
-    if (resolved.source !== "permissive_default") {
-      resolvedModules = resolved.modules;
-      activeTier = resolved.planKey;
+    let resolvedModules: string[] | undefined;
+    let activeTier = org.tier ?? "starter";
+    const hasEntitlement = await OrganizationEntitlement.exists({ tenantId });
+    if (hasEntitlement) {
+      const resolved = await resolveEntitlements(tenantId);
+      if (resolved.source !== "permissive_default") {
+        resolvedModules = resolved.modules;
+        activeTier = resolved.planKey;
+      }
     }
-  }
 
-  return NextResponse.json({
-    tier: activeTier,
-    enabledModules: org.settings?.enabledModules ?? [],
-    subscriptionStatus: org.subscriptionStatus ?? "trial",
-    trialEndDate: org.trialEndDate ?? null,
-    resolvedModules,
-  });
+    return NextResponse.json({
+      tier: activeTier,
+      enabledModules: org.settings?.enabledModules ?? [],
+      subscriptionStatus: org.subscriptionStatus ?? "trial",
+      trialEndDate: org.trialEndDate ?? null,
+      resolvedModules,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
+  } catch (error) {
+    console.error("[org-tier] database unavailable", error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { error: "Tenant entitlement data is temporarily unavailable." },
+      { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
 }

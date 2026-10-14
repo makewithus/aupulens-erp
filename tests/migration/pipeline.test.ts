@@ -100,7 +100,7 @@ describe("migration package preparation", () => {
     expect(validateRows("vendor", [row], staleMapping).errorCount).toBe(0);
   });
 
-  it("uses SKU as a product-name fallback for stock movement rows misclassified as products", () => {
+  it("does not treat stock movement identifiers or particulars as product master fields", () => {
     const schema = getEntitySchema("product")!;
     const row = {
       stock_movement_id: "STK-000001",
@@ -110,16 +110,13 @@ describe("migration package preparation", () => {
       quantity: "0",
       unit_cost_inr: "5600",
       source_document_id: "INV-000005",
-      product_name: "",
+      particulars: "Payment against BILL-000349-MIG-38d476",
     };
-    const staleMapping = {
-      sourceId: "stock_movement_id",
-      name: "product_name",
-      sku: "sku",
-    };
+    const mapping = deterministicMapping(schema, Object.keys(row));
 
-    expect(toCanonicalRecord(schema, row, staleMapping).name).toBe("SKU-HW-ROUTER");
-    expect(validateRows("product", [row], staleMapping).errorCount).toBe(0);
+    expect(mapping.sourceId).toBeUndefined();
+    expect(mapping.name).toBeUndefined();
+    expect(mapping.sku).toBe("sku");
   });
 
   it("expands valid ZIP packages and rejects unsupported files inside ZIPs", () => {
@@ -140,6 +137,7 @@ describe("migration package preparation", () => {
     expect(inferEntityType("invoice-lines.csv", ["Invoice Number", "Item Name", "Qty", "Rate"])).toBe("invoiceItem");
     expect(inferEntityType("Sales Orders", ["Sales Order No", "Customer Code", "Order Date", "Order Total"])).toBe("salesOrder");
     expect(inferEntityType("Sales Order Lines", ["Sales Order No", "Item Code", "Quantity", "Unit Price"])).toBe("salesOrderLine");
+    expect(inferEntityType("Stock", ["Voucher No", "Date", "Particulars", "Debit", "Credit"])).toBeNull();
     expect(inferEntityType("README", ["Notes"])).toBeNull();
   });
 
@@ -480,6 +478,16 @@ describe("validation.validateRows", () => {
     );
     expect(res.errorCount).toBeGreaterThan(0);
     expect(res.issues.some((i) => /stock quantity cannot be negative/.test(i.message))).toBe(true);
+  });
+
+  it("blocks accounting transactions from being imported as products", () => {
+    const res = validateRows(
+      "product",
+      [{ Particulars: "Monthly depreciation-MIG-38d4ad", Source: "DEP-202603-MIG-38d4ad" }],
+      { name: "Particulars", sourceId: "Source" },
+    );
+    expect(res.errorCount).toBeGreaterThan(0);
+    expect(res.issues.some((i) => /financial\/accounting transaction/.test(i.message))).toBe(true);
   });
 
   it("accepts legacy product type taxonomy without blocking migration", () => {

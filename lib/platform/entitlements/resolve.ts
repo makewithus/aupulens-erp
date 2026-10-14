@@ -22,7 +22,7 @@ interface CacheEntry {
   value: ResolvedEntitlements;
   expiresAt: number;
 }
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 5_000;
 const cache = new Map<string, CacheEntry>();
 
 import { revalidateTag } from "next/cache";

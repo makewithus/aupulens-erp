@@ -85,8 +85,8 @@ const PRODUCT_SCHEMA: EntitySchema = {
   label: "Products",
   dedupeKeys: ["sku"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["stock_movement_id", "stockmovementid", "stock movement id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyproductid", "legacy product id", "productcode", "product code", "productid", "product id"] },
-    { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "productname", "product name", "item", "itemname", "description", "particulars"], validate: "nonEmpty" },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyproductid", "legacy product id", "productcode", "product code", "productid", "product id"] },
+    { key: "name", label: "Product Name", required: true, aliases: ["name", "product", "productname", "product name", "item", "itemname"], validate: "nonEmpty" },
     { key: "sku", label: "SKU / Code", required: false, aliases: ["sku", "code", "itemcode", "item code", "default_code", "partno", "productcode", "product code", "productid", "product id"] },
     { key: "category", label: "Category", required: false, aliases: ["category", "productcategory", "product category", "categ", "group"] },
     { key: "subcategory", label: "Subcategory", required: false, aliases: ["subcategory", "sub category", "subcat"] },

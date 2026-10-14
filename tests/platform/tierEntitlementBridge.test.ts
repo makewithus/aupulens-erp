@@ -98,8 +98,13 @@ describe("isModuleAccessible() — the bridge itself: absent resolvedModules rep
     expect(isModuleAccessible("hr", "starter", [], undefined, ["admin", "finance"])).toBe(false);
   });
 
-  it("trial bypass still wins over resolvedModules, exactly as it wins over the tier ceiling today", () => {
-    expect(isModuleAccessible("finance", "starter", [], "trial", ["admin"])).toBe(true);
+  it("a present resolvedModules list is authoritative even when legacy org settings disagree", () => {
+    expect(isModuleAccessible("crm", "custom", ["admin"], "active", ["admin", "crm"])).toBe(true);
+    expect(isModuleAccessible("inventory", "custom", ["admin", "inventory"], "active", ["admin", "crm"])).toBe(false);
+  });
+
+  it("trial bypass applies only to untouched legacy tenants, not assigned entitlements", () => {
+    expect(isModuleAccessible("finance", "starter", [], "trial", ["admin"])).toBe(false);
   });
 });
 

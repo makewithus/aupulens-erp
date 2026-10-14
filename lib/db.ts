@@ -21,6 +21,40 @@ if (!globalThis.mongoose) {
   globalThis.mongoose = cached;
 }
 
+const connectionOptions = {
+  bufferCommands: false,
+  // Keep the pool modest for local development and serverless invocations.
+  maxPoolSize: 20,
+  minPoolSize: 1,
+  serverSelectionTimeoutMS: 15_000,
+  connectTimeoutMS: 15_000,
+  socketTimeoutMS: 45_000,
+  heartbeatFrequencyMS: 10_000,
+  family: 4,
+};
+
+function isTransientConnectionError(error: unknown): boolean {
+  const name = error instanceof Error ? error.name : "";
+  return [
+    "MongoNetworkError",
+    "MongoNetworkTimeoutError",
+    "MongoServerSelectionError",
+  ].includes(name);
+}
+
+async function connectWithRetry(): Promise<typeof mongoose> {
+  try {
+    return await mongoose.connect(MONGODB_URI, connectionOptions);
+  } catch (error) {
+    if (!isTransientConnectionError(error)) throw error;
+
+    // Atlas connections can occasionally lose a TLS handshake during network
+    // changes. Retry one time only; persistent failures still surface quickly.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return mongoose.connect(MONGODB_URI, connectionOptions);
+  }
+}
+
 async function connectDB() {
   await import("@/lib/dbModels");
   if (cached.conn) {
@@ -28,20 +62,7 @@ async function connectDB() {
   }
 
   if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-      // Connection pool — keep up to 20 connections warm for fast concurrent requests
-      maxPoolSize: 20,
-      minPoolSize: 1,
-      // Generous timeout for cloud Atlas clusters & cold start compilations
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
-      socketTimeoutMS: 45000,
-      heartbeatFrequencyMS: 10000,
-      family: 4, // Force IPv4 to prevent Node.js IPv6 resolution hangs
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => m);
+    cached.promise = connectWithRetry();
   }
 
   try {

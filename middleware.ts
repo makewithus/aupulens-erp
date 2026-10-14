@@ -29,7 +29,13 @@ async function fetchOrgModuleData(tenantId: string, origin: string): Promise<Org
     const secret = process.env.MIDDLEWARE_INTERNAL_SECRET;
     const res = await fetch(
       `${origin}/api/internal/org-tier?tenantId=${encodeURIComponent(tenantId)}`,
-      { headers: secret ? { "x-middleware-secret": secret } : {} },
+      {
+        cache: "no-store",
+        headers: {
+          ...(secret ? { "x-middleware-secret": secret } : {}),
+          "x-entitlement-check": "fresh",
+        },
+      },
     );
     if (!res.ok) return null;
     return (await res.json()) as OrgModuleInfo;

@@ -194,6 +194,11 @@ describe("isModuleAccessible — org settings intersection", () => {
     expect(isModuleAccessible("hr", "starter", [])).toBe(true);
     expect(isModuleAccessible("finance", "starter", [])).toBe(false);
   });
+
+  it("resolved entitlements override stale org settings", () => {
+    expect(isModuleAccessible("crm", "custom", ["admin"], "active", ["admin", "crm"])).toBe(true);
+    expect(isModuleAccessible("inventory", "custom", ["admin", "inventory"], "active", ["admin", "crm"])).toBe(false);
+  });
 });
 
 // ── isModuleAccessible — active trial bypasses the tier ceiling ───────────────

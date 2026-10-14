@@ -19,6 +19,7 @@ import { NetProfitCard } from "@/components/admin/NetProfitCard";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
 import { BusinessHealthCard, BusinessHealthCardSkeleton } from "@/components/dashboard/BusinessHealthCard";
 import { cachedFetch } from "@/lib/api/cachedFetch";
+import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardSummary {
   finance: {
@@ -64,6 +65,8 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
+  const visibleModules = enabledModulesLoaded ? (enabledModules ?? ["admin"]) : ["admin"];
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -280,21 +283,26 @@ export default function AdminDashboard() {
           formatCurrency={formatCurrency}
           revenueIndicator={revenueIndicator}
           ordersIndicator={ordersIndicator}
+          enabledModules={visibleModules}
         />
 
         <DashboardCharts
           summary={summary}
           formatCurrency={formatCurrency}
+          enabledModules={visibleModules}
         />
 
-        <NetProfitCard
-          summary={summary}
-          formatCurrency={formatCurrency}
-        />
+        {visibleModules.includes("finance") && (
+          <NetProfitCard
+            summary={summary}
+            formatCurrency={formatCurrency}
+          />
+        )}
 
         <DashboardMetrics
           summary={summary}
           formatCurrency={formatCurrency}
+          enabledModules={visibleModules}
         />
       </div>
     </DashboardLayout>

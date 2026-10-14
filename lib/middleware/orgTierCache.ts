@@ -29,8 +29,8 @@ import type { OrgModuleInfo } from "@/lib/middleware/moduleGate";
  */
 export type OrgTierFetcher = (tenantId: string, origin: string) => Promise<OrgModuleInfo | null>;
 
-const DEFAULT_FRESH_MS = 5 * 60_000;
-const DEFAULT_STALE_MS = 30 * 60_000;
+const DEFAULT_FRESH_MS = 5_000;
+const DEFAULT_STALE_MS = 15_000;
 
 export function createOrgTierCache(
   fetcher: OrgTierFetcher,

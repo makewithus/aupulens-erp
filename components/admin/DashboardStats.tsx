@@ -9,6 +9,7 @@ import { StatCard } from "./StatCard";
 interface DashboardStatsProps {
   summary: any;
   formatCurrency: (value: number) => string;
+  enabledModules: readonly string[];
   revenueIndicator: {
     icon: typeof ArrowUp;
     bg: string;
@@ -24,13 +25,15 @@ interface DashboardStatsProps {
 export function DashboardStats({
   summary,
   formatCurrency,
+  enabledModules,
   revenueIndicator,
   ordersIndicator,
 }: DashboardStatsProps) {
+  const has = (module: string) => enabledModules.includes(module);
+
   return (
     <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
-      {/* Revenue */}
-      <StatCard
+      {has("finance") && <StatCard
         title="Revenue"
         value={formatCurrency(summary.finance.totalRevenue)}
         subtitle={`${formatCurrency(summary.finance.revenueCurrentMonth)} this month`}
@@ -55,10 +58,9 @@ export function DashboardStats({
             </div>
           ) : null
         }
-      />
+      />}
 
-      {/* Orders */}
-      <StatCard
+      {has("sales") && <StatCard
         title="Orders"
         value={summary.sales.totalOrders}
         subtitle={`${summary.sales.ordersCurrentMonth} this month`}
@@ -70,35 +72,31 @@ export function DashboardStats({
             {Math.abs(summary.sales.ordersChange).toFixed(1)}%
           </div>
         }
-      />
+      />}
 
-      {/* Customers */}
-      <StatCard
+      {has("sales") && <StatCard
         title="Customers"
         value={summary.sales.totalCustomers}
         subtitle={`+${summary.sales.newCustomersThisMonth} this month`}
-      />
+      />}
 
-      {/* Products */}
-      <StatCard
+      {has("inventory") && <StatCard
         title="Products"
         value={summary.inventory.totalProducts}
         subtitle={`${summary.inventory.publishedProducts} published · ${summary.inventory.draftProducts} draft`}
-      />
+      />}
 
-      {/* Manufacturing */}
-      <StatCard
+      {has("manufacturing") && <StatCard
         title="Manufacturing"
         value={summary.manufacturing.totalManufacturingOrders}
         subtitle="Production & Assembly"
-      />
+      />}
 
-      {/* Users */}
-      <StatCard
+      {has("admin") && <StatCard
         title="Users"
         value={summary.users.totalUsers}
         subtitle={`${summary.users.activeUsers} active · ${summary.users.inactiveUsers} inactive`}
-      />
+      />}
     </div>
   );
 }

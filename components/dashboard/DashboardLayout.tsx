@@ -1,8 +1,9 @@
 "use client";
 
 import { toast } from "sonner";
-import { ReactNode, useState, useRef, useEffect } from "react";
+import { ReactNode, useMemo, useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { DashboardHeader, BreadcrumbItem } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { AiSidebar } from "./AiSidebar";
@@ -10,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { clearAllStores } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
 import { usePageActionsStore } from "@/store/pageActionsStore";
+import { filterSidebarSections, moduleForHref } from "@/lib/modules/visibility";
+import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -46,7 +49,25 @@ export function DashboardLayout({
   profilePath,
   profileHref,
 }: DashboardLayoutProps) {
-  const sections = sidebarSections || sidebarConfig || [];
+  const configuredSections = sidebarSections || sidebarConfig || [];
+  const pathname = usePathname();
+  const shouldFilterModules = userRole === "admin";
+  const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(shouldFilterModules);
+  const currentModule = moduleForHref(pathname);
+  // During an entitlement refresh, keep the current module's own sidebar in
+  // place. The middleware has already authorized this route, and this avoids
+  // collapsing the shell while the latest Global Admin configuration loads.
+  const modulesForSidebar = shouldFilterModules
+    ? (enabledModulesLoaded ? enabledModules : currentModule ? [currentModule] : ["admin"])
+    : null;
+  const visibleSections = useMemo(
+    () => filterSidebarSections(
+      configuredSections,
+      modulesForSidebar,
+    ),
+    [configuredSections, modulesForSidebar],
+  );
+  const sections = visibleSections;
   const profile = profilePath || profileHref;
   // Pages that live under a shared module `layout.tsx` (this component
   // mounted once, not per-page) can't pass `onRefresh` as a prop — they

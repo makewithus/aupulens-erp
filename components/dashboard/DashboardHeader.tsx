@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Roboto_Mono } from "next/font/google";
 import {
   DollarSign,
@@ -31,7 +31,6 @@ import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { crmSidebarConfig } from "@/config/sidebar/crm";
-import { useTenantStore } from "@/store/useTenantStore";
 import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
 import { HeaderActions } from "./HeaderActions";
@@ -39,6 +38,8 @@ import { GlobalSearch } from "./GlobalSearch";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { ModuleTabs } from "./ModuleTabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { moduleForHref, normalizeModuleKey } from "@/lib/modules/visibility";
+import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 // Master Admin Module Switching
 const MASTER_MODULES = [
@@ -130,10 +131,15 @@ const MODULES = [
   },
   {
     id: "projects",
+    moduleKey: "project",
     title: "Projects",
     href: "/projects",
   },
 ];
+
+function moduleEntitlementKey(module: { id: string; moduleKey?: string }) {
+  return normalizeModuleKey(module.moduleKey ?? module.id) ?? "admin";
+}
 
 interface BreadcrumbItem {
   label: string;
@@ -192,10 +198,11 @@ export function DashboardHeader({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  const { tenantId } = useTenantStore();
-  const { logout, user } = useAuthStore();
+  const { user } = useAuthStore();
   
   const activeUserRole = userRole || user?.role;
+  const shouldFilterModules = activeUserRole === "admin";
+  const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(shouldFilterModules);
 
   const handleSignOut = async () => {
     console.log("[DashboardHeader] Sign out triggered");
@@ -261,20 +268,48 @@ export function DashboardHeader({
 
   const [previewModuleId, setPreviewModuleId] = useState<string | null>(null);
 
+  const visibleModules = useMemo(() => {
+    if (!shouldFilterModules) return MODULES;
+    if (!enabledModulesLoaded || !enabledModules) {
+      const activeModule = moduleForHref(pathname) ?? "admin";
+      return MODULES.filter((module) => moduleEntitlementKey(module) === activeModule);
+    }
+    const filtered = MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
+    return filtered.length ? filtered : MODULES.filter((module) => moduleEntitlementKey(module) === "admin");
+  }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
+
+  const visibleMasterModules = useMemo(() => {
+    if (!shouldFilterModules) return MASTER_MODULES;
+    if (!enabledModulesLoaded || !enabledModules) {
+      const activeModule = moduleForHref(pathname) ?? "admin";
+      return MASTER_MODULES.filter((module) => moduleEntitlementKey(module) === activeModule);
+    }
+    const filtered = MASTER_MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
+    return filtered.length ? filtered : MASTER_MODULES.filter((module) => moduleEntitlementKey(module) === "admin");
+  }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
+
   // Initialize preview module based on dashboardTitle or pathname
   useEffect(() => {
     if (activeUserRole === "master-admin" || activeUserRole === "admin") {
-      const currentMod = MASTER_MODULES.find(
+      const availableModules = visibleMasterModules.length ? visibleMasterModules : MASTER_MODULES;
+      const currentMod = availableModules.find(
         (m) =>
           dashboardTitle?.toLowerCase().includes(m.id) ||
           pathname.includes(`/${m.id}`),
       );
-      setPreviewModuleId(currentMod?.id || "admin");
+      setPreviewModuleId(currentMod?.id || availableModules[0]?.id || "admin");
     }
-  }, [activeUserRole, dashboardTitle, pathname]);
+  }, [activeUserRole, dashboardTitle, pathname, visibleMasterModules]);
+
+  useEffect(() => {
+    if (activeUserRole !== "admin" || !previewModuleId || !visibleMasterModules.length) return;
+    if (!visibleMasterModules.some((module) => module.id === previewModuleId)) {
+      setPreviewModuleId(visibleMasterModules[0].id);
+    }
+  }, [activeUserRole, previewModuleId, visibleMasterModules]);
 
   const currentPreviewConfig =
-    MASTER_MODULES.find((m) => m.id === previewModuleId)?.config ||
+    visibleMasterModules.find((m) => m.id === previewModuleId)?.config ||
     sidebarConfig;
 
   useEffect(() => {
@@ -294,7 +329,7 @@ export function DashboardHeader({
   }, []);
 
   const activeModule =
-  MODULES.find((m) => pathname.startsWith(`/${m.id}`))?.id ??
+  visibleModules.find((m) => pathname.startsWith(`/${m.id}`))?.id ??
   "admin";
 
   return (
@@ -460,7 +495,7 @@ export function DashboardHeader({
             {(activeUserRole === "master-admin" ||
               activeUserRole === "admin") && (
               <ModuleTabs
-                modules={MODULES}
+                modules={visibleModules}
                 activeModule={activeModule}
                 onNavigate={(href) => router.push(href)}
               />
@@ -508,7 +543,7 @@ export function DashboardHeader({
                 Modules
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {MASTER_MODULES.map((m) => (
+                {visibleMasterModules.map((m) => (
                   <button
                     key={m.id}
                     onClick={() => {

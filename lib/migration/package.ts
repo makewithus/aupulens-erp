@@ -161,7 +161,16 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   const name = normalizeHeader(fileName);
   const headers = new Set(columns.map(normalizeHeader));
   const has = (...tokens: string[]) => tokens.some((token) => headers.has(normalizeHeader(token)));
+  const hasHeaderContaining = (...tokens: string[]) =>
+    columns.some((column) => tokens.some((token) => normalizeHeader(column).includes(normalizeHeader(token))));
   const nameHas = (...tokens: string[]) => tokens.some((token) => name.includes(normalizeHeader(token)));
+  const hasStrongProductIdentity = has("item name", "product name", "sku", "item code", "product code", "product id");
+  const hasAccountingTransactionShape =
+    has("voucher no", "voucher number", "journal no", "journal id") ||
+    (has("particulars", "narration", "description") && has("debit", "credit", "amount")) ||
+    (hasHeaderContaining("voucher", "journal", "ledger") && has("date", "transaction date", "posting date"));
+
+  if (hasAccountingTransactionShape && !hasStrongProductIdentity) return null;
 
   if (nameHas("invoiceitem", "invoiceline", "lineitem") || (has("invoice number", "inv no", "voucher no") && has("qty", "quantity") && has("rate", "unit price"))) {
     return MIGRATION_ENTITY.INVOICE_ITEM;
@@ -184,7 +193,7 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   if (nameHas("customer", "debtor", "client") || (has("customer name", "cust name", "company name") && has("email", "email id", "gstin", "gst no"))) {
     return MIGRATION_ENTITY.CUSTOMER;
   }
-  if (nameHas("product", "item", "stock") || has("item name", "product name", "sku", "item code")) {
+  if (nameHas("product", "products", "item", "items") || hasStrongProductIdentity) {
     return MIGRATION_ENTITY.PRODUCT;
   }
   if (nameHas("invoice", "salesinvoice", "sale") || has("invoice number", "inv no", "customer", "buyer")) {

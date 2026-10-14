@@ -74,19 +74,21 @@ export function isPathAllowlisted(pathname: string): boolean {
   );
 }
 
-// Returns true when the module is accessible under BOTH the tier ceiling AND the
+// Returns true when the module is accessible under the current entitlement
+// source. For untouched legacy tenants that means BOTH the tier ceiling AND the
 // org's own settings (org settings can only narrow, never exceed the tier).
+// For tenants with an OrganizationEntitlement row, resolvedModules is the
+// authoritative Central Admin decision and must not be narrowed again by stale
+// legacy org settings.
 //
 // When orgEnabledModules is empty (default for orgs created before Step 5) the
 // org check is skipped and only the tier ceiling applies — migration safety.
 //
-// While an org is on an active trial (subscriptionStatus === "trial"; an
-// EXPIRED trial is already blocked earlier by isSubscriptionBlocked, so by the
-// time we get here a "trial" status always means a live, unexpired trial) the
-// tier ceiling is bypassed entirely — trials get the full product to evaluate,
-// and only narrow down to their picked plan's real module limits once they
-// convert to a paid tier. The org's own enabledModules narrowing still applies
-// during a trial — that's an admin choice, not a monetization restriction.
+// While an untouched legacy org is on an active trial
+// (subscriptionStatus === "trial"; an expired trial is already blocked
+// earlier), the legacy tier ceiling is bypassed. A tenant with a resolved
+// Central Admin entitlement never takes that trial shortcut: its assigned
+// module list remains authoritative from the moment it is configured.
 export function isModuleAccessible(
   moduleName: string,
   tier: OrganizationTier | string | undefined | null,
@@ -94,14 +96,15 @@ export function isModuleAccessible(
   subscriptionStatus?: string,
   resolvedModules?: string[]
 ): boolean {
+  if (resolvedModules) {
+    return (resolvedModules as readonly string[]).includes(moduleName);
+  }
+
   const inOrg = moduleName === "admin" || orgEnabledModules.length === 0 || orgEnabledModules.includes(moduleName);
   if (subscriptionStatus === "trial") return inOrg;
-  // resolvedModules, when present, is an admin's deliberate, audited
-  // entitlement assignment and takes over as the ceiling in place of the
-  // legacy tier lookup (Part 1.2). Omitting it (the default for every
-  // untouched tenant) reproduces today's exact behaviour with no new code
-  // path executed at all.
-  const tierModules = resolvedModules ?? getTierLimits(tier).enabledModules;
+  // Omitting resolvedModules (the default for every untouched tenant)
+  // reproduces the legacy tiers.ts ceiling exactly.
+  const tierModules = getTierLimits(tier).enabledModules;
   const inTier = (tierModules as readonly string[]).includes(moduleName);
   return inTier && inOrg;
 }

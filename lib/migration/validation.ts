@@ -102,7 +102,7 @@ function fallbackSourceValue(
     extraCandidates.push("sku", "SKU", "product_id", "product id", "productid", "item_code", "item code", "itemcode");
   }
   if (entity === "product" && fieldKey === "sourceId") {
-    extraCandidates.push("stock_movement_id", "stock movement id", "stockmovementid", "sku", "SKU");
+    extraCandidates.push("sku", "SKU");
   }
   if (entity === "vendor" && fieldKey === "name") {
     extraCandidates.push("vendor_id", "vendorid", "vendor id");
@@ -261,6 +261,43 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
   }
 
   if (entity === "product") {
+    const name = rec.name.toLowerCase();
+    const sourceId = rec.sourceId.toLowerCase();
+    const hasStrongProductSignal = Boolean(
+      rec.sku ||
+      rec.category ||
+      rec.subcategory ||
+      rec.brand ||
+      rec.stockQuantity ||
+      rec.salesPrice ||
+      rec.cost,
+    );
+    const accountingNameTokens = [
+      "monthly depreciation",
+      "depreciation",
+      "bank service charge",
+      "payment against",
+      "journal",
+      "voucher",
+      "ledger",
+      "opening balance",
+      "closing balance",
+      "round off",
+      "tds",
+      "gst payable",
+      "salary",
+      "rent",
+      "commission",
+      "interest",
+    ];
+    const accountingSourceIdPattern = /^(dep|bank|pay|jrn|jrnl|jv|vch|voucher|mig)[-_]/i;
+    if (
+      (!hasStrongProductSignal && accountingNameTokens.some((token) => name.includes(token))) ||
+      (accountingSourceIdPattern.test(sourceId) && accountingNameTokens.some((token) => name.includes(token)))
+    ) {
+      issues.push("This row looks like a financial/accounting transaction, not a product master. Import it through the appropriate accounting entity instead of Products.");
+    }
+
     const price = Number(rec.salesPrice?.replace(/,/g, ""));
     if (!isNaN(price) && price < 0) {
       issues.push("Product sales price cannot be negative.");

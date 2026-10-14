@@ -19,22 +19,30 @@ export async function GET() {
     return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
   }
 
-  await connectDB();
-  const org = await Organization.findOne({ subdomain: session.user.tenantId })
-    .select("name settings tier")
-    .lean();
-  if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
+  try {
+    await connectDB();
+    const org = await Organization.findOne({ subdomain: session.user.tenantId })
+      .select("name settings tier")
+      .lean();
+    if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
 
-  const entitlements = await resolveEntitlements(session.user.tenantId);
-  return NextResponse.json({
-    success: true,
-    data: {
-      name: org.name,
-      tier: entitlements.planKey || org.tier,
-      settings: { ...(org.settings ?? {}), enabledModules: entitlements.modules },
-      entitlements,
-    },
-  });
+    const entitlements = await resolveEntitlements(session.user.tenantId);
+    return NextResponse.json({
+      success: true,
+      data: {
+        name: org.name,
+        tier: entitlements.planKey || org.tier,
+        settings: { ...(org.settings ?? {}), enabledModules: entitlements.modules },
+        entitlements,
+      },
+    }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  } catch (error) {
+    console.error("[org-settings] database unavailable", error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { success: false, message: "Organization settings are temporarily unavailable." },
+      { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
 }
 
 const EDITABLE_SETTINGS_FIELDS = [

@@ -8,11 +8,13 @@ import { Send, BarChart3, TrendingUp, Sparkles } from "lucide-react";
 interface DashboardChartsProps {
   summary: any;
   formatCurrency: (value: number) => string;
+  enabledModules: readonly string[];
 }
 
 export function DashboardCharts({
   summary,
   formatCurrency,
+  enabledModules,
 }: DashboardChartsProps) {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
@@ -23,11 +25,14 @@ export function DashboardCharts({
 
   const ratio = revenue > 0 ? Math.min(100, (expenses / revenue) * 100) : 0;
   const chartData = summary.chartData || [];
+  const hasFinance = enabledModules.includes("finance");
+  const hasSales = enabledModules.includes("sales");
+
+  if (!hasFinance && !hasSales) return null;
 
   return (
     <div className="grid grid-cols-1 gap-1 lg:grid-cols-3">
-      {/* 1. Financial Health Card */}
-      <ChartCard
+      {hasFinance && <ChartCard
         title="Financial Health"
         subtitle="Revenue · Expenses · Net Income"
       >
@@ -81,27 +86,25 @@ export function DashboardCharts({
             </div>
           </div>
         </div>
-      </ChartCard>
+      </ChartCard>}
 
-      {/* 2. Revenue Trend Canvas */}
-      <ChartCard
+      {hasFinance && <ChartCard
         title="Revenue Trend"
         subtitle="Last 6 months performance"
       >
         <div className="h-[320px] relative w-full">
           <RevenueCanvas data={chartData} formatCurrency={formatCurrency} isDark={isDark} />
         </div>
-      </ChartCard>
+      </ChartCard>}
 
-      {/* 3. Order Activity Canvas */}
-      <ChartCard
+      {hasSales && <ChartCard
         title="Order Activity"
         subtitle="Monthly operational counts"
       >
         <div className="h-[320px] relative w-full">
           <OrdersCanvas data={chartData} isDark={isDark} />
         </div>
-      </ChartCard>
+      </ChartCard>}
     </div>
   );
 }
