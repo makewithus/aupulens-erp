@@ -149,7 +149,7 @@ const SelectContent = React.forwardRef<
         className={cn(
           "p-1",
           position === "popper" &&
-            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+            "max-h-[20rem] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
       >
         <SelectSearchContext.Provider value={term}>{children}</SelectSearchContext.Provider>

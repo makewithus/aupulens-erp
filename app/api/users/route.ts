@@ -6,6 +6,8 @@ import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Employee from "@/models/hr/Employee";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
+import { isRoleEnabledForModules, VALID_USER_ROLES } from "@/lib/admin/roleModules";
 
 export async function GET(req: NextRequest) {
   try {
@@ -137,20 +139,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validRoles = [
-      "admin",
-      "finance",
-      "hr",
-      "sales",
-      "inventory",
-      "project",
-      "manufacturing",
-    ];
-    if (!validRoles.includes(role)) {
+    if (!VALID_USER_ROLES.includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
     await connectDB();
+
+    const entitlements = await resolveEntitlements(tenantId);
+    if (!isRoleEnabledForModules(role, entitlements.modules)) {
+      return NextResponse.json(
+        { error: `The ${role} role is not available on this organization's current plan/modules.` },
+        { status: 403 },
+      );
+    }
 
     // Check for existing user in the same tenant
     const existingUser = await User.findOne({

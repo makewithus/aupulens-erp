@@ -7,7 +7,7 @@
  *   schema fields for potential per-org enterprise overrides (e.g. custom deals),
  *   but they are NOT used for enforcement — this file is authoritative.
  * - enabledModules matches the route-prefix strings guarded in middleware.ts
- *   (admin, finance, hr, sales, inventory, manufacturing, crm).
+ *   (admin, finance, hr, sales, inventory, manufacturing, crm, project).
  *   Step 5 will wire these into middleware for hard-gating.
  */
 
@@ -43,6 +43,7 @@ export const TIER_LIMITS: Readonly<Record<OrganizationTier, TierLimits>> = {
       "finance",
       "sales",
       "crm",
+      "project",
       "manufacturing",
     ],
   },

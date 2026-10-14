@@ -73,6 +73,8 @@ export async function GET(
           dateTo: url.searchParams.get("dateTo") ?? undefined,
           ip: url.searchParams.get("ip") ?? undefined,
           device: url.searchParams.get("device") ?? undefined,
+          action: url.searchParams.get("action") ?? undefined,
+          module: url.searchParams.get("module") ?? undefined,
         });
         break;
       case "audit":

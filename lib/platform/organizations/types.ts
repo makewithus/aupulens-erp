@@ -40,7 +40,7 @@ export interface OrganizationListRow {
  * source of truth — a module absent from either of those two lists would
  * mean something exists here that gates nothing real).
  */
-export const ALL_TENANT_MODULES = ["admin", "finance", "sales", "inventory", "manufacturing", "hr", "crm"] as const;
+export const ALL_TENANT_MODULES = ["admin", "finance", "sales", "inventory", "manufacturing", "hr", "crm", "project"] as const;
 export type TenantModule = (typeof ALL_TENANT_MODULES)[number];
 
 export const LAST_MEANINGFUL_ACTIVITY_DEFINITION =

@@ -153,11 +153,11 @@ export interface OrganizationActivityFilter {
   dateTo?: string;
   ip?: string;
   device?: string;
+  action?: string;
+  module?: string;
 }
 
 export const ACTIVITY_UNAVAILABLE_FILTERS = [
-  { field: "Action", reason: "ActivityLog.activity is a free-text description, not a structured action enum — there is nothing reliable to filter on." },
-  { field: "Module", reason: "ActivityLog has no module field at all (source doc §20's own finding) — inferring one from the free-text activity string would be guessing from prose." },
   { field: "Severity", reason: "ActivityLog has no severity field — severity exists only on the separate PlatformAuditLog (Audit Logs tab)." },
 ] as const;
 
@@ -180,6 +180,8 @@ export async function getOrganizationActivity(
       if (filter.userId) query.userId = filter.userId;
       if (filter.ip) query.ipAddress = filter.ip;
       if (filter.device) query.userAgent = { $regex: filter.device, $options: "i" };
+      if (filter.action) query.activity = { $regex: filter.action, $options: "i" };
+      if (filter.module) query.userRole = filter.module;
       if (filter.dateFrom || filter.dateTo) {
         const range: Record<string, Date> = {};
         if (filter.dateFrom) range.$gte = new Date(filter.dateFrom);
@@ -199,6 +201,7 @@ export async function getOrganizationActivity(
           userName: l.userName,
           userRole: l.userRole,
           ipAddress: l.ipAddress,
+          userAgent: l.userAgent,
           timestamp: l.timestamp.toISOString(),
         })),
       };

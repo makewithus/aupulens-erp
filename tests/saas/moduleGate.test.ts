@@ -157,7 +157,7 @@ describe("isModuleAccessible — enterprise tier", () => {
   it("manufacturing accessible on enterprise", () =>
     expect(isModuleAccessible("manufacturing", "enterprise", orgModules)).toBe(true));
   it("all standard modules accessible on enterprise", () => {
-    const modules = ["admin", "hr", "inventory", "finance", "sales", "crm", "manufacturing"];
+    const modules = ["admin", "hr", "inventory", "finance", "sales", "crm", "project", "manufacturing"];
     for (const mod of modules) {
       expect(isModuleAccessible(mod, "enterprise", orgModules)).toBe(true);
     }
@@ -203,8 +203,8 @@ describe("isModuleAccessible — org settings intersection", () => {
 // once they convert off "trial".
 
 describe("isModuleAccessible — active trial bypasses the tier ceiling", () => {
-  it("finance/sales/crm/manufacturing accessible on starter while trialing", () => {
-    for (const mod of ["finance", "sales", "crm", "manufacturing"]) {
+  it("finance/sales/crm/project/manufacturing accessible on starter while trialing", () => {
+    for (const mod of ["finance", "sales", "crm", "project", "manufacturing"]) {
       expect(isModuleAccessible(mod, "starter", [], "trial")).toBe(true);
     }
   });

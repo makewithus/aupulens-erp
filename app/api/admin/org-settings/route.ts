@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
+import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
 
 /**
  * Real workspace settings read/write (Phase 3) — Organization.settings had
@@ -24,7 +25,16 @@ export async function GET() {
     .lean();
   if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
 
-  return NextResponse.json({ success: true, data: { name: org.name, tier: org.tier, settings: org.settings } });
+  const entitlements = await resolveEntitlements(session.user.tenantId);
+  return NextResponse.json({
+    success: true,
+    data: {
+      name: org.name,
+      tier: entitlements.planKey || org.tier,
+      settings: { ...(org.settings ?? {}), enabledModules: entitlements.modules },
+      entitlements,
+    },
+  });
 }
 
 const EDITABLE_SETTINGS_FIELDS = [

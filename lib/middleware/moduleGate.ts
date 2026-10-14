@@ -38,6 +38,8 @@ const MODULE_PATH_MAP: Array<[prefix: string, module: string]> = [
   ["/hr",                "hr"],
   ["/api/crm",           "crm"],
   ["/crm",               "crm"],
+  ["/api/projects",      "project"],
+  ["/projects",          "project"],
 ];
 
 // Paths that must NEVER be module-gated regardless of tier.

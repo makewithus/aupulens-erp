@@ -24,6 +24,7 @@ import {
   Award,
   AlertCircle,
 } from "lucide-react";
+import { filterRolesByModules } from "@/lib/admin/roleModules";
 
 interface AddUserDialogProps {
   open: boolean;
@@ -42,14 +43,18 @@ export function AddUserDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [departments, setDepartments] = useState<any[]>([]);
+  const [enabledModules, setEnabledModules] = useState<string[]>(["admin"]);
 
   useEffect(() => {
-    fetch("/api/hr/departments")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.items) setDepartments(data.items);
-      })
-      .catch((err) => console.error("Failed to load departments", err));
+    Promise.all([
+      fetch("/api/hr/departments").then((res) => res.json()).catch(() => null),
+      fetch("/api/admin/entitlements").then((res) => res.json()).catch(() => null),
+    ]).then(([departmentData, entitlementData]) => {
+      if (departmentData?.items) setDepartments(departmentData.items);
+      if (entitlementData?.success && Array.isArray(entitlementData.data?.modules)) {
+        setEnabledModules(entitlementData.data.modules);
+      }
+    }).catch((err) => console.error("Failed to load user dialog metadata", err));
   }, []);
   const [formData, setFormData] = useState({
     name: "",
@@ -62,16 +67,8 @@ export function AddUserDialog({
     designation: "",
   });
 
-  const roles = [
-    { value: "admin", label: "Admin" },
-    { value: "master-admin", label: "Master Admin" },
-    { value: "finance", label: "Finance" },
-    { value: "hr", label: "HR" },
-    { value: "sales", label: "Sales" },
-    { value: "inventory", label: "Inventory" },
-    { value: "project", label: "Project" },
-    { value: "manufacturing", label: "Manufacturing" },
-  ];
+  const roles = filterRolesByModules(enabledModules);
+  const allowedRoleValues = new Set(roles.map((role) => role.value));
 
   const generateEmployeeId = (role: string) => {
     const prefixMap: Record<string, string> = {
@@ -90,11 +87,18 @@ export function AddUserDialog({
   };
 
   useEffect(() => {
+    if (!allowedRoleValues.has(formData.role as any)) {
+      setFormData((prev) => ({
+        ...prev,
+        role: roles[0]?.value ?? "admin",
+      }));
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       employeeId: generateEmployeeId(prev.role),
     }));
-  }, [formData.role]);
+  }, [formData.role, enabledModules]);
 
   // AI-native: when the assistant extracted user details, apply them the
   // moment the dialog opens with them — the user still reviews and clicks Create.
@@ -363,6 +367,7 @@ export function AddUserDialog({
                       else if (code.includes('PROJ')) suggestedRole = 'project';
                       else if (code.includes('ADMIN')) suggestedRole = 'admin';
                     }
+                    if (!allowedRoleValues.has(suggestedRole as any)) suggestedRole = formData.role;
                     setFormData({ ...formData, department: value, role: suggestedRole });
                   }}
                   disabled={isLoading}
@@ -372,8 +377,8 @@ export function AddUserDialog({
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept._id} value={dept.name}>
+                    {departments.map((dept, index) => (
+                      <SelectItem key={dept._id ?? dept.name ?? index} value={dept.name}>
                         {dept.name}
                       </SelectItem>
                     ))}

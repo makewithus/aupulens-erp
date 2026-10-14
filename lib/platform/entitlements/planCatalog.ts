@@ -98,7 +98,7 @@ export const PLAN_DEFINITIONS: Record<
     priceMonthly: 19999,
     priceYearly: 199990,
     features: {
-      modules: ["admin", "finance", "sales", "inventory", "crm", "hr", "manufacturing"],
+      modules: ["admin", "finance", "sales", "inventory", "crm", "hr", "project", "manufacturing"],
       maxUsers: 150,
       maxCompanies: 10,
       storageGb: 500,
@@ -115,7 +115,7 @@ export const PLAN_DEFINITIONS: Record<
     priceMonthly: 49999,
     priceYearly: 499990,
     features: {
-      modules: ["admin", "hr", "inventory", "finance", "sales", "crm", "manufacturing"],
+      modules: ["admin", "hr", "inventory", "finance", "sales", "crm", "project", "manufacturing"],
       maxUsers: 100,
       maxCompanies: 50,
       storageGb: 2000,
@@ -134,7 +134,7 @@ export const PLAN_DEFINITIONS: Record<
     isCustom: true,
     basedOnPlanKey: PLAN_KEY.BUSINESS,
     features: {
-      modules: ["admin", "finance", "sales", "inventory", "crm", "hr", "manufacturing"],
+      modules: ["admin", "finance", "sales", "inventory", "crm", "hr", "project", "manufacturing"],
       maxUsers: 150,
       maxCompanies: 10,
       storageGb: 500,

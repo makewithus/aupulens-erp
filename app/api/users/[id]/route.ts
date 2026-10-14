@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import User from '@/models/auth/User';
 import Employee from '@/models/hr/Employee';
+import { resolveEntitlements } from '@/lib/platform/entitlements/resolve';
+import { isRoleEnabledForModules, VALID_USER_ROLES } from '@/lib/admin/roleModules';
 
 export async function PATCH(
   req: NextRequest,
@@ -28,18 +30,18 @@ export async function PATCH(
     delete updateData.tenantId;
     delete updateData._id;
 
-    const validRoles = [
-      'admin',
-      'finance',
-      'hr',
-      'sales',
-      'inventory',
-      'project',
-      'manufacturing',
-    ];
-
-    if (updateData.role && !validRoles.includes(updateData.role)) {
+    if (updateData.role && !VALID_USER_ROLES.includes(updateData.role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    if (updateData.role) {
+      const entitlements = await resolveEntitlements(tenantId);
+      if (!isRoleEnabledForModules(updateData.role, entitlements.modules)) {
+        return NextResponse.json(
+          { error: `The ${updateData.role} role is not available on this organization's current plan/modules.` },
+          { status: 403 },
+        );
+      }
     }
 
     if (updateData.email) {

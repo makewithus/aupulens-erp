@@ -122,7 +122,7 @@ export default function OrganizationDetailPage() {
   const [mlDialogOpen, setMlDialogOpen] = useState(false);
   const [mlReason, setMlReason] = useState("");
   const [configCountryChanged, setConfigCountryChanged] = useState(false);
-  const [activityFilters, setActivityFilters] = useState({ userId: "", dateFrom: "", dateTo: "", ip: "", device: "" });
+  const [activityFilters, setActivityFilters] = useState({ userId: "", dateFrom: "", dateTo: "", ip: "", device: "", action: "", module: "" });
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   async function loadTab(t: string) {
@@ -247,6 +247,23 @@ export default function OrganizationDetailPage() {
     if (body.success) setEntitlements(body.data);
   }
 
+  async function refreshEntitlementViews() {
+    setTabData((prev) => {
+      const next = { ...prev };
+      delete next.overview;
+      delete next.modules;
+      delete next.subscription;
+      delete next.usage;
+      delete next["ai-usage"];
+      return next;
+    });
+    await loadEntitlements();
+    await loadTab("overview");
+    if (tab === "modules") await loadTab("modules");
+    if (tab === "usage") await loadTab("usage");
+    if (tab === "ai-usage") await loadTab("ai-usage");
+  }
+
   async function handleAssignPlan() {
     setSubmitting(true);
     try {
@@ -263,7 +280,7 @@ export default function OrganizationDetailPage() {
       toast.success("Plan assigned successfully.");
       setPlanDialogOpen(false);
       setPlanReason("");
-      await loadEntitlements();
+      await refreshEntitlementViews();
     } finally {
       setSubmitting(false);
     }
@@ -304,7 +321,7 @@ export default function OrganizationDetailPage() {
       }
       toast.success("Override set successfully.");
       setOverrideDialogOpen(false);
-      await loadEntitlements();
+      await refreshEntitlementViews();
     } finally {
       setSubmitting(false);
     }
@@ -325,7 +342,7 @@ export default function OrganizationDetailPage() {
         return;
       }
       toast.success("Override cleared.");
-      await loadEntitlements();
+      await refreshEntitlementViews();
     } finally {
       setSubmitting(false);
     }
@@ -353,9 +370,7 @@ export default function OrganizationDetailPage() {
       }
       toast.success("Modules updated.");
       setModuleDialogOpen(false);
-      delete tabData.modules;
-      delete tabData.subscription;
-      await loadTab("modules");
+      await refreshEntitlementViews();
     } finally {
       setSubmitting(false);
     }
@@ -830,6 +845,36 @@ export default function OrganizationDetailPage() {
                     onChange={(e) => setActivityFilters((f) => ({ ...f, device: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Action</Label>
+                  <Input
+                    className="h-8 w-32"
+                    placeholder="e.g. created"
+                    value={activityFilters.action}
+                    onChange={(e) => setActivityFilters((f) => ({ ...f, action: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs" title="ActivityLog has no first-class module field, so this filters by the acting user's module role.">
+                    Module
+                  </Label>
+                  <Select
+                    value={activityFilters.module || "all"}
+                    onValueChange={(v) => setActivityFilters((f) => ({ ...f, module: v === "all" ? "" : v }))}
+                  >
+                    <SelectTrigger className="h-8 w-32">
+                      <SelectValue placeholder="All modules" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All modules</SelectItem>
+                      {["admin", "finance", "hr", "sales", "inventory", "manufacturing", "project"].map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {(((tabData.activity as any)?.unavailableFilters as { field: string; reason: string }[]) ?? []).map((f) => (
                   <div key={f.field} className="space-y-1">
                     <Label className="text-xs text-neutral-400">{f.field}</Label>
@@ -843,7 +888,7 @@ export default function OrganizationDetailPage() {
 
               <SimpleTable
                 rows={(tabData.activity as any)?.entries ?? []}
-                columns={["activity", "userName", "ipAddress", "timestamp"]}
+                columns={["activity", "userName", "userRole", "ipAddress", "timestamp"]}
                 loading={loading && tab === "activity"}
               />
             </CardContent>

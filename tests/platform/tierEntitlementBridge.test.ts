@@ -15,7 +15,7 @@ let invalidateEntitlementsCache: typeof import("@/lib/platform/entitlements/reso
 let seedPlans: typeof import("@/lib/platform/entitlements/planCatalog").seedPlans;
 let moduleIsEnabled: typeof import("@/lib/platform/entitlements/enforce").moduleIsEnabled;
 
-const ALL_MODULES = ["admin", "hr", "inventory", "finance", "sales", "crm", "manufacturing"];
+const ALL_MODULES = ["admin", "hr", "inventory", "finance", "sales", "crm", "project", "manufacturing"];
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);

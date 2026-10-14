@@ -74,7 +74,7 @@ describe("GET /api/internal/org-tier — resolvedModules bridge", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(new Set(body.resolvedModules)).toEqual(
-      new Set(["admin", "hr", "inventory", "finance", "sales", "crm", "manufacturing"]),
+      new Set(["admin", "hr", "inventory", "finance", "sales", "crm", "project", "manufacturing"]),
     );
   });
 

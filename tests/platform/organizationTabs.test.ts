@@ -354,11 +354,25 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
       expect(result.entries[0].userName).toBe("Alice");
     });
 
-    it("names Action, Module, and Severity as unavailable, each with its own reason — never silently absent", async () => {
+    it("filters by action — a substring match on ActivityLog.activity", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { action: "payment" });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Bob");
+    });
+
+    it("filters by module role where ActivityLog has no first-class module field", async () => {
+      await seedActivity();
+      const result = await getOrganizationActivity(makeActor(), "test", "acme", { module: "admin" });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].userName).toBe("Alice");
+    });
+
+    it("names Severity as unavailable with its own reason — never silently absent", async () => {
       await seedActivity();
       const result = await getOrganizationActivity(makeActor(), "test", "acme");
       const fields = result.unavailableFilters.map((f) => f.field);
-      expect(fields).toEqual(["Action", "Module", "Severity"]);
+      expect(fields).toEqual(["Severity"]);
       expect(result.unavailableFilters.every((f) => f.reason.length > 0)).toBe(true);
     });
 

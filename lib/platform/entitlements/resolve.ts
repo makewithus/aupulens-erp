@@ -80,7 +80,7 @@ export function getLegacyTierForPlanKey(planKey: PlanKeyType): string | null {
 function permissiveDefault(): ResolvedEntitlements {
   return {
     planKey: PLAN_KEY.STARTER,
-    modules: ["admin", "finance", "sales", "inventory", "hr", "manufacturing", "crm"],
+    modules: ["admin", "finance", "sales", "inventory", "hr", "manufacturing", "crm", "project"],
     limits: {
       maxUsers: 999999,
       maxCompanies: 999999,
