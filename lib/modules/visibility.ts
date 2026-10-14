@@ -39,8 +39,8 @@ export function normalizeModuleKey(value: unknown): TenantModuleKey | null {
 export function normalizeModuleList(modules: unknown): TenantModuleKey[] {
   if (!Array.isArray(modules)) return [];
   const seen = new Set<TenantModuleKey>();
-  for (const module of modules) {
-    const key = normalizeModuleKey(module);
+  for (const moduleValue of modules) {
+    const key = normalizeModuleKey(moduleValue);
     if (key) seen.add(key);
   }
   return Array.from(seen);
@@ -73,9 +73,9 @@ export function moduleForHref(href: string | undefined): TenantModuleKey | null 
 }
 
 export function isHrefVisibleForModules(href: string | undefined, enabledModules: readonly string[]): boolean {
-  const module = moduleForHref(href);
-  if (!module) return true;
-  return enabledModules.includes(module);
+  const moduleKey = moduleForHref(href);
+  if (!moduleKey) return true;
+  return enabledModules.includes(moduleKey);
 }
 
 export function filterSidebarSections<T extends { items?: Array<{ href?: string }> }>(
