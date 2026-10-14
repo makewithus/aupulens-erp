@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
+import { getAccessibleModules } from "@/lib/middleware/moduleGate";
 
 /**
  * Real workspace settings read/write (Phase 3) — Organization.settings had
@@ -22,17 +23,23 @@ export async function GET() {
   try {
     await connectDB();
     const org = await Organization.findOne({ subdomain: session.user.tenantId })
-      .select("name settings tier")
+      .select("name settings tier subscriptionStatus")
       .lean();
     if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
 
     const entitlements = await resolveEntitlements(session.user.tenantId);
+    const effectiveModules = getAccessibleModules(
+      org.tier,
+      org.settings?.enabledModules ?? [],
+      org.subscriptionStatus,
+      entitlements.source === "assigned" ? entitlements.modules : undefined,
+    );
     return NextResponse.json({
       success: true,
       data: {
         name: org.name,
         tier: entitlements.planKey || org.tier,
-        settings: { ...(org.settings ?? {}), enabledModules: entitlements.modules },
+        settings: { ...(org.settings ?? {}), enabledModules: effectiveModules },
         entitlements,
       },
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });

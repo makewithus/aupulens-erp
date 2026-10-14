@@ -12,6 +12,7 @@ import {
   getModuleFromPath,
   isPathAllowlisted,
   isModuleAccessible,
+  getAccessibleModules,
   buildGateDeniedResponse,
   applyModuleGating,
   UNGATED_PREFIXES,
@@ -228,6 +229,23 @@ describe("isModuleAccessible — active trial bypasses the tier ceiling", () => 
     expect(isModuleAccessible("finance", "starter", [], "active")).toBe(false);
     expect(isModuleAccessible("finance", "starter", [], undefined)).toBe(false);
     expect(isModuleAccessible("finance", "starter", [], "cancelled")).toBe(false);
+  });
+});
+
+describe("getAccessibleModules — admin navigation matches middleware access", () => {
+  it("includes HR selected for an active trial even if it is outside the legacy tier modules", () => {
+    const modules = getAccessibleModules("starter", ["admin", "hr"], "trial");
+    expect(modules).toContain("hr");
+  });
+
+  it("uses assigned Central Admin modules as the authoritative list", () => {
+    const modules = getAccessibleModules("starter", ["admin", "hr"], "active", ["admin", "finance"]);
+    expect(modules).toEqual(["admin", "finance"]);
+  });
+
+  it("respects both legacy tier limits and org module selections", () => {
+    const modules = getAccessibleModules("starter", ["admin", "inventory"], "active");
+    expect(modules).toEqual(["admin", "inventory"]);
   });
 });
 

@@ -42,6 +42,23 @@ const MODULE_PATH_MAP: Array<[prefix: string, module: string]> = [
   ["/projects",          "project"],
 ];
 
+// Keep admin navigation in sync with the middleware decision. In particular,
+// active trials use the org's selected modules instead of the legacy tier
+// ceiling, while assigned Central Admin entitlements are authoritative.
+export function getAccessibleModules(
+  tier: OrganizationTier | string | undefined | null,
+  orgEnabledModules: string[],
+  subscriptionStatus?: string,
+  resolvedModules?: string[],
+): string[] {
+  const candidates = resolvedModules ?? [
+    "admin", "sales", "inventory", "finance", "manufacturing", "hr", "crm", "project",
+  ];
+  return candidates.filter((moduleName) =>
+    isModuleAccessible(moduleName, tier, orgEnabledModules, subscriptionStatus, resolvedModules),
+  );
+}
+
 // Paths that must NEVER be module-gated regardless of tier.
 // Users need auth, billing, and platform routes to remain accessible so they
 // can authenticate, view their tier, and upgrade when needed.
