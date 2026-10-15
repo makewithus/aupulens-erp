@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Printer } from "lucide-react";
+import { AlertTriangle, Info, Printer } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
 import { StatementSection, TotalBar, formatInr } from "@/components/finance/StatementSection";
 
@@ -20,19 +20,23 @@ export default function BalanceSheetPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [date, setDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
+  // The API chooses today's calendar date in the organization timezone on the
+  // initial load; browser UTC/local dates can differ near midnight.
+  const [date, setDate] = useState<string>("");
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      const query = date ? `?date=${encodeURIComponent(date)}` : "";
       const res = await cachedFetch(
-        `/api/finance/reports/balance-sheet?date=${date}`,
+        `/api/finance/reports/balance-sheet${query}`,
+        undefined,
+        { noCache: true },
       );
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "load failed");
       setData(json);
+      if (!date && json.asOfDate) setDate(json.asOfDate);
     } catch (error) {
       setData(null);
       toast.error("We couldn't load the Balance Sheet. Please try again.");
@@ -65,11 +69,12 @@ export default function BalanceSheetPage() {
     const totalCurrentLiabilities = data.liability?.total || 0;
     const equity = data.equity?.total || 0;
 
+    const reportDate = data.asOfDate || date;
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Balance Sheet - ${date}</title>
+        <title>Balance Sheet - ${reportDate}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @media print {
@@ -86,7 +91,7 @@ export default function BalanceSheetPage() {
                 <p class="text-sm font-medium">Organization: Aupulens</p>
                 <p class="text-sm text-muted-foreground">Generated: ${new Date().toLocaleString()}</p>
               </div>
-              <p class="text-lg font-bold">As of: ${new Date(date).toLocaleDateString()}</p>
+              <p class="text-lg font-bold">As of: ${reportDate} (${data.timeZone || "UTC"})</p>
             </div>
           </div>
 
@@ -203,7 +208,7 @@ export default function BalanceSheetPage() {
               Balance Sheet
             </h1>
             <p className="text-sm text-muted-foreground">
-              Snapshot of assets, liabilities, and equity
+              Snapshot of posted assets, liabilities, and equity as of the selected organization date
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -237,11 +242,49 @@ export default function BalanceSheetPage() {
           </Card>
         ) : (
           <>
+            <div className="text-xs text-muted-foreground" aria-live="polite">
+              As of {data.asOfDate} ({data.timeZone}). {data.latestIncludedPostingDate
+                ? `Latest included posted journal: ${data.latestIncludedPostingDate}.`
+                : "No posted journal entries are available through this date."}
+              {data.postedEntriesIncluded > 0 && data.latestIncludedPostingDate && data.latestIncludedPostingDate < data.asOfDate
+                ? " No later posted entries were found, so the displayed balances reflect the latest ledger activity available."
+                : ""}
+            </div>
             <div className="grid grid-cols-1 gap-px border border-border/40 bg-border/40 md:grid-cols-3">
               <StatCard title="Total Assets" value={formatInr(data.asset?.total)} className="rounded-none bg-background" />
               <StatCard title="Total Liabilities" value={formatInr(data.liability?.total)} className="rounded-none bg-background" />
               <StatCard title="Total Equity" value={formatInr(data.equity?.total)} className="rounded-none bg-background" />
             </div>
+
+            {Array.isArray(data.reviewItems) && data.reviewItems.length > 0 && (
+              <Card className="rounded-none border-amber-500/40 bg-amber-500/5 shadow-none">
+                <CardContent className="space-y-3 p-5">
+                  {(["warning", "info"] as const).map((severity) => {
+                    const items = data.reviewItems.filter((item: { severity: string }) => item.severity === severity);
+                    if (items.length === 0) return null;
+                    const isWarning = severity === "warning";
+                    return (
+                      <section key={severity} aria-label={isWarning ? "Accounting warnings" : "Accounting information"}>
+                        <div className={`mb-2 flex items-center gap-2 text-sm font-semibold ${isWarning ? "text-amber-500" : "text-sky-400"}`}>
+                          {isWarning ? <AlertTriangle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+                          {isWarning ? "Warnings — review before financial sign-off" : "Informational notices"}
+                        </div>
+                        <ul className="space-y-2">
+                          {items.map((item: { code: string; severity: "warning" | "info"; message: string }) => (
+                            <li key={`${item.severity}-${item.code}`} className="flex gap-2 text-sm text-muted-foreground">
+                              {isWarning
+                                ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                                : <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />}
+                              <span>{item.message}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card className="h-fit rounded-none border-border/40 bg-background shadow-none">

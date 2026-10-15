@@ -1,3 +1,4 @@
+import { isValidAiWindowPolicy } from "@/lib/ai/usagePolicy";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -77,6 +78,10 @@ export async function PATCH(req: NextRequest) {
 
   await connectDB();
   const body = await req.json();
+  const policy = body.settings?.ai?.usagePolicy;
+  if (policy !== undefined && policy !== null && !isValidAiWindowPolicy(policy)) {
+    return NextResponse.json({ success: false, message: "Invalid AI usage policy. Supply an explicit timezone, session duration, and request limits; null means unlimited." }, { status: 400 });
+  }
 
   const org = await Organization.findOne({ subdomain: session.user.tenantId });
   if (!org) return NextResponse.json({ success: false, message: "Organization not found" }, { status: 404 });
@@ -102,6 +107,7 @@ export async function PATCH(req: NextRequest) {
   // configuration change, not a destructive/financial action.
   if (body.settings?.ai) {
     org.settings.ai = { ...org.settings.ai, ...body.settings.ai };
+    if (policy === null) org.settings.ai.usagePolicy = undefined;
   }
 
   await org.save();

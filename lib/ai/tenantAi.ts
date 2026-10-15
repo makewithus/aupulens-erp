@@ -21,6 +21,8 @@
  * let the route's existing fallback logic handle them.
  */
 
+import type { AiWindowPolicy } from "@/lib/ai/usagePolicy";
+import { getWindowUsage, incrementWindowUsage } from "@/lib/ai/windowUsage";
 import connectDB from "@/lib/db";
 import Organization from "@/models/admin/Organization";
 import { getTierLimits } from "@/lib/constants/tiers";
@@ -58,6 +60,7 @@ import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/pla
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TenantAiSettings {
+  usagePolicy?: AiWindowPolicy;
   model?: string;
   maxTokensPerCall?: number;
   disabled?: boolean;
@@ -160,7 +163,8 @@ export async function callClaudeForTenant(
     };
   }
 
-  const period = getAiPeriod();
+  const admittedAt = new Date();
+  const period = getAiPeriod(admittedAt);
 
   // (b0) Global platform ceiling — a hard backstop ABOVE the per-tier caps,
   // sized from the trial budget (see PROGRESS.md). Checked first so no tenant,
@@ -199,6 +203,16 @@ export async function callClaudeForTenant(
   }
   if (throttleDelayMs) {
     await new Promise((resolve) => setTimeout(resolve, throttleDelayMs));
+  }
+
+  if (aiSettings.usagePolicy) {
+    const windows = await getWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+    if (Object.values(windows).some(metric => metric.status === "unavailable")) {
+      console.error("[ai-usage] invalid workspace window policy", { tenantId });
+      return { gated: true, code: "AI_DISABLED", error: "Workspace AI quota configuration is unavailable. Contact your administrator." };
+    }
+    const exhausted = Object.entries(windows).find(([, metric]) => metric.status === "exhausted");
+    if (exhausted) return { gated: true, code: "AI_LIMIT_REACHED", error: `${exhausted[0] === "session" ? "Session" : "Weekly"} workspace AI call limit reached. Resets at ${exhausted[1].resetsAt}.`, currentTier: tier, requiredAction: "wait_for_reset" };
   }
 
   // (c)+(d) Resolve model and token limit.
@@ -261,6 +275,7 @@ export async function callClaudeForTenant(
     latencyMs: Date.now() - startedAt,
     status: "success",
   });
+  await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
 
   if (language && langTrace) {
     let extra: ProviderCall[] = [];
@@ -297,7 +312,8 @@ export async function callClaudeForTenantStream(
     return { gated: true, code: "AI_DISABLED", error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them." };
   }
 
-  const period = getAiPeriod();
+  const admittedAt = new Date();
+  const period = getAiPeriod(admittedAt);
 
   const globalCap = getGlobalMonthlyCap();
   const globalCount = await getGlobalAiUsageCount(period);
@@ -317,6 +333,16 @@ export async function callClaudeForTenantStream(
   }
   if (throttleDelayMs) {
     await new Promise((resolve) => setTimeout(resolve, throttleDelayMs));
+  }
+
+  if (aiSettings.usagePolicy) {
+    const windows = await getWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+    if (Object.values(windows).some(metric => metric.status === "unavailable")) {
+      console.error("[ai-usage] invalid workspace window policy", { tenantId });
+      return { gated: true, code: "AI_DISABLED", error: "Workspace AI quota configuration is unavailable. Contact your administrator." };
+    }
+    const exhausted = Object.entries(windows).find(([, metric]) => metric.status === "exhausted");
+    if (exhausted) return { gated: true, code: "AI_LIMIT_REACHED", error: `${exhausted[0] === "session" ? "Session" : "Weekly"} workspace AI call limit reached. Resets at ${exhausted[1].resetsAt}.`, currentTier: tier, requiredAction: "wait_for_reset" };
   }
 
   const { history, feature, language, ...restOpts } = opts;
@@ -364,6 +390,7 @@ export async function callClaudeForTenantStream(
       latencyMs: Date.now() - startedAt,
       status: "success",
     });
+    await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
   }
 
   return { gated: false, stream: gatedStream() };

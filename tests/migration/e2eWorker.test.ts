@@ -1,10 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import fs from "fs";
+import * as xlsx from "xlsx";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { randomUUID } from "node:crypto";
 
-process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_migration_e2e_worker";
+process.env.MONGODB_URI = `mongodb://localhost:27017/ns_migration_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationJob from "@/models/admin/MigrationJob";
@@ -16,12 +18,13 @@ import Stock from "@/models/inventory/Stock";
 import Employee from "@/models/hr/Employee";
 import Department from "@/models/hr/Department";
 import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
 import Vendor from "@/models/admin/Vendor";
 import Invoice from "@/models/finance/Invoice";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import { MIGRATION_ENTITY, MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
-import { processMigrationWorker } from "@/lib/migration/worker";
+import { processMigrationWorker, runWriteReadinessCheck } from "@/lib/migration/worker";
 import { prepareMigrationFiles, prepareMigrationPackage } from "@/lib/migration/package";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
@@ -30,6 +33,8 @@ import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 import { executeImport, rollbackImport } from "@/lib/migration/importer";
 import { getOnHandQuantity } from "@/lib/inventory/stockGuard";
+import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { checkJournalAccountDependencies } from "@/lib/migration/dependencyCheck";
 
 const TENANT = "tenant-migration-e2e";
 const USER_ID = new mongoose.Types.ObjectId();
@@ -91,6 +96,7 @@ describe("migration worker E2E workflow", () => {
     await Stock.init();
     await Employee.init();
     await Account.init();
+    await JournalEntry.init();
     await Vendor.init();
     await Invoice.init();
     await SalesInvoice.init();
@@ -104,6 +110,7 @@ describe("migration worker E2E workflow", () => {
     await Stock.deleteMany({ tenantId: TENANT });
     await Employee.deleteMany({ tenantId: TENANT });
     await Account.deleteMany({ tenantId: TENANT });
+    await JournalEntry.deleteMany({ tenantId: TENANT });
     await Vendor.deleteMany({ tenantId: TENANT });
     await Invoice.deleteMany({ tenantId: TENANT });
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
@@ -125,6 +132,7 @@ describe("migration worker E2E workflow", () => {
     await Stock.deleteMany({ tenantId: TENANT });
     await Employee.deleteMany({ tenantId: TENANT });
     await Account.deleteMany({ tenantId: TENANT });
+    await JournalEntry.deleteMany({ tenantId: TENANT });
     await Vendor.deleteMany({ tenantId: TENANT });
     await Invoice.deleteMany({ tenantId: TENANT });
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
@@ -721,6 +729,8 @@ describe("migration worker E2E workflow", () => {
     await Promise.all(Array.from({ length: 5 }, () => processMigrationWorker(String(batch._id), 50)));
     await runWorkerUntilDone(String(batch._id), 50);
     expect(await Account.countDocuments({ tenantId: TENANT })).toBe(25);
+    expect(await Account.findOne({ tenantId: TENANT, code: "1590" }).select("normal_balance is_contra_account").lean())
+      .toMatchObject({ normal_balance: "credit", is_contra_account: true });
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "migrated" })).toBe(25);
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(0);
     expect(await MigrationIdentityMap.countDocuments({ batchId: batch._id })).toBe(50);
@@ -784,14 +794,17 @@ describe("migration worker E2E workflow", () => {
     expect(refreshedBatch?.summary?.duplicate).toBe(1);
   });
 
-  itIfFile("Northstar_Cloud_5Y_Migration_Test.xlsx")("validates and migrates the Northstar workbook without failed rows", async () => {
+  itIfFile("Northstar_Cloud_5Y_Migration_Test.xlsx").each([false, true])("validates and migrates the Northstar workbook without failed rows (existing account: %s)", async (existingAccount) => {
+    if (existingAccount) {
+      await Account.create({ tenantId: TENANT, accountName: "Depreciation Expense", accountCode: "DEP-OLD", code: "DEP-OLD", name: "Depreciation Expense", account_type: "expense", internal_group: "expense" });
+    }
     const preparedPackage = prepareMigrationPackage(
       [{ name: "Northstar_Cloud_5Y_Migration_Test.xlsx", buffer: fs.readFileSync("Northstar_Cloud_5Y_Migration_Test.xlsx") }],
       "excel",
     );
     const prepared = preparedPackage.files;
     const totalRecords = prepared.reduce((sum, file) => sum + file.rows.length, 0);
-    expect(preparedPackage.importableRecordCount).toBe(860);
+    expect(preparedPackage.importableRecordCount).toBe(2159);
     expect(preparedPackage.sourceRecordCount).toBe(4737);
     expect(prepared.map((file) => [file.entityType, file.rows.length])).toEqual([
       [MIGRATION_ENTITY.ACCOUNT, 25],
@@ -801,6 +814,7 @@ describe("migration worker E2E workflow", () => {
       [MIGRATION_ENTITY.SALES_INVOICE, 215],
       [MIGRATION_ENTITY.PAYMENT, 213],
       [MIGRATION_ENTITY.PURCHASE_INVOICE, 381],
+      [MIGRATION_ENTITY.JOURNAL_ENTRY, 1299],
     ]);
 
     const batch = await MigrationBatch.create({
@@ -860,13 +874,22 @@ describe("migration worker E2E workflow", () => {
       invalid: await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "invalid" }),
       duplicate: await MigrationRecord.countDocuments(unresolvedDuplicateFilter({ batchId: batch._id, tenantId: TENANT })),
     };
-    expect(previewSummary).toEqual({ invalid: 0, duplicate: 0 });
+    const invalidSample = await MigrationRecord.find({ batchId: batch._id, tenantId: TENANT, status: "invalid" }).select("entityType sourceData mappedData errors").limit(3).lean();
+    expect(previewSummary, JSON.stringify(invalidSample)).toEqual({ invalid: 0, duplicate: existingAccount ? 1 : 0 });
+    if (existingAccount) {
+      const account = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.ACCOUNT, "mappedData.accountCode": "6600" });
+      expect(account?.status).toBe("duplicate");
+      expect(account?.duplicateTargetId).toBeDefined();
+      account!.duplicateAction = "update";
+      await account!.save();
+    }
 
     await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 1 } });
     await runWorkerUntilDone(String(batch._id), 500, 50);
 
     const finalBatch = await MigrationBatch.findById(batch._id).lean();
-    expect(finalBatch?.summary?.failed || 0).toBe(0);
+    const failedSample = await MigrationRecord.find({ batchId: batch._id, tenantId: TENANT, status: "failed" }).select("entityType sourceData mappedData errors").limit(5).lean();
+    expect(finalBatch?.summary?.failed || 0, JSON.stringify(failedSample)).toBe(0);
     expect(["completed", "verified"]).toContain(finalBatch?.status);
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "failed" })).toBe(0);
 
@@ -874,8 +897,77 @@ describe("migration worker E2E workflow", () => {
     expect(await Vendor.countDocuments({ tenantId: TENANT })).toBe(7);
     expect(await Product.countDocuments({ tenantId: TENANT })).toBe(7);
     expect(await (SalesInvoice as any).countDocuments({ tenantId: TENANT })).toBe(215);
+    expect(await (SalesInvoice as any).countDocuments({ tenantId: TENANT, number: /^INV-/ })).toBe(215);
+    const salesInvoiceIndexes = await SalesInvoice.collection.indexes();
+    expect(salesInvoiceIndexes.some((index) => index.unique && index.key.tenantId === 1 && index.key.number === 1)).toBe(true);
+    await expect(SalesInvoice.create({
+      tenantId: TENANT,
+      number: "INV-000215",
+      customerId: new mongoose.Types.ObjectId(),
+      invoiceDate: new Date("2026-03-18T00:00:00.000Z"),
+      dueDate: new Date("2026-10-15T00:00:00.000Z"),
+      taxableAmount: 42000,
+      totalAmount: 42000,
+    })).rejects.toMatchObject({ code: 11000 });
+    expect(await (SalesInvoice as any).countDocuments({ tenantId: TENANT })).toBe(215);
     expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(213);
     expect(await Invoice.countDocuments({ tenantId: TENANT, moveType: "in_invoice" })).toBe(381);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT, status: "posted" })).toBe(1299);
+
+    const workbook = xlsx.read(fs.readFileSync("Northstar_Cloud_5Y_Migration_Test.xlsx"), { type: "buffer" });
+    const sourceInvoices = xlsx.utils.sheet_to_json(workbook.Sheets.Invoices, { defval: "" }) as Record<string, any>[];
+    const importedInvoice = await SalesInvoice.findOne({ tenantId: TENANT, number: "INV-000215" }).lean();
+    const sourceInvoice = sourceInvoices.find((row) => row.invoice_id === "INV-000215");
+    expect(importedInvoice?.totalAmount).toBe(Number(sourceInvoice?.total_inr));
+    expect(importedInvoice?.taxableAmount).toBe(Number(sourceInvoice?.subtotal_inr));
+    expect(importedInvoice?.dueDate?.toISOString().slice(0, 10)).toBe(sourceInvoice?.due_date);
+
+    const postedReport = await buildPostedJournalReport({ tenantId: TENANT, endDate: new Date("2026-03-31T00:00:00.000Z") });
+    expect(postedReport.totals.balanced).toBe(true);
+    expect(postedReport.asset.total).not.toBe(0);
+    expect(postedReport.income.total).not.toBe(0);
+    expect(postedReport.asset.total).toBeCloseTo(-25824972, 2);
+    expect(postedReport.liability.total).toBeCloseTo(-4049472, 2);
+    expect(postedReport.income.total - postedReport.expense.total).toBeCloseTo(-24275500, 2);
+    expect(postedReport.equity.total + postedReport.income.total - postedReport.expense.total)
+      .toBeCloseTo(-21775500, 2);
+    expect(Math.abs(postedReport.asset.total - (postedReport.liability.total + postedReport.equity.total + postedReport.income.total - postedReport.expense.total)))
+      .toBeLessThanOrEqual(0.01);
+    expect(postedReport.activity.postedEntryCount).toBe(1299);
+    expect(postedReport.activity.latestPostedDate?.toISOString().slice(0, 10)).toBe("2026-03-31");
+
+    const octoberReport = await buildPostedJournalReport({
+      tenantId: TENANT,
+      endDate: new Date("2026-10-15T00:00:00.000Z"),
+      endDateTimeZone: "Asia/Kolkata",
+    });
+    expect(octoberReport.activity.postedEntryCount).toBe(1299);
+    expect(octoberReport.activity.latestPostedDate?.toISOString().slice(0, 10)).toBe("2026-03-31");
+    expect(octoberReport.asset.total).toBeCloseTo(postedReport.asset.total, 2);
+    expect(octoberReport.liability.total).toBeCloseTo(postedReport.liability.total, 2);
+    const reportAccounts = Object.values(postedReport).flatMap((group: any) => Object.values(group.accounts || {}) as any[]);
+    const sourceBalanceSheet = xlsx.utils.sheet_to_json(workbook.Sheets["Balance Sheet"], { defval: "" }) as Record<string, any>[];
+    for (const row of sourceBalanceSheet.filter((item) => item.as_of_date === "2026-03-31")) {
+      // The source workbook carries cumulative retained earnings as a closing
+      // balance but has no retained-earnings closing journal. The app's
+      // Balance Sheet correctly derives that line from cumulative posted P&L.
+      const actual = String(row.account_code) === "3100"
+        ? postedReport.income.total - postedReport.expense.total
+        : reportAccounts.find((account) => account.code === String(row.account_code))?.amount ?? 0;
+      expect(actual, `balance sheet account ${row.account_code}`).toBeCloseTo(Number(row.balance_inr), 2);
+    }
+    const sourceProfitAndLoss = xlsx.utils.sheet_to_json(workbook.Sheets["P&L Annual"], { defval: "" }) as Record<string, any>[];
+    const fyRows = sourceProfitAndLoss.filter((item) => item.fiscal_year === "FY2025-26");
+    const pAndLReport = await buildPostedJournalReport({
+      tenantId: TENANT,
+      startDate: new Date("2025-04-01T00:00:00.000Z"),
+      endDate: new Date("2026-03-31T00:00:00.000Z"),
+    });
+    for (const row of fyRows) {
+      const group = String(row.account_type).toLowerCase() === "revenue" ? pAndLReport.income : pAndLReport.expense;
+      const actual = group.accounts[String(row.account_code)]?.amount ?? 0;
+      expect(actual, `P&L account ${row.account_code}`).toBeCloseTo(Number(row.amount_inr), 2);
+    }
 
     const receiptSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.PAYMENT)!;
     const linkedReceipts = await Payment.find({ tenantId: TENANT })
@@ -952,7 +1044,7 @@ describe("migration worker E2E workflow", () => {
     );
     expect(duplicateProductRetry.created).toBe(0);
     expect(await Stock.countDocuments({ tenantId: TENANT, migrationSourceKey: { $exists: true } })).toBe(stockCountBeforeRetry);
-  });
+  }, 60_000);
 
   itIfFile("MD_V3.xlsx")("validates the MD_V3 workbook to preview without product taxonomy false errors", async () => {
     const prepared = prepareMigrationFiles(
@@ -1003,6 +1095,207 @@ describe("migration worker E2E workflow", () => {
       "errors.message": /Product type must be one of/i,
     }).lean();
     expect(productTypeErrors).toEqual([]);
+  });
+
+  it.each(["update", "create"] as const)("imports approved %s Accounts before journals across chunk boundaries and preserves source references", async (action) => {
+    const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "running", createdBy: USER_ID, totalFiles: 2, totalRecords: 2, totalModules: 2 });
+    await Account.create({ tenantId: TENANT, accountName: "Revenue", accountCode: "4100", code: "4100", name: "Revenue", account_type: "income", internal_group: "income" });
+    const existing = await Account.create({ tenantId: TENANT, accountName: "Depreciation Expense", accountCode: action === "update" ? "DEP-OLD" : "6600", code: action === "update" ? "DEP-OLD" : "6600", name: "Depreciation Expense", account_type: "expense", internal_group: "expense" });
+    // Insert the journal first, and use a one-row chunk. Sorting a limited
+    // result cannot bring in the later duplicate Account needed by this row.
+    await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv",
+      { journalId: "journal_id", journalDate: "journal_date", status: "status", linesJson: "lines_json" },
+      [{ journal_id: "JE-ORDER", journal_date: "2026-03-31", status: "Posted", lines_json: JSON.stringify([
+        { account_code: "6600", debit_inr: 100, credit_inr: 0 },
+        { account_code: "4100", debit_inr: 0, credit_inr: 100 },
+      ]) }]);
+    await createJobWithRecords(batch._id, MIGRATION_ENTITY.ACCOUNT, "accounts.csv",
+      { accountName: "account_name", accountCode: "account_code", accountType: "account_type" },
+      [{ account_name: "Depreciation Expense", account_code: "6600", account_type: "Expense" }]);
+    const journal = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.JOURNAL_ENTRY });
+    const source = journal!.sourceData as any;
+    journal!.status = "valid";
+    journal!.mappedData = { journalId: source.journal_id, journalDate: source.journal_date, status: source.status, linesJson: source.lines_json };
+    await journal!.save();
+    const account = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.ACCOUNT });
+    account!.status = "duplicate";
+    account!.duplicateAction = action;
+    account!.duplicateTargetId = existing._id as mongoose.Types.ObjectId;
+    account!.mappedData = { accountName: "Depreciation Expense", accountCode: "6600", accountType: "Expense" };
+    await account!.save();
+    expect((await checkJournalAccountDependencies(batch._id, TENANT)).ready).toBe(true);
+    expect(await runWriteReadinessCheck(batch)).toBe(0);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
+
+    await processMigrationWorker(String(batch._id), 1);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
+    expect((await MigrationRecord.findById(account!._id).lean())?.status).toBe("migrated");
+    expect((await MigrationRecord.findById(journal!._id).lean())?.status).toBe("valid");
+    await runWorkerUntilDone(String(batch._id), 1);
+    const targetAccount = await MigrationRecord.findById(account!._id).lean();
+    const targetJournal = await JournalEntry.findOne({ tenantId: TENANT, "header.name": "JE-ORDER" }).lean();
+    expect(String(targetJournal?.lineIds[0]?.accountId)).toBe(String(targetAccount?.targetRecordId));
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(0);
+    if (action === "create") expect(String(targetAccount?.targetRecordId)).not.toBe(String(existing._id));
+  });
+
+  it("validates master references first even when the journal sheet is uploaded first", async () => {
+    const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "validating", createdBy: USER_ID, totalFiles: 2, totalRecords: 3, totalModules: 2 });
+    await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv",
+      { journalId: "journal_id", journalDate: "journal_date", status: "status", linesJson: "lines_json" },
+      [{ journal_id: "JE-REVERSED", journal_date: "2026-03-31", status: "Posted", lines_json: JSON.stringify([
+        { account_code: "6600", debit_inr: 100, credit_inr: 0 },
+        { account_code: "4100", debit_inr: 0, credit_inr: 100 },
+      ]) }]);
+    await createJobWithRecords(batch._id, MIGRATION_ENTITY.ACCOUNT, "accounts.csv",
+      { accountName: "account_name", accountCode: "account_code", accountType: "account_type" },
+      [{ account_name: "Depreciation Expense", account_code: "6600", account_type: "Expense" }, { account_name: "Revenue", account_code: "4100", account_type: "Revenue" }]);
+    await runWorkerUntilDone(String(batch._id), 1);
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "invalid" })).toBe(0);
+    expect(await Account.countDocuments({ tenantId: TENANT })).toBe(0);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
+    // A stale preview cannot authorize changed target data without another
+    // target check. Reject it while all business collections remain untouched.
+    await MigrationRecord.updateOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.JOURNAL_ENTRY }, { $set: { "mappedData.linesJson": JSON.stringify([
+      { account_code: "6600", debit_inr: 101, credit_inr: 0 },
+      { account_code: "4100", debit_inr: 0, credit_inr: 100 },
+    ]) } });
+    expect(await runWriteReadinessCheck(batch)).toBe(1);
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "invalid" })).toBe(1);
+    expect(await Account.countDocuments({ tenantId: TENANT })).toBe(0);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
+  });
+
+  it("blocks journals from relying on skipped account rows and reopens the required account decision", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 2,
+      totalRecords: 2,
+      totalModules: 2,
+    });
+    const accountJobId = new mongoose.Types.ObjectId();
+    const journalJobId = new mongoose.Types.ObjectId();
+    await Account.create({ tenantId: TENANT, accountName: "Sales Revenue", accountCode: "4100", name: "Sales Revenue", code: "4100", account_type: "income", internal_group: "income" });
+    await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: accountJobId,
+      entityType: MIGRATION_ENTITY.ACCOUNT,
+      sourceData: { account_code: "6600", account_name: "Depreciation Expense" },
+      mappedData: { accountCode: "6600", accountName: "Depreciation Expense" },
+      status: "skipped",
+      duplicateAction: "skip",
+    });
+    const journal = await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: journalJobId,
+      entityType: MIGRATION_ENTITY.JOURNAL_ENTRY,
+      sourceData: {},
+      mappedData: {
+        journalId: "JE-SKIPPED-ACCOUNT",
+        linesJson: JSON.stringify([
+          { line_no: 1, account_code: "6600", debit_inr: 100, credit_inr: 0 },
+          { line_no: 2, account_code: "4100", debit_inr: 0, credit_inr: 100 },
+        ]),
+      },
+      status: "invalid",
+      errors: [{ message: "Account code '6600' is present in this batch but its Account row was skipped." }],
+    });
+
+    const firstCheck = await checkJournalAccountDependencies(batch._id, TENANT);
+    expect(firstCheck).toMatchObject({ ready: false, reopenedSkipped: 1, missing: [] });
+    expect((await MigrationRecord.findById(journal._id).lean())?.status).toBe("invalid");
+    const reopenedAccount = await MigrationRecord.findOne({ batchId: batch._id, entityType: MIGRATION_ENTITY.ACCOUNT }).lean();
+    expect(reopenedAccount?.status).toBe("duplicate");
+    expect(reopenedAccount?.duplicateAction).toBeUndefined();
+    expect(reopenedAccount?.errors?.[0]?.message).toMatch(/journal entries require it/i);
+
+    await MigrationRecord.updateOne({ _id: reopenedAccount?._id }, { $set: { duplicateAction: "create" } });
+    await expect(checkJournalAccountDependencies(batch._id, TENANT)).resolves.toMatchObject({ ready: true });
+  });
+
+  it("marks a journal invalid before migration when its account is absent from both workspace and batch", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+    const journal = await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: new mongoose.Types.ObjectId(),
+      entityType: MIGRATION_ENTITY.JOURNAL_ENTRY,
+      sourceData: {},
+      mappedData: {
+        journalId: "JE-MISSING-ACCOUNT",
+        linesJson: JSON.stringify([
+          { line_no: 1, account_code: "6600", debit_inr: 100, credit_inr: 0 },
+          { line_no: 2, account_code: "4100", debit_inr: 0, credit_inr: 100 },
+        ]),
+      },
+      status: "valid",
+    });
+
+    const result = await checkJournalAccountDependencies(batch._id, TENANT);
+    expect(result.ready).toBe(false);
+    expect(result.missing.map((item) => item.code)).toEqual(["6600", "4100"]);
+    const invalid = await MigrationRecord.findById(journal._id).lean();
+    expect(invalid?.status).toBe("invalid");
+    expect(invalid?.errors).toHaveLength(2);
+    expect(invalid?.errors[0].message).toMatch(/before starting migration/i);
+  });
+
+  it("turns a target-side Account write failure into editable review before dependent journals run", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "running",
+      createdBy: USER_ID,
+      totalFiles: 2,
+      totalRecords: 2,
+      totalModules: 2,
+    });
+    await Account.create({ tenantId: TENANT, accountName: "Sales Revenue", accountCode: "4100", name: "Sales Revenue", code: "4100", account_type: "income", internal_group: "income" });
+    const account = await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: new mongoose.Types.ObjectId(),
+      entityType: MIGRATION_ENTITY.ACCOUNT,
+      sourceData: { account_code: "6600", account_name: "Depreciation Expense" },
+      mappedData: { accountCode: "6600", accountName: "Depreciation Expense" },
+      status: "failed",
+      errors: [{ message: "Target account write rejected." }],
+    });
+    const journal = await MigrationRecord.create({
+      tenantId: TENANT,
+      batchId: batch._id,
+      jobId: new mongoose.Types.ObjectId(),
+      entityType: MIGRATION_ENTITY.JOURNAL_ENTRY,
+      sourceData: {},
+      mappedData: {
+        journalId: "JE-FAILED-ACCOUNT",
+        linesJson: JSON.stringify([
+          { line_no: 1, account_code: "6600", debit_inr: 100, credit_inr: 0 },
+          { line_no: 2, account_code: "4100", debit_inr: 0, credit_inr: 100 },
+        ]),
+      },
+      status: "valid",
+    });
+
+    const result = await checkJournalAccountDependencies(batch._id, TENANT);
+    expect(result).toMatchObject({ ready: false, failedAccounts: 1 });
+    expect((await MigrationRecord.findById(account._id).lean())?.status).toBe("invalid");
+    const reviewedJournal = await MigrationRecord.findById(journal._id).lean();
+    expect(reviewedJournal?.status).toBe("invalid");
+    expect(reviewedJournal?.errors?.[0]?.message).toMatch(/not available.*before starting migration/i);
   });
 
   it("revalidates stale invalid product taxonomy rows after automatic fixes", async () => {
@@ -1085,6 +1378,48 @@ describe("migration worker E2E workflow", () => {
     const record = await MigrationRecord.findById(invalid?._id).lean();
     expect(record?.status).toBe("invalid");
     expect(record?.errors?.[0]?.message).toBe("Missing required field: Name / Company");
+  });
+
+  it("revalidates stale journal account import failures through Fix All without calling AI", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT,
+      sourceSystem: "excel",
+      status: "preview",
+      createdBy: USER_ID,
+      totalFiles: 1,
+      totalRecords: 1,
+      totalModules: 1,
+    });
+    const job = await createJobWithRecords(
+      batch._id,
+      MIGRATION_ENTITY.JOURNAL_ENTRY,
+      "Journal Lines.xlsx",
+      { journalId: "journal_id", journalDate: "journal_date", status: "status", linesJson: "lines_json" },
+      [{
+        journal_id: "JE-STALE-ACCOUNT-ERROR",
+        journal_date: "2026-03-31",
+        status: "Posted",
+        lines_json: JSON.stringify([
+          { line_no: 1, account_code: "6600", debit_inr: 100, credit_inr: 0 },
+          { line_no: 2, account_code: "4100", debit_inr: 0, credit_inr: 100 },
+        ]),
+      }],
+    );
+    const record = await MigrationRecord.findOne({ batchId: batch._id, jobId: job._id });
+    await MigrationRecord.updateOne(
+      { _id: record?._id },
+      { $set: { status: "invalid", errors: [{ message: "Missing account code '6600' for journal 'JE-STALE-ACCOUNT-ERROR'." }] } },
+    );
+
+    const { fixMigrationRecordWithAi } = await import("@/lib/migration/aiFix");
+    const result = await fixMigrationRecordWithAi(String(batch._id), TENANT, String(record?._id));
+    expect(result.fixed).toBe(true);
+    expect(result.aiUsed).toBe(false);
+
+    await runWorkerUntilDone(String(batch._id));
+    const refreshed = await MigrationRecord.findById(record?._id).lean();
+    expect(refreshed?.status).toBe("invalid");
+    expect(refreshed?.errors?.[0]?.message).toMatch(/Missing account code '6600'.*before starting migration/i);
   });
 
   it("repairs negative product quantities after an explicit automatic fix", async () => {

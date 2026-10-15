@@ -6,6 +6,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import { getHandler } from "@/lib/migration/importer";
 import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
+import { checkJournalAccountDependencies } from "@/lib/migration/dependencyCheck";
 
 async function refreshDuplicateSummary(batch: any, tenantId: string) {
   const summary = await computeMigrationReviewSummary(batch._id, tenantId);
@@ -91,6 +92,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (action === "skip") {
       await MigrationRecord.updateMany(query, { $unset: { targetRecordId: "" } });
     }
+    const dependencyCheck = action === "skip"
+      ? await checkJournalAccountDependencies(batch._id, session.user.tenantId)
+      : null;
     const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);
     const successMessage =
       action === "update"
@@ -107,7 +111,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       resolvedCount: result.modifiedCount,
       remainingDuplicates,
       message: result.modifiedCount > 0
-        ? successMessage
+        ? (dependencyCheck?.reopenedSkipped
+          ? `${dependencyCheck.reopenedSkipped} skipped account record(s) are required by journal entries and have been returned to duplicate review.`
+          : successMessage)
         : emptyMessage,
     });
   }
@@ -145,6 +151,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     record.targetRecordId = undefined;
   }
   await record.save();
+  const dependencyCheck = resolvedAction === "skip"
+    ? await checkJournalAccountDependencies(batch._id, session.user.tenantId)
+    : null;
   const remainingDuplicates = await refreshDuplicateSummary(batch, session.user.tenantId);
 
   const message =
@@ -153,5 +162,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       : resolvedAction === "create"
         ? "Duplicate marked to be created separately."
         : "Duplicate skipped successfully.";
-  return NextResponse.json({ success: true, remainingDuplicates, message });
+  return NextResponse.json({
+    success: true,
+    remainingDuplicates,
+    message: dependencyCheck?.reopenedSkipped
+      ? `${dependencyCheck.reopenedSkipped} skipped account record(s) are required by journal entries and have been returned to duplicate review.`
+      : message,
+  });
 }

@@ -87,7 +87,7 @@ export default function ReceivablesPage() {
       if (from) params.append('dateFrom', from);
       if (to) params.append('dateTo', to);
 
-      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`, undefined, { noCache: true });
       if (!res.ok) throw new Error('Failed to fetch invoices');
 
       const data = await res.json();
@@ -126,7 +126,7 @@ export default function ReceivablesPage() {
       if (statusF && statusF !== 'all') params.append('status', statusF);
       if (from) params.append('dateFrom', from);
       if (to) params.append('dateTo', to);
-      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`, undefined, { noCache: true });
       if (!res.ok) return;
       const data = await res.json();
       const mapped: Invoice[] = (data.data || []).map((inv: any) => ({

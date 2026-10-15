@@ -1,4 +1,6 @@
 "use client";
+import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 
@@ -87,11 +89,16 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const usageRequestWasActive = useRef(false);
+  useEffect(() => {
+    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
+    usageRequestWasActive.current = isLoading;
+  }, [isLoading]);
   const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast.error(m),
   });
-  const [showHistory, setShowHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -875,6 +882,8 @@ export default function AIAssistant() {
                     )}
                   </Button>
                 </div>
+
+                <AiUsageIndicator />
 
                 {/* Suggested Queries Chips */}
                 {messages.length === 0 && (

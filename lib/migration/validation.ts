@@ -242,8 +242,8 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     if (!isNaN(total) && total < 0) {
       issues.push("Invoice total amount cannot be negative.");
     }
-    if (rec.status && !["draft", "sent", "paid", "cancelled", "overdue"].includes(rec.status.toLowerCase())) {
-      issues.push(`Invalid invoice status: ${rec.status}. Expected one of: draft, sent, paid, cancelled, overdue.`);
+    if (rec.status && !["draft", "open", "posted", "saved", "sent", "partially paid", "partially_paid", "paid", "cancelled", "overdue"].includes(rec.status.toLowerCase())) {
+      issues.push(`Invalid invoice status: ${rec.status}. Expected draft, open, sent, partially paid, paid, cancelled, or overdue.`);
     }
   }
 
@@ -318,6 +318,46 @@ function validateBusinessRules(entity: string, rec: Record<string, string>): str
     const unitPrice = Number(rec.unitPrice?.replace(/,/g, ""));
     if (!isNaN(qty) && qty <= 0) issues.push("Sales order line quantity must be greater than zero.");
     if (!isNaN(unitPrice) && unitPrice < 0) issues.push("Sales order line unit price cannot be negative.");
+  }
+
+  if (entity === "journalEntry") {
+    let lines: any[] = [];
+    try {
+      const parsed = JSON.parse(rec.linesJson || "");
+      if (!Array.isArray(parsed) || parsed.length < 2) {
+        issues.push("Journal entry must contain at least two lines.");
+      } else {
+        lines = parsed;
+      }
+    } catch {
+      issues.push("Journal lines are malformed; expected generated JSON line data.");
+    }
+
+    let debits = 0;
+    let credits = 0;
+    const lineNumbers = new Set<string>();
+    for (const [index, line] of lines.entries()) {
+      const debit = Number(String(line.debit_inr ?? "").replace(/,/g, ""));
+      const credit = Number(String(line.credit_inr ?? "").replace(/,/g, ""));
+      if (!String(line.account_code ?? "").trim()) issues.push(`Journal line ${index + 1} has no account code.`);
+      if (!Number.isFinite(debit) || !Number.isFinite(credit) || debit < 0 || credit < 0 || (debit > 0 && credit > 0) || debit + credit <= 0) {
+        issues.push(`Journal line ${index + 1} must have one non-negative debit or credit amount.`);
+      }
+      if (line.line_no !== undefined && line.line_no !== "") {
+        const lineNo = String(line.line_no);
+        if (lineNumbers.has(lineNo)) issues.push(`Journal line number ${lineNo} is duplicated.`);
+        lineNumbers.add(lineNo);
+      }
+      if (Number.isFinite(debit) && debit >= 0) debits += debit;
+      if (Number.isFinite(credit) && credit >= 0) credits += credit;
+    }
+    if (lines.length >= 2 && Math.abs(debits - credits) > 0.01) {
+      issues.push(`Journal entry is out of balance (debits ${debits.toFixed(2)}, credits ${credits.toFixed(2)}).`);
+    }
+    const normalizedStatus = rec.status?.trim().toLowerCase();
+    if (normalizedStatus && !["posted", "draft", "cancelled"].includes(normalizedStatus)) {
+      issues.push(`Unsupported journal status: ${rec.status}. Expected Posted, Draft, or Cancelled.`);
+    }
   }
 
   return issues;

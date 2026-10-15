@@ -1,4 +1,6 @@
 "use client";
+import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 
@@ -48,6 +50,11 @@ export default function HRAIAssistantPage() {
   });
   const { attachments, addFiles, removeAttachment, handlePaste, fileInputRef, clear: clearAttachments } = useChatAttachments({ onError: (m) => toast.error(m) });
   const [isLoading, setIsLoading] = useState(false);
+  const usageRequestWasActive = useRef(false);
+  useEffect(() => {
+    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
+    usageRequestWasActive.current = isLoading;
+  }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -440,6 +447,7 @@ export default function HRAIAssistantPage() {
                 <Send className="h-4 w-4" />
               </Button>
             </form>
+            <AiUsageIndicator />
           </div>
         </div>
       </div>

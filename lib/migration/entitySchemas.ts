@@ -152,7 +152,13 @@ const SALES_INVOICE_SCHEMA: EntitySchema = {
     { key: "number", label: "Invoice Number", required: true, aliases: ["invoice_id", "invoiceid", "invoice id", "invoicenumber", "invoice number", "invno", "invoiceno", "invoice no", "docnum", "voucherno", "external_reference", "external reference", "legacyinvoiceid", "legacy invoice id"], validate: "nonEmpty" },
     { key: "customerName", label: "Customer Name", required: true, aliases: ["customer_id", "customerid", "customer id", "customer", "customername", "customer name", "party", "buyer", "client", "customerlegacyid", "customer legacy id"], validate: "nonEmpty" },
     { key: "invoiceDate", label: "Invoice Date", required: true, aliases: ["date", "invoicedate", "docdate"], validate: "date" },
-    { key: "totalAmount", label: "Total Amount", required: false, aliases: ["total", "amount", "netamount", "grandtotal"], validate: "number" },
+    { key: "dueDate", label: "Due Date", required: false, aliases: ["due_date", "due date", "duedate"], validate: "date" },
+    { key: "currency", label: "Currency", required: false, aliases: ["currency", "currency code"] },
+    { key: "subtotalAmount", label: "Subtotal", required: false, aliases: ["subtotal_inr", "subtotal inr", "subtotal", "taxable amount"], validate: "number" },
+    { key: "taxAmount", label: "Tax Amount", required: false, aliases: ["tax_inr", "tax inr", "tax amount"], validate: "number" },
+    { key: "totalAmount", label: "Total Amount", required: false, aliases: ["total_inr", "total inr", "total", "amount", "netamount", "grandtotal"], validate: "number" },
+    { key: "status", label: "Status", required: false, aliases: ["status", "invoice status"] },
+    { key: "reference", label: "External Reference", required: false, aliases: ["external_reference", "external reference", "reference"] },
   ],
 };
 
@@ -223,8 +229,24 @@ const ACCOUNT_SCHEMA: EntitySchema = {
     { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacyaccountid", "legacy account id"] },
     { key: "accountName", label: "Account Name", required: true, aliases: ["name", "ledgername", "accountname"], validate: "nonEmpty" },
     { key: "accountCode", label: "Account Code", required: false, aliases: ["code", "accountcode", "ledgercode"] },
-    { key: "accountType", label: "Account Type / Group", required: false, aliases: ["type", "group", "under", "category"] },
+    { key: "accountType", label: "Account Type / Group", required: false, aliases: ["account_type", "accounttype", "type", "group", "under", "category"] },
+    { key: "normalBalance", label: "Normal Balance", required: false, aliases: ["normal_balance", "normal balance", "balance nature"] },
     { key: "openingBalance", label: "Opening Balance", required: false, aliases: ["openingbalance", "balance", "opbal"], validate: "number" },
+  ],
+};
+
+const JOURNAL_ENTRY_SCHEMA: EntitySchema = {
+  entity: MIGRATION_ENTITY.JOURNAL_ENTRY,
+  label: "Journal Entries",
+  dedupeKeys: ["journalId"],
+  fields: [
+    { key: "journalId", label: "Journal ID", required: true, aliases: ["journal_id", "journal id", "journal number", "voucher no", "voucher number"], validate: "nonEmpty" },
+    { key: "journalDate", label: "Journal Date", required: true, aliases: ["journal_date", "journal date", "date", "posting date"], validate: "date" },
+    { key: "sourceType", label: "Source Type", required: false, aliases: ["source_type", "source type", "transaction type"] },
+    { key: "sourceReference", label: "Source Reference", required: false, aliases: ["source_id", "source id", "reference"] },
+    { key: "status", label: "Status", required: true, aliases: ["status", "journal_status", "journal status"], validate: "nonEmpty" },
+    { key: "currency", label: "Currency", required: false, aliases: ["currency", "currency code"] },
+    { key: "linesJson", label: "Journal Lines (JSON)", required: true, aliases: ["lines_json"], validate: "nonEmpty", help: "Generated from the Journal Lines worksheet. Do not edit unless repairing a source row." },
   ],
 };
 
@@ -258,6 +280,7 @@ const SCHEMAS: Partial<Record<MigrationEntity, EntitySchema>> = {
   [MIGRATION_ENTITY.PAYMENT]: PAYMENT_SCHEMA,
   [MIGRATION_ENTITY.EXPENSE]: EXPENSE_SCHEMA,
   [MIGRATION_ENTITY.ACCOUNT]: ACCOUNT_SCHEMA,
+  [MIGRATION_ENTITY.JOURNAL_ENTRY]: JOURNAL_ENTRY_SCHEMA,
   [MIGRATION_ENTITY.EMPLOYEE]: EMPLOYEE_SCHEMA,
 };
 

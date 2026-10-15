@@ -2,7 +2,8 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IAiUsage extends Document {
   tenantId: string;
-  // Calendar month in UTC: "YYYYMM" (e.g. "202506" for June 2026).
+  // Calendar month in UTC: "YYYYMM" (e.g. "202606" for June 2026).
+  // Optional session/weekly counters use namespaced keys from lib/ai/usagePolicy.ts.
   // Counters roll over when the UTC month changes — each period starts from 0.
   period: string;
   // Number of successful AI call responses in this period for this tenant.

@@ -34,7 +34,7 @@ export async function GET() {
   // platform (so they can spot and fix any tenant silently 400-ing on AI).
   const [org, history, healthReport, globalUsed] = await Promise.all([
     Organization.findOne({ subdomain: tenantId }, { tier: 1, "settings.ai": 1 }).lean(),
-    AiUsage.find({ tenantId }).sort({ period: -1 }).limit(12).lean(),
+    AiUsage.find({ tenantId, period: { $gte: "000000", $lte: "999999", $regex: /^\d{6}$/ } }).sort({ period: -1 }).limit(12).lean(),
     checkTenantModelOverrides(isMasterAdmin ? undefined : tenantId),
     getGlobalAiUsageCount(currentPeriod),
   ]);

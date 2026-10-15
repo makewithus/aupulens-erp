@@ -363,7 +363,11 @@ export async function getOrganizationModules(actor: AdminActor, reason: string, 
         planModules: plan?.features.modules ?? [],
         overrideModules: entitlementRow?.overrides?.modules ?? null,
         effectiveModules: entitlements.modules,
-        hasBasePlan: Boolean(entitlementRow),
+        // A tier fallback is already a resolved base plan for access checks.
+        // Allow admins to layer a module override on it; the write path will
+        // materialize that fallback as an explicit entitlement assignment.
+        hasBasePlan: entitlements.source !== "permissive_default",
+        planSource: entitlements.source,
       };
     },
   });

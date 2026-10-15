@@ -661,10 +661,9 @@ export default function OrganizationDetailPage() {
                 </Button>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                {!(tabData.modules as any).hasBasePlan && (
+                {(tabData.modules as any).planSource === "tier_fallback" && (
                   <p className="text-xs text-amber-600">
-                    This organisation has no base plan assigned yet — modules below are the tier
-                    fallback. Assign a plan on the Subscription tab before overriding modules.
+                    This organisation uses its {PLAN_KEY_LABELS[(tabData.modules as any).planKey as keyof typeof PLAN_KEY_LABELS] ?? (tabData.modules as any).planKey} tier fallback as its base plan. Saving a module override will record that plan explicitly.
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-2">

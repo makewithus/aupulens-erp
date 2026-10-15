@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
+import { randomBytes } from "node:crypto";
 
-process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_platform_orgtabs";
+process.env.MONGODB_URI = `mongodb://localhost:27017/aupulens_test_platform_orgtabs_${randomBytes(6).toString("hex")}`;
 
 import Organization from "@/models/admin/Organization";
 import User from "@/models/auth/User";
@@ -127,10 +128,12 @@ describe("Phase 11 Part 1.2 — the four new organisation detail tabs", () => {
       expect(result.effectiveModules).toEqual(["admin", "crm"]); // the override is what actually governs
     });
 
-    it("reports hasBasePlan: false when no OrganizationEntitlement row exists yet (tier-fallback territory)", async () => {
+    it("treats the resolved tier fallback as an editable base plan", async () => {
       await Organization.create({ name: "Legacy Org", subdomain: "legacy-org", ownerUserId: new mongoose.Types.ObjectId() });
       const result = await getOrganizationModules(makeActor(), "test", "legacy-org");
-      expect(result.hasBasePlan).toBe(false);
+      expect(result.hasBasePlan).toBe(true);
+      expect(result.planSource).toBe("tier_fallback");
+      expect(result.planKey).toBe(PLAN_KEY.STARTER);
     });
   });
 

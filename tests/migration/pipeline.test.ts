@@ -315,13 +315,14 @@ describe("migration package preparation", () => {
       ["Invoices", "salesInvoice", 215],
       ["Receipts", "payment", 213],
       ["Vendor Bills", "purchaseInvoice", 381],
+      ["Journal Lines", "journalEntry", 1299],
     ]);
-    expect(prepared.reduce((sum, file) => sum + file.rows.length, 0)).toBe(860);
-    expect(preparedPackage.importableRecordCount).toBe(860);
+    expect(prepared.reduce((sum, file) => sum + file.rows.length, 0)).toBe(2159);
+    expect(preparedPackage.importableRecordCount).toBe(2159);
     expect(preparedPackage.sourceRecordCount).toBe(4737);
     expect(preparedPackage.sourceRecordCount).toBeGreaterThan(preparedPackage.importableRecordCount);
     expect(preparedPackage.sourceFileCount).toBeGreaterThan(preparedPackage.importableFileCount);
-    expect(preparedPackage.ignoredSheets).toHaveLength(11);
+    expect(preparedPackage.ignoredSheets).toHaveLength(10);
     expect(preparedPackage.ignoredSheets.every((sheet) =>
       sheet.rows >= 0 && ["recognized_non_importable_sheet", "unrecognized_sheet"].includes(sheet.reason),
     )).toBe(true);
@@ -336,6 +337,17 @@ describe("migration package preparation", () => {
     expect(productMap.name).toBe("product_name");
     expect(productMap.stockQuantity).toBe("opening_stock_qty");
     expect(productMap.salesPrice).toBe("list_price_inr");
+
+    const accountFile = prepared.find((file) => file.entityType === "account")!;
+    const accountMap = deterministicMapping(getEntitySchema("account")!, accountFile.columns);
+    expect(accountMap.accountType).toBe("account_type");
+    expect(accountMap.normalBalance).toBe("normal_balance");
+    const journals = prepared.find((file) => file.entityType === "journalEntry")!;
+    const journalMap = deterministicMapping(getEntitySchema("journalEntry")!, journals.columns);
+    expect(journalMap).toMatchObject({ journalId: "journal_id", sourceReference: "source_id", journalDate: "journal_date", linesJson: "lines_json" });
+    expect(validateRows("journalEntry", journals.rows, journalMap).errorCount).toBe(0);
+    const firstJournal = JSON.parse(String(journals.rows[0].lines_json));
+    expect(firstJournal).toHaveLength(2);
 
     const billFile = prepared.find((file) => file.entityType === "purchaseInvoice")!;
     const billMap = deterministicMapping(getEntitySchema("purchaseInvoice")!, billFile.columns);
@@ -562,5 +574,28 @@ describe("validation.validateRows", () => {
     const a = dedupeSignature(schema, toCanonicalRecord(schema, { Ref: "PAY-REF-1", Source: "PAY-A", Amount: "10", Date: "2026-01-01" }, { reference: "Ref", sourceId: "Source", amount: "Amount", date: "Date" }));
     const b = dedupeSignature(schema, toCanonicalRecord(schema, { Ref: "PAY-REF-1", Source: "PAY-B", Amount: "20", Date: "2026-01-02" }, { reference: "Ref", sourceId: "Source", amount: "Amount", date: "Date" }));
     expect(a).toBe(b);
+  });
+
+  it("rejects unbalanced or malformed imported journal entries before any writes", () => {
+    const mapping = { journalId: "journal_id", journalDate: "journal_date", status: "status", linesJson: "lines_json" };
+    const base = {
+      journal_id: "JE-1",
+      journal_date: "2026-03-31",
+      status: "Posted",
+      lines_json: JSON.stringify([
+        { line_no: 1, account_code: "1000", debit_inr: 100, credit_inr: 0 },
+        { line_no: 2, account_code: "4000", debit_inr: 0, credit_inr: 100 },
+      ]),
+    };
+    expect(validateRows("journalEntry", [base], mapping).errorCount).toBe(0);
+    const unbalanced = validateRows("journalEntry", [{
+      ...base,
+      lines_json: JSON.stringify([
+        { line_no: 1, account_code: "1000", debit_inr: 100, credit_inr: 0 },
+        { line_no: 2, account_code: "4000", debit_inr: 0, credit_inr: 99 },
+      ]),
+    }], mapping);
+    expect(unbalanced.issues.some((issue) => /out of balance/.test(issue.message))).toBe(true);
+    expect(validateRows("journalEntry", [{ ...base, lines_json: "not-json" }], mapping).errorCount).toBeGreaterThan(0);
   });
 });

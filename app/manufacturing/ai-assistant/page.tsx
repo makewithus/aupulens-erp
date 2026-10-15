@@ -1,4 +1,6 @@
 'use client';
+import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 
@@ -57,6 +59,11 @@ export default function ManufacturingAIAssistant() {
     onError: (m) => toast({ title: 'Microphone', description: m }),
   });
   const [isLoading, setIsLoading] = useState(false);
+  const usageRequestWasActive = useRef(false);
+  useEffect(() => {
+    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
+    usageRequestWasActive.current = isLoading;
+  }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -829,6 +836,7 @@ export default function ManufacturingAIAssistant() {
                 )}
               </Button>
             </form>
+            <AiUsageIndicator />
             <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for Manufacturing • Powered by Aupulens
             </div>

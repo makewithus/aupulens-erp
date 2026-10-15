@@ -118,7 +118,7 @@ function repairKnownStaleMapping(entityType: string, sourceData: Record<string, 
 
 function hasRevalidatableSystemError(errors: unknown) {
   return Array.isArray(errors)
-    && errors.some((error: any) => /is required but empty|Pre-migration write check failed|Product type must be one of|Vendor outbound payment migration|Missing reference: Sales invoice/i.test(String(error?.message || "")));
+    && errors.some((error: any) => /is required but empty|Pre-migration write check failed|Product type must be one of|Vendor outbound payment migration|Missing reference: Sales invoice|Missing account code .* for journal|Journal account code .* is not available/i.test(String(error?.message || "")));
 }
 
 function lastDayOfMonth(year: number, month: number) {
@@ -295,10 +295,15 @@ export async function fixMigrationRecordWithAi(batchId: string, tenantId: string
   const repairedChanged = jsonStable(repaired) !== jsonStable(sourceData) || mappingChanged;
 
   if (!repairedChanged && !hasStaleSystemError) {
+    const currentError = Array.isArray(record.errors)
+      ? String(record.errors.find((error: any) => String(error?.message || "").trim())?.message || "").trim()
+      : "";
     return {
       fixed: false,
       aiUsed: aiResult.aiUsed,
-      message: "No automatic fix was available for this row. Please edit the highlighted source value.",
+      message: currentError
+        ? `No safe automatic correction was found. ${currentError} Edit the source value or resolve the referenced record, then validate again.`
+        : "No safe automatic correction was found. Edit the highlighted source value, then validate again.",
     };
   }
 

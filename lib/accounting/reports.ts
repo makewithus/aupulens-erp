@@ -1,5 +1,8 @@
 import JournalEntry from "@/models/finance/JournalEntry";
 import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
+import { toDateEndInTimeZone } from "@/lib/accounting/reportDate";
+
+export { toDateEndInTimeZone } from "@/lib/accounting/reportDate";
 
 export type ReportGroup =
   | "asset"
@@ -15,6 +18,8 @@ export type ReportAccount = {
   name: string;
   accountType: string;
   internalGroup: ReportGroup;
+  normalBalance?: "debit" | "credit";
+  isContraAccount?: boolean;
   debit: number;
   credit: number;
   amount: number;
@@ -26,6 +31,10 @@ export type AccountGroupReport = {
 };
 
 export type PostedJournalReport = Record<ReportGroup, AccountGroupReport> & {
+  activity: {
+    latestPostedDate: Date | null;
+    postedEntryCount: number;
+  };
   totals: {
     debit: number;
     credit: number;
@@ -40,20 +49,17 @@ function getSignedAmount(group: ReportGroup, debit: number, credit: number) {
   return credit - debit;
 }
 
-function toDateEnd(date: Date) {
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
-
 export async function buildPostedJournalReport({
   tenantId,
   startDate,
   endDate,
+  endDateTimeZone = "UTC",
 }: {
   tenantId: string;
   startDate?: Date;
   endDate?: Date;
+  /** Interpret the calendar date represented by endDate as an org-local day. */
+  endDateTimeZone?: string;
 }): Promise<PostedJournalReport> {
   const query: Record<string, any> = {
     tenantId,
@@ -63,7 +69,7 @@ export async function buildPostedJournalReport({
   if (startDate || endDate) {
     query["header.date"] = {};
     if (startDate) query["header.date"].$gte = startDate;
-    if (endDate) query["header.date"].$lte = toDateEnd(endDate);
+    if (endDate) query["header.date"].$lte = toDateEndInTimeZone(endDate, endDateTimeZone);
   }
 
   const report: PostedJournalReport = {
@@ -74,11 +80,20 @@ export async function buildPostedJournalReport({
     expense: { total: 0, accounts: {} },
     off_balance: { total: 0, accounts: {} },
     totals: { debit: 0, credit: 0, balanced: true },
+    activity: { latestPostedDate: null, postedEntryCount: 0 },
   };
 
   const entries = await JournalEntry.find(query)
     .populate("lineIds.accountId")
     .lean();
+  report.activity.postedEntryCount = entries.length;
+  for (const entry of entries) {
+    const entryDate = entry.header?.date ? new Date(entry.header.date) : null;
+    if (entryDate && !Number.isNaN(entryDate.getTime()) &&
+      (!report.activity.latestPostedDate || entryDate > report.activity.latestPostedDate)) {
+      report.activity.latestPostedDate = entryDate;
+    }
+  }
 
   for (const entry of entries) {
     for (const line of entry.lineIds || []) {
@@ -102,6 +117,10 @@ export async function buildPostedJournalReport({
           name: account.name || "Unknown Account",
           accountType: account.account_type || "unknown",
           internalGroup,
+          normalBalance: account.normal_balance === "debit" || account.normal_balance === "credit"
+            ? account.normal_balance
+            : undefined,
+          isContraAccount: account.is_contra_account === true,
           debit: 0,
           credit: 0,
           amount: 0,
@@ -179,7 +198,7 @@ export async function getAccountTransactionDetail({
   if (startDate || endDate) {
     query["header.date"] = {};
     if (startDate) query["header.date"].$gte = startDate;
-    if (endDate) query["header.date"].$lte = toDateEnd(endDate);
+    if (endDate) query["header.date"].$lte = toDateEndInTimeZone(endDate, "UTC");
   }
 
   const entries = await JournalEntry.find(query).populate("lineIds.accountId").populate("lineIds.partnerId").lean();
@@ -357,7 +376,7 @@ async function getPostedEntriesWithAccounts({
   if (startDate || endDate) {
     query["header.date"] = {};
     if (startDate) query["header.date"].$gte = startDate;
-    if (endDate) query["header.date"].$lte = toDateEnd(endDate);
+    if (endDate) query["header.date"].$lte = toDateEndInTimeZone(endDate, "UTC");
   }
 
   return JournalEntry.find(query)
@@ -587,7 +606,7 @@ export async function buildAgedPartnerReport({
   const entries = await JournalEntry.find({
     tenantId,
     status: DOCUMENT_STATUS.POSTED,
-    "header.date": { $lte: toDateEnd(asOfDate) },
+    "header.date": { $lte: toDateEndInTimeZone(asOfDate, "UTC") },
   })
     .populate("lineIds.accountId")
     .populate("lineIds.partnerId")
@@ -693,7 +712,7 @@ export async function buildAgedPartnerReport({
   return {
     accountingBasis: "posted_journal_entries",
     type,
-    asOfDate: toDateEnd(asOfDate).toISOString(),
+    asOfDate: toDateEndInTimeZone(asOfDate, "UTC").toISOString(),
     items,
     totals,
     validation: {

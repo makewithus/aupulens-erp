@@ -1,5 +1,7 @@
 "use client";
 
+import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon } from "lucide-react";
@@ -47,6 +49,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const newChat = useAiChatStore((s) => s.newChat);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const usageRequestWasActive = useRef(false);
+  useEffect(() => {
+    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
+    usageRequestWasActive.current = isLoading;
+  }, [isLoading]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyChats, setHistoryChats] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1090,8 +1097,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"
             )}
           />
-          <div className={cn("flex items-center justify-between mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
-            <div className="flex items-center gap-2 min-w-0">
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-2 mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
+            <div className="flex flex-1 items-center gap-2 min-w-[72px]">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -1150,6 +1157,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 </>
               )}
             </button>
+            <AiUsageIndicator />
           </div>
         </div>
       </div>

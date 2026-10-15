@@ -579,7 +579,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
               </h3>
               <p className={`${failedRecordCount > 0 ? "text-rose-900" : "text-emerald-900"} text-sm`}>
                 {failedRecordCount > 0
-                  ? "Some records failed during migration. Download the report and resolve the failed rows before treating this import as complete."
+                  ? "Some target writes failed after validation. Review Failed Rows to return them to validation, inspect the original error, correct the source or referenced record, and retry only those rows. Successfully imported rows remain available and are checked for duplicates on retry."
                   : "The batch was successfully processed."}
                 {failedRecordCount === 0 && batch.summary?.verification?.status === "FAIL" && " Some post-migration verifications failed. Please check the reports."}
               </p>

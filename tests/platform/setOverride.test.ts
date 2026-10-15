@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
+import { randomBytes } from "node:crypto";
 
-process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_platform_setoverride";
+process.env.MONGODB_URI = `mongodb://localhost:27017/aupulens_test_platform_setoverride_${randomBytes(6).toString("hex")}`;
 
 import Organization from "@/models/admin/Organization";
 import Plan from "@/models/platform/Plan";
@@ -60,6 +61,7 @@ beforeAll(async () => {
     description: "",
   });
   await Plan.create({ key: PLAN_KEY.BUSINESS, name: "Business", features: FEATURES });
+  await Plan.create({ key: PLAN_KEY.STARTER, name: "Starter", features: FEATURES });
 });
 
 afterAll(async () => {
@@ -109,12 +111,46 @@ describe("setEntitlementOverride — §11's override layer, never a copy of the 
     expect(entitlement!.overrides).toEqual({ maxUsers: 500, storageGb: 5000 });
   });
 
-  it("rejects setting an override when no base plan is assigned yet", async () => {
+  it("rejects non-module overrides when only a tier fallback exists", async () => {
     const tenantId = "no-plan-co";
     await Organization.create({ name: "No Plan Co", subdomain: tenantId, ownerUserId: new mongoose.Types.ObjectId() });
     await expect(
       setEntitlementOverride(makeActor(), tenantId, { maxUsers: 10 }, "test"),
     ).rejects.toThrow(SetOverrideError);
+  });
+
+  it("materializes the effective tier fallback when first saving a module override", async () => {
+    const tenantId = "legacy-module-override-co";
+    await Organization.create({
+      name: "Legacy Module Override Co",
+      subdomain: tenantId,
+      ownerUserId: new mongoose.Types.ObjectId(),
+      tier: "starter",
+    });
+
+    await setEntitlementOverride(makeActor(), tenantId, { modules: ["admin", "finance", "sales", "sales"] }, "enable sales for legacy org");
+
+    const entitlement = await OrganizationEntitlement.findOne({ tenantId }).lean();
+    expect(entitlement?.planKey).toBe(PLAN_KEY.STARTER);
+    expect(entitlement?.overrides?.modules).toEqual(["admin", "finance", "sales"]);
+    expect(await OrganizationEntitlement.countDocuments({ tenantId })).toBe(1);
+    const resolved = await resolveEntitlements(tenantId);
+    expect(resolved.source).toBe("assigned");
+    expect(resolved.modules).toEqual(["admin", "finance", "sales"]);
+    const audit = await PlatformAuditLog.findOne({ tenantId }).lean();
+    expect(audit?.metadata?.source).toBe("tier_fallback_materialized");
+  });
+
+  it("does not create an entitlement when the organization is missing or module values are invalid", async () => {
+    await expect(
+      setEntitlementOverride(makeActor(), "missing-org", { modules: ["admin"] }, "test"),
+    ).rejects.toThrow(SetOverrideError);
+    const tenantId = "invalid-module-override-co";
+    await Organization.create({ name: "Invalid Co", subdomain: tenantId, ownerUserId: new mongoose.Types.ObjectId() });
+    await expect(
+      setEntitlementOverride(makeActor(), tenantId, { modules: ["admin", " "] }, "test"),
+    ).rejects.toThrow(SetOverrideError);
+    expect(await OrganizationEntitlement.countDocuments({ tenantId })).toBe(0);
   });
 
   it("requires a reason", async () => {

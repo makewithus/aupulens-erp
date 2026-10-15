@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
+import Organization from "@/models/admin/Organization";
 import { buildPostedJournalReport } from "@/lib/accounting/reports";
+import { getBalanceSheetReviewItems } from "@/lib/accounting/balanceSheetReview";
+import { dateInTimeZone, isValidDateOnly } from "@/lib/accounting/reportDate";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,26 +19,42 @@ export async function GET(req: NextRequest) {
     const tenantId = (session.user as any).tenantId;
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
+    if (date && !isValidDateOnly(date)) {
+      return NextResponse.json({ error: "Invalid as-of date. Use YYYY-MM-DD." }, { status: 400 });
+    }
 
     await connectDB();
+    const organization = await Organization.findOne({ subdomain: tenantId }).select("settings.timezone").lean();
+    const configuredTimeZone = (organization as any)?.settings?.timezone || "UTC";
+    let timeZone = configuredTimeZone;
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone }).format(0);
+    } catch {
+      timeZone = "UTC";
+    }
+    const asOfDate = date || dateInTimeZone(new Date(), timeZone);
 
     const report = await buildPostedJournalReport({
       tenantId,
-      endDate: date ? new Date(date) : new Date(),
+      endDate: new Date(`${asOfDate}T00:00:00.000Z`),
+      endDateTimeZone: timeZone,
     });
 
-    const currentYearEarnings = report.income.total - report.expense.total;
+    // This report reads every posted entry through the as-of date. Until the
+    // source posts a closing journal, the cumulative unclosed P&L is the
+    // retained-earnings balance needed to complete the Balance Sheet.
+    const unclosedEarnings = report.income.total - report.expense.total;
     const equityAccounts = { ...report.equity.accounts };
-    if (Math.abs(currentYearEarnings) > 0.01) {
+    if (Math.abs(unclosedEarnings) > 0.01) {
       equityAccounts.current_year_earnings = {
         id: "current_year_earnings",
         code: "CYE",
-        name: "Current Year Earnings",
+        name: "Retained Earnings (derived from unclosed P&L)",
         accountType: "equity_unaffected",
         internalGroup: "equity",
-        debit: currentYearEarnings < 0 ? Math.abs(currentYearEarnings) : 0,
-        credit: currentYearEarnings > 0 ? currentYearEarnings : 0,
-        amount: currentYearEarnings,
+        debit: unclosedEarnings < 0 ? Math.abs(unclosedEarnings) : 0,
+        credit: unclosedEarnings > 0 ? unclosedEarnings : 0,
+        amount: unclosedEarnings,
       };
     }
 
@@ -43,6 +62,11 @@ export async function GET(req: NextRequest) {
       (sum, account) => sum + account.amount,
       0,
     );
+    const reviewItems = getBalanceSheetReviewItems({
+      asset: report.asset,
+      liability: report.liability,
+      equity: { accounts: equityAccounts },
+    });
 
     return NextResponse.json({
       asset: report.asset,
@@ -51,7 +75,14 @@ export async function GET(req: NextRequest) {
         total: equityTotal,
         accounts: equityAccounts,
       },
-      retainedEarnings: currentYearEarnings,
+      retainedEarnings: unclosedEarnings,
+      reviewItems,
+      asOfDate,
+      timeZone,
+      latestIncludedPostingDate: report.activity.latestPostedDate
+        ? dateInTimeZone(report.activity.latestPostedDate, timeZone)
+        : null,
+      postedEntriesIncluded: report.activity.postedEntryCount,
       accountingBasis: "posted_journal_entries",
       validation: {
         totalDebits: report.totals.debit,

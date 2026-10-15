@@ -7,6 +7,7 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import SaleOrder from "@/models/sales/SaleOrder";
 import Invoice from "@/models/finance/Invoice";
 import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
 import Employee from "@/models/hr/Employee";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import MigrationRecord from "@/models/admin/MigrationRecord";
@@ -74,7 +75,12 @@ export async function resolveEntityReference(
       return doc ? (doc._id as mongoose.Types.ObjectId) : null;
     }
     case MIGRATION_ENTITY.ACCOUNT: {
-      const doc = await Account.findOne({ tenantId, accountName: sourceId }).select("_id").lean();
+      const doc = await Account.findOne({ tenantId, $or: [{ accountName: sourceId }, { accountCode: sourceId }, { code: sourceId }] }).select("_id").lean();
+      if (doc && cache) cache.set(cacheKey, doc._id);
+      return doc ? (doc._id as mongoose.Types.ObjectId) : null;
+    }
+    case MIGRATION_ENTITY.JOURNAL_ENTRY: {
+      const doc = await JournalEntry.findOne({ tenantId, "header.name": sourceId }).select("_id").lean();
       if (doc && cache) cache.set(cacheKey, doc._id);
       return doc ? (doc._id as mongoose.Types.ObjectId) : null;
     }
@@ -121,11 +127,16 @@ async function hasWorkspaceReference(
     tenantId,
     batchId,
     entityType,
-    status: { $nin: ["invalid", "failed"] },
+    // Only rows that will actually exist after migration can satisfy a
+    // relationship. Pending and skipped rows are not importable references;
+    // unresolved/actionable duplicates remain eligible for preview so the
+    // operator can decide how to handle them before the start-time check.
+    status: { $in: ["valid", "duplicate", "migrated"] },
     $or: [
       { "mappedData.sourceId": sourceMatcher },
       { "mappedData.name": sourceMatcher },
       { "mappedData.accountName": sourceMatcher },
+      { "mappedData.accountCode": sourceMatcher },
       { "mappedData.email": sourceMatcher },
       { "mappedData.number": sourceMatcher },
       { "mappedData.sku": sourceMatcher },
@@ -244,6 +255,46 @@ export async function validateRelationships(
         // Invoice lines can still be preserved with a free-text item name when
         // the referenced product is absent from the product master export.
       }
+    }
+  } else if (entityType === MIGRATION_ENTITY.JOURNAL_ENTRY) {
+    let lines: any[] = [];
+    try {
+      lines = JSON.parse(canonical.linesJson || "");
+    } catch {
+      return [{ field: "linesJson", message: "Journal lines could not be parsed." }];
+    }
+    const missingCodes = new Set<string>();
+    for (const line of lines) {
+      const code = String(line.account_code ?? "").trim();
+      if (!code || missingCodes.has(code)) continue;
+      const cacheKey = `journal-account:${tenantId}:${code}`;
+      if (cache?.has(cacheKey)) {
+        if (!cache.get(cacheKey)) missingCodes.add(code);
+        continue;
+      }
+      const account = await Account.findOne({ tenantId, $or: [{ code }, { accountCode: code }] }).select("_id").lean();
+      const existsInBatch = account ? false : await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.ACCOUNT, code, cache);
+      const exists = !!account || existsInBatch;
+      cache?.set(cacheKey, exists);
+      if (!exists) missingCodes.add(code);
+    }
+    const skippedAccountRows = missingCodes.size > 0
+      ? await MigrationRecord.find({
+        tenantId,
+        batchId,
+        entityType: MIGRATION_ENTITY.ACCOUNT,
+        status: "skipped",
+        "mappedData.accountCode": { $in: [...missingCodes] },
+      }).select("mappedData.accountCode").lean()
+      : [];
+    const skippedCodes = new Set((skippedAccountRows as any[]).map((record) => String(record.mappedData?.accountCode ?? "").trim()));
+    for (const code of missingCodes) {
+      errors.push({
+        field: "linesJson",
+        message: skippedCodes.has(code)
+          ? `Account code '${code}' is present in this batch but its Account row was skipped. Resolve that account as Merge / Update or Force Create, or correct the journal line to an account that exists.`
+          : `Missing account code '${code}' in the imported or existing chart of accounts. Include the account or correct the source journal before starting migration.`,
+      });
     }
   }
   

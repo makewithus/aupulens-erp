@@ -1,4 +1,6 @@
 'use client';
+import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
 
@@ -51,6 +53,11 @@ export default function InventoryAIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const usageRequestWasActive = useRef(false);
+  useEffect(() => {
+    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
+    usageRequestWasActive.current = isLoading;
+  }, [isLoading]);
 
   // Voice-to-text (Azure) — speak your question; transcript is appended.
   const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
@@ -771,6 +778,7 @@ export default function InventoryAIAssistant() {
                 )}
               </Button>
             </form>
+            <AiUsageIndicator />
             <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for inventory • Powered by Aupulens
             </div>

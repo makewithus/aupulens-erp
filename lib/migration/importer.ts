@@ -20,6 +20,7 @@ import Invoice from "@/models/finance/Invoice";
 import Payment from "@/models/sales/Payment";
 import Expense from "@/models/finance/Expense";
 import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
 import Employee from "@/models/hr/Employee";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
 import { ENTITY_STATUS, PRODUCT_STATUS } from "@/lib/constants/statuses";
@@ -159,7 +160,14 @@ async function ensureVendorAccountingPartner(
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).select("_id").lean();
+  ).select("_id").lean().catch(async (error: any) => {
+    // Concurrent first bills can race on the unique supplier projection.
+    // Reuse the winning insert; unrelated database errors still propagate.
+    if (error?.code !== 11000) throw error;
+    const winner = await Customer.findOne({ tenantId, "header.name": name, "customFields.migrationPartnerType": "vendor" }).select("_id").lean();
+    if (!winner) throw error;
+    return winner;
+  });
   if (!partner?._id) throw new Error(`Could not prepare the accounting partner for vendor '${name}'.`);
   return partner._id as mongoose.Types.ObjectId;
 }
@@ -436,16 +444,37 @@ const HANDLERS: Record<string, EntityHandler> = {
     transform: async (rec, ctx) => {
       const customerId = await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.customerName)
         || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.customerName);
+      const subtotal = num(rec.subtotalAmount);
+      const tax = num(rec.taxAmount) ?? 0;
+      const total = num(rec.totalAmount) ?? ((subtotal ?? 0) + tax);
+      const importedStatus = rec.status.trim().toLowerCase().replace(/[_-]+/g, " ");
+      const status = importedStatus === "paid"
+        ? "paid"
+        : importedStatus === "partially paid"
+          ? "partially_paid"
+          : importedStatus === "overdue"
+            ? "overdue"
+            : importedStatus === "cancelled"
+              ? "cancelled"
+              : importedStatus === "draft"
+                ? "draft"
+          : importedStatus === "posted" || importedStatus === "sent" || importedStatus === "open"
+            ? "saved"
+                : "saved";
       return {
         tenantId: ctx.tenantId,
         number: rec.number,
         customerId,
-      invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
-      totalAmount: num(rec.totalAmount) ?? 0,
-      taxableAmount: num(rec.totalAmount) ?? 0,
-      lineItems: [],
-      taxes: { tds: 0, tcs: 0, gstBreakup: [] },
-        status: "draft",
+        invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
+        dueDate: rec.dueDate ? new Date(rec.dueDate) : undefined,
+        currency: rec.currency || "INR",
+        reference: rec.reference || undefined,
+        totalAmount: total,
+        taxableAmount: subtotal ?? Math.max(0, total - tax),
+        lineItems: [],
+        taxes: { tds: 0, tcs: 0, gstBreakup: tax > 0 ? [{ label: "Imported tax", amount: tax }] : [] },
+        status,
+        markedFullyPaid: status === "paid",
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
       };
     },
@@ -663,6 +692,7 @@ const HANDLERS: Record<string, EntityHandler> = {
     model: Account,
     transform: async (rec, ctx) => {
       const groups = accountGroupsFromText(rec.accountType);
+      const normalBalance = rec.normalBalance?.trim().toLowerCase();
       return {
         tenantId: ctx.tenantId,
         accountName: rec.accountName,
@@ -671,6 +701,11 @@ const HANDLERS: Record<string, EntityHandler> = {
         code: rec.accountCode || undefined,
         account_type: groups.account_type,
         internal_group: groups.internal_group,
+        ...(normalBalance === "debit" || normalBalance === "credit"
+          ? { normal_balance: normalBalance }
+          : {}),
+        is_contra_account: /\bcontra\b/i.test(rec.accountType || "") ||
+          /accumulated\s+(?:depreciation|amortization)|allowance\s+for\s+(?:doubtful|bad)\s+debts?/i.test(rec.accountName || ""),
         isActive: true,
         status: "active",
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
@@ -701,12 +736,69 @@ const HANDLERS: Record<string, EntityHandler> = {
     },
   },
 
+  [MIGRATION_ENTITY.JOURNAL_ENTRY]: {
+    modelName: "JournalEntry",
+    model: JournalEntry,
+    transform: async (rec, ctx) => {
+      const sourceLines = JSON.parse(rec.linesJson || "[]") as Record<string, unknown>[];
+      if (!Array.isArray(sourceLines) || sourceLines.length < 2) {
+        throw new Error(`Journal '${rec.journalId}' must contain at least two balanced lines.`);
+      }
+      const lineIds = [];
+      let debitTotal = 0;
+      let creditTotal = 0;
+      for (const line of sourceLines) {
+        const accountCode = String(line.account_code ?? "").trim();
+        const accountId = await ctx.resolveRef(MIGRATION_ENTITY.ACCOUNT, accountCode);
+        if (!accountId) throw new Error(`Missing account code '${accountCode}' for journal '${rec.journalId}'.`);
+        const debit = num(String(line.debit_inr ?? "")) ?? 0;
+        const credit = num(String(line.credit_inr ?? "")) ?? 0;
+        debitTotal += debit;
+        creditTotal += credit;
+        lineIds.push({
+          accountId,
+          label: String(line.line_memo || line.description || rec.sourceType || "Imported journal line"),
+          debit,
+          credit,
+          sourceDocument: String(line.source_id || rec.sourceReference || "") || undefined,
+        });
+      }
+      if (Math.abs(debitTotal - creditTotal) > 0.01) {
+        throw new Error(`Journal '${rec.journalId}' is out of balance (${debitTotal.toFixed(2)} debit, ${creditTotal.toFixed(2)} credit).`);
+      }
+      const sourceStatus = rec.status.trim().toLowerCase();
+      const status = sourceStatus === "posted" ? "posted" : sourceStatus === "cancelled" ? "cancelled" : "draft";
+      const date = new Date(rec.journalDate);
+      if (Number.isNaN(date.getTime())) throw new Error(`Journal '${rec.journalId}' has an invalid date.`);
+      return {
+        tenantId: ctx.tenantId,
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+        header: {
+          name: rec.journalId,
+          date,
+          ref: rec.sourceReference || undefined,
+          journalType: "general",
+        },
+        lineIds,
+        totals: { currencyId: rec.currency || "INR", amountUntaxed: 0, amountTax: 0, amountTotal: debitTotal },
+        status,
+      };
+    },
+    existingFilter: (rec, tenantId) => rec.journalId ? { tenantId, "header.name": rec.journalId } : null,
+    uniqueConflictFilter: (rec, tenantId) => rec.journalId ? {
+      filter: { tenantId, "header.name": rec.journalId },
+      fields: ["journalId"],
+    } : null,
+  },
+
   [MIGRATION_ENTITY.EMPLOYEE]: {
     modelName: "Employee",
     model: Employee,
     transform: async (rec, ctx) => {
       const name = splitName(rec.firstName, rec.lastName);
-      const departmentId = await ensureDepartmentForTenant(ctx.tenantId, rec.department, ctx.userId);
+      const departmentId = ctx.dryRun
+        ? new mongoose.Types.ObjectId()
+        : await ensureDepartmentForTenant(ctx.tenantId, rec.department, ctx.userId);
       return {
         tenantId: ctx.tenantId,
         createdBy: new mongoose.Types.ObjectId(ctx.userId),

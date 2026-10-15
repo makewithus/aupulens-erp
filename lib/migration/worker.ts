@@ -15,9 +15,11 @@ import { productionMigrationError } from "@/lib/migration/errors";
 import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
 import { deterministicMapping as buildDeterministicMapping } from "@/lib/migration/deterministicMapping";
+import { checkJournalAccountDependencies } from "@/lib/migration/dependencyCheck";
 
 const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.ACCOUNT]: 10,
+  [MIGRATION_ENTITY.JOURNAL_ENTRY]: 25,
   [MIGRATION_ENTITY.CUSTOMER]: 20,
   [MIGRATION_ENTITY.VENDOR]: 20,
   [MIGRATION_ENTITY.PRODUCT]: 20,
@@ -30,6 +32,20 @@ const ENTITY_MIGRATION_PRIORITY: Record<string, number> = {
   [MIGRATION_ENTITY.PAYMENT]: 50,
   [MIGRATION_ENTITY.EXPENSE]: 50,
 };
+
+async function nextDependencyStage(batch: any, statusFilter: Record<string, unknown>, limit: number) {
+  const filter = { batchId: batch._id, tenantId: batch.tenantId, ...statusFilter };
+  const entities: string[] = await MigrationRecord.distinct("entityType", filter);
+  if (entities.length === 0) return [];
+  const priority = Math.min(...entities.map((entity) => ENTITY_MIGRATION_PRIORITY[entity] ?? 999));
+  // Choose the stage across the WHOLE batch before limiting rows. Sorting a
+  // limited result lets valid journals overtake duplicate-resolved Accounts
+  // because the status index can return all valid rows before duplicates.
+  return MigrationRecord.find({
+    ...filter,
+    entityType: { $in: entities.filter((entity) => (ENTITY_MIGRATION_PRIORITY[entity] ?? 999) === priority) },
+  }).sort({ _id: 1 }).limit(limit);
+}
 
 const IN_FILE_DUPLICATE_EXEMPT_ENTITIES = new Set<string>([
   MIGRATION_ENTITY.INVOICE_ITEM,
@@ -151,6 +167,9 @@ function identitySourceIds(entityType: string, canonical: Record<string, string>
   if (entityType === MIGRATION_ENTITY.ACCOUNT) {
     add(canonical.accountName);
     add(canonical.accountCode);
+  }
+  if (entityType === MIGRATION_ENTITY.JOURNAL_ENTRY) {
+    add(canonical.journalId);
   }
   if (entityType === MIGRATION_ENTITY.EMPLOYEE) {
     add([canonical.firstName, canonical.lastName].filter(Boolean).join(" "));
@@ -310,7 +329,7 @@ async function returnBatchToPreviewForConflicts(batch: any) {
   return true;
 }
 
-async function runWriteReadinessCheck(batch: any) {
+export async function runWriteReadinessCheck(batch: any) {
   const records = await MigrationRecord.find({
     batchId: batch._id,
     tenantId: batch.tenantId,
@@ -326,7 +345,9 @@ async function runWriteReadinessCheck(batch: any) {
     if (!handler || handler.createOperation) continue;
 
     try {
-      const transformed = await handler.transform((record.mappedData || {}) as Record<string, string>, {
+      const canonical = await applyForceCreateUniqueSuffix(handler, record,
+        { ...(record.mappedData || {}) } as Record<string, string>, batch.tenantId);
+      const transformed = await handler.transform(canonical, {
         tenantId: batch.tenantId,
         userId: batch.createdBy.toString(),
         batchId: batch._id.toString(),
@@ -334,8 +355,7 @@ async function runWriteReadinessCheck(batch: any) {
         resolveRef: async () => new mongoose.Types.ObjectId(),
       });
       const doc = new handler.model(transformed);
-      const validationError = doc.validateSync();
-      if (validationError) throw validationError;
+      await doc.validate();
     } catch (error) {
       invalid += 1;
       const message = productionMigrationError(error);
@@ -471,11 +491,7 @@ async function runValidationChunk(batch: any, limit: number) {
     await batch.save();
   }
 
-  const records = await MigrationRecord.find({
-    batchId: batch._id,
-    tenantId: batch.tenantId,
-    status: "pending"
-  }).limit(limit);
+  const records = await nextDependencyStage(batch, { status: "pending" }, limit);
 
   if (records.length === 0) {
     await runWriteReadinessCheck(batch);
@@ -680,19 +696,12 @@ async function runMigrationChunk(batch: any, limit: number) {
     { $set: { status: "skipped" } },
   );
 
-  const records = await MigrationRecord.find({
-    batchId: batch._id,
-    tenantId: batch.tenantId,
+  const records = await nextDependencyStage(batch, {
     $or: [
       { status: "valid" },
       { status: "duplicate", duplicateAction: { $in: ["update", "create"] } }
     ]
-  }).limit(limit);
-  records.sort((a, b) => {
-    const aPriority = ENTITY_MIGRATION_PRIORITY[a.entityType] ?? 999;
-    const bPriority = ENTITY_MIGRATION_PRIORITY[b.entityType] ?? 999;
-    return aPriority - bPriority;
-  });
+  }, limit);
 
   if (records.length === 0) {
     const pendingCount = await MigrationRecord.countDocuments({
@@ -745,22 +754,24 @@ async function runMigrationChunk(batch: any, limit: number) {
     const transformedRecords = await Promise.all(jobRecords.map(async (rec) => {
       if (rec.duplicateAction === "skip") return { rec, skip: true };
       
+      const sourceCanonical = normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, job.mapping as Record<string, string>));
+      const sourceIds = identitySourceIds(job.entityType, sourceCanonical);
       const canonical = await applyForceCreateUniqueSuffix(
         handler,
         rec,
-        normalizeCanonicalRecord(job.entityType, toCanonicalRecord(schema, rec.sourceData, job.mapping as Record<string, string>)),
+        { ...sourceCanonical },
         batch.tenantId,
       );
       
       try {
         const transformData = await handler.transform(canonical, importContext);
-        return { rec, canonical, transformData, error: null };
+        return { rec, canonical, sourceIds, transformData, error: null };
       } catch (err) {
         return { rec, canonical, transformData: null, error: err };
       }
     }));
 
-    for (const { rec, skip, canonical, transformData, error } of transformedRecords) {
+    for (const { rec, skip, canonical, sourceIds, transformData, error } of transformedRecords) {
       if (skip) {
         migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "skipped" } } } });
         processed++;
@@ -833,7 +844,9 @@ async function runMigrationChunk(batch: any, limit: number) {
           job.importedRefs.push({ model: handler.modelName, id: docId });
         }
 
-        for (const sourceId of identitySourceIds(job.entityType, canonical)) {
+        // Force Create changes target unique values, never source identities.
+        // Journals/invoices/receipts still refer to the original workbook IDs.
+        for (const sourceId of new Set([...(sourceIds || []), ...identitySourceIds(job.entityType, canonical)])) {
           identityMapInserts.push({
             updateOne: {
               filter: { tenantId: batch.tenantId, batchId: batch._id, entityType: job.entityType, sourceId },
@@ -923,6 +936,41 @@ async function runMigrationChunk(batch: any, limit: number) {
     }
     
     await job.save();
+
+    // Account validation can pass while the actual target write still fails
+    // (for example, a tenant-specific unique constraint). Never let dependent
+    // journals turn that target-side problem into dozens of late failed rows.
+    // Return to preview as soon as the Account job has finished, with the
+    // affected rows editable and no journal writes attempted.
+    if (job.entityType === MIGRATION_ENTITY.ACCOUNT) {
+      const hasJournalJob = await MigrationJob.exists({
+        batchId: batch._id,
+        tenantId: batch.tenantId,
+        entityType: MIGRATION_ENTITY.JOURNAL_ENTRY,
+      });
+      if (hasJournalJob) {
+        const dependencies = await checkJournalAccountDependencies(batch._id, batch.tenantId);
+        if (!dependencies.ready) {
+          const [review, migrated, skipped, failed] = await Promise.all([
+            computeMigrationReviewSummary(batch._id, batch.tenantId),
+            MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "migrated" }),
+            MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "skipped" }),
+            MigrationRecord.countDocuments({ batchId: batch._id, tenantId: batch.tenantId, status: "failed" }),
+          ]);
+          batch.status = "preview";
+          batch.progress = 100;
+          batch.summary = { ...batch.summary, ...review, migrated: migrated + skipped, failed };
+          batch.workerLock = null;
+          batch.workerHeartbeat = null;
+          await batch.save();
+          return {
+            done: true,
+            processed,
+            message: "Migration paused before journal import because one or more referenced accounts were not saved. Review the Account and journal rows; no dependent journal entries were written.",
+          };
+        }
+      }
+    }
   }
 
   const [migratedCount, skippedCount, failedCount, remainingCount] = await Promise.all([

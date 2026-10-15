@@ -9,6 +9,8 @@ export interface IAccount extends Document {
   reconcile?: boolean;
   tax_ids?: number[];
   internal_group?: string;
+  normal_balance?: "debit" | "credit";
+  is_contra_account?: boolean;
   company_id?: number;
   currency_id?: number;
   parentId?: mongoose.Types.ObjectId;
@@ -78,6 +80,10 @@ const AccountSchema: Schema<IAccount> = new Schema(
         "off_balance",
       ],
     },
+    // Optional normal-side override for contra accounts. Legacy accounts fall
+    // back to the normal balance implied by internal_group in report helpers.
+    normal_balance: { type: String, enum: ["debit", "credit"] },
+    is_contra_account: { type: Boolean },
     company_id: { type: Number },
     currency_id: { type: Number },
     parentId: { type: Schema.Types.ObjectId, ref: "Account", default: null },

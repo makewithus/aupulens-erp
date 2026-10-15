@@ -76,6 +76,8 @@ export default function TrialBalancePage() {
       const query = params.toString();
       const res = await cachedFetch(
         `/api/finance/reports/trial-balance${query ? `?${query}` : ""}`,
+        undefined,
+        { noCache: true },
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load trial balance");

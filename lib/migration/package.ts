@@ -51,8 +51,6 @@ function isKnownNonImportableSheet(fileName: string): boolean {
     "company",
     "banktransaction",
     "banktransactions",
-    "journalline",
-    "journallines",
     "journal",
     "journals",
     "trialbalance",
@@ -157,14 +155,23 @@ export function expandMigrationPackage(files: UploadedMigrationFile[]): Uploaded
 }
 
 export function inferEntityType(fileName: string, columns: string[]): MigrationEntity | null {
-  if (isKnownNonImportableSheet(fileName)) return null;
-
   const name = normalizeHeader(fileName);
   const headers = new Set(columns.map(normalizeHeader));
   const has = (...tokens: string[]) => tokens.some((token) => headers.has(normalizeHeader(token)));
   const hasHeaderContaining = (...tokens: string[]) =>
     columns.some((column) => tokens.some((token) => normalizeHeader(column).includes(normalizeHeader(token))));
   const nameHas = (...tokens: string[]) => tokens.some((token) => name.includes(normalizeHeader(token)));
+  if (
+    nameHas("journalline", "journallines") &&
+    has("journal_id", "journal id") &&
+    has("journal_date", "journal date") &&
+    has("account_code", "account code") &&
+    has("debit_inr", "debit") &&
+    has("credit_inr", "credit")
+  ) {
+    return MIGRATION_ENTITY.JOURNAL_ENTRY;
+  }
+  if (isKnownNonImportableSheet(fileName)) return null;
   const hasProductName = has("item name", "product name", "product_name", "item_name", "name");
   const hasStrongProductIdentity = hasProductName && has(
     "sku", "item code", "product code", "product id", "product category",
@@ -218,6 +225,22 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   }
 
   return null;
+}
+
+function groupJournalLineRows(rows: Record<string, unknown>[]) {
+  const groups = new Map<string, Record<string, unknown>[]>();
+  rows.forEach((row, index) => {
+    const sourceId = String(row.journal_id ?? "").trim();
+    const key = sourceId || `__missing_journal_id_${index}`;
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  });
+
+  return [...groups.values()].map((lines) => {
+    const sorted = [...lines].sort((a, b) => Number(a.line_no) - Number(b.line_no));
+    return { ...sorted[0], lines_json: JSON.stringify(sorted) };
+  });
 }
 
 export function prepareMigrationFiles(
@@ -290,12 +313,19 @@ export function prepareMigrationPackage(
         throw new Error(`${parsedFile.name}: Could not infer a supported migration entity from filename or headers.`);
       }
 
+      const rows = entityType === MIGRATION_ENTITY.JOURNAL_ENTRY
+        ? groupJournalLineRows(parsed.rows)
+        : parsed.rows;
+      const columns = entityType === MIGRATION_ENTITY.JOURNAL_ENTRY && !parsed.columns.includes("lines_json")
+        ? [...parsed.columns, "lines_json"]
+        : parsed.columns;
+
       prepared.push({
         name: parsedFile.name,
         buffer: parsedFile.buffer,
         entityType,
-        columns: parsed.columns,
-        rows: parsed.rows,
+        columns,
+        rows,
       });
     }
   }

@@ -70,6 +70,7 @@ export const MIGRATION_ENTITY = {
   INVOICE_ITEM: "invoiceItem",
   PURCHASE_INVOICE: "purchaseInvoice",
   PAYMENT: "payment",
+  JOURNAL_ENTRY: "journalEntry",
   EXPENSE: "expense",
   ACCOUNT: "account",
   EMPLOYEE: "employee",

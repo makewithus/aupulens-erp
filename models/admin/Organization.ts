@@ -1,3 +1,4 @@
+import type { AiWindowPolicy } from "@/lib/ai/usagePolicy";
 import mongoose, { Schema, Document, Model } from "mongoose";
 import {
   SUBSCRIPTION_STATUS,
@@ -68,6 +69,7 @@ export interface IOrganization extends Document {
     enabledModules?: string[];
     // Per-workspace AI preferences
     ai?: {
+      usagePolicy?: AiWindowPolicy;
       model?: string;
       maxTokensPerCall?: number;
       disabled?: boolean;
@@ -147,6 +149,15 @@ const OrganizationSchema: Schema<IOrganization> = new Schema(
       // unlike Anthropic's universal public model IDs. When unset, lib/ai/tenantAi.ts
       // falls back to CLAUDE_DEFAULT_MODEL (AZURE_OPENAI_CHAT_DEPLOYMENT).
       ai: {
+        // Explicit opt-in only. No policy is created or activated by this feature.
+        usagePolicy: {
+          type: new Schema({
+            startsAt: { type: String, required: true },
+            session: { type: new Schema({ minutes: { type: Number, required: true, min: 1, max: 525600 }, limit: { type: Number, min: 0 } }, { _id: false }), default: undefined },
+            weekly: { type: new Schema({ limit: { type: Number, min: 0 } }, { _id: false }), default: undefined },
+          }, { _id: false }),
+          default: undefined,
+        },
         model: { type: String },
         maxTokensPerCall: { type: Number, default: 1024 },
         disabled: { type: Boolean, default: false },

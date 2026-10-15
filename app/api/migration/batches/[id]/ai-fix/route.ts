@@ -63,6 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if ("aiUsed" in result && result.aiUsed) aiUsedCount += 1;
     if (!result.fixed) messages.push(result.message);
   }
+  const uniqueMessages = [...new Set(messages)];
 
   if (fixedCount > 0) {
     let done = false;
@@ -79,9 +80,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     fixedRecordIds,
     aiUsedCount,
     unresolvedCount: messages.length,
-    unresolvedMessages: messages.slice(0, 5),
+    unresolvedMessages: uniqueMessages.slice(0, 5),
     message: fixedCount > 0
-      ? `${fixedCount} invalid record${fixedCount === 1 ? "" : "s"} fixed and sent back through validation${messages.length ? `; ${messages.length} still need review.` : "."}`
-      : messages[0] || "No automatic fix was available for these rows. Please edit the highlighted fields.",
+      ? `${fixedCount} invalid record${fixedCount === 1 ? "" : "s"} queued for validation${messages.length ? `; ${messages.length} still need review.` : "."}`
+      : uniqueMessages[0] || "No automatic fix was available for these rows. Please review the highlighted fields.",
   });
 }

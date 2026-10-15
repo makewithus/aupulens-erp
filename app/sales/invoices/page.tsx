@@ -34,6 +34,9 @@ function SalesInvoicesLandingPageInner() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   // AI-native "redirect with filters" — when the AI assistant sends the user
   // here with ?search=/&status=/&dateFrom=/&dateTo=/&customerId=/&amountMin=/
@@ -69,17 +72,19 @@ function SalesInvoicesLandingPageInner() {
     const requestId = ++invoiceRequest.current;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ search, status: statusFilter });
+      const params = new URLSearchParams({ search, status: statusFilter, page: String(page), limit: "25" });
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (customerId) params.set("customerId", customerId);
       if (amountMin) params.set("amountMin", amountMin);
       if (amountMax) params.set("amountMax", amountMax);
-      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`);
+      const res = await cachedFetch(`/api/sales/invoices?${params.toString()}`, undefined, { noCache: true });
       const data = await res.json();
       if (requestId !== invoiceRequest.current) return;
       if (data.success) {
         setInvoices(data.data);
+        setInvoiceTotal(Number.isFinite(Number(data.total)) ? Number(data.total) : data.data.length);
+        setTotalPages(Math.max(1, Number(data.totalPages) || 1));
       } else {
         toast.error(data.message || "Failed to fetch invoices");
       }
@@ -93,6 +98,10 @@ function SalesInvoicesLandingPageInner() {
   useEffect(() => {
     fetchInvoices();
     return () => { invoiceRequest.current += 1; };
+  }, [search, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [search, statusFilter, dateFrom, dateTo, customerId, amountMin, amountMax]);
 
   const renderEmptyState = () => (
@@ -196,7 +205,7 @@ function SalesInvoicesLandingPageInner() {
                     All Invoices
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                    {invoices.length} {invoices.length === 1 ? "Invoice" : "Invoices"}
+                    {invoiceTotal} {invoiceTotal === 1 ? "Invoice" : "Invoices"}
                   </p>
                 </div>
 
@@ -331,6 +340,18 @@ function SalesInvoicesLandingPageInner() {
                   )}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-border/30 px-6 py-4">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {(page - 1) * 25 + 1}–{Math.min(page * 25, invoiceTotal)} of {invoiceTotal} invoices
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</Button>
+                    <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" disabled={loading || page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
