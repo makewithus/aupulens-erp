@@ -14,6 +14,7 @@ import {
   Users as UsersIcon,
   UserPlus,
 } from "lucide-react";
+import { getUserRoleOption } from "@/lib/admin/roleModules";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { EditUserDialog } from "@/components/admin/EditUserDialog";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
@@ -27,6 +28,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  userRole?: string;
   department?: string;
   employeeId?: string;
   designation?: string;
@@ -56,13 +58,12 @@ function UsersPageInner() {
   // AI-native: extract the new user's details → open Add User pre-filled.
   useAiPrefill("admin_user", (p) => {
     const d = p.data || {};
-    const VALID_ROLES = ["admin", "master-admin", "finance", "hr", "sales", "inventory", "project", "manufacturing"];
     setAiUserData({
       name: d.name || "",
       email: d.email || "",
       phone: d.phone || "",
       password: d.password || "",
-      role: VALID_ROLES.includes(d.role) ? d.role : "finance",
+      role: getUserRoleOption(d.role)?.value || "",
       department: d.department || "",
       designation: d.designation || "",
     });

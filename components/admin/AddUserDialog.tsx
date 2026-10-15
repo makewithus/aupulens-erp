@@ -24,7 +24,10 @@ import {
   Award,
   AlertCircle,
 } from "lucide-react";
-import { filterRolesByModules } from "@/lib/admin/roleModules";
+import { filterRolesByModules, getUserRoleOption } from "@/lib/admin/roleModules";
+import { filterDepartmentsByModules, getDepartmentModule } from "@/lib/admin/departmentModules";
+
+import { useUserMetadata } from "./useUserMetadata";
 
 interface AddUserDialogProps {
   open: boolean;
@@ -42,31 +45,19 @@ export function AddUserDialog({
 }: AddUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [enabledModules, setEnabledModules] = useState<string[]>(["admin"]);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/hr/departments").then((res) => res.json()).catch(() => null),
-      fetch("/api/admin/entitlements").then((res) => res.json()).catch(() => null),
-    ]).then(([departmentData, entitlementData]) => {
-      if (departmentData?.items) setDepartments(departmentData.items);
-      if (entitlementData?.success && Array.isArray(entitlementData.data?.modules)) {
-        setEnabledModules(entitlementData.data.modules);
-      }
-    }).catch((err) => console.error("Failed to load user dialog metadata", err));
-  }, []);
+  const { departments, enabledModules, metadataReady, metadataError } = useUserMetadata(open);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
-    role: "finance",
+    role: "",
     department: "",
     employeeId: "",
     designation: "",
   });
 
+  const availableDepartments = filterDepartmentsByModules(departments, enabledModules);
   const roles = filterRolesByModules(enabledModules);
   const allowedRoleValues = new Set(roles.map((role) => role.value));
 
@@ -80,17 +71,19 @@ export function AddUserDialog({
       inventory: "INV",
       project: "PRO",
       manufacturing: "MAN",
+      crm: "CRM",
     };
-    const prefix = prefixMap[role] || "EMP";
+    const prefix = prefixMap[getUserRoleOption(role)?.module ?? role] || "EMP";
     const randomNumber = Math.floor(100 + Math.random() * 900);
     return `${prefix}${randomNumber}`;
   };
 
   useEffect(() => {
+    if (!metadataReady) return;
     if (!allowedRoleValues.has(formData.role as any)) {
       setFormData((prev) => ({
         ...prev,
-        role: roles[0]?.value ?? "admin",
+        role: "",
       }));
       return;
     }
@@ -98,18 +91,22 @@ export function AddUserDialog({
       ...prev,
       employeeId: generateEmployeeId(prev.role),
     }));
-  }, [formData.role, enabledModules]);
+  }, [formData.role, enabledModules, metadataReady]);
 
   // AI-native: when the assistant extracted user details, apply them the
   // moment the dialog opens with them — the user still reviews and clicks Create.
   useEffect(() => {
     if (open && initialData) {
-      setFormData((prev) => ({ ...prev, ...initialData }));
+      setFormData((prev) => ({ ...prev, ...initialData, role: getUserRoleOption(initialData.role || prev.role)?.value || "" }));
     }
   }, [open, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!metadataReady || !allowedRoleValues.has(formData.role as any)) {
+      setError("Select a role from the organization’s approved modules.");
+      return;
+    }
     setIsLoading(true);
     setError("");
 
@@ -130,9 +127,9 @@ export function AddUserDialog({
           email: "",
           phone: "",
           password: "",
-          role: "finance",
+          role: "",
           department: "",
-          employeeId: generateEmployeeId("finance"),
+          employeeId: "",
           designation: "",
         });
         onSuccess();
@@ -169,7 +166,7 @@ export function AddUserDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || !metadataReady || !allowedRoleValues.has(formData.role as any)}
               className="none-xl h-11 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20"
             >
               {isLoading ? (
@@ -186,14 +183,14 @@ export function AddUserDialog({
       }
     >
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {error && (
+        {(error || metadataError) && (
           <div className="p-4 none-xl border-2 border-rose-500/20 bg-rose-500/10 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-black uppercase tracking-tight text-rose-600">
                 Error
               </p>
-              <p className="text-xs font-bold text-rose-600/80 mt-1">{error}</p>
+              <p className="text-xs font-bold text-rose-600/80 mt-1">{error || metadataError}</p>
             </div>
           </div>
         )}
@@ -317,14 +314,14 @@ export function AddUserDialog({
               User Role *
             </Label>
             <Select
-              value={formData.role}
+              value={allowedRoleValues.has(formData.role as any) ? formData.role : ""}
               onValueChange={(value) =>
                 setFormData({ ...formData, role: value })
               }
-              disabled={isLoading}
+              disabled={isLoading || !metadataReady}
             >
               <SelectTrigger className="none-xl h-11 border-2 font-bold uppercase">
-                <SelectValue placeholder="Select a role" />
+                <SelectValue placeholder={metadataReady ? "Select a role" : "Loading approved roles..."} />
               </SelectTrigger>
               <SelectContent>
                 {roles.map((role) => (
@@ -334,6 +331,9 @@ export function AddUserDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Only roles for modules approved in your organization’s plan are available.
+            </p>
           </div>
         </div>
 
@@ -353,20 +353,13 @@ export function AddUserDialog({
               </Label>
               <div className="relative">
                 <Select
-                  value={formData.department}
+                  value={availableDepartments.some((dept) => dept.name === formData.department) ? formData.department : ""}
                   onValueChange={(value) => {
-                    const selectedDept = departments.find(d => d.name === value);
-                    let suggestedRole = formData.role;
-                    if (selectedDept) {
-                      const code = selectedDept.code.toUpperCase();
-                      if (code.includes('FIN')) suggestedRole = 'finance';
-                      else if (code.includes('SAL')) suggestedRole = 'sales';
-                      else if (code.includes('HR')) suggestedRole = 'hr';
-                      else if (code.includes('INV')) suggestedRole = 'inventory';
-                      else if (code.includes('MFG')) suggestedRole = 'manufacturing';
-                      else if (code.includes('PROJ')) suggestedRole = 'project';
-                      else if (code.includes('ADMIN')) suggestedRole = 'admin';
-                    }
+                    const selectedDept = availableDepartments.find((dept) => dept.name === value);
+                    const departmentModule = selectedDept && getDepartmentModule(selectedDept);
+                    let suggestedRole = getUserRoleOption(formData.role)?.module === departmentModule
+                      ? formData.role
+                      : roles.find((role) => role.module === departmentModule)?.value || formData.role;
                     if (!allowedRoleValues.has(suggestedRole as any)) suggestedRole = formData.role;
                     setFormData({ ...formData, department: value, role: suggestedRole });
                   }}
@@ -377,7 +370,7 @@ export function AddUserDialog({
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((dept, index) => (
+                    {availableDepartments.map((dept, index) => (
                       <SelectItem key={dept._id ?? dept.name ?? index} value={dept.name}>
                         {dept.name}
                       </SelectItem>

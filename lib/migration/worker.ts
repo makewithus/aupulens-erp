@@ -417,16 +417,45 @@ export async function startWorkerDaemon(batchId: string, origin: string) {
 }
 
 export async function processMigrationWorker(batchId: string, limit = 500) {
-  const batch = await MigrationBatch.findById(batchId);
-  if (!batch) throw new Error("Batch not found");
-
-  if (batch.status === "validating") {
-    return await runValidationChunk(batch, limit);
-  } else if (batch.status === "running") {
-    return await runMigrationChunk(batch, limit);
+  const processingToken = new mongoose.Types.ObjectId().toString();
+  const leaseDuration = 120_000;
+  const batch = await MigrationBatch.findOneAndUpdate(
+    {
+      _id: batchId,
+      status: { $in: ["validating", "running"] },
+      $or: [
+        { processingToken: null },
+        { processingExpiresAt: { $lte: new Date() } },
+      ],
+    },
+    { $set: { processingToken, processingExpiresAt: new Date(Date.now() + leaseDuration) } },
+    { new: true },
+  );
+  if (!batch) {
+    const existing = await MigrationBatch.findById(batchId).select("status").lean();
+    if (!existing) throw new Error("Batch not found");
+    return { done: !["validating", "running"].includes(existing.status), processed: 0 };
   }
-  
-  return { done: true, processed: 0 };
+
+  // The daemon and browser polling can both request work. Only the lease owner
+  // may process rows; keep its lease alive during slow database operations.
+  const heartbeat = setInterval(() => {
+    void MigrationBatch.updateOne(
+      { _id: batchId, processingToken },
+      { $set: { processingExpiresAt: new Date(Date.now() + leaseDuration) } },
+    ).catch((error) => console.error("Migration lease heartbeat failed", error));
+  }, 30_000);
+
+  try {
+    if (batch.status === "validating") return await runValidationChunk(batch, limit);
+    return await runMigrationChunk(batch, limit);
+  } finally {
+    clearInterval(heartbeat);
+    await MigrationBatch.updateOne(
+      { _id: batchId, processingToken },
+      { $unset: { processingToken: "", processingExpiresAt: "" } },
+    );
+  }
 }
 
 async function runValidationChunk(batch: any, limit: number) {

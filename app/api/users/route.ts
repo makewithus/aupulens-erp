@@ -5,9 +5,11 @@ import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
 import User from "@/models/auth/User";
 import Employee from "@/models/hr/Employee";
+import Department from "@/models/hr/Department";
+import { isDepartmentEnabledForModules } from "@/lib/admin/departmentModules";
 import { ENTITY_STATUS } from "@/lib/constants/statuses";
 import { resolveEntitlements } from "@/lib/platform/entitlements/resolve";
-import { isRoleEnabledForModules, VALID_USER_ROLES } from "@/lib/admin/roleModules";
+import { getUserRoleOption, isRoleEnabledForModules, VALID_USER_ROLES } from "@/lib/admin/roleModules";
 
 export async function GET(req: NextRequest) {
   try {
@@ -146,12 +148,29 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const entitlements = await resolveEntitlements(tenantId);
+    if (entitlements.source === "permissive_default") {
+      return NextResponse.json({ error: "Unable to verify approved modules. Please try again." }, { status: 503 });
+    }
     if (!isRoleEnabledForModules(role, entitlements.modules)) {
       return NextResponse.json(
         { error: `The ${role} role is not available on this organization's current plan/modules.` },
         { status: 403 },
       );
     }
+
+    if (department) {
+      const selectedDepartment = typeof department === "string"
+        ? await Department.findOne({ tenantId, name: department }).lean()
+        : null;
+      if (!selectedDepartment || !isDepartmentEnabledForModules(selectedDepartment, entitlements.modules)) {
+        return NextResponse.json(
+          { error: "Department is not available for this organization’s approved modules." },
+          { status: 403 },
+        );
+      }
+    }
+
+    const selectedRole = getUserRoleOption(role)!;
 
     // Check for existing user in the same tenant
     const existingUser = await User.findOne({
@@ -185,7 +204,8 @@ export async function POST(req: NextRequest) {
       email: normalizedEmail,
       phone,
       password: hashedPassword,
-      role,
+      role: selectedRole.module,
+      userRole: selectedRole.value,
       department,
       employeeId: normalizedEmployeeId,
       designation,
@@ -223,6 +243,7 @@ export async function POST(req: NextRequest) {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          userRole: user.userRole,
           department: user.department,
           employeeId: user.employeeId,
           designation: user.designation,

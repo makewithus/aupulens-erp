@@ -59,6 +59,7 @@ function AutoLoginContent() {
                 case "master-admin": return "/master-admin";
                 case "finance": return "/finance/summary";
                 case "sales": return "/sales/summary";
+                case "crm": return "/crm/dashboard";
                 case "inventory": return "/inventory/dashboard";
                 case "manufacturing": return "/manufacturing/dashboard";
                 case "hr": return "/hr/dashboard";

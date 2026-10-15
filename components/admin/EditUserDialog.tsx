@@ -27,7 +27,10 @@ import {
 } from "lucide-react";
 import { GRANTABLE_CRM_PERMISSIONS } from "@/lib/crm/permissions";
 import { Checkbox } from "@/components/ui/checkbox";
-import { filterRolesByModules } from "@/lib/admin/roleModules";
+import { filterRolesByModules, getUserRoleOption } from "@/lib/admin/roleModules";
+import { filterDepartmentsByModules, getDepartmentModule } from "@/lib/admin/departmentModules";
+
+import { useUserMetadata } from "./useUserMetadata";
 
 interface User {
   _id: string;
@@ -35,6 +38,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  userRole?: string;
   department?: string;
   employeeId?: string;
   designation?: string;
@@ -70,21 +74,8 @@ export function EditUserDialog({
     confirmPassword: "",
     permissions: [] as string[],
   });
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [enabledModules, setEnabledModules] = useState<string[]>(["admin"]);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/hr/departments").then((res) => res.json()).catch(() => null),
-      fetch("/api/admin/entitlements").then((res) => res.json()).catch(() => null),
-    ]).then(([departmentData, entitlementData]) => {
-      if (departmentData?.items) setDepartments(departmentData.items);
-      if (entitlementData?.success && Array.isArray(entitlementData.data?.modules)) {
-        setEnabledModules(entitlementData.data.modules);
-      }
-    }).catch((err) => console.error("Failed to load user dialog metadata", err));
-  }, []);
-
+  const { departments, enabledModules, metadataReady, metadataError } = useUserMetadata(open);
+  const availableDepartments = filterDepartmentsByModules(departments, enabledModules);
   const roles = filterRolesByModules(enabledModules);
   const allowedRoleValues = new Set(roles.map((role) => role.value));
 
@@ -94,7 +85,7 @@ export function EditUserDialog({
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role,
+        role: user.userRole || getUserRoleOption(user.role)?.value || "",
         department: user.department || "",
         employeeId: user.employeeId || "",
         designation: user.designation || "",
@@ -109,6 +100,10 @@ export function EditUserDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!metadataReady || !allowedRoleValues.has(formData.role as any)) {
+      setError("Select a role from the organization’s approved modules.");
+      return;
+    }
     if (!user) return;
 
     if (showPasswordFields) {
@@ -134,7 +129,7 @@ export function EditUserDialog({
       if (formData.name !== user.name) updateData.name = formData.name;
       if (formData.email !== user.email) updateData.email = formData.email;
       if (formData.phone !== user.phone) updateData.phone = formData.phone;
-      if (formData.role !== user.role) updateData.role = formData.role;
+      if (formData.role !== (user.userRole || getUserRoleOption(user.role)?.value || "")) updateData.role = formData.role;
       if (formData.department !== (user.department || ""))
         updateData.department = formData.department;
       if (formData.employeeId !== (user.employeeId || ""))
@@ -189,7 +184,7 @@ export function EditUserDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !metadataReady || !allowedRoleValues.has(formData.role as any)}
               className="none-xl h-11 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20"
             >
               {loading ? (
@@ -206,14 +201,14 @@ export function EditUserDialog({
       }
     >
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {error && (
+        {(error || metadataError) && (
           <div className="p-4 none-xl border-2 border-rose-500/20 bg-rose-500/10 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-black uppercase tracking-tight text-rose-600">
                 Error
               </p>
-              <p className="text-xs font-bold text-rose-600/80 mt-1">{error}</p>
+              <p className="text-xs font-bold text-rose-600/80 mt-1">{error || metadataError}</p>
             </div>
           </div>
         )}
@@ -309,17 +304,17 @@ export function EditUserDialog({
               User Role *
             </Label>
             <Select
-              value={formData.role}
+              value={allowedRoleValues.has(formData.role as any) ? formData.role : ""}
               onValueChange={(value) =>
                 setFormData({ ...formData, role: value })
               }
-              disabled={loading}
+              disabled={loading || !metadataReady}
             >
               <SelectTrigger
                 id="edit-role"
                 className="none-xl h-11 border-2 font-bold uppercase"
               >
-                <SelectValue placeholder="Select a role" />
+                <SelectValue placeholder={metadataReady ? "Select a role" : "Loading approved roles..."} />
               </SelectTrigger>
               <SelectContent>
                 {roles.map((role) => (
@@ -329,6 +324,9 @@ export function EditUserDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Only roles for modules approved in your organization’s plan are available.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -378,20 +376,13 @@ export function EditUserDialog({
               </Label>
               <div className="relative">
                 <Select
-                  value={formData.department}
+                  value={availableDepartments.some((dept) => dept.name === formData.department) ? formData.department : ""}
                   onValueChange={(value) => {
-                    const selectedDept = departments.find(d => d.name === value);
-                    let suggestedRole = formData.role;
-                    if (selectedDept) {
-                      const code = selectedDept.code.toUpperCase();
-                      if (code.includes('FIN')) suggestedRole = 'finance';
-                      else if (code.includes('SAL')) suggestedRole = 'sales';
-                      else if (code.includes('HR')) suggestedRole = 'hr';
-                      else if (code.includes('INV')) suggestedRole = 'inventory';
-                      else if (code.includes('MFG')) suggestedRole = 'manufacturing';
-                      else if (code.includes('PROJ')) suggestedRole = 'project';
-                      else if (code.includes('ADMIN')) suggestedRole = 'admin';
-                    }
+                    const selectedDept = availableDepartments.find((dept) => dept.name === value);
+                    const departmentModule = selectedDept && getDepartmentModule(selectedDept);
+                    let suggestedRole = getUserRoleOption(formData.role)?.module === departmentModule
+                      ? formData.role
+                      : roles.find((role) => role.module === departmentModule)?.value || formData.role;
                     if (!allowedRoleValues.has(suggestedRole as any)) suggestedRole = formData.role;
                     setFormData({ ...formData, department: value, role: suggestedRole });
                   }}
@@ -402,7 +393,7 @@ export function EditUserDialog({
                     <SelectValue placeholder="Select Department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((dept, index) => (
+                    {availableDepartments.map((dept, index) => (
                       <SelectItem key={dept._id ?? dept.name ?? index} value={dept.name}>
                         {dept.name}
                       </SelectItem>

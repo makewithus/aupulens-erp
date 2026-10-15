@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import fs from "fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_migration_e2e_worker";
 
@@ -604,6 +606,78 @@ describe("migration worker E2E workflow", () => {
     expect(invalidRecords).toHaveLength(2);
     expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.PRODUCT && /stock quantity cannot be negative/.test(record.errors?.[0]?.message || ""))).toBe(true);
     expect(invalidRecords.some((record) => record.entityType === MIGRATION_ENTITY.SALES_INVOICE && /valid calendar date/.test(record.errors?.[0]?.message || ""))).toBe(true);
+  });
+
+  it("reconciles verified concurrent-write failures without changing business records", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT, sourceSystem: "excel", status: "completed", createdBy: USER_ID,
+      summary: { migrated: 0, failed: 1, verification: { status: "FAIL", sourceVsTarget: [
+        { entity: "account", sourceCount: 1, targetCount: 0, actualTargetCount: 0, failedCount: 1, orphanCount: 0, status: "FAIL" },
+      ] } },
+    });
+    const account = await Account.create({ tenantId: TENANT, accountName: "Recovery Account", accountCode: "REC-1" });
+    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.ACCOUNT, "Recovery accounts",
+      { accountName: "Name", accountCode: "Code" }, [{ Name: "Recovery Account", Code: "REC-1" }]);
+    job.importedRefs.push({ model: "Account", id: account._id });
+    await job.save();
+    await MigrationRecord.updateMany({ jobId: job._id }, { $set: {
+      status: "failed", mappedData: { accountName: "Recovery Account", accountCode: "REC-1" },
+      errors: [{ message: "A duplicate record was found while writing data. Resolve the duplicate row and retry." }],
+    } });
+    const run = promisify(execFile);
+    const args = ["scripts/migrations/reconcile-concurrent-migration.cjs", String(batch._id)];
+    const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "test", MONGODB_URI: process.env.MONGODB_URI };
+    const dryRun = await run(process.execPath, args, { env });
+    expect(dryRun.stdout).toContain('"safelyReconciled":1');
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(1);
+    // A value mismatch must block the entire repair.
+    await Account.updateOne({ _id: account._id }, { $set: { accountName: "Different account" } });
+    await expect(run(process.execPath, [...args, "--apply"], { env })).rejects.toThrow();
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(1);
+    await Account.updateOne({ _id: account._id }, { $set: { accountName: "Recovery Account" } });
+    const before = await Account.findById(account._id).lean();
+    const applied = await run(process.execPath, [...args, "--apply"], { env });
+    expect(applied.stdout).toContain('"recovered":1');
+    expect(await Account.findById(account._id).lean()).toEqual(before);
+    const record = await MigrationRecord.findOne({ jobId: job._id }).lean();
+    expect(record?.status).toBe("migrated");
+    expect(String(record?.targetRecordId)).toBe(String(account._id));
+    expect(await MigrationIdentityMap.countDocuments({ batchId: batch._id, targetId: account._id })).toBe(2);
+    const recovered = await MigrationBatch.findById(batch._id).lean();
+    expect(recovered?.status).toBe("verified");
+    expect(recovered?.summary?.failed).toBe(0);
+    expect(recovered?.summary?.verification?.status).toBe("PASS");
+  });
+
+  it("serializes simultaneous daemon and browser workers without duplicate writes", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT, sourceSystem: "excel", status: "running", createdBy: USER_ID,
+      totalFiles: 1, totalRecords: 25, totalModules: 1,
+    });
+    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.ACCOUNT, "Concurrent accounts",
+      { accountName: "Name", accountCode: "Code" },
+      Array.from({ length: 25 }, (_, i) => ({ Name: `Account ${i}`, Code: `CON-${i}` })),
+    );
+    await MigrationRecord.updateMany({ jobId: job._id }, { $set: { status: "valid" } });
+    await Promise.all(Array.from({ length: 5 }, () => processMigrationWorker(String(batch._id), 50)));
+    await runWorkerUntilDone(String(batch._id), 50);
+    expect(await Account.countDocuments({ tenantId: TENANT })).toBe(25);
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "migrated" })).toBe(25);
+    expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(0);
+    expect(await MigrationIdentityMap.countDocuments({ batchId: batch._id })).toBe(50);
+    const finalBatch = await MigrationBatch.findById(batch._id).lean();
+    expect(finalBatch?.processingToken).toBeUndefined();
+  });
+
+  it("recovers an expired worker lease", async () => {
+    const batch = await MigrationBatch.create({
+      tenantId: TENANT, sourceSystem: "excel", status: "running", createdBy: USER_ID,
+      processingToken: "dead-worker", processingExpiresAt: new Date(Date.now() - 1000),
+    });
+    await processMigrationWorker(String(batch._id), 50);
+    const saved = await MigrationBatch.findById(batch._id).lean();
+    expect(saved?.processingToken).toBeUndefined();
+    expect(["completed", "verified"]).toContain(saved?.status);
   });
 
   it("promotes existing account conflicts to duplicate review before migration", async () => {

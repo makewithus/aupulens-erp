@@ -12,6 +12,9 @@ export async function GET() {
 
   const tenantId = session.user.tenantId;
   const resolved = await resolveEntitlements(tenantId);
+  if (resolved.source === "permissive_default") {
+    return NextResponse.json({ success: false, message: "Unable to verify approved modules" }, { status: 503 });
+  }
   const entitlementDoc = await OrganizationEntitlement.findOne({ tenantId }).select("overrides").lean();
 
   return NextResponse.json({

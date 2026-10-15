@@ -21,6 +21,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  userRole?: string;
   department?: string;
   employeeId?: string;
   designation?: string;

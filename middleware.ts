@@ -217,6 +217,8 @@ export default auth(async (req) => {
         return "/finance/summary";
       case "sales":
         return "/sales/summary";
+      case "crm":
+        return "/crm/dashboard";
       case "inventory":
         return "/inventory/dashboard";
       case "manufacturing":
@@ -367,6 +369,7 @@ export default auth(async (req) => {
     }
     if (
       user.role !== "sales" &&
+      user.role !== "crm" &&
       user.role !== "admin" &&
       user.role !== "master-admin"
     ) {

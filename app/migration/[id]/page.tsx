@@ -37,7 +37,10 @@ function getStepIndex(status: string) {
   return 0;
 }
 
-function batchStatusCopy(status: string) {
+function batchStatusCopy(status: string, failedCount = 0) {
+  if (["completed", "verified"].includes(status) && failedCount > 0) {
+    return { label: "Migration completed with failures", description: "Review the failed rows before treating this import as complete." };
+  }
   if (status === "analyzing") {
     return {
       label: "Analyzing upload",
@@ -148,7 +151,11 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
           toast.error(batchErrorMessage(nextBatch));
           notifiedStatusRef.current = nextBatch.status;
         } else if (nextBatch.status === "completed" || nextBatch.status === "verified") {
-          toast.success(nextBatch.status === "verified" ? "Migration verified and completed." : "Migration completed.");
+          if (Number(nextBatch.summary?.failed || 0) > 0) {
+            toast.error("Migration completed with failed rows. Review the report.");
+          } else {
+            toast.success(nextBatch.status === "verified" ? "Migration verified and completed." : "Migration completed.");
+          }
           notifiedStatusRef.current = nextBatch.status;
         }
       }
@@ -313,7 +320,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   }
 
   const currentStep = getStepIndex(batch.status);
-  const statusCopy = batchStatusCopy(batch.status);
+  const statusCopy = batchStatusCopy(batch.status, Number(batch.summary?.failed || 0));
   const activeProgress = Math.min(100, Math.max(Number(batch.progress || 0), (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") ? 1 : 0));
   const processedEstimate = Math.min(Number(batch.totalRecords || 0), Math.floor((Number(batch.totalRecords || 0) * activeProgress) / 100));
   const progressRows = Array.isArray(progressDetail?.rows) ? progressDetail.rows : [];
@@ -395,7 +402,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
             <p className="text-xs text-muted-foreground mt-2">{statusCopy.description}</p>
           </div>
           <div className="text-right">
-            <div className="text-sm font-semibold text-emerald-600">{statusCopy.label}</div>
+            <div className={`text-sm font-semibold ${Number(batch.summary?.failed || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>{statusCopy.label}</div>
             <div className="text-xs text-muted-foreground">Started {format(new Date(batch.createdAt), "PPp")}</div>
           </div>
         </div>

@@ -11,6 +11,8 @@ export interface IMigrationBatch extends Document {
   totalRecords: number;
   totalModules: number;
   progress: number;
+  processingToken?: string;
+  processingExpiresAt?: Date;
   workerLock?: string;
   workerHeartbeat?: Date;
   summary: {
@@ -58,6 +60,8 @@ const MigrationBatchSchema = new Schema<IMigrationBatch>(
     totalRecords: { type: Number, default: 0 },
     totalModules: { type: Number, default: 0 },
     progress: { type: Number, default: 0 },
+    processingToken: { type: String, default: null },
+    processingExpiresAt: { type: Date, default: null },
     workerLock: { type: String, default: null },
     workerHeartbeat: { type: Date, default: null },
     summary: { type: Schema.Types.Mixed, default: {} },

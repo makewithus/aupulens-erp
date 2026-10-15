@@ -3,8 +3,10 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import User from '@/models/auth/User';
 import Employee from '@/models/hr/Employee';
+import Department from '@/models/hr/Department';
+import { isDepartmentEnabledForModules } from '@/lib/admin/departmentModules';
 import { resolveEntitlements } from '@/lib/platform/entitlements/resolve';
-import { isRoleEnabledForModules, VALID_USER_ROLES } from '@/lib/admin/roleModules';
+import { getUserRoleOption, isRoleEnabledForModules, VALID_USER_ROLES } from '@/lib/admin/roleModules';
 
 export async function PATCH(
   req: NextRequest,
@@ -29,6 +31,8 @@ export async function PATCH(
     delete updateData.createdAt;
     delete updateData.tenantId;
     delete updateData._id;
+    // The title and module access role must be derived from one validated choice.
+    delete updateData.userRole;
 
     if (updateData.role && !VALID_USER_ROLES.includes(updateData.role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
@@ -36,9 +40,34 @@ export async function PATCH(
 
     if (updateData.role) {
       const entitlements = await resolveEntitlements(tenantId);
-      if (!isRoleEnabledForModules(updateData.role, entitlements.modules)) {
+      if (entitlements.source === "permissive_default") {
+        return NextResponse.json({ error: "Unable to verify approved modules. Please try again." }, { status: 503 });
+      }
+      if (updateData.role && !isRoleEnabledForModules(updateData.role, entitlements.modules)) {
         return NextResponse.json(
           { error: `The ${updateData.role} role is not available on this organization's current plan/modules.` },
+          { status: 403 },
+        );
+      }
+    }
+
+    if (updateData.role) {
+      const selectedRole = getUserRoleOption(updateData.role)!;
+      updateData.role = selectedRole.module;
+      updateData.userRole = selectedRole.value;
+    }
+
+    if (updateData.department) {
+      const entitlements = await resolveEntitlements(tenantId);
+      if (entitlements.source === "permissive_default") {
+        return NextResponse.json({ error: "Unable to verify approved modules. Please try again." }, { status: 503 });
+      }
+      const selectedDepartment = typeof updateData.department === "string"
+        ? await Department.findOne({ tenantId, name: updateData.department }).lean()
+        : null;
+      if (!selectedDepartment || !isDepartmentEnabledForModules(selectedDepartment, entitlements.modules)) {
+        return NextResponse.json(
+          { error: "Department is not available for this organization’s approved modules." },
           { status: 403 },
         );
       }

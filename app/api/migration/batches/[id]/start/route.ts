@@ -66,10 +66,14 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       );
     }
 
-    await MigrationBatch.updateOne(
+    const started = await MigrationBatch.updateOne(
       { _id: batch._id, tenantId: session.user.tenantId, status: "preview" },
       { $set: { status: "running", progress: 1 } },
     );
+
+    if (started.modifiedCount === 0) {
+      return NextResponse.json({ success: true, message: "Migration is already starting." });
+    }
 
     await startWorkerDaemon(id, req.nextUrl.origin);
 

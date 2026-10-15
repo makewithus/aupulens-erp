@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { USER_ROLE_OPTIONS, type UserRoleValue } from "@/lib/admin/roleModules";
 import {
   ENTITY_STATUS,
   ENTITY_STATUS_VALUES,
@@ -19,8 +20,11 @@ export interface IUser extends Document {
     | "inventory"
     | "project"
     | "manufacturing"
+    | "crm"
     | "master-admin"
     | "user";
+  /** Selected organization role; role retains the module used by access checks. */
+  userRole?: UserRoleValue;
   department?: string;
   employeeId?: string;
   designation?: string;
@@ -68,12 +72,14 @@ const UserSchema: Schema<IUser> = new Schema(
         "inventory",
         "project",
         "manufacturing",
+        "crm",
         "master-admin",
         "user",
       ],
       default: "user",
       required: true,
     },
+    userRole: { type: String, enum: USER_ROLE_OPTIONS.map((option) => option.value) },
     department: { type: String, trim: true },
     employeeId: { type: String, trim: true },
     designation: { type: String, trim: true },

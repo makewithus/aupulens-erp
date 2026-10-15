@@ -1,5 +1,6 @@
 "use client";
 
+import { getUserRoleLabel } from "@/lib/admin/roleModules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  userRole?: string;
   department?: string;
   employeeId?: string;
   designation?: string;
@@ -92,7 +94,7 @@ export function UserRow({
             ${getRoleBadgeColor(user.role)}
           `}
         >
-          {user.role}
+          {getUserRoleLabel(user.userRole || user.role)}
         </Badge>
       </td>
 
