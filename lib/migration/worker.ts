@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import MigrationBatch from "@/models/admin/MigrationBatch";
 import MigrationJob from "@/models/admin/MigrationJob";
 import MigrationRecord from "@/models/admin/MigrationRecord";
-import { getHandler } from "@/lib/migration/importer";
+import Customer from "@/models/sales/Customer";
+import { ensureOpeningStockMovement, getHandler } from "@/lib/migration/importer";
 import { toCanonicalRecord, validateRows } from "@/lib/migration/validation";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { resolveEntityReference, validateRelationships } from "@/lib/migration/resolver";
@@ -87,6 +88,10 @@ function duplicateSignatures(entityType: string, schema: any, canonical: Record<
     add(["reference"]);
     if (signatures.length > 0) return signatures;
     add(["sourceId"]);
+  } else if (entityType === MIGRATION_ENTITY.PURCHASE_INVOICE) {
+    // Supplier invoice numbers are only unique within a supplier. Legacy
+    // exports can legitimately reuse the same bill number for different vendors.
+    add(["number", "vendorName"]);
   } else if (entityType === MIGRATION_ENTITY.ACCOUNT) {
     add(["accountName", "accountCode"]);
     add(["accountCode"]);
@@ -324,6 +329,8 @@ async function runWriteReadinessCheck(batch: any) {
       const transformed = await handler.transform((record.mappedData || {}) as Record<string, string>, {
         tenantId: batch.tenantId,
         userId: batch.createdBy.toString(),
+        batchId: batch._id.toString(),
+        dryRun: true,
         resolveRef: async () => new mongoose.Types.ObjectId(),
       });
       const doc = new handler.model(transformed);
@@ -724,11 +731,14 @@ async function runMigrationChunk(batch: any, limit: number) {
     const migrationRecordUpdates: any[] = [];
     const identityMapInserts: any[] = [];
     const pendingTargets = new Map<string, { docId: any; insertOpIndex: number | null }>();
+    const newlyInsertedProductIds = new Set<string>();
+    const productOpeningStockRequests: { recordId: any; productId: mongoose.Types.ObjectId; quantity: number; type: string }[] = [];
 
     const resolveCache = new Map<string, any>();
     const importContext = {
       tenantId: batch.tenantId, 
       userId: batch.createdBy.toString(),
+      batchId: batch._id.toString(),
       resolveRef: (entityType: string, sourceId: string) => resolveEntityReference(batch.tenantId, batch._id.toString(), entityType, sourceId, resolveCache)
     };
 
@@ -804,13 +814,24 @@ async function runMigrationChunk(batch: any, limit: number) {
             transformData._id = docId;
             const insertOpIndex = bulkOps.length;
             bulkOps.push({ insertOne: { document: transformData } });
+            if (job.entityType === MIGRATION_ENTITY.PRODUCT) newlyInsertedProductIds.add(String(docId));
             if (conflictKey) pendingTargets.set(conflictKey, { docId, insertOpIndex });
           }
         }
         bulkRecordIds.push(rec._id);
+
+        if (job.entityType === MIGRATION_ENTITY.PRODUCT) {
+          const quantity = Number(String(canonical.stockQuantity || "").replace(/,/g, ""));
+          const productType = String((transformData as any).tab_general_information?.type || "consu");
+          if (Number.isFinite(quantity) && quantity > 0 && productType !== "service") {
+            productOpeningStockRequests.push({ recordId: rec._id, productId: docId, quantity, type: productType });
+          }
+        }
         
         migrationRecordUpdates.push({ updateOne: { filter: { _id: rec._id }, update: { $set: { status: "migrated", targetRecordId: docId } } } });
-        job.importedRefs.push({ model: handler.modelName, id: docId });
+        if (job.entityType !== MIGRATION_ENTITY.PRODUCT) {
+          job.importedRefs.push({ model: handler.modelName, id: docId });
+        }
 
         for (const sourceId of identitySourceIds(job.entityType, canonical)) {
           identityMapInserts.push({
@@ -832,6 +853,25 @@ async function runMigrationChunk(batch: any, limit: number) {
         await handler.model.bulkWrite(bulkOps, { ordered: job.entityType === MIGRATION_ENTITY.PRODUCT });
         if (job.entityType === MIGRATION_ENTITY.PRODUCT) {
           await dedupeProductsForTenant(batch.tenantId);
+          for (const productId of newlyInsertedProductIds) {
+            job.importedRefs.push({ model: "Product", id: new mongoose.Types.ObjectId(productId) });
+          }
+          for (const request of productOpeningStockRequests) {
+            try {
+              const stockId = await ensureOpeningStockMovement(request.productId, request.quantity, {
+                tenantId: batch.tenantId,
+                userId: batch.createdBy.toString(),
+                batchId: batch._id.toString(),
+                resolveRef: async () => null,
+              });
+              if (stockId) job.importedRefs.push({ model: "Stock", id: stockId });
+            } catch (error) {
+              const update = migrationRecordUpdates.find((item) => String(item.updateOne.filter._id) === String(request.recordId));
+              if (update) {
+                update.updateOne.update = { $set: { status: "failed", errors: [{ message: productionMigrationError(error) }] } };
+              }
+            }
+          }
         }
       } catch (err: any) {
         if (err.writeErrors) {
@@ -845,6 +885,33 @@ async function runMigrationChunk(batch: any, limit: number) {
           }
         } else {
           console.error("BulkWrite error:", err);
+        }
+      }
+    }
+    if (job.entityType === MIGRATION_ENTITY.PURCHASE_INVOICE) {
+      const usedPartnerIds = new Set(
+        job.importedRefs.filter((ref: any) => ref.model === "Customer").map((ref: any) => String(ref.id)),
+      );
+      for (const transformed of transformedRecords) {
+        if (transformed.skip || transformed.error || !transformed.transformData) continue;
+        const rowUpdate = migrationRecordUpdates.find((item) => String(item.updateOne.filter._id) === String(transformed.rec._id));
+        if (rowUpdate?.updateOne.update.$set.status !== "migrated") continue;
+        const partnerId = (transformed.transformData as any).partnerId;
+        if (partnerId) usedPartnerIds.add(String(partnerId));
+      }
+      const batchPartners = await Customer.find({
+        tenantId: batch.tenantId,
+        "customFields.migrationPartnerType": "vendor",
+        "customFields.migrationBatchId": batch._id.toString(),
+      }).select("_id").lean();
+      const used = batchPartners.filter((partner) => usedPartnerIds.has(String(partner._id)));
+      const orphanIds = batchPartners.filter((partner) => !usedPartnerIds.has(String(partner._id))).map((partner) => partner._id);
+      if (orphanIds.length > 0) {
+        await Customer.deleteMany({ _id: { $in: orphanIds }, tenantId: batch.tenantId });
+      }
+      for (const partner of used) {
+        if (!job.importedRefs.some((ref: any) => ref.model === "Customer" && String(ref.id) === String(partner._id))) {
+          job.importedRefs.push({ model: "Customer", id: partner._id as mongoose.Types.ObjectId });
         }
       }
     }

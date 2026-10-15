@@ -207,7 +207,7 @@ export async function validateRelationships(
     if (canonical.vendorName) {
       const ref = await resolveEntityReference(tenantId, batchId, MIGRATION_ENTITY.VENDOR, canonical.vendorName, cache);
       if (!ref && !(await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.VENDOR, canonical.vendorName, cache))) {
-        // Placeholder vendor will be created during import if still missing.
+        errors.push({ field: "vendorName", message: `Missing reference: Vendor '${canonical.vendorName}' was not found in this organization or the current import.` });
       }
     }
   } else if (entityType === MIGRATION_ENTITY.PAYMENT) {

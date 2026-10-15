@@ -153,6 +153,7 @@ function CustomersPageInner() {
         setLoading(true);
       }
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      params.set("excludeSupplierPartners", "true");
       if (activeViewId && activeViewId !== "all") params.set("viewId", activeViewId);
       params.set("sortField", sortField);
       if (debouncedQuery) params.set("search", debouncedQuery);

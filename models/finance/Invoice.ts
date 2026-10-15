@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import "@/models/finance/Account";
 import "@/models/sales/Customer";
 import "@/models/inventory/Product";
+import "@/models/admin/Vendor";
 import {
   DOCUMENT_STATUS_VALUES,
   DOCUMENT_STATUS,
@@ -49,6 +50,9 @@ export interface IInvoice extends Document {
   tenantId?: string;
   name: string; // INV/2026/001 or Draft
   partnerId: mongoose.Types.ObjectId;
+  vendorId?: mongoose.Types.ObjectId;
+  migrationVendorSourceId?: string;
+  migrationOriginalBillNumber?: string;
   invoiceDate: Date;
   dueDate: Date;
   state: DocumentStatus;
@@ -97,6 +101,9 @@ const InvoiceSchema: Schema<IInvoice> = new Schema(
     tenantId: { type: String },
     name: { type: String, default: "Draft", index: true },
     partnerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
+    migrationVendorSourceId: { type: String, trim: true },
+    migrationOriginalBillNumber: { type: String, trim: true },
     invoiceDate: { type: Date, default: Date.now },
     dueDate: { type: Date, default: Date.now },
     state: {

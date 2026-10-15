@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import Customer from "@/models/sales/Customer";
 import Vendor from "@/models/admin/Vendor";
 import Product from "@/models/inventory/Product";
+import Stock from "@/models/inventory/Stock";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import SaleOrder from "@/models/sales/SaleOrder";
 import Invoice from "@/models/finance/Invoice";
@@ -39,14 +40,14 @@ function statusFromText(value: string | undefined, fallback: string): string {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return fallback;
   if (["active", "published", "enabled"].includes(normalized)) return "published";
-  if (["inactive", "draft", "disabled"].includes(normalized)) return "draft";
+  if (["inactive", "draft", "disabled", "false", "0", "no"].includes(normalized)) return "draft";
   return fallback;
 }
 
 function entityStatusFromText(value: string | undefined): string {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return ENTITY_STATUS.ACTIVE;
-  if (["inactive", "disabled"].includes(normalized)) return ENTITY_STATUS.INACTIVE;
+  if (["inactive", "disabled", "false", "0", "no"].includes(normalized)) return ENTITY_STATUS.INACTIVE;
   return ENTITY_STATUS.ACTIVE;
 }
 
@@ -116,26 +117,51 @@ async function ensurePlaceholderCustomer(
   return created._id;
 }
 
-async function ensurePlaceholderVendor(
+async function ensureVendorAccountingPartner(
   tenantId: string,
-  externalId: string,
+  userId: string,
+  vendorId: mongoose.Types.ObjectId | null,
+  sourceName: string,
+  dryRun = false,
+  batchId?: string,
 ): Promise<mongoose.Types.ObjectId> {
-  const name = `Imported Vendor ${externalId}`;
-  const existing = await Vendor.findOne({
-    tenantId,
-    $or: [
-      { name: externalId },
-      { name },
-    ],
-  }).select("_id").lean();
+  if (dryRun) return new mongoose.Types.ObjectId();
+  if (!vendorId) throw new Error(`Missing reference: Vendor '${sourceName}' not found in this organization.`);
+  const vendor = await Vendor.findOne({ _id: vendorId, tenantId }).select("name contactEmail phone").lean();
+  if (!vendor) throw new Error(`Missing reference: Vendor '${sourceName}' not found in this organization.`);
+  const name = String(vendor.name || "").trim();
+  if (!name) throw new Error("Missing vendor name for purchase bill.");
+
+  // Finance.Invoice.partnerId references the Customer collection, including
+  // for supplier bills. Keep a matching accounting partner there so the bill
+  // UI can populate and display the actual supplier name.
+  const existing = await Customer.findOne({ tenantId, "header.name": name }).select("_id").lean();
   if (existing?._id) return existing._id as mongoose.Types.ObjectId;
 
-  const created = await Vendor.create({
-    tenantId,
-    name,
-    category: "Imported",
-  });
-  return created._id;
+  // This transform can run concurrently for hundreds of bills. The partial
+  // unique key plus atomic upsert prevents duplicate supplier projections.
+  const partner = await Customer.findOneAndUpdate(
+    { tenantId, "header.name": name, "customFields.migrationPartnerType": "vendor" },
+    {
+      $setOnInsert: {
+        tenantId,
+        createdBy: new mongoose.Types.ObjectId(userId),
+        header: { name, displayName: name, is_company: true },
+        contact_details: {
+          email: vendor.contactEmail || undefined,
+          phone: vendor.phone || undefined,
+        },
+        address_tab: { type: "contact" },
+        sales_purchase_tab: {},
+        accounting_tab: {},
+        customFields: { migrationPartnerType: "vendor", migrationBatchId: batchId },
+        isActive: true,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).select("_id").lean();
+  if (!partner?._id) throw new Error(`Could not prepare the accounting partner for vendor '${name}'.`);
+  return partner._id as mongoose.Types.ObjectId;
 }
 
 interface EntityHandler {
@@ -154,7 +180,47 @@ interface EntityHandler {
 export interface ImportContext {
   tenantId: string;
   userId: string;
+  batchId?: string;
   resolveRef: (entityType: string, sourceId: string) => Promise<mongoose.Types.ObjectId | null>;
+  dryRun?: boolean;
+}
+
+/** Create an opening stock movement once per tenant/product, including on retries. */
+export async function ensureOpeningStockMovement(
+  productId: mongoose.Types.ObjectId,
+  quantity: number,
+  ctx: ImportContext,
+): Promise<mongoose.Types.ObjectId | null> {
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  const migrationSourceKey = `product-opening:${String(productId)}`;
+  const result = await Stock.updateOne(
+    { tenantId: ctx.tenantId, migrationSourceKey },
+    {
+      $setOnInsert: {
+        tenantId: ctx.tenantId,
+        product: productId,
+        quantity,
+        type: "in",
+        reference: `MIGRATION-OPENING-${String(productId)}`,
+        notes: "Opening stock imported from migration source.",
+        createdBy: new mongoose.Types.ObjectId(ctx.userId),
+        migrationSourceKey,
+        migrationBatchId: ctx.batchId,
+      },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+  if (result.upsertedId) return result.upsertedId as mongoose.Types.ObjectId;
+
+  // If a worker retried after committing the movement but before persisting
+  // job refs, recover the reference only for the batch that created it.
+  if (ctx.batchId) {
+    const sameBatch = await Stock.findOne({ tenantId: ctx.tenantId, migrationSourceKey, migrationBatchId: ctx.batchId })
+      .select("_id")
+      .lean();
+    return (sameBatch?._id as mongoose.Types.ObjectId | undefined) || null;
+  }
+  return null;
 }
 
 const HANDLERS: Record<string, EntityHandler> = {
@@ -167,6 +233,7 @@ const HANDLERS: Record<string, EntityHandler> = {
       header: {
         name: rec.name,
         displayName: rec.displayName || rec.name,
+        is_company: !["individual", "person", "sole proprietor"].includes(rec.entityType?.trim().toLowerCase() || ""),
       },
       contact_details: {
         email: rec.email || undefined,
@@ -176,9 +243,12 @@ const HANDLERS: Record<string, EntityHandler> = {
       gstin: rec.gstin ? rec.gstin.toUpperCase() : undefined,
       pan: rec.pan || undefined,
       openingBalance: num(rec.openingBalance) ?? 0,
+      currency: rec.currency || undefined,
+      customFields: rec.entityType ? { sourceEntityType: rec.entityType } : undefined,
+      sales_purchase_tab: { property_payment_term_id: rec.paymentTerms || undefined },
       isActive: entityStatusFromText(rec.status) === ENTITY_STATUS.ACTIVE,
       addresses:
-        rec.street || rec.city || rec.stateName || rec.zip
+        rec.street || rec.city || rec.stateName || rec.zip || rec.country
           ? [
               {
                 type: "billing",
@@ -187,6 +257,7 @@ const HANDLERS: Record<string, EntityHandler> = {
                 city: rec.city || undefined,
                 state_name: rec.stateName || undefined,
                 zip: rec.zip || undefined,
+                country: rec.country || undefined,
               },
             ]
           : [],
@@ -211,6 +282,10 @@ const HANDLERS: Record<string, EntityHandler> = {
       phone: rec.phone || undefined,
       gstin: rec.gstin ? rec.gstin.toUpperCase() : undefined,
       address: rec.address || undefined,
+      state: rec.stateName || undefined,
+      country: rec.country || undefined,
+      paymentTerms: rec.paymentTerms || undefined,
+      isActive: entityStatusFromText(rec.status) === ENTITY_STATUS.ACTIVE,
     }),
     existingFilter: (rec, tenantId) => {
       const clauses = [];
@@ -236,7 +311,8 @@ const HANDLERS: Record<string, EntityHandler> = {
         rec.category ? `Category: ${rec.category}` : "",
         rec.subcategory ? `Subcategory: ${rec.subcategory}` : "",
         rec.brand ? `Brand: ${rec.brand}` : "",
-        rec.stockQuantity ? `Opening stock: ${rec.stockQuantity}` : "",
+        rec.preferredVendor ? `Preferred vendor: ${rec.preferredVendor}` : "",
+        rec.currency ? `Currency: ${rec.currency}` : "",
       ].filter(Boolean);
       return {
         tenantId: ctx.tenantId,
@@ -425,13 +501,26 @@ const HANDLERS: Record<string, EntityHandler> = {
     modelName: "Invoice",
     model: Invoice,
     transform: async (rec, ctx) => {
-      const vendorId = await ctx.resolveRef(MIGRATION_ENTITY.VENDOR, rec.vendorName)
-        || await ensurePlaceholderVendor(ctx.tenantId, rec.vendorName);
+      const vendorId = await ctx.resolveRef(MIGRATION_ENTITY.VENDOR, rec.vendorName);
+      const partnerId = await ensureVendorAccountingPartner(
+        ctx.tenantId,
+        ctx.userId,
+        vendorId,
+        rec.vendorName,
+        ctx.dryRun,
+        ctx.batchId,
+      );
+      const vendorScopedNumber = rec.vendorName
+        ? `${rec.number}::${encodeURIComponent(rec.vendorName)}`
+        : rec.number;
       return {
         tenantId: ctx.tenantId,
-        name: rec.number,
+        name: vendorScopedNumber,
+        migrationOriginalBillNumber: rec.number,
         moveType: "in_invoice",
-        partnerId: vendorId,
+        partnerId,
+        vendorId,
+        migrationVendorSourceId: rec.vendorName,
         invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
         amountTotal: num(rec.totalAmount) ?? 0,
         amountUntaxed: num(rec.totalAmount) ?? 0,
@@ -440,11 +529,18 @@ const HANDLERS: Record<string, EntityHandler> = {
       };
     },
     existingFilter: (rec, tenantId) => {
-      if (rec.number) return { tenantId, name: rec.number, moveType: "in_invoice" };
+      if (rec.number && rec.vendorName) return {
+        tenantId,
+        name: `${rec.number}::${encodeURIComponent(rec.vendorName)}`,
+        moveType: "in_invoice",
+      };
       return null;
     },
     uniqueConflictFilter: (rec, tenantId) => {
-      if (rec.number) return { filter: { tenantId, name: rec.number }, fields: ["number"] };
+      if (rec.number && rec.vendorName) return {
+        filter: { tenantId, name: `${rec.number}::${encodeURIComponent(rec.vendorName)}`, moveType: "in_invoice" },
+        fields: ["number", "vendorName"],
+      };
       return null;
     },
   },
@@ -480,14 +576,18 @@ const HANDLERS: Record<string, EntityHandler> = {
       if (!isReceipt) {
         throw new Error("Vendor outbound payment migration is not supported by the current target payment model.");
       }
+      const invoiceId = rec.invoiceSourceId
+        ? await ctx.resolveRef(MIGRATION_ENTITY.SALES_INVOICE, rec.invoiceSourceId)
+        : null;
+      let linkedInvoiceId: mongoose.Types.ObjectId | null = null;
       let customerId = rec.partyName
         ? await ctx.resolveRef(MIGRATION_ENTITY.CUSTOMER, rec.partyName)
         : null;
-      if (!customerId && rec.invoiceSourceId) {
-        const invoiceId = await ctx.resolveRef(MIGRATION_ENTITY.SALES_INVOICE, rec.invoiceSourceId);
-        if (invoiceId) {
-          const invoice = await SalesInvoice.findOne({ _id: invoiceId, tenantId: ctx.tenantId }).select("customerId").lean();
-          customerId = (invoice?.customerId as mongoose.Types.ObjectId | undefined) || null;
+      if (invoiceId) {
+        const invoice = await SalesInvoice.findOne({ _id: invoiceId, tenantId: ctx.tenantId }).select("customerId").lean();
+        if (invoice) {
+          linkedInvoiceId = invoiceId;
+          if (!customerId) customerId = (invoice.customerId as mongoose.Types.ObjectId | undefined) || null;
         }
       }
       customerId = customerId || await ensurePlaceholderCustomer(ctx.tenantId, ctx.userId, rec.partyName || rec.invoiceSourceId || rec.sourceId || "unknown");
@@ -504,8 +604,8 @@ const HANDLERS: Record<string, EntityHandler> = {
         reference: rec.reference || undefined,
         taxDeducted: false,
         tdsAmount: 0,
-        allocations: [],
-        unusedAmount: amount,
+        allocations: linkedInvoiceId ? [{ invoiceId: linkedInvoiceId, amount }] : [],
+        unusedAmount: linkedInvoiceId ? 0 : amount,
         journalEntryIds: [],
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
       };
@@ -690,7 +790,7 @@ export async function previewImport(
       willSkip += 1;
     } else {
       willCreate += 1;
-      if (sample.length < 5) sample.push(await handler.transform(rec, ctx));
+      if (sample.length < 5) sample.push(await handler.transform(rec, { ...ctx, dryRun: true }));
     }
   }
 
@@ -755,6 +855,30 @@ export async function executeImport(
       const doc = await handler.model.create(await handler.transform(rec, ctx));
       created += 1;
       importedRefs.push({ model: handler.modelName, id: doc._id });
+      if (entity === MIGRATION_ENTITY.PURCHASE_INVOICE && ctx.batchId && (doc as any).partnerId) {
+        const migrationPartner = await Customer.findOne({
+          _id: (doc as any).partnerId,
+          tenantId: ctx.tenantId,
+          "customFields.migrationPartnerType": "vendor",
+          "customFields.migrationBatchId": ctx.batchId,
+        }).select("_id").lean();
+        if (migrationPartner?._id) importedRefs.push({ model: "Customer", id: migrationPartner._id as mongoose.Types.ObjectId });
+      }
+      if (entity === MIGRATION_ENTITY.PRODUCT) {
+        const openingQuantity = num(rec.stockQuantity);
+        const productType = (doc as any).tab_general_information?.type;
+        if (openingQuantity && openingQuantity > 0 && productType !== "service") {
+          try {
+            const stockId = await ensureOpeningStockMovement(doc._id, openingQuantity, ctx);
+            if (stockId) importedRefs.push({ model: "Stock", id: stockId });
+          } catch (stockError) {
+            await handler.model.deleteOne({ _id: doc._id, tenantId: ctx.tenantId });
+            importedRefs.pop();
+            created -= 1;
+            throw stockError;
+          }
+        }
+      }
     } catch (err: unknown) {
       failed += 1;
       errors.push({ rowIndex, message: err instanceof Error ? err.message : "Create failed" });

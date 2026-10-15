@@ -10,6 +10,8 @@ export interface IStock extends Document {
   isReserved?: boolean;
   tenantId?: string;
   createdBy?: mongoose.Types.ObjectId;
+  migrationSourceKey?: string;
+  migrationBatchId?: string;
 }
 
 const StockSchema: Schema<IStock> = new Schema(
@@ -27,6 +29,8 @@ const StockSchema: Schema<IStock> = new Schema(
     isReserved: { type: Boolean, default: false }, // For virtual stock reservations
     tenantId: { type: String, index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    migrationSourceKey: { type: String },
+    migrationBatchId: { type: String },
   },
   { timestamps: true },
 );
@@ -37,6 +41,10 @@ StockSchema.index({ product: 1, tenantId: 1 });
 // index above only covers {product,tenantId}, so type/isReserved filtering
 // fell back to scanning every ledger row for that product/tenant.
 StockSchema.index({ tenantId: 1, product: 1, type: 1, isReserved: 1 });
+StockSchema.index(
+  { tenantId: 1, migrationSourceKey: 1 },
+  { unique: true, partialFilterExpression: { migrationSourceKey: { $exists: true } } },
+);
 
 const Stock: Model<IStock> =
   (mongoose.models.Stock as Model<IStock>) ||

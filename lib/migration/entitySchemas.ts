@@ -47,7 +47,7 @@ const CUSTOMER_SCHEMA: EntitySchema = {
   label: "Customers",
   dedupeKeys: ["gstin", "email", "name"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacycustomerid", "legacy customer id", "customercode", "customer code", "code"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["customer_id", "customerid", "customer id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacycustomerid", "legacy customer id", "customercode", "customer code", "code"] },
     { key: "name", label: "Name / Company", required: true, aliases: ["customer_name", "customername", "customer name", "name", "customer", "party", "companyname", "company", "ledgername", "account name"], validate: "nonEmpty" },
     { key: "displayName", label: "Display Name", required: false, aliases: ["displayname", "display name", "shortname", "alias"] },
     { key: "email", label: "Email", required: false, aliases: ["email", "e-mail", "emailid", "mail"], validate: "email" },
@@ -59,9 +59,13 @@ const CUSTOMER_SCHEMA: EntitySchema = {
     { key: "street2", label: "Address Line 2", required: false, aliases: ["street2", "address2", "addressline2", "add2"] },
     { key: "city", label: "City", required: false, aliases: ["city", "town", "district"] },
     { key: "stateName", label: "State", required: false, aliases: ["state", "statename", "region", "province"] },
+    { key: "country", label: "Country", required: false, aliases: ["country", "countryname", "country name"] },
+    { key: "currency", label: "Currency", required: false, aliases: ["currency", "currencycode", "currency code"] },
+    { key: "paymentTerms", label: "Payment Terms", required: false, aliases: ["payment_terms", "paymentterms", "payment terms", "terms"] },
+    { key: "entityType", label: "Entity Type", required: false, aliases: ["entity_type", "entitytype", "entity type", "legaltype", "legal type"] },
     { key: "zip", label: "Pincode / ZIP", required: false, aliases: ["zip", "pincode", "pin", "postal", "postcode"] },
     { key: "openingBalance", label: "Opening Balance", required: false, aliases: ["openingbalance", "opening balance", "balance", "outstanding"], validate: "number" },
-    { key: "status", label: "Status", required: false, aliases: ["status", "customerstatus", "customer status", "active"] },
+    { key: "status", label: "Status", required: false, aliases: ["status", "customerstatus", "customer status", "active", "is_active", "is active", "active flag"] },
   ],
 };
 
@@ -77,6 +81,10 @@ const VENDOR_SCHEMA: EntitySchema = {
     { key: "phone", label: "Phone", required: false, aliases: ["phone", "mobile", "contact", "telephone"], validate: "phone" },
     { key: "gstin", label: "GSTIN", required: false, aliases: ["gstin", "gst", "gstno", "gst number", "taxid"], validate: "gstin" },
     { key: "address", label: "Address", required: false, aliases: ["address", "street", "location"] },
+    { key: "stateName", label: "State", required: false, aliases: ["state", "statename", "region", "province"] },
+    { key: "country", label: "Country", required: false, aliases: ["country", "countryname", "country name"] },
+    { key: "paymentTerms", label: "Payment Terms", required: false, aliases: ["payment_terms", "paymentterms", "payment terms", "terms"] },
+    { key: "status", label: "Active Status", required: false, aliases: ["is_active", "is active", "active", "status"] },
   ],
 };
 
@@ -91,11 +99,13 @@ const PRODUCT_SCHEMA: EntitySchema = {
     { key: "category", label: "Category", required: false, aliases: ["category", "productcategory", "product category", "categ", "group"] },
     { key: "subcategory", label: "Subcategory", required: false, aliases: ["subcategory", "sub category", "subcat"] },
     { key: "brand", label: "Brand", required: false, aliases: ["brand", "manufacturer", "make"] },
-    { key: "type", label: "Type (consu/service/combo)", required: false, aliases: ["type", "producttype", "product type", "kind"] },
-    { key: "salesPrice", label: "Sales Price", required: false, aliases: ["salesprice", "sales price", "unitprice", "unit price", "listprice", "price", "rate", "mrp", "sellingprice", "selling price"], validate: "number" },
+    { key: "type", label: "Type (consu/service/combo)", required: false, aliases: ["type", "item_type", "itemtype", "item type", "producttype", "product type", "kind"] },
+    { key: "salesPrice", label: "Sales Price", required: false, aliases: ["salesprice", "sales price", "unitprice", "unit price", "listprice", "list price inr", "list_price_inr", "price", "rate", "mrp", "sellingprice", "selling price"], validate: "number" },
     { key: "cost", label: "Cost Price", required: false, aliases: ["cost", "costprice", "purchaseprice", "standardprice", "buyprice"], validate: "number" },
-    { key: "stockQuantity", label: "Stock Quantity", required: false, aliases: ["stockquantity", "stock quantity", "availablequantity", "available quantity", "qty", "quantity", "onhand", "on hand"], validate: "number" },
-    { key: "status", label: "Status", required: false, aliases: ["status", "productstatus", "product status", "state"] },
+    { key: "stockQuantity", label: "Stock Quantity", required: false, aliases: ["stockquantity", "stock quantity", "opening_stock_qty", "opening stock qty", "openingstockqty", "availablequantity", "available quantity", "qty", "quantity", "onhand", "on hand"], validate: "number" },
+    { key: "preferredVendor", label: "Preferred Vendor", required: false, aliases: ["preferred_vendor", "preferredvendor", "preferred vendor", "vendor_id", "vendorid"] },
+    { key: "currency", label: "Currency", required: false, aliases: ["currency", "currencycode", "currency code"] },
+    { key: "status", label: "Status", required: false, aliases: ["status", "productstatus", "product status", "state", "is_active", "is active", "active flag"] },
     // NOTE: HSN/SAC is intentionally omitted — the Product model has no HSN field
     // yet (invoices carry HSN as free text). Add it here once Product gains one.
     { key: "description", label: "Description", required: false, aliases: ["description", "desc", "details", "notes"] },
@@ -168,7 +178,7 @@ const PURCHASE_INVOICE_SCHEMA: EntitySchema = {
   label: "Purchase Invoices",
   dedupeKeys: ["number", "vendorName"],
   fields: [
-    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["bill_id", "billid", "bill id", "sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacybillid", "legacy bill id", "legacypurchaseinvoiceid", "legacy purchase invoice id"] },
+    { key: "sourceId", label: "Source / External ID", required: false, aliases: ["sourceid", "source id", "guid", "externalid", "external id", "legacyid", "legacy id", "legacybillid", "legacy bill id", "legacypurchaseinvoiceid", "legacy purchase invoice id"] },
     { key: "number", label: "Bill / Invoice Number", required: true, aliases: ["bill_id", "billid", "bill id", "billno", "invoice_id", "invoiceid", "invoice id", "invoicenumber", "invoice number", "invno", "invoiceno", "invoice no", "docnum", "voucherno"], validate: "nonEmpty" },
     { key: "vendorName", label: "Vendor Name", required: true, aliases: ["vendor_id", "vendorid", "vendor id", "vendor", "supplier", "party", "creditor"], validate: "nonEmpty" },
     { key: "invoiceDate", label: "Bill Date", required: true, aliases: ["bill_date", "billdate", "bill date", "date", "docdate"], validate: "date" },

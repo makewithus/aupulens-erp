@@ -6,6 +6,10 @@ export interface IVendor extends mongoose.Document {
   category: string;
   contactEmail?: string;
   phone?: string;
+  state?: string;
+  country?: string;
+  paymentTerms?: string;
+  isActive?: boolean;
   performanceMetrics?: {
     deliveryTime: number;
     qualityScore: number;
@@ -40,6 +44,10 @@ const VendorSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  state: String,
+  country: String,
+  paymentTerms: String,
+  isActive: { type: Boolean, default: true },
   performanceMetrics: {
     deliveryTime: { type: Number, default: 0 }, // Average days
     qualityScore: { type: Number, default: 0 }, // 1-10

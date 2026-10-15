@@ -17,6 +17,7 @@ import { comparePurchaseLineTax } from "@/lib/tax/purchaseTaxCompare";
 
 function serializeBill(bill: any) {
   const partner = bill.partnerId;
+  const vendor = bill.vendorId;
   const isOverdue =
     bill.paymentState !== PAYMENT_STATE.PAID &&
     bill.state === DOCUMENT_STATUS.POSTED &&
@@ -33,9 +34,10 @@ function serializeBill(bill: any) {
 
   return {
     ...bill,
-    billNumber: bill.name,
-    vendorName: partner?.header?.name || "Unknown Vendor",
-    vendorEmail: partner?.contact_details?.email || "",
+    name: bill.migrationOriginalBillNumber || bill.name,
+    billNumber: bill.migrationOriginalBillNumber || bill.name,
+    vendorName: vendor?.name || partner?.header?.name || "Unknown Vendor",
+    vendorEmail: vendor?.contactEmail || partner?.contact_details?.email || "",
     total: Number(bill.amountTotal) || 0,
     currency: bill.currencyId || "INR",
     status: paymentStatus,
@@ -68,7 +70,10 @@ export async function GET(req: NextRequest) {
     if (partnerId) query.partnerId = partnerId;
     if (search) {
       const words = search.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      query.name = { $regex: words.join(".*"), $options: "i" };
+      query.$or = [
+        { name: { $regex: words.join(".*"), $options: "i" } },
+        { migrationOriginalBillNumber: { $regex: words.join(".*"), $options: "i" } },
+      ];
     }
     if (state === "pending") {
       query.state = DOCUMENT_STATUS.PENDING_APPROVAL;
@@ -107,6 +112,7 @@ export async function GET(req: NextRequest) {
       Invoice.countDocuments(query),
       Invoice.find(query)
         .populate("partnerId", "header.name contact_details.email")
+        .populate({ path: "vendorId", match: { tenantId }, select: "name contactEmail phone" })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -114,7 +120,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({
-      items,
+      items: items.map(serializeBill),
       bills: items.map(serializeBill),
       total,
       page,

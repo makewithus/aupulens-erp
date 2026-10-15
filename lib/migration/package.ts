@@ -29,6 +29,7 @@ export interface PreparedMigrationPackage {
   sourceRecordCount: number;
   importableFileCount: number;
   importableRecordCount: number;
+  ignoredSheets: { name: string; rows: number; reason: "recognized_non_importable_sheet" | "unrecognized_sheet" }[];
 }
 
 const MAX_ZIP_ENTRIES = 100;
@@ -164,13 +165,20 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   const hasHeaderContaining = (...tokens: string[]) =>
     columns.some((column) => tokens.some((token) => normalizeHeader(column).includes(normalizeHeader(token))));
   const nameHas = (...tokens: string[]) => tokens.some((token) => name.includes(normalizeHeader(token)));
-  const hasStrongProductIdentity = has("item name", "product name", "sku", "item code", "product code", "product id");
+  const hasProductName = has("item name", "product name", "product_name", "item_name", "name");
+  const hasStrongProductIdentity = hasProductName && has(
+    "sku", "item code", "product code", "product id", "product category",
+    "list price", "unit price", "item type", "opening stock qty", "quantity",
+  );
   const hasAccountingTransactionShape =
     has("voucher no", "voucher number", "journal no", "journal id") ||
     (has("particulars", "narration", "description") && has("debit", "credit", "amount")) ||
     (hasHeaderContaining("voucher", "journal", "ledger") && has("date", "transaction date", "posting date"));
 
-  if (hasAccountingTransactionShape && !hasStrongProductIdentity) return null;
+  // Transaction exports often contain SKU/item columns as line references.
+  // Never treat those as product masters when the sheet itself has accounting
+  // transaction structure, even if a SKU column is present.
+  if (hasAccountingTransactionShape) return null;
 
   if (nameHas("invoiceitem", "invoiceline", "lineitem") || (has("invoice number", "inv no", "voucher no") && has("qty", "quantity") && has("rate", "unit price"))) {
     return MIGRATION_ENTITY.INVOICE_ITEM;
@@ -193,7 +201,7 @@ export function inferEntityType(fileName: string, columns: string[]): MigrationE
   if (nameHas("customer", "debtor", "client") || (has("customer name", "cust name", "company name") && has("email", "email id", "gstin", "gst no"))) {
     return MIGRATION_ENTITY.CUSTOMER;
   }
-  if (nameHas("product", "products", "item", "items") || hasStrongProductIdentity) {
+  if ((nameHas("product", "products", "item", "items") && hasProductName) || hasStrongProductIdentity) {
     return MIGRATION_ENTITY.PRODUCT;
   }
   if (nameHas("invoice", "salesinvoice", "sale") || has("invoice number", "inv no", "customer", "buyer")) {
@@ -227,6 +235,7 @@ export function prepareMigrationPackage(
   const prepared: PreparedMigrationFile[] = [];
   let sourceFileCount = 0;
   let sourceRecordCount = 0;
+  const ignoredSheets: PreparedMigrationPackage["ignoredSheets"] = [];
 
   for (const file of expanded) {
     let parsedFiles;
@@ -268,7 +277,16 @@ export function prepareMigrationPackage(
 
       const entityType = inferEntityType(parsedFile.inferName, parsed.columns);
       if (!entityType) {
-        if (parsedFiles.length > 1) continue;
+        if (parsedFiles.length > 1) {
+          ignoredSheets.push({
+            name: parsedFile.name,
+            rows: parsed.rows.length,
+            reason: isKnownNonImportableSheet(parsedFile.inferName)
+              ? "recognized_non_importable_sheet"
+              : "unrecognized_sheet",
+          });
+          continue;
+        }
         throw new Error(`${parsedFile.name}: Could not infer a supported migration entity from filename or headers.`);
       }
 
@@ -292,5 +310,6 @@ export function prepareMigrationPackage(
     sourceRecordCount,
     importableFileCount: prepared.length,
     importableRecordCount: prepared.reduce((sum, file) => sum + file.rows.length, 0),
+    ignoredSheets,
   };
 }

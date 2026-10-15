@@ -108,6 +108,7 @@ async function createMigrationBatchFromFiles({
     sourceRecords: preparedPackage.sourceRecordCount,
     importableRecords: preparedPackage.importableRecordCount,
     ignoredRecords: Math.max(0, preparedPackage.sourceRecordCount - preparedPackage.importableRecordCount),
+    ignoredSheets: preparedPackage.ignoredSheets,
   };
   batch.status = "mapping";
   await batch.save();

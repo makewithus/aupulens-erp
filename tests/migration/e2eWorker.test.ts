@@ -12,6 +12,7 @@ import MigrationRecord from "@/models/admin/MigrationRecord";
 import MigrationIdentityMap from "@/models/admin/MigrationIdentityMap";
 import Customer from "@/models/sales/Customer";
 import Product from "@/models/inventory/Product";
+import Stock from "@/models/inventory/Stock";
 import Employee from "@/models/hr/Employee";
 import Department from "@/models/hr/Department";
 import Account from "@/models/finance/Account";
@@ -21,12 +22,14 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import { MIGRATION_ENTITY, MIGRATION_JOB_STATUS } from "@/lib/migration/constants";
 import { processMigrationWorker } from "@/lib/migration/worker";
-import { prepareMigrationFiles } from "@/lib/migration/package";
+import { prepareMigrationFiles, prepareMigrationPackage } from "@/lib/migration/package";
 import { deterministicMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { ensureDepartmentForTenant } from "@/lib/migration/employeeDepartmentSync";
 import { unresolvedDuplicateFilter } from "@/lib/migration/duplicateResolution";
 import { computeMigrationReviewSummary } from "@/lib/migration/summary";
+import { executeImport, rollbackImport } from "@/lib/migration/importer";
+import { getOnHandQuantity } from "@/lib/inventory/stockGuard";
 
 const TENANT = "tenant-migration-e2e";
 const USER_ID = new mongoose.Types.ObjectId();
@@ -85,6 +88,7 @@ describe("migration worker E2E workflow", () => {
     await MigrationIdentityMap.init();
     await Customer.init();
     await Product.init();
+    await Stock.init();
     await Employee.init();
     await Account.init();
     await Vendor.init();
@@ -97,6 +101,7 @@ describe("migration worker E2E workflow", () => {
     await MigrationIdentityMap.deleteMany({ tenantId: TENANT });
     await Customer.deleteMany({ tenantId: TENANT });
     await Product.deleteMany({ tenantId: TENANT });
+    await Stock.deleteMany({ tenantId: TENANT });
     await Employee.deleteMany({ tenantId: TENANT });
     await Account.deleteMany({ tenantId: TENANT });
     await Vendor.deleteMany({ tenantId: TENANT });
@@ -117,12 +122,66 @@ describe("migration worker E2E workflow", () => {
     await MigrationIdentityMap.deleteMany({ tenantId: TENANT });
     await Customer.deleteMany({ tenantId: TENANT });
     await Product.deleteMany({ tenantId: TENANT });
+    await Stock.deleteMany({ tenantId: TENANT });
     await Employee.deleteMany({ tenantId: TENANT });
     await Account.deleteMany({ tenantId: TENANT });
     await Vendor.deleteMany({ tenantId: TENANT });
     await Invoice.deleteMany({ tenantId: TENANT });
     await (SalesInvoice as any).deleteMany({ tenantId: TENANT });
     await Payment.deleteMany({ tenantId: TENANT });
+  });
+
+  it("imports product opening stock into the stock ledger and rolls it back with the product", async () => {
+    const result = await executeImport(
+      MIGRATION_ENTITY.PRODUCT,
+      [{ Name: "Northstar Router", SKU: "SKU-HW-R", Category: "Hardware", Price: "8500", Qty: "35", Type: "Inventory" }],
+      { name: "Name", sku: "SKU", category: "Category", salesPrice: "Price", stockQuantity: "Qty", type: "Type" },
+      { tenantId: TENANT, userId: String(USER_ID), resolveRef: async () => null },
+    );
+
+    expect(result).toMatchObject({ created: 1, failed: 0 });
+    const product = await Product.findOne({ tenantId: TENANT, "tab_general_information.default_code": "SKU-HW-R" }).lean();
+    expect(product?.tab_general_information.list_price).toBe(8500);
+    const stock = await Stock.findOne({ tenantId: TENANT, product: product?._id }).lean();
+    expect(stock).toMatchObject({ quantity: 35, type: "in" });
+
+    const retry = await executeImport(
+      MIGRATION_ENTITY.PRODUCT,
+      [{ Name: "Northstar Router", SKU: "SKU-HW-R", Category: "Hardware", Price: "8500", Qty: "35", Type: "Inventory" }],
+      { name: "Name", sku: "SKU", category: "Category", salesPrice: "Price", stockQuantity: "Qty", type: "Type" },
+      { tenantId: TENANT, userId: String(USER_ID), resolveRef: async () => null },
+    );
+    expect(retry).toMatchObject({ created: 0, failed: 1 });
+    expect(await Stock.countDocuments({ tenantId: TENANT, migrationSourceKey: { $exists: true } })).toBe(1);
+
+    expect(await rollbackImport(result.importedRefs, TENANT)).toMatchObject({ deleted: 2 });
+    expect(await Product.countDocuments({ tenantId: TENANT, "tab_general_information.default_code": "SKU-HW-R" })).toBe(0);
+    expect(await Stock.countDocuments({ tenantId: TENANT, product: product?._id })).toBe(0);
+  });
+
+  it("links vendor bills to a displayable supplier accounting partner", async () => {
+    const vendor = await Vendor.create({ tenantId: TENANT, name: "DeviceStack", category: "Hardware" });
+    const result = await executeImport(
+      MIGRATION_ENTITY.PURCHASE_INVOICE,
+      [{ Number: "BILL-TEST-1", Vendor: "VEND-001", Date: "2026-03-13", Total: "1000" }],
+      { number: "Number", vendorName: "Vendor", invoiceDate: "Date", totalAmount: "Total" },
+      {
+        tenantId: TENANT,
+        userId: String(USER_ID),
+        batchId: "vendor-bill-rollback-test",
+        resolveRef: async (entity, sourceId) => entity === MIGRATION_ENTITY.VENDOR && sourceId === "VEND-001" ? vendor._id : null,
+      },
+    );
+
+    expect(result).toMatchObject({ created: 1, failed: 0 });
+    const bill = await Invoice.findOne({ tenantId: TENANT, migrationOriginalBillNumber: "BILL-TEST-1", moveType: "in_invoice" })
+      .populate({ path: "partnerId", select: "header.name" });
+    expect((bill?.partnerId as any)?.header?.name).toBe("DeviceStack");
+    expect(String(bill?.vendorId)).toBe(String(vendor._id));
+    expect(result.importedRefs.some((ref) => ref.model === "Customer")).toBe(true);
+    expect(await rollbackImport(result.importedRefs, TENANT)).toMatchObject({ deleted: 2 });
+    expect(await Invoice.countDocuments({ tenantId: TENANT, name: "BILL-TEST-1::VEND-001" })).toBe(0);
+    expect(await Customer.countDocuments({ tenantId: TENANT, "customFields.migrationPartnerType": "vendor" })).toBe(0);
   });
 
   it("keeps data in the workspace until approval, then migrates related invoices, line items, products, and receipts", async () => {
@@ -726,11 +785,23 @@ describe("migration worker E2E workflow", () => {
   });
 
   itIfFile("Northstar_Cloud_5Y_Migration_Test.xlsx")("validates and migrates the Northstar workbook without failed rows", async () => {
-    const prepared = prepareMigrationFiles(
+    const preparedPackage = prepareMigrationPackage(
       [{ name: "Northstar_Cloud_5Y_Migration_Test.xlsx", buffer: fs.readFileSync("Northstar_Cloud_5Y_Migration_Test.xlsx") }],
       "excel",
     );
+    const prepared = preparedPackage.files;
     const totalRecords = prepared.reduce((sum, file) => sum + file.rows.length, 0);
+    expect(preparedPackage.importableRecordCount).toBe(860);
+    expect(preparedPackage.sourceRecordCount).toBe(4737);
+    expect(prepared.map((file) => [file.entityType, file.rows.length])).toEqual([
+      [MIGRATION_ENTITY.ACCOUNT, 25],
+      [MIGRATION_ENTITY.CUSTOMER, 12],
+      [MIGRATION_ENTITY.VENDOR, 7],
+      [MIGRATION_ENTITY.PRODUCT, 7],
+      [MIGRATION_ENTITY.SALES_INVOICE, 215],
+      [MIGRATION_ENTITY.PAYMENT, 213],
+      [MIGRATION_ENTITY.PURCHASE_INVOICE, 381],
+    ]);
 
     const batch = await MigrationBatch.create({
       tenantId: TENANT,
@@ -755,6 +826,36 @@ describe("migration worker E2E workflow", () => {
 
     await runWorkerUntilDone(String(batch._id), 500, 50);
 
+    const productSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.PRODUCT)!;
+    const productMapping = deterministicMapping(getEntitySchema(MIGRATION_ENTITY.PRODUCT)!, productSource.columns);
+    expect(productMapping).toMatchObject({
+      name: "product_name",
+      sku: "sku",
+      category: "product_category",
+      salesPrice: "list_price_inr",
+      stockQuantity: "opening_stock_qty",
+      description: "description",
+      type: "item_type",
+      preferredVendor: "preferred_vendor",
+      currency: "currency",
+      status: "is_active",
+    });
+
+    const customerSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.CUSTOMER)!;
+    const customerMapping = deterministicMapping(getEntitySchema(MIGRATION_ENTITY.CUSTOMER)!, customerSource.columns);
+    expect(customerMapping).toMatchObject({
+      name: "customer_name",
+      sourceId: "customer_id",
+      entityType: "entity_type",
+      city: "city",
+      stateName: "state",
+      country: "country",
+      gstin: "gstin",
+      currency: "currency",
+      paymentTerms: "payment_terms",
+      status: "is_active",
+    });
+
     const previewSummary = {
       invalid: await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "invalid" }),
       duplicate: await MigrationRecord.countDocuments(unresolvedDuplicateFilter({ batchId: batch._id, tenantId: TENANT })),
@@ -768,6 +869,89 @@ describe("migration worker E2E workflow", () => {
     expect(finalBatch?.summary?.failed || 0).toBe(0);
     expect(["completed", "verified"]).toContain(finalBatch?.status);
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "failed" })).toBe(0);
+
+    expect(await Account.countDocuments({ tenantId: TENANT })).toBe(25);
+    expect(await Vendor.countDocuments({ tenantId: TENANT })).toBe(7);
+    expect(await Product.countDocuments({ tenantId: TENANT })).toBe(7);
+    expect(await (SalesInvoice as any).countDocuments({ tenantId: TENANT })).toBe(215);
+    expect(await Payment.countDocuments({ tenantId: TENANT })).toBe(213);
+    expect(await Invoice.countDocuments({ tenantId: TENANT, moveType: "in_invoice" })).toBe(381);
+
+    const receiptSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.PAYMENT)!;
+    const linkedReceipts = await Payment.find({ tenantId: TENANT })
+      .populate({ path: "allocations.invoiceId", select: "number customerId tenantId" })
+      .lean();
+    expect(linkedReceipts).toHaveLength(213);
+    for (const source of receiptSource.rows) {
+      const receipt = linkedReceipts.find((candidate: any) => candidate.paymentNumber === source.receipt_id) as any;
+      expect(receipt?.allocations).toHaveLength(1);
+      expect(receipt.allocations[0].invoiceId?.number).toBe(source.invoice_id);
+      expect(receipt.allocations[0].invoiceId?.tenantId).toBe(TENANT);
+      expect(receipt.allocations[0].invoiceId?.customerId).toEqual(receipt.customerId);
+    }
+
+    const importedProducts = await Product.find({ tenantId: TENANT }).lean();
+    const expectedProductNames = productSource.rows.map((row) => String(row.product_name));
+    expect(importedProducts.map((product) => product.header.name).sort()).toEqual(expectedProductNames.sort());
+    for (const source of productSource.rows) {
+      const product = importedProducts.find((candidate) => candidate.tab_general_information.default_code === source.sku);
+      expect(product).toBeDefined();
+      expect(product?.tab_general_information.list_price).toBe(Number(source.list_price_inr));
+      expect(product?.tab_general_information.description).toContain(`Category: ${source.product_category}`);
+      expect(product?.tab_general_information.description).toContain(`Currency: ${source.currency}`);
+      expect(product?.status).toBe(String(source.is_active).toLowerCase() === "false" ? "draft" : "published");
+    }
+
+    const openingStock = await Stock.find({ tenantId: TENANT, migrationSourceKey: { $exists: true } }).lean();
+    expect(openingStock).toHaveLength(2);
+    expect(openingStock.map((movement) => movement.quantity).sort((a, b) => a - b)).toEqual([12, 35]);
+    for (const movement of openingStock) {
+      expect(importedProducts.some((product) => String(product._id) === String(movement.product))).toBe(true);
+      expect(movement.type).toBe("in");
+      expect(movement.migrationBatchId).toBe(String(batch._id));
+      expect(await getOnHandQuantity(TENANT, String(movement.product))).toBe(movement.quantity);
+    }
+
+    const expectedCustomerNames = customerSource.rows.map((row) => String(row.customer_name)).sort();
+    const importedCustomerNames = (await Customer.find({ tenantId: TENANT, "customFields.sourceEntityType": { $exists: true } })
+      .select("header.name")
+      .lean()).map((customer) => customer.header.name).sort();
+    expect(importedCustomerNames).toEqual(expectedCustomerNames);
+    expect(await Customer.countDocuments({ tenantId: TENANT, "customFields.migrationPartnerType": "vendor" })).toBeLessThanOrEqual(7);
+
+    const importedBills = await Invoice.find({ tenantId: TENANT, moveType: "in_invoice" })
+      .populate({ path: "vendorId", match: { tenantId: TENANT }, select: "name tenantId" })
+      .populate({ path: "partnerId", select: "header.name tenantId" })
+      .lean();
+    expect(importedBills).toHaveLength(381);
+    expect(importedBills.every((bill: any) => bill.migrationVendorSourceId)).toBe(true);
+    expect(importedBills.map((bill: any) => bill.migrationOriginalBillNumber).sort()).toEqual(
+      prepared.find((file) => file.entityType === MIGRATION_ENTITY.PURCHASE_INVOICE)!.rows.map((row) => String(row.bill_id)).sort(),
+    );
+    expect(importedBills.every((bill: any) => bill.vendorId?.tenantId === TENANT)).toBe(true);
+    expect(importedBills.every((bill: any) => Boolean(bill.partnerId?.header?.name))).toBe(true);
+    expect(importedBills.every((bill: any) => bill.partnerId.header.name === bill.vendorId.name)).toBe(true);
+
+    const vendorJob = await MigrationJob.findOne({ batchId: batch._id, tenantId: TENANT, entityType: MIGRATION_ENTITY.VENDOR }).lean();
+    const vendorSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.VENDOR)!;
+    const vendorIds = vendorSource.rows.map((row) => String(row.vendor_id));
+    for (const vendorId of vendorIds) {
+      const targetId = await MigrationIdentityMap.findOne({ batchId: batch._id, tenantId: TENANT, entityType: MIGRATION_ENTITY.VENDOR, sourceId: vendorId }).select("targetId").lean();
+      expect(targetId?.targetId).toBeDefined();
+      const tenantVendor = await Vendor.findOne({ _id: targetId?.targetId, tenantId: TENANT }).lean();
+      expect(tenantVendor).toBeDefined();
+    }
+    expect(vendorJob).toBeDefined();
+
+    const stockCountBeforeRetry = await Stock.countDocuments({ tenantId: TENANT, migrationSourceKey: { $exists: true } });
+    const duplicateProductRetry = await executeImport(
+      MIGRATION_ENTITY.PRODUCT,
+      [productSource.rows.find((row) => Number(row.opening_stock_qty) === 35)!],
+      productMapping,
+      { tenantId: TENANT, userId: String(USER_ID), batchId: String(batch._id), resolveRef: async () => null },
+    );
+    expect(duplicateProductRetry.created).toBe(0);
+    expect(await Stock.countDocuments({ tenantId: TENANT, migrationSourceKey: { $exists: true } })).toBe(stockCountBeforeRetry);
   });
 
   itIfFile("MD_V3.xlsx")("validates the MD_V3 workbook to preview without product taxonomy false errors", async () => {

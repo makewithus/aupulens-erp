@@ -48,6 +48,9 @@ export async function GET(request: Request) {
     const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : null;
 
     let query: Record<string, any> = { tenantId };
+    if (searchParams.get("excludeSupplierPartners") === "true") {
+      query["customFields.migrationPartnerType"] = { $ne: "vendor" };
+    }
 
     if (viewId && viewId !== "all") {
       await ensureSystemViews(tenantId);

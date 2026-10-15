@@ -214,6 +214,13 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
 );
 
 CustomerSchema.index({ "header.name": 1 });
+CustomerSchema.index(
+  { tenantId: 1, "header.name": 1 },
+  {
+    unique: true,
+    partialFilterExpression: { "customFields.migrationPartnerType": "vendor" },
+  },
+);
 CustomerSchema.index({ tenantId: 1, "header.displayName": 1 });
 CustomerSchema.index({ tenantId: 1, createdAt: -1 });
 

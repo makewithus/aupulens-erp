@@ -12,7 +12,7 @@ import AdmZip from "adm-zip";
 import * as xlsx from "xlsx";
 import fs from "fs";
 import { parseSourceFile, validateSourceFile } from "@/lib/migration/sourceAdapters";
-import { deterministicMapping } from "@/lib/migration/deterministicMapping";
+import { deterministicMapping, mergeSafeAiMapping } from "@/lib/migration/deterministicMapping";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import { validateRows, toCanonicalRecord, dedupeSignature, normalizePhoneLikeValue } from "@/lib/migration/validation";
 import {
@@ -138,6 +138,8 @@ describe("migration package preparation", () => {
     expect(inferEntityType("Sales Orders", ["Sales Order No", "Customer Code", "Order Date", "Order Total"])).toBe("salesOrder");
     expect(inferEntityType("Sales Order Lines", ["Sales Order No", "Item Code", "Quantity", "Unit Price"])).toBe("salesOrderLine");
     expect(inferEntityType("Stock", ["Voucher No", "Date", "Particulars", "Debit", "Credit"])).toBeNull();
+    expect(inferEntityType("Transactions", ["Date", "SKU", "Particulars", "Debit", "Credit"])).toBeNull();
+    expect(inferEntityType("Product Export", ["product_name", "sku", "product_category", "list_price_inr"])).toBe("product");
     expect(inferEntityType("README", ["Notes"])).toBeNull();
   });
 
@@ -319,6 +321,41 @@ describe("migration package preparation", () => {
     expect(preparedPackage.sourceRecordCount).toBe(4737);
     expect(preparedPackage.sourceRecordCount).toBeGreaterThan(preparedPackage.importableRecordCount);
     expect(preparedPackage.sourceFileCount).toBeGreaterThan(preparedPackage.importableFileCount);
+    expect(preparedPackage.ignoredSheets).toHaveLength(11);
+    expect(preparedPackage.ignoredSheets.every((sheet) =>
+      sheet.rows >= 0 && ["recognized_non_importable_sheet", "unrecognized_sheet"].includes(sheet.reason),
+    )).toBe(true);
+
+    const customerFile = prepared.find((file) => file.entityType === "customer")!;
+    const customerMap = deterministicMapping(getEntitySchema("customer")!, customerFile.columns);
+    expect(customerMap.name).toBe("customer_name");
+    expect(customerMap.pan).toBeUndefined();
+
+    const productFile = prepared.find((file) => file.entityType === "product")!;
+    const productMap = deterministicMapping(getEntitySchema("product")!, productFile.columns);
+    expect(productMap.name).toBe("product_name");
+    expect(productMap.stockQuantity).toBe("opening_stock_qty");
+    expect(productMap.salesPrice).toBe("list_price_inr");
+
+    const billFile = prepared.find((file) => file.entityType === "purchaseInvoice")!;
+    const billMap = deterministicMapping(getEntitySchema("purchaseInvoice")!, billFile.columns);
+    expect(billMap.vendorName).toBe("vendor_id");
+    expect(billMap.number).toBe("bill_id");
+  });
+
+  it("does not let AI override exact matches or map unrelated columns", () => {
+    const schema = getEntitySchema("customer")!;
+    const columns = ["customer_name", "company_name"];
+    const base = deterministicMapping(schema, columns);
+    const merged = mergeSafeAiMapping(schema, columns, base, {
+      name: "company_name",
+      pan: "company_name",
+      email: "customer_name",
+    });
+
+    expect(merged.name).toBe("customer_name");
+    expect(merged.pan).toBeUndefined();
+    expect(merged.email).toBeUndefined();
   });
 
   itIfFile("Odoo_Legacy_ERP_Migration_Extensive_Test_Dataset_Random_IDs.xlsx")("uploads the root Odoo legacy workbook without failing on unsupported sheets", () => {

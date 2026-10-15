@@ -33,6 +33,11 @@ export interface IMigrationBatch extends Document {
     sourceRecords?: number;
     importableRecords?: number;
     ignoredRecords?: number;
+    ignoredSheets?: Array<{
+      name: string;
+      rows: number;
+      reason: "recognized_non_importable_sheet" | "unrecognized_sheet";
+    }>;
     verification?: {
       sourceVsTarget?: Array<{
         entity: string;
@@ -65,7 +70,6 @@ const MigrationBatchSchema = new Schema<IMigrationBatch>(
     workerLock: { type: String, default: null },
     workerHeartbeat: { type: Date, default: null },
     summary: { type: Schema.Types.Mixed, default: {} },
-    // @ts-ignore
     errors: { type: Schema.Types.Mixed, default: [] },
     warnings: { type: Schema.Types.Mixed, default: [] },
   },

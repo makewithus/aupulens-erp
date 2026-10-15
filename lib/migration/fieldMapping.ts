@@ -3,12 +3,13 @@
  *
  * Two layers, same defensive pattern as lib/crm/ai/*: a deterministic alias
  * matcher always runs and always returns something usable; the LLM layer only
- * *refines* it and is skipped/ignored when AI is disabled or over cap. A
+ * fills fields whose source column is an exact declared alias and never
+ * overrides deterministic matches. It is skipped when AI is disabled or over cap. A
  * workspace with AI off still gets a solid auto-mapping.
  */
 
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
-import { deterministicMapping } from "@/lib/migration/deterministicMapping";
+import { deterministicMapping, mergeSafeAiMapping } from "@/lib/migration/deterministicMapping";
 import {
   resolveTenantAiSettings,
   callClaudeForTenant,
@@ -23,10 +24,9 @@ export interface MappingSuggestion {
 }
 
 /**
- * Full mapping suggestion: deterministic first, then ask the LLM to fill gaps /
- * correct obvious misses using a couple of sample rows for context. The LLM can
- * only *add or change* mappings to columns that actually exist and fields that
- * actually exist — anything else it returns is ignored.
+ * Full mapping suggestion: deterministic first, then ask the LLM to fill gaps
+ * using sample rows. The LLM can only add exact alias matches for fields the
+ * deterministic pass did not map.
  */
 export async function suggestMapping(
   tenantId: string,
@@ -76,15 +76,7 @@ Improve it. Respond with ONLY a JSON object mapping targetFieldKey -> exact sour
     if (!jsonMatch) return { mapping: base, aiUsed: false };
 
     const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    const validFieldKeys = new Set(schema.fields.map((f) => f.key));
-    const validColumns = new Set(columns);
-    const merged: Record<string, string> = { ...base };
-    for (const [k, v] of Object.entries(parsed)) {
-      if (validFieldKeys.has(k) && typeof v === "string" && validColumns.has(v)) {
-        merged[k] = v;
-      }
-    }
-    return { mapping: merged, aiUsed: true };
+    return { mapping: mergeSafeAiMapping(schema, columns, base, parsed), aiUsed: true };
   } catch {
     return { mapping: base, aiUsed: false };
   }

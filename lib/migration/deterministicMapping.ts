@@ -39,8 +39,9 @@ export function deterministicMapping(
       for (const [aliasIndex, a] of aliasNorms.entries()) {
         const priority = Math.max(0, 99 - aliasIndex);
         if (col.norm === a) score = Math.max(score, 1000 + priority);
-        else if (col.norm.includes(a) && a.length >= 3) score = Math.max(score, 700 + priority);
-        else if (a.includes(col.norm) && col.norm.length >= 3) score = Math.max(score, 600 + priority);
+        // Short aliases (notably "pan") collide with unrelated headers such
+        // as "company_name". Require exact matches for short abbreviations.
+        else if (col.norm.includes(a) && a.length >= 4) score = Math.max(score, 700 + priority);
       }
       if (score > bestScore) {
         bestScore = score;
@@ -53,4 +54,31 @@ export function deterministicMapping(
     }
   }
   return mapping;
+}
+
+/** Accept only AI suggestions that exactly match a declared field alias. */
+export function mergeSafeAiMapping(
+  schema: EntitySchema,
+  columns: string[],
+  base: Record<string, string>,
+  suggestion: Record<string, unknown>,
+): Record<string, string> {
+  const validColumns = new Map(columns.map((column) => [normalize(column), column]));
+  const merged = { ...base };
+  const usedColumns = new Set(Object.values(base));
+  for (const field of schema.fields) {
+    if (merged[field.key]) continue;
+    const candidate = suggestion[field.key];
+    if (typeof candidate !== "string") continue;
+    const actualColumn = validColumns.get(normalize(candidate));
+    if (!actualColumn || usedColumns.has(actualColumn)) continue;
+    const acceptedAliases = [field.key, field.label, ...field.aliases]
+      .map(normalize)
+      .filter(Boolean);
+    if (acceptedAliases.includes(normalize(actualColumn))) {
+      merged[field.key] = actualColumn;
+      usedColumns.add(actualColumn);
+    }
+  }
+  return merged;
 }
