@@ -126,21 +126,28 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
   const notifiedStatusRef = useRef<string | null>(null);
   const workerTickInFlightRef = useRef(false);
+  const batchRef = useRef<any>(null);
+  const loadRequestInFlightRef = useRef(false);
   const router = useRouter();
 
   const loadData = useCallback(async () => {
+    if (loadRequestInFlightRef.current) return;
+    loadRequestInFlightRef.current = true;
     try {
       const res = await fetch(`/api/migration/batches/${id}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         const message = json.message || "Failed to load migration batch.";
-        setLoadError(message);
-        toast.error(message);
+        // Keep the last known active batch visible if one status poll fails.
+        // The polling loop will retry and report terminal worker failures from
+        // the persisted batch status on the next successful response.
+        if (!batchRef.current) setLoadError(message);
         return;
       }
 
       setLoadError(null);
       const nextBatch = json.data.batch;
+      batchRef.current = nextBatch;
       setBatch(nextBatch);
       setJobs(json.data.jobs);
       setFailedRecords(Array.isArray(json.data.failedRecords) ? json.data.failedRecords : []);
@@ -165,10 +172,12 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
         fetchMappings();
       }
     } catch {
-      const message = "Failed to load migration batch. Please refresh and try again.";
-      setLoadError(message);
-      toast.error(message);
+      // A transient poll/network failure must not look like a terminal batch
+      // error while the worker is still progressing. Keep the last known state
+      // and let the next poll retry.
+      if (!batchRef.current) setLoadError("Failed to load migration batch. Please refresh and try again.");
     } finally {
+      loadRequestInFlightRef.current = false;
       setLoading(false);
     }
   }, [id, mappings.length]);
@@ -213,7 +222,7 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
       const interval = setInterval(poll, 2000);
       return () => clearInterval(interval);
     }
-  }, [batch?.status, loadData, tickWorker]);
+  }, [batch?.status, loadData]);
 
   // Request the next bounded chunk as soon as the previous request finishes.
   // Keep status polling independent so a slow chunk cannot hide progress.
@@ -235,6 +244,17 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Retry initial status loads too. A temporary network error before the first
+  // successful response should not strand the page on the unavailable screen.
+  useEffect(() => {
+    if (batch || !loadError) return;
+    const retry = setTimeout(() => {
+      setLoadError(null);
+      void loadData();
+    }, 2000);
+    return () => clearTimeout(retry);
+  }, [batch, loadData, loadError]);
 
   const handleInvalidResolved = async () => {
     setBatch((current: any) => current ? { ...current, status: "validating", progress: Math.max(Number(current.progress || 0), 1) } : current);
@@ -335,11 +355,16 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
 
   const currentStep = getStepIndex(batch.status);
   const statusCopy = batchStatusCopy(batch.status, Number(batch.summary?.failed || 0));
-  const activeProgress = Math.min(100, Math.max(Number(batch.progress || 0), (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") ? 1 : 0));
-  const processedEstimate = Math.min(Number(batch.totalRecords || 0), Math.floor((Number(batch.totalRecords || 0) * activeProgress) / 100));
   const progressRows = Array.isArray(progressDetail?.rows) ? progressDetail.rows : [];
-  const visibleProcessed = Number(progressDetail?.recordsProcessed || processedEstimate || 0);
-  const visibleTotal = Number(progressDetail?.totalRecords || batch.totalRecords || 0);
+  const visibleTotal = Number(progressDetail?.totalRecords ?? batch.totalRecords ?? 0);
+  const visibleProcessed = Number(progressDetail?.recordsProcessed ?? 0);
+  const recordBasedProgress = Number(progressDetail?.percentage ?? (
+    visibleTotal > 0 ? Math.floor((visibleProcessed / visibleTotal) * 100) : Number(batch.progress || 0)
+  ));
+  const activeProgress = Math.min(100, Math.max(
+    Number(batch.status === "validating" || batch.status === "running" || batch.status === "verifying" ? 1 : 0),
+    recordBasedProgress,
+  ));
   const unresolvedDuplicateCount = Number(batch.summary?.duplicate || 0);
   const invalidRecordCount = Number(batch.summary?.invalid || 0);
   const importableRecordCount = jobs.reduce((sum: number, job: any) => sum + Number(job.totalRows || 0), 0);
@@ -478,7 +503,11 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
               <div className="w-12 text-right text-sm font-semibold text-emerald-500">{activeProgress}%</div>
             </div>
             <p className="mb-5 text-sm text-muted-foreground">
-              {batch.status === "running" || batch.status === "verifying" ? "Processing records..." : "Validating records..."}
+              {batch.status === "running" || batch.status === "verifying"
+                ? "Processing records..."
+                : activeProgress >= 100
+                  ? "All records checked. Finishing final validation checks..."
+                  : "Validating records..."}
             </p>
 
             {progressRows.length > 0 && (

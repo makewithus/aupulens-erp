@@ -99,14 +99,23 @@ export async function buildMigrationProgress(batch: any, jobs: any[]) {
     })),
   ]);
 
+  const recordsProcessed = rows.reduce((sum, row) => sum + row.processed, 0);
+  const totalRecords = rows.reduce((sum, row) => sum + row.total, 0);
+  const percentage = batch.status === "preview"
+    ? 100
+    : totalRecords > 0
+      ? Math.min(100, Math.floor((recordsProcessed / totalRecords) * 100))
+      : 0;
+
   return {
     mode: isRunning ? "migration" : "validation",
     rows,
+    percentage,
     currentStep: current
       ? `${isRunning ? "Importing" : "Checking"} ${current.label}`
       : isRunning ? "Finalizing migration" : "Finalizing validation",
-    recordsProcessed: rows.reduce((sum, row) => sum + row.processed, 0),
-    totalRecords: rows.reduce((sum, row) => sum + row.total, 0),
+    recordsProcessed,
+    totalRecords,
     errors,
     duplicates,
   };

@@ -81,7 +81,7 @@ npx vitest run tests/migration
 
 The integration checks verify that opening quantities create ledger rows whose totals match the stock calculation, rollback removes products and their stock rows, bill-number collisions across suppliers remain distinct, bills populate the supplier name, and each receipt's source invoice is preserved as a payment allocation. The Northstar worker test imports the workbook fixture in an isolated local MongoDB database.
 
-Worker regression cases verify recovery of an older batch at 99%, checkpointed 200-row final-check pages, preservation of target-schema errors, restarting final checks after an earlier row is edited, shared account lookups across concurrent journals, and batched workspace/upload duplicate lookups during validation.
+Worker regression cases verify recovery of an older batch at 99%, checkpointed 200-row final-check pages, preservation of target-schema errors, restarting final checks after an earlier row is edited, shared account lookups across concurrent journals, and batched workspace/upload duplicate lookups during validation. The progress percentage is calculated from the same processed and total record counts shown on screen; temporary status-poll failures retain the last known state and retry without a misleading error toast.
 
 Journal dependency regression cases also verify that skipped or absent account rows cannot pass the final pre-write gate, referenced skipped Accounts are returned to duplicate review, and AI Fix revalidates known importer reference failures instead of repeating a generic no-fix message.
 
