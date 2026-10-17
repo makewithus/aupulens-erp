@@ -1119,7 +1119,7 @@ describe("migration worker E2E workflow", () => {
 
   it("resumes a legacy batch at 99% using bounded final-check pages and retains target errors", async () => {
     const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "validating", progress: 99, createdBy: USER_ID });
-    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv", {}, [{}, {}, {}]);
+    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv", {}, Array.from({ length: 201 }, (_, index) => ({ index })));
     const rows = await MigrationRecord.find({ jobId: job._id }).sort({ _id: 1 });
     for (const [index, row] of rows.entries()) {
       row.status = "valid";
@@ -1131,18 +1131,20 @@ describe("migration worker E2E workflow", () => {
     }
 
     // Each call reacquires the batch, as a new production request would.
-    for (const row of rows) {
-      expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: false, processed: 1 });
-      const saved = await MigrationBatch.findById(batch._id).lean();
-      expect(String(saved?.validationCursor)).toBe(String(row._id));
-      expect(saved?.status).toBe("validating");
-    }
+    expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: false, processed: 200 });
+    const firstPage = await MigrationBatch.findById(batch._id).lean();
+    expect(String(firstPage?.validationCursor)).toBe(String(rows[199]._id));
+    expect(firstPage?.status).toBe("validating");
+    expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: false, processed: 1 });
+    const finalPage = await MigrationBatch.findById(batch._id).lean();
+    expect(String(finalPage?.validationCursor)).toBe(String(rows[200]._id));
+    expect(finalPage?.status).toBe("validating");
     expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: true });
     const finished = await MigrationBatch.findById(batch._id).lean();
     expect(finished?.status).toBe("preview");
     expect(finished?.progress).toBe(100);
     expect(finished?.validationCursor).toBeUndefined();
-    expect(finished?.summary).toMatchObject({ valid: 2, invalid: 1, duplicate: 0 });
+    expect(finished?.summary).toMatchObject({ valid: 200, invalid: 1, duplicate: 0 });
     expect((await MigrationRecord.findById(rows[1]._id).lean())?.errors[0].message).toMatch(/out of balance/);
     expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
   });

@@ -144,6 +144,66 @@ function duplicateFiltersFromSignatures(
   });
 }
 
+function valueAtPath(value: any, path: string): any {
+  return path.split(".").reduce((current, key) => current?.[key], value);
+}
+
+function mongoValueMatches(actual: any, expected: any): boolean {
+  if (expected && typeof expected === "object" && !Array.isArray(expected)) {
+    if ("$ne" in expected) return String(actual) !== String(expected.$ne);
+    if ("$in" in expected) return expected.$in.some((value: any) => String(actual) === String(value));
+  }
+  return actual === expected || (actual != null && expected != null && String(actual) === String(expected));
+}
+
+function mongoFilterMatches(document: any, filter: Record<string, any>): boolean {
+  return Object.entries(filter).every(([key, expected]) => {
+    if (key === "$or") return expected.some((clause: Record<string, any>) => mongoFilterMatches(document, clause));
+    if (key === "$and") return expected.every((clause: Record<string, any>) => mongoFilterMatches(document, clause));
+    return mongoValueMatches(valueAtPath(document, key), expected);
+  });
+}
+
+async function findExistingTargetIds(handler: any, tenantId: string, candidates: Array<{ recordId: string; canonical: Record<string, string> }>) {
+  const filters = candidates.flatMap(({ canonical }) => {
+    const filter = handler.existingFilter(canonical, tenantId);
+    return filter ? [filter] : [];
+  });
+  if (filters.length === 0) return new Map<string, any>();
+
+  const paths = [...new Set(filters.flatMap((filter) => {
+    const clauses = Array.isArray(filter.$or) ? filter.$or : [filter];
+    return clauses.flatMap((clause: Record<string, any>) => Object.keys(clause));
+  }))];
+  const projection = Object.fromEntries([...paths.map((path) => [path, 1]), ["_id", 1]]);
+  const existing = await handler.model.find({ $or: filters }).select(projection).lean();
+  const results = new Map<string, any>();
+  for (const candidate of candidates) {
+    const filter = handler.existingFilter(candidate.canonical, tenantId);
+    if (!filter) continue;
+    const match = existing.find((document: any) => mongoFilterMatches(document, filter));
+    if (match) results.set(candidate.recordId, match._id);
+  }
+  return results;
+}
+
+async function findExistingUploadDuplicates(batch: any, candidates: Array<{ rec: any; canonical: Record<string, string>; signatures: DuplicateSignature[] }>) {
+  const filters = candidates.flatMap(({ rec, canonical, signatures }) => duplicateFiltersFromSignatures(batch, canonical, signatures, rec._id));
+  if (filters.length === 0) return new Set<string>();
+
+  const existing = await MigrationRecord.find({ $or: filters }).select("_id mappedData").lean();
+  const duplicateIds = new Set<string>();
+  for (const candidate of candidates) {
+    const mappedFilters = candidate.signatures.map((signature) => Object.fromEntries(
+      signature.fields.map((field) => [field, candidate.canonical[field]]),
+    ));
+    if (existing.some((document: any) => mappedFilters.some((filter) => mongoFilterMatches(document.mappedData || {}, filter)))) {
+      duplicateIds.add(candidate.rec._id.toString());
+    }
+  }
+  return duplicateIds;
+}
+
 function identitySourceIds(entityType: string, canonical: Record<string, string>): string[] {
   const ids = new Set<string>();
   const add = (value?: string) => {
@@ -384,33 +444,64 @@ async function promoteExistingUniqueConflictsToReview(batch: any, recordIds: any
     tenantId: batch.tenantId,
     status: "valid",
     _id: { $in: recordIds },
-  }).select("entityType mappedData");
+  }).select("entityType mappedData").lean();
+
+  const recordsByEntity = new Map<string, any[]>();
+  for (const record of records) {
+    const rows = recordsByEntity.get(record.entityType) || [];
+    rows.push(record);
+    recordsByEntity.set(record.entityType, rows);
+  }
 
   let conflicts = 0;
-  for (let offset = 0; offset < records.length; offset += 10) {
-    await Promise.all(records.slice(offset, offset + 10).map(async (record) => {
-      const handler = getHandler(record.entityType);
-      const conflict = handler?.uniqueConflictFilter?.((record.mappedData || {}) as Record<string, string>, batch.tenantId);
-      if (!handler || !conflict) return;
+  for (const [entityType, entityRecords] of recordsByEntity) {
+    const handler = getHandler(entityType);
+    if (!handler?.uniqueConflictFilter) continue;
 
-      const existing = await handler.model.findOne(conflict.filter).select("_id").lean();
-      if (!existing) return;
+    const candidates = entityRecords.flatMap((record) => {
+      const conflict = handler.uniqueConflictFilter!((record.mappedData || {}) as Record<string, string>, batch.tenantId);
+      if (!conflict) return [];
+      const clauses = Array.isArray(conflict.filter.$or) ? conflict.filter.$or : [conflict.filter];
+      return clauses.map((clause: Record<string, unknown>) => ({ record, conflict, clause }));
+    });
+    if (candidates.length === 0) continue;
 
-      conflicts += 1;
-      await MigrationRecord.updateOne(
-        { _id: record._id, tenantId: batch.tenantId },
-        {
+    // Query all target-side conflict keys for this entity in one database round
+    // trip instead of issuing one findOne per migration row.
+    const paths = [...new Set(candidates.flatMap(({ clause }) => Object.keys(clause)))];
+    const projection = Object.fromEntries([...paths.map((path) => [path, 1]), ["_id", 1]]);
+    const targets = await handler.model.find({
+      tenantId: batch.tenantId,
+      $or: candidates.map(({ clause }) => clause),
+    }).select(projection).lean();
+    const valueAtPath = (value: any, path: string): any => path.split(".").reduce((current, key) => current?.[key], value);
+    const targetForRecord = new Map<string, any>();
+    for (const candidate of candidates) {
+      if (targetForRecord.has(String(candidate.record._id))) continue;
+      const target = targets.find((doc: any) => Object.entries(candidate.clause)
+        .every(([path, expected]) => valueAtPath(doc, path) === expected));
+      if (target) targetForRecord.set(String(candidate.record._id), { target, conflict: candidate.conflict });
+    }
+
+    const updates: any[] = [...targetForRecord].map(([recordId, match]) => ({
+      updateOne: {
+        filter: { _id: recordId, tenantId: batch.tenantId, status: "valid" },
+        update: {
           $set: {
             status: "duplicate",
             duplicateReason: "database",
-            duplicateFields: conflict.fields,
-            duplicateTargetId: (existing as any)._id,
-            errors: [{ message: `Existing workspace record uses ${conflict.fields.join(", ")}. Choose Merge / Update, Force Create, or Skip before migration.` }],
+            duplicateFields: match.conflict.fields,
+            duplicateTargetId: match.target._id,
+            errors: [{ message: `Existing workspace record uses ${match.conflict.fields.join(", ")}. Choose Merge / Update, Force Create, or Skip before migration.` }],
           },
           $unset: { duplicateAction: "" },
         },
-      );
+      },
     }));
+    if (updates.length > 0) {
+      const result = await MigrationRecord.bulkWrite(updates);
+      conflicts += result.modifiedCount || 0;
+    }
   }
 
   return conflicts;
@@ -510,7 +601,7 @@ async function runValidationChunk(batch: any, limit: number) {
         { status: "valid" },
         { status: "duplicate", duplicateAction: { $in: ["update", "create"] } },
       ],
-    }).sort({ _id: 1 }).limit(Math.min(limit, 50));
+    }).sort({ _id: 1 }).limit(200);
     if (finalRecords.length > 0) {
       await runWriteReadinessCheck(batch, finalRecords);
       await promoteExistingUniqueConflictsToReview(batch, finalRecords.map((record) => record._id));
@@ -607,30 +698,16 @@ async function runValidationChunk(batch: any, limit: number) {
       processedRecords.push(...chunkResults);
     }
 
-    const preFetchUploadMap = new Map<string, boolean>();
-    const preFetchDbMap = new Map<string, any>();
-    
-    // Process pre-fetches in chunks of 25 to avoid connection pool exhaustion while being much faster than sequential
-    for (let i = 0; i < processedRecords.length; i += 25) {
-      const chunk = processedRecords.slice(i, i + 25);
-      await Promise.all(chunk.map(async ({ rec, canonical, relationshipErrors, rowValidationErrors }) => {
-        if (relationshipErrors.length > 0 || rowValidationErrors.length > 0) return;
-        const signatures = duplicateSignatures(job.entityType, schema, canonical);
-        if (signatures.length === 0) return;
-        
-        const uFilters = duplicateFiltersFromSignatures(batch, canonical, signatures, rec._id);
-        if (uFilters.length > 0) {
-          const exists = await MigrationRecord.exists({ $or: uFilters });
-          preFetchUploadMap.set(rec._id.toString(), !!exists);
-        }
-        
-        const dFilter = handler.existingFilter(canonical, batch.tenantId);
-        if (dFilter) {
-          const existingDoc = await handler.model.findOne(dFilter).select("_id").lean();
-          preFetchDbMap.set(rec._id.toString(), existingDoc ? (existingDoc as any)._id : null);
-        }
-      }));
-    }
+    const eligibleForDuplicateChecks = processedRecords
+      .filter(({ relationshipErrors, rowValidationErrors }) => relationshipErrors.length === 0 && rowValidationErrors.length === 0)
+      .map(({ rec, canonical }) => ({ rec, canonical, signatures: duplicateSignatures(job.entityType, schema, canonical) }));
+    const uploadCandidates = eligibleForDuplicateChecks.filter(({ signatures }) => signatures.length > 0);
+    const [uploadDuplicates, existingTargets] = await Promise.all([
+      findExistingUploadDuplicates(batch, uploadCandidates),
+      findExistingTargetIds(handler, batch.tenantId, eligibleForDuplicateChecks.map(({ rec, canonical }) => ({ recordId: rec._id.toString(), canonical }))),
+    ]);
+    const preFetchUploadMap = new Map<string, boolean>([...uploadDuplicates].map((id) => [id, true]));
+    const preFetchDbMap = existingTargets;
 
     // Evaluate duplicates sequentially to maintain `seenInThisChunk` state properly
     for (const { rec, canonical, rowValidationErrors, rowValidationWarnings, relationshipErrors } of processedRecords) {
