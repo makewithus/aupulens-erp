@@ -15,6 +15,7 @@ const ENTITY_ORDER = [
   MIGRATION_ENTITY.EMPLOYEE,
   MIGRATION_ENTITY.PURCHASE_INVOICE,
   MIGRATION_ENTITY.EXPENSE,
+  MIGRATION_ENTITY.JOURNAL_ENTRY,
 ];
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ const ENTITY_LABELS: Record<string, string> = {
   [MIGRATION_ENTITY.EMPLOYEE]: "Employees",
   [MIGRATION_ENTITY.PURCHASE_INVOICE]: "Purchase Invoices",
   [MIGRATION_ENTITY.EXPENSE]: "Expenses",
+  [MIGRATION_ENTITY.JOURNAL_ENTRY]: "Journal Entries",
 };
 
 function statusCount(counts: Record<string, number>, status: string) {
@@ -84,7 +86,7 @@ export async function buildMigrationProgress(batch: any, jobs: any[]) {
     };
   });
 
-  const current = rows.find((row) => row.processed < row.total) || rows[rows.length - 1] || null;
+  const current = rows.find((row) => row.processed < row.total) || null;
   const [errors, duplicates] = await Promise.all([
     MigrationRecord.countDocuments({
       batchId: batch._id,

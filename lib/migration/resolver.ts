@@ -268,15 +268,19 @@ export async function validateRelationships(
       const code = String(line.account_code ?? "").trim();
       if (!code || missingCodes.has(code)) continue;
       const cacheKey = `journal-account:${tenantId}:${code}`;
-      if (cache?.has(cacheKey)) {
-        if (!cache.get(cacheKey)) missingCodes.add(code);
-        continue;
+      // Cache the in-flight lookup before awaiting it. Concurrent journal rows
+      // commonly use the same accounts; a value-only cache repeats the query
+      // for every row until the first request has completed.
+      if (!cache?.has(cacheKey)) {
+        const lookup = (async () => {
+          const account = await Account.findOne({ tenantId, $or: [{ code }, { accountCode: code }] }).select("_id").lean();
+          return !!account || await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.ACCOUNT, code, cache);
+        })();
+        cache?.set(cacheKey, lookup);
+        if (!(await lookup)) missingCodes.add(code);
+      } else if (!(await cache.get(cacheKey))) {
+        missingCodes.add(code);
       }
-      const account = await Account.findOne({ tenantId, $or: [{ code }, { accountCode: code }] }).select("_id").lean();
-      const existsInBatch = account ? false : await hasWorkspaceReference(tenantId, batchId, MIGRATION_ENTITY.ACCOUNT, code, cache);
-      const exists = !!account || existsInBatch;
-      cache?.set(cacheKey, exists);
-      if (!exists) missingCodes.add(code);
     }
     const skippedAccountRows = missingCodes.size > 0
       ? await MigrationRecord.find({

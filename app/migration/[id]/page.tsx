@@ -207,16 +207,30 @@ export default function MigrationWizardPage({ params }: { params: Promise<{ id: 
     if (!batch) return;
     if (batch.status === "validating" || batch.status === "running" || batch.status === "verifying") {
       const poll = async () => {
-        if (batch.status === "validating" || batch.status === "running") {
-          void tickWorker();
-        }
         await loadData();
       };
       poll();
-      const interval = setInterval(poll, 2000); // UI poll + production-safe worker tick
+      const interval = setInterval(poll, 2000);
       return () => clearInterval(interval);
     }
   }, [batch?.status, loadData, tickWorker]);
+
+  // Request the next bounded chunk as soon as the previous request finishes.
+  // Keep status polling independent so a slow chunk cannot hide progress.
+  useEffect(() => {
+    if (batch?.status !== "validating" && batch?.status !== "running") return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const work = async () => {
+      await tickWorker();
+      if (!stopped) timer = setTimeout(work, 250);
+    };
+    void work();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [batch?.status, tickWorker]);
 
   useEffect(() => {
     loadData();

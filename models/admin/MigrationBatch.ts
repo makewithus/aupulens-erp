@@ -11,6 +11,7 @@ export interface IMigrationBatch extends Document {
   totalRecords: number;
   totalModules: number;
   progress: number;
+  validationCursor?: mongoose.Types.ObjectId;
   processingToken?: string;
   processingExpiresAt?: Date;
   workerLock?: string;
@@ -65,6 +66,7 @@ const MigrationBatchSchema = new Schema<IMigrationBatch>(
     totalRecords: { type: Number, default: 0 },
     totalModules: { type: Number, default: 0 },
     progress: { type: Number, default: 0 },
+    validationCursor: { type: Schema.Types.ObjectId },
     processingToken: { type: String, default: null },
     processingExpiresAt: { type: Date, default: null },
     workerLock: { type: String, default: null },

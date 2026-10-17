@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
 import fs from "fs";
 import * as xlsx from "xlsx";
@@ -729,8 +729,6 @@ describe("migration worker E2E workflow", () => {
     await Promise.all(Array.from({ length: 5 }, () => processMigrationWorker(String(batch._id), 50)));
     await runWorkerUntilDone(String(batch._id), 50);
     expect(await Account.countDocuments({ tenantId: TENANT })).toBe(25);
-    expect(await Account.findOne({ tenantId: TENANT, code: "1590" }).select("normal_balance is_contra_account").lean())
-      .toMatchObject({ normal_balance: "credit", is_contra_account: true });
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "migrated" })).toBe(25);
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "failed" })).toBe(0);
     expect(await MigrationIdentityMap.countDocuments({ batchId: batch._id })).toBe(50);
@@ -838,7 +836,7 @@ describe("migration worker E2E workflow", () => {
       );
     }
 
-    await runWorkerUntilDone(String(batch._id), 500, 50);
+    await runWorkerUntilDone(String(batch._id), 500, 100);
 
     const productSource = prepared.find((file) => file.entityType === MIGRATION_ENTITY.PRODUCT)!;
     const productMapping = deterministicMapping(getEntitySchema(MIGRATION_ENTITY.PRODUCT)!, productSource.columns);
@@ -885,7 +883,7 @@ describe("migration worker E2E workflow", () => {
     }
 
     await MigrationBatch.updateOne({ _id: batch._id }, { $set: { status: "running", progress: 1 } });
-    await runWorkerUntilDone(String(batch._id), 500, 50);
+    await runWorkerUntilDone(String(batch._id), 500, 100);
 
     const finalBatch = await MigrationBatch.findById(batch._id).lean();
     const failedSample = await MigrationRecord.find({ batchId: batch._id, tenantId: TENANT, status: "failed" }).select("entityType sourceData mappedData errors").limit(5).lean();
@@ -894,6 +892,8 @@ describe("migration worker E2E workflow", () => {
     expect(await MigrationRecord.countDocuments({ batchId: batch._id, tenantId: TENANT, status: "failed" })).toBe(0);
 
     expect(await Account.countDocuments({ tenantId: TENANT })).toBe(25);
+    expect(await Account.findOne({ tenantId: TENANT, code: "1590" }).select("normal_balance is_contra_account").lean())
+      .toMatchObject({ normal_balance: "credit", is_contra_account: true });
     expect(await Vendor.countDocuments({ tenantId: TENANT })).toBe(7);
     expect(await Product.countDocuments({ tenantId: TENANT })).toBe(7);
     expect(await (SalesInvoice as any).countDocuments({ tenantId: TENANT })).toBe(215);
@@ -1095,6 +1095,71 @@ describe("migration worker E2E workflow", () => {
       "errors.message": /Product type must be one of/i,
     }).lean();
     expect(productTypeErrors).toEqual([]);
+  });
+
+  it("shares in-flight account lookups across concurrent journal validation rows", async () => {
+    const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "validating", createdBy: USER_ID });
+    await Account.create({ tenantId: TENANT, accountName: "Revenue", accountCode: "4100", code: "4100", name: "Revenue", account_type: "income", internal_group: "income" });
+    await Account.create({ tenantId: TENANT, accountName: "Depreciation Expense", accountCode: "6600", code: "6600", name: "Depreciation Expense", account_type: "expense", internal_group: "expense" });
+    await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv",
+      { journalId: "journal_id", journalDate: "journal_date", status: "status", linesJson: "lines_json" },
+      Array.from({ length: 20 }, (_, index) => ({ journal_id: `JE-CACHE-${index}`, journal_date: "2026-03-31", status: "Posted", lines_json: JSON.stringify([
+        { account_code: "6600", debit_inr: 100 },
+        { account_code: "4100", credit_inr: 100 },
+      ]) })));
+    const lookup = vi.spyOn(Account, "findOne");
+    try {
+      expect(await processMigrationWorker(String(batch._id), 50)).toMatchObject({ processed: 20 });
+      expect(lookup).toHaveBeenCalledTimes(2);
+      expect(await MigrationRecord.countDocuments({ batchId: batch._id, status: "valid" })).toBe(20);
+    } finally {
+      lookup.mockRestore();
+    }
+  });
+
+  it("resumes a legacy batch at 99% using bounded final-check pages and retains target errors", async () => {
+    const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "validating", progress: 99, createdBy: USER_ID });
+    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.JOURNAL_ENTRY, "journals.csv", {}, [{}, {}, {}]);
+    const rows = await MigrationRecord.find({ jobId: job._id }).sort({ _id: 1 });
+    for (const [index, row] of rows.entries()) {
+      row.status = "valid";
+      row.mappedData = { journalId: `JE-FINAL-${index}`, journalDate: "2026-03-31", status: "Posted", linesJson: JSON.stringify([
+        { account_code: "6600", debit_inr: index === 1 ? 101 : 100 },
+        { account_code: "4100", credit_inr: 100 },
+      ]) };
+      await row.save();
+    }
+
+    // Each call reacquires the batch, as a new production request would.
+    for (const row of rows) {
+      expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: false, processed: 1 });
+      const saved = await MigrationBatch.findById(batch._id).lean();
+      expect(String(saved?.validationCursor)).toBe(String(row._id));
+      expect(saved?.status).toBe("validating");
+    }
+    expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: true });
+    const finished = await MigrationBatch.findById(batch._id).lean();
+    expect(finished?.status).toBe("preview");
+    expect(finished?.progress).toBe(100);
+    expect(finished?.validationCursor).toBeUndefined();
+    expect(finished?.summary).toMatchObject({ valid: 2, invalid: 1, duplicate: 0 });
+    expect((await MigrationRecord.findById(rows[1]._id).lean())?.errors[0].message).toMatch(/out of balance/);
+    expect(await JournalEntry.countDocuments({ tenantId: TENANT })).toBe(0);
+  });
+
+  it("restarts final checks when an earlier row is queued for revalidation", async () => {
+    const batch = await MigrationBatch.create({ tenantId: TENANT, sourceSystem: "excel", status: "validating", progress: 99, createdBy: USER_ID });
+    const job = await createJobWithRecords(batch._id, MIGRATION_ENTITY.ACCOUNT, "accounts.csv",
+      { accountName: "Name", accountCode: "Code", accountType: "Type" },
+      [{ Name: "Revenue", Code: "4100", Type: "Revenue" }]);
+    const row = await MigrationRecord.findOne({ jobId: job._id });
+    await MigrationBatch.updateOne({ _id: batch._id }, { $set: { validationCursor: row!._id } });
+    await processMigrationWorker(String(batch._id), 1);
+    expect((await MigrationBatch.findById(batch._id).lean())?.validationCursor).toBeUndefined();
+    expect(await processMigrationWorker(String(batch._id), 1)).toMatchObject({ done: false, processed: 1 });
+    expect(String((await MigrationBatch.findById(batch._id).lean())?.validationCursor)).toBe(String(row!._id));
+    await runWorkerUntilDone(String(batch._id), 1);
+    expect((await MigrationBatch.findById(batch._id).lean())?.status).toBe("preview");
   });
 
   it.each(["update", "create"] as const)("imports approved %s Accounts before journals across chunk boundaries and preserves source references", async (action) => {

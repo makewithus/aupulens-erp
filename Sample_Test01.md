@@ -46,6 +46,8 @@ The 1,299 journal entries preserve all 3,193 lines and must balance before impor
 
    `company_name` should not map to Customer Name or PAN when `customer_name` is present. Journal rows must be imported as balanced journal entries, never as Products. Do not import precomputed statement tabs as additional journals.
 
+   Once all rows have been processed, the current step should read **Finalizing validation** while target-module and unique-field checks finish. These checks run in bounded pages and save a checkpoint after each page. Refreshing or retrying must resume those checks and eventually open Preview, including for an older batch already stuck at 99%; it must not bypass errors or duplicate review.
+
 5. Click **Save & Validate**. Resolve any invalid or duplicate rows shown in the preview; migration is intentionally blocked until the preview is clean.
    If an Account row is a duplicate and journal entries reference its account code, do not skip that Account unless an equivalent account already exists in the test organization. The start step rechecks journal dependencies after duplicate decisions before writing data. The worker also verifies that required accounts actually persisted after the Account job; if a target-side account write fails, it pauses before importing dependent journals and returns the Account/journal rows to validation review. Already imported independent rows remain intact and are checked for duplicates on retry.
 6. Click **START MIGRATION** and wait for the report to finish.
@@ -78,6 +80,8 @@ npx vitest run tests/migration
 ```
 
 The integration checks verify that opening quantities create ledger rows whose totals match the stock calculation, rollback removes products and their stock rows, bill-number collisions across suppliers remain distinct, bills populate the supplier name, and each receipt's source invoice is preserved as a payment allocation. The Northstar worker test imports the workbook fixture in an isolated local MongoDB database.
+
+Worker regression cases verify recovery of an older batch at 99%, checkpointed final checks, preservation of target-schema errors, restarting final checks after an earlier row is edited, and shared account lookups across concurrent journals.
 
 Journal dependency regression cases also verify that skipped or absent account rows cannot pass the final pre-write gate, referenced skipped Accounts are returned to duplicate review, and AI Fix revalidates known importer reference failures instead of repeating a generic no-fix message.
 

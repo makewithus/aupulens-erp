@@ -329,8 +329,8 @@ async function returnBatchToPreviewForConflicts(batch: any) {
   return true;
 }
 
-export async function runWriteReadinessCheck(batch: any) {
-  const records = await MigrationRecord.find({
+export async function runWriteReadinessCheck(batch: any, selectedRecords?: any[]) {
+  const records = selectedRecords ?? await MigrationRecord.find({
     batchId: batch._id,
     tenantId: batch.tenantId,
     $or: [
@@ -340,71 +340,77 @@ export async function runWriteReadinessCheck(batch: any) {
   });
 
   let invalid = 0;
-  for (const record of records) {
-    const handler = getHandler(record.entityType);
-    if (!handler || handler.createOperation) continue;
+  // Bound concurrency so database latency does not serialize the whole batch.
+  for (let offset = 0; offset < records.length; offset += 10) {
+    await Promise.all(records.slice(offset, offset + 10).map(async (record) => {
+      const handler = getHandler(record.entityType);
+      if (!handler || handler.createOperation) return;
 
-    try {
-      const canonical = await applyForceCreateUniqueSuffix(handler, record,
-        { ...(record.mappedData || {}) } as Record<string, string>, batch.tenantId);
-      const transformed = await handler.transform(canonical, {
-        tenantId: batch.tenantId,
-        userId: batch.createdBy.toString(),
-        batchId: batch._id.toString(),
-        dryRun: true,
-        resolveRef: async () => new mongoose.Types.ObjectId(),
-      });
-      const doc = new handler.model(transformed);
-      await doc.validate();
-    } catch (error) {
-      invalid += 1;
-      const message = productionMigrationError(error);
-      await MigrationRecord.updateOne(
-        { _id: record._id, tenantId: batch.tenantId },
-        {
-          $set: {
-            status: "invalid",
-            errors: [{ message: `Target module check failed: ${message}` }],
+      try {
+        const canonical = await applyForceCreateUniqueSuffix(handler, record,
+          { ...(record.mappedData || {}) } as Record<string, string>, batch.tenantId);
+        const transformed = await handler.transform(canonical, {
+          tenantId: batch.tenantId,
+          userId: batch.createdBy.toString(),
+          batchId: batch._id.toString(),
+          dryRun: true,
+          resolveRef: async () => new mongoose.Types.ObjectId(),
+        });
+        const doc = new handler.model(transformed);
+        await doc.validate();
+      } catch (error) {
+        invalid += 1;
+        const message = productionMigrationError(error);
+        await MigrationRecord.updateOne(
+          { _id: record._id, tenantId: batch.tenantId },
+          {
+            $set: {
+              status: "invalid",
+              errors: [{ message: `Target module check failed: ${message}` }],
+            },
+            $unset: { duplicateAction: "", duplicateTargetId: "", duplicateReason: "", duplicateFields: "" },
           },
-          $unset: { duplicateAction: "", duplicateTargetId: "", duplicateReason: "", duplicateFields: "" },
-        },
-      );
-    }
+        );
+      }
+    }));
   }
 
   return invalid;
 }
 
-async function promoteExistingUniqueConflictsToReview(batch: any) {
+async function promoteExistingUniqueConflictsToReview(batch: any, recordIds: any[]) {
   const records = await MigrationRecord.find({
     batchId: batch._id,
     tenantId: batch.tenantId,
     status: "valid",
+    _id: { $in: recordIds },
   }).select("entityType mappedData");
 
   let conflicts = 0;
-  for (const record of records) {
-    const handler = getHandler(record.entityType);
-    const conflict = handler?.uniqueConflictFilter?.((record.mappedData || {}) as Record<string, string>, batch.tenantId);
-    if (!handler || !conflict) continue;
+  for (let offset = 0; offset < records.length; offset += 10) {
+    await Promise.all(records.slice(offset, offset + 10).map(async (record) => {
+      const handler = getHandler(record.entityType);
+      const conflict = handler?.uniqueConflictFilter?.((record.mappedData || {}) as Record<string, string>, batch.tenantId);
+      if (!handler || !conflict) return;
 
-    const existing = await handler.model.findOne(conflict.filter).select("_id").lean();
-    if (!existing) continue;
+      const existing = await handler.model.findOne(conflict.filter).select("_id").lean();
+      if (!existing) return;
 
-    conflicts += 1;
-    await MigrationRecord.updateOne(
-      { _id: record._id, tenantId: batch.tenantId },
-      {
-        $set: {
-          status: "duplicate",
-          duplicateReason: "database",
-          duplicateFields: conflict.fields,
-          duplicateTargetId: (existing as any)._id,
-          errors: [{ message: `Existing workspace record uses ${conflict.fields.join(", ")}. Choose Merge / Update, Force Create, or Skip before migration.` }],
+      conflicts += 1;
+      await MigrationRecord.updateOne(
+        { _id: record._id, tenantId: batch.tenantId },
+        {
+          $set: {
+            status: "duplicate",
+            duplicateReason: "database",
+            duplicateFields: conflict.fields,
+            duplicateTargetId: (existing as any)._id,
+            errors: [{ message: `Existing workspace record uses ${conflict.fields.join(", ")}. Choose Merge / Update, Force Create, or Skip before migration.` }],
+          },
+          $unset: { duplicateAction: "" },
         },
-        $unset: { duplicateAction: "" },
-      },
-    );
+      );
+    }));
   }
 
   return conflicts;
@@ -494,8 +500,25 @@ async function runValidationChunk(batch: any, limit: number) {
   const records = await nextDependencyStage(batch, { status: "pending" }, limit);
 
   if (records.length === 0) {
-    await runWriteReadinessCheck(batch);
-    await promoteExistingUniqueConflictsToReview(batch);
+    // Legacy batches already stuck at 99% also enter here. Persist a cursor
+    // after each bounded page so request timeouts cannot restart a full scan.
+    const finalRecords = await MigrationRecord.find({
+      batchId: batch._id,
+      tenantId: batch.tenantId,
+      ...(batch.validationCursor ? { _id: { $gt: batch.validationCursor } } : {}),
+      $or: [
+        { status: "valid" },
+        { status: "duplicate", duplicateAction: { $in: ["update", "create"] } },
+      ],
+    }).sort({ _id: 1 }).limit(Math.min(limit, 50));
+    if (finalRecords.length > 0) {
+      await runWriteReadinessCheck(batch, finalRecords);
+      await promoteExistingUniqueConflictsToReview(batch, finalRecords.map((record) => record._id));
+      batch.validationCursor = finalRecords[finalRecords.length - 1]._id;
+      await batch.save();
+      return { done: false, processed: finalRecords.length };
+    }
+    batch.validationCursor = undefined;
     batch.status = "preview";
     
     // Update summary counts
@@ -504,6 +527,12 @@ async function runValidationChunk(batch: any, limit: number) {
     batch.progress = 100;
     await batch.save();
     return { done: true, processed: 0 };
+  }
+
+  // Newly queued rows invalidate final checks, including edits before the cursor.
+  if (batch.validationCursor) {
+    batch.validationCursor = undefined;
+    await batch.save();
   }
 
   // Group by job to minimize lookups
