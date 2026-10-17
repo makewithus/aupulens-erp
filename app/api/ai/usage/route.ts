@@ -7,6 +7,7 @@ import { getAiPeriod, getAiUsageCount } from "@/lib/ai/usage";
 import { getTierLimits } from "@/lib/constants/tiers";
 import { getWindowUsage } from "@/lib/ai/windowUsage";
 import { usageMetric, type AiUsageSummary } from "@/lib/ai/usagePolicy";
+import { getAiCreditBalance } from "@/lib/platform/ai/credits";
 
 // The existing /api/admin/ai-usage is privileged analytics (history, cost and
 // model health). This minimal endpoint exposes only the caller's workspace counters.
@@ -23,9 +24,10 @@ export async function GET() {
       return NextResponse.json({ success: false, message: "Subscription inactive" }, { status: 402, headers });
     }
     const now = new Date();
-    const [windows, used] = await Promise.all([
+    const [windows, used, credits] = await Promise.all([
       getWindowUsage(tenantId, org.settings?.ai?.usagePolicy, now),
       getAiUsageCount(tenantId, getAiPeriod(now)),
+      getAiCreditBalance(tenantId, getAiPeriod(now)),
     ]);
     const data: AiUsageSummary = {
       ...windows,
@@ -33,6 +35,7 @@ export async function GET() {
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))),
       scope: "workspace", serverTime: new Date().toISOString(),
+      credits: { ...credits, resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString() },
     };
     return NextResponse.json({ success: true, data }, { headers });
   } catch (error) {

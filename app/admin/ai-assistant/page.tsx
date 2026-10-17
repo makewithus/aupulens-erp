@@ -53,6 +53,7 @@ interface Message {
 
 interface ChatHistoryItem {
   _id: string;
+  conversationId: string;
   title: string;
   isArchived: boolean;
   createdAt: string;
@@ -102,6 +103,7 @@ export default function AIAssistant() {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -188,8 +190,10 @@ export default function AIAssistant() {
     }
   };
 
-  const saveCurrentChat = async () => {
+  const saveCurrentChat = async (conversationIdOverride?: string) => {
     if (messages.length === 0) return;
+    const stableConversationId = conversationIdOverride || currentConversationId || crypto.randomUUID();
+    setCurrentConversationId(stableConversationId);
 
     try {
       // Generate title from first user message
@@ -203,6 +207,7 @@ export default function AIAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId: currentChatId,
+          conversationId: stableConversationId,
           title,
           messages: messages.map((m) => ({
             role: m.role,
@@ -232,6 +237,7 @@ export default function AIAssistant() {
       }))
     );
     setCurrentChatId(chat._id);
+    setCurrentConversationId(chat.conversationId);
     if (window.innerWidth < 768) {
       setShowHistory(false);
     }
@@ -291,6 +297,7 @@ export default function AIAssistant() {
   const startNewChat = () => {
     setMessages([]);
     setCurrentChatId(null);
+    setCurrentConversationId(null);
     setInput("");
     textareaRef.current?.focus();
     toast.success("New chat started", {
@@ -312,6 +319,8 @@ export default function AIAssistant() {
     if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
 
     const isFirstMessage = messages.length === 0;
+    const activeConversationId = currentConversationId || crypto.randomUUID();
+    setCurrentConversationId(activeConversationId);
     const userInputText = textToSend.trim()
       || (attachments.length ? `Please read the attached file(s) and summarise the key details.` : "");
 
@@ -351,7 +360,7 @@ export default function AIAssistant() {
         setIsLoading(false);
         // Persist this turn just like a normal Q&A reply, so it shows up in
         // Recent Chats and the user can pick the thread back up later.
-        setTimeout(() => saveCurrentChat(), 500);
+        setTimeout(() => saveCurrentChat(activeConversationId), 500);
         if (outcome.route) router.push(outcome.route);
         return;
       }
@@ -369,7 +378,7 @@ export default function AIAssistant() {
           id: (Date.now() + 1).toString(), role: "assistant", content: navOutcome.message || "", timestamp: new Date(),
         }));
         setIsLoading(false);
-        setTimeout(() => saveCurrentChat(), 500);
+        setTimeout(() => saveCurrentChat(activeConversationId), 500);
         if (navOutcome.route) router.push(navOutcome.route);
         return;
       }
@@ -384,7 +393,7 @@ export default function AIAssistant() {
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInputText, stream: true, attachments: sentAttachments }),
+        body: JSON.stringify({ message: userInputText, stream: true, attachments: sentAttachments, conversationId: activeConversationId, requestId: crypto.randomUUID() }),
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -444,6 +453,7 @@ export default function AIAssistant() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title,
+            conversationId: activeConversationId,
             messages: newMessages,
           }),
         });
@@ -451,6 +461,7 @@ export default function AIAssistant() {
         if (saveResponse.ok) {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
+          setCurrentConversationId(savedData.chat.conversationId);
           await fetchChatHistory();
           toast.success("Chat saved", {
             description: "New conversation started and saved.",

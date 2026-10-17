@@ -3,7 +3,7 @@
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import React, { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
@@ -17,6 +17,7 @@ import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
 import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
 import { tryAiInventoryMemoryFlow } from "@/lib/ai/inventoryMemoryFlow";
 import { NAV_TRIGGER_RX } from "@/lib/ai/navFlow";
+import { NAV_DESTINATIONS } from "@/lib/ai/navRoutes";
 import { useSpeechToText } from "@/lib/hooks/useSpeechToText";
 import { useAutoResizeTextarea } from "@/lib/hooks/useAutoResizeTextarea";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ type Message = AiChatMessage;
 
 export function AiSidebar({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const pathname = usePathname();
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
@@ -47,6 +49,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const conversationId = useAiChatStore((s) => s.conversationId);
   const setConversationId = useAiChatStore((s) => s.setConversationId);
   const newChat = useAiChatStore((s) => s.newChat);
+  const pendingNavigation = useRef<{ route: string; openingText: string; completedText: string } | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
@@ -74,6 +77,70 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   type Attachment = { name: string; type: string; dataUrl: string };
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const normalizePath = (value: string) => {
+    try {
+      const path = new URL(value, window.location.origin).pathname.replace(/\/+$/, "");
+      return path || "/";
+    } catch {
+      return value.split("?")[0].replace(/\/+$/, "") || "/";
+    }
+  };
+  const routeIsOpen = (route: string, currentPath: string) => {
+    const target = normalizePath(route);
+    const current = normalizePath(currentPath);
+    return current === target || current.startsWith(`${target}/`);
+  };
+  const replaceAssistantMessage = (previousText: string, nextText: string) => {
+    setMessages((prev) => {
+      let index = -1;
+      for (let i = prev.length - 1; i >= 0; i -= 1) {
+        if (prev[i].role === "assistant" && prev[i].text === previousText) { index = i; break; }
+      }
+      if (index < 0) return prev;
+      const next = [...prev];
+      next[index] = { ...next[index], text: nextText, isLoading: false };
+      return next;
+    });
+  };
+  const navigateWithStatus = (route: string, openingText: string, completedText: string) => {
+    if (routeIsOpen(route, pathname)) {
+      replaceAssistantMessage(openingText, completedText);
+      return;
+    }
+    pendingNavigation.current = { route, openingText, completedText };
+    router.push(route);
+  };
+
+  // The sidebar survives client-side navigation. Resolve the transient
+  // "Opening…" message when its destination becomes active, and repair a
+  // matching stale message restored from session storage after a refresh.
+  useEffect(() => {
+    const pending = pendingNavigation.current;
+    if (pending && routeIsOpen(pending.route, pathname)) {
+      replaceAssistantMessage(pending.openingText, pending.completedText);
+      pendingNavigation.current = null;
+      return;
+    }
+    if (pending) return;
+    const currentPath = normalizePath(pathname);
+    const destination = NAV_DESTINATIONS.find((item) => normalizePath(item.href) === currentPath);
+    const destinationTitle = destination?.title ?? currentPath.split("/").filter(Boolean).at(-1)?.replace(/[-_]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    if (!destinationTitle) return;
+    setMessages((prev) => {
+      let index = -1;
+      for (let i = prev.length - 1; i >= 0; i -= 1) {
+        if (prev[i].role === "assistant" && !prev[i].isLoading && prev[i].text) { index = i; break; }
+      }
+      if (index < 0) return prev;
+      const message = prev[index].text.trim();
+      const opening = message.match(/^Opening\s+(.+?)(?:…|\.\.\.)$/i);
+      if (!opening || opening[1].trim().toLowerCase() !== destinationTitle.trim().toLowerCase()) return prev;
+      const next = [...prev];
+      next[index] = { ...next[index], text: `Opened ${destinationTitle}.` };
+      return next;
+    });
+  }, [pathname, setMessages]);
 
   // A create the AI has prepared but is waiting for the user to confirm — used
   // when something is unclear or a required record is missing, so the assistant
@@ -130,6 +197,14 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const buildHistory = (base: Message[]): { role: string; content: string }[] =>
     base.filter((m) => !m.isLoading && m.text).slice(-10).map((m) => ({ role: m.role, content: m.text }));
 
+  const ensureConversationId = () => {
+    const current = useAiChatStore.getState().conversationId;
+    if (current) return current;
+    const created = crypto.randomUUID();
+    setConversationId(created);
+    return created;
+  };
+
   // If the current message has no new files, reuse the most recently attached
   // ones so the user can say "create a journal entry from that" / "summarise
   // that document" turns later WITHOUT re-uploading. Memory the user expects.
@@ -143,6 +218,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   };
 
   const sendQuery = async (queryText: string, customMessagesHistory?: Message[]) => {
+    const activeConversationId = ensureConversationId();
+    const requestId = crypto.randomUUID();
     setIsLoading(true);
 
     // Capture attachments up front so they render on the user's message (and
@@ -167,7 +244,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText, stream: true, attachments: sendAttachments, history: buildHistory(baseHistory), conversationId }),
+        body: JSON.stringify({ message: queryText, stream: true, attachments: sendAttachments, history: buildHistory(baseHistory), conversationId: activeConversationId, requestId }),
       });
       const returnedConvId = response.headers.get("x-conversation-id");
       if (returnedConvId && returnedConvId !== conversationId) setConversationId(returnedConvId);
@@ -211,7 +288,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: queryText.slice(0, 50),
+          conversationId: returnedConvId || activeConversationId,
           messages: [
+            ...baseHistory.filter((m) => !m.isLoading && (m.role === "user" || m.role === "assistant") && m.text)
+              .map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })),
             { role: "user", content: queryText, timestamp: new Date() },
             { role: "assistant", content: finalText, timestamp: new Date() },
           ],
@@ -316,6 +396,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     const q = text.trim();
     if (!q && attachments.length === 0) return;
     if (isLoading) return;
+    const activeConversationId = ensureConversationId();
 
     // ── Resolve a pending "which module?" choice first ────────────────────────
     if (pendingChoice && q) {
@@ -340,8 +421,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       if (yes) {
         setPendingCreate(null);
         stashPrefill({ target: pc.target, route: pc.route, data: pc.data, suggestions: pc.suggestions });
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: `Opening the ${pc.label} form now — review the details and click **Create** to save.` }]);
-        router.push(pc.route);
+        const openingText = `Opening the ${pc.label} form now — review the details and click **Create** to save.`;
+        const completedText = `The ${pc.label} form is open — review the details and click **Create** to save.`;
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: openingText }]);
+        navigateWithStatus(pc.route, openingText, completedText);
         return;
       }
       if (no) {
@@ -370,9 +453,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const tf = await runTaskFlow(q, { hasAttachments: false });
       if (tf.outcome) {
         const quick = buildQuickReplies(tf.outcome);
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: quick.length ? stripChoiceText(tf.outcome.message) : tf.outcome.message, quickReplies: quick.length ? quick : undefined }]);
+        const openingText = quick.length ? stripChoiceText(tf.outcome.message) : tf.outcome.message;
+        const completedText = openingText.replace(/\s*Opening it now[.!…]*$/i, " The destination is open.");
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: openingText, quickReplies: quick.length ? quick : undefined }]);
         setIsLoading(false);
-        if (tf.outcome.route) router.push(tf.outcome.route);
+        if (tf.outcome.route) navigateWithStatus(tf.outcome.route, openingText, completedText);
         return;
       }
       setIsLoading(false);
@@ -443,7 +528,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: q.slice(0, 50),
+            conversationId: activeConversationId,
             messages: [
+              ...messages.filter((m) => !m.isLoading && (m.role === "user" || m.role === "assistant") && m.text)
+                .map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })),
               { role: "user", content: q, timestamp: new Date() },
               { role: "assistant", content: memOutcome.message || "", timestamp: new Date() },
             ],
@@ -468,7 +556,10 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: q.slice(0, 50),
+            conversationId: activeConversationId,
             messages: [
+              ...messages.filter((m) => !m.isLoading && (m.role === "user" || m.role === "assistant") && m.text)
+                .map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })),
               { role: "user", content: q, timestamp: new Date() },
               { role: "assistant", content: invMemOutcome.message || "", timestamp: new Date() },
             ],
@@ -503,9 +594,11 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         return;
       }
       if (res.ok && data.action === "navigate" && data.url) {
-        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.message || "Opening the page…" }]);
+        const openingText = data.message || "Opening the page…";
+        const completedText = openingText.replace(/^Opening\s+/i, "Opened ").replace(/(?:…|\.\.\.)$/, ".");
+        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: openingText }]);
         setIsLoading(false);
-        router.push(data.url);
+        navigateWithStatus(data.url, openingText, completedText);
         return;
       }
       // Asked to go somewhere we can't resolve: say so instead of letting the
@@ -599,6 +692,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const loadHistoryChat = (chat: any) => {
     const loaded: Message[] = (chat.messages || []).map((m: any) => ({ role: m.role, text: m.content }));
     setMessages(loaded);
+    setConversationId(chat.conversationId || null);
     setShowHistory(false);
   };
 
@@ -1157,6 +1251,8 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 </>
               )}
             </button>
+          </div>
+          <div className={cn("mt-1 border-t pt-1", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
             <AiUsageIndicator />
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaudeForTenant, resolveTenantAiSettings } from "@/lib/ai/tenantAi";
+import { randomUUID } from "crypto";
 
 // Assistive draft-writer for the Notes / Terms & Conditions fields. Returns
 // plain text only; the user still has to accept it into the field.
@@ -38,7 +39,11 @@ export async function POST(request: NextRequest) {
 
     let text: string;
     try {
-      text = await callClaude(`Write the ${field} for a ${docType}.`, { systemPrompt, maxTokens: 200 });
+      const tenantId = session.user.tenantId;
+      const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+      const result = await callClaudeForTenant(tenantId, tier, aiSettings, `Write the ${field} for a ${docType}.`, { systemPrompt, maxTokens: 200, feature: "ai_invoice_notes", idempotencyKey: typeof body.requestId === "string" ? body.requestId : randomUUID() });
+      if (!("text" in result)) return NextResponse.json({ success: false, message: result.error, code: result.code }, { status: 403 });
+      text = result.text;
     } catch (aiError: any) {
       return NextResponse.json({ success: false, message: `AI assist unavailable: ${aiError.message}` }, { status: 503 });
     }

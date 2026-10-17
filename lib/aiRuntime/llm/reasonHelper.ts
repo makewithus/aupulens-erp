@@ -13,7 +13,7 @@ import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
  * see docs/ai/GLOSSARY.md. Mockable in tests by `vi.mock("@/lib/ai/tenantAi", ...)`.
  */
 
-export type LlmGatedCode = "AI_DISABLED" | "AI_LIMIT_REACHED" | "AI_GLOBAL_LIMIT_REACHED";
+export type LlmGatedCode = "AI_DISABLED" | "AI_LIMIT_REACHED" | "AI_GLOBAL_LIMIT_REACHED" | "AI_CREDITS_EXHAUSTED";
 
 export type LlmReasonOutcome<T> =
   | { gated: false; proposal: T; confidence: number; reasons: string[]; rawText: string }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import dbConnect from "@/lib/db";
@@ -33,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     const chats = await ChatHistory.find(query)
       .sort({ updatedAt: -1 })
-      .select("_id title isArchived createdAt updatedAt messages")
+      .select("_id conversationId title isArchived createdAt updatedAt messages")
       .lean();
 
     return NextResponse.json({ chats });
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = (session.user as any).tenantId;
-    const { title, messages, chatId } = await req.json();
+    const { title, messages, chatId, conversationId } = await req.json();
 
     await dbConnect();
 
@@ -83,18 +82,28 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ chat });
-    } else {
-      // Create new chat — module + conversationId are required by the schema.
-      const chat = await ChatHistory.create({
-        userId: session.user.id,
-        title: title || "New Chat",
-        messages: messages || [],
-        tenantId,
-        module: "admin",
-        conversationId: randomUUID(),
-      });
-
+    } else if (typeof conversationId === "string" && conversationId.length <= 100) {
+      // The assistant returns this stable ID before streaming. Upsert the full
+      // completed thread against that ID so later turns and reloads share memory.
+      // Both tenant and owner are part of the match; a client cannot overwrite
+      // another user's conversation by submitting a guessed ID.
+      const safeMessages = Array.isArray(messages)
+        ? messages.slice(-500).filter((m: any) =>
+            m && (m.role === "user" || m.role === "assistant") &&
+            typeof m.content === "string" && m.content.length <= 100_000,
+          ).map((m: any) => ({ role: m.role, content: m.content, timestamp: m.timestamp && Number.isFinite(Date.parse(m.timestamp)) ? new Date(m.timestamp) : new Date() }))
+        : [];
+      const chat = await ChatHistory.findOneAndUpdate(
+        { tenantId, userId: session.user.id, conversationId, module: "admin" },
+        {
+          $set: { messages: safeMessages, updatedAt: new Date() },
+          $setOnInsert: { tenantId, userId: session.user.id, conversationId, module: "admin", isArchived: false, title: String(title || "New Chat").slice(0, 120) },
+        },
+        { upsert: true, new: true, runValidators: true },
+      );
       return NextResponse.json({ chat });
+    } else {
+      return NextResponse.json({ error: "Conversation ID required" }, { status: 400 });
     }
   } catch (error) {
     console.error("Error saving chat:", error);

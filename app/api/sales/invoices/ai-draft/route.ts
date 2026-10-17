@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaudeForTenant, resolveTenantAiSettings } from "@/lib/ai/tenantAi";
+import { randomUUID } from "crypto";
 
 // Assistive only — returns a proposed invoice draft as JSON. Nothing is
 // persisted here; the client shows the proposal for the user to review/edit,
@@ -46,7 +47,11 @@ ${productList || "(none)"}`;
 
     let text: string;
     try {
-      text = await callClaude(prompt, { systemPrompt, maxTokens: 1024 });
+      const tenantId = session.user.tenantId;
+      const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+      const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, { systemPrompt, maxTokens: 1024, feature: "ai_invoice_draft", idempotencyKey: typeof body.requestId === "string" ? body.requestId : randomUUID() });
+      if (!("text" in result)) return NextResponse.json({ success: false, message: result.error, code: result.code }, { status: 403 });
+      text = result.text;
     } catch (aiError: any) {
       return NextResponse.json({ success: false, message: `AI assist unavailable: ${aiError.message}` }, { status: 503 });
     }

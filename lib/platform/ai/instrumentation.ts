@@ -7,6 +7,7 @@ import type { ProviderCall } from "@/lib/ai/language/types";
 import { mapFeatureToBucket } from "./featureMap";
 
 export interface RecordAiUsageInput {
+  requestId?: string;
   tenantId: string;
   feature: string; // an AiFeature key, or any string for a not-yet-typed call site
   model: string;
@@ -54,7 +55,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
       estimatedCostUsd,
       latencyMs: input.latencyMs,
       status: input.status === "success" ? AI_USAGE_REQUEST_STATUS.SUCCESS : AI_USAGE_REQUEST_STATUS.ERROR,
-      requestId: crypto.randomUUID(),
+      requestId: input.requestId || crypto.randomUUID(),
     });
   } catch (err) {
     console.error("[ai-usage] failed to record AiUsageRecord", {

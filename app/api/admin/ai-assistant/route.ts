@@ -10,7 +10,7 @@ import {
   fetchAdminUsersData,
   fetchAdminGeneralData,
 } from "@/lib/ai/adminDataFetcher";
-import { callClaude, type ChatTurn } from "@/lib/ai/claude";
+import { type ChatTurn } from "@/lib/ai/claude";
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { message, conversationId: incomingConversationId, history: clientHistory } = body;
+    const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
 
     if (!message) {
       return NextResponse.json(
@@ -74,12 +75,12 @@ export async function POST(request: NextRequest) {
         .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 6000) }));
     } else {
       const existingHistory = await ChatHistory.findOne(
-        { tenantId, conversationId },
+        { tenantId, userId, conversationId, module: "admin" },
         { messages: 1 }
       ).lean();
       priorTurns = (existingHistory?.messages ?? []).map(
-        (m: any) => ({ role: m.role, content: m.content })
-      );
+        (m: any) => ({ role: m.role, content: String(m.content).slice(0, 6000) })
+      ).slice(-10);
     }
 
     // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
         maxTokens: 1100,
         imageDataUrls: imageUrls.length ? imageUrls : undefined,
         history: priorTurns,
+        idempotencyKey: `${requestId}:attachment`,
       });
       if (!("stream" in streamRes)) {
         return NextResponse.json({ error: streamRes.error, code: streamRes.code }, { status: 403 });
@@ -172,8 +174,10 @@ export async function POST(request: NextRequest) {
       return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
     }
 
+    // Price the intent call too; even the cheap classifier consumes provider tokens.
+    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
     // Classify the query to decide which data set to fetch
-    const intent = await analyzeQueryIntent(message);
+    const intent = await analyzeQueryIntent(message, tenantId, tier, aiSettings, `${requestId}:intent`);
 
     // Fetch tenant-scoped data for the relevant category
     const data = await fetchDataBasedOnIntent(intent, tenantId);
@@ -185,8 +189,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the natural-language response via Claude (with conversation history)
-    const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-
     // ── Streaming path (ChatGPT-style token-by-token) ────────────────────────
     // The client sends { stream: true } and reads the response body as it
     // arrives. Same prompt/quality as the non-stream path; persists the turns
@@ -201,6 +203,7 @@ export async function POST(request: NextRequest) {
         systemPrompt: built.systemPrompt,
         maxTokens: built.maxTokens,
         history: priorTurns,
+        idempotencyKey: requestId,
       });
       // strictNullChecks is off — narrow on "stream" in result, not .gated.
       if (!("stream" in streamRes)) {
@@ -263,7 +266,7 @@ export async function POST(request: NextRequest) {
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
     await ChatHistory.findOneAndUpdate(
-      { tenantId, conversationId },
+      { tenantId, userId, conversationId, module: "admin" },
       {
         $setOnInsert: {
           tenantId,
@@ -296,7 +299,7 @@ export async function POST(request: NextRequest) {
 
 // ─── Intent Classification ────────────────────────────────────────────────────
 
-async function analyzeQueryIntent(message: string): Promise<QueryIntent> {
+async function analyzeQueryIntent(message: string, tenantId: string, tier: string, aiSettings: Awaited<ReturnType<typeof resolveTenantAiSettings>>["aiSettings"], requestId: string): Promise<QueryIntent> {
   try {
     const prompt = `Analyze this ERP business query and reply ONLY with a valid JSON object. No prose, no markdown fences.
 
@@ -312,11 +315,16 @@ Include "financialParams" only when action is "model". Omit "filters" when not a
 
 Query: "${message}"`;
 
-    const text = await callClaude(prompt, {
+    const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       systemPrompt:
         "You are an ERP query classifier. Reply only with the JSON object — no explanation, no markdown.",
       maxTokens: 256,
+      feature: "ai_assistant",
+      idempotencyKey: requestId,
+      countUsage: false,
     });
+    if (!("text" in result)) return simpleIntentAnalysis(message);
+    const text = result.text;
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {

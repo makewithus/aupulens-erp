@@ -1,0 +1,30 @@
+import mongoose, { Schema, Document, Model } from "mongoose";
+
+export type AiCreditEntryStatus = "reserved" | "charged" | "refunded";
+export interface IAiCreditLedger extends Document {
+  tenantId: string;
+  period: string;
+  requestId: string;
+  modelName: string;
+  feature: string;
+  estimatedCredits: number;
+  credits: number;
+  estimatedCostUsd: number;
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  status: AiCreditEntryStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+const schema = new Schema<IAiCreditLedger>({
+  tenantId: { type: String, required: true }, period: { type: String, required: true },
+  requestId: { type: String, required: true }, modelName: { type: String, required: true }, feature: { type: String, required: true },
+  estimatedCredits: { type: Number, required: true, min: 0 }, credits: { type: Number, required: true, min: 0 },
+  estimatedCostUsd: { type: Number, required: true, min: 0 }, costUsd: { type: Number, required: true, min: 0 },
+  inputTokens: { type: Number, required: true, min: 0 }, outputTokens: { type: Number, required: true, min: 0 },
+  status: { type: String, enum: ["reserved", "charged", "refunded"], required: true },
+}, { timestamps: true });
+schema.index({ tenantId: 1, requestId: 1 }, { unique: true });
+schema.index({ tenantId: 1, period: 1, status: 1 });
+export default (mongoose.models.AiCreditLedger as Model<IAiCreditLedger>) || mongoose.model<IAiCreditLedger>("AiCreditLedger", schema);
