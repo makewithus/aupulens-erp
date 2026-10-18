@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Roboto_Mono } from "next/font/google";
+import { robotoMono } from "@/app/fonts";
 import { Menu, ChevronLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,6 @@ import { Logo } from "@/components/Logo";
 import { HeaderActions } from "@/components/dashboard/HeaderActions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { platformSidebarConfig } from "@/config/sidebar/platform";
-
-const robotoMono = Roboto_Mono({
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-  display: "swap",
-});
 
 interface PlatformHeaderProps {
   companyName?: string;

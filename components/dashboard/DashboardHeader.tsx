@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Roboto_Mono } from "next/font/google";
+import { robotoMono } from "@/app/fonts";
 import {
   DollarSign,
   ShoppingCart,
@@ -14,11 +14,6 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
-const robotoMono = Roboto_Mono({
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-  display: "swap",
-});
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";

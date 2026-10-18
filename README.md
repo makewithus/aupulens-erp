@@ -52,7 +52,7 @@ Copy `.env.example` to `.env` and fill in the values. The app-URL variables (see
 
 Same-origin browser code should always call the API with a relative path (`fetch("/api/...")`) rather than prepending any of these.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses [`next/font/local`](https://nextjs.org/docs/app/api-reference/components/font) to optimize bundled Roboto and Roboto Mono fonts. Font files and licenses are in `app/fonts/`, with shared font definitions in `app/fonts.ts`. Production builds do not need to fetch Google Fonts.
 
 ## Learn More
 

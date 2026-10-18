@@ -1,6 +1,6 @@
 import "./silence-logs-init";
 import type { Metadata } from "next";
-import { Roboto, Roboto_Mono } from "next/font/google";
+import { roboto, robotoMono } from "./fonts";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SessionProvider } from "next-auth/react";
@@ -11,18 +11,6 @@ import { ConfirmProvider } from "@/providers/confirm-provider";
 import ConfirmRoot from "@/components/providers/ConfirmRoot";
 import { SessionTimeout } from "@/components/providers/SessionTimeout";
 import { auth } from "@/auth";
-
-const roboto = Roboto({
-  variable: "--font-roboto",
-  weight: ["400", "500", "700", "900"],
-  subsets: ["latin"],
-});
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-roboto-mono",
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Aupulens ERP - Enterprise Resource Planning",
