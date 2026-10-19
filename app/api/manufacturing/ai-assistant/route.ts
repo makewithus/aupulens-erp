@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { loadConversationContext } from "@/lib/ai/conversationContext";
+import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
 import type { ChatTurn } from "@/lib/ai/claude";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -205,6 +206,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (isMongoStorageLimitError(error)) {
+      console.error('[manufacturing-ai] MongoDB Atlas storage quota reached; request could not be completed.');
+      return NextResponse.json({ error: MONGO_STORAGE_LIMIT_MESSAGE, code: 'MONGODB_STORAGE_LIMIT' }, { status: 503 });
+    }
     console.error('Manufacturing AI Error:', error);
     return NextResponse.json(
       { error: 'Failed to process request' },

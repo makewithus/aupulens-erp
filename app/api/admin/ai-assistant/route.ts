@@ -20,7 +20,7 @@ import { extractContent, validateDocument } from "@/lib/docIntel/textExtract";
 import { extractDocument } from "@/lib/docIntel/extractor";
 import { DOC_INTEL_TYPE, DOC_INTEL_STATUS } from "@/lib/docIntel/extractionSchemas";
 import ExtractedDocument from "@/models/ai/ExtractedDocument";
-import ChatHistory from "@/models/ai/ChatHistory";
+import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
 
 interface QueryIntent {
   category: string;
@@ -254,32 +254,14 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
-    const now = new Date();
-    await ChatHistory.findOneAndUpdate(
-      { tenantId, userId, conversationId, module: "admin" },
-      {
-        $setOnInsert: {
-          tenantId,
-          conversationId,
-          userId,
-          module: "admin",
-          title: message.slice(0, 80),
-        },
-        $push: {
-          messages: {
-            $each: [
-              { role: "user",      content: message,  timestamp: now },
-              { role: "assistant", content: response, timestamp: new Date(now.getTime() + 1) },
-            ],
-          },
-        },
-      },
-      { upsert: true, new: true }
-    );
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "admin", message, response });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
+    if (isMongoStorageLimitError(error)) {
+      console.error("[ai-assistant] MongoDB Atlas storage quota reached; request could not be completed.");
+      return NextResponse.json({ error: MONGO_STORAGE_LIMIT_MESSAGE, code: "MONGODB_STORAGE_LIMIT" }, { status: 503 });
+    }
     console.error("AI Assistant Error:", error);
     return NextResponse.json(
       { error: "Failed to process request" },

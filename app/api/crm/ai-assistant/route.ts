@@ -1,4 +1,4 @@
-import { loadConversationContext } from "@/lib/ai/conversationContext";
+import { loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -15,7 +15,7 @@ import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi"
 import { safeContextJson } from "@/lib/ai/sanitizeContext";
 import { AI_ASSISTANT_GUIDANCE } from '@/lib/ai/assistantGuidance';
 import { processChatAttachments, attachmentsPromptBlock } from '@/lib/ai/chatAttachments';
-import ChatHistory from "@/models/ai/ChatHistory";
+import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,31 +66,14 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    const now = new Date();
-    await ChatHistory.findOneAndUpdate(
-      { tenantId, userId, conversationId, module: "crm" },
-      {
-        $setOnInsert: {
-          tenantId,
-          conversationId,
-          userId,
-          module: "crm",
-          title: message.slice(0, 80),
-        },
-        $push: {
-          messages: {
-            $each: [
-              { role: "user", content: message, timestamp: now },
-              { role: "assistant", content: response, timestamp: new Date(now.getTime() + 1) },
-            ],
-          },
-        },
-      },
-      { upsert: true, new: true }
-    );
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "crm", message, response });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
+    if (isMongoStorageLimitError(error)) {
+      console.error("[crm-ai] MongoDB Atlas storage quota reached; request could not be completed.");
+      return NextResponse.json({ error: MONGO_STORAGE_LIMIT_MESSAGE, code: "MONGODB_STORAGE_LIMIT" }, { status: 503 });
+    }
     console.error("CRM AI Error:", error);
     return NextResponse.json({ error: "Failed to process request" }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 import connectDB from "@/lib/db";
 import ChatHistory, { type AiModule } from "@/models/ai/ChatHistory";
 import type { ChatTurn } from "@/lib/ai/claude";
+import { isMongoStorageLimitError } from "@/lib/db/mongoStorageError";
 
 const MODULES: AiModule[] = ["admin", "finance", "sales", "inventory", "manufacturing", "hr", "crm"];
 const STOP_WORDS = new Set("what whats when where which who how why the this that those these with from have has had did does can could would should please tell about chat chats conversation conversations previous prior discussed discuss remember recall earlier last current before said was were our you your and for are any anything everything done".split(" "));
@@ -93,12 +94,19 @@ export async function loadConversationContext(input: ConversationContextInput): 
  * chat snapshots can still replace the same thread without creating duplicates. */
 export async function saveCompletedExchange(input: { tenantId: string; userId: string; module: AiModule; conversationId: string; message: string; response: string }) {
   if (!input.response.trim()) return;
-  await connectDB();
-  const now = new Date();
-  await ChatHistory.findOneAndUpdate(
-    { tenantId: input.tenantId, userId: input.userId, module: input.module, conversationId: input.conversationId },
-    { $setOnInsert: { title: input.message.slice(0, 120) || "New Chat", isArchived: false },
-      $push: { messages: { $each: [{ role: "user", content: input.message, timestamp: now }, { role: "assistant", content: input.response, timestamp: new Date(now.getTime() + 1) }] } } },
-    { upsert: true, runValidators: true },
-  );
+  try {
+    await connectDB();
+    const now = new Date();
+    await ChatHistory.findOneAndUpdate(
+      { tenantId: input.tenantId, userId: input.userId, module: input.module, conversationId: input.conversationId },
+      { $setOnInsert: { title: input.message.slice(0, 120) || "New Chat", isArchived: false },
+        $push: { messages: { $each: [{ role: "user", content: input.message, timestamp: now }, { role: "assistant", content: input.response, timestamp: new Date(now.getTime() + 1) }] } } },
+      { upsert: true, runValidators: true },
+    );
+    return true;
+  } catch (error) {
+    if (!isMongoStorageLimitError(error)) throw error;
+    console.error("[ai-chat-history] skipped saving a completed reply because MongoDB Atlas storage is full.");
+    return false;
+  }
 }
