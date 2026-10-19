@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { clearAllStores } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
 import { usePageActionsStore } from "@/store/pageActionsStore";
-import { filterSidebarSections, moduleForHref } from "@/lib/modules/visibility";
+import { filterSidebarSections } from "@/lib/modules/visibility";
 import { useEnabledModules } from "@/components/dashboard/hooks/useEnabledModules";
 
 interface DashboardLayoutProps {
@@ -53,12 +53,10 @@ export function DashboardLayout({
   const pathname = usePathname();
   const shouldFilterModules = userRole === "admin";
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(shouldFilterModules);
-  const currentModule = moduleForHref(pathname);
-  // During an entitlement refresh, keep the current module's own sidebar in
-  // place. The middleware has already authorized this route, and this avoids
-  // collapsing the shell while the latest Global Admin configuration loads.
-  const modulesForSidebar = shouldFilterModules
-    ? (enabledModulesLoaded ? enabledModules : currentModule ? [currentModule] : ["admin"])
+  // Keep the sidebar shell mounted while entitlements load, but avoid showing
+  // a temporary admin-only navigation tree before the tenant module list is known.
+  const modulesForSidebar = shouldFilterModules && enabledModulesLoaded
+    ? (enabledModules?.length ? enabledModules : ["admin"])
     : null;
   const visibleSections = useMemo(
     () => filterSidebarSections(
@@ -222,9 +220,10 @@ export function DashboardLayout({
       />
 
       <div className="flex flex-1 overflow-hidden relative">
-        {sections.length > 0 && (
+        {(sections.length > 0 || (shouldFilterModules && !enabledModulesLoaded)) && (
           <DashboardSidebar
             sections={sections}
+            isLoading={shouldFilterModules && !enabledModulesLoaded}
             isCollapsed={!isSidebarOpen}
             onToggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
             onClose={() => setIsSidebarOpen(false)}

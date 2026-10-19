@@ -34,21 +34,36 @@ describe("compact usage footer markup", () => {
       expect(html).toContain(expected);
     }
   });
-  it("shows whole-number credit usage without exposing the remaining balance", () => {
+  it("shows small deductions and explains unconfigured request limits", () => {
     m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), monthly: usageMetric(4, 100, start, end), credits: { used: 0.025, reserved: 0, limit: 20, remaining: 19.975, resetsAt: end.toISOString() } }, now: start.getTime() });
     const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-    expect(html).toContain("Session: —"); expect(html).toContain("Weekly: —");
-    expect(html).toContain("Credits: &lt;1% used");
-    expect(html).not.toContain("19.975");
+    expect(html).toContain("Session: No limit set"); expect(html).toContain("Weekly: No limit set");
+    expect(html).toContain("Credits: 0.13% used");
+    expect(html).toContain("19.975 remaining");
     expect(html).not.toContain("left");
     expect(html).not.toContain("Monthly: 4%");
   });
-  it("floors usage to whole percentages and preserves low and exhaustion states", () => {
-    for (const [used, remaining, expected] of [[1.25, 8.75, "12% used"], [10, 0, "100% used · limit reached"]] as const) {
+  it("preserves precise credit usage and low and exhaustion states", () => {
+    for (const [used, remaining, expected] of [[1.25, 8.75, "12.5% used"], [10, 0, "100% used · limit reached"]] as const) {
       m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), credits: { used, reserved: 0, limit: 10, remaining, resetsAt: end.toISOString() } }, now: start.getTime() });
       const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
       expect(html).toContain(`Credits: ${expected}`);
       expect(html).not.toContain(" left");
     }
   });
+});
+
+it("shows distinct loading, failed and missing-policy states", () => {
+  for (const [metric, text] of [[undefined, "Loading…"], [emptyUsage("unavailable"), "Unavailable"], [emptyUsage("unconfigured"), "No limit set"]] as const) {
+    const html = renderToStaticMarkup(React.createElement(UsageItem, { label: "Session", metric, now: start.getTime() }));
+    expect(html).toContain(`Session: ${text}`);
+    expect(html).not.toContain("Session: —");
+  }
+});
+it("shows zero credit use accurately and pending reservations separately", () => {
+  m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), credits: { used: 0, reserved: 2, limit: 10, remaining: 8, resetsAt: end.toISOString() } }, now: start.getTime() });
+  const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
+  expect(html).toContain("Credits: 0% used");
+  expect(html).toContain("2 pending");
+  expect(html).toContain("resets in 2h 29m");
 });

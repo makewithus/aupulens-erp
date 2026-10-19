@@ -64,7 +64,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
 }));
 
 vi.mock("@/models/ai/ChatHistory", () => ({
-  default: {
+  default: { find: () => { const c: any = { sort: () => c, limit: () => c, lean: async () => [] }; return c; },
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,
   },
@@ -233,8 +233,8 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
     const cid = "existing-conv";
     await POST(makeRequest({ message: "hello", conversationId: cid }));
     expect(mockChatHistoryFindOne).toHaveBeenCalledWith(
-      { tenantId: TENANT_A, conversationId: cid },
-      { messages: 1 }
+      { tenantId: TENANT_A, userId: "user-1", module: "finance", conversationId: cid },
+      { messages: 1, conversationId: 1 }
     );
   });
 
@@ -263,7 +263,7 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
     });
     await POST(makeRequest({ message: "follow-up?" }));
     const opts = mockCallClaudeForTenant.mock.calls[0][4];
-    expect(opts.history).toEqual([
+    expect(opts.history.slice(1)).toEqual([
       { role: "user", content: "first question" },
       { role: "assistant", content: "first answer" },
     ]);
@@ -272,7 +272,7 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
   it("passes an empty history for a fresh conversation", async () => {
     await POST(makeRequest({ message: "fresh question" }));
     const opts = mockCallClaudeForTenant.mock.calls[0][4];
-    expect(opts.history).toEqual([]);
+    expect(opts.history.slice(1)).toEqual([]);
   });
 });
 

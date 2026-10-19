@@ -1,4 +1,5 @@
 "use client";
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -44,7 +45,7 @@ export default function HRAIAssistantPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast.error(m),
   });
@@ -157,7 +158,7 @@ export default function HRAIAssistantPage() {
     // take the user straight to the real, pre-filled form instead of just
     // describing the steps. Falls through to normal Q&A otherwise.
     try {
-      const outcome = await tryAiCreateFlow({ text: userInput, attachments: sentAttachments });
+      const outcome = await tryAiCreateFlow({ text: userInput, attachments: sentAttachments, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) });
       if (outcome.handled) {
         const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: buildQuickReplies(outcome).length ? stripChoiceText(outcome.message) : outcome.message, quickReplies: buildQuickReplies(outcome), timestamp: new Date() };
         setMessages((prev) => prev.filter((m) => !m.isLoading).concat(assistantMessage));
@@ -231,7 +232,7 @@ export default function HRAIAssistantPage() {
       const res = await fetch("/api/hr/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: userInput, message: userInput, attachments: sentAttachments }),
+        body: JSON.stringify({ query: userInput, message: userInput, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) }),
       });
       const data = await res.json();
 
@@ -439,7 +440,7 @@ export default function HRAIAssistantPage() {
                 <Paperclip className="h-4 w-4" />
               </Button>
               {micSupported && (
-                <Button type="button" variant="ghost" onClick={toggleMic} disabled={isLoading || transcribing} title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"} className={`h-11 w-11 p-0 ${listening ? "text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <Button type="button" variant="ghost" onClick={toggleMic} aria-pressed={listening} disabled={isLoading || transcribing} title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"} className={`h-11 w-11 p-0 ${listening ? "text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <Mic className="h-4 w-4" />
               </Button>
               )}
@@ -447,6 +448,7 @@ export default function HRAIAssistantPage() {
                 <Send className="h-4 w-4" />
               </Button>
             </form>
+            <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-2" />
             <AiUsageIndicator />
           </div>
         </div>

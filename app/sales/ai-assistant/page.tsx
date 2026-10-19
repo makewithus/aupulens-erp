@@ -1,4 +1,5 @@
 'use client';
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -53,7 +54,7 @@ export default function SalesAIAssistant() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast.error(m),
   });
@@ -355,7 +356,7 @@ export default function SalesAIAssistant() {
       const response = await cachedFetch('/api/sales/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, attachments: sentAttachments })
+        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, chatId: currentChatId, attachments: sentAttachments })
       });
 
       // Gated / error — surface the server's message instead of a blank reply.
@@ -711,7 +712,7 @@ export default function SalesAIAssistant() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={toggleMic}
+                    onClick={toggleMic} aria-pressed={listening}
                     disabled={isLoading || transcribing}
                     title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
                     className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? "text-red-500 animate-pulse" : transcribing ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
@@ -732,6 +733,7 @@ export default function SalesAIAssistant() {
                 )}
               </Button>
             </form>
+            <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-2" />
             <AiUsageIndicator />
             <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for Sales • Powered by Aupulens

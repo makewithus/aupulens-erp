@@ -22,6 +22,7 @@ export interface SidebarSection {
 
 interface DashboardSidebarProps {
   sections: SidebarSection[];
+  isLoading?: boolean;
   className?: string;
   onClose?: () => void;
   isCollapsed?: boolean;
@@ -30,6 +31,7 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({
   sections,
+  isLoading = false,
   className,
   onClose,
   isCollapsed = false,
@@ -100,7 +102,21 @@ export function DashboardSidebar({
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-2">
-        {sections.map((section, sectionIndex) => (
+        {isLoading ? (
+          <div aria-label="Loading navigation" aria-busy="true" className="w-full px-2 animate-pulse">
+            {[0, 1, 2].map((group) => (
+              <div key={group} className="mb-7 flex flex-col gap-3 px-4">
+                {!isCollapsed && <div className="h-2 w-20 rounded bg-muted/60" />}
+                {[0, 1, 2].slice(0, group === 0 ? 2 : 3).map((item) => (
+                  <div key={item} className="flex h-9 items-center gap-3">
+                    <div className="h-4 w-4 shrink-0 rounded bg-muted/60" />
+                    {!isCollapsed && <div className="h-3 w-28 rounded bg-muted/60" />}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
               <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-muted-foreground">

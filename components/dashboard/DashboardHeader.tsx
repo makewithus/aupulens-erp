@@ -265,10 +265,7 @@ export function DashboardHeader({
 
   const visibleModules = useMemo(() => {
     if (!shouldFilterModules) return MODULES;
-    if (!enabledModulesLoaded || !enabledModules) {
-      const activeModule = moduleForHref(pathname) ?? "admin";
-      return MODULES.filter((module) => moduleEntitlementKey(module) === activeModule);
-    }
+    if (!enabledModulesLoaded || !enabledModules) return [];
     const filtered = MODULES.filter((module) => enabledModules.includes(moduleEntitlementKey(module)));
     return filtered.length ? filtered : MODULES.filter((module) => moduleEntitlementKey(module) === "admin");
   }, [enabledModules, enabledModulesLoaded, pathname, shouldFilterModules]);
@@ -492,6 +489,7 @@ export function DashboardHeader({
               <ModuleTabs
                 modules={visibleModules}
                 activeModule={activeModule}
+                isLoading={shouldFilterModules && !enabledModulesLoaded}
                 onNavigate={(href) => router.push(href)}
               />
             )}

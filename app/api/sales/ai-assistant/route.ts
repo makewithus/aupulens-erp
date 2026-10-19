@@ -1,3 +1,4 @@
+import { loadConversationContext } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -41,26 +42,15 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const conversationId: string = incomingConversationId || randomUUID();
+    let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    // Prior turns for multi-turn context: prefer client-supplied history (the
-    // assistant page owns persistence via /api/sales/chat-history), otherwise
-    // restore from the DB by conversationId for any other caller.
-    let priorTurns: ChatTurn[] = [];
-    if (Array.isArray(body.history) && body.history.length > 0) {
-      priorTurns = body.history
-        .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-        .map((m: any) => ({ role: m.role, content: m.content }));
-    } else {
-      const existingHistory = await ChatHistory.findOne(
-        { tenantId, conversationId },
-        { messages: 1 }
-      ).lean();
-      priorTurns = (existingHistory?.messages ?? []).map(
-        (m: any) => ({ role: m.role, content: m.content })
-      );
-    }
+    const conversationContext = await loadConversationContext({
+      tenantId, userId, role: session.user.role, module: "sales", conversationId,
+      chatId: body.chatId, history: body.history, message,
+    });
+    const priorTurns = conversationContext.history;
+    conversationId = conversationContext.conversationId;
 
     const data = await fetchSalesData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
@@ -130,7 +120,7 @@ export async function POST(request: NextRequest) {
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
     await ChatHistory.findOneAndUpdate(
-      { tenantId, conversationId },
+      { tenantId, userId, conversationId, module: "sales" },
       {
         $setOnInsert: {
           tenantId,

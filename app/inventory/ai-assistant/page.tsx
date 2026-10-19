@@ -1,4 +1,5 @@
 'use client';
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -60,7 +61,7 @@ export default function InventoryAIAssistant() {
   }, [isLoading]);
 
   // Voice-to-text (Azure) — speak your question; transcript is appended.
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast({ title: 'Microphone', description: m }),
   });
@@ -283,7 +284,7 @@ export default function InventoryAIAssistant() {
     // take the user straight to the real, pre-filled form instead of just
     // describing the steps. Falls through to normal Q&A otherwise.
     try {
-      const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments });
+      const outcome = await tryAiCreateFlow({ text: userInputText, attachments: sentAttachments, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) });
       if (outcome.handled) {
         const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: buildQuickReplies(outcome).length ? stripChoiceText(outcome.message) : outcome.message, quickReplies: buildQuickReplies(outcome), timestamp: new Date() };
         setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantMessage));
@@ -383,7 +384,7 @@ export default function InventoryAIAssistant() {
       const response = await fetch('/api/inventory/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userInputText, attachments: sentAttachments })
+        body: JSON.stringify({ query: userInputText, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) })
       });
 
       const data = await response.json();
@@ -757,7 +758,7 @@ export default function InventoryAIAssistant() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={toggleMic}
+                    onClick={toggleMic} aria-pressed={listening}
                     disabled={isLoading || transcribing}
                     title={listening ? 'Stop and transcribe' : transcribing ? 'Transcribing…' : 'Speak your message'}
                     className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? 'text-red-400 animate-pulse' : transcribing ? 'text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
@@ -778,6 +779,7 @@ export default function InventoryAIAssistant() {
                 )}
               </Button>
             </form>
+            <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-2" />
             <AiUsageIndicator />
             <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for inventory • Powered by Aupulens

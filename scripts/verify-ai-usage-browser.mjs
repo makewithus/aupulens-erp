@@ -19,14 +19,20 @@ const base = 'http://127.0.0.1:3109';
 const secret = randomUUID() + randomUUID();
 let next, chrome, cdp;
 let serverLog = '';
-const results = { runId, checks: [], screenshots: [], errors: [], providerRequests: 0 };
+const results = { runId, checks: [], screenshots: [], errors: [], providerRequests: 0, memoryChecks: [], providerPrompts: [] };
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const stub = createServer(async (req, res) => {
   let body = ''; for await (const chunk of req) body += chunk;
   const data = JSON.parse(body || '{}');
   results.providerRequests++;
   const classifier = data.messages?.some(m => typeof m.content === 'string' && /query classifier/i.test(m.content));
-  const content = classifier ? '{"category":"general","action":"summary"}' : 'Browser verification reply.';
+  let content = classifier ? '{"category":"general","action":"summary"}' : 'Browser verification reply.';
+  results.providerPrompts.push({ classifier, question: String(data.messages?.at(-1)?.content).slice(0, 160) });
+  if (!classifier && /previous chat|just recall/i.test(String(data.messages?.at(-1)?.content))) {
+    const payload = JSON.stringify(data.messages);
+    results.memoryChecks.push({ prior: payload.includes('ORCHID-748 delivery on Friday'), isolated: !payload.includes('OTHER_USER_MEMORY_SECRET'), current: data.messages.some(m => m.role === 'assistant' && m.content.includes('Remembered Orchid delivery on Friday')) });
+    content = 'Remembered Orchid delivery on Friday from your saved prior chat.';
+  }
   const usage = { prompt_tokens: 21, completion_tokens: 13, total_tokens: 34 };
   if (data.stream) {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -61,6 +67,9 @@ try {
   const policy = { startsAt: new Date(Date.now() - 1000).toISOString(), session: { minutes: 60, limit: 20 }, weekly: { limit: 100 } };
   await db.collection('organizations').insertOne({ name: 'Usage browser test', subdomain: tenant, ownerUserId: userId, isActive: true, subscriptionStatus: 'active', tier: 'enterprise', settings: { ai: {}, enabledModules: [] } });
   await db.collection('users').insertOne({ _id: userId, tenantId: tenant, name: 'Usage Browser Test', email: 'usage-browser@example.test', phone: '0000000000', password: await bcrypt.hash(secret, 10), role: 'admin', status: 'active' });
+  // Pricing and plan fixtures stay inside this run's isolated database.
+  await db.collection('aicostrates').insertMany(['test', 'gpt-4o'].map(modelName => ({ modelName, inputCostPerMillionTokens: 2.5, outputCostPerMillionTokens: 10, effectiveFrom: new Date() })));
+  await db.collection('plans').insertOne({ key: 'enterprise', name: 'Test enterprise', features: { modules: ['admin', 'finance', 'sales', 'inventory', 'manufacturing', 'hr', 'crm'], featureFlags: {}, aiCreditsPerMonth: 100, aiRequestsPerMonth: 10000, maxUsers: 100, maxCompanies: 10, storageGb: 10, apiRequestsPerMonth: 10000, automationRunsPerMonth: 1000, documentLimitPerMonth: 1000, supportLevel: 'community' } });
   await new Promise(resolve => stub.listen(3110, '127.0.0.1', resolve));
   next = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', '3109'], { env: { ...process.env,
     MONGODB_URI: `mongodb://127.0.0.1:27017/aupulens_test_usage_browser_${runId}`, AUTH_SECRET: secret, NEXTAUTH_SECRET: secret, AUTH_URL: base, NEXTAUTH_URL: base, NEXT_PUBLIC_APP_URL: base, COOKIE_DOMAIN: '127.0.0.1', MIDDLEWARE_INTERNAL_SECRET: secret, SESSION_SECURITY_VERSION: 'static-v1',
@@ -81,7 +90,7 @@ try {
   const login = await cdp.evaluate(`(async () => { const {csrfToken} = await (await fetch('/api/auth/csrf')).json(); const r = await fetch('/api/auth/callback/credentials', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-Auth-Return-Redirect':'1'}, body:new URLSearchParams({csrfToken,email:'usage-browser@example.test',password:${JSON.stringify(secret)},tenantId:${JSON.stringify(tenant)}}) }); return r.status; })()`);
   assert.equal(login, 200);
   await cdp.send('Page.navigate', { url: `${base}/admin/ai-assistant` });
-  await waitFor(() => cdp.evaluate(`document.querySelector('[aria-label="Workspace AI usage"]')?.textContent.includes('Not configured')`), 'unconfigured real usage');
+  await waitFor(() => cdp.evaluate(`document.querySelector('[aria-label="Workspace AI usage"]')?.textContent.includes('No limit set')`), 'unconfigured real usage');
   const configured = await cdp.evaluate(`fetch('/api/admin/org-settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({settings:{ai:{usagePolicy:${JSON.stringify(policy)}}}})}).then(r=>r.status)`);
   assert.equal(configured, 200);
   await cdp.evaluate(`window.dispatchEvent(new Event('aupulens:ai-usage-changed'))`);
@@ -123,7 +132,12 @@ try {
   results.checks.push('Attachment selection and removal work at 320px');
   await click('form button[title="Speak your message"]');
   await waitFor(() => cdp.evaluate(`!!document.querySelector('form button[title="Stop and transcribe"]')`), 'microphone recording');
-  await pause(1000); await click('form button[title="Stop and transcribe"]');
+  await waitFor(() => cdp.evaluate(`Array.from(document.querySelectorAll('form [role="status"] span[style]')).some(e => parseFloat(e.style.height) > 2)`), 'waveform responds to fake microphone samples');
+  const voiceShot = path.join(output, 'microphone-waveform.png');
+  await writeFile(voiceShot, Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  results.screenshots.push(voiceShot);
+  results.checks.push('Live waveform responds to captured audio samples');
+  await click('form button[title="Stop and transcribe"]');
   await waitFor(() => cdp.evaluate(`document.querySelector('form textarea').value.includes('Microphone browser fixture')`), 'microphone fixture');
   results.checks.push('Microphone fake-device capture and test-only transcription fixture work');
   await pause(6000); // allow the auth notification to expire before clicking the header toolbar
@@ -147,6 +161,22 @@ try {
   assert.equal(removed.data.session.status, 'unconfigured'); assert.equal(removed.data.weekly.status, 'unconfigured');
   assert.equal(removed.data.monthly.used, 1);
   results.checks.push('Authenticated policy configure/zero enforcement/unlimited/removal round trip; no production policy writes');
+  await db.collection('chathistories').insertMany([
+    { tenantId: tenant, userId, conversationId: 'prior-memory-fixture', module: 'admin', title: 'Orchid delivery', isArchived: false, messages: [{role: 'user', content: 'ORCHID-748 delivery on Friday', timestamp: new Date()}], createdAt: new Date(), updatedAt: new Date() },
+    { tenantId: tenant, userId: new ObjectId(), conversationId: 'other-user-memory', module: 'admin', title: 'Private', isArchived: false, messages: [{role: 'user', content: 'OTHER_USER_MEMORY_SECRET', timestamp: new Date()}], createdAt: new Date(), updatedAt: new Date() },
+  ]);
+  const recallId = randomUUID();
+  for (const message of ['What was discussed in the previous chat? MEMORY_RECALL_CHECK', 'What delivery did you just recall?']) {
+    const response = await cdp.evaluate(`fetch('/api/admin/ai-assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:${JSON.stringify(message)},stream:true,conversationId:${JSON.stringify(recallId)},requestId:crypto.randomUUID()})}).then(async r=>({status:r.status,text:await r.text()}))`);
+    assert.equal(response.status, 200, response.text);
+    assert(response.text.includes('Remembered Orchid'), response.text);
+  }
+  assert.equal(results.memoryChecks.length, 2);
+  assert(results.memoryChecks.every(check => check.prior && check.isolated));
+  assert.equal(results.memoryChecks[1].current, true);
+  assert.equal(await db.collection('chathistories').countDocuments({ tenantId: tenant, userId, conversationId: recallId }), 1);
+  results.checks.push('Prior-chat recall reaches the provider; other users are excluded; completed streams restore active history without client-side saving');
+
   assert.equal(results.errors.length, 0, `Browser errors: ${results.errors.join('; ')}`);
   results.checks.push('No browser runtime exceptions');
   await writeFile(path.join(output, 'server.log'), serverLog);

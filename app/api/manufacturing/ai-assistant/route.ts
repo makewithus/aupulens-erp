@@ -1,3 +1,6 @@
+import { randomUUID } from "crypto";
+import { loadConversationContext } from "@/lib/ai/conversationContext";
+import type { ChatTurn } from "@/lib/ai/claude";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -44,6 +47,12 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const conversationContext = await loadConversationContext({
+      tenantId, userId: session.user.id, role: session.user.role, module: "manufacturing",
+      conversationId: reqBody.conversationId || randomUUID(), chatId: reqBody.chatId,
+      history: reqBody.history, message,
+    });
+    const priorTurns = conversationContext.history;
 
     // Handle action cancellation
     if (cancelAction) {
@@ -159,12 +168,8 @@ export async function POST(request: NextRequest) {
       // When files are attached (or on any question), answer with the LLM so it
       // can actually read the documents/images; fall back to the deterministic
       // overview if the AI is gated/unavailable.
-      if (imageDataUrls.length || docTexts.length) {
-        const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts);
-        return NextResponse.json({ response: aiResp || (await generateResponse(message, data)) });
-      }
-      const response = await generateResponse(message, data);
-      return NextResponse.json({ response });
+      const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts, priorTurns);
+      return NextResponse.json({ response: aiResp || (await generateResponse(message, data)) });
     }
 
     // Task creation detected - analyze requirements
@@ -242,7 +247,8 @@ async function generateAiResponse(
   tier: string,
   aiSettings: Parameters<typeof callClaudeForTenant>[2],
   imageDataUrls: string[],
-  docTexts: string[]
+  docTexts: string[],
+  history: ChatTurn[]
 ): Promise<string> {
   const prompt = `You are an expert manufacturing & logistics AI assistant for an ERP system.
 
@@ -257,6 +263,7 @@ Instructions:
 3. Use bullet points for clarity. Be concise but complete.`;
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
+      history,
       language: { rawText: message },
       systemPrompt: "You are a precise manufacturing/logistics analytics assistant. For DATA questions use only the figures given; for HOW-TO questions give clear step-by-step app guidance. NEVER print internal database IDs or raw JSON. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
       maxTokens: 1024,

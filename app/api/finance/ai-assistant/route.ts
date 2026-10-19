@@ -1,3 +1,4 @@
+import { loadConversationContext } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -43,17 +44,15 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const conversationId: string = incomingConversationId || randomUUID();
+    let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    // Restore prior turns for multi-turn context
-    const existingHistory = await ChatHistory.findOne(
-      { tenantId, conversationId },
-      { messages: 1 }
-    ).lean();
-    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
-      (m: any) => ({ role: m.role, content: m.content })
-    );
+    const conversationContext = await loadConversationContext({
+      tenantId, userId, role: session.user.role, module: "finance", conversationId,
+      chatId: body.chatId, history: body.history, message,
+    });
+    const priorTurns = conversationContext.history;
+    conversationId = conversationContext.conversationId;
 
     // AI never auto-commits financial actions: if the message matches a known
     // destructive/financial intent, propose it and require explicit user
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
     // Persist both turns to ChatHistory (upsert by tenantId + conversationId)
     const now = new Date();
     await ChatHistory.findOneAndUpdate(
-      { tenantId, conversationId },
+      { tenantId, userId, conversationId, module: "finance" },
       {
         $setOnInsert: {
           tenantId,

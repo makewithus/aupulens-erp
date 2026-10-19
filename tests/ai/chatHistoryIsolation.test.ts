@@ -32,7 +32,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
   callClaudeForTenant: mockCallClaudeForTenant,
 }));
 vi.mock("@/models/ai/ChatHistory", () => ({
-  default: { findOne: mockChatHistoryFindOne, findOneAndUpdate: mockChatHistoryUpsert },
+  default: { find: () => { const c: any = { sort: () => c, limit: () => c, lean: async () => [] }; return c; }, findOne: mockChatHistoryFindOne, findOneAndUpdate: mockChatHistoryUpsert },
 }));
 
 import { POST } from "@/app/api/finance/ai-assistant/route";

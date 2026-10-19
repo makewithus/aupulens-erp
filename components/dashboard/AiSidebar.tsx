@@ -1,4 +1,5 @@
 "use client";
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
@@ -67,7 +68,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // Voice input (Azure speech-to-text) — records via the mic, transcribes on the
   // server, and appends the recognised text to the prompt for the user to review
   // and send. Works in Electron + all browsers (unlike the old browser API).
-  const { supported: micSupported, listening, transcribing, interim, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, interim, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast.error(m),
   });
@@ -195,7 +196,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   // conversation (the streaming route doesn't persist mid-thread), so we send it
   // every turn — this is what lets "tell me about that data" work later.
   const buildHistory = (base: Message[]): { role: string; content: string }[] =>
-    base.filter((m) => !m.isLoading && m.text).slice(-10).map((m) => ({ role: m.role, content: m.text }));
+    base.filter((m) => !m.isLoading && m.text).map((m) => ({ role: m.role, content: m.text }));
 
   const ensureConversationId = () => {
     const current = useAiChatStore.getState().conversationId;
@@ -1191,6 +1192,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
               isDark ? "text-neutral-200 placeholder:text-neutral-500" : "text-neutral-800 placeholder:text-neutral-400"
             )}
           />
+          <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-1" />
           <div className={cn("flex flex-wrap items-center justify-between gap-x-2 mt-2 pt-2 border-t", isDark ? "border-neutral-900/50" : "border-neutral-200/50")}>
             <div className="flex flex-1 items-center gap-2 min-w-[72px]">
               <button
@@ -1207,7 +1209,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
               {micSupported && (
                 <button
                   type="button"
-                  onClick={toggleMic}
+                  onClick={toggleMic} aria-pressed={listening}
                   disabled={transcribing}
                   title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
                   className={cn(
@@ -1223,7 +1225,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               <span className="text-[9px] text-neutral-500 font-mono truncate">
-                {listening ? (interim || "Listening…") : transcribing ? "Transcribing…" : "⏎ to send · ⇧⏎ for newline"}
+                {listening ? "Click the microphone to stop" : transcribing ? "" : "⏎ to send · ⇧⏎ for newline"}
               </span>
             </div>
             <button

@@ -38,11 +38,13 @@ export function useAiUsageSummary() {
     let clockOrigin = 0;
     let serverOrigin = 0;
     let retryAfter = 0;
+    let lastReadAt = 0;
     const now = () => serverOrigin + (performance.now() - clockOrigin);
     const refresh = async () => {
       if (!active || document.visibilityState === "hidden") return;
       if (running) { dirty = true; return; }
       running = true;
+      lastReadAt = performance.now();
       try {
         const result = await readSummary(scope);
         if (!active) return;
@@ -64,8 +66,8 @@ export function useAiUsageSummary() {
     const tick = () => {
       if (!active || document.visibilityState === "hidden") return;
       if (data) setState({ scope, data, unavailable: false, now: now() });
-      const expired = data && [data.session, data.weekly, data.monthly].some(m => m.resetsAt && Date.parse(m.resetsAt) <= now());
-      if (performance.now() >= retryAfter && (expired || !data)) void refresh();
+      const expired = data && ([data.session, data.weekly, data.monthly].some(m => m.resetsAt && Date.parse(m.resetsAt) <= now()) || (data.credits && Date.parse(data.credits.resetsAt) <= now()));
+      if (performance.now() >= retryAfter && (expired || !data || performance.now() - lastReadAt >= 60000)) void refresh();
     };
     void refresh();
     const timer = window.setInterval(tick, 15000);

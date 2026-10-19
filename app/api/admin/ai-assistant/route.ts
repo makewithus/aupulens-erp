@@ -1,3 +1,4 @@
+import { loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId: incomingConversationId, history: clientHistory } = body;
+    const { message, conversationId: incomingConversationId } = body;
     const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
 
     if (!message) {
@@ -59,29 +60,15 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     // Resolve or create a conversationId
-    const conversationId: string = incomingConversationId || randomUUID();
+    let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    // Restore prior turns for multi-turn context. The client sends its live
-    // thread as `history` — that's the source of truth for the streaming path
-    // (which doesn't persist mid-thread), so a pasted document / earlier detail
-    // stays in context even though this turn carries no conversationId match.
-    // Fall back to the DB-stored thread when the client sends nothing.
-    let priorTurns: ChatTurn[] = [];
-    if (Array.isArray(clientHistory) && clientHistory.length) {
-      priorTurns = clientHistory
-        .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-        .slice(-10)
-        .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 6000) }));
-    } else {
-      const existingHistory = await ChatHistory.findOne(
-        { tenantId, userId, conversationId, module: "admin" },
-        { messages: 1 }
-      ).lean();
-      priorTurns = (existingHistory?.messages ?? []).map(
-        (m: any) => ({ role: m.role, content: String(m.content).slice(0, 6000) })
-      ).slice(-10);
-    }
+    const conversationContext = await loadConversationContext({
+      tenantId, userId, role: session.user.role, module: "admin", conversationId,
+      chatId: body.chatId, history: body.history, message,
+    });
+    const priorTurns = conversationContext.history;
+    conversationId = conversationContext.conversationId;
 
     // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
     // Reads every attached file — documents become text, images go to gpt-4o
@@ -150,7 +137,7 @@ export async function POST(request: NextRequest) {
       const parts: string[] = [`The user attached ${atts.length} file(s).`];
       if (docTexts.length) parts.push("Document content is below.");
       if (imageUrls.length) parts.push(`${imageUrls.length} image(s) are attached for you to look at.`);
-      const attachPrompt = `${parts.join(" ")} Answer using ONLY the attached content (text + images); if the answer isn't present, say so.\n\n${docTexts.join("\n\n")}\n\nUSER QUESTION: "${message}"`;
+      const attachPrompt = `${parts.join(" ")} For document facts use the attached content (text + images); for questions about this or previous chats, use the conversation history and app-supplied saved chat memory. If a requested detail is absent from those sources, say so.\n\n${docTexts.join("\n\n")}\n\nUSER QUESTION: "${message}"`;
 
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, attachPrompt, {
         language: { rawText: message, replyInUserLanguage: false },
@@ -166,7 +153,11 @@ export async function POST(request: NextRequest) {
       const enc = new TextEncoder();
       const readable = new ReadableStream({
         async start(controller) {
-          try { for await (const d of streamRes.stream) controller.enqueue(enc.encode(d)); }
+          try {
+            let full = "";
+            for await (const d of streamRes.stream) { full += d; controller.enqueue(enc.encode(d)); }
+            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full });
+          }
           catch { controller.enqueue(enc.encode("Sorry \u2014 I couldn't finish reading those attachments. Please try again.")); }
           finally { controller.close(); }
         },
@@ -222,13 +213,13 @@ export async function POST(request: NextRequest) {
               full += delta;
               controller.enqueue(encoder.encode(delta));
             }
+            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full });
           } catch {
             // If the model errors mid-stream, end gracefully with what we have.
             if (!full) controller.enqueue(encoder.encode("Sorry — I couldn't complete that response. Please try again."));
           } finally {
             controller.close();
-            // The client persists the conversation (same as the non-stream
-            // path) — no server-side save here, to avoid duplicate records.
+            // Completed turns are persisted before closing the stream.
           }
         },
       });

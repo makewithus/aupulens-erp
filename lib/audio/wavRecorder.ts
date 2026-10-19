@@ -30,7 +30,7 @@ export function isWavRecordingSupported(): boolean {
   );
 }
 
-export async function startWavRecording(): Promise<ActiveRecording> {
+export async function startWavRecording(onLevels?: (levels: number[]) => void): Promise<ActiveRecording> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
@@ -53,13 +53,17 @@ export async function startWavRecording(): Promise<ActiveRecording> {
 
   const chunks: Float32Array[] = [];
   processor.onaudioprocess = (e) => {
-    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    const samples = e.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(samples));
+    // Read the same microphone samples we record; silence stays flat.
+    if (onLevels) onLevels(waveformLevels(samples));
   };
   source.connect(processor);
   processor.connect(silent);
   silent.connect(ctx.destination);
 
   const cleanup = () => {
+    processor.onaudioprocess = null;
     try { processor.disconnect(); } catch { /* noop */ }
     try { silent.disconnect(); } catch { /* noop */ }
     try { source.disconnect(); } catch { /* noop */ }
@@ -80,6 +84,18 @@ export async function startWavRecording(): Promise<ActiveRecording> {
       cleanup();
     },
   };
+}
+
+/** Compact RMS envelope, with gain for quiet speech and a small noise floor. */
+export function waveformLevels(samples: Float32Array, bars = 24): number[] {
+  return Array.from({ length: bars }, (_, bar) => {
+    const start = Math.floor(bar * samples.length / bars);
+    const end = Math.floor((bar + 1) * samples.length / bars);
+    let energy = 0;
+    for (let i = start; i < end; i++) energy += samples[i] * samples[i];
+    const rms = Math.sqrt(energy / Math.max(1, end - start));
+    return Math.min(1, Math.max(0, rms - 0.005) * 6);
+  });
 }
 
 function mergeBuffers(chunks: Float32Array[]): Float32Array {

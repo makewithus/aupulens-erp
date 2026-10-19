@@ -128,3 +128,5 @@ describe("manufacturing/ai-assistant — tenant AI gating", () => {
     expect(res.status).toBe(401);
   });
 });
+
+vi.mock("@/lib/ai/conversationContext", () => ({ loadConversationContext: async (input: any) => ({ history: [], conversationId: input.conversationId }) }));

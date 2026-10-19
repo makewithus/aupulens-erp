@@ -52,7 +52,7 @@ vi.mock("@/lib/ai/tenantAi", () => ({
 }));
 
 vi.mock("@/models/ai/ChatHistory", () => ({
-  default: {
+  default: { find: () => { const c: any = { sort: () => c, limit: () => c, lean: async () => [] }; return c; },
     findOne: mockChatHistoryFindOne,
     findOneAndUpdate: mockChatHistoryFindOneAndUpdate,
   },

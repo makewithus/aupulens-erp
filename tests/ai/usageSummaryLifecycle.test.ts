@@ -78,3 +78,10 @@ it("refreshes a near reset boundary promptly after a successful read", async () 
   await vi.advanceTimersByTimeAsync(15000);
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
+
+it("polls healthy usage so requests from other workspace users become visible", async () => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { ...summary(), session: emptyUsage("unconfigured") } }) });
+  HookHarness(); await settle();
+  await vi.advanceTimersByTimeAsync(60000);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});

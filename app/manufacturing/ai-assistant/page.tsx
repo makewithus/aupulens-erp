@@ -1,4 +1,5 @@
 'use client';
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -54,7 +55,7 @@ export default function ManufacturingAIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const { attachments, addFiles, removeAttachment, handlePaste, fileInputRef, clear: clearAttachments } = useChatAttachments({ onError: (m) => toast({ title: 'Attachment', description: m }) });
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast({ title: 'Microphone', description: m }),
   });
@@ -349,6 +350,8 @@ export default function ManufacturingAIAssistant() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userInputText,
+          chatId: currentChatId,
+          history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })),
           attachments: sentAttachments,
           confirmAction: false,
           actionData: null,
@@ -815,7 +818,7 @@ export default function ManufacturingAIAssistant() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={toggleMic}
+                    onClick={toggleMic} aria-pressed={listening}
                     disabled={isLoading || transcribing}
                     title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
                     className={`absolute right-2 bottom-2 h-8 w-8 p-0 ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-blue-400" : "text-muted-foreground hover:text-foreground"}`}
@@ -836,6 +839,7 @@ export default function ManufacturingAIAssistant() {
                 )}
               </Button>
             </form>
+            <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-2" />
             <AiUsageIndicator />
             <div className="text-xs text-muted-foreground text-center mt-2">
               AI Assistant for Manufacturing • Powered by Aupulens

@@ -1,4 +1,5 @@
 "use client";
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 
 import React, { useRef } from "react";
 import { Mic, Loader2 } from "lucide-react";
@@ -29,7 +30,7 @@ export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled =
   const { suggestion, clear } = useAiComplete(value, label, { enabled: aiEnabled, context: aiContext });
 
   // Voice dictation (Azure) — speak to fill the field; transcript is appended.
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => onValueChange(value ? `${value} ${t}` : t),
     onError: (m) => toast.error(m),
   });
@@ -78,7 +79,7 @@ export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled =
       {micSupported ? (
         <button
           type="button"
-          onClick={toggleMic}
+          onClick={toggleMic} aria-pressed={listening}
           disabled={transcribing}
           title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Dictate with your voice"}
           className={cn(
@@ -89,6 +90,7 @@ export function AiTextarea({ value, onValueChange, label, aiContext, aiEnabled =
           {transcribing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
         </button>
       ) : null}
+      <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="relative mt-1" />
       {suggestion ? (
         <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
           Tab ↹ to accept

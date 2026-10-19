@@ -13,5 +13,6 @@ export function usageLabel(metric?: UsageMetric): string {
   if (metric.status === "unconfigured") return "Not configured";
   if (metric.limit === 0 && metric.status === "exhausted") return "No allowance";
   if (metric.status === "unavailable" || metric.percentage === null) return "Unavailable";
+  if (metric.used !== null && metric.limit !== null && metric.limit > 0 && metric.used > 0 && metric.percentage === 0) return "<1%";
   return `${metric.percentage}%`;
 }

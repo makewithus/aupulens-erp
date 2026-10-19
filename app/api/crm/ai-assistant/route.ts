@@ -1,3 +1,4 @@
+import { loadConversationContext } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -39,16 +40,15 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const conversationId: string = incomingConversationId || randomUUID();
+    let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
 
-    const existingHistory = await ChatHistory.findOne(
-      { tenantId, conversationId },
-      { messages: 1 }
-    ).lean();
-    const priorTurns: ChatTurn[] = (existingHistory?.messages ?? []).map(
-      (m: any) => ({ role: m.role, content: m.content })
-    );
+    const conversationContext = await loadConversationContext({
+      tenantId, userId, role: session.user.role, module: "crm", conversationId,
+      chatId: body.chatId, history: body.history, message,
+    });
+    const priorTurns = conversationContext.history;
+    conversationId = conversationContext.conversationId;
 
     const data = await fetchCRMData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     await ChatHistory.findOneAndUpdate(
-      { tenantId, conversationId },
+      { tenantId, userId, conversationId, module: "crm" },
       {
         $setOnInsert: {
           tenantId,

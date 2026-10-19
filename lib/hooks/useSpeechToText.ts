@@ -27,6 +27,7 @@ export function useSpeechToText(opts: {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [interim, setInterim] = useState("");
+  const [audioLevels, setAudioLevels] = useState<number[]>([]);
 
   const recordingRef = useRef<ActiveRecording | null>(null);
   const onFinalRef = useRef(onFinalText);
@@ -41,7 +42,8 @@ export function useSpeechToText(opts: {
   const start = useCallback(async () => {
     if (listening || transcribing) return;
     try {
-      recordingRef.current = await startWavRecording();
+      setAudioLevels([]);
+      recordingRef.current = await startWavRecording(setAudioLevels);
       setListening(true);
       setInterim("Listening…");
     } catch (err: any) {
@@ -69,6 +71,7 @@ export function useSpeechToText(opts: {
     recordingRef.current = null;
     if (!rec) return;
     setListening(false);
+    setAudioLevels([]);
     let blob: Blob;
     try {
       blob = await rec.stop();
@@ -113,5 +116,5 @@ export function useSpeechToText(opts: {
   // Release the mic if the component unmounts mid-recording.
   useEffect(() => () => { recordingRef.current?.cancel(); recordingRef.current = null; }, []);
 
-  return { supported, listening, transcribing, interim, start, stop, toggle };
+  return { supported, listening, transcribing, interim, audioLevels, start, stop, toggle };
 }

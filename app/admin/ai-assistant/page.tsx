@@ -1,5 +1,7 @@
 "use client";
+import { VoiceActivity } from "@/components/ai/VoiceActivity";
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { AiMarkdown } from "@/components/ai/AiMarkdown";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
@@ -21,7 +23,6 @@ import {
   TrendingUp,
   BarChart3,
   Package,
-  CheckCircle2,
   Bot,
   User,
   Paperclip,
@@ -95,7 +96,7 @@ export default function AIAssistant() {
     if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
     usageRequestWasActive.current = isLoading;
   }, [isLoading]);
-  const { supported: micSupported, listening, transcribing, toggle: toggleMic } = useSpeechToText({
+  const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
     onError: (m) => toast.error(m),
   });
@@ -393,7 +394,7 @@ export default function AIAssistant() {
       const response = await fetch("/api/admin/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInputText, stream: true, attachments: sentAttachments, conversationId: activeConversationId, requestId: crypto.randomUUID() }),
+        body: JSON.stringify({ message: userInputText, stream: true, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })), attachments: sentAttachments, conversationId: activeConversationId, requestId: crypto.randomUUID() }),
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -784,15 +785,9 @@ export default function AIAssistant() {
                             <span className="text-[15px]">Thinking…</span>
                           </div>
                         ) : (
-                          <>
-                            <div className="whitespace-pre-wrap">{message.content}</div>
-                            {message.role === 'assistant' && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 border-t border-white/5 pt-2">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                                <span>Updated & Synced with ERP Analytics</span>
-                              </div>
-                            )}
-                          </>
+                          message.role === "assistant"
+                            ? <AiMarkdown content={message.content} className="text-[15px] leading-7" />
+                            : <div className="whitespace-pre-wrap">{message.content}</div>
                         )}
                       </div>
                     </div>
@@ -872,7 +867,7 @@ export default function AIAssistant() {
                   {micSupported && (
                     <button
                       type="button"
-                      onClick={toggleMic}
+                      onClick={toggleMic} aria-pressed={listening}
                       disabled={isLoading || transcribing}
                       title={listening ? "Stop and transcribe" : transcribing ? "Transcribing…" : "Speak your message"}
                       className={`absolute right-11 h-8 w-8 flex items-center justify-center rounded-xl transition-all ${listening ? "text-red-400 animate-pulse" : transcribing ? "text-purple-400" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
@@ -894,6 +889,7 @@ export default function AIAssistant() {
                   </Button>
                 </div>
 
+                <VoiceActivity listening={listening} transcribing={transcribing} levels={audioLevels} className="mt-2" />
                 <AiUsageIndicator />
 
                 {/* Suggested Queries Chips */}
