@@ -42,6 +42,7 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import Counter from "@/models/shared/Counter";
+import AiCostRate from "@/models/platform/AiCostRate";
 import { AI_ACTION_STATUS, LANGUAGE_CODE } from "@/lib/constants/statuses";
 import { setSarvamClientForTests } from "@/lib/ai/language/sarvam/client";
 import { clearLanguageCache } from "@/lib/ai/language/pipeline";
@@ -118,6 +119,9 @@ describe("Sarvam regional commands reach native Aupulens automation", () => {
 
     await Organization.create({ name: "Regional AI", subdomain: tenantId, ownerUserId: userId, tier: "starter", settings: { ai: {} } });
     await Customer.create({ tenantId, header: { name: "Acme Traders" }, createdBy: userId });
+    // tenantAi now performs a real credit preflight before provider calls.
+    // Give the isolated integration database a rate for its mocked deployment.
+    await AiCostRate.create({ modelName: "azure-test-deployment", inputCostPerMillionTokens: 2.5, outputCostPerMillionTokens: 10 });
   });
 
   afterEach(async () => {

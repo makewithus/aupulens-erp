@@ -5,6 +5,7 @@ import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
 import { hasCapability, AdminForbiddenError } from "@/lib/platform/auth/adminRbac";
 import { ADMIN_CAPABILITY, PlanKeyType } from "@/lib/constants/statuses";
 import { getPlanImpactCount, updatePlan, ManagePlanError } from "@/lib/platform/entitlements/managePlan";
+import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 
 export async function GET(
   request: Request,
@@ -39,7 +40,11 @@ export async function GET(
       isCustom: plan.isCustom,
       basedOnPlanKey: plan.basedOnPlanKey,
       active: plan.active,
-      features: plan.features,
+      features: {
+        ...plan.features,
+        aiCreditsPerSession: plan.features.aiCreditsPerSession ?? PLAN_DEFINITIONS[plan.key]?.features.aiCreditsPerSession ?? 20,
+        aiCreditsPerWeek: plan.features.aiCreditsPerWeek ?? PLAN_DEFINITIONS[plan.key]?.features.aiCreditsPerWeek ?? 100,
+      },
       impact,
     },
   });

@@ -1,4 +1,4 @@
-import { loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
+import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const incomingConversationId: string | undefined = body.conversationId;
+    const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
     const { imageDataUrls, docTexts } = await processChatAttachments(body);
     // Accept both `message` and the legacy `query` key; allow attachment-only.
     const rawMessage: string | undefined = body.message ?? body.query;
@@ -47,10 +48,15 @@ export async function POST(request: NextRequest) {
 
     const conversationContext = await loadConversationContext({
       tenantId, userId, role: session.user.role, module: "sales", conversationId,
-      chatId: body.chatId, history: body.history, message,
+      chatId: body.chatId, history: body.history, message, requestId,
     });
     const priorTurns = conversationContext.history;
     conversationId = conversationContext.conversationId;
+    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "sales", conversationId, requestId });
+    if (completedRetry) {
+      if (body.stream) return new Response(completedRetry, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
+      return NextResponse.json({ response: completedRetry, conversationId });
+    }
 
     const data = await fetchSalesData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
@@ -62,11 +68,12 @@ export async function POST(request: NextRequest) {
     // feel and persists the conversation itself (no server-side double-save).
     if (body.stream) {
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, prompt, {
-        language: { rawText: message, replyInUserLanguage: false },
+        language: { rawText: message, showInterpretation: false },
         systemPrompt,
         maxTokens,
         history: priorTurns,
         imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
+        idempotencyKey: requestId,
       });
       if (!("stream" in streamRes)) {
         return NextResponse.json(
@@ -83,6 +90,7 @@ export async function POST(request: NextRequest) {
               full += delta;
               controller.enqueue(encoder.encode(delta));
             }
+            await saveCompletedExchange({ tenantId, userId, conversationId, module: "sales", message, response: full, requestId });
           } catch {
             // Model errored mid-stream — fall back to a deterministic summary.
             if (!full) controller.enqueue(encoder.encode(generateSimpleResponse(message, data)));
@@ -117,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    await saveCompletedExchange({ tenantId, userId, conversationId, module: "sales", message, response });
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "sales", message, response, requestId });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
@@ -233,7 +241,7 @@ async function generateResponse(
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      language: { rawText: message },
+      language: { rawText: message, showInterpretation: false },
       systemPrompt,
       maxTokens,
       history: priorTurns,

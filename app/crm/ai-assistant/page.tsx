@@ -51,8 +51,15 @@ export default function CRMAIAssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -225,7 +232,7 @@ export default function CRMAIAssistantPage() {
       const res = await fetch("/api/crm/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: userInput, message: userInput, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({ query: userInput, message: userInput, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })), requestId: crypto.randomUUID() }),
       });
       const data = await res.json();
 
@@ -261,26 +268,14 @@ export default function CRMAIAssistantPage() {
         const saveRes = await fetch("/api/crm/chat-history", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, messages: chatMessages }),
+          body: JSON.stringify({ title, conversationId: data.conversationId, messages: chatMessages }),
         });
         if (saveRes.ok) {
           const saved = await saveRes.json();
           setCurrentChatId(saved.chat?._id || null);
           fetchChatHistory();
         }
-      } else if (currentChatId) {
-        const allMsgs = [...messages.filter((m) => !m.isLoading), userMessage, assistantMessage].map((m) => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-        }));
-        await fetch("/api/crm/chat-history", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chatId: currentChatId, messages: allMsgs }),
-        });
-        fetchChatHistory();
-      }
+      } else if (currentChatId) await fetchChatHistory(); // Server persisted this exchange.
     } catch {
       setMessages((prev) =>
         prev

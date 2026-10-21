@@ -234,7 +234,7 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
     await POST(makeRequest({ message: "hello", conversationId: cid }));
     expect(mockChatHistoryFindOne).toHaveBeenCalledWith(
       { tenantId: TENANT_A, userId: "user-1", module: "finance", conversationId: cid },
-      { messages: 1, conversationId: 1 }
+      { messages: 1, conversationId: 1, summary: 1 }
     );
   });
 
@@ -245,10 +245,10 @@ describe("finance/ai-assistant — ChatHistory wiring", () => {
     expect(upsertFilter).toHaveProperty("conversationId");
   });
 
-  it("upsert $setOnInsert sets module=finance", async () => {
+  it("upsert filter scopes the new chat to finance and the authenticated tenant", async () => {
     await POST(makeRequest({ message: "revenue?" }));
-    const update = mockChatHistoryFindOneAndUpdate.mock.calls[0][1];
-    expect(update.$setOnInsert).toMatchObject({ module: "finance", tenantId: TENANT_A });
+    const filter = mockChatHistoryFindOneAndUpdate.mock.calls[0][0];
+    expect(filter).toMatchObject({ module: "finance", tenantId: TENANT_A, userId: "user-1" });
   });
 
   it("passes prior turns through to callClaudeForTenant's history option", async () => {

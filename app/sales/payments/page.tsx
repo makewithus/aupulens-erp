@@ -65,34 +65,34 @@ const statusColors: Record<string, string> = {
 
 function LifecycleDiagram() {
   return (
-    <Card className="border border-border/40 shadow-none bg-background rounded-none p-8">
-      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 text-center mb-8">Life cycle of a Customer Payment</h3>
-      <div className="flex flex-col items-center gap-6">
-        <div className="flex border border-border/40 rounded-none bg-background">
+    <Card className="border border-border/40 shadow-none bg-background rounded-none p-4 sm:p-8 overflow-hidden">
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 text-center mb-6 sm:mb-8">Life cycle of a Customer Payment</h3>
+      <div className="flex flex-col items-center gap-6 max-w-full overflow-x-auto pb-2">
+        <div className="flex border border-border/40 rounded-none bg-background max-w-full overflow-x-auto">
           {["Initial Request", "Reminder 1", "Reminder 2", "Reminder N"].map((label, i) => (
             <div
               key={label}
-              className={`px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap ${i > 0 ? "border-l border-border/40" : ""}`}
+              className={`px-3 sm:px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap ${i > 0 ? "border-l border-border/40" : ""}`}
             >
               {label}
             </div>
           ))}
         </div>
         <span className="text-muted-foreground text-xs">┊</span>
-        <div className="flex items-center gap-6 flex-wrap justify-center">
+        <div className="flex items-center gap-3 sm:gap-6 flex-wrap justify-center">
           {[
             { icon: Wallet, label: "PayPal" },
             { icon: CreditCard, label: "Credit Card" },
             { icon: Landmark, label: "Bank" },
             { icon: HandCoins, label: "Manual / Offline" },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-2 border border-border/40 rounded-none px-4 py-2.5 bg-background">
+            <div key={label} className="flex items-center gap-2 border border-border/40 rounded-none px-3 sm:px-4 py-2 sm:py-2.5 bg-background">
               <Icon className="w-4 h-4 shrink-0" />
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] whitespace-nowrap">{label}</span>
             </div>
           ))}
         </div>
-        <p className="font-mono text-[11px] text-muted-foreground/60">
+        <p className="font-mono text-[11px] text-muted-foreground/60 text-center">
           Paid through <span className="text-red-500 font-semibold">Client Portal</span> (PayPal, Credit Card, Bank)
         </p>
       </div>
@@ -261,13 +261,13 @@ function PaymentsPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
                 {activeView?.name || "All Payments"} <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
@@ -308,13 +308,15 @@ function PaymentsPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Search payments..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-11 w-56 rounded-none bg-background"
-            />
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+              <Input
+                placeholder="Search payments..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-11 w-full sm:w-56 rounded-none bg-background"
+              />
+            </div>
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -322,8 +324,8 @@ function PaymentsPageInner() {
               onDateToChange={setDateTo}
               inputClassName="rounded-none bg-background"
             />
-            <Link href="/sales/payments/new">
-              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+            <Link href="/sales/payments/new" className="shrink-0">
+              <Button className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
@@ -403,74 +405,76 @@ function PaymentsPageInner() {
         ) : (
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader className="border-border/40">
-                  <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer Name</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Mode</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Amount</TableHead>
-                    {extraColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
-                        {columnLabel(key)}
-                      </TableHead>
-                    ))}
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border/30">
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="px-8 py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                        <TableCell className="px-8 py-7"><Skeleton className="h-4 w-16" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : payments.length === 0 ? (
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-[700px]">
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableCell colSpan={5 + extraColumns.length} className="py-16 text-center text-sm text-muted-foreground">
-                        No payments match your search or filters.
-                      </TableCell>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Date</TableHead>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer Name</TableHead>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Mode</TableHead>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Amount</TableHead>
+                      {extraColumns.map((key) => (
+                        <TableHead key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
+                          {columnLabel(key)}
+                        </TableHead>
+                      ))}
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Status</TableHead>
                     </TableRow>
-                  ) : (
-                    payments.map((p: any) => (
-                      <TableRow
-                        key={p._id}
-                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
-                        onClick={() => router.push(`/sales/payments/${p._id}`)}
-                      >
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
-                          {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "—"}
-                        </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
-                          {p.customerId?.header?.displayName || p.customerId?.header?.name || "—"}
-                        </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
-                          {p.mode}
-                        </TableCell>
-                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
-                          ₹{Number(p.amountReceived || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        {extraColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
-                            {extraValue(p, key)}
-                          </TableCell>
-                        ))}
-                        <TableCell className="px-8 py-7">
-                          <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[p.status] || "text-muted-foreground"}`}>
-                            {p.status}
-                          </Badge>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/30">
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6"><Skeleton className="h-4 w-16" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : payments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5 + extraColumns.length} className="py-16 text-center text-sm text-muted-foreground">
+                          No payments match your search or filters.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      payments.map((p: any) => (
+                        <TableRow
+                          key={p._id}
+                          className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
+                          onClick={() => router.push(`/sales/payments/${p._id}`)}
+                        >
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                            {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "—"}
+                          </TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                            {p.customerId?.header?.displayName || p.customerId?.header?.name || "—"}
+                          </TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                            {p.mode}
+                          </TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                            ₹{Number(p.amountReceived || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          {extraColumns.map((key) => (
+                            <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                              {extraValue(p, key)}
+                            </TableCell>
+                          ))}
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                            <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[p.status] || "text-muted-foreground"}`}>
+                              {p.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border/40">
                   <p className="text-sm text-muted-foreground">
                     Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                   </p>

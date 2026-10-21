@@ -44,6 +44,10 @@ vi.mock("@/lib/platform/ai/limitBehavior", () => ({
   // exercises tenantAi.ts's own gating logic.
   checkAiUsageThresholdCrossing: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/lib/platform/ai/credits", () => ({
+  reserveAiCredits: vi.fn(async ({ requestId }: any) => ({ allowed: true, requestId: requestId ?? "test-request", estimatedCredits: 0 })),
+  settleAiCredits: vi.fn(async () => undefined),
+}));
 vi.mock("@/models/admin/Organization", () => {
   function Organization() {}
   (Organization as any).findOne = (...a: any[]) => ({ lean: () => mockOrgFindOne(...a) });

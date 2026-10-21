@@ -293,8 +293,8 @@ export function JournalEntryPopupContent({
           )}
         </div>
 
-        <div className="border border-border/40 overflow-hidden shadow-sm">
-          <Table className="w-full text-sm">
+        <div className="border border-border/40 overflow-hidden overflow-x-auto w-full shadow-sm">
+          <Table className="min-w-[700px] w-full text-sm">
             <TableHeader className="bg-muted/50 border-b">
               <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground text-left">
                 <TableHead className="px-4 py-3 min-w-[200px]">Account</TableHead>
@@ -453,7 +453,7 @@ export function JournalEntryPopupContent({
         onOpenChange={setIsPartnerModalOpen}
         title="Create New Partner"
         description="Add a new customer or vendor to your records."
-        className="max-w-[70vw]"
+        className="max-w-[95vw] sm:max-w-[70vw] w-full"
         footer={
           <div className="flex gap-2">
             <Button

@@ -102,7 +102,7 @@ export default function PipelinePage() {
 
   if (loading) {
     return (
-      <div className="space-y-8 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8 min-w-0 max-w-full overflow-hidden">
         <div className="space-y-4">
           <Skeleton className="h-12 w-48" />
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -111,7 +111,7 @@ export default function PipelinePage() {
             ))}
           </div>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 w-full min-w-0">
           {STAGES.map(stage => (
             <div key={stage} className="border border-border/40 bg-background w-72 min-w-72 flex flex-col">
               <div className="p-4 border-b border-border/40 flex justify-between items-center">
@@ -131,9 +131,9 @@ export default function PipelinePage() {
   }
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8 min-w-0 max-w-full overflow-hidden">
       <div className="border-b border-border/40 pb-6">
-        <h1 className="text-4xl font-black leading-none tracking-tighter text-primary md:text-[56px]">Pipeline</h1>
+        <h1 className="text-2xl sm:text-4xl font-black leading-none tracking-tighter text-primary md:text-[56px] break-words">Pipeline</h1>
         <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">
           Drag deals between stages · {(Object.values(columns) as any[]).reduce((n: number, c: any) => n + (c?.count || 0), 0)} deals
         </p>
@@ -154,9 +154,9 @@ export default function PipelinePage() {
       )}
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex items-start gap-4 overflow-x-auto pb-4">
+        <div className="flex items-start gap-4 overflow-x-auto pb-4 w-full min-w-0">
           {STAGES.map((stage) => (
-            <div key={stage} className="flex w-80 min-w-80 shrink-0 flex-col border border-border/40 bg-background">
+            <div key={stage} className="flex w-72 min-w-72 sm:w-80 sm:min-w-80 shrink-0 flex-col border border-border/40 bg-background">
               <div className="flex items-center justify-between border-b border-border/40 px-4 py-3.5">
                 <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em]">{stage}</span>
                 <Badge variant="outline" className="h-5 rounded-none border-border/40 bg-transparent px-1.5 font-mono text-[10px] text-muted-foreground">

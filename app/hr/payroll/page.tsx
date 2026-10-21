@@ -294,13 +294,13 @@ export default function PayrollPage() {
 
   return (
     <>
-      <div className="space-y-6 max-w-8xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
             Payroll Processing</h1>
           <Button
             onClick={handleOpenCreate}
-            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto shrink-0"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Payroll Run
@@ -308,9 +308,9 @@ export default function PayrollPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-1 items-end gap-3">
-            <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-end gap-3 w-full">
+            <div className="relative flex-1 w-full min-w-0">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
 
               <Input
@@ -338,7 +338,7 @@ export default function PayrollPage() {
               <SelectTrigger
                 className="
                   h-11
-                  w-56
+                  w-full sm:w-56
                   rounded-none
                   border-0
                   border-b
@@ -361,7 +361,7 @@ export default function PayrollPage() {
               type="month"
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="h-11 w-44 rounded-none border-0 border-b border-border/40 bg-transparent shadow-none focus-visible:border-primary focus-visible:ring-0"
+              className="h-11 w-full sm:w-44 rounded-none border-0 border-b border-border/40 bg-transparent shadow-none focus-visible:border-primary focus-visible:ring-0"
             />
           </div>
         </div>
@@ -410,7 +410,7 @@ export default function PayrollPage() {
           <p className="text-sm text-muted-foreground">
             Create a payroll run for a specific month. All active employees will be included.
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Month *</label>
               <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={createForm.month} onChange={(e) => setCreateForm({ ...createForm, month: +e.target.value })}>
@@ -434,9 +434,9 @@ export default function PayrollPage() {
               <Input type="date" value={createForm.endDate || ""} onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })} />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={isSubmitting}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+            <Button className="w-full sm:w-auto" onClick={handleCreate} disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create Payroll Run"}
             </Button>
           </div>
@@ -454,7 +454,7 @@ export default function PayrollPage() {
             {/* Workflow Progress */}
             <div>
               <h3 className="text-sm font-bold text-muted-foreground uppercase mb-3">Workflow Progress</h3>
-              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full min-w-0">
                 {workflowSteps.map((step, idx) => {
                   const StepIcon = step.icon;
                   const ci = getStepIndex(selectedPayroll.status);
@@ -486,7 +486,7 @@ export default function PayrollPage() {
             </div>
 
             {/* Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card className="border-border/40">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Employees</p>
@@ -517,43 +517,45 @@ export default function PayrollPage() {
             {selectedPayroll.lineItems && selectedPayroll.lineItems.length > 0 && (
               <div>
                 <h3 className="text-sm font-bold text-muted-foreground uppercase mb-3">Employee Breakdown</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead>Employee</TableHead>
-                      <TableHead className="text-right">Days Worked</TableHead>
-                      <TableHead className="text-right">Basic</TableHead>
-                      <TableHead className="text-right">Gross</TableHead>
-                      <TableHead className="text-right">Deductions</TableHead>
-                      <TableHead className="text-right">Net</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedPayroll.lineItems.map((item: any, idx: number) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
-                        </TableCell>
-                        <TableCell className="text-right font-sans tabular-nums">{item.daysWorked || 0}</TableCell>
-                        <TableCell className="text-right font-sans tabular-nums">₹{(item.basic || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-sans tabular-nums">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-sans tabular-nums text-destructive">
-                          ₹{(
-                            item.deductions?.totalDeductions ||
-                            ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
-                          ).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right font-sans tabular-nums font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
+                <div className="overflow-x-auto w-full min-w-0">
+                  <Table className="min-w-[650px]">
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableHead>Employee</TableHead>
+                        <TableHead className="text-right">Days Worked</TableHead>
+                        <TableHead className="text-right">Basic</TableHead>
+                        <TableHead className="text-right">Gross</TableHead>
+                        <TableHead className="text-right">Deductions</TableHead>
+                        <TableHead className="text-right">Net</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedPayroll.lineItems.map((item: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <div className="font-medium">{item.employeeName?.trim() || item.employeeCode || "Unknown"}</div>
+                            <div className="text-xs text-muted-foreground font-mono">{item.employeeCode || ""}</div>
+                          </TableCell>
+                          <TableCell className="text-right font-sans tabular-nums">{item.daysWorked || 0}</TableCell>
+                          <TableCell className="text-right font-sans tabular-nums">₹{(item.basic || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-sans tabular-nums">₹{(item.grossSalary || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-sans tabular-nums text-destructive">
+                            ₹{(
+                              item.deductions?.totalDeductions ||
+                              ((item.deductions?.pf || 0) + (item.deductions?.esi || 0) + (item.deductions?.professionalTax || 0) + (item.deductions?.tds || 0) + (item.deductions?.otherDeductions || 0))
+                            ).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right font-sans tabular-nums font-bold text-green-600">₹{(item.netSalary || 0).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
 
             {/* Audit Trail */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
               {selectedPayroll.computedAt && (
                 <div>
                   <span className="font-semibold">Computed:</span>{" "}
@@ -576,8 +578,8 @@ export default function PayrollPage() {
 
             {/* Action Button */}
             {nextStatusMap[selectedPayroll.status] && (
-              <div className="flex justify-end pt-4 border-t">
-                <Button onClick={handleAdvanceStatus} disabled={isSubmitting} className="gap-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
+                <Button onClick={handleAdvanceStatus} disabled={isSubmitting} className="w-full sm:w-auto gap-2">
                   {isSubmitting ? "Processing..." : (
                     <>
                       <Play className="h-4 w-4" />

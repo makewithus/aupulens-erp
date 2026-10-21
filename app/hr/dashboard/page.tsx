@@ -177,10 +177,10 @@ export default function HRDashboardPage() {
   ];
 
   return (
-      <div className="space-y-6 max-w-8xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
         {/* Page Title */}
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
             HR Dashboard
           </h1>
         </div>

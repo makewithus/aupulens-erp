@@ -33,6 +33,7 @@ export function GlobalSearch({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,6 +79,7 @@ export function GlobalSearch({
         !searchRef.current.contains(event.target as Node)
       ) {
         setShowSearchResults(false);
+        setIsMobileSearchOpen(false);
       }
     }
 
@@ -91,6 +93,7 @@ export function GlobalSearch({
     router.push(href);
     setSearchQuery("");
     setShowSearchResults(false);
+    setIsMobileSearchOpen(false);
   }
 
   function handleSearchChange(value: string) {
@@ -103,9 +106,25 @@ export function GlobalSearch({
   return (
     <div
       ref={searchRef}
-      className={cn("relative hidden lg:block", className)}
+      className={cn("relative", className)}
     >
-      <div className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={isMobileSearchOpen ? "Close search" : "Open search"}
+        aria-expanded={isMobileSearchOpen}
+        onClick={() => setIsMobileSearchOpen((open) => !open)}
+        className="h-8 w-8 rounded-none lg:hidden"
+      >
+        {isMobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+      </Button>
+      <div className={cn(
+        "relative",
+        isMobileSearchOpen
+          ? "absolute right-0 top-full z-50 mt-2 w-[min(90vw,24rem)] border border-border bg-background p-2 shadow-lg lg:static lg:mt-0 lg:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+          : "hidden lg:block",
+      )}>
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
         <Input
@@ -118,7 +137,8 @@ export function GlobalSearch({
           }
           className="
             h-9
-            w-48
+            w-full
+            lg:w-48
             xl:w-64
             rounded-none
             border-border/60
@@ -149,7 +169,7 @@ export function GlobalSearch({
       </div>
 
       {showSearchResults && (filteredPages.length > 0 || records.length > 0) && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden border border-border bg-background shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,90vw)] overflow-hidden border border-border bg-background shadow-lg">
           <div
             className={cn(
               "youtube-scrollbar max-h-96 overflow-y-auto",

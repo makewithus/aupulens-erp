@@ -134,6 +134,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    width: 100%;
+    max-width: 100%;
   }
   /* Excludes .font-mono headings — several components (stat cards, big
      numeric figures) deliberately opt a heading INTO Roboto Mono for a
@@ -147,6 +149,29 @@
     font-weight: 400 !important;
     letter-spacing: -0.05em !important;
   }
+}
+
+/* Use the visible mobile viewport (excluding browser chrome) on full-screen
+   app/auth pages while retaining the 100vh fallback for older browsers. */
+@supports (height: 100dvh) {
+  .h-screen { height: 100dvh; }
+  .min-h-screen { min-height: 100dvh; }
+  .max-h-screen { max-height: 100dvh; }
+}
+
+@media (max-width: 639px) {
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+
+  /* Pages use unprefixed grid utilities as their phone layout. Stack common
+     form/detail grids and keep larger KPI grids readable without forcing a
+     sideways page scroll. Responsive sm:/md:/lg: variants remain in control
+     at their normal breakpoints. */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .grid.grid-cols-4,
+  .grid.grid-cols-5,
+  .grid.grid-cols-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  main .grid > * { min-width: 0; }
 }
 
 /* Shimmer Animation for Loading Skeletons */

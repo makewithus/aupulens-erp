@@ -384,31 +384,29 @@ function BatchLotPageInner() {
       onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
       onRefresh={() => { fetchBatches(); fetchAllBatchesForStats(); }}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Page Header Toolbar */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Batch & Lot Tracking
             </h1>
           </div>
-          <div className="flex gap-2">
-            
-
+          <div className="flex gap-2 w-full sm:w-auto">
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
+                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Batch
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background">
+              <DialogContent className="w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-medium tracking-tight">Add New Batch</DialogTitle>
                   <DialogDescription>Fill in the details to create a new batch or lot record</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleCreateBatch} className="space-y-4 pt-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="batchNumber">Batch Number *</Label>
                       <Input
@@ -534,7 +532,7 @@ function BatchLotPageInner() {
 
                   <div className="space-y-4 border-t pt-4">
                     <h3 className="font-semibold text-sm">Bonded Warehouse Compliance</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="bondedWarehouse">Bonded Warehouse</Label>
                         <Select
@@ -585,7 +583,7 @@ function BatchLotPageInner() {
 
         {/* Stats Row */}
         <div className="space-y-1">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
             <StatCard
               title="Total Batches"
               value={kpis.total}
@@ -611,10 +609,10 @@ function BatchLotPageInner() {
           {/* Unified Card matching HR Employee structure */}
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
             {/* Card Header & Controls Toolbar */}
-            <div className="border-b border-border/20 px-8 py-6">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="shrink-0">
-                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                  <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">
                     Batch Records
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
@@ -624,9 +622,9 @@ function BatchLotPageInner() {
                 </div>
 
                 {/* Toolbar Controls */}
-                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                <div className="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center justify-end">
                   {/* Search Input */}
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 sm:w-64 min-w-0">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
                     <Input
                       value={searchQuery}
@@ -638,7 +636,7 @@ function BatchLotPageInner() {
 
                   {/* Status Select Filter */}
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                    <SelectTrigger className="h-11 w-full sm:w-[200px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
                       <SelectValue placeholder="Batch Status" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/30">
@@ -662,7 +660,8 @@ function BatchLotPageInner() {
 
             {/* Table Content */}
             <CardContent className="p-0">
-              <Table>
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[850px]">
                 <TableHeader className="border-border/40">
                   <TableRow>
                     <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
@@ -818,23 +817,24 @@ function BatchLotPageInner() {
                   )}
                 </TableBody>
               </Table>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
-                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
-                    Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                      Previous
-                    </Button>
-                    <span className="text-sm">Page {page} of {totalPages}</span>
-                    <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                      Next
-                    </Button>
-                  </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-8 py-4 border-t border-border/40">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60 text-center sm:text-left">
+                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                  </Button>
+                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                  </Button>
                 </div>
-              )}
-            </CardContent>
+              </div>
+            )}
+          </CardContent>
           </Card>
         </div>
 

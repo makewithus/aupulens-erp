@@ -534,50 +534,24 @@ function OrdersPageInner() {
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
       onRefresh={fetchOrders}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header Toolbar */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Order Fulfillment Tracking
             </h1>
           </div>
-          <div className="flex gap-2">
-            {/* <Button
-              variant="outline"
-              onClick={() => {
-                const statusCounts = {
-                  pending: orders.filter((o) => o.status === "pending").length,
-                  processing: orders.filter((o) => o.status === "processing").length,
-                  fulfilled: orders.filter((o) => o.status === "fulfilled").length,
-                  shipped: orders.filter((o) => o.status === "shipped").length,
-                  delivered: orders.filter((o) => o.status === "delivered").length,
-                };
-
-                setVizData([
-                  { status: "Pending", count: statusCounts.pending },
-                  { status: "Processing", count: statusCounts.processing },
-                  { status: "Fulfilled", count: statusCounts.fulfilled },
-                  { status: "Shipped", count: statusCounts.shipped },
-                  { status: "Delivered", count: statusCounts.delivered },
-                ]);
-                setIsVizOpen(true);
-              }}
-              className="h-12 px-6 rounded-none font-mono text-[13px] uppercase tracking-wider cursor-pointer border border-border/40 hover:bg-white/5"
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Visualize
-            </Button> */}
-
+          <div className="flex gap-2 w-full sm:w-auto">
             <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) setFormError(""); }}>
               <DialogTrigger asChild>
-                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer">
+                <Button className="h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   New Order
                 </Button>
               </DialogTrigger>
               <DialogContent
-                className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background"
+                className="w-[calc(100%-2rem)] max-w-5xl max-h-[90vh] overflow-y-auto rounded-none border border-border/30 bg-background p-4 sm:p-6"
                 onInteractOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
               >
@@ -588,7 +562,7 @@ function OrdersPageInner() {
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleCreateOrder} className="space-y-4 pt-4" noValidate>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="orderNumber">Order Number (auto-assigned)</Label>
                       <Input
@@ -879,7 +853,7 @@ function OrdersPageInner() {
 
         {/* Stats banner matching Employee styles */}
         <div className="space-y-1">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
             <StatCard
               title="Total Orders"
               value={kpis.total}
@@ -905,10 +879,10 @@ function OrdersPageInner() {
           {/* Unified Card matching HR Employee structure */}
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
             {/* Card Header & Controls Toolbar */}
-            <div className="border-b border-border/20 px-8 py-6">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="shrink-0">
-                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                  <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">
                     All Fulfillment Orders
                   </h2>
                   <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
@@ -918,9 +892,9 @@ function OrdersPageInner() {
                 </div>
 
                 {/* Toolbar Controls */}
-                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                <div className="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center justify-end">
                   {/* Search Input */}
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 sm:w-64 min-w-0">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
                     <Input
                       value={searchQuery}
@@ -932,7 +906,7 @@ function OrdersPageInner() {
 
                   {/* Status Select Filter */}
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                    <SelectTrigger className="h-11 w-full sm:w-[200px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
                       <SelectValue placeholder="Fulfillment Status" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/30">
@@ -959,12 +933,13 @@ function OrdersPageInner() {
             {/* Table Content */}
             <CardContent className="p-0">
               {error && (
-                <div className="m-8 p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
+                <div className="m-4 sm:m-8 p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none border border-red-200 dark:border-red-900">
                   {error}
                 </div>
               )}
 
-              <Table>
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[850px]">
                 <TableHeader className="border-border/40">
                   <TableRow>
                     <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
@@ -1108,37 +1083,38 @@ function OrdersPageInner() {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
+            </div>
+          </CardContent>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-8 py-5 border-t border-border/20 bg-muted/5">
-                <p className="text-xs font-mono text-muted-foreground/70 uppercase tracking-wider">
-                  Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} records
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-xs font-mono px-2 text-foreground/80">Page {page} of {totalPages}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
-                  >
-                    Next
-                  </Button>
-                </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-8 py-4 border-t border-border/20 bg-muted/5">
+              <p className="text-xs font-mono text-muted-foreground/70 uppercase tracking-wider text-center sm:text-left">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} records
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
+                >
+                  Previous
+                </Button>
+                <span className="text-xs font-mono px-2 text-foreground/80">Page {page} of {totalPages}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded-none h-8 px-3 font-mono text-[11px] uppercase tracking-wider cursor-pointer"
+                >
+                  Next
+                </Button>
               </div>
-            )}
+            </div>
+          )}
           </Card>
         </div>
 

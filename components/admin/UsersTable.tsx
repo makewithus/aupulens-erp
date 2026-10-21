@@ -82,14 +82,14 @@ export function UsersTable({
   return (
     <Card className="overflow-hidden border-border/40 shadow-none bg-background">
       {/* Header */}
-      <div className="border-b border-border/20 px-8 py-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="shrink-0">
-            <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+            <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
               All Users
             </h2>
 
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+            <p className="mt-1 sm:mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
               {users.length} {users.length === 1 ? "User" : "Users"}
             </p>
           </div>
@@ -112,8 +112,8 @@ export function UsersTable({
       </div>
 
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table className="w-full">
+        <div className="overflow-x-auto w-full min-w-0">
+          <Table className="w-full min-w-[800px]">
             <TableHeader className="border-b border-border/40">
               <TableRow className="text-left">
                 <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">

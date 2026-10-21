@@ -204,21 +204,21 @@ export default function ProfitLossPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Profit & Loss
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Detailed summary of income and expenses
             </p>
           </div>
-          <div className="flex items-center gap-2">
-                        <DateRangePicker onUpdate={(range) => setDateRange(range)} />
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <DateRangePicker onUpdate={(range) => setDateRange(range)} />
             <Button
               variant="outline"
-              className="rounded-none"
+              className="rounded-none w-full sm:w-auto"
               onClick={handlePrint}
               disabled={loading || !data}
             >

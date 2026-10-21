@@ -9,6 +9,10 @@ vi.mock("@/lib/ai/usage", () => ({ getAiPeriod: () => "202610", getAiUsageCount:
 vi.mock("@/lib/ai/claude", () => ({ callClaudeWithUsage: m.call, callClaudeWithHistoryAndUsage: m.history, callClaudeStreamWithUsage: m.stream, CLAUDE_DEFAULT_MODEL: "test-model", CLAUDE_DEFAULT_MAX_TOKENS: 1024 }));
 vi.mock("@/lib/platform/ai/instrumentation", () => ({ recordAiUsage: m.record }));
 vi.mock("@/lib/platform/ai/limitBehavior", () => ({ checkAiUsageThresholdCrossing: m.threshold, resolveAtLimitDecision: m.decision }));
+vi.mock("@/lib/platform/ai/credits", () => ({
+  reserveAiCredits: vi.fn(async ({ requestId }: any) => ({ allowed: true, requestId: requestId ?? "test-request", estimatedCredits: 0 })),
+  settleAiCredits: vi.fn(async () => undefined),
+}));
 import { callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 const settings = { usagePolicy: { startsAt: "2020-01-01T00:00:00Z", session: { minutes: 60, limit: 10 }, weekly: { limit: 100 } } };
 const providerUsage = { promptTokens: 21, completionTokens: 13, totalTokens: 34 };

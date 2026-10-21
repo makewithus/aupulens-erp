@@ -48,6 +48,12 @@ export async function setEntitlementOverride(
   if (!reason || !reason.trim()) {
     throw new SetOverrideError("A reason is required to set a custom override.", 400);
   }
+  for (const field of ["aiCreditsPerMonth", "aiCreditsPerSession", "aiCreditsPerWeek"] as const) {
+    const value = overrides[field];
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+      throw new SetOverrideError(`${field} must be a non-negative whole number of AI credit units.`, 400);
+    }
+  }
 
   await connectDB();
   const existing = await OrganizationEntitlement.findOne({ tenantId });

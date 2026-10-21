@@ -458,16 +458,16 @@ export default function ReportsPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/inventory' })}
       profilePath="/inventory/profile"
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header toolbar */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Inventory Reports
             </h1>
           </div>
           {generatedReport && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={() => handleExport('csv')}
@@ -499,26 +499,19 @@ export default function ReportsPage() {
         {/* Unified Card matching HR Employee structure */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
           {/* Card Header & Controls Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="shrink-0">
-                <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">
                   {generatedReport ? generatedReport.title : 'Report Builder'}
                 </h2>
-                {/* <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-                  {generatedReport
-                    ? `${generatedReport.rows.length} ${
-                        generatedReport.rows.length === 1 ? 'record' : 'records'
-                      } generated`
-                    : 'Configure parameters to generate report'}
-                </p> */}
               </div>
 
               {/* Toolbar Controls */}
-              <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+              <div className="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center justify-end">
                 {/* Report Type Select */}
                 <Select value={reportType} onValueChange={setReportType}>
-                  <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
+                  <SelectTrigger className="h-11 w-full sm:w-[200px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground">
                     <SelectValue placeholder="Report Type" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-border/30">
@@ -536,7 +529,7 @@ export default function ReportsPage() {
                   onValueChange={setDateRange}
                   disabled={reportType !== 'movement'}
                 >
-                  <SelectTrigger className="h-11 w-full md:w-[210px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground disabled:opacity-40">
+                  <SelectTrigger className="h-11 w-full sm:w-[200px] rounded-none border-border/20 bg-transparent text-[14px] tracking-tight shadow-none hover:border-border/40 focus:ring-0 text-foreground disabled:opacity-40">
                     <SelectValue placeholder="Date Range" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-border/30">
@@ -552,7 +545,7 @@ export default function ReportsPage() {
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  className="h-11 rounded-none border border-border/20 bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-mono uppercase tracking-wider px-6 cursor-pointer"
+                  className="h-11 rounded-none border border-border/20 bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-mono uppercase tracking-wider px-6 cursor-pointer w-full sm:w-auto"
                 >
                   {isGenerating ? (
                     <>
@@ -573,8 +566,8 @@ export default function ReportsPage() {
           {/* Table Container */}
           <CardContent className="p-0">
             {generatedReport ? (
-              <div id="report-content-view">
-                <Table>
+              <div id="report-content-view" className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[800px]">
                   <TableHeader className="border-border/40">
                     <TableRow>
                       {generatedReport.headers.map((h, idx) => (

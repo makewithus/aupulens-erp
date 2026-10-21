@@ -42,10 +42,10 @@ export default function InventoryPage() {
       userRole={session?.user?.role || "inventory"}
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <div className="h-9 w-72 bg-muted animate-pulse rounded mb-2" />
-          <div className="h-5 w-96 bg-muted animate-pulse rounded" />
+          <div className="h-9 w-48 sm:w-72 bg-muted animate-pulse rounded mb-2" />
+          <div className="h-5 w-64 sm:w-96 bg-muted animate-pulse rounded max-w-full" />
         </div>
         <StatsRowSkeleton count={4} />
         <Card>

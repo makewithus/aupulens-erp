@@ -148,10 +148,10 @@ export default function TrackingPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-white">Shipment Tracking</h1>
-          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
+          <h1 className="text-xl sm:text-3xl font-bold text-foreground dark:text-white">Shipment Tracking</h1>
+          <p className="mt-1 sm:mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
             Track your shipments in real-time with detailed information
           </p>
         </div>

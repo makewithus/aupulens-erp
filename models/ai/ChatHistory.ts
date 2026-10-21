@@ -24,6 +24,11 @@ export interface IChatHistory extends Document {
   module: AiModule;
   title: string;
   messages: IChatMessage[];
+  messageCount?: number;
+  summary?: string;
+  summaryVersion?: number;
+  summarySourceCount?: number;
+  summaryUpdatedAt?: Date;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +38,8 @@ const ChatMessageSchema = new Schema({
   role: { type: String, enum: ["user", "assistant"], required: true },
   content: { type: String, required: true },
   timestamp: { type: Date, default: Date.now, required: true },
+  requestId: { type: String, maxlength: 100 },
+  status: { type: String, enum: ["completed", "failed", "pending"], default: "completed" },
 });
 
 const AI_MODULES: AiModule[] = [
@@ -47,6 +54,11 @@ const ChatHistorySchema: Schema<IChatHistory> = new Schema(
     module: { type: String, enum: AI_MODULES, required: true },
     title: { type: String, required: true },
     messages: [ChatMessageSchema],
+    messageCount: { type: Number, default: 0 },
+    summary: { type: String, maxlength: 12000 },
+    summaryVersion: { type: Number, default: 0 },
+    summarySourceCount: { type: Number, default: 0 },
+    summaryUpdatedAt: { type: Date },
     isArchived: { type: Boolean, default: false },
   },
   { timestamps: true },

@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import Account from "@/models/finance/Account";
 import Customer from "@/models/sales/Customer";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
@@ -43,7 +44,9 @@ function sumByAccount(lines: any[], accountId: mongoose.Types.ObjectId, field: "
 
 describe("postSalesInvoiceJournal (Issue #9 — Sales never posted revenue to the GL)", () => {
   beforeAll(async () => {
-    await mongoose.connect("mongodb://localhost:27017/aupulens_test_sales_invoice_posting");
+    // Isolate this destructive test suite's cleanup from other concurrent runs.
+    const databaseName = `aupulens_test_sales_invoice_posting_${randomUUID().replaceAll("-", "")}`;
+    await mongoose.connect(`mongodb://localhost:27017/${databaseName}`);
     await Account.init();
     await Customer.init();
     await SalesInvoice.init();

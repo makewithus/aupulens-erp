@@ -78,6 +78,8 @@ export default function OrganizationDetailPage() {
   const [overrideMaxUsers, setOverrideMaxUsers] = useState("");
   const [overrideMaxCompanies, setOverrideMaxCompanies] = useState("");
   const [overrideAiCredits, setOverrideAiCredits] = useState("");
+  const [overrideAiSessionCredits, setOverrideAiSessionCredits] = useState("");
+  const [overrideAiWeeklyCredits, setOverrideAiWeeklyCredits] = useState("");
   const [overrideModules, setOverrideModules] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [aiLimits, setAiLimits] = useState<{
@@ -294,6 +296,8 @@ export default function OrganizationDetailPage() {
     setOverrideAiCredits(
       entitlements?.overrides?.aiCreditsPerMonth != null ? String(entitlements.overrides.aiCreditsPerMonth) : "",
     );
+    setOverrideAiSessionCredits(entitlements?.overrides?.aiCreditsPerSession != null ? String(entitlements.overrides.aiCreditsPerSession) : "");
+    setOverrideAiWeeklyCredits(entitlements?.overrides?.aiCreditsPerWeek != null ? String(entitlements.overrides.aiCreditsPerWeek) : "");
     setOverrideModules((entitlements?.overrides?.modules ?? []).join(", "));
     setOverrideReason("");
     setOverrideDialogOpen(true);
@@ -306,6 +310,8 @@ export default function OrganizationDetailPage() {
       if (overrideMaxUsers.trim()) overrides.maxUsers = Number(overrideMaxUsers);
       if (overrideMaxCompanies.trim()) overrides.maxCompanies = Number(overrideMaxCompanies);
       if (overrideAiCredits.trim()) overrides.aiCreditsPerMonth = Number(overrideAiCredits);
+      if (overrideAiSessionCredits.trim()) overrides.aiCreditsPerSession = Number(overrideAiSessionCredits);
+      if (overrideAiWeeklyCredits.trim()) overrides.aiCreditsPerWeek = Number(overrideAiWeeklyCredits);
       if (overrideModules.trim()) {
         overrides.modules = overrideModules.split(",").map((m) => m.trim()).filter(Boolean);
       }
@@ -590,6 +596,8 @@ export default function OrganizationDetailPage() {
                   <Field label="Source" value={entitlements.source} />
                   <Field label="Max users" value={entitlements.limits.maxUsers} />
                   <Field label="AI credits / month" value={entitlements.limits.aiCreditsPerMonth} />
+                  <Field label="AI credits / 5 hours" value={entitlements.limits.aiCreditsPerSession} />
+                  <Field label="AI credits / 7 days" value={entitlements.limits.aiCreditsPerWeek} />
                   <Field label="Modules" value={entitlements.modules.join(", ")} />
                 </div>
               ) : (
@@ -622,6 +630,12 @@ export default function OrganizationDetailPage() {
                   )}
                   {entitlements.overrides.aiCreditsPerMonth != null && (
                     <Field label="AI credits/mo (override)" value={entitlements.overrides.aiCreditsPerMonth} />
+                  )}
+                  {entitlements.overrides.aiCreditsPerSession != null && (
+                    <Field label="AI credits/5h (override)" value={entitlements.overrides.aiCreditsPerSession} />
+                  )}
+                  {entitlements.overrides.aiCreditsPerWeek != null && (
+                    <Field label="AI credits/7d (override)" value={entitlements.overrides.aiCreditsPerWeek} />
                   )}
                   {entitlements.overrides.modules && (
                     <Field label="Modules (override)" value={entitlements.overrides.modules.join(", ")} />
@@ -1231,6 +1245,14 @@ export default function OrganizationDetailPage() {
               <div className="space-y-1">
                 <Label>AI credits / month</Label>
                 <Input value={overrideAiCredits} onChange={(e) => setOverrideAiCredits(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>AI credits / session (5 hours)</Label>
+                <Input value={overrideAiSessionCredits} onChange={(e) => setOverrideAiSessionCredits(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>AI credits / week (7 days)</Label>
+                <Input value={overrideAiWeeklyCredits} onChange={(e) => setOverrideAiWeeklyCredits(e.target.value)} />
               </div>
               <div className="space-y-1 col-span-2">
                 <Label>Modules (comma-separated, replaces the base plan&apos;s list)</Label>

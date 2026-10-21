@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { loadConversationContext } from "@/lib/ai/conversationContext";
+import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { isMongoStorageLimitError, MONGO_STORAGE_LIMIT_MESSAGE } from "@/lib/db/mongoStorageError";
 import type { ChatTurn } from "@/lib/ai/claude";
 import { NextRequest, NextResponse } from 'next/server';
@@ -51,9 +51,12 @@ export async function POST(request: NextRequest) {
     const conversationContext = await loadConversationContext({
       tenantId, userId: session.user.id, role: session.user.role, module: "manufacturing",
       conversationId: reqBody.conversationId || randomUUID(), chatId: reqBody.chatId,
-      history: reqBody.history, message,
+      history: reqBody.history, message, requestId: reqBody.requestId,
     });
     const priorTurns = conversationContext.history;
+    const conversationId = conversationContext.conversationId;
+    const completedRetry = await getCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, requestId: reqBody.requestId });
+    if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
     // Handle action cancellation
     if (cancelAction) {
@@ -170,7 +173,9 @@ export async function POST(request: NextRequest) {
       // can actually read the documents/images; fall back to the deterministic
       // overview if the AI is gated/unavailable.
       const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts, priorTurns);
-      return NextResponse.json({ response: aiResp || (await generateResponse(message, data)) });
+      const response = aiResp || (await generateResponse(message, data));
+      await saveCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, message, response, requestId: reqBody.requestId });
+      return NextResponse.json({ response, conversationId });
     }
 
     // Task creation detected - analyze requirements
@@ -269,7 +274,7 @@ Instructions:
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       history,
-      language: { rawText: message },
+      language: { rawText: message, showInterpretation: false },
       systemPrompt: "You are a precise manufacturing/logistics analytics assistant. For DATA questions use only the figures given; for HOW-TO questions give clear step-by-step app guidance. NEVER print internal database IDs or raw JSON. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
       maxTokens: 1024,
       imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,

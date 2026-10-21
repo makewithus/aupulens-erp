@@ -224,13 +224,13 @@ function CustomersPageInner() {
       <Suspense fallback={null}>
         <CustomersPageParamsHandler onLoadParams={handleParamsLoad} />
       </Suspense>
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-3 ${SALES_PAGE_TITLE_CLASS}`}>
+              <button className={`flex items-center gap-3 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
                 {activeView?.name || "All Customers"} <ChevronDown className="w-8 h-8 opacity-50 transition-transform duration-200" />
               </button>
             </DropdownMenuTrigger>
@@ -268,14 +268,14 @@ function CustomersPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full lg:w-auto">
+            <div className="relative flex-1 sm:flex-initial min-w-[160px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-56 bg-background rounded-none"
+                className="pl-9 w-full sm:w-56 bg-background rounded-none"
               />
             </div>
             <DateRangeFilter
@@ -285,8 +285,8 @@ function CustomersPageInner() {
               onDateToChange={setDateTo}
               inputClassName="rounded-none"
             />
-            <Link href="/sales/customers/new">
-              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+            <Link href="/sales/customers/new" className="shrink-0">
+              <Button className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-2" /> New
               </Button>
             </Link>
@@ -381,14 +381,14 @@ function CustomersPageInner() {
             </div>
           </div>
         ) : (
-          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Name</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Name</TableHead>
                     {activeColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
+                      <TableHead key={key} className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">
                         {columnLabel(key)}
                       </TableHead>
                     ))}
@@ -398,9 +398,9 @@ function CustomersPageInner() {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
                         {activeColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-24" /></TableCell>
                         ))}
                       </TableRow>
                     ))
@@ -411,13 +411,13 @@ function CustomersPageInner() {
                         className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
                         onClick={() => router.push(`/sales/customers/${c._id}`)}
                       >
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary whitespace-nowrap">
                           {c.header?.displayName || c.header?.name}
                         </TableCell>
                         {activeColumns.map((key) => {
                           const value = getPath(c, key);
                           return (
-                            <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                            <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 whitespace-nowrap">
                               {value === null || value === undefined || value === "" ? "—" : String(value)}
                             </TableCell>
                           );

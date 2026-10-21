@@ -121,10 +121,10 @@ export default function ActivityLogsPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
       onRefresh={fetchActivities}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Activity Logs</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="text-xl sm:text-3xl font-bold text-foreground">Activity Logs</h1>
+          <p className="mt-1 sm:mt-2 text-sm text-muted-foreground">
             Track recent shipment, customs, freight-provider, HS code, and document activity
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function ActivityLogsPage() {
                 />
               </div>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -181,20 +181,20 @@ export default function ActivityLogsPage() {
                         key={activity.id}
                         className="flex items-start gap-4 p-4 rounded-none border hover:bg-muted/50"
                       >
-                        <div className={`p-2 rounded-none bg-muted ${getCategoryColor(activity.category)}`}>
+                        <div className={`p-2 rounded-none bg-muted ${getCategoryColor(activity.category)} shrink-0`}>
                           <Icon className="h-5 w-5" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="font-medium text-foreground">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-3">
+                            <div className="min-w-0">
+                              <h3 className="font-medium text-foreground break-words">
                                 {activity.action}
                               </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
+                              <p className="text-sm text-muted-foreground mt-1 break-words">
                                 {activity.description}
                               </p>
                             </div>
-                            <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                            <div className="text-xs sm:text-sm text-muted-foreground text-left sm:text-right shrink-0">
                               {new Date(activity.timestamp).toLocaleString()}
                             </div>
                           </div>

@@ -192,25 +192,22 @@ function WarehousePageInner() {
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
       onRefresh={fetchWarehouses}
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
-
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
           {/* Card Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Warehouses</h3>
+                <h3 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Warehouses</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {filtered.length} {filtered.length === 1 ? "Warehouse" : "Warehouses"} Total
                 </p>
               </div>
 
-              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
                 {/* Search input */}
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:w-64">
                   <SearchInput
                     value={query}
                     onChange={setQuery}
@@ -220,7 +217,7 @@ function WarehousePageInner() {
 
                 <Button
                   onClick={handleOpenCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" /> New Warehouse
                 </Button>

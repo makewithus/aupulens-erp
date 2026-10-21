@@ -224,25 +224,22 @@ function ExpensesPageInner() {
       ]}
       userEmail={session?.user?.email || ""}
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
-
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
           {/* Card Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Employee Expenses</h3>
+                <h3 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Employee Expenses</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {filteredExpenses.length} {filteredExpenses.length === 1 ? "Expense" : "Expenses"} Total
                 </p>
               </div>
 
-              <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              <div className="w-full lg:max-w-xl flex flex-wrap gap-2 sm:gap-3 items-center lg:justify-end">
                 {/* Search input */}
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:w-auto flex-1 min-w-[160px] sm:max-w-xs">
                   <SearchInput
                     value={searchQuery}
                     onChange={setSearchQuery}
@@ -259,7 +256,7 @@ function ExpensesPageInner() {
 
                 <Button
                   onClick={handleOpenCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                  className="h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none shrink-0 cursor-pointer"
                 >
                   <Plus className="h-4 w-4 mr-2" /> Record Expense
                 </Button>

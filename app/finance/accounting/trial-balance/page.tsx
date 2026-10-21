@@ -119,19 +119,19 @@ export default function TrialBalancePage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Trial Balance
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Debit and credit balances from posted journal entries
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <DateRangePicker onUpdate={(range) => setDateRange(range)} />
-            <Button variant="outline" onClick={handlePrint} disabled={loading}>
+            <Button variant="outline" onClick={handlePrint} disabled={loading} className="w-full sm:w-auto">
               <Printer className="mr-2 h-4 w-4" />
               Print
             </Button>
@@ -192,16 +192,16 @@ export default function TrialBalancePage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border bg-background">
-                <Table className="min-w-full divide-y divide-border">
+              <div className="overflow-hidden overflow-x-auto w-full min-w-0 rounded-xl border bg-background">
+                <Table className="min-w-[750px] w-full divide-y divide-border">
                   <TableHeader className="bg-muted/50">
                     <TableRow className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      <TableHead className="px-6 py-4 text-left">Account</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Group</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Debits</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Credits</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Debit Balance</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Credit Balance</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Account</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Group</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Debits</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Credits</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Debit Balance</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Credit Balance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">
@@ -210,7 +210,7 @@ export default function TrialBalancePage() {
                         key={account.id}
                         className="text-sm transition-colors hover:bg-muted/20"
                       >
-                        <TableCell className="px-6 py-4">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex flex-col">
                             <span className="font-semibold">{account.name}</span>
                             <span className="text-[10px] text-muted-foreground">
@@ -218,21 +218,21 @@ export default function TrialBalancePage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="px-6 py-4 capitalize text-muted-foreground">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 capitalize text-muted-foreground">
                           {account.internalGroup.replace("_", " ")}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                           {formatCurrency(account.debit)}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                           {formatCurrency(account.credit)}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right font-semibold">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold">
                           {account.debitBalance
                             ? formatCurrency(account.debitBalance)
                             : "-"}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right font-semibold">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold">
                           {account.creditBalance
                             ? formatCurrency(account.creditBalance)
                             : "-"}
@@ -244,20 +244,20 @@ export default function TrialBalancePage() {
                     <TableRow>
                       <TableCell
                         colSpan={2}
-                        className="px-6 py-4 text-right text-xs uppercase tracking-widest"
+                        className="px-3 sm:px-6 py-3 sm:py-4 text-right text-xs uppercase tracking-widest"
                       >
                         Totals
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         {formatCurrency(data.totals.debit)}
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         {formatCurrency(data.totals.credit)}
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         {formatCurrency(data.totals.debitBalance)}
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         {formatCurrency(data.totals.creditBalance)}
                       </TableCell>
                     </TableRow>

@@ -221,13 +221,13 @@ function QuotesPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
                 {activeView?.name || "All Quotes"} <ChevronDown className="w-8 h-8 mb-2" />
               </button>
             </DropdownMenuTrigger>
@@ -311,18 +311,18 @@ function QuotesPageInner() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="relative">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 w-full">
+              <div className="relative flex-1 sm:flex-initial min-w-[160px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search quotes..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="pl-9 w-64 rounded-none bg-background"
+                  className="pl-9 w-full sm:w-64 rounded-none bg-background"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40 rounded-none bg-background">
+                <SelectTrigger className="w-full sm:w-40 rounded-none bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,29 +340,29 @@ function QuotesPageInner() {
                 inputClassName="rounded-none bg-background"
               />
             </div>
-          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Quote #</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Quote Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Expiry Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Status</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Amount</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Quote #</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Customer</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Quote Date</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Expiry Date</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Status</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground whitespace-nowrap">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/30">
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="px-8 py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                       </TableRow>
                     ))
                   ) : quotes.length === 0 ? (
@@ -378,24 +378,24 @@ function QuotesPageInner() {
                         className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
                         onClick={() => router.push(`/sales/quotes/${q._id}`)}
                       >
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary whitespace-nowrap">
                           {q.quoteNumber}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 whitespace-nowrap">
                           {q.customerId?.header?.name || "—"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                           {q.quoteDate ? new Date(q.quoteDate).toLocaleDateString("en-IN") : "—"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                           {q.expiryDate ? new Date(q.expiryDate).toLocaleDateString("en-IN") : "—"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 whitespace-nowrap">
                           <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[q.status] || "text-muted-foreground"}`}>
                             {q.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-8 py-7 text-right font-mono text-sm text-foreground">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right font-mono text-sm text-foreground whitespace-nowrap">
                           ₹{Number(q.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>

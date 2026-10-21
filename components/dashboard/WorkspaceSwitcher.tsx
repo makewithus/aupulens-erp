@@ -35,7 +35,7 @@ interface Workspace {
  * that either doesn't actually change tenants or introduces a shortcut
  * around normal authentication.
  */
-export function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ mobileFullWidth = false }: { mobileFullWidth?: boolean }) {
   const { data: session } = useSession();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,10 +58,12 @@ export function WorkspaceSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors px-2 py-1">
+        <button aria-label={`Switch workspace${current?.name ? `; current workspace ${current.name}` : ""}`} className={mobileFullWidth
+          ? "flex min-h-10 w-full items-center justify-start gap-2 overflow-hidden px-3 py-2 text-left text-xs font-mono text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          : "flex h-9 w-9 items-center justify-center gap-1.5 overflow-hidden px-0 text-xs font-mono text-muted-foreground transition-colors hover:text-foreground sm:h-auto sm:w-auto sm:justify-start sm:px-2 sm:py-1"}>
           <Building2 className="h-3.5 w-3.5" />
-          {current?.name || "Workspace"}
-          <ChevronDown className="h-3 w-3" />
+          <span className={mobileFullWidth ? "min-w-0 flex-1 truncate" : "hidden max-w-28 truncate sm:inline"}>{current?.name || "Workspace"}</span>
+          <ChevronDown className={mobileFullWidth ? "h-3 w-3 shrink-0" : "hidden h-3 w-3 sm:block"} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

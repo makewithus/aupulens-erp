@@ -466,25 +466,25 @@ export default function ProductsPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Products</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Products</h1>
             <p className="text-sm text-muted-foreground">
               Manage your product catalog
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64 min-w-0">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search products..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-8 w-64"
+                className="pl-8 w-full"
               />
             </div>
-            <Button onClick={handleOpenCreate}>
+            <Button onClick={handleOpenCreate} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Product
             </Button>
@@ -611,8 +611,8 @@ export default function ProductsPage() {
                 <p>No products found.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="min-w-full divide-y divide-border">
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[650px] divide-y divide-border">
                   <TableHeader className="bg-muted/50">
                     <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
                       <TableHead className="px-6 py-3 text-left">Product</TableHead>

@@ -542,12 +542,12 @@ export default function ItemsPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Tab Navigation */}
-        <div className="border-b flex items-center gap-0">
+        <div className="border-b flex items-center gap-0 overflow-x-auto w-full min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setActiveTab("items")}
-            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === "items"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -559,7 +559,7 @@ export default function ItemsPage() {
           </button>
           <button
             onClick={() => setActiveTab("bom")}
-            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === "bom"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -570,7 +570,7 @@ export default function ItemsPage() {
           </button>
           <button
             onClick={() => setActiveTab("coupons")}
-            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === "coupons"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -584,18 +584,18 @@ export default function ItemsPage() {
         {/* ── ITEMS TAB ─────────────────────────────────────────────── */}
         {activeTab === "items" && (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2">
-                <Button onClick={handleNewItem} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleNewItem} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={() => fetchItems()} disabled={itemsLoading}>
+                <Button variant="outline" onClick={() => fetchItems()} disabled={itemsLoading} className="w-full sm:w-auto">
                   <RefreshCcw className={`h-4 w-4 mr-2 ${itemsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-64">
+                <div className="relative w-full sm:w-64 min-w-0">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search items..."
@@ -617,8 +617,8 @@ export default function ItemsPage() {
               {itemsLoading ? (
                 <TableSkeleton rows={5} columns={5} />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="min-w-full divide-y divide-border">
+                <div className="overflow-x-auto w-full min-w-0">
+                  <Table className="min-w-[750px] divide-y divide-border">
                     <TableHeader className="bg-muted/50">
                       <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
                         <TableHead className="px-6 py-3 text-left">Name</TableHead>
@@ -686,8 +686,8 @@ export default function ItemsPage() {
                 </div>
               )}
               {itemTotalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(itemPage - 1) * LIMIT + 1}–{Math.min(itemPage * LIMIT, itemTotal)} of {itemTotal}
                   </p>
                   <div className="flex items-center gap-2">
@@ -708,17 +708,17 @@ export default function ItemsPage() {
         {/* ── BOM TAB ───────────────────────────────────────────────── */}
         {activeTab === "bom" && (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2">
-                <Button onClick={handleNewBom} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleNewBom} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={() => fetchBoms()} disabled={bomsLoading}>
+                <Button variant="outline" onClick={() => fetchBoms()} disabled={bomsLoading} className="w-full sm:w-auto">
                   <RefreshCcw className={`h-4 w-4 mr-2 ${bomsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-64 min-w-0">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search BOMs..."
@@ -733,8 +733,8 @@ export default function ItemsPage() {
               {bomsLoading ? (
                 <TableSkeleton rows={5} columns={5} />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="min-w-full divide-y divide-border">
+                <div className="overflow-x-auto w-full min-w-0">
+                  <Table className="min-w-[750px] divide-y divide-border">
                     <TableHeader className="bg-muted/50">
                       <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
                         <TableHead className="px-6 py-3 text-left">Name</TableHead>
@@ -795,8 +795,8 @@ export default function ItemsPage() {
                 </div>
               )}
               {bomTotalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(bomPage - 1) * LIMIT + 1}–{Math.min(bomPage * LIMIT, bomTotal)} of {bomTotal}
                   </p>
                   <div className="flex items-center gap-2">
@@ -817,17 +817,17 @@ export default function ItemsPage() {
         {/* ── COUPONS TAB ───────────────────────────────────────────── */}
         {activeTab === "coupons" && (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2">
-                <Button onClick={handleNewCoupon} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleNewCoupon} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="h-4 w-4 mr-2" /> New
                 </Button>
-                <Button variant="outline" onClick={() => fetchCoupons()} disabled={couponsLoading}>
+                <Button variant="outline" onClick={() => fetchCoupons()} disabled={couponsLoading} className="w-full sm:w-auto">
                   <RefreshCcw className={`h-4 w-4 mr-2 ${couponsLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-64 min-w-0">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search coupons..."
@@ -842,8 +842,8 @@ export default function ItemsPage() {
               {couponsLoading ? (
                 <TableSkeleton rows={5} columns={5} />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="min-w-full divide-y divide-border">
+                <div className="overflow-x-auto w-full min-w-0">
+                  <Table className="min-w-[750px] divide-y divide-border">
                     <TableHeader className="bg-muted/50">
                       <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
                         <TableHead className="px-6 py-3 text-left">Name</TableHead>
@@ -915,8 +915,8 @@ export default function ItemsPage() {
                 </div>
               )}
               {couponTotalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-3 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(couponPage - 1) * LIMIT + 1}–{Math.min(couponPage * LIMIT, couponTotal)} of {couponTotal}
                   </p>
                   <div className="flex items-center gap-2">

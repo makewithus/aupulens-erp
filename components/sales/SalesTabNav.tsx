@@ -56,7 +56,7 @@ export function SalesTabNav() {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-stretch gap-1 border-b overflow-x-auto">
+    <div className="flex w-full min-w-0 max-w-full items-stretch gap-1 border-b overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {SALES_TABS.map((tab) => {
         const isActive = pathname === tab.href || pathname?.startsWith(tab.href + "/");
         const activeClasses = isActive

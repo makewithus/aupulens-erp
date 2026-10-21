@@ -81,21 +81,21 @@ export default function OrganizationsListPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Organisations</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold break-words">Organisations</h1>
           <p className="text-sm text-neutral-500">{total} total, fetched live from the database.</p>
         </div>
-        <Button onClick={() => router.push("/platform/organizations/new")}>New organisation</Button>
+        <Button onClick={() => router.push("/platform/organizations/new")} className="w-full sm:w-auto shrink-0">New organisation</Button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
         <Input
           placeholder="Search by name or subdomain…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
         <Select
           value={status}
@@ -104,7 +104,7 @@ export default function OrganizationsListPage() {
             setStatus(v);
           }}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -123,7 +123,7 @@ export default function OrganizationsListPage() {
             setOrgType(v);
           }}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
@@ -142,7 +142,7 @@ export default function OrganizationsListPage() {
             setPlan(v);
           }}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="All plans" />
           </SelectTrigger>
           <SelectContent>
@@ -159,8 +159,9 @@ export default function OrganizationsListPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto w-full min-w-0">
+            <Table className="min-w-[1000px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Org ID</TableHead>
@@ -246,10 +247,11 @@ export default function OrganizationsListPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between text-sm text-neutral-500">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
         <span>
           Page {page} of {totalPages}
         </span>

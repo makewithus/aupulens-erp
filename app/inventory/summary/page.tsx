@@ -117,9 +117,9 @@ export default function InventorySummaryPage() {
       onRefresh={fetchSummary}
       profilePath="/inventory/profile"
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+          <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
             Inventory Summary
           </h1>
         </div>
@@ -158,7 +158,7 @@ export default function InventorySummaryPage() {
             </div>
 
             {/* Operations Metrics */}
-            <h2 className="mt-6 text-[30px] font-medium tracking-[-0.05em]">
+            <h2 className="mt-6 text-xl sm:text-[30px] font-medium tracking-[-0.05em]">
               Operations
             </h2>
 

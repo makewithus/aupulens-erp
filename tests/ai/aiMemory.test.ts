@@ -1,219 +1,85 @@
-/**
- * Tests for AiMemory model + /api/ai/memory route behaviour:
- * - Compound unique index: tenantId + scope + key
- * - Tenant isolation: queries always include tenantId
- * - GET: by scope only (list), by scope+key (single)
- * - POST: upsert with $set, validation
- */
-
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// ─── Hoist mocks ──────────────────────────────────────────────────────────────
-
-const { mockFindOne, mockFind, mockFindOneAndUpdate, mockAuth, mockConnectDB } =
-  vi.hoisted(() => ({
-    mockFindOne: vi.fn(),
-    mockFind: vi.fn(),
-    mockFindOneAndUpdate: vi.fn(),
-    mockAuth: vi.fn(),
-    mockConnectDB: vi.fn().mockResolvedValue(undefined),
-  }));
-
-vi.mock("@/models/ai/AiMemory", () => ({
-  default: {
-    findOne: mockFindOne,
-    find: mockFind,
-    findOneAndUpdate: mockFindOneAndUpdate,
-  },
+const mocks = vi.hoisted(() => ({
+  find: vi.fn(), findById: vi.fn(), findOneAndUpdate: vi.fn(), deleteOne: vi.fn(),
+  prefFindOne: vi.fn(), prefUpdate: vi.fn(), auth: vi.fn(), connect: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/models/ai/AiMemory", () => ({ default: { find: mocks.find, findById: mocks.findById, findOneAndUpdate: mocks.findOneAndUpdate, deleteOne: mocks.deleteOne } }));
+vi.mock("@/models/ai/AiMemoryPreference", () => ({ default: { findOne: mocks.prefFindOne, findOneAndUpdate: mocks.prefUpdate } }));
+vi.mock("@/auth", () => ({ auth: mocks.auth }));
+vi.mock("@/lib/db", () => ({ default: mocks.connect }));
 
-vi.mock("@/auth", () => ({ auth: mockAuth }));
-vi.mock("@/lib/db", () => ({ default: mockConnectDB }));
+import { GET, POST, PATCH, DELETE } from "@/app/api/ai/memory/route";
 
-import { GET, POST } from "@/app/api/ai/memory/route";
-import AiMemory from "@/models/ai/AiMemory";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const TENANT_A = "tenant-alpha";
-const TENANT_B = "tenant-beta";
-
-function makeSession(tenantId: string) {
-  return { user: { tenantId, id: "user-123" } };
+const tenantId = "tenant-alpha";
+const userId = "user-123";
+const session = { user: { tenantId, id: userId, role: "admin" } };
+function req(method: string, body?: unknown, url = "http://localhost/api/ai/memory") {
+  return new Request(url, { method, ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) }) as any;
 }
-
-function makeRequest(method: "GET" | "POST", url: string, body?: object): Request {
-  const init: RequestInit = { method };
-  if (body) {
-    init.body = JSON.stringify(body);
-    init.headers = { "content-type": "application/json" };
-  }
-  return new Request(url, init) as any;
+function query(result: unknown) {
+  const chain: any = { sort: () => chain, limit: () => chain, select: () => chain, lean: async () => result };
+  return chain;
 }
-
-function leanChain(result: any) {
-  return { lean: () => Promise.resolve(result) };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  mockAuth.mockResolvedValue(makeSession(TENANT_A));
-  mockFind.mockReturnValue(leanChain([]));
-  mockFindOne.mockReturnValue(leanChain(null));
-  mockFindOneAndUpdate.mockReturnValue(leanChain(null));
+  mocks.auth.mockResolvedValue(session);
+  mocks.find.mockReturnValue(query([]));
+  mocks.prefFindOne.mockReturnValue(query(null));
+  mocks.findOneAndUpdate.mockReturnValue(query({}));
+  mocks.prefUpdate.mockReturnValue(query({ enabled: true }));
+  mocks.deleteOne.mockResolvedValue({ deletedCount: 1 });
 });
 
-// ─── Auth guard ───────────────────────────────────────────────────────────────
-
-describe("AiMemory API — auth guards", () => {
-  it("GET returns 401 when not authenticated", async () => {
-    mockAuth.mockResolvedValueOnce(null);
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=global") as any);
-    expect(res.status).toBe(401);
+describe("AI memory controls", () => {
+  it("rejects unauthenticated reads and writes", async () => {
+    mocks.auth.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    expect((await GET(req("GET"))).status).toBe(401);
+    expect((await POST(req("POST", { scope: "user", key: "stack", value: "MongoDB" }))).status).toBe(401);
   });
 
-  it("POST returns 401 when not authenticated", async () => {
-    mockAuth.mockResolvedValueOnce(null);
-    const res = await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "k", value: "v" }) as any);
-    expect(res.status).toBe(401);
+  it("lists only the current user's memories inside the authenticated tenant", async () => {
+    mocks.find.mockReturnValueOnce(query([{ _id: "m1", scope: "user", key: `${userId}:stack`, value: "MongoDB" }]));
+    const response = await GET(req("GET"));
+    const body = await response.json();
+    expect(body.data[0].key).toBe("stack");
+    const filter = mocks.find.mock.calls[0][0];
+    expect(filter.tenantId).toBe(tenantId);
+    expect(filter.$or).toContainEqual({ scope: "user", ownerUserId: userId });
   });
 
-  it("returns 401 when session has no tenantId", async () => {
-    mockAuth.mockResolvedValueOnce({ user: { id: "u" } });
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=global") as any);
-    expect(res.status).toBe(401);
-  });
-});
-
-// ─── GET validation ───────────────────────────────────────────────────────────
-
-describe("AiMemory API — GET validation", () => {
-  it("returns 400 when scope is missing", async () => {
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory") as any);
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.success).toBe(false);
+  it("saves an explicitly approved, owner-scoped memory with provenance", async () => {
+    await POST(req("POST", { scope: "user", key: "project stack", value: "Next.js and MongoDB", sourceConversationId: "conv-1" }));
+    const [filter, update] = mocks.findOneAndUpdate.mock.calls[0];
+    expect(filter).toMatchObject({ tenantId, scope: "user", ownerUserId: userId, key: `${userId}:project stack` });
+    expect(update.$set).toMatchObject({ approved: true, sourceConversationId: "conv-1", value: "Next.js and MongoDB" });
   });
 
-  it("returns 400 when scope is invalid", async () => {
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=unknown") as any);
-    expect(res.status).toBe(400);
-  });
-});
-
-// ─── GET behaviour ────────────────────────────────────────────────────────────
-
-describe("AiMemory API — GET behaviour", () => {
-  it("lists all memories for a scope (no key param)", async () => {
-    const stored = [{ tenantId: TENANT_A, scope: "finance", key: "k1", value: "v1" }];
-    mockFind.mockReturnValueOnce(leanChain(stored));
-
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=finance") as any);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.data).toHaveLength(1);
+  it("refuses to store credential-like content", async () => {
+    const response = await POST(req("POST", { scope: "user", key: "database", value: "mongodb+srv://user:secret@example" }));
+    expect(response.status).toBe(400);
+    expect(mocks.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  it("list query always includes tenantId", async () => {
-    await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=sales") as any);
-    const findArg = mockFind.mock.calls[0][0];
-    expect(findArg).toHaveProperty("tenantId", TENANT_A);
-    expect(findArg).toHaveProperty("scope", "sales");
+  it("persists the memory-disabled preference", async () => {
+    await POST(req("POST", { enabled: false }));
+    expect(mocks.prefUpdate.mock.calls[0][0]).toEqual({ tenantId, userId });
+    expect(mocks.prefUpdate.mock.calls[0][1].$set.enabled).toBe(false);
   });
 
-  it("fetches single memory when key is provided", async () => {
-    const stored = { tenantId: TENANT_A, scope: "global", key: "preferredCurrency", value: "INR" };
-    mockFindOne.mockReturnValueOnce(leanChain(stored));
-
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=global&key=preferredCurrency") as any);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.data.value).toBe("INR");
+  it("does not let non-admin users write shared workspace memories", async () => {
+    mocks.auth.mockResolvedValueOnce({ user: { ...session.user, role: "sales" } });
+    const response = await POST(req("POST", { scope: "global", key: "rule", value: "value" }));
+    expect(response.status).toBe(403);
   });
 
-  it("single-fetch query always includes tenantId", async () => {
-    await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=hr&key=myKey") as any);
-    const findOneArg = mockFindOne.mock.calls[0][0];
-    expect(findOneArg).toHaveProperty("tenantId", TENANT_A);
-  });
-
-  it("returns null data (not 404) when key not found", async () => {
-    mockFindOne.mockReturnValueOnce(leanChain(null));
-    const res = await GET(makeRequest("GET", "http://localhost/api/ai/memory?scope=global&key=missing") as any);
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.data).toBeNull();
-  });
-});
-
-// ─── POST validation ──────────────────────────────────────────────────────────
-
-describe("AiMemory API — POST validation", () => {
-  it("returns 400 for invalid scope", async () => {
-    const res = await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "bogus", key: "k", value: "v" }) as any);
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 when key is missing", async () => {
-    const res = await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", value: "v" }) as any);
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 when value is missing", async () => {
-    const res = await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "k" }) as any);
-    expect(res.status).toBe(400);
-  });
-});
-
-// ─── POST behaviour ───────────────────────────────────────────────────────────
-
-describe("AiMemory API — POST upsert", () => {
-  it("upserts with tenantId in filter", async () => {
-    const saved = { tenantId: TENANT_A, scope: "global", key: "theme", value: "dark" };
-    mockFindOneAndUpdate.mockReturnValueOnce(leanChain(saved));
-
-    const res = await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "theme", value: "dark" }) as any);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-
-    const filter = mockFindOneAndUpdate.mock.calls[0][0];
-    expect(filter).toHaveProperty("tenantId", TENANT_A);
-    expect(filter).toHaveProperty("scope", "global");
-    expect(filter).toHaveProperty("key", "theme");
-  });
-
-  it("uses $set so value is overwritten on re-upsert", async () => {
-    mockFindOneAndUpdate.mockReturnValueOnce(leanChain({}));
-
-    await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "k", value: "updated" }) as any);
-
-    const update = mockFindOneAndUpdate.mock.calls[0][1];
-    expect(update).toHaveProperty("$set");
-    expect(update.$set.value).toBe("updated");
-  });
-
-  it("tenant A upsert does not touch tenant B (filter is scoped)", async () => {
-    mockFindOneAndUpdate.mockReturnValueOnce(leanChain({}));
-    mockAuth.mockResolvedValueOnce(makeSession(TENANT_A));
-
-    await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "k", value: "v" }) as any);
-
-    const filter = mockFindOneAndUpdate.mock.calls[0][0];
-    expect(filter.tenantId).toBe(TENANT_A);
-    expect(filter.tenantId).not.toBe(TENANT_B);
-  });
-
-  it("trims whitespace from key before saving", async () => {
-    mockFindOneAndUpdate.mockReturnValueOnce(leanChain({}));
-
-    await POST(makeRequest("POST", "http://localhost/api/ai/memory", { scope: "global", key: "  myKey  ", value: "v" }) as any);
-
-    const filter = mockFindOneAndUpdate.mock.calls[0][0];
-    expect(filter.key).toBe("myKey");
+  it("updates and deletes only an authorized user's own memory", async () => {
+    const memory: any = { _id: "m1", tenantId, scope: "user", ownerUserId: userId, value: "old", save: vi.fn() };
+    mocks.findById.mockResolvedValue(memory);
+    expect((await PATCH(req("PATCH", { id: "m1", value: "corrected" }))).status).toBe(200);
+    expect(memory.value).toBe("corrected");
+    expect(memory.save).toHaveBeenCalled();
+    expect((await DELETE(req("DELETE", undefined, "http://localhost/api/ai/memory?id=m1"))).status).toBe(200);
+    expect(mocks.deleteOne).toHaveBeenCalledWith({ _id: "m1", tenantId });
   });
 });

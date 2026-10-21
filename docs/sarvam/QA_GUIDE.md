@@ -86,7 +86,7 @@ opens the form.
 | Empty tenant | "No AI usage recorded yet this month." / "No regional-language requests yet." |
 
 ## Known limits (plain English)
-* **Streamed replies stay in English** — your regional message is understood, the answer streams in English (non-streaming assistants answer in your language).
+* **Regional replies follow the user's language** — Romanized Hindi should receive Romanized Hindi; native-script input should receive the matching script. Successful regional replies appear after Azure generation and Sarvam translation; English and degraded translations continue streaming.
 * **Only the sales invoice** has the guided flow. Customer, vendor bill, expense and the other ~50 create actions keep their existing behaviour (regional input still reaches them).
 * **Sarvam behaviour is mock-verified** until the live check (`LIVE_VERIFICATION.md`); the placeholder format used to protect names is **unconfirmed** against the real API.
 * **Phrases need native-speaker review.**

@@ -295,13 +295,13 @@ function SubscriptionsPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
                 {activeView?.name === "All" ? "All Subscriptions" : activeView?.name || "All Subscriptions"}{" "}
                 <ChevronDown className="w-8 h-8 mb-2" />
               </button>
@@ -348,13 +348,15 @@ function SubscriptionsPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Search subscriptions..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-11 w-56 rounded-none bg-background"
-            />
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+              <Input
+                placeholder="Search subscriptions..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-11 w-full sm:w-56 rounded-none bg-background"
+              />
+            </div>
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -362,8 +364,8 @@ function SubscriptionsPageInner() {
               onDateToChange={setDateTo}
               inputClassName="rounded-none bg-background"
             />
-            <Link href="/sales/subscriptions/new">
-              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+            <Link href="/sales/subscriptions/new" className="shrink-0">
+              <Button className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
@@ -439,66 +441,68 @@ function SubscriptionsPageInner() {
         ) : (
           <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader className="border-border/40">
-                  <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Number</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer Name</TableHead>
-                    {activeColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
-                        {columnLabel(key)}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border/30">
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
-                        {activeColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : subscriptions.length === 0 ? (
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-[700px]">
+                  <TableHeader className="border-border/40">
                     <TableRow>
-                      <TableCell colSpan={2 + activeColumns.length} className="py-16 text-center text-sm text-muted-foreground">
-                        No subscriptions match your search or filters.
-                      </TableCell>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Number</TableHead>
+                      <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer Name</TableHead>
+                      {activeColumns.map((key) => (
+                        <TableHead key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
+                          {columnLabel(key)}
+                        </TableHead>
+                      ))}
                     </TableRow>
-                  ) : (
-                    subscriptions.map((s: any) => (
-                      <TableRow
-                        key={s._id}
-                        className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
-                        onClick={() => router.push(`/sales/subscriptions/${s._id}`)}
-                      >
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
-                          {s.number || "—"}
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/30">
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                          {activeColumns.map((key) => (
+                            <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : subscriptions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={2 + activeColumns.length} className="py-16 text-center text-sm text-muted-foreground">
+                          No subscriptions match your search or filters.
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
-                          {s.customerId?.header?.displayName || s.customerId?.header?.name || "—"}
-                        </TableCell>
-                        {activeColumns.map((key) => (
-                          <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
-                            {key === "status" ? (
-                              <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[s.status] || "text-muted-foreground"}`}>
-                                {s.status}
-                              </Badge>
-                            ) : (
-                              formatValue(key, getPath(s, key))
-                            )}
-                          </TableCell>
-                        ))}
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      subscriptions.map((s: any) => (
+                        <TableRow
+                          key={s._id}
+                          className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
+                          onClick={() => router.push(`/sales/subscriptions/${s._id}`)}
+                        >
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                            {s.number || "—"}
+                          </TableCell>
+                          <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                            {s.customerId?.header?.displayName || s.customerId?.header?.name || "—"}
+                          </TableCell>
+                          {activeColumns.map((key) => (
+                            <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                              {key === "status" ? (
+                                <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[s.status] || "text-muted-foreground"}`}>
+                                  {s.status}
+                                </Badge>
+                              ) : (
+                                formatValue(key, getPath(s, key))
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border/40">
                   <p className="text-sm text-muted-foreground">
                     Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                   </p>

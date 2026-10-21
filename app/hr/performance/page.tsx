@@ -167,12 +167,12 @@ export default function PerformancePage() {
 
   return (
     <>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Performance Reviews</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">Performance Reviews</h1>
         </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="Active Employees"
               value={employees.length}
@@ -242,19 +242,19 @@ export default function PerformancePage() {
                   key={emp._id}
                   employee={emp}
                   action={
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
                       {review ? (
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <p className="font-mono text-[10px] text-muted-foreground/45">
                             Review
                           </p>
 
-                          <div className="mt-1 flex justify-end gap-1">
+                          <div className="mt-1 flex justify-start sm:justify-end gap-1">
                             {renderStars(review.rating)}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <p className="font-mono text-[10px] text-muted-foreground/45">
                             Review
                           </p>
@@ -274,6 +274,7 @@ export default function PerformancePage() {
                         }}
                         className="
                           h-10
+                          w-full sm:w-auto
                           rounded-none
                           border
                           border-border/40
@@ -297,7 +298,7 @@ export default function PerformancePage() {
 
       <ModularModal open={isModalOpen} onOpenChange={setIsModalOpen} title={`Performance Review: ${formData.employeeName || ""}`}>
         <div className="space-y-4 p-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Review Period</label>
               <Input value={formData.reviewPeriod || ""} onChange={(e) => setFormData({ ...formData, reviewPeriod: e.target.value })} />
@@ -334,9 +335,9 @@ export default function PerformancePage() {
             <label className="text-xs font-semibold text-muted-foreground">Manager Comments</label>
             <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[60px]" value={formData.managerComments || ""} onChange={(e) => setFormData({ ...formData, managerComments: e.target.value })} placeholder="Manager's overall comments..." />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveReview}>Save Review</Button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button className="w-full sm:w-auto" onClick={handleSaveReview}>Save Review</Button>
           </div>
         </div>
       </ModularModal>

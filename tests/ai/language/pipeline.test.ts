@@ -218,12 +218,13 @@ describe("respond: reply in the user's language, entities untouched", () => {
     expect(r.translated).toBe(false);
     expect(r.text).toBe("Total is 45000.");
   });
-  it("code-mixed and English input get English replies (no call)", async () => {
+  it("code-mixed input gets a reply translated to the user's language", async () => {
     const c = fakeClient((req) => ({ text: req.input }));
     setSarvamClientForTests(c);
     const r = await respondInLanguage("Done.", trace({ kind: "mixed" }));
     expect(r.text).toBe("Done.");
-    expect(c.translateSpy).not.toHaveBeenCalled();
+    expect(c.translateSpy).toHaveBeenCalledTimes(1);
+    expect(r.translated).toBe(true);
   });
 });
 

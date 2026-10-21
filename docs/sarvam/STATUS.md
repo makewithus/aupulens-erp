@@ -23,7 +23,7 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 | Value-based number check; placeholder-corruption safety net | Yes | test | 4 required cases + 8 mangling patterns |
 | Sarvam client (timeout, 1 retry, never throws; speech = interface only) | Yes | test | real endpoint shapes read from docs; **live key** confirms |
 | Provider down / wrong key / tenant switch off → fails open | Yes | **browser** (R4 with the mock stopped: still answers, degraded record written, nothing created) · test | |
-| Streaming (input side; reply streams in English) | Yes | test · browser (sidebar is the streaming surface) | declared limit: streamed replies stay English |
+| Streaming (regional replies translated before emission) | Yes | mocked integration coverage; browser verification still needed | regional replies wait for the completed Azure answer before Sarvam translation; English and translation-degraded replies stream incrementally |
 | Guided create — explain / do / ask / ask-which | Yes | browser (C1–C4, C11) · test | |
 | Skip-ahead (all mandatory supplied ⇒ summary only) | Yes | browser (C1) · test | optional due date shown in summary, changeable |
 | **Escape hatch** "Skip the questions and open the form" at every question | Yes | browser (C3) · test (5 phrasings × every stage) | opens a partial form = old behaviour; never creates, even with auto-create ON |
@@ -53,7 +53,7 @@ message** (not a 400). Nothing invalid is stored. **Unreachable from the assista
 | Phrase quality per language | Caveats recorded | **live API** round-trip caveats; **native-speaker review remains an open item** (owner: you) | `mr` `बीजक` = "seed" and colloquial Tamil `போடுங்க` = "send" recorded, not softened |
 
 ## Known limits (plain English)
-* Streamed replies stay in English (your message is understood; non-streaming assistants answer in your language).
+* Successful regional-language chat replies are translated by Sarvam before display. Since reliable sentence translation needs the complete answer, those replies appear after Azure finishes generating; English and translation-degraded replies continue streaming incrementally.
 * Only the **sales invoice** has the guided flow. Customer, bill, expense and ~50 other create actions are unchanged (regional input reaches them).
 * **Sarvam behaviour is now confirmed live** — with the caveats in `LIVE_VERIFICATION.md`: the real translator sometimes drops an entity or returns degenerate text (≈ 2 in 18 pipeline inputs degrade, safely), Roman-script input needs a different placeholder style (done), and replies are readable but unpolished.
 * Every non-English phrase needs native-speaker review (Hindi, Tamil first).

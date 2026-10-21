@@ -62,8 +62,15 @@ export default function SalesAIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
@@ -356,8 +363,9 @@ export default function SalesAIAssistant() {
       const response = await cachedFetch('/api/sales/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, chatId: currentChatId, attachments: sentAttachments })
+        body: JSON.stringify({ message: userInputText, stream: true, history: priorTurns, chatId: currentChatId, attachments: sentAttachments, requestId: crypto.randomUUID() })
       });
+      const serverConversationId = response.headers.get("x-conversation-id") || undefined;
 
       // Gated / error — surface the server's message instead of a blank reply.
       if (!response.ok || !response.body) {
@@ -399,27 +407,14 @@ export default function SalesAIAssistant() {
         const saveResponse = await cachedFetch('/api/sales/chat-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, messages: newMessages }),
+          body: JSON.stringify({ title, conversationId: serverConversationId, messages: newMessages }),
         });
         if (saveResponse.ok) {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
           await fetchChatHistory();
         }
-      } else if (currentChatId) {
-        // Rebuild the full transcript explicitly (avoids stale-closure saves).
-        const allMessages = [
-          ...priorTurns.map((m, i) => ({ role: m.role, content: m.content, timestamp: messages[i]?.timestamp || new Date() })),
-          { role: 'user' as const, content: userInputText, timestamp: userMessage.timestamp },
-          { role: 'assistant' as const, content: finalText, timestamp: new Date() },
-        ];
-        await cachedFetch('/api/sales/chat-history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: currentChatId, messages: allMessages }),
-        });
-        await fetchChatHistory();
-      }
+      } else if (currentChatId) await fetchChatHistory(); // Server saved the completed exchange.
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => prev.filter(msg => !msg.isLoading).concat({

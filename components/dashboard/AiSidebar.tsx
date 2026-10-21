@@ -5,7 +5,8 @@ import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import React, { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { X, Send, Sparkles, Maximize2, Mic, Paperclip, FileText, Clock, MessageSquare, Plus, Image as ImageIcon, Brain, Trash2, Check, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAiChatStore, type AiChatMessage } from "@/store/aiChatStore";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
@@ -16,6 +17,7 @@ import { runTaskFlow, shouldConsultTaskFlow } from "@/lib/ai/taskFlowClient";
 import { buildQuickReplies, stripChoiceText } from "@/lib/ai/flowPresentation";
 import { FlowQuickReplies } from "@/components/ai/FlowQuickReplies";
 import { tryAiMemoryFlow } from "@/lib/ai/memoryFlow";
+import { historyBeforeCurrentQuestion } from "@/lib/ai/chatHistoryUtils";
 import { tryAiInventoryMemoryFlow } from "@/lib/ai/inventoryMemoryFlow";
 import { NAV_TRIGGER_RX } from "@/lib/ai/navFlow";
 import { NAV_DESTINATIONS } from "@/lib/ai/navRoutes";
@@ -25,6 +27,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeStore } from "@/store/themeStore";
+import { useTenantStore } from "@/store/useTenantStore";
 import {
   Table,
   TableHeader,
@@ -40,6 +43,8 @@ type Message = AiChatMessage;
 export function AiSidebar({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const tenantId = useTenantStore((s) => s.tenantId);
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme !== "light";
 
@@ -51,19 +56,46 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const setConversationId = useAiChatStore((s) => s.setConversationId);
   const newChat = useAiChatStore((s) => s.newChat);
   const pendingNavigation = useRef<{ route: string; openingText: string; completedText: string } | null>(null);
+  const previousIdentity = useRef<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryRecords, setMemoryRecords] = useState<any[]>([]);
+  const [memoryLabel, setMemoryLabel] = useState("");
+  const [memoryValue, setMemoryValue] = useState("");
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [editingMemoryValue, setEditingMemoryValue] = useState("");
   const [historyChats, setHistoryChats] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useAutoResizeTextarea(textareaRef, input);
+
+  const identityKey = session?.user?.id && tenantId ? `${session.user.id}:${tenantId}` : null;
+  useEffect(() => {
+    if (previousIdentity.current && identityKey !== previousIdentity.current) {
+      newChat();
+      setHistoryChats([]);
+      setMemoryRecords([]);
+      try { sessionStorage.removeItem("aupulens-ai-chat"); } catch { /* storage may be unavailable */ }
+    }
+    previousIdentity.current = identityKey;
+  }, [identityKey, newChat]);
 
   // Voice input (Azure speech-to-text) — records via the mic, transcribes on the
   // server, and appends the recognised text to the prompt for the user to review
@@ -229,13 +261,16 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     // none, we still SEND the most recent prior files so context carries over.
     const freshAttachments = attachments;
     const sendAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
-    const baseHistory = customMessagesHistory || messages;
-    const nextMessages = [...baseHistory];
-
-    if (customMessagesHistory === undefined) {
-      nextMessages.push({ role: "user", text: queryText, attachments: freshAttachments.length ? freshAttachments : undefined });
-    }
-    nextMessages.push({ role: "assistant", text: "", isLoading: true });
+    // Some callers pass a display-ready transcript that already includes the
+    // question being sent (suggested prompts and action follow-ups). The API
+    // adds `message` as the final user turn itself, so keep request history
+    // strictly to turns before this question and render the new turn once.
+    const baseHistory = historyBeforeCurrentQuestion(customMessagesHistory || messages, queryText);
+    const nextMessages = [
+      ...baseHistory,
+      { role: "user" as const, text: queryText, attachments: freshAttachments.length ? freshAttachments : undefined },
+      { role: "assistant" as const, text: "", isLoading: true },
+    ];
     setMessages(nextMessages);
 
     try {
@@ -284,20 +319,9 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         return newMsgs;
       });
 
-      await fetch("/api/admin/chat-history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: queryText.slice(0, 50),
-          conversationId: returnedConvId || activeConversationId,
-          messages: [
-            ...baseHistory.filter((m) => !m.isLoading && (m.role === "user" || m.role === "assistant") && m.text)
-              .map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })),
-            { role: "user", content: queryText, timestamp: new Date() },
-            { role: "assistant", content: finalText, timestamp: new Date() },
-          ],
-        }),
-      }).catch(() => {});
+      // The server persisted this completed exchange before closing the stream.
+      // Keep the browser thread for rendering, but never overwrite canonical
+      // server history with a possibly stale client snapshot.
 
     } catch (error) {
       console.error("Error:", error);
@@ -398,6 +422,29 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     if (!q && attachments.length === 0) return;
     if (isLoading) return;
     const activeConversationId = ensureConversationId();
+
+    // Explicit memory requests are opt-in. Accept a labelled form
+    // "Remember project stack: Next.js + MongoDB" or a plain "Remember that …".
+    const remember = q.match(/^remember(?:\s+that)?\s+(.+)$/i);
+    if (remember && !attachments.length) {
+      const fact = remember[1].trim();
+      const [labelPart, valuePart] = fact.split(/:\s*/, 2);
+      const label = valuePart ? labelPart.trim() : fact.split(/\s+/).slice(0, 5).join(" ").slice(0, 80);
+      const value = valuePart?.trim() || fact;
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/ai/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "user", key: label, value, category: "other", sourceConversationId: activeConversationId }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not save that memory");
+        const answer = memoryEnabled ? `Saved **${label}** to your personal AI memory. Relevant saved facts can be used in future chats while cross-chat recall is on.` : `Saved **${label}**. Cross-chat recall is paused, so I won't use it in other chats until you turn memory back on.`;
+        const completed = [...messages, { role: "user" as const, text: q }, { role: "assistant" as const, text: answer }];
+        setMessages(completed);
+        await fetch("/api/admin/chat-history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId, title: q.slice(0, 50), messages: completed.map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })) }) });
+      } catch (error: any) {
+        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: error.message || "I couldn't save that memory." }]);
+      } finally { setIsLoading(false); }
+      return;
+    }
 
     // ── Resolve a pending "which module?" choice first ────────────────────────
     if (pendingChoice && q) {
@@ -690,6 +737,54 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const loadMemorySettings = async () => {
+    try {
+      const res = await fetch("/api/ai/memory", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && data.success) { setMemoryEnabled(data.enabled !== false); setMemoryRecords(Array.isArray(data.data) ? data.data : []); }
+    } catch { toast.error("Could not load saved AI memories."); }
+  };
+  const toggleMemory = async () => {
+    setMemoryBusy(true);
+    try {
+      const res = await fetch("/api/ai/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: !memoryEnabled }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not update memory settings");
+      setMemoryEnabled(data.enabled);
+      toast.success(data.enabled ? "Cross-chat memory enabled" : "Cross-chat memory paused. Saved facts remain available for you to manage.");
+    } catch (error: any) { toast.error(error.message || "Could not update memory settings"); }
+    finally { setMemoryBusy(false); }
+  };
+  const saveMemory = async () => {
+    if (!memoryLabel.trim() || !memoryValue.trim()) return;
+    setMemoryBusy(true);
+    try {
+      const res = await fetch("/api/ai/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "user", key: memoryLabel, value: memoryValue, category: "other", sourceConversationId: conversationId || undefined }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save memory");
+      setMemoryLabel(""); setMemoryValue(""); await loadMemorySettings(); toast.success("Saved to your AI memory.");
+    } catch (error: any) { toast.error(error.message || "Could not save memory"); }
+    finally { setMemoryBusy(false); }
+  };
+  const updateMemory = async (id: string) => {
+    setMemoryBusy(true);
+    try {
+      const res = await fetch("/api/ai/memory", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, value: editingMemoryValue }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not update memory");
+      setEditingMemoryId(null); await loadMemorySettings(); toast.success("Memory updated.");
+    } catch (error: any) { toast.error(error.message || "Could not update memory"); }
+    finally { setMemoryBusy(false); }
+  };
+  const deleteMemory = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ai/memory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Could not delete memory");
+      setMemoryRecords((items) => items.filter((item) => String(item._id) !== id));
+      toast.success("Memory deleted.");
+    } catch (error: any) { toast.error(error.message || "Could not delete memory"); }
+  };
+
   const loadHistoryChat = (chat: any) => {
     const loaded: Message[] = (chat.messages || []).map((m: any) => ({ role: m.role, text: m.content }));
     setMessages(loaded);
@@ -867,6 +962,24 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             </button>
           )}
           <button
+            onClick={() => {
+              const opening = !showMemoryPanel;
+              setShowMemoryPanel(opening);
+              setShowHistory(false);
+              if (opening) void loadMemorySettings();
+            }}
+            className={cn(
+              "p-1.5 rounded transition-colors cursor-pointer",
+              showMemoryPanel
+                ? (isDark ? "text-white bg-neutral-900" : "text-neutral-800 bg-neutral-100")
+                : (isDark ? "text-neutral-500 hover:text-white hover:bg-neutral-900" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100")
+            )}
+            title="Manage AI memory"
+            aria-label="Manage AI memory"
+          >
+            <Brain className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={() => (showHistory ? setShowHistory(false) : openHistory())}
             className={cn(
               "p-1.5 rounded transition-colors cursor-pointer",
@@ -936,6 +1049,50 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                 </button>
               ))
             )}
+          </div>
+        ) : showMemoryPanel ? (
+          <div className="flex-grow p-4 space-y-4 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className={cn("text-sm font-semibold", isDark ? "text-neutral-100" : "text-neutral-800")}>AI memory</h3>
+                <p className="text-[11px] text-neutral-500 mt-1">Relevant details from your saved chats and facts you choose to keep.</p>
+              </div>
+              <button onClick={() => setShowMemoryPanel(false)} className="p-1.5 rounded hover:bg-neutral-800/10" aria-label="Back to chat"><ArrowLeft className="w-4 h-4" /></button>
+            </div>
+            <div className={cn("rounded border p-3", isDark ? "border-neutral-800 bg-neutral-900/50" : "border-neutral-200 bg-white")}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-medium">Cross-chat recall</div>
+                  <div className="text-[10px] text-neutral-500 mt-1">{memoryEnabled ? "Relevant earlier chats and saved facts may be used." : "Paused. Active-chat context still works; saved facts are kept until you delete them."}</div>
+                </div>
+                <button disabled={memoryBusy} onClick={() => void toggleMemory()} className={cn("px-2.5 py-1 rounded text-xs border", memoryEnabled ? "border-emerald-700 text-emerald-500" : "border-neutral-600 text-neutral-500")}>
+                  {memoryEnabled ? "On" : "Off"}
+                </button>
+              </div>
+            </div>
+            <div className={cn("rounded border p-3 space-y-2", isDark ? "border-neutral-800" : "border-neutral-200")}>
+              <div className="text-xs font-medium">Remember a fact</div>
+              <input value={memoryLabel} onChange={(e) => setMemoryLabel(e.target.value)} maxLength={100} placeholder="Label, e.g. Migration project" className={cn("w-full rounded border px-2.5 py-2 text-xs outline-none", isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200")} />
+              <textarea value={memoryValue} onChange={(e) => setMemoryValue(e.target.value)} maxLength={2000} rows={3} placeholder="A non-sensitive fact you want Aupulens AI to remember" className={cn("w-full resize-y rounded border px-2.5 py-2 text-xs outline-none", isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200")} />
+              <button disabled={memoryBusy || !memoryLabel.trim() || !memoryValue.trim()} onClick={() => void saveMemory()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 text-white text-xs disabled:opacity-50"><Check className="w-3 h-3" /> Save memory</button>
+              <p className="text-[10px] text-neutral-500">Do not save passwords, API keys, credentials, or private financial details.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-wider text-neutral-500">Saved facts ({memoryRecords.length})</div>
+              {memoryRecords.length === 0 ? <p className="text-xs text-neutral-500">No explicitly saved facts yet. Earlier conversation recall can still use relevant chat summaries.</p> : memoryRecords.map((item) => (
+                <div key={String(item._id)} className={cn("rounded border p-3", isDark ? "border-neutral-800 bg-neutral-900/30" : "border-neutral-200 bg-white")}>
+                  <div className="flex justify-between gap-2 items-start">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium truncate">{item.key}</div>
+                      {editingMemoryId === String(item._id) ? <textarea value={editingMemoryValue} onChange={(e) => setEditingMemoryValue(e.target.value)} maxLength={2000} rows={3} className={cn("mt-2 w-full rounded border px-2 py-1.5 text-xs", isDark ? "bg-neutral-950 border-neutral-800" : "bg-white border-neutral-200")} /> : <p className="mt-1 text-xs text-neutral-500 whitespace-pre-wrap">{item.value}</p>}
+                      <div className="mt-2 text-[10px] text-neutral-600">{item.sourceConversationId ? `Source chat ${item.sourceConversationId.slice(0, 8)} · ` : "Manually saved · "}{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : ""}</div>
+                    </div>
+                    {editingMemoryId === String(item._id) ? <button onClick={() => void updateMemory(String(item._id))} disabled={memoryBusy} className="p-1.5 text-emerald-500" aria-label="Save correction"><Check className="w-4 h-4" /></button> : <button onClick={() => { setEditingMemoryId(String(item._id)); setEditingMemoryValue(item.value); }} className="text-[10px] text-blue-500">Edit</button>}
+                    <button onClick={() => void deleteMemory(String(item._id))} className="p-1.5 text-red-500" aria-label="Delete memory"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
@@ -1224,9 +1381,9 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                   <Mic className="w-3 h-3" />
                 </button>
               )}
-              <span className="text-[9px] text-neutral-500 font-mono truncate">
-                {listening ? "Click the microphone to stop" : transcribing ? "" : "⏎ to send · ⇧⏎ for newline"}
-              </span>
+              {(listening || transcribing) && <span className="text-[9px] text-neutral-500 font-mono truncate">
+                {listening ? "Click the microphone to stop" : "Transcribing…"}
+              </span>}
             </div>
             <button
               onClick={() => {

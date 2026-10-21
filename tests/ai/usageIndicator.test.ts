@@ -1,69 +1,61 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi } from "vitest";
+
 const m = vi.hoisted(() => ({ hook: vi.fn() }));
 vi.mock("@/lib/hooks/useAiUsageSummary", () => ({ useAiUsageSummary: m.hook }));
-import { AiUsageIndicator, UsageItem } from "@/components/ai/AiUsageIndicator";
-import { emptyUsage, usageMetric } from "@/lib/ai/usagePolicy";
-const start = new Date("2026-10-15T00:00Z"), end = new Date("2026-10-15T02:29Z");
-describe("compact usage footer markup", () => {
-  it("renders loading and unavailable states without fake percentages", () => {
-    for (const unavailable of [false, true]) {
-      m.hook.mockReturnValue({ unavailable, now: start.getTime() });
-      const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-      expect(html).toContain(`aria-busy="${unavailable ? "false" : "true"}"`);
-      expect(html).not.toContain("0%");
-      expect(html).not.toContain('role="progressbar"');
-    }
-  });
-  it("renders aligned request quotas and reset text", () => {
-    m.hook.mockReturnValue({ data: { session: usageMetric(2, 100, start, end), weekly: usageMetric(7, 100, start, end), monthly: usageMetric(7, 100, start, end) }, now: start.getTime() });
-    const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-    expect(html).toContain("Session: 2%"); expect(html).toContain("Weekly: 7%");
-    expect(html).toContain("resets in 2h 29m");
-    expect(html).toContain("2 successful workspace requests of 100");
-    expect(html).toContain("flex-wrap");
-  });
-  it("retains the exact real percentage when over quota", () => {
-    const html = renderToStaticMarkup(React.createElement(UsageItem, { label: "Session", metric: usageMetric(150, 100, start, end), now: start.getTime(), progress: true }));
-    expect(html).toContain("150%"); expect(html).toContain("limit reached");
-  });
-  it("distinguishes unlimited and zero allowance", () => {
-    for (const [limit, expected] of [[null, "Unlimited"], [0, "No allowance"]] as const) {
-      const html = renderToStaticMarkup(React.createElement(UsageItem, { label: "Session", metric: usageMetric(0, limit, start, end), now: start.getTime(), progress: true }));
-      expect(html).toContain(expected);
-    }
-  });
-  it("shows small deductions and explains unconfigured request limits", () => {
-    m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), monthly: usageMetric(4, 100, start, end), credits: { used: 0.025, reserved: 0, limit: 20, remaining: 19.975, resetsAt: end.toISOString() } }, now: start.getTime() });
-    const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-    expect(html).toContain("Session: No limit set"); expect(html).toContain("Weekly: No limit set");
-    expect(html).toContain("Credits: 0.13% used");
-    expect(html).toContain("19.975 remaining");
-    expect(html).not.toContain("left");
-    expect(html).not.toContain("Monthly: 4%");
-  });
-  it("preserves precise credit usage and low and exhaustion states", () => {
-    for (const [used, remaining, expected] of [[1.25, 8.75, "12.5% used"], [10, 0, "100% used · limit reached"]] as const) {
-      m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), credits: { used, reserved: 0, limit: 10, remaining, resetsAt: end.toISOString() } }, now: start.getTime() });
-      const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-      expect(html).toContain(`Credits: ${expected}`);
-      expect(html).not.toContain(" left");
-    }
-  });
-});
+import { AiUsageIndicator, CreditWindowCard } from "@/components/ai/AiUsageIndicator";
 
-it("shows distinct loading, failed and missing-policy states", () => {
-  for (const [metric, text] of [[undefined, "Loading…"], [emptyUsage("unavailable"), "Unavailable"], [emptyUsage("unconfigured"), "No limit set"]] as const) {
-    const html = renderToStaticMarkup(React.createElement(UsageItem, { label: "Session", metric, now: start.getTime() }));
-    expect(html).toContain(`Session: ${text}`);
-    expect(html).not.toContain("Session: —");
-  }
-});
-it("shows zero credit use accurately and pending reservations separately", () => {
-  m.hook.mockReturnValue({ data: { session: emptyUsage("unconfigured"), weekly: emptyUsage("unconfigured"), credits: { used: 0, reserved: 2, limit: 10, remaining: 8, resetsAt: end.toISOString() } }, now: start.getTime() });
-  const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
-  expect(html).toContain("Credits: 0% used");
-  expect(html).toContain("2 pending");
-  expect(html).toContain("resets in 2h 29m");
+const now = Date.parse("2026-10-19T13:42:00.000Z");
+const reset = "2026-10-19T15:00:00.000Z";
+const session = { used: 2, reserved: 1, limit: 20, remaining: 17, startsAt: "2026-10-19T10:00:00.000Z", resetsAt: reset, unit: "credits" as const };
+const weekly = { used: 27, reserved: 0, limit: 100, remaining: 73, startsAt: "2026-10-19T00:00:00.000Z", resetsAt: "2026-10-26T00:00:00.000Z", unit: "credits" as const };
+
+describe("AI usage indicator", () => {
+  it("shows current session and weekly usage compactly with countdowns", () => {
+    m.hook.mockReturnValue({ data: {
+      session: {}, weekly: {}, monthly: {}, serverTime: new Date(now).toISOString(),
+      credits: { planKey: "pro", used: 45, reserved: 1, limit: 500, remaining: 454, resetsAt: "2026-11-01T00:00:00.000Z", windows: { session, weekly } },
+    }, unavailable: false, now });
+    const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
+    expect(html).toContain("5h 15%");
+    expect(html).toContain("1h 18m");
+    expect(html).toContain("Week 27%");
+    expect(html).toContain("6d 10h");
+    expect(html).toContain("Pro plan");
+    expect(html).not.toContain("Monthly plan allowance");
+    expect(html).toContain("Show AI session and weekly usage details");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("Monthly:");
+  });
+
+  it("shows loading/unavailable states without fabricating a percentage", () => {
+    for (const unavailable of [false, true]) {
+      m.hook.mockReturnValue({ unavailable, now });
+      const html = renderToStaticMarkup(React.createElement(AiUsageIndicator));
+      expect(html).toContain(`aria-busy="${unavailable ? "false" : "true"}`);
+      expect(html).not.toContain("0%");
+    }
+  });
+
+  it("details distinguish actual use, pending reservations, remaining units and reset", () => {
+    const html = renderToStaticMarkup(React.createElement(CreditWindowCard, { label: "Session", cadence: "5 hours", metric: session, now }));
+    expect(html).toContain("Session limit");
+    expect(html).toContain("20 units");
+    expect(html).toContain("2 used + 1 pending");
+    expect(html).toContain("17 remaining");
+    expect(html).toContain("Resets in 1h 18m");
+    expect(html).toContain("15% used");
+  });
+
+  it("reflects low and exhausted windows in accessible status colors and text", () => {
+    const low = renderToStaticMarkup(React.createElement(CreditWindowCard, {
+      label: "Weekly", cadence: "7 days", metric: { ...weekly, used: 85, remaining: 15 }, now,
+    }));
+    expect(low).toContain("85% used");
+    const exhausted = renderToStaticMarkup(React.createElement(CreditWindowCard, {
+      label: "Session", cadence: "5 hours", metric: { ...session, used: 20, reserved: 0, remaining: 0 }, now,
+    }));
+    expect(exhausted).toContain("100% used");
+  });
 });

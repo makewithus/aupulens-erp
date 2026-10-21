@@ -568,21 +568,21 @@ function ProductsPageInner() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
     >
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary">
               Products
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial min-w-[160px]">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
               <Input
                 placeholder="Search products..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-64 text-foreground"
+                className="h-11 rounded-none border-border/40 bg-transparent pl-11 pr-4 text-[14px] tracking-tight shadow-none placeholder:text-muted-foreground/60 hover:border-border/40 focus-visible:border-primary/40 focus-visible:ring-0 w-full sm:w-64 text-foreground"
               />
             </div>
             <DateRangeFilter
@@ -593,7 +593,7 @@ function ProductsPageInner() {
             />
             <Button
               onClick={handleOpenCreate}
-              className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+              className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer shrink-0"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Product
@@ -601,7 +601,7 @@ function ProductsPageInner() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 border border-border/30 p-4 md:grid-cols-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 border border-border/30 p-3 sm:p-4">
           <div className="space-y-1">
             <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">HSN/SAC</Label>
             <Input value={hsnFilter} disabled={missingHsnFilter} onChange={(e) => setHsnFilter(e.target.value)} placeholder="4820" className="h-9 rounded-none" />
@@ -745,101 +745,103 @@ function ProductsPageInner() {
         </ModularModal>
 
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex items-center justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Product Catalog</h2>
-                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Product Catalog</h2>
+                <p className="mt-1 sm:mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {total} {total === 1 ? "Product" : "Products"}
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="h-9 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => load(page, debouncedQuery)}>
+              <Button variant="outline" size="sm" className="h-9 rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider shrink-0" onClick={() => load(page, debouncedQuery)}>
                 Refresh
               </Button>
             </div>
           </div>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader className="border-border/40">
-                <TableRow>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Product</TableHead>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Type</TableHead>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Status</TableHead>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Price</TableHead>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Tax</TableHead>
-                  <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Cost</TableHead>
-                  <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border/30">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="px-8 py-7 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : filtered.length === 0 ? (
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-[850px]">
+                <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableCell colSpan={7} className="py-24 text-center">
-                      <Package className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
-                      <h3 className="text-lg font-medium text-foreground">No products found</h3>
-                    </TableCell>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Product</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Type</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Status</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Price</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Tax</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Cost</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filtered.map((p) => (
-                    <TableRow key={p._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
-                        <div className="font-mono text-sm font-semibold text-primary">{p.header.name}</div>
-                        <div className="text-[11px] text-muted-foreground/60 mt-0.5">
-                          {p.tab_general_information.default_code || "No Ref"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 capitalize">
-                        {p.tab_general_information.type}
-                      </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
-                        <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${p.status === "published" ? "text-emerald-500" : "text-amber-500"}`}>
-                          {p.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground">
-                        {formatCurrency(p.tab_general_information.list_price)}
-                      </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
-                        <div className="font-mono text-xs">{p.tab_general_information.hsnSacCode || "No HSN/SAC"}</div>
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          {p.tab_general_information.gstRate ?? 0}% · {p.tab_general_information.gstTreatment || "taxable"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground/80">
-                        {formatCurrency(p.tab_general_information.standard_price)}
-                      </TableCell>
-                      <TableCell className="px-8 py-7 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenView(p)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenEdit(p)}>
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-red-500" onClick={() => handleDeleteClick(p._id, p.header.name)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/30">
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-24 text-center">
+                        <Package className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                        <h3 className="text-lg font-medium text-foreground">No products found</h3>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filtered.map((p) => (
+                      <TableRow key={p._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10">
+                          <div className="font-mono text-sm font-semibold text-primary">{p.header.name}</div>
+                          <div className="text-[11px] text-muted-foreground/60 mt-0.5">
+                            {p.tab_general_information.default_code || "No Ref"}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/80 capitalize">
+                          {p.tab_general_information.type}
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10">
+                          <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${p.status === "published" ? "text-emerald-500" : "text-amber-500"}`}>
+                            {p.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground">
+                          {formatCurrency(p.tab_general_information.list_price)}
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                          <div className="font-mono text-xs">{p.tab_general_information.hsnSacCode || "No HSN/SAC"}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {p.tab_general_information.gstRate ?? 0}% · {p.tab_general_information.gstTreatment || "taxable"}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-r last:border-0 border-border/10 font-sans tabular-nums text-sm text-foreground/80">
+                          {formatCurrency(p.tab_general_information.standard_price)}
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenView(p)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground" onClick={() => handleOpenEdit(p)}>
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-red-500" onClick={() => handleDeleteClick(p._id, p.header.name)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-8 py-4 border-t border-border/40">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-8 py-3 sm:py-4 border-t border-border/40">
                 <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/60">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>

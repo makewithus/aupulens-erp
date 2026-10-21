@@ -318,31 +318,31 @@ export default function JournalEntriesPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={() => load(page, debouncedQuery, voucherTypeFilter, voucherStatusFilter, dateFrom, dateTo)}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Journal Entries
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Manage and review accounting entries
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search entries..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
+                className="pl-9 w-full bg-background"
               />
             </div>
             <Select
               value={voucherTypeFilter || "all"}
               onValueChange={(v) => setVoucherTypeFilter(v === "all" ? "" : v)}
             >
-              <SelectTrigger className="w-[150px] bg-background">
+              <SelectTrigger className="w-full sm:w-[150px] bg-background">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -358,7 +358,7 @@ export default function JournalEntriesPage() {
               value={voucherStatusFilter || "all"}
               onValueChange={(v) => setVoucherStatusFilter(v === "all" ? "" : v)}
             >
-              <SelectTrigger className="w-[150px] bg-background">
+              <SelectTrigger className="w-full sm:w-[150px] bg-background">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -381,7 +381,7 @@ export default function JournalEntriesPage() {
                 Clear
               </Button>
             )}
-            <Button onClick={handleOpenCreate}>
+            <Button onClick={handleOpenCreate} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" /> New Entry
             </Button>
           </div>
@@ -402,17 +402,17 @@ export default function JournalEntriesPage() {
                 </p>
               </div>
             ) : (
-              <div className="bg-background rounded-xl border overflow-hidden">
-                <Table className="min-w-full divide-y divide-border">
+              <div className="bg-background rounded-xl border overflow-hidden overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[700px] w-full divide-y divide-border">
                   <TableHeader className="bg-muted/50">
                     <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <TableHead className="px-6 py-4 text-left">Date</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Number</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Ref</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Journal</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Total</TableHead>
-                      <TableHead className="px-6 py-4 text-center">Status</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Date</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Number</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Ref</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Journal</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Total</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-center">Status</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">
@@ -421,24 +421,24 @@ export default function JournalEntriesPage() {
                         key={item._id}
                         className="hover:bg-muted/20 transition-colors text-sm group"
                       >
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-muted-foreground">
                           {new Date(item.header?.date).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap font-bold text-primary">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap font-bold text-primary">
                           {item.header?.name}
                         </TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-muted-foreground">
                           {item.header?.ref || "-"}
                         </TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap capitalize">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap capitalize">
                           <Badge variant="outline">
                             {item.header?.journalType}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right font-black">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right font-black">
                           ₹{item.totals?.amountTotal?.toLocaleString() ?? 0}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-center">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                           {item.voucherType ? (
                             <div className="flex items-center gap-1.5 justify-center">
                               <Badge
@@ -464,11 +464,11 @@ export default function JournalEntriesPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-8 w-8 text-primary sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             onClick={() => handleOpenView(item)}
                           >
                             <Eye className="h-4 w-4" />
@@ -476,7 +476,7 @@ export default function JournalEntriesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-8 w-8 text-muted-foreground hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             onClick={() => handleDelete(item._id)}
                             disabled={item.status === "posted"}
                           >
@@ -492,15 +492,15 @@ export default function JournalEntriesPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border">
+                <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                     Previous
                   </Button>
-                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <span className="text-xs sm:text-sm">Page {page} of {totalPages}</span>
                   <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                     Next
                   </Button>
@@ -515,7 +515,7 @@ export default function JournalEntriesPage() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         title={formData?.header?.name || "New Journal Entry"}
-        className="max-w-[90vw] w-full"
+        className="max-w-[95vw] sm:max-w-[90vw] w-full p-3 sm:p-6"
         footer={
           <div className="flex justify-end gap-3 px-6 py-4">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>

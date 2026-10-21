@@ -73,7 +73,7 @@ export function OnboardingLayout({ children, currentStep }: OnboardingLayoutProp
 
       {/* Right Panel - containing form content (50% width) */}
       <div className="flex-1 lg:flex-none lg:w-[50%] flex flex-col justify-between overflow-y-auto lg:h-screen">
-        <div className="mx-auto flex w-full max-w-md flex-col px-8 pt-12 pb-16 min-h-screen lg:min-h-0 lg:flex-1 lg:justify-between lg:py-16">
+        <div className="mx-auto flex w-full max-w-md flex-col px-4 sm:px-8 pt-8 sm:pt-12 pb-12 sm:pb-16 min-h-screen lg:min-h-0 lg:flex-1 lg:justify-between lg:py-16">
           {/* Top Bar */}
           <div className="flex items-center justify-between w-full">
             <div className="lg:hidden">

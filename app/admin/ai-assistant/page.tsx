@@ -93,8 +93,15 @@ export default function AIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const { supported: micSupported, listening, transcribing, audioLevels, toggle: toggleMic } = useSpeechToText({
     onFinalText: (t) => setInput((prev) => (prev ? `${prev} ${t}` : t)),
@@ -469,8 +476,8 @@ export default function AIAssistant() {
           });
         }
       } else {
-        // Subsequent messages - update existing chat
-        setTimeout(() => saveCurrentChat(), 500);
+        // The assistant route already persisted this completed exchange.
+        await fetchChatHistory();
       }
     } catch (error) {
       console.error("Error:", error);

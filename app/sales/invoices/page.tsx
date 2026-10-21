@@ -161,17 +161,17 @@ function SalesInvoicesLandingPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <div className="space-y-1">
-            <h1 className={SALES_PAGE_TITLE_CLASS}>
+            <h1 className={`${SALES_PAGE_TITLE_CLASS} text-2xl sm:text-3xl`}>
               Invoices
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/sales/document-settings">
               <Button
                 variant="outline"
@@ -187,7 +187,7 @@ function SalesInvoicesLandingPageInner() {
               <LayoutGrid className="w-4 h-4 mr-2" /> POS Billing
             </Button>
             <Link href="/sales/invoices/new">
-              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+              <Button className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-2" /> Create Invoice
               </Button>
             </Link>
@@ -197,28 +197,20 @@ function SalesInvoicesLandingPageInner() {
         {!loading && invoices.length === 0 && !search && statusFilter === "all" && !dateFrom && !dateTo && !customerId && !amountMin && !amountMax ? (
           renderEmptyState()
         ) : (
-          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
-            <div className="border-b border-border/20 px-8 py-6">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
+            <div className="border-b border-border/20 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+              <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="shrink-0">
-                  <h2 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">
+                  <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">
                     All Invoices
                   </h2>
-                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                  <p className="mt-1 sm:mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                     {invoiceTotal} {invoiceTotal === 1 ? "Invoice" : "Invoices"}
                   </p>
                 </div>
 
-                {/* max-w-2xl used to squeeze this row to fit a full-labelled
-                    DateRangeFilter + status Select alongside the search box —
-                    with all three sharing ~42rem, the search box was left
-                    with only ~50px, just wide enough for 2-3 characters
-                    before they scrolled out of view (looked like nothing
-                    was being typed). flex-wrap now lets the row wrap onto a
-                    second line on narrower screens instead of squeezing any
-                    one field, and the search box keeps a real minimum width. */}
                 <div className="w-full flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                  <div className="relative flex-1 min-w-[220px]">
+                  <div className="relative flex-1 min-w-[180px] sm:min-w-[220px]">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
                     <Input
                       placeholder="Search invoices..."
@@ -254,26 +246,26 @@ function SalesInvoicesLandingPageInner() {
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Invoice Number</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Due Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Status</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Amount</TableHead>
-                    <TableHead className="px-4 py-5 w-[64px]"></TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Invoice Number</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Date</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Due Date</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Customer</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Status</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Amount</TableHead>
+                    <TableHead className="px-3 sm:px-4 py-3.5 sm:py-5 w-[64px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border/30">
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                        <TableCell className="px-4 py-7"><Skeleton className="h-8 w-8" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell className="px-3 sm:px-4 py-4 sm:py-7"><Skeleton className="h-8 w-8" /></TableCell>
                       </TableRow>
                     ))
                   ) : invoices.length === 0 ? (
@@ -287,27 +279,27 @@ function SalesInvoicesLandingPageInner() {
                   ) : (
                     invoices.map((inv) => (
                       <TableRow key={inv._id} className="group transition-colors duration-300 hover:bg-white/[0.015]">
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary whitespace-nowrap">
                           <Link href={`/sales/invoices/${inv._id}`}>{inv.number}</Link>
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                           {new Date(inv.invoiceDate).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                           {new Date(inv.dueDate).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 whitespace-nowrap">
                           {inv.customerId?.header?.name || "Unknown"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 whitespace-nowrap">
                           <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[inv.status] || "text-muted-foreground"}`}>
                             {inv.status.replace("_", " ")}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-8 py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground whitespace-nowrap">
                           ₹{inv.totalAmount?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="px-4 py-7">
+                        <TableCell className="px-3 sm:px-4 py-4 sm:py-7">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-white/5 text-foreground cursor-pointer">

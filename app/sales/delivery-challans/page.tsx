@@ -336,9 +336,9 @@ function DeliveryChallansPageInner() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
             Delivery Challans
           </h1>
         </div>
@@ -346,18 +346,18 @@ function DeliveryChallansPageInner() {
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
           {/* Card Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Delivery Challans</h3>
+                <h3 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Delivery Challans</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {filtered.length} {filtered.length === 1 ? "Challan" : "Challans"}
                 </p>
               </div>
 
-              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              <div className="w-full lg:max-w-3xl flex flex-wrap gap-2 sm:gap-3 items-center lg:justify-end">
                 {/* Search input */}
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:w-auto flex-1 min-w-[160px] sm:max-w-xs">
                   <SearchInput
                     value={query}
                     onChange={setQuery}
@@ -366,9 +366,9 @@ function DeliveryChallansPageInner() {
                 </div>
 
                 {/* Status select filter */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectTrigger className="w-full sm:w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/40">
@@ -389,7 +389,7 @@ function DeliveryChallansPageInner() {
 
                 <Button
                   onClick={handleOpenCreate}
-                  className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+                  className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer shrink-0"
                 >
                   <Plus className="h-4 w-4 mr-2" /> New Challan
                 </Button>

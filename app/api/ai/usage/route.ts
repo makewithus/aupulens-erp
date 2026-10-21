@@ -27,7 +27,7 @@ export async function GET() {
     const [windows, used, credits] = await Promise.all([
       getWindowUsage(tenantId, org.settings?.ai?.usagePolicy, now),
       getAiUsageCount(tenantId, getAiPeriod(now)),
-      getAiCreditBalance(tenantId, getAiPeriod(now)),
+      getAiCreditBalance(tenantId, getAiPeriod(now), now),
     ]);
     const data: AiUsageSummary = {
       ...windows,

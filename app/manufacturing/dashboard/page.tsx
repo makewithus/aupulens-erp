@@ -181,10 +181,10 @@ export default function ManufacturingDashboard() {
         onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
         onRefresh={fetchSummary}
       >
-        <div className="space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
           <div>
-            <div className="h-9 w-64 bg-muted animate-pulse rounded mb-2" />
-            <div className="h-5 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-9 w-48 sm:w-64 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-5 w-40 sm:w-48 bg-muted animate-pulse rounded" />
           </div>
           <StatsRowSkeleton count={5} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -210,10 +210,10 @@ export default function ManufacturingDashboard() {
       onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
       onRefresh={fetchSummary}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words">
               Manufacturing Dashboard
             </h1>
             <p className="mt-2 text-muted-foreground">
@@ -222,7 +222,7 @@ export default function ManufacturingDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard
             title="Planning"
             value={summary.demandForecast}
@@ -255,7 +255,7 @@ export default function ManufacturingDashboard() {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Bill of Materials"
             value={summary.totalBoms}
@@ -270,7 +270,7 @@ export default function ManufacturingDashboard() {
           />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
           {/* Quick Actions Card */}
           <Card className="md:col-span-1">
             <CardHeader>

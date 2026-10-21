@@ -24,7 +24,7 @@ export function WorkforceOverview({
   hires,
 }: WorkforceOverviewProps) {
   return (
-    <section className="grid grid-cols-1 gap-20 xl:grid-cols-2">
+    <section className="grid grid-cols-1 gap-8 lg:gap-12 xl:gap-20 xl:grid-cols-2">
 
       <AttendanceOverview
         loading={loading}

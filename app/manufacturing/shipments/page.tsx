@@ -336,16 +336,16 @@ export default function ShipmentsPage() {
       pageName="Shipments"
       breadcrumbs={[{ label: 'Manufacturing', href: '/manufacturing/dashboard' }, { label: 'Shipments' }]}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Shipments</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Shipments</h1>
             <p className="text-sm text-muted-foreground">Manage and track all shipments</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Input placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} className="w-48" />
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Input placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:w-48" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -363,21 +363,21 @@ export default function ShipmentsPage() {
               onDateFromChange={setDateFrom}
               onDateToChange={setDateTo}
             />
-            <Button onClick={() => load()}>Refresh</Button>
+            <Button variant="outline" onClick={() => load()} className="w-full sm:w-auto">Refresh</Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   New Shipment
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] sm:w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create Shipment</DialogTitle>
                   <DialogDescription>Fill in the details to create a new shipment</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleCreateShipment} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="shipmentNumber">Shipment Number *</Label>
                       <Input
@@ -428,7 +428,7 @@ export default function ShipmentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="origin">Origin *</Label>
                       <Input
@@ -451,7 +451,7 @@ export default function ShipmentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="shipmentType">Shipment Type *</Label>
                       <Select
@@ -493,7 +493,7 @@ export default function ShipmentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="trackingNumber">Tracking Number</Label>
                       <Input
@@ -525,8 +525,8 @@ export default function ShipmentsPage() {
                     {newShipment.items.map((item, index) => (
                       <div key={index} className="border rounded-none p-3 space-y-3">
                         <div className="flex justify-between items-start">
-                          <div className="grid grid-cols-5 gap-2 flex-1">
-                            <div className="col-span-5 space-y-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 flex-1">
+                            <div className="col-span-1 sm:col-span-2 md:col-span-5 space-y-1">
                               <Label className="text-xs">Description</Label>
                               <Input
                                 value={item.description}
@@ -685,8 +685,8 @@ export default function ShipmentsPage() {
             ) : filtered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">No shipments found.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="min-w-full text-sm">
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[700px] text-sm">
                   <TableHeader>
                     <TableRow className="text-left border-b bg-muted/50">
                       <TableHead className="py-2 pr-4">Shipment #</TableHead>
@@ -718,8 +718,8 @@ export default function ShipmentsPage() {
               </div>
             )}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-3 border-t mt-3">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t mt-3">
+                <p className="text-sm text-muted-foreground text-center sm:text-left">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
                 <div className="flex items-center gap-2">

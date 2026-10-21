@@ -167,25 +167,25 @@ export function EditUserDialog({
       title={`Edit User: ${user?.name || ""}`}
       className="max-w-[900px]"
       footer={
-        <div className="flex justify-between items-center w-full px-6 py-4 bg-muted/5 border-t">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 w-full px-4 sm:px-6 py-4 bg-muted/5 border-t">
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-bold uppercase">
             <AlertCircle className="h-3.5 w-3.5" />
             <span>Only modified fields will be updated</span>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={loading}
-              className="font-bold underline text-xs uppercase"
+              className="font-bold underline text-xs uppercase w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={loading || !metadataReady || !allowedRoleValues.has(formData.role as any)}
-              className="none-xl h-11 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20"
+              className="none-xl h-11 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 w-full sm:w-auto"
             >
               {loading ? (
                 <>
@@ -200,7 +200,7 @@ export function EditUserDialog({
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {(error || metadataError) && (
           <div className="p-4 none-xl border-2 border-rose-500/20 bg-rose-500/10 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
@@ -338,7 +338,7 @@ export function EditUserDialog({
               allows — e.g. letting one rep approve contracts without promoting them to admin. Read/view
               access is always allowed regardless of role.
             </p>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border-2 rounded-md p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto border-2 rounded-md p-3">
               {GRANTABLE_CRM_PERMISSIONS.map((perm) => (
                 <label key={perm} className="flex items-center gap-2 text-xs cursor-pointer">
                   <Checkbox

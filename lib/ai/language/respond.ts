@@ -31,9 +31,9 @@ export function interpretationLine(trace: LanguageTrace): string {
   return `> *I understood this as:* "${flat}" — not right? Reply "no, I meant …" and I'll redo it.\n\n`;
 }
 
-/** Only pure regional input gets a regional reply; code-mixed input keeps an English reply. */
+/** Regional and code-mixed input should receive a reply in the language they used. */
 export function wantsRegionalReply(trace: LanguageTrace): boolean {
-  return !trace.degraded && (trace.kind === "native" || trace.kind === "romanised") && trace.detectedLanguage !== "en-IN" && trace.detectedLanguage !== "und";
+  return !trace.degraded && (trace.kind === "native" || trace.kind === "romanised" || trace.kind === "mixed") && trace.detectedLanguage !== "en-IN" && trace.detectedLanguage !== "und";
 }
 
 export async function respondInLanguage(reply: string, trace: LanguageTrace | undefined, opts: { showInterpretation?: boolean } = {}): Promise<RespondResult> {

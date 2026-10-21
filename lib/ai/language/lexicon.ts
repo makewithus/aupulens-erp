@@ -30,16 +30,16 @@ set change go back skip done finish confirm yes no correct wrong right left
 /** Distinctive Roman-script words per language. Longest-first matching is not needed — token lookup. */
 export const ROMAN_INDIC_WORDS: Record<string, Set<string>> = {
   [LANGUAGE_CODE.HINDI]: words(`
-haan ji mujhe mujhko mera meri mere hamara hamari hum aap aapka aapki tum tumhara tera teri hai hain tha thi hoga hogi hoon nahi nahin
+haan ji mujhe mujhko mera meri mere hamara hamari hum humne humnein aap aapka aapki tum tumhara tera teri hai hain tha thi hoga hogi hoon nahi nahin
 kya kyun kyon kaise kaisa kab kahan kaun kitna kitni kitne kis
 banao banana banani banaye banaiye bana banado karo karna karni kariye kar kardo kijiye
 dikhao dikhana dikha bhejo bhejna bhej bhijwao dena dedo do_ lena lelo chahiye chahie chahta chahti
-ke_liye liye ke ka ki ko se mein main_ par aur ya lekin agar toh magar
+ke_liye liye ke ka ki ko se mein main_ par pr aur ya lekin agar toh magar
 paise paisa rupaye rupay hazaar hazar lakh_ karod
-agle agla agli pichhle pichle mangalwar somwar budhwar guruwar shukrawar shanivar ravivar kal aaj parso
+agle agla agli pichhle pichle pichli pichhli mangalwar somwar budhwar guruwar shukrawar shanivar ravivar kal aaj parso
 bakaya baki baaki bhugtan grahak khata hisab hisaab bikri kharid kharcha
 kam zyada jyada se mein saare sabhi dijiye dijie dikhaiye dikhaye batao bataiye kitne kitna kitni wala wali wale tak abhi sirf pachchis pachas pachaas sau bhi
-pichhale pichhla pichhli ek hua hui hue huya huyi saal varsh baras mahina mahine mahiney hafta hafte din
+pichhale pichhla ek hua hui hue huya huyi kiya wahi wahan shuru karte kartey saal varsh baras mahina mahine mahiney hafta hafte din
 dhanyavaad shukriya kripya zara zaroor bilkul theek thik accha acha
   `),
   [LANGUAGE_CODE.TAMIL]: words(`

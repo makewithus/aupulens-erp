@@ -89,16 +89,16 @@ export default function HRReportsPage() {
   ].map((c) => ({ ...c, action: () => exportReport(c.type, c.title) }));
 
   return (
-      <div className="space-y-8 max-w-8xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">HR Reports</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">HR Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Generate and export HR analytics and reports
           </p>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-40 w-full" />
             ))}
@@ -106,7 +106,7 @@ export default function HRReportsPage() {
         ) : (
           <>
             {/* Overview Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card className="border-border/40">
                 <CardContent className="p-4 text-center">
                   <p className="text-3xl font-black font-sans tabular-nums">{data?.stats?.totalEmployees || 0}</p>
@@ -164,7 +164,7 @@ export default function HRReportsPage() {
             {/* Report Cards */}
             <div>
               <h2 className="text-sm font-bold text-muted-foreground uppercase mb-4">Export Reports</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {reportCards.map((report, idx) => {
                   const Icon = report.icon;
                   return (

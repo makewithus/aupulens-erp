@@ -190,7 +190,7 @@ export function DashboardLayout({
 
   return (
     <div
-      className="h-screen bg-background flex flex-col"
+      className="flex h-dvh min-h-[100dvh] min-w-0 flex-col overflow-hidden bg-background"
       // Expose the AI sidebar's width so viewport-fixed form action bars can
       // offset their right edge and not slide under the panel when it's open.
       style={{ ["--ai-sidebar-w" as string]: isAiSidebarOpen ? "450px" : "0px" }}
@@ -219,7 +219,7 @@ export function DashboardLayout({
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {(sections.length > 0 || (shouldFilterModules && !enabledModulesLoaded)) && (
           <DashboardSidebar
             sections={sections}
@@ -234,7 +234,7 @@ export function DashboardLayout({
           aria-busy={aiWorking}
           ref={mainScrollRef}
           className={cn(
-            "relative flex-1 overflow-y-auto youtube-scrollbar bg-linear-to-br from-background via-background to-muted/10",
+            "relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain youtube-scrollbar bg-linear-to-br from-background via-background to-muted/10",
             isMainScrolling && "is-scrolling",
             className,
           )}
@@ -247,7 +247,7 @@ export function DashboardLayout({
           )}
           <div
             ref={contentRef}
-            className="p-3 sm:p-4 md:p-6 lg:p-8"
+            className="min-w-0 w-full p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6 lg:p-8"
           >
             {children}
           </div>

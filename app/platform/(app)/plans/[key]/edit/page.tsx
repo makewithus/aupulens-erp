@@ -27,6 +27,8 @@ interface PlanDetail {
     storageGb: number;
     apiRequestsPerMonth: number;
     aiCreditsPerMonth: number;
+    aiCreditsPerSession: number;
+    aiCreditsPerWeek: number;
     aiRequestsPerMonth: number;
     automationRunsPerMonth: number;
     documentLimitPerMonth: number;
@@ -198,6 +200,16 @@ export default function EditPlanPage() {
               label="AI credits / month"
               value={plan.features.aiCreditsPerMonth}
               onChange={(v) => updateFeature("aiCreditsPerMonth", v)}
+            />
+            <NumField
+              label="AI credits / session (5 hours)"
+              value={plan.features.aiCreditsPerSession}
+              onChange={(v) => updateFeature("aiCreditsPerSession", v)}
+            />
+            <NumField
+              label="AI credits / week (7 days)"
+              value={plan.features.aiCreditsPerWeek}
+              onChange={(v) => updateFeature("aiCreditsPerWeek", v)}
             />
             <NumField
               label="AI requests / month"

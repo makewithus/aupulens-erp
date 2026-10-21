@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "vitest";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import Account from "@/models/finance/Account";
 import Customer from "@/models/sales/Customer";
 import Payment from "@/models/sales/Payment";
@@ -45,7 +46,10 @@ function sumByAccount(lines: any[], accountId: mongoose.Types.ObjectId, field: "
 
 describe("postCustomerPaymentJournal", () => {
   beforeAll(async () => {
-    await mongoose.connect("mongodb://localhost:27017/aupulens_test_customer_payment_posting");
+    // Each invocation owns a disposable database. A fixed DB name allowed
+    // concurrent local/CI runs to drop one another's chart-of-accounts fixture.
+    const databaseName = `aupulens_test_customer_payment_posting_${randomUUID().replaceAll("-", "")}`;
+    await mongoose.connect(`mongodb://localhost:27017/${databaseName}`);
     await Account.init();
     await Customer.init();
     await Payment.init();

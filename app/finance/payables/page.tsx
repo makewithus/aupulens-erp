@@ -294,7 +294,7 @@ export default function PayablesPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
       onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllBillsForStats(statusFilter, dateFrom, dateTo); }}
     >
-      <div className="space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <FinancePageHeader
           title="Accounts Payable"
           description="Manage vendor bills and track payments"
@@ -458,7 +458,7 @@ export default function PayablesPage() {
           }
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Payable</CardTitle>
@@ -504,26 +504,26 @@ export default function PayablesPage() {
         )}
 
         <Card className="border-border/40">
-          <CardHeader className="bg-muted/30">
-            <div className="flex justify-between items-center">
+          <CardHeader className="bg-muted/30 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="text-base font-semibold">
                 Bills
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({total} total)
                 </span>
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="relative">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial min-w-[160px]">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search bill #..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="pl-9 w-56 bg-background"
+                    className="pl-9 w-full sm:w-56 bg-background"
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -543,61 +543,63 @@ export default function PayablesPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold">Bill #</TableHead>
-                  <TableHead className="font-semibold">Vendor</TableHead>
-                  <TableHead className="font-semibold">Issue Date</TableHead>
-                  <TableHead className="font-semibold">Due Date</TableHead>
-                  <TableHead className="text-right font-semibold">Amount</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBills.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      {query || statusFilter !== 'all' || dateFrom || dateTo
-                        ? "No bills match your search or filters."
-                        : "No bills found. Create your first bill to get started."}
-                    </TableCell>
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-[700px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-semibold">Bill #</TableHead>
+                    <TableHead className="font-semibold">Vendor</TableHead>
+                    <TableHead className="font-semibold">Issue Date</TableHead>
+                    <TableHead className="font-semibold">Due Date</TableHead>
+                    <TableHead className="text-right font-semibold">Amount</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredBills.map((bill) => (
-                    <TableRow key={bill._id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium">{bill.billNumber}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">{bill.vendorName}</div>
-                        <div className="text-xs text-muted-foreground">{bill.vendorEmail}</div>
-                      </TableCell>
-                      <TableCell className="text-sm">{formatDate(bill.issueDate)}</TableCell>
-                      <TableCell className="text-sm">{formatDate(bill.dueDate)}</TableCell>
-                      <TableCell className="text-right font-semibold font-sans tabular-nums">
-                        {formatCurrency(bill.total)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(bill.status)}</TableCell>
-                      <TableCell>
-                        {(bill.status === 'pending' || bill.status === 'overdue') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleMarkPaid(bill._id)}
-                            className="h-8"
-                          >
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Mark Paid
-                          </Button>
-                        )}
+                </TableHeader>
+                <TableBody>
+                  {filteredBills.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        {query || statusFilter !== 'all' || dateFrom || dateTo
+                          ? "No bills match your search or filters."
+                          : "No bills found. Create your first bill to get started."}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredBills.map((bill) => (
+                      <TableRow key={bill._id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-medium">{bill.billNumber}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{bill.vendorName}</div>
+                          <div className="text-xs text-muted-foreground">{bill.vendorEmail}</div>
+                        </TableCell>
+                        <TableCell className="text-sm">{formatDate(bill.issueDate)}</TableCell>
+                        <TableCell className="text-sm">{formatDate(bill.dueDate)}</TableCell>
+                        <TableCell className="text-right font-semibold font-sans tabular-nums">
+                          {formatCurrency(bill.total)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(bill.status)}</TableCell>
+                        <TableCell>
+                          {(bill.status === 'pending' || bill.status === 'overdue') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkPaid(bill._id)}
+                              className="h-8"
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Mark Paid
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>

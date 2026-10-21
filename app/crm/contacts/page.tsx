@@ -159,14 +159,14 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       {/* Table Card */}
       <Card className="overflow-hidden border-border/40 shadow-none bg-background">
         {/* Header */}
-        <div className="border-b border-border/20 px-6 py-4">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="border-b border-border/20 px-4 sm:px-6 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="shrink-0">
-              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+              <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
                 All Contacts
               </h2>
 
@@ -175,15 +175,17 @@ export default function ContactsPage() {
               </p>
             </div>
 
-            <div className="w-full max-w-md flex flex-row gap-8">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search contacts..."
-              />
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="w-full sm:w-64">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search contacts..."
+                />
+              </div>
               <Button
                 onClick={() => setSheetOpen(true)}
-                className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+                className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Contact
@@ -408,15 +410,15 @@ export default function ContactsPage() {
             </TableBody>
           </TableContainer>
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
-              <p className="font-mono text-[11px] text-muted-foreground/60">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60 text-center sm:text-left">
                 Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                   Previous
                 </Button>
-                <span className="text-sm">Page {page} of {totalPages}</span>
+                <span className="text-xs sm:text-sm">Page {page} of {totalPages}</span>
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                   Next
                 </Button>

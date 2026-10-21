@@ -91,15 +91,15 @@ export default function OnboardingPage() {
 
   return (
     <>
-      <div className="space-y-8 max-w-6xl mx-auto">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
+        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Onboarding
             </h1>
           </div>
 
-          <div className="w-full max-w-md space-y-3">
+          <div className="w-full lg:max-w-md space-y-2 sm:space-y-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
 
@@ -122,7 +122,7 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <p className="text-right font-mono text-[11px] text-muted-foreground/45">
+            <p className="text-left sm:text-right font-mono text-[11px] text-muted-foreground/45">
               {employees.length}{" "}
               {employees.length === 1 ? "Employee" : "Employees"}
             </p>

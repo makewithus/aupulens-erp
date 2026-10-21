@@ -46,15 +46,15 @@ export function ModularModal({
         onInteractOutside={(e) => { if (preventOutsideClose) e.preventDefault(); }}
         onEscapeKeyDown={(e) => { if (preventOutsideClose) e.preventDefault(); }}
         className={cn(
-          "p-0 overflow-hidden flex flex-col gap-0 border-border bg-card max-w-[80vw] w-full",
+          "p-0 overflow-hidden flex flex-col gap-0 border-border bg-card w-[95vw] sm:w-[90vw] lg:w-[85vw] max-w-[1400px] max-h-[90vh]",
           className,
         )}
       >
-        <div className="p-6 border-b border-border/40 shrink-0">
+        <div className="p-4 sm:p-6 border-b border-border/40 shrink-0">
           <DialogHeader className="text-left">
-            <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl font-bold">{title}</DialogTitle>
             {description && (
-              <DialogDescription className="text-muted-foreground">
+              <DialogDescription className="text-muted-foreground text-xs sm:text-sm">
                 {description}
               </DialogDescription>
             )}
@@ -63,7 +63,7 @@ export function ModularModal({
 
         <div
           className={cn(
-            "flex-1 overflow-y-auto p-6 youtube-scrollbar",
+            "flex-1 overflow-y-auto p-4 sm:p-6 youtube-scrollbar min-w-0",
             contentClassName,
           )}
         >
@@ -71,7 +71,7 @@ export function ModularModal({
         </div>
 
         {footer && (
-          <DialogFooter className="p-4 border-t border-border/40 bg-card shrink-0 sm:justify-between items-center gap-2">
+          <DialogFooter className="p-3 sm:p-4 border-t border-border/40 bg-card shrink-0 sm:justify-between items-center gap-2 flex-col sm:flex-row">
             {footer}
           </DialogFooter>
         )}

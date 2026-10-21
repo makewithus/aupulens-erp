@@ -199,23 +199,23 @@ export default function DepartmentsPage() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
+          <div className="space-y-1 min-w-0">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Department Directory
             </h1>
           </div>
 
           <Button onClick={handleOpenCreate} 
-          className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+          className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto shrink-0"
         >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-2" />
             Add Department
           </Button>
         </div>
         
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="Total Departments"
               value={totalDepts}
@@ -242,14 +242,14 @@ export default function DepartmentsPage() {
           </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex gap-3 flex-1 flex-wrap">
-            <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 flex-1 flex-wrap">
+            <div className="relative w-full sm:flex-1 sm:max-w-md min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+              <Input placeholder="Search departments..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 w-full" />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -273,9 +273,10 @@ export default function DepartmentsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border/40">
+          <Card className="border-border/40 overflow-hidden">
             <CardContent className="p-0">
-              <Table>
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead>Department</TableHead>
@@ -348,6 +349,7 @@ export default function DepartmentsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -360,7 +362,7 @@ export default function DepartmentsPage() {
       >
         <div className="space-y-4 p-1">
           {modalMode === "view" ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase">Name</label>
                 <p className="font-bold">{formData.name}</p>
@@ -369,7 +371,7 @@ export default function DepartmentsPage() {
                 <label className="text-xs font-semibold text-muted-foreground uppercase">Code</label>
                 <p className="font-mono">{formData.code}</p>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase">Description</label>
                 <p className="text-sm">{formData.description || "N/A"}</p>
               </div>
@@ -398,7 +400,7 @@ export default function DepartmentsPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Name *</label>
                   <Input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
@@ -407,7 +409,7 @@ export default function DepartmentsPage() {
                   <label className="text-xs font-semibold text-muted-foreground">Code *</label>
                   <Input value={formData.code || ""} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="text-xs font-semibold text-muted-foreground">Description</label>
                   <Input value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                 </div>
@@ -447,7 +449,7 @@ export default function DepartmentsPage() {
                   <label className="text-xs font-semibold text-muted-foreground">Cost Centre</label>
                   <Input value={formData.costCenter || ""} onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })} />
                 </div>
-                <div className="flex items-center gap-2 pt-5">
+                <div className="flex items-center gap-2 pt-2 sm:pt-5">
                   <input
                     type="checkbox"
                     checked={formData.isActive !== false}
@@ -457,9 +459,9 @@ export default function DepartmentsPage() {
                   <label className="text-sm font-medium">Active</label>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button className="w-full sm:w-auto" onClick={handleSubmit} disabled={isSubmitting}>
                   {isSubmitting ? "Saving..." : modalMode === "edit" ? "Update" : "Create"}
                 </Button>
               </div>

@@ -18,6 +18,8 @@ interface PlanRow {
     modules: string[];
     maxUsers: number;
     aiCreditsPerMonth: number;
+    aiCreditsPerSession: number;
+    aiCreditsPerWeek: number;
     automationRunsPerMonth: number;
     supportLevel: string;
   };
@@ -40,9 +42,9 @@ export default function PlansPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
       <div>
-        <h1 className="text-2xl font-semibold">Plans</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold break-words">Plans</h1>
         <p className="text-sm text-neutral-500">
           The plan catalogue. Assign a plan from an organisation&apos;s Subscription tab.
         </p>
@@ -72,6 +74,8 @@ export default function PlansPage() {
             <CardContent className="text-sm space-y-1 text-neutral-600 dark:text-neutral-300">
               <p>{plan.features.maxUsers} users</p>
               <p>{plan.features.aiCreditsPerMonth.toLocaleString()} AI credits/mo</p>
+              <p>{plan.features.aiCreditsPerSession.toLocaleString()} AI credits / 5h</p>
+              <p>{plan.features.aiCreditsPerWeek.toLocaleString()} AI credits / week</p>
               <p>{plan.features.automationRunsPerMonth.toLocaleString()} automation runs/mo</p>
               <p className="capitalize">{plan.features.supportLevel} support</p>
               <p className="text-xs text-neutral-400 pt-2">

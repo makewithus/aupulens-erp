@@ -67,8 +67,15 @@ export default function FinanceAIAssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
@@ -288,7 +295,7 @@ export default function FinanceAIAssistantPage() {
       const response = await fetch('/api/finance/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userInputText, message: userInputText, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) }),
+          body: JSON.stringify({ query: userInputText, message: userInputText, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })), requestId: crypto.randomUUID() }),
       });
 
       const data = await response.json();
@@ -321,16 +328,14 @@ export default function FinanceAIAssistantPage() {
         const saveResponse = await fetch('/api/finance/chat-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, messages: newMessages }),
+          body: JSON.stringify({ title, conversationId: data.conversationId, messages: newMessages }),
         });
         if (saveResponse.ok) {
           const savedData = await saveResponse.json();
           setCurrentChatId(savedData.chat._id);
           await fetchChatHistory();
         }
-      } else {
-        setTimeout(() => saveCurrentChat(), 500);
-      }
+      } else await fetchChatHistory(); // Server owns the completed transcript.
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => prev.filter(msg => !msg.isLoading).concat({

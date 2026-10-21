@@ -240,17 +240,17 @@ export default function LeavePage() {
 
   return (
     <>
-      <div className="space-y-8 max-w-8xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Leave Requests</h1>
+          <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">Leave Requests</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage employee leave applications</p>
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <CalendarDays className="h-8 w-8 text-primary" />
+              <CalendarDays className="h-8 w-8 text-primary shrink-0" />
               <div>
                 <p className="text-2xl font-black">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">Total</p>
@@ -259,7 +259,7 @@ export default function LeavePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <Clock className="h-8 w-8 text-amber-500" />
+              <Clock className="h-8 w-8 text-amber-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
@@ -268,7 +268,7 @@ export default function LeavePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <CheckCircle2 className="h-8 w-8 text-green-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{stats.approved}</p>
                 <p className="text-xs text-muted-foreground">Approved</p>
@@ -277,7 +277,7 @@ export default function LeavePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
+              <XCircle className="h-8 w-8 text-red-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{stats.rejected}</p>
                 <p className="text-xs text-muted-foreground">Rejected</p>
@@ -288,13 +288,13 @@ export default function LeavePage() {
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex gap-3 flex-1">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-wrap gap-3 flex-1 w-full md:w-auto">
+            <div className="relative flex-1 w-full sm:max-w-md min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search employee..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
             <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -312,7 +312,7 @@ export default function LeavePage() {
               onDateToChange={setDateTo}
             />
           </div>
-          <Button onClick={handleOpenCreate} className="gap-2">
+          <Button onClick={handleOpenCreate} className="w-full md:w-auto gap-2">
             <Plus className="h-4 w-4" />
             New Leave Request
           </Button>
@@ -332,7 +332,8 @@ export default function LeavePage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <Table>
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[850px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead>Employee</TableHead>
@@ -398,11 +399,12 @@ export default function LeavePage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t border-border">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                   </p>
                   <div className="flex items-center gap-2">

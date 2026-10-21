@@ -340,15 +340,15 @@ export default function AirFreightPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground dark:text-white">Air Freight</h1>
-            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground dark:text-white">Air Freight</h1>
+            <p className="mt-1 sm:mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
               Manage air cargo and flight schedules
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -358,13 +358,13 @@ export default function AirFreightPage() {
             <Button
               onClick={loadVisualizationData}
               variant="outline"
-              className="border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
+              className="w-full sm:w-auto border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
             >
               <BarChart3 className="mr-2 h-4 w-4" />
               View Analytics
             </Button>
             <Button 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={async () => {
                 setEditingFreight(null);
                 setFormData({
@@ -390,7 +390,7 @@ export default function AirFreightPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Active Flights"
             value={airFreights.length}
@@ -422,8 +422,8 @@ export default function AirFreightPage() {
             <CardTitle>Scheduled Flights ({airFreights.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table className="w-full">
+            <div className="overflow-x-auto w-full min-w-0">
+              <Table className="min-w-[700px] w-full">
                 <TableHeader>
                   <TableRow className="border-b dark:border-border">
                     <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Flight #</TableHead>
@@ -503,7 +503,7 @@ export default function AirFreightPage() {
         />
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="w-[95vw] sm:w-[90vw] max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader className="border-b pb-4">
               <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                 <Plane className="h-5 w-5 text-blue-800" />

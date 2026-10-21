@@ -238,13 +238,13 @@ function SalesOrdersPageInner() {
       userName={session?.user?.name ?? "User"}
       userEmail={session?.user?.email ?? ""}
     >
-      <div className="p-6 w-full space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <SalesTabNav />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS}`}>
+              <button className={`flex items-center gap-2 ${SALES_PAGE_TITLE_CLASS} max-w-full truncate text-2xl sm:text-3xl`}>
                 {activeView?.name === "All" ? "All Sales Orders" : activeView?.name || "All Sales Orders"}{" "}
                 <ChevronDown className="w-8 h-8 mb-2" />
               </button>
@@ -286,7 +286,7 @@ function SalesOrdersPageInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -297,13 +297,13 @@ function SalesOrdersPageInner() {
             <Button
               variant="outline"
               onClick={() => setFromQuoteOpen(true)}
-              className="h-11 px-4 border-border/40 font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
+              className="h-11 px-3 sm:px-4 border-border/40 font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer"
             >
               From Quote
             </Button>
             <MoveQuoteToOrderDialog open={fromQuoteOpen} onOpenChange={setFromQuoteOpen} />
             <Link href="/sales/sales-orders/new">
-              <Button className="none-xl h-11 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
+              <Button className="none-xl h-11 px-4 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[12px] uppercase tracking-wider rounded-none cursor-pointer">
                 <Plus className="w-4 h-4 mr-1" /> New
               </Button>
             </Link>
@@ -368,18 +368,18 @@ function SalesOrdersPageInner() {
             <LifecycleDiagram />
           </div>
         ) : (
-          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
+          <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none w-full max-w-full min-w-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="border-border/40">
                   <TableRow>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Date</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Sales Order#</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Customer Name</TableHead>
-                    <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Order Status</TableHead>
-                    <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">Amount</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Date</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Sales Order#</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Customer Name</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Order Status</TableHead>
+                    <TableHead className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">Amount</TableHead>
                     {extraColumns.map((key) => (
-                      <TableHead key={key} className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10">
+                      <TableHead key={key} className="px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground border-r last:border-0 border-border/10 whitespace-nowrap">
                         {columnLabel(key)}
                       </TableHead>
                     ))}
@@ -389,11 +389,11 @@ function SalesOrdersPageInner() {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="px-8 py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -403,27 +403,27 @@ function SalesOrdersPageInner() {
                         className="group transition-colors duration-300 hover:bg-white/[0.015] cursor-pointer"
                         onClick={() => router.push(`/sales/sales-orders/${o._id}`)}
                       >
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                           {o.header?.dateOrder ? new Date(o.header.dateOrder).toLocaleDateString("en-IN") : "—"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary whitespace-nowrap">
                           {o.header?.name}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 whitespace-nowrap">
                           {o.header?.partnerId?.header?.displayName || o.header?.partnerId?.header?.name || "—"}
                         </TableCell>
-                        <TableCell className="px-8 py-7 border-r last:border-0 border-border/10">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 whitespace-nowrap">
                           <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[o.salesOrderStatus] || "text-muted-foreground"}`}>
                             {o.salesOrderStatus?.replace("_", " ")}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-8 py-7 text-right font-mono text-sm text-foreground">
+                        <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right font-mono text-sm text-foreground whitespace-nowrap">
                           ₹{Number(o.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </TableCell>
                         {extraColumns.map((key) => {
                           const value = getPath(o, key);
                           return (
-                            <TableCell key={key} className="px-8 py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85">
+                            <TableCell key={key} className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
                               {value === null || value === undefined || value === "" ? "—" : String(value)}
                             </TableCell>
                           );

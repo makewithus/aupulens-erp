@@ -4,6 +4,7 @@ import Plan, { IPlanFeatures } from "@/models/platform/Plan";
 import OrganizationEntitlement from "@/models/platform/OrganizationEntitlement";
 import { ORGANIZATION_TIER, PLAN_KEY, PlanKeyType, PLATFORM_EVENT_CATEGORY, PLATFORM_EVENT_TYPE, PLATFORM_SEVERITY } from "@/lib/constants/statuses";
 import { emitPlatformAuditEvent } from "@/lib/platform/audit/emit";
+import { PLAN_DEFINITIONS } from "./planCatalog";
 
 /**
  * The single source of truth for "what does this tenant get" (source doc
@@ -73,6 +74,21 @@ export function getLegacyTierForPlanKey(planKey: PlanKeyType): string | null {
   }
 }
 
+/** Keep legacy plan documents consistent regardless of which resolver path is used. */
+function resolvePlanLimits(planKey: PlanKeyType, features: IPlanFeatures) {
+  const defaults = PLAN_DEFINITIONS[planKey]?.features;
+  const { modules, featureFlags, ...storedLimits } = features;
+  return {
+    modules,
+    featureFlags,
+    limits: {
+      ...storedLimits,
+      aiCreditsPerSession: storedLimits.aiCreditsPerSession ?? defaults?.aiCreditsPerSession ?? 20,
+      aiCreditsPerWeek: storedLimits.aiCreditsPerWeek ?? defaults?.aiCreditsPerWeek ?? 100,
+    },
+  };
+}
+
 /** Hard-coded, minimal permissive default used ONLY when the resolver
  *  itself errors (Part 2.4: "default to permissive when the resolver
  *  errors, and log it") — never used as a normal code path, and always
@@ -87,6 +103,8 @@ function permissiveDefault(): ResolvedEntitlements {
       storageGb: 999999,
       apiRequestsPerMonth: 999999,
       aiCreditsPerMonth: 999999,
+      aiCreditsPerSession: 999999,
+      aiCreditsPerWeek: 999999,
       aiRequestsPerMonth: 999999,
       automationRunsPerMonth: 999999,
       documentLimitPerMonth: 999999,
@@ -119,7 +137,10 @@ export async function resolveEntitlements(tenantId: string): Promise<ResolvedEnt
     if (!plan) throw new Error(`No Plan document found for key "${planKey}"`);
 
     const overrides = entitlement?.overrides ?? {};
-    const { modules: baseModules, featureFlags: baseFlags, ...baseLimits } = plan.features;
+    // Older plan documents predate weighted session/week credit caps. Read
+    // their defaults from the canonical catalogue until the plan is edited or
+    // reseeded; never silently interpret a missing field as unlimited.
+    const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
 
     const resolved: ResolvedEntitlements = {
       planKey,
@@ -221,7 +242,7 @@ export async function resolveEntitlementsBatch(tenantIds: string[]): Promise<Map
       }
 
       const overrides = ent?.overrides ?? {};
-      const { modules: baseModules, featureFlags: baseFlags, ...baseLimits } = plan.features;
+      const { modules: baseModules, featureFlags: baseFlags, limits: baseLimits } = resolvePlanLimits(planKey, plan.features);
 
       const resolved: ResolvedEntitlements = {
         planKey,

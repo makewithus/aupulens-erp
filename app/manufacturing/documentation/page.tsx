@@ -146,11 +146,11 @@ export default function DocumentationPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
       onRefresh={fetchDocuments}
     >
-      <div className="space-y-6">
-        <div className="flex flex-wrap justify-between items-center gap-4">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Documentation</h1>
-            <p className="mt-2 text-muted-foreground">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground">Documentation</h1>
+            <p className="mt-1 sm:mt-2 text-sm text-muted-foreground">
               Manage shipping and customs documents
             </p>
           </div>
@@ -160,13 +160,13 @@ export default function DocumentationPage() {
             className="hidden"
             onChange={(e) => handleFileSelected(e.target.files?.[0])}
           />
-          <Button onClick={handleUploadClick} disabled={uploading} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button onClick={handleUploadClick} disabled={uploading} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
             {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
             {uploading ? 'Uploading…' : 'Upload Document'}
           </Button>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -221,7 +221,7 @@ export default function DocumentationPage() {
                 No documents uploaded yet. Click <span className="font-medium">Upload Document</span> to add one.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto w-full min-w-0">
                 <Table className="w-full min-w-[720px]">
                   <TableHeader>
                     <TableRow className="border-b">

@@ -37,16 +37,16 @@ export function DateRangeFilter({
 }) {
   const hasFilter = !!(dateFrom || dateTo);
   const dateInputClass = cn(
-    "h-11 w-[152px] shrink-0 rounded-none border border-input bg-background px-3 text-[13px] font-medium leading-none tracking-tight text-foreground shadow-none",
+    "h-11 w-full min-w-0 sm:w-[140px] md:w-[152px] rounded-none border border-input bg-background px-2.5 sm:px-3 text-[12px] sm:text-[13px] font-medium leading-none tracking-tight text-foreground shadow-none",
     "[color-scheme:light] dark:[color-scheme:dark]",
     "hover:border-foreground/40 focus-visible:border-foreground focus-visible:ring-0",
     inputClassName,
   );
 
   return (
-    <div className={cn("flex h-11 items-center gap-2.5", className)}>
-      <div className="flex h-11 items-center gap-2">
-        <span className="w-9 shrink-0 font-mono text-[10px] uppercase leading-none tracking-wider text-muted-foreground">
+    <div className={cn("flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 min-w-0 max-w-full", className)}>
+      <div className="flex h-11 items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial min-w-0">
+        <span className="w-8 sm:w-9 shrink-0 font-mono text-[10px] uppercase leading-none tracking-wider text-muted-foreground">
           From
         </span>
         <Input
@@ -59,8 +59,8 @@ export function DateRangeFilter({
         />
       </div>
 
-      <div className="flex h-11 items-center gap-2">
-        <span className="w-9 shrink-0 font-mono text-[10px] uppercase leading-none tracking-wider text-muted-foreground">
+      <div className="flex h-11 items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial min-w-0">
+        <span className="w-6 sm:w-9 shrink-0 font-mono text-[10px] uppercase leading-none tracking-wider text-muted-foreground">
           To
         </span>
         <Input

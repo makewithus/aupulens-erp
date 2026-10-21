@@ -7,10 +7,16 @@ export interface IAiCreditLedger extends Document {
   requestId: string;
   modelName: string;
   feature: string;
+  /** Monthly, session and weekly balance buckets reserved for this request. */
+  bucketPeriods?: string[];
   estimatedCredits: number;
   credits: number;
   estimatedCostUsd: number;
   costUsd: number;
+  estimatedToolCalls?: number;
+  toolCalls?: number;
+  estimatedBackendCredits?: number;
+  backendCredits?: number;
   inputTokens: number;
   outputTokens: number;
   status: AiCreditEntryStatus;
@@ -19,9 +25,12 @@ export interface IAiCreditLedger extends Document {
 }
 const schema = new Schema<IAiCreditLedger>({
   tenantId: { type: String, required: true }, period: { type: String, required: true },
+  bucketPeriods: { type: [String], default: [] },
   requestId: { type: String, required: true }, modelName: { type: String, required: true }, feature: { type: String, required: true },
   estimatedCredits: { type: Number, required: true, min: 0 }, credits: { type: Number, required: true, min: 0 },
   estimatedCostUsd: { type: Number, required: true, min: 0 }, costUsd: { type: Number, required: true, min: 0 },
+  estimatedToolCalls: { type: Number, min: 0, default: 0 }, toolCalls: { type: Number, min: 0, default: 0 },
+  estimatedBackendCredits: { type: Number, min: 0, default: 0 }, backendCredits: { type: Number, min: 0, default: 0 },
   inputTokens: { type: Number, required: true, min: 0 }, outputTokens: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ["reserved", "charged", "refunded"], required: true },
 }, { timestamps: true });

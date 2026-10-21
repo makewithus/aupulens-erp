@@ -103,14 +103,14 @@ export function EmployeeTable({
   return (
     <Card className="overflow-hidden border-border/40 shadow-none bg-background">
       {/* Header */}
-      <div className="border-b border-border/20 px-8 py-6">
+      <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(220px,0.8fr)_minmax(720px,1.6fr)] xl:items-end">
           <div className="shrink-0">
-            <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+            <h2 className="text-[24px] sm:text-[30px] font-medium tracking-[-0.05em]">
               All Employees
             </h2>
 
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+            <p className="mt-1 sm:mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
               {totalEmployees}{" "}
               {totalEmployees === 1 ? "Employee" : "Employees"}
             </p>
@@ -134,7 +134,8 @@ export function EmployeeTable({
       </div>
 
       <CardContent className="p-0">
-        <Table>
+        <div className="overflow-x-auto w-full min-w-0">
+          <Table className="min-w-[800px]">
           <TableHeader className="border-border/40">
             <TableRow>
               <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -252,6 +253,7 @@ export function EmployeeTable({
             )}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

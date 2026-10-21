@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 
-process.env.MONGODB_URI = "mongodb://localhost:27017/aupulens_test_route_quotes";
+process.env.MONGODB_URI = `mongodb://localhost:27017/aupulens_test_route_quotes_${randomUUID().replaceAll("-", "")}`;
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 

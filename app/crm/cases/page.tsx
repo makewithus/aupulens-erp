@@ -180,19 +180,19 @@ function CasesPageInner() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
         <div className="shrink-0">
-          <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+          <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
             Cases Management
           </h2>
         </div>
 
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button
             onClick={() => setSheetOpen(true)}
-            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted gap-2"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" /> Create Case
           </Button>
@@ -200,7 +200,7 @@ function CasesPageInner() {
       </div>
 
       {/* KPI Section */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
         <KPICard title="Open Cases" value={stats.openCases} />
         <KPICard title="Overdue" value={stats.overdueCases} />
         <KPICard title="SLA Breaches" value={stats.slaBreaches} />
@@ -214,10 +214,10 @@ function CasesPageInner() {
       {/* Table Card */}
       <Card className="overflow-hidden border-border/40 shadow-none bg-background">
         {/* Toolbar */}
-        <div className="border-b border-border/20 px-8 py-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="shrink-0">
-              <h2 className="text-[30px] font-medium tracking-[-0.05em]">
+              <h2 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em]">
                 All Cases
               </h2>
 
@@ -226,9 +226,9 @@ function CasesPageInner() {
               </p>
             </div>
 
-            <div className="w-full max-w-4xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
               {/* Search Input */}
-              <div className="w-full max-w-sm">
+              <div className="w-full sm:w-64">
                 <SearchInput
                   value={search}
                   onChange={setSearch}
@@ -247,7 +247,7 @@ function CasesPageInner() {
               <div className="flex items-center gap-1">
                 <span className="font-mono text-[11px] text-muted-foreground">View:</span>
                 <Select defaultValue="all">
-                  <SelectTrigger className="w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                  <SelectTrigger className="w-full sm:w-[150px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                     <SelectValue placeholder="Saved Views" />
                   </SelectTrigger>
                   <SelectContent className="rounded-none border-border/40">
@@ -257,12 +257,12 @@ function CasesPageInner() {
                 </Select>
               </div>
 
-          <Button
-            variant="outline"
-            className="h-12 px-6 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300 gap-2"
-          >
-            <Download className="h-4 w-4" /> Export
-          </Button>
+              <Button
+                variant="outline"
+                className="h-10 sm:h-12 px-6 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300 gap-2 w-full sm:w-auto"
+              >
+                <Download className="h-4 w-4" /> Export
+              </Button>
             </div>
           </div>
         </div>
@@ -408,15 +408,15 @@ function CasesPageInner() {
             </TableBody>
           </TableContainer>
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-8 py-4 border-t border-border/20">
-              <p className="font-mono text-[11px] text-muted-foreground/60">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-8 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground/60 text-center sm:text-left">
                 Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                   Previous
                 </Button>
-                <span className="text-sm">Page {page} of {totalPages}</span>
+                <span className="text-xs sm:text-sm">Page {page} of {totalPages}</span>
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                   Next
                 </Button>

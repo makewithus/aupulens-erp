@@ -62,12 +62,20 @@ export default function ManufacturingAIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [archivedChats, setArchivedChats] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showMobileHistory, setShowMobileHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<any>(null);
@@ -148,6 +156,7 @@ export default function ManufacturingAIAssistant() {
       }));
       setMessages(loadedMessages);
       setCurrentChatId(chat._id);
+      setShowMobileHistory(false);
     } catch {
       toast({ title: 'Failed to load chat', description: 'This conversation could not be opened.' });
     }
@@ -223,6 +232,7 @@ export default function ManufacturingAIAssistant() {
   const startNewChat = () => {
     setMessages([]);
     setCurrentChatId(null);
+    setShowMobileHistory(false);
     textareaRef.current?.focus();
     toast({
       title: 'New chat started',
@@ -356,7 +366,8 @@ export default function ManufacturingAIAssistant() {
           confirmAction: false,
           actionData: null,
           currentTask: currentTask,
-          cancelAction: false
+          cancelAction: false,
+          requestId: crypto.randomUUID(),
         })
       });
 
@@ -414,6 +425,7 @@ export default function ManufacturingAIAssistant() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title,
+            conversationId: data.conversationId,
             messages: newMessages
           })
         });
@@ -427,9 +439,7 @@ export default function ManufacturingAIAssistant() {
             description: 'New conversation started and saved.'
           });
         }
-      } else {
-        setTimeout(() => saveCurrentChat(), 500);
-      }
+      } else await fetchChatHistory(); // Server persisted this exchange.
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => prev.filter(msg => !msg.isLoading).concat({
@@ -557,17 +567,35 @@ export default function ManufacturingAIAssistant() {
       profileHref="/manufacturing/profile"
     >
       <Toaster />
-      <div className="flex h-[calc(100vh-8rem)] ">
+      <div className="flex h-[calc(100vh-8rem)] relative overflow-hidden">
+        {/* Mobile History Backdrop */}
+        {showMobileHistory && (
+          <div
+            className="fixed inset-0 z-20 bg-black/50 md:hidden"
+            onClick={() => setShowMobileHistory(false)}
+          />
+        )}
+
         {/* Chat History Sidebar */}
-        <div className="w-64 border-r border-border bg-background/30 backdrop-blur-sm flex flex-col">
-          <div className="p-4 border-b border-border flex-shrink-0">
+        <div className={`${showMobileHistory ? 'flex fixed inset-y-0 left-0 z-30 w-72 shadow-2xl' : 'hidden'} md:flex md:static md:w-64 border-r border-border bg-background md:bg-background/30 backdrop-blur-sm flex-col flex-shrink-0 transition-all`}>
+          <div className="p-4 border-b border-border flex-shrink-0 flex items-center justify-between gap-2">
             <Button 
               onClick={startNewChat}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Chat
             </Button>
+            {showMobileHistory && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden h-9 px-2"
+                onClick={() => setShowMobileHistory(false)}
+              >
+                ✕
+              </Button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -694,23 +722,42 @@ export default function ManufacturingAIAssistant() {
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Chat Title Header */}
-          <div className="p-4 border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
-            <h2 className="text-xl font-bold text-foreground">
-              {currentChatId ? chatHistory.find(c => c._id === currentChatId)?.title || 'Manufacturing AI Assistant' : 'Manufacturing AI Assistant'}
-            </h2>
+          <div className="p-3 sm:p-4 border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="md:hidden h-8 px-2 text-xs shrink-0"
+                onClick={() => setShowMobileHistory((v) => !v)}
+              >
+                <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                History
+              </Button>
+              <h2 className="text-base sm:text-xl font-bold text-foreground truncate">
+                {currentChatId ? chatHistory.find(c => c._id === currentChatId)?.title || 'Manufacturing AI Assistant' : 'Manufacturing AI Assistant'}
+              </h2>
+            </div>
+            <Button
+              size="sm"
+              onClick={startNewChat}
+              className="md:hidden bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-2 text-xs shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              New
+            </Button>
           </div>
 
           {/* Messages Area with Scroll */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
                   <MessageSquare className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Manufacturing AI Assistant</h2>
-                <p className="text-muted-foreground max-w-md">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Manufacturing AI Assistant</h2>
+                <p className="text-muted-foreground text-sm max-w-md">
                   Ask me anything about shipments, freight, customs clearance, tracking, or logistics reports.
                 </p>
               </div>
@@ -718,7 +765,7 @@ export default function ManufacturingAIAssistant() {
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2 sm:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
@@ -726,7 +773,7 @@ export default function ManufacturingAIAssistant() {
                     </div>
                   )}
                   <div
-                    className={`max-w-[70%] rounded-lg px-4 py-3 ${
+                    className={`max-w-[85%] sm:max-w-[75%] rounded-lg px-3 sm:px-4 py-2 sm:py-3 ${
                       message.role === 'user'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-foreground'
@@ -796,10 +843,10 @@ export default function ManufacturingAIAssistant() {
           )}
 
           {/* Input at Bottom */}
-          <div className="p-4 border-t border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+          <div className="p-3 sm:p-4 border-t border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
             <ChatAttachmentBar attachments={attachments} removeAttachment={removeAttachment} fileInputRef={fileInputRef} addFiles={addFiles} />
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative min-w-0">
                 <Textarea
                   ref={textareaRef}
                   value={input}
@@ -807,7 +854,7 @@ export default function ManufacturingAIAssistant() {
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   placeholder="Ask me about shipments, freight, customs clearance, tracking, logistics..."
-                  className="min-h-[60px] max-h-[200px] resize-none bg-card/50 border-border text-foreground placeholder:text-muted-foreground pl-10 pr-10"
+                  className="min-h-[60px] max-h-[200px] resize-none bg-card/50 border-border text-foreground placeholder:text-muted-foreground pl-10 pr-10 text-sm"
                   disabled={isLoading}
                 />
                 <Button type="button" size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="Attach a document or image" className="absolute left-2 bottom-2 h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
@@ -830,7 +877,7 @@ export default function ManufacturingAIAssistant() {
               <Button 
                 type="submit"
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                className="h-[60px] px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="h-[60px] px-3 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

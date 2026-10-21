@@ -387,25 +387,22 @@ function StockMovesPageInner() {
       onSignOut={() => signOut({ callbackUrl: "/auth/inventory" })}
       onRefresh={fetchMoves}
     >
-      <div className="space-y-1">
-        {/* Page Header Spacer */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2"></div>
-
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Table & Filtering Card */}
         <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none flex flex-col min-h-[600px]">
           {/* Card Toolbar */}
-          <div className="border-b border-border/20 px-8 py-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="border-b border-border/20 px-4 sm:px-8 py-4 sm:py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h3 className="text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Moves</h3>
+                <h3 className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] text-foreground">Stock Moves</h3>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                   {total} {total === 1 ? "Move" : "Moves"} Total
                 </p>
               </div>
 
-              <div className="w-full max-w-3xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
                 {/* Search input */}
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:w-64">
                   <SearchInput
                     value={query}
                     onChange={(val) => {
@@ -417,9 +414,9 @@ function StockMovesPageInner() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
-                    <SelectTrigger className="w-40 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectTrigger className="w-full sm:w-40 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/40">
@@ -433,7 +430,7 @@ function StockMovesPageInner() {
                   </Select>
 
                   <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v)}>
-                    <SelectTrigger className="w-36 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                    <SelectTrigger className="w-full sm:w-36 h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none border-border/40">
@@ -455,7 +452,7 @@ function StockMovesPageInner() {
 
                 <Button
                   onClick={handleCreate}
-                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none"
+                  className="h-12 px-6 text-primary bg-tertiary border-secondary border hover:bg-muted transition-all rounded-none w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" /> New Move
                 </Button>
@@ -488,8 +485,8 @@ function StockMovesPageInner() {
           </CardContent>
 
           {/* Pagination Footer */}
-          <div className="border-t border-border/20 p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs font-mono text-muted-foreground/60">
+          <div className="border-t border-border/20 p-4 sm:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs font-mono text-muted-foreground/60 text-center sm:text-left">
               {total > 0
                 ? `Showing ${(pagination.page - 1) * pagination.limit + 1} to ${Math.min(
                     pagination.page * pagination.limit,
@@ -498,7 +495,7 @@ function StockMovesPageInner() {
                 : "No entries"}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-center gap-1">
               <Button
                 variant="outline"
                 size="sm"

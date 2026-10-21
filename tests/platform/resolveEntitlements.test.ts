@@ -10,6 +10,7 @@ import PlatformAuditLog from "@/models/platform/PlatformAuditLog";
 import { ORGANIZATION_TIER, PLAN_KEY, SUPPORT_LEVEL } from "@/lib/constants/statuses";
 
 let resolveEntitlements: typeof import("@/lib/platform/entitlements/resolve").resolveEntitlements;
+let resolveEntitlementsBatch: typeof import("@/lib/platform/entitlements/resolve").resolveEntitlementsBatch;
 let invalidateEntitlementsCache: typeof import("@/lib/platform/entitlements/resolve").invalidateEntitlementsCache;
 
 const STARTER_FEATURES = {
@@ -33,7 +34,7 @@ describe("resolveEntitlements — the single source of truth for what a tenant g
     await Plan.init();
     await OrganizationEntitlement.init();
     await PlatformAuditLog.init();
-    ({ resolveEntitlements, invalidateEntitlementsCache } = await import(
+    ({ resolveEntitlements, resolveEntitlementsBatch, invalidateEntitlementsCache } = await import(
       "@/lib/platform/entitlements/resolve"
     ));
     await Plan.create({
@@ -119,6 +120,20 @@ describe("resolveEntitlements — the single source of truth for what a tenant g
     const result = await resolveEntitlements("custom-org");
     expect(result.limits.aiCreditsPerMonth).toBe(250); // picked up the base plan's new value
     expect(result.limits.maxUsers).toBe(999); // override still holds
+  });
+
+  it("uses the same catalog session and weekly limits for legacy plan records in batch resolution", async () => {
+    await Organization.create({ name: "Legacy Plan Org", subdomain: "legacy-plan-org", ownerUserId: new mongoose.Types.ObjectId() });
+    await OrganizationEntitlement.create({ tenantId: "legacy-plan-org", planKey: PLAN_KEY.PRO });
+    await Plan.collection.updateOne(
+      { key: PLAN_KEY.PRO },
+      { $unset: { "features.aiCreditsPerSession": "", "features.aiCreditsPerWeek": "" } },
+    );
+
+    const [result] = (await resolveEntitlementsBatch(["legacy-plan-org"])).values();
+    expect(result.limits.aiCreditsPerSession).toBe(100);
+    expect(result.limits.aiCreditsPerWeek).toBe(500);
+    expect(result.limits.aiCreditsPerMonth).toBe(100);
   });
 
   it("defaults to permissive (never a lockout) and audits at SECURITY severity when the resolver errors", async () => {

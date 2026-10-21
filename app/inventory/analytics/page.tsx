@@ -346,16 +346,15 @@ export default function InventoryAnalyticsPage() {
       onRefresh={fetchAllData}
       profilePath="/inventory/profile"
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground dark:text-white">Inventory Analytics</h1>
-
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white break-words">Inventory Analytics</h1>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
             <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-              <SelectTrigger className="w-[200px] rounded-none">
+              <SelectTrigger className="w-full sm:w-[200px] rounded-none">
                 <SelectValue placeholder="Select warehouse" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
@@ -368,7 +367,7 @@ export default function InventoryAnalyticsPage() {
               </SelectContent>
             </Select>
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[150px] rounded-none">
+              <SelectTrigger className="w-full sm:w-[150px] rounded-none">
                 <SelectValue placeholder="Date range" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
@@ -381,7 +380,7 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
           <StatCard
             title="Total Warehouses"
             value={warehouses.length}

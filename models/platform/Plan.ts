@@ -23,6 +23,10 @@ export interface IPlanFeatures {
   storageGb: number;
   apiRequestsPerMonth: number;
   aiCreditsPerMonth: number;
+  /** Usage-weighted AI credit allowance for one fixed five-hour window. */
+  aiCreditsPerSession?: number;
+  /** Usage-weighted AI credit allowance for one UTC calendar week. */
+  aiCreditsPerWeek?: number;
   aiRequestsPerMonth: number;
   automationRunsPerMonth: number;
   documentLimitPerMonth: number;
@@ -53,6 +57,8 @@ const PlanFeaturesSchema = new Schema<IPlanFeatures>(
     storageGb: { type: Number, required: true },
     apiRequestsPerMonth: { type: Number, required: true },
     aiCreditsPerMonth: { type: Number, required: true },
+    aiCreditsPerSession: { type: Number, min: 0, default: 20 },
+    aiCreditsPerWeek: { type: Number, min: 0, default: 100 },
     aiRequestsPerMonth: { type: Number, required: true },
     automationRunsPerMonth: { type: Number, required: true },
     documentLimitPerMonth: { type: Number, required: true },

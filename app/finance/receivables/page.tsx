@@ -236,7 +236,7 @@ export default function ReceivablesPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
       onRefresh={() => { fetchInvoices(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllInvoicesForStats(statusFilter, dateFrom, dateTo); }}
     >
-      <div className="space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <FinancePageHeader
           title="Accounts Receivable"
           description="Track customer invoices and manage payments"
@@ -271,7 +271,7 @@ export default function ReceivablesPage() {
         />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Receivable</CardTitle>
@@ -318,26 +318,26 @@ export default function ReceivablesPage() {
 
         {/* Invoices Table */}
         <Card className="border-border/40">
-          <CardHeader className="bg-muted/30">
-            <div className="flex justify-between items-center">
+          <CardHeader className="bg-muted/30 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="text-base font-semibold">
                 Invoices
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({total} total)
                 </span>
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="relative">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial min-w-[160px]">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search invoice #..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="pl-9 w-56 bg-background"
+                    className="pl-9 w-full sm:w-56 bg-background"
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -360,8 +360,8 @@ export default function ReceivablesPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="font-semibold">Invoice #</TableHead>
@@ -422,7 +422,7 @@ export default function ReceivablesPage() {
               </Table>
             </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border">
                 <p className="text-sm text-muted-foreground">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>

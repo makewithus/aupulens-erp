@@ -435,18 +435,18 @@ export default function ManufacturingPage() {
         fetchAllOrdersForCounts();
       }}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header */}
-        <div className="flex flex-wrap justify-between items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Manufacturing Orders</h1>
+            <h1 className="text-2xl font-bold break-words">Manufacturing Orders</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Plan-to-Produce: Demand &rarr; Order &rarr; Reserve &rarr; Issue
               &rarr; Produce &rarr; QC &rarr; Finished Goods
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64 min-w-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by reference..."
@@ -461,7 +461,7 @@ export default function ManufacturingPage() {
               onDateFromChange={setDateFrom}
               onDateToChange={setDateTo}
             />
-            <Button onClick={() => handleAction(null, "create")}>
+            <Button onClick={() => handleAction(null, "create")} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" /> Create MO
             </Button>
           </div>
@@ -614,8 +614,8 @@ export default function ManufacturingPage() {
                   </div>
                 )}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t">
-                    <p className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t">
+                    <p className="text-sm text-muted-foreground text-center sm:text-left">
                       Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                     </p>
                     <div className="flex items-center gap-2">
@@ -646,7 +646,7 @@ export default function ManufacturingPage() {
           }
         }}
         title={formData?.header?.name || "New Manufacturing Order"}
-        className="w-[80vw] max-w-[1400px]"
+        className="w-[95vw] sm:w-[90vw] lg:w-[80vw] max-w-[1400px]"
         footer={
           isViewOnly ? (
             <Button onClick={() => setIsModalOpen(false)}>Close</Button>

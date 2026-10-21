@@ -268,22 +268,19 @@ function OpportunitiesPageInner() {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(val || 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between pb-2">
         <div className="shrink-0">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+          <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
             Opportunity Management
           </h1>
-          {/* <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
-            {total} {total === 1 ? "Opportunity" : "Opportunities"}
-          </p> */}
         </div>
 
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button
             onClick={() => setIsCreateModalOpen(true)}
-            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Opportunity
@@ -322,10 +319,10 @@ function OpportunitiesPageInner() {
       {/* Table Card */}
       <Card className="overflow-hidden border-border/40 shadow-none bg-background">
         {/* Toolbar */}
-        <div className="border-b border-border/20 px-6 py-4">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        <div className="border-b border-border/20 px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
             {/* Search Input */}
-            <div className="w-full max-w-sm">
+            <div className="w-full sm:w-64">
               <SearchInput
                 value={search}
                 onChange={setSearch}
@@ -336,7 +333,7 @@ function OpportunitiesPageInner() {
             {/* Stage Filter */}
             <div className="flex items-center gap-2">
               <Select value={stageFilter} onValueChange={setStageFilter}>
-                <SelectTrigger className="w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                <SelectTrigger className="w-full sm:w-[160px] md:w-[180px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                   <SelectValue placeholder="All Stages" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-border/40">
@@ -349,7 +346,7 @@ function OpportunitiesPageInner() {
             {/* Risk Filter */}
             <div className="flex items-center gap-2">
               <Select value={riskFilter} onValueChange={setRiskFilter}>
-                <SelectTrigger className="w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
+                <SelectTrigger className="w-full sm:w-[160px] h-10 rounded-none border-border/40 bg-white/[0.02] text-sm text-foreground focus:ring-0">
                   <SelectValue placeholder="Risk Level" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none border-border/40">
@@ -371,13 +368,12 @@ function OpportunitiesPageInner() {
             />
 
             {/* Export Selected */}
-            
-              <div className="ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={() => { setExportConfig({ ...exportConfig, scope: 'all' }); setIsExportModalOpen(true); }}
-                  className="h-10 px-4 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300"
-                >
+            <div className="w-full sm:w-auto ml-0 sm:ml-auto">
+              <Button
+                variant="outline"
+                onClick={() => { setExportConfig({ ...exportConfig, scope: 'all' }); setIsExportModalOpen(true); }}
+                className="w-full sm:w-auto h-10 px-4 rounded-none font-mono text-[11px] uppercase tracking-[0.15em] hover:bg-white/5 text-muted-foreground hover:text-foreground border border-border/20 transition-all duration-300"
+              >
                   Export Data
                 </Button>
               </div>
@@ -566,11 +562,11 @@ function OpportunitiesPageInner() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/20">
-              <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.05em]">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t border-border/20">
+              <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.05em] text-center sm:text-left">
                 Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
               </p>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <Button
                   variant="ghost"
                   size="sm"

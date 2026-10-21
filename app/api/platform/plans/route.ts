@@ -4,6 +4,7 @@ import Plan from "@/models/platform/Plan";
 import { getAdminActorFromRequest } from "@/lib/platform/auth/adminSession";
 import { hasCapability } from "@/lib/platform/auth/adminRbac";
 import { ADMIN_CAPABILITY } from "@/lib/constants/statuses";
+import { PLAN_DEFINITIONS } from "@/lib/platform/entitlements/planCatalog";
 
 export async function GET(request: Request) {
   const actor = await getAdminActorFromRequest(request);
@@ -25,7 +26,11 @@ export async function GET(request: Request) {
       priceMonthly: p.priceMonthly,
       priceYearly: p.priceYearly,
       isCustom: p.isCustom,
-      features: p.features,
+      features: {
+        ...p.features,
+        aiCreditsPerSession: p.features.aiCreditsPerSession ?? PLAN_DEFINITIONS[p.key]?.features.aiCreditsPerSession ?? 20,
+        aiCreditsPerWeek: p.features.aiCreditsPerWeek ?? PLAN_DEFINITIONS[p.key]?.features.aiCreditsPerWeek ?? 100,
+      },
       active: p.active,
     })),
   });

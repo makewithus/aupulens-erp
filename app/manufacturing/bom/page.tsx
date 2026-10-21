@@ -247,17 +247,17 @@ export default function BillOfMaterialsPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: "/auth/manufacturing" })}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               onClick={handleCreate}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground flex-1 sm:flex-none"
             >
               <Plus className="h-4 w-4 mr-2" /> New
             </Button>
-            <Button variant="outline" onClick={fetchBoms} disabled={isLoading}>
+            <Button variant="outline" onClick={fetchBoms} disabled={isLoading} className="flex-1 sm:flex-none">
               <RefreshCcw
                 className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
               />{" "}
@@ -265,7 +265,7 @@ export default function BillOfMaterialsPage() {
             </Button>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+            <div className="relative flex-1 sm:w-64 min-w-0">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search products, refs..."
@@ -285,8 +285,8 @@ export default function BillOfMaterialsPage() {
           {isLoading ? (
             <TableSkeleton rows={5} columns={5} />
           ) : (
-            <div className="overflow-x-auto">
-              <Table className="min-w-full divide-y divide-border">
+            <div className="overflow-x-auto w-full min-w-0">
+              <Table className="min-w-[700px] divide-y divide-border">
                 <TableHeader className="bg-muted/50">
                   <TableRow className="text-[11px] uppercase tracking-wider text-muted-foreground">
                     <TableHead className="px-6 py-3 text-left">Product</TableHead>
@@ -417,7 +417,7 @@ export default function BillOfMaterialsPage() {
             )}
           </div>
         }
-        contentClassName="max-w-[80vw]"
+        contentClassName="w-[95vw] sm:w-[90vw] lg:w-[80vw] max-w-[1200px]"
       >
         <BillOfMaterialPopup
           formData={formData}

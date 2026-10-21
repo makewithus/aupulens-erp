@@ -15,7 +15,7 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       className={cn(
-        'relative h-9 w-9 rounded-none transition-all duration-300',
+        'relative h-8 w-8 rounded-none transition-all duration-300 sm:h-9 sm:w-9',
         'hover:bg-accent hover:shadow-sm hover:scale-105',
         'overflow-hidden'
       )}

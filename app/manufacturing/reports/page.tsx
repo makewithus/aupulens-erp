@@ -189,15 +189,15 @@ export default function ReportsPage() {
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-white">Reports & Analytics</h1>
-          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
+          <h1 className="text-xl sm:text-3xl font-bold text-foreground dark:text-white">Reports & Analytics</h1>
+          <p className="mt-1 sm:mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
             Generate and analyze manufacturing reports
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Shipments"
             value={stats.totalShipments}
@@ -229,13 +229,13 @@ export default function ReportsPage() {
             <CardTitle>Generate Report</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground dark:text-foreground mb-2 block">
                   Report Type
                 </label>
                 <Select value={selectedReport} onValueChange={setSelectedReport}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -247,11 +247,11 @@ export default function ReportsPage() {
                 </Select>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 onClick={handleGenerateReport}
                 disabled={isGenerating}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Download className="mr-2 h-4 w-4" />
                 {isGenerating ? 'Generating...' : 'Generate Report'}
@@ -259,7 +259,7 @@ export default function ReportsPage() {
               <Button
                 onClick={loadVisualizationData}
                 variant="outline"
-                className="border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
+                className="w-full sm:w-auto border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
               >
                 <BarChart3 className="mr-2 h-4 w-4" />
                 View Analytics

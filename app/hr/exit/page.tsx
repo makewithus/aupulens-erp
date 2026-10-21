@@ -166,15 +166,15 @@ export default function ExitPage() {
 
   return (
     <>
-      <div className="space-y-8 max-w-8xl mx-auto">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
+        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Exit & Clearance
             </h1>
           </div>
 
-          <div className="w-full max-w-md space-y-3">
+          <div className="w-full lg:max-w-md space-y-2 sm:space-y-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
 
@@ -197,7 +197,7 @@ export default function ExitPage() {
               />
             </div>
 
-            <p className="text-right font-mono text-[11px] text-muted-foreground/45">
+            <p className="text-left sm:text-right font-mono text-[11px] text-muted-foreground/45">
               {employees.length}{" "}
               {employees.length === 1 ? "Employee" : "Employees"}
             </p>
@@ -279,7 +279,7 @@ export default function ExitPage() {
 
       <ModularModal open={isModalOpen} onOpenChange={setIsModalOpen} title="Exit Details">
         <div className="space-y-4 p-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Exit Type</label>
               <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={exitForm.exitType || ""} onChange={(e) => setExitForm({ ...exitForm, exitType: e.target.value })}>
@@ -310,14 +310,14 @@ export default function ExitPage() {
               <label className="text-xs font-semibold text-muted-foreground">F&F Amount</label>
               <Input type="number" value={exitForm.fnfAmount || 0} onChange={(e) => setExitForm({ ...exitForm, fnfAmount: +e.target.value })} />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs font-semibold text-muted-foreground">Exit Reason</label>
               <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[60px]" value={exitForm.exitReason || ""} onChange={(e) => setExitForm({ ...exitForm, exitReason: e.target.value })} />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveExitDetails}>Save</Button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button className="w-full sm:w-auto" onClick={handleSaveExitDetails}>Save</Button>
           </div>
         </div>
       </ModularModal>

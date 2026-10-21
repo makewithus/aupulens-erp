@@ -129,4 +129,8 @@ describe("manufacturing/ai-assistant — tenant AI gating", () => {
   });
 });
 
-vi.mock("@/lib/ai/conversationContext", () => ({ loadConversationContext: async (input: any) => ({ history: [], conversationId: input.conversationId }) }));
+vi.mock("@/lib/ai/conversationContext", () => ({
+  loadConversationContext: async (input: any) => ({ history: [], conversationId: input.conversationId }),
+  getCompletedExchange: vi.fn(async () => null),
+  saveCompletedExchange: vi.fn(async () => undefined),
+}));

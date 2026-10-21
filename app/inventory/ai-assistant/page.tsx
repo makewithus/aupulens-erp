@@ -56,8 +56,15 @@ export default function InventoryAIAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const usageRequestWasActive = useRef(false);
   useEffect(() => {
-    if (usageRequestWasActive.current && !isLoading) refreshAiUsage();
-    usageRequestWasActive.current = isLoading;
+    if (!isLoading) {
+      if (usageRequestWasActive.current) refreshAiUsage();
+      usageRequestWasActive.current = false;
+      return;
+    }
+    usageRequestWasActive.current = true;
+    refreshAiUsage();
+    const timer = window.setInterval(refreshAiUsage, 2500);
+    return () => window.clearInterval(timer);
   }, [isLoading]);
 
   // Voice-to-text (Azure) — speak your question; transcript is appended.
@@ -384,7 +391,7 @@ export default function InventoryAIAssistant() {
       const response = await fetch('/api/inventory/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userInputText, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })) })
+        body: JSON.stringify({ query: userInputText, attachments: sentAttachments, chatId: currentChatId, history: messages.filter(m => !m.isLoading && m.content).map(m => ({ role: m.role, content: m.content })), requestId: crypto.randomUUID() })
       });
 
       const data = await response.json();
@@ -418,6 +425,7 @@ export default function InventoryAIAssistant() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title,
+            conversationId: data.conversationId,
             messages: newMessages
           })
         });
@@ -431,9 +439,7 @@ export default function InventoryAIAssistant() {
             description: 'New conversation started and saved.'
           });
         }
-      } else {
-        setTimeout(() => saveCurrentChat(), 500);
-      }
+      } else await fetchChatHistory(); // Server owns the completed transcript.
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => prev.filter(msg => !msg.isLoading).concat({

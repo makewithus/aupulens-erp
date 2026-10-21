@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (tenantIdGuard) return tenantIdGuard;
   const tenantId = (session.user as any).tenantId;
 
-  const { chatId, title, messages } = await request.json();
+  const { chatId, conversationId, title, messages } = await request.json();
   await dbConnect();
 
   let chat;
@@ -54,6 +54,11 @@ export async function POST(request: NextRequest) {
       { new: true },
     );
     if (!chat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  } else if (typeof conversationId === "string" && conversationId.length <= 100) {
+    const existing = await ChatHistory.findOne({ tenantId, userId: session.user.id, module: MODULE, conversationId }).select("_id").lean();
+    chat = existing
+      ? await ChatHistory.findOneAndUpdate({ _id: existing._id, tenantId, userId: session.user.id }, { $set: { title: title || "New Chat" } }, { new: true })
+      : await ChatHistory.create({ userId: session.user.id, tenantId, module: MODULE, conversationId, title: title || "New Chat", messages: messages || [], isArchived: false });
   } else {
     chat = await ChatHistory.create({
       userId: session.user.id,

@@ -39,7 +39,7 @@ export function HeaderActions({
         onClick={onRefresh}
         disabled={isRefreshing}
         className={cn(
-          "h-8 w-8 sm:h-9 sm:w-9 rounded-none transition-all duration-200",
+          "hidden h-9 w-9 rounded-none transition-all duration-200 sm:inline-flex",
           "hover:bg-accent hover:shadow-sm hover:scale-105",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         )}

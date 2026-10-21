@@ -331,18 +331,18 @@ function StockTrackingPageInner() {
         await Promise.all([fetchProducts(), fetchStockLevels()]);
       }}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Page Header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Stock Tracking</h1>
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">Stock Tracking</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {pagination.total} {pagination.total === 1 ? "product" : "products"} total
             </p>
           </div>
 
-          <div className="w-full max-w-xl flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-            <div className="w-full max-w-sm">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
+            <div className="w-full sm:w-64">
               <SearchInput
                 value={query}
                 onChange={setQuery}
@@ -350,7 +350,7 @@ function StockTrackingPageInner() {
               />
             </div>
 
-            <Button onClick={handleOpenCreate} className="h-10 px-6">
+            <Button onClick={handleOpenCreate} className="h-10 px-6 w-full sm:w-auto">
               New Product
             </Button>
           </div>
@@ -384,14 +384,14 @@ function StockTrackingPageInner() {
           </CardContent>
 
           {/* Pagination Footer */}
-          <div className="border-t border-border/20 p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs font-mono text-muted-foreground/60">
+          <div className="border-t border-border/20 p-4 sm:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs font-mono text-muted-foreground/60 text-center sm:text-left">
               Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
               {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
               of {pagination.total} entries
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-center gap-1">
               <Button
                 variant="outline"
                 size="sm"

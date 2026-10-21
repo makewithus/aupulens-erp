@@ -19,6 +19,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const quote = await SalesQuotation.findOne({ _id: id, tenantId });
     if (!quote) return NextResponse.json({ success: false, message: "Quote not found" }, { status: 404 });
 
+    // The quote page treats a second conversion as a conflict. The lower-level
+    // conversion service remains idempotent for internal retry callers, but an
+    // explicit second POST must not look like a newly-created invoice (201).
+    if (quote.convertedInvoiceId || quote.status === "invoiced") {
+      return NextResponse.json(
+        { success: false, message: "This quote has already been invoiced." },
+        { status: 409 },
+      );
+    }
+
     const invoice = await convertQuoteToInvoice({ tenantId, userId: session.user.id, quote });
 
     // Advances the Q2C Pipeline board — best-effort: a failure here is a

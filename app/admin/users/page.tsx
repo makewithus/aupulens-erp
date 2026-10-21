@@ -221,26 +221,26 @@ function UsersPageInner() {
       onSignOut={() => signOut({ callbackUrl: "/auth/admin" })}
       onRefresh={fetchUsers}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               User Directory
             </h1>
           </div>
           <Button
             onClick={() => setIsAddUserOpen(true)}
-            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted w-full sm:w-auto shrink-0"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add New User
           </Button>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-4">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-3">          
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">          
           <StatCard
             title="Total Users"
             value={stats.total}
@@ -292,7 +292,7 @@ function UsersPageInner() {
       />
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1 py-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-3">
           <p className="text-sm text-muted-foreground">
             Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
           </p>

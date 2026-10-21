@@ -38,7 +38,7 @@ export function UsersToolbar({
   setDateTo,
 }: UsersToolbarProps) {
   return (
-    <div className="px-8 py-5">
+    <div className="px-4 sm:px-8 py-4 sm:py-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search */}
         <div className="relative flex-1">

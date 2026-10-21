@@ -27,11 +27,11 @@ export function TrackingSearch({
 }: TrackingSearchProps) {
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           variant={searchMode === 'search' ? 'default' : 'outline'}
           onClick={() => onSearchModeChange('search')}
-          className={searchMode === 'search' ? 'bg-blue-800 hover:bg-blue-700' : ''}
+          className={`w-full sm:w-auto ${searchMode === 'search' ? 'bg-blue-800 hover:bg-blue-700' : ''}`}
         >
           <Search className="mr-2 h-4 w-4" />
           Search
@@ -39,7 +39,7 @@ export function TrackingSearch({
         <Button
           variant={searchMode === 'dropdown' ? 'default' : 'outline'}
           onClick={() => onSearchModeChange('dropdown')}
-          className={searchMode === 'dropdown' ? 'bg-blue-800 hover:bg-blue-700' : ''}
+          className={`w-full sm:w-auto ${searchMode === 'dropdown' ? 'bg-blue-800 hover:bg-blue-700' : ''}`}
         >
           <Package className="mr-2 h-4 w-4" />
           Select from List
@@ -47,7 +47,7 @@ export function TrackingSearch({
       </div>
 
       {searchMode === 'search' ? (
-        <form onSubmit={onTrack} className="flex gap-2">
+        <form onSubmit={onTrack} className="flex flex-col sm:flex-row gap-2">
           <Input
             placeholder="Enter tracking number or shipment number..."
             value={trackingNumber}
@@ -57,7 +57,7 @@ export function TrackingSearch({
           <Button
             type="submit"
             disabled={isLoading}
-            className="bg-blue-800 hover:bg-blue-700 text-white h-11"
+            className="w-full sm:w-auto bg-blue-800 hover:bg-blue-700 text-white h-11"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

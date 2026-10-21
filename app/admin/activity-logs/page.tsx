@@ -220,16 +220,16 @@ export default function ActivityLogsPage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/admin' })}
       onRefresh={fetchLogs}
     >
-      <div className="space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-white">Activity Logs</h1>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-foreground break-words">Activity Logs</h1>
           <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
             Monitor all user activities across the system
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Activities</CardTitle>
@@ -278,14 +278,14 @@ export default function ActivityLogsPage() {
             <CardDescription>Search and filter activity logs</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+              <div className="flex-1 min-w-[200px] relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or activity..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
               <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -311,6 +311,7 @@ export default function ActivityLogsPage() {
               />
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setSearchTerm('');
                   setRoleFilter('all');
@@ -330,9 +331,9 @@ export default function ActivityLogsPage() {
             <CardTitle>Activity Timeline</CardTitle>
             <CardDescription>Detailed log of all user activities</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-none border">
-              <Table>
+          <CardContent className="p-0 sm:p-6">
+            <div className="overflow-x-auto w-full min-w-0 rounded-none border">
+              <Table className="min-w-[750px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Timestamp</TableHead>

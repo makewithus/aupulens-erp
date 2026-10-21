@@ -201,26 +201,26 @@ export default function BalanceSheetPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Balance Sheet
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Snapshot of posted assets, liabilities, and equity as of the selected organization date
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-44 rounded-none"
+              className="w-full sm:w-44 rounded-none"
             />
             <Button
               variant="outline"
-              className="rounded-none"
+              className="rounded-none w-full sm:w-auto"
               onClick={handlePrint}
               disabled={loading || !data}
             >
@@ -312,7 +312,7 @@ export default function BalanceSheetPage() {
 
             {/* Accounting-equation check: Assets = Liabilities + Equity */}
             <div
-              className={`flex items-center justify-between border px-6 py-5 ${
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border px-4 sm:px-6 py-4 sm:py-5 ${
                 balanced ? "border-emerald-500/40" : "border-red-500/50"
               }`}
             >

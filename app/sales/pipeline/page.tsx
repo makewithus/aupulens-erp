@@ -140,7 +140,7 @@ export default function Q2CPipelinePage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/sales" })}
       onRefresh={load}
     >
-      <div className="space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         {/* Header */}
         <PipelineHeader query={query} setQuery={setQuery} />
 

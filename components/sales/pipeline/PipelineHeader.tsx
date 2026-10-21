@@ -8,8 +8,8 @@ interface PipelineHeaderProps {
 export function PipelineHeader({ query, setQuery }: PipelineHeaderProps) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between pb-2">
-      <div className="shrink-0">
-        <h2 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+      <div className="shrink-0 max-w-full min-w-0">
+        <h2 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
           Quote-to-Cash Pipeline
         </h2>
       </div>

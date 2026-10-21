@@ -59,19 +59,19 @@ export function WorkflowCard({
               setExpanded(!expanded);
             }
           }}
-          className={`flex items-center justify-between gap-8 ${
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8 ${
             hasChecklist ? "cursor-pointer" : ""
           }`}
         >
           {/* Left */}
 
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-4 min-w-0 w-full sm:w-auto">
             <div className="min-w-0">
-              <h3 className="truncate text-[24px] font-medium tracking-[-0.04em] transition-opacity duration-500 group-hover:opacity-80">
+              <h3 className="truncate text-xl sm:text-[24px] font-medium tracking-[-0.04em] transition-opacity duration-500 group-hover:opacity-80">
                 {employee.firstName} {employee.lastName}
               </h3>
 
-              <p className="mt-1 font-mono text-[11px] text-muted-foreground/45">
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground/45 truncate">
                 {employee.employeeCode}
                 {employee.designation && <> • {employee.designation}</>}
               </p>
@@ -80,7 +80,7 @@ export function WorkflowCard({
 
           {/* Right */}
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
             {hasChecklist ? (
               <>
                 <div className="w-60">

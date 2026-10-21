@@ -1,4 +1,4 @@
-import { loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
+import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -44,10 +44,12 @@ export async function POST(request: NextRequest) {
     // Restore prior turns for multi-turn context
     const conversationContext = await loadConversationContext({
       tenantId, userId, role: session.user.role, module: "hr", conversationId,
-      chatId: body.chatId, history: body.history, message,
+      chatId: body.chatId, history: body.history, message, requestId: body.requestId,
     });
     const priorTurns = conversationContext.history;
     conversationId = conversationContext.conversationId;
+    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "hr", conversationId, requestId: body.requestId });
+    if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
     const data = await fetchHRData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    await saveCompletedExchange({ tenantId, userId, conversationId, module: "hr", message, response });
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "hr", message, response, requestId: body.requestId });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
@@ -158,7 +160,7 @@ Instructions:
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      language: { rawText: message },
+      language: { rawText: message, showInterpretation: false },
       ...opts,
       history: priorTurns,
     });

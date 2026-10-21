@@ -109,31 +109,31 @@ export default function GeneralLedgerPage() {
       onSignOut={() => signOut({ callbackUrl: "/auth/finance" })}
       onRefresh={() => load(page, debouncedQuery, reconciledFilter, dateFrom, dateTo)}
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               General Ledger
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Master list of all financial transactions
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search ledger..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 w-64 bg-background"
+                className="pl-9 w-full bg-background"
               />
             </div>
             <Select
               value={reconciledFilter || "all"}
               onValueChange={(v) => setReconciledFilter(v === "all" ? "" : v)}
             >
-              <SelectTrigger className="w-[150px] bg-background">
+              <SelectTrigger className="w-full sm:w-[150px] bg-background">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
@@ -156,6 +156,7 @@ export default function GeneralLedgerPage() {
             )}
             <Button
               onClick={() => router.push("/finance/accounting/journal-entries")}
+              className="w-full sm:w-auto"
             >
               Journal Entries
             </Button>
@@ -176,18 +177,18 @@ export default function GeneralLedgerPage() {
                 <p className="text-muted-foreground">No ledger items found</p>
               </div>
             ) : (
-              <div className="bg-background rounded-xl border overflow-hidden">
-                <Table className="min-w-full divide-y divide-border">
+              <div className="bg-background rounded-xl border overflow-hidden overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[750px] w-full divide-y divide-border">
                   <TableHeader className="bg-muted/50">
                     <TableRow className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                      <TableHead className="px-6 py-4 text-left">Date</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Entry</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Account</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Partner</TableHead>
-                      <TableHead className="px-6 py-4 text-left">Label</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Debit</TableHead>
-                      <TableHead className="px-6 py-4 text-right">Credit</TableHead>
-                      <TableHead className="px-6 py-4 text-center">Status</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Date</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Entry</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Account</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Partner</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-left">Label</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Debit</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-right">Credit</TableHead>
+                      <TableHead className="px-3 sm:px-6 py-3 sm:py-4 text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">
@@ -196,13 +197,13 @@ export default function GeneralLedgerPage() {
                         key={idx}
                         className="hover:bg-muted/20 transition-colors text-sm"
                       >
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-muted-foreground">
                           {new Date(line.date).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap font-medium text-primary">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap font-medium text-primary">
                           {line.entryName}
                         </TableCell>
-                        <TableCell className="px-6 py-4">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex flex-col">
                             <span className="font-medium">
                               {line.accountId?.name}
@@ -212,25 +213,25 @@ export default function GeneralLedgerPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-muted-foreground">
                           {line.partnerId?.header?.name ||
                             line.partnerId?.name ||
                             "-"}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-muted-foreground italic">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-muted-foreground italic">
                           {line.label || "-"}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right font-semibold">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold">
                           {line.debit > 0
                             ? `₹${line.debit.toLocaleString()}`
                             : ""}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-right font-semibold">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold">
                           {line.credit > 0
                             ? `₹${line.credit.toLocaleString()}`
                             : ""}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-center">
+                        <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                           {line.reconciled ? (
                             <Badge
                               variant="outline"
@@ -254,14 +255,14 @@ export default function GeneralLedgerPage() {
                     <TableRow>
                       <TableCell
                         colSpan={5}
-                        className="px-6 py-4 text-right uppercase tracking-wider text-xs"
+                        className="px-3 sm:px-6 py-3 sm:py-4 text-right uppercase tracking-wider text-xs"
                       >
                         Totals (all {total} lines)
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         ₹{(totals.debit || 0).toLocaleString()}
                       </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         ₹{(totals.credit || 0).toLocaleString()}
                       </TableCell>
                       <TableCell></TableCell>
@@ -272,15 +273,15 @@ export default function GeneralLedgerPage() {
             )}
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border">
+                <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                     Previous
                   </Button>
-                  <span className="text-sm">Page {page} of {totalPages}</span>
+                  <span className="text-xs sm:text-sm">Page {page} of {totalPages}</span>
                   <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                     Next
                   </Button>

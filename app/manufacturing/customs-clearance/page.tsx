@@ -252,15 +252,15 @@ export default function CustomsClearancePage() {
       onSignOut={() => signOut({ callbackUrl: '/auth/manufacturing' })}
       onRefresh={fetchClearances}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground dark:text-white">Customs Clearance</h1>
-            <p className="mt-2 text-muted-foreground dark:text-muted-foreground">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground dark:text-white">Customs Clearance</h1>
+            <p className="mt-1 sm:mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
               Manage customs declarations and clearances
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <DateRangeFilter
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -270,24 +270,24 @@ export default function CustomsClearancePage() {
             <Button
               onClick={loadVisualizationData}
               variant="outline"
-              className="border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
+              className="w-full sm:w-auto border-blue-800 text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
             >
               <BarChart3 className="mr-2 h-4 w-4" />
               View Analytics
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
                   <Plus className="mr-2 h-4 w-4" />
                   New Clearance
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] sm:w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create Customs Clearance</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="declarationNumber">Declaration Number *</Label>
                       <Input
@@ -404,8 +404,8 @@ export default function CustomsClearancePage() {
             <CardTitle>All Customs Clearances ({clearances.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table className="w-full">
+            <div className="overflow-x-auto w-full min-w-0">
+              <Table className="min-w-[700px] w-full">
                 <TableHeader>
                   <TableRow className="border-b dark:border-border">
                     <TableHead className="text-left p-3 font-medium text-foreground dark:text-white">Declaration #</TableHead>

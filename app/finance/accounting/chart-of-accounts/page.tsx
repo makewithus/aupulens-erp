@@ -666,29 +666,29 @@ function ChartOfAccountsPageInner() {
       onRefresh={fetchData}
       profilePath="/finance/profile"
     >
-      <div className="space-y-6">
+      <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         {/* Top Nav Tabs */}
         <AccountingSubNav />
 
         {/* Header Toolbar */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 min-w-0">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Chart of Accounts
             </h1>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Link href="/finance/accounting/chart-of-accounts/account-types">
-              <Button variant="outline" className="h-12 px-6 rounded-none border border-border/45 font-mono text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95">Account Types</Button>
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+            <Link href="/finance/accounting/chart-of-accounts/account-types" className="shrink-0">
+              <Button variant="outline" className="h-11 px-3 sm:px-6 rounded-none border border-border/45 font-mono text-xs sm:text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95">Account Types</Button>
             </Link>
-            <Button variant="outline" onClick={() => setIsAccountantsOpen(true)} className="h-12 px-6 rounded-none border border-border/45 font-mono text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95">
+            <Button variant="outline" onClick={() => setIsAccountantsOpen(true)} className="h-11 px-3 sm:px-6 rounded-none border border-border/45 font-mono text-xs sm:text-[13px] uppercase tracking-wider hover:bg-white/5 cursor-pointer text-foreground/95 shrink-0">
               <Users className="h-4 w-4 mr-2 text-muted-foreground/70" />
               Find Accountants
             </Button>
             <Button
               onClick={() => setIsAccountModalOpen(true)}
-              className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-[13px] uppercase tracking-wider rounded-none cursor-pointer"
+              className="none-xl h-11 px-3 sm:px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted font-mono text-xs sm:text-[13px] uppercase tracking-wider rounded-none cursor-pointer shrink-0"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Account
@@ -700,7 +700,7 @@ function ChartOfAccountsPageInner() {
           <>
             {/* Stats Cards banner */}
             <div className="space-y-1">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
                 <StatCard title="Total Accounts" value={kpis.total} visual={<UsersGraph />} />
                 <StatCard title="Active Accounts" value={kpis.active} visual={<ActivePulse />} />
                 <StatCard title="Asset Accounts" value={kpis.asset} visual={<UsersGraph />} />
@@ -710,12 +710,12 @@ function ChartOfAccountsPageInner() {
               {/* Main Card grid */}
               <Card className="overflow-hidden border border-border/40 shadow-none bg-background rounded-none">
                 {/* Card Header & Controls Toolbar */}
-                <div className="border-b border-border/20 px-8 py-6">
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="border-b border-border/20 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                  <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
                     <div className="shrink-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="text-[30px] font-medium tracking-[-0.05em] p-0 hover:bg-transparent flex items-center gap-2 text-foreground h-auto rounded-none">
+                          <Button variant="ghost" className="text-2xl sm:text-[30px] font-medium tracking-[-0.05em] p-0 hover:bg-transparent flex items-center gap-2 text-foreground h-auto rounded-none">
                             {view.charAt(0).toUpperCase() + view.slice(1)} Accounts
                             <span className="text-primary text-xl font-black mt-1">▾</span>
                           </Button>
@@ -735,15 +735,15 @@ function ChartOfAccountsPageInner() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
+                      <p className="mt-1 sm:mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/45">
                         {filteredAccounts.length} {filteredAccounts.length === 1 ? "Account" : "Accounts"}
                       </p>
                     </div>
 
                     {/* Toolbar Controls */}
-                    <div className="w-full max-w-3xl flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-end">
+                    <div className="w-full lg:max-w-3xl flex flex-wrap gap-2 sm:gap-3 items-center justify-end">
                       {/* Search Input */}
-                      <div className="relative flex-1">
+                      <div className="relative flex-1 min-w-[160px]">
                         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35 transition-colors" />
                         <Input
                           value={search}
@@ -756,7 +756,7 @@ function ChartOfAccountsPageInner() {
                       {/* Settings Utilities Dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="h-11 px-3 rounded-none border border-border/40 hover:bg-white/5 cursor-pointer text-foreground">
+                          <Button variant="outline" className="h-11 px-3 rounded-none border border-border/40 hover:bg-white/5 cursor-pointer text-foreground shrink-0">
                             <MoreHorizontal className="h-4 w-4 text-muted-foreground/75" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -781,77 +781,79 @@ function ChartOfAccountsPageInner() {
 
                 {/* Table Content */}
                 <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="border-border/40">
-                      <TableRow>
-                        <TableHead className="w-12 text-center py-5">
-                          <Checkbox className="rounded-none" />
-                        </TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACCOUNT NAME</TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
-                          ACCOUNT CODE
-                          <ArrowUpDown className="h-3 w-3 inline-block ml-1 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                        </TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACCOUNT TYPE</TableHead>
-                        <TableHead className="px-8 py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">PARENT ACCOUNT</TableHead>
-                        <TableHead className="px-8 py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACTIONS</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/30">
-                      {loading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="text-center py-7"><Skeleton className="h-4 w-4 mx-auto rounded-none" /></TableCell>
-                            <TableCell className="px-8 py-7"><Skeleton className="h-5 w-44 rounded-none" /></TableCell>
-                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-16 rounded-none" /></TableCell>
-                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-28 rounded-none" /></TableCell>
-                            <TableCell className="px-8 py-7"><Skeleton className="h-4 w-24 rounded-none" /></TableCell>
-                            <TableCell className="px-8 py-7 text-right"><Skeleton className="h-8 w-8 ml-auto rounded-none" /></TableCell>
-                          </TableRow>
-                        ))
-                      ) : filteredAccounts.length === 0 ? (
+                  <div className="overflow-x-auto w-full">
+                    <Table className="min-w-[700px]">
+                      <TableHeader className="border-border/40">
                         <TableRow>
-                          <TableCell colSpan={6} className="py-24 text-center">
-                            <Star className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
-                            <h3 className="text-lg font-medium text-foreground">No accounts found</h3>
-                            <p className="mt-2 text-sm text-muted-foreground">Try adjusting your view dropdown or search queries.</p>
-                          </TableCell>
+                          <TableHead className="w-12 text-center py-4 sm:py-5">
+                            <Checkbox className="rounded-none" />
+                          </TableHead>
+                          <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACCOUNT NAME</TableHead>
+                          <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground cursor-pointer select-none group" onClick={() => setSortOrder(sortOrder === "code_asc" ? "code_desc" : "code_asc")}>
+                            ACCOUNT CODE
+                            <ArrowUpDown className="h-3 w-3 inline-block ml-1 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </TableHead>
+                          <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACCOUNT TYPE</TableHead>
+                          <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">PARENT ACCOUNT</TableHead>
+                          <TableHead className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 text-right font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">ACTIONS</TableHead>
                         </TableRow>
-                      ) : (
-                        filteredAccounts.map(a => (
-                          <TableRow key={a._id} className="hover:bg-white/[0.015] transition-colors duration-300 text-sm group font-medium">
-                            <TableCell className="text-center">
-                              {a.isLocked ? <Lock className="h-4 w-4 text-muted-foreground/40 mx-auto" /> : <Checkbox className="rounded-none" />}
-                            </TableCell>
-                            <TableCell className="px-8 py-7 font-bold text-foreground hover:text-primary transition-colors cursor-pointer">{a.accountName}</TableCell>
-                            <TableCell className="px-8 py-7 font-mono text-xs text-muted-foreground">{a.accountCode || "-"}</TableCell>
-                            <TableCell className="px-8 py-7 text-muted-foreground/95">{a.accountType?.name || "-"}</TableCell>
-                            <TableCell className="px-8 py-7 text-muted-foreground/80">{a.parentAccountId?.accountName || "-"}</TableCell>
-                            <TableCell className="px-8 py-7 text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer rounded-none">
-                                    <SettingsIcon className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48 shadow-lg border rounded-none">
-                                  <DropdownMenuItem onClick={() => handleEditClick(a)} className="cursor-pointer py-2 rounded-none">
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleToggleActive(a._id, !a.isActive)} className="cursor-pointer py-2 rounded-none">
-                                    {a.isActive === false ? "Mark as Active" : "Mark as Inactive"}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDeleteAccount(a._id)} className="cursor-pointer text-red-500 py-2 rounded-none">
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {loading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-center py-4 sm:py-6"><Skeleton className="h-4 w-4 mx-auto rounded-none" /></TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6"><Skeleton className="h-5 w-44 rounded-none" /></TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6"><Skeleton className="h-4 w-16 rounded-none" /></TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6"><Skeleton className="h-4 w-28 rounded-none" /></TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6"><Skeleton className="h-4 w-24 rounded-none" /></TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right"><Skeleton className="h-8 w-8 ml-auto rounded-none" /></TableCell>
+                            </TableRow>
+                          ))
+                        ) : filteredAccounts.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-24 text-center">
+                              <Star className="mx-auto mb-5 h-12 w-12 text-muted-foreground/20" />
+                              <h3 className="text-lg font-medium text-foreground">No accounts found</h3>
+                              <p className="mt-2 text-sm text-muted-foreground">Try adjusting your view dropdown or search queries.</p>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          filteredAccounts.map(a => (
+                            <TableRow key={a._id} className="hover:bg-white/[0.015] transition-colors duration-300 text-sm group font-medium">
+                              <TableCell className="text-center">
+                                {a.isLocked ? <Lock className="h-4 w-4 text-muted-foreground/40 mx-auto" /> : <Checkbox className="rounded-none" />}
+                              </TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 font-bold text-foreground hover:text-primary transition-colors cursor-pointer">{a.accountName}</TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 font-mono text-xs text-muted-foreground">{a.accountCode || "-"}</TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-muted-foreground/95">{a.accountType?.name || "-"}</TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-muted-foreground/80">{a.parentAccountId?.accountName || "-"}</TableCell>
+                              <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer rounded-none">
+                                      <SettingsIcon className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48 shadow-lg border rounded-none">
+                                    <DropdownMenuItem onClick={() => handleEditClick(a)} className="cursor-pointer py-2 rounded-none">
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleToggleActive(a._id, !a.isActive)} className="cursor-pointer py-2 rounded-none">
+                                      {a.isActive === false ? "Mark as Active" : "Mark as Inactive"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteAccount(a._id)} className="cursor-pointer text-red-500 py-2 rounded-none">
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>

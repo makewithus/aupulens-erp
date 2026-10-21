@@ -28,13 +28,14 @@ describe("saved chat retrieval and persistence", () => {
     expect(text).toContain("Orchid needs delivery on Friday");
     for (const secret of ["OTHER_USER_SECRET", "OTHER_TENANT_SECRET", "ARCHIVED_SECRET"]) expect(text).not.toContain(secret);
   });
-  it("restores the complete active chat, merges new live turns and excludes it from prior-chat recall", async () => {
+  it("restores the complete active chat and ignores unverified client history", async () => {
     const messages = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `active fact ${i}` }));
     await chat("current", "", { messages });
     const result = await loadConversationContext({ ...input, history: [...messages.slice(-2), { role: "user", content: "live unsaved fact" }] });
-    expect(result.history).toHaveLength(42);
+    expect(result.history).toHaveLength(41);
     expect(result.history[1].content).toBe("active fact 0");
-    expect(result.history.at(-1)?.content).toBe("live unsaved fact");
+    expect(result.history.at(-1)?.content).toBe("active fact 39");
+    expect(JSON.stringify(result.history)).not.toContain("live unsaved fact");
     expect(result.history[0].content).not.toContain("active fact");
   });
   it("retrieves matching older chats beyond the recent-chat window", async () => {

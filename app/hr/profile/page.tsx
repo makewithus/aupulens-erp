@@ -104,9 +104,9 @@ export default function HRProfilePage() {
   };
 
   return (
-      <div className="space-y-6 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-3xl mx-auto">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Profile</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">Profile</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your account settings</p>
         </div>
 
@@ -146,7 +146,7 @@ export default function HRProfilePage() {
                       <Input value={profile?.role || ""} disabled className="bg-muted capitalize" />
                     </div>
                   </div>
-                  <Button type="submit" disabled={isSaving}>
+                  <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
                     {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
                   </Button>
                 </form>
@@ -161,7 +161,7 @@ export default function HRProfilePage() {
               </CardHeader>
               <CardContent>
                 {!isChangingPassword ? (
-                  <Button variant="outline" onClick={() => setIsChangingPassword(true)}>Change Password</Button>
+                  <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsChangingPassword(true)}>Change Password</Button>
                 ) : (
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -174,9 +174,9 @@ export default function HRProfilePage() {
                         <Input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Confirm" minLength={6} required />
                       </div>
                     </div>
-                    <div className="flex gap-3">
-                      <Button type="button" variant="outline" onClick={() => { setIsChangingPassword(false); setPasswordForm({ newPassword: "", confirmPassword: "" }); }} disabled={isSaving}>Cancel</Button>
-                      <Button type="submit" disabled={isSaving}>
+                    <div className="flex flex-col-reverse sm:flex-row gap-3">
+                      <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setIsChangingPassword(false); setPasswordForm({ newPassword: "", confirmPassword: "" }); }} disabled={isSaving}>Cancel</Button>
+                      <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
                         {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Changing...</> : "Change Password"}
                       </Button>
                     </div>

@@ -334,16 +334,31 @@ export function DashboardHeader({
       )}
     >
       <div className="px-3 sm:px-4 lg:px-6 xl:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+        <div className="flex min-w-0 items-center justify-between gap-0 py-2 sm:h-20 sm:gap-2 sm:py-0">
           {/* LEFT SECTION: logo + module + top links */}
-          <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
+          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-3 lg:gap-8">
+            {/* Mobile navigation is the primary route switcher below lg. */}
+            <div className="shrink-0 lg:hidden">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+                aria-label={isMobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={isMobileNavOpen}
+                title="Open menu"
+                className="h-10 w-10 rounded-none"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
+
             {/* Company Logo + Name */}
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
+            <Link href="/" aria-label="Aupulens home" className="flex shrink-0 items-center gap-2 sm:gap-3 group cursor-pointer">
               <Logo
                 width={125}
                 height={32}
                 priority
-                className="h-8 w-auto object-contain transition-all duration-300"
+                className="h-7 w-[110px] object-contain transition-all duration-300 sm:h-8 sm:w-[125px]"
               />
             </Link>
 
@@ -353,23 +368,10 @@ export function DashboardHeader({
               variant="ghost"
               onClick={() => router.back()}
               title="Go back"
-              className="h-8 w-8 rounded-none shrink-0"
+              className="hidden h-9 w-9 shrink-0 rounded-none sm:inline-flex"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-
-            {/* Mobile nav trigger - the only way to reach navigation below the lg breakpoint, since DashboardSidebar is `hidden lg:flex` */}
-            <div className="lg:hidden">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-                title="Open menu"
-                className="h-8 w-8 rounded-none"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-            </div>
 
             {/* Module Dropdown and Top-Links (desktop) - superseded by ModuleTabs below */}
             {/* <div className="hidden lg:flex items-center gap-1">
@@ -496,10 +498,10 @@ export function DashboardHeader({
           </div>
 
           {/* RIGHT SECTION */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             <GlobalSearch sidebarConfig={sidebarConfig} />
 
-            <WorkspaceSwitcher />
+            <div className="hidden sm:block"><WorkspaceSwitcher /></div>
 
             <HeaderActions
               isRefreshing={isRefreshing}
@@ -519,6 +521,14 @@ export function DashboardHeader({
           </div>
         </div>
 
+        <div className="flex min-w-0 items-center gap-2 border-t border-border/20 py-1.5 text-xs lg:hidden">
+          <span className="shrink-0 font-medium text-foreground">{dashboardTitle}</span>
+          {(pageName || breadcrumbs?.[breadcrumbs.length - 1]?.label) && <>
+            <span aria-hidden="true" className="text-muted-foreground/50">/</span>
+            <span className="min-w-0 truncate text-muted-foreground">{pageName || breadcrumbs?.[breadcrumbs.length - 1]?.label}</span>
+          </>}
+        </div>
+
         {/* Mobile breadcrumbs removed */}
       </div>
 
@@ -526,10 +536,19 @@ export function DashboardHeader({
       <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
       {/* Mobile nav overlay - shows the sidebar sections & items like the sidebar */}
       {isMobileNavOpen && (
-        <div
-          ref={mobileNavRef}
-          className="lg:hidden absolute left-0 right-0 top-full z-50 bg-background shadow-lg border-t border-border/40 p-3 max-h-[85vh] overflow-y-auto"
-        >
+        <>
+          <div
+            className="lg:hidden fixed inset-0 top-[57px] bg-black/60 z-40 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setIsMobileNavOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            ref={mobileNavRef}
+            className="lg:hidden absolute left-0 right-0 top-full z-50 max-h-[85dvh] overflow-y-auto border-t border-border/40 bg-background p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-top-2 duration-200"
+          >
+          <div className="mb-3 sm:hidden">
+            <WorkspaceSwitcher mobileFullWidth />
+          </div>
           {(activeUserRole === "master-admin" || activeUserRole === "admin") && (
             <div className="mb-4 pb-4 border-b border-border/50">
               <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2 px-2">
@@ -597,6 +616,7 @@ export function DashboardHeader({
             </div>
           ))}
         </div>
+        </>
       )}
     </header>
   );

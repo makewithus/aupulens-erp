@@ -101,6 +101,12 @@ export async function updatePlan(
   if (input.priceYearly !== undefined) plan.priceYearly = input.priceYearly;
   if (input.active !== undefined) plan.active = input.active;
   if (input.features) {
+    for (const field of ["aiCreditsPerMonth", "aiCreditsPerSession", "aiCreditsPerWeek"] as const) {
+      const value = input.features[field];
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+        throw new ManagePlanError(`${field} must be a non-negative whole number of AI credit units.`, 400);
+      }
+    }
     plan.features = { ...plan.features, ...input.features } as IPlanFeatures;
   }
   await plan.save();

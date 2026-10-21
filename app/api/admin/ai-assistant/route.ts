@@ -1,4 +1,4 @@
-import { loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
+import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -65,10 +65,15 @@ export async function POST(request: NextRequest) {
 
     const conversationContext = await loadConversationContext({
       tenantId, userId, role: session.user.role, module: "admin", conversationId,
-      chatId: body.chatId, history: body.history, message,
+      chatId: body.chatId, history: body.history, message, requestId,
     });
     const priorTurns = conversationContext.history;
     conversationId = conversationContext.conversationId;
+    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "admin", conversationId, requestId });
+    if (completedRetry) {
+      if (body.stream) return new Response(completedRetry, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
+      return NextResponse.json({ response: completedRetry, conversationId });
+    }
 
     // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
     // Reads every attached file — documents become text, images go to gpt-4o
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest) {
       const attachPrompt = `${parts.join(" ")} For document facts use the attached content (text + images); for questions about this or previous chats, use the conversation history and app-supplied saved chat memory. If a requested detail is absent from those sources, say so.\n\n${docTexts.join("\n\n")}\n\nUSER QUESTION: "${message}"`;
 
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, attachPrompt, {
-        language: { rawText: message, replyInUserLanguage: false },
+        language: { rawText: message, showInterpretation: false },
         systemPrompt: "You are Aupulens' assistant analysing one or more user-attached files. Be accurate, organised and concise. Never print internal database IDs or raw JSON." + AI_ASSISTANT_GUIDANCE,
         maxTokens: 1100,
         imageDataUrls: imageUrls.length ? imageUrls : undefined,
@@ -156,7 +161,7 @@ export async function POST(request: NextRequest) {
           try {
             let full = "";
             for await (const d of streamRes.stream) { full += d; controller.enqueue(enc.encode(d)); }
-            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full });
+            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full, requestId });
           }
           catch { controller.enqueue(enc.encode("Sorry \u2014 I couldn't finish reading those attachments. Please try again.")); }
           finally { controller.close(); }
@@ -190,7 +195,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "I encountered an error while fetching your data. Please try again." }, { status: 200 });
       }
       const streamRes = await callClaudeForTenantStream(tenantId, tier, aiSettings, built.prompt, {
-        language: { rawText: message, replyInUserLanguage: false },
+        language: { rawText: message, showInterpretation: false },
         systemPrompt: built.systemPrompt,
         maxTokens: built.maxTokens,
         history: priorTurns,
@@ -213,7 +218,7 @@ export async function POST(request: NextRequest) {
               full += delta;
               controller.enqueue(encoder.encode(delta));
             }
-            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full });
+            await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full, requestId });
           } catch {
             // If the model errors mid-stream, end gracefully with what we have.
             if (!full) controller.enqueue(encoder.encode("Sorry — I couldn't complete that response. Please try again."));
@@ -254,7 +259,7 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    await saveCompletedExchange({ tenantId, userId, conversationId, module: "admin", message, response });
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "admin", message, response, requestId });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
@@ -459,7 +464,7 @@ async function generateResponseWithClaude(
 
   try {
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
-      language: { rawText: message },
+      language: { rawText: message, showInterpretation: false },
       systemPrompt,
       maxTokens,
       history: priorTurns,

@@ -278,17 +278,17 @@ export default function AttendancePage() {
 
   return (
     <>
-      <div className="space-y-8 max-w-8xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 min-w-0 max-w-full">
         <div>
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">Attendance</h1>
+          <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">Attendance</h1>
           <p className="text-sm text-muted-foreground mt-1">Track and manage daily employee attendance</p>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
+              <CheckCircle className="h-8 w-8 text-green-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{present}</p>
                 <p className="text-xs text-muted-foreground">Present</p>
@@ -297,7 +297,7 @@ export default function AttendancePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
+              <XCircle className="h-8 w-8 text-red-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{absent}</p>
                 <p className="text-xs text-muted-foreground">Absent</p>
@@ -306,7 +306,7 @@ export default function AttendancePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <AlertCircle className="h-8 w-8 text-blue-500" />
+              <AlertCircle className="h-8 w-8 text-blue-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{onLeave}</p>
                 <p className="text-xs text-muted-foreground">On Leave</p>
@@ -315,7 +315,7 @@ export default function AttendancePage() {
           </Card>
           <Card className="border-border/40">
             <CardContent className="p-4 flex items-center gap-3">
-              <Lock className="h-8 w-8 text-amber-500" />
+              <Lock className="h-8 w-8 text-amber-500 shrink-0" />
               <div>
                 <p className="text-2xl font-black">{locked}</p>
                 <p className="text-xs text-muted-foreground">Locked</p>
@@ -327,7 +327,7 @@ export default function AttendancePage() {
         {/* Filters & Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex gap-3 flex-1 flex-wrap">
-            <div className="relative flex-1 max-w-xs">
+            <div className="relative w-full sm:w-auto flex-1 sm:max-w-xs min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search employee..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
@@ -340,7 +340,7 @@ export default function AttendancePage() {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="w-44"
+              className="w-full sm:w-44"
             />
             <Input
               type="month"
@@ -351,7 +351,7 @@ export default function AttendancePage() {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="w-44"
+              className="w-full sm:w-44"
               placeholder="Month view"
             />
             <DateRangeFilter
@@ -367,12 +367,12 @@ export default function AttendancePage() {
               }}
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleLockAttendance} className="gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <Button variant="outline" onClick={handleLockAttendance} className="w-full sm:w-auto gap-2">
               <Lock className="h-4 w-4" />
               Lock Day
             </Button>
-            <Button onClick={handleOpenCreate} className="gap-2">
+            <Button onClick={handleOpenCreate} className="w-full sm:w-auto gap-2">
               <Plus className="h-4 w-4" />
               Mark Attendance
             </Button>
@@ -393,7 +393,8 @@ export default function AttendancePage() {
         ) : (
           <Card className="border-border/40">
             <CardContent className="p-0">
-              <Table>
+              <div className="overflow-x-auto w-full min-w-0">
+                <Table className="min-w-[850px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead>Employee</TableHead>
@@ -456,9 +457,10 @@ export default function AttendancePage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t">
+                  <p className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                   </p>
                   <div className="flex items-center gap-2">

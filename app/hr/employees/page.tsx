@@ -341,24 +341,24 @@ export default function EmployeesPage() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">
+            <h1 className="text-2xl sm:text-4xl md:text-[56px] font-black tracking-tighter text-primary break-words">
               Employee Directory
             </h1>
           </div>
           <Button
             onClick={handleOpenCreate}
-            className="none-xl h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
+            className="w-full sm:w-auto h-12 px-6 text-primary bg-tertiary border-secondary border-1 transition-all hover:bg-muted"
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
         </div>
 
-        <div className="space-y-1">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Total Employees"
               value={stats.total}
@@ -416,8 +416,8 @@ export default function EmployeesPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-1 py-3">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1 py-3 border-t">
+                <p className="text-sm text-muted-foreground text-center sm:text-left">
                   Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
                 <div className="flex items-center gap-2">
