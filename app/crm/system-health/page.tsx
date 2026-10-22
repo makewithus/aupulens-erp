@@ -23,9 +23,9 @@ export default function SystemHealthCenter() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden mt-6">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-background text-muted-foreground">
+      <div className="bg-card border border-border rounded-lg overflow-x-auto mt-6">
+        <table className="w-full text-sm text-left min-w-[500px] whitespace-nowrap">
+          <thead className="bg-background text-muted-foreground whitespace-nowrap">
             <tr>
               <th className="px-4 py-3">Subsystem</th>
               <th className="px-4 py-3">Status</th>
@@ -39,11 +39,13 @@ export default function SystemHealthCenter() {
                 <td className="px-4 py-3 font-medium text-foreground">{sys.name}</td>
                 <td className="px-4 py-3">
                   <Badge variant="outline" className={`text-xs ${
-                    sys.status === 'Healthy' ? 'border-green-900/50 text-green-400' : 'border-yellow-900/50 text-yellow-400'
+                    sys.status === 'Healthy'
+                      ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                      : 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
                   }`}>{sys.status}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  {sys.failures > 0 ? <span className="text-red-400 font-bold">{sys.failures}</span> : <span className="text-muted-foreground">0</span>}
+                  {sys.failures > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">{sys.failures}</span> : <span className="text-muted-foreground">0</span>}
                 </td>
                 <td className="px-4 py-3 text-right text-xs text-muted-foreground">{sys.lastChecked}</td>
               </tr>

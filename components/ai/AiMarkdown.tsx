@@ -59,12 +59,12 @@ export function AiMarkdown({ content, className }: { content: string; className?
           },
           table: ({ children }) => (
             <div className="my-3 overflow-x-auto rounded-md border border-border">
-              <table className="w-full border-collapse text-left text-xs">{children}</table>
+              <table className="w-full border-collapse text-left text-xs min-w-[500px] whitespace-nowrap">{children}</table>
             </div>
           ),
-          thead: ({ children }) => <thead className="bg-muted/60">{children}</thead>,
-          th: ({ children }) => <th className="border-b border-border px-3 py-2 font-semibold text-foreground">{children}</th>,
-          td: ({ children }) => <td className="border-b border-border/60 px-3 py-2">{children}</td>,
+          thead: ({ children }) => <thead className="bg-muted/60 whitespace-nowrap">{children}</thead>,
+          th: ({ children }) => <th className="border-b border-border px-3 py-2 font-semibold text-foreground whitespace-nowrap">{children}</th>,
+          td: ({ children }) => <td className="border-b border-border/60 px-3 py-2 whitespace-nowrap">{children}</td>,
         }}
       >
         {content}

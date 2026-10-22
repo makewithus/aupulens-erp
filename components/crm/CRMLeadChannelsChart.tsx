@@ -5,7 +5,7 @@ import { useThemeStore } from "@/store/themeStore";
 
 export function CRMLeadChannelsChart() {
   const theme = useThemeStore((state) => state.theme);
-  const isDark = theme === "dark";
+  const isDark = theme !== "light";
 
   const [viewType, setViewType] = useState<"source" | "target">("source");
 
@@ -56,7 +56,7 @@ export function CRMLeadChannelsChart() {
     const yTicks: number[] = [];
     for (let v = 0; v <= yMax; v += 5000000) yTicks.push(v);
 
-    const PAD = { top: 16, right: 50, bottom: 60, left: 10 };
+    const PAD = { top: 28, right: 50, bottom: 60, left: 10 };
     const barColors = ["#a78bfa", "#8b5cf6"];
 
     function resize() {
@@ -124,20 +124,34 @@ export function CRMLeadChannelsChart() {
 
         for (let b = 0; b < totalBricks; b++) {
           const by = cB - (b + 1) * unitH + bG;
-          let brickColor = isHighlight ? "#ffffff" : "#d4d4d8";
+          let brickColor = isDark
+            ? isHighlight ? "#FFFFFF" : "#A77DFF"
+            : isHighlight ? "#6E38D9" : "#8C5CE6";
 
           if (!isHighlight && totalBricks > 6) {
             const rel = b / totalBricks;
             if (rel >= 0.72 && rel <= 0.86) {
-              brickColor = "#52525b";
+              brickColor = isDark ? "#FFFFFF" : "#1E293B";
             } else if (b % 7 === 4 && totalBricks > 10) {
-              brickColor = "#52525b";
+              brickColor = isDark ? "#B595FF" : "#6D28D9";
             }
           }
 
           ctx.fillStyle = brickColor;
           ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
         }
+
+        // Numeric value directly on top of each bar so user can read directly
+        const barTopY = cB - totalBricks * unitH;
+        ctx.save();
+        ctx.font = 'bold 10px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = isHighlight
+          ? (isDark ? "#ffffff" : "#0f172a")
+          : (isDark ? "#f2f2f2" : "#1e293b");
+        ctx.fillText(fmtM(values[i]), x + barWidth / 2, barTopY - 3);
+        ctx.restore();
 
         // X label (rotated)
         ctx.save();
@@ -184,6 +198,38 @@ export function CRMLeadChannelsChart() {
       draw(idx);
     };
 
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+      const n = values.length;
+      const groupWidth = cW / n;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const idx = Math.floor((mx - cL) / groupWidth);
+      if (idx < 0 || idx >= n) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      tooltip.textContent = chainNames[idx] + ": " + values[idx].toLocaleString();
+      tooltip.style.display = "block";
+      tooltip.style.left = mx + 16 + "px";
+      tooltip.style.top = Math.max(0, touch.clientY - rect.top - 30) + "px";
+      draw(idx);
+    };
+
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
       draw();
@@ -191,6 +237,9 @@ export function CRMLeadChannelsChart() {
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
     setTimeout(resize, 140);
@@ -199,6 +248,9 @@ export function CRMLeadChannelsChart() {
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [viewType, isDark]);

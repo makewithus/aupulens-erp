@@ -263,9 +263,9 @@ export default function PlatformDashboardPage() {
               <p className="text-sm text-muted-foreground p-4">No AI usage recorded yet this month.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[550px] whitespace-nowrap">
                   <thead>
-                    <tr className="border-b text-left text-muted-foreground">
+                    <tr className="border-b text-left text-muted-foreground whitespace-nowrap">
                       <th className="py-2 px-4 font-medium">Provider</th>
                       <th className="py-2 px-4 font-medium text-right">Requests</th>
                       <th className="py-2 px-4 font-medium text-right">Tokens</th>

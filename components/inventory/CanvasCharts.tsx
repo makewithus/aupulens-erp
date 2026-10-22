@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useThemeStore } from "@/store/themeStore";
 
 // Helper to format values
 function formatShortVal(v: number) {
@@ -11,51 +12,112 @@ function formatShortVal(v: number) {
   return v.toString();
 }
 
-// Helper to draw rounded rectangle (only top corners for vertical bars, right corners for horizontal bars)
-function drawRoundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-  corners: { tl?: boolean; tr?: boolean; bl?: boolean; br?: boolean } = {}
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + (corners.tl ? r : 0), y);
-  ctx.lineTo(x + w - (corners.tr ? r : 0), y);
-  if (corners.tr) ctx.arcTo(x + w, y, x + w, y + h, r);
-  else ctx.lineTo(x + w, y);
-  ctx.lineTo(x + w, y + h - (corners.br ? r : 0));
-  if (corners.br) ctx.arcTo(x + w, y + h, x, y + h, r);
-  else ctx.lineTo(x + w, y + h);
-  ctx.lineTo(x + (corners.bl ? r : 0), y + h);
-  if (corners.bl) ctx.arcTo(x, y + h, x, y, r);
-  else ctx.lineTo(x, y + h);
-  ctx.lineTo(x, y + (corners.tl ? r : 0));
-  if (corners.tl) ctx.arcTo(x, y, x + w, y, r);
-  else ctx.lineTo(x, y);
-  ctx.closePath();
+function adjustHexOpacity(hex: string, alpha: number): string {
+  if (!hex || !hex.startsWith("#")) return hex || "rgba(147, 51, 234, 1)";
+  const clean = hex.replace("#", "");
+  const full =
+    clean.length === 3
+      ? clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2]
+      : clean.substring(0, 6);
+  const r = parseInt(full.substring(0, 2), 16) || 0;
+  const g = parseInt(full.substring(2, 4), 16) || 0;
+  const b = parseInt(full.substring(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-interface SeriesConfig {
+/**
+ * Returns the exact fill color for an individual brick in a segmented bar.
+ * Uses the series color (or brand purple default) rather than flat monochrome gray,
+ * with authentic discrete texture variation and high-contrast readability in both light & dark mode.
+ */
+function getBrickFill(
+  color: string | undefined,
+  isDark: boolean,
+  isHighlight: boolean,
+  brickIdx: number,
+  totalBricks: number
+): string {
+  const base = color || (isDark ? "#c084fc" : "#7c3aed");
+
+  // If deliberate monochrome / white
+  if (base === "#ffffff" || base === "white" || base === "#fff") {
+    if (isDark) {
+      if (isHighlight) return "#ffffff";
+      if (totalBricks > 6) {
+        const rel = brickIdx / totalBricks;
+        if (rel >= 0.72 && rel <= 0.86) return "#71717a";
+        if (brickIdx % 7 === 4 && totalBricks > 10) return "#71717a";
+      }
+      return "#d4d4d8";
+    } else {
+      if (isHighlight) return "#0f172a";
+      if (totalBricks > 6) {
+        const rel = brickIdx / totalBricks;
+        if (rel >= 0.72 && rel <= 0.86) return "#64748b";
+        if (brickIdx % 7 === 4 && totalBricks > 10) return "#64748b";
+      }
+      return "#334155";
+    }
+  }
+
+  // Colored series (purple, blue, emerald, amber, etc.)
+  if (isDark) {
+    if (isHighlight) return "#ffffff";
+    if (totalBricks > 6) {
+      const rel = brickIdx / totalBricks;
+      // Image 2 bright white brick mixture band
+      if (rel >= 0.72 && rel <= 0.86) return "#ffffff";
+      if (brickIdx % 7 === 4 && totalBricks > 10) return adjustHexOpacity(base, 0.8);
+    }
+    return base;
+  } else {
+    // In light mode: ensure high contrast!
+    if (isHighlight) return "#0f172a";
+    if (totalBricks > 6) {
+      const rel = brickIdx / totalBricks;
+      // Image 2 contrasting dark brick mixture band in light mode
+      if (rel >= 0.72 && rel <= 0.86) return "#1e293b";
+      if (brickIdx % 7 === 4 && totalBricks > 10) return adjustHexOpacity(base, 0.88);
+    }
+    return base;
+  }
+}
+
+export interface SeriesConfig {
   key: string;
   name: string;
   color: string;
 }
+
+// Default 10-module branding palette matching Image 5
+export const BRAND_MODULE_PALETTE = [
+  "#7c3aed", // Finance
+  "#ef4444", // Supply Chain
+  "#3b82f6", // Inventory
+  "#f97316", // HR
+  "#eab308", // CRM
+  "#ec4899", // Warehouse Mgmt
+  "#a855f7", // Billing
+  "#10b981", // Sales & Order
+  "#1e3a8a", // Manufacturing
+  "#64748b", // Others
+];
 
 // ── 1. CANVAS AREA CHART (LINE/AREA WITH GRADIENTS) ──
 export function CanvasAreaChart({
   data,
   xAxisKey,
   series,
-  isDark = true,
+  isDark: propIsDark,
 }: {
   data: any[];
   xAxisKey: string;
   series: SeriesConfig[];
   isDark?: boolean;
 }) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -72,7 +134,6 @@ export function CanvasAreaChart({
 
     const PAD = { top: 25, right: 30, bottom: 35, left: 45 };
 
-    // Calculate max Y value across all series keys
     const allValues = data.flatMap((d) => series.map((s) => Number(d[s.key]) || 0));
     const maxVal = Math.max(...allValues, 10);
     const roundStep = Math.pow(10, Math.floor(Math.log10(maxVal)) - 1) * 2 || 5;
@@ -109,11 +170,11 @@ export function CanvasAreaChart({
       ctx.font = '10px "Roboto Mono", monospace';
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = isDark ? "#888" : "#555";
+      ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
 
       yTicks.forEach((v) => {
         const y = cB - (v / yMax) * cH;
-        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(cL, y);
@@ -126,6 +187,7 @@ export function CanvasAreaChart({
       // Draw X axis values
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
+      ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
       const step = Math.ceil(data.length / 7);
       data.forEach((d, i) => {
         if (i % step === 0 || i === data.length - 1) {
@@ -136,7 +198,6 @@ export function CanvasAreaChart({
 
       // Draw Area + Line for each series
       series.forEach((s) => {
-        // Draw Area Fill
         ctx.beginPath();
         data.forEach((d, i) => {
           const x = cL + (i / (data.length - 1)) * cW;
@@ -149,12 +210,12 @@ export function CanvasAreaChart({
         ctx.closePath();
 
         const grad = ctx.createLinearGradient(0, cT, 0, cB);
-        grad.addColorStop(0, `${s.color}22`);
-        grad.addColorStop(1, `${s.color}00`);
+        grad.addColorStop(0, adjustHexOpacity(s.color, 0.25));
+        grad.addColorStop(1, adjustHexOpacity(s.color, 0.01));
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Draw Line stroke
+        // Line stroke
         ctx.beginPath();
         data.forEach((d, i) => {
           const x = cL + (i / (data.length - 1)) * cW;
@@ -167,12 +228,10 @@ export function CanvasAreaChart({
         ctx.stroke();
       });
 
-      // Crosshair and Interactive circles
+      // Interactive crosshair
       if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < data.length) {
         const hx = cL + (highlightIdx / (data.length - 1)) * cW;
-
-        // Draw vertical dashed line
-        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
+        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.2)";
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
@@ -180,26 +239,13 @@ export function CanvasAreaChart({
         ctx.lineTo(hx, cB);
         ctx.stroke();
         ctx.setLineDash([]);
-
-        // Interactive Dot for each series
-        series.forEach((s) => {
-          const val = Number(data[highlightIdx][s.key]) || 0;
-          const hy = cB - (val / yMax) * cH;
-
-          ctx.beginPath();
-          ctx.arc(hx, hy, 4, 0, Math.PI * 2);
-          ctx.fillStyle = isDark ? "#000" : "#fff";
-          ctx.fill();
-          ctx.strokeStyle = s.color;
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-        });
       }
     }
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
       const W = rect.width;
       const cL = PAD.left,
         cR = W - PAD.right;
@@ -211,8 +257,7 @@ export function CanvasAreaChart({
         return;
       }
 
-      const ratio = (mx - cL) / cW;
-      const idx = Math.round(ratio * (data.length - 1));
+      const idx = Math.round(((mx - cL) / cW) * (data.length - 1));
       if (idx < 0 || idx >= data.length) {
         tooltip.style.display = "none";
         draw();
@@ -220,15 +265,15 @@ export function CanvasAreaChart({
       }
 
       const d = data[idx];
-      let tooltipContent = `<div class="font-bold text-foreground text-xs border-b border-border/40 pb-1 mb-1">${d[xAxisKey]}</div>`;
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
       series.forEach((s) => {
         const val = d[s.key] || 0;
         tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
           <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <span class="inline-block w-2 h-2 rounded-full" style="background-color: ${s.color}"></span>
+            <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
 
@@ -238,7 +283,54 @@ export function CanvasAreaChart({
       const tipWidth = tooltip.offsetWidth || 140;
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
-      tooltip.style.top = Math.max(10, e.clientY - rect.top - 60) + "px";
+      tooltip.style.top = Math.max(10, my - 60) + "px";
+      draw(idx);
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const idx = Math.round(((mx - cL) / cW) * (data.length - 1));
+      if (idx < 0 || idx >= data.length) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[idx];
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
+      series.forEach((s) => {
+        const val = d[s.key] || 0;
+        tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
+          <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
+            ${s.name}
+          </span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
+        </div>`;
+      });
+
+      tooltip.innerHTML = tooltipContent;
+      tooltip.style.display = "block";
+
+      const tipWidth = tooltip.offsetWidth || 140;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(10, my - 60) + "px";
       draw(idx);
     };
 
@@ -249,14 +341,20 @@ export function CanvasAreaChart({
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    setTimeout(resize, 60);
     resize();
 
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [data, series, xAxisKey, isDark]);
@@ -267,21 +365,23 @@ export function CanvasAreaChart({
       <div
         ref={tooltipRef}
         className={cn(
-          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
+          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-md",
+          isDark
+            ? "bg-black/95 border-zinc-800 text-white shadow-2xl"
+            : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
         )}
       ></div>
     </div>
   );
 }
 
-// ── 2. CANVAS BAR CHART (VERTICAL/HORIZONTAL) ──
+// ── 2. CANVAS BAR CHART (VERTICAL/HORIZONTAL SEGMENTED BRICKS) ──
 export function CanvasBarChart({
   data,
   xAxisKey,
   series,
   layout = "vertical",
-  isDark = true,
+  isDark: propIsDark,
 }: {
   data: any[];
   xAxisKey: string;
@@ -289,6 +389,9 @@ export function CanvasBarChart({
   layout?: "vertical" | "horizontal";
   isDark?: boolean;
 }) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -304,9 +407,9 @@ export function CanvasBarChart({
     if (!ctx) return;
 
     const isVert = layout === "vertical";
-    const PAD = isVert 
-      ? { top: 20, right: 20, bottom: 35, left: 45 } 
-      : { top: 15, right: 30, bottom: 25, left: 110 };
+    const PAD = isVert
+      ? { top: 28, right: 20, bottom: 40, left: 50 }
+      : { top: 15, right: 54, bottom: 25, left: 130 };
 
     const maxVal = Math.max(...data.flatMap((d) => series.map((s) => Number(d[s.key]) || 0)), 1);
     const roundStep = Math.pow(10, Math.floor(Math.log10(maxVal)) - 1) * 2 || 1;
@@ -339,8 +442,8 @@ export function CanvasBarChart({
       const cW = cR - cL,
         cH = cB - cT;
 
-      ctx.font = '9px "Roboto Mono", monospace';
-      ctx.fillStyle = isDark ? "#888" : "#555";
+      ctx.font = '10px "Roboto Mono", monospace';
+      ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
 
       if (isVert) {
         // Draw gridlines (horizontal) and Y ticks
@@ -348,22 +451,26 @@ export function CanvasBarChart({
         ctx.textBaseline = "middle";
         ticks.forEach((v) => {
           const y = cB - (v / ticksMax) * cH;
-          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(cL, y);
           ctx.lineTo(cR, y);
           ctx.stroke();
 
+          ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
           ctx.fillText(formatShortVal(v), cL - 10, y);
         });
 
         // Draw X labels
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
+        ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
         data.forEach((d, i) => {
           const x = cL + (i + 0.5) * (cW / data.length);
-          ctx.fillText(String(d[xAxisKey]), x, cB + 10);
+          const name = String(d[xAxisKey]);
+          const dispName = name.length > 12 ? name.substring(0, 10) + ".." : name;
+          ctx.fillText(dispName, x, cB + 10);
         });
 
         // Draw vertical segmented brick bars
@@ -378,9 +485,9 @@ export function CanvasBarChart({
 
         data.forEach((d, i) => {
           const isSelected = highlightIdx === i;
-          
+
           if (isSelected) {
-            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
             ctx.fillRect(cL + i * groupW, cT, groupW, cH);
           }
 
@@ -393,48 +500,54 @@ export function CanvasBarChart({
 
             for (let b = 0; b < totalBricks; b++) {
               const by = cB - (b + 1) * unitH + bG;
-              let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
-
-              if (!isSelected) {
-                // If specific series color is provided and not default blue, blend or use texture
-                if (totalBricks > 6) {
-                  const rel = b / totalBricks;
-                  if (rel >= 0.72 && rel <= 0.86) {
-                    brickColor = "#52525b";
-                  } else if (b % 7 === 4 && totalBricks > 10) {
-                    brickColor = "#52525b";
-                  }
-                }
-              }
-
-              ctx.fillStyle = brickColor;
-              ctx.fillRect(Math.round(bx), Math.round(by), Math.max(1, Math.round(singleBarW - 1)), Math.round(bH));
+              ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
+              ctx.fillRect(
+                Math.round(bx),
+                Math.round(by),
+                Math.max(1, Math.round(singleBarW - 1)),
+                Math.round(bH)
+              );
             }
+
+            // Numeric value directly above each bar so user can read directly
+            const barTopY = cB - totalBricks * unitH;
+            ctx.save();
+            ctx.font = 'bold 9px "Roboto Mono", monospace';
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillStyle = isSelected
+              ? (isDark ? "#ffffff" : "#0f172a")
+              : (isDark ? "#f2f2f2" : "#1e293b");
+            ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
+            ctx.restore();
           });
         });
       } else {
+        // Horizontal layout
         // Draw gridlines (vertical) and X ticks
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         ticks.forEach((v) => {
           const x = cL + (v / ticksMax) * cW;
-          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(x, cT);
           ctx.lineTo(x, cB);
           ctx.stroke();
 
-          ctx.fillText(formatShortVal(v), x, cB + 15);
+          ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
+          ctx.fillText(formatShortVal(v), x, cB + 16);
         });
 
         // Draw Y labels (Category/Names)
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
+        ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
         data.forEach((d, i) => {
           const y = cT + (i + 0.5) * (cH / data.length);
           const name = String(d[xAxisKey]);
-          const dispName = name.length > 15 ? name.substring(0, 13) + ".." : name;
+          const dispName = name.length > 16 ? name.substring(0, 14) + ".." : name;
           ctx.fillText(dispName, cL - 10, y);
         });
 
@@ -452,7 +565,7 @@ export function CanvasBarChart({
           const isSelected = highlightIdx === i;
 
           if (isSelected) {
-            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+            ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
             ctx.fillRect(cL, cT + i * groupH, cW, groupH);
           }
 
@@ -465,20 +578,26 @@ export function CanvasBarChart({
 
             for (let b = 0; b < totalBricks; b++) {
               const bx = cL + b * unitW;
-              let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
-
-              if (!isSelected && totalBricks > 6) {
-                const rel = b / totalBricks;
-                if (rel >= 0.72 && rel <= 0.86) {
-                  brickColor = "#52525b";
-                } else if (b % 7 === 4 && totalBricks > 10) {
-                  brickColor = "#52525b";
-                }
-              }
-
-              ctx.fillStyle = brickColor;
-              ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bW), Math.max(1, Math.round(singleBarH - 1)));
+              ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
+              ctx.fillRect(
+                Math.round(bx),
+                Math.round(by),
+                Math.round(bW),
+                Math.max(1, Math.round(singleBarH - 1))
+              );
             }
+
+            // Numeric value directly at the end of each bar so user can read directly
+            const barRightX = cL + totalBricks * unitW;
+            ctx.save();
+            ctx.font = 'bold 9px "Roboto Mono", monospace';
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = isSelected
+              ? (isDark ? "#ffffff" : "#0f172a")
+              : (isDark ? "#f2f2f2" : "#1e293b");
+            ctx.fillText(formatShortVal(val), barRightX + 6, by + singleBarH / 2);
+            ctx.restore();
           });
         });
       }
@@ -515,15 +634,70 @@ export function CanvasBarChart({
       }
 
       const d = data[idx];
-      let tooltipContent = `<div class="font-bold text-foreground text-xs border-b border-border/40 pb-1 mb-1">${d[xAxisKey]}</div>`;
+      let tooltipContent = `<div class="font-bold text-xs border-b border-border/40 pb-1 mb-1">${d[xAxisKey]}</div>`;
       series.forEach((s) => {
         const val = d[s.key] || 0;
         tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
           <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
+        </div>`;
+      });
+
+      tooltip.innerHTML = tooltipContent;
+      tooltip.style.display = "block";
+
+      const tipWidth = tooltip.offsetWidth || 140;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(10, my - 60) + "px";
+      draw(idx);
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      const W = rect.width;
+      const H = rect.height;
+      const cL = PAD.left,
+        cR = W - PAD.right,
+        cT = PAD.top,
+        cB = H - PAD.bottom;
+      const cW = cR - cL,
+        cH = cB - cT;
+
+      let idx = -1;
+      if (isVert) {
+        if (mx >= cL && mx <= cR) {
+          idx = Math.floor(((mx - cL) / cW) * data.length);
+        }
+      } else {
+        if (my >= cT && my <= cB) {
+          idx = Math.floor(((my - cT) / cH) * data.length);
+        }
+      }
+
+      if (idx < 0 || idx >= data.length) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[idx];
+      let tooltipContent = `<div class="font-bold text-xs border-b border-border/40 pb-1 mb-1">${d[xAxisKey]}</div>`;
+      series.forEach((s) => {
+        const val = d[s.key] || 0;
+        tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
+          <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${s.color}"></span>
+            ${s.name}
+          </span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
 
@@ -544,14 +718,20 @@ export function CanvasBarChart({
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    setTimeout(resize, 60);
     resize();
 
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [data, series, xAxisKey, layout, isDark]);
@@ -562,8 +742,10 @@ export function CanvasBarChart({
       <div
         ref={tooltipRef}
         className={cn(
-          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
+          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-md",
+          isDark
+            ? "bg-black/95 border-zinc-800 text-white shadow-2xl"
+            : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
         )}
       ></div>
     </div>
@@ -573,17 +755,25 @@ export function CanvasBarChart({
 // ── 3. CANVAS PIE/DONUT CHART (INTERACTIVE WITH SLICE SHIFT) ──
 export function CanvasPieChart({
   data,
-  nameKey,
-  valueKey,
+  nameKey = "name",
+  valueKey = "value",
+  title = "TOTAL",
   colors,
-  isDark = true,
+  showLegend = true,
+  isDark: propIsDark,
 }: {
   data: any[];
-  nameKey: string;
-  valueKey: string;
-  colors: string[];
+  nameKey?: string;
+  valueKey?: string;
+  title?: string;
+  colors?: string[];
+  showLegend?: boolean;
   isDark?: boolean;
 }) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
+  const palette = colors && colors.length > 0 ? colors : BRAND_MODULE_PALETTE;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -633,7 +823,6 @@ export function CanvasPieChart({
         const endAngle = startAngle + sliceAngle;
         const isHovered = highlightIdx === i;
 
-        // Shift slice center slightly outward on hover
         let scx = cx;
         let scy = cy;
         if (isHovered) {
@@ -642,29 +831,29 @@ export function CanvasPieChart({
           scy += Math.sin(midAngle) * 8;
         }
 
-        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillStyle = palette[i % palette.length];
         ctx.beginPath();
         ctx.arc(scx, scy, radius, startAngle, endAngle);
         ctx.arc(scx, scy, innerRadius, endAngle, startAngle, true);
         ctx.closePath();
         ctx.fill();
 
-        // Draw a small border divider
-        ctx.strokeStyle = isDark ? "#000" : "#fff";
+        // Divider
+        ctx.strokeStyle = isDark ? "#09090b" : "#ffffff";
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
         startAngle = endAngle;
       });
 
-      // Draw center text inside the donut hole
+      // Center text inside hole
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = isDark ? "#fff" : "#000";
+      ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
       ctx.font = 'bold 11px "Roboto Mono", monospace';
       ctx.fillText("TOTAL", cx, cy - 8);
-      ctx.font = 'bold 14px "Roboto Mono", monospace';
-      ctx.fillText(formatShortVal(totalVal), cx, cy + 8);
+      ctx.font = 'bold 15px "Roboto Mono", monospace';
+      ctx.fillText(formatShortVal(totalVal), cx, cy + 9);
     }
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -724,8 +913,8 @@ export function CanvasPieChart({
       const val = Number(d[valueKey]) || 0;
       const pct = ((val / totalVal) * 100).toFixed(1);
 
-      tooltip.innerHTML = `<div class="font-bold text-foreground text-xs pb-1 border-b border-border/40 flex items-center gap-1.5">
-        <span class="inline-block w-2 h-2 rounded-full" style="background-color: ${colors[matchedIdx % colors.length]}"></span>
+      tooltip.innerHTML = `<div class="font-bold text-xs pb-1 border-b border-border/40 flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${palette[matchedIdx % palette.length]}"></span>
         ${d[nameKey]}
       </div>
       <div class="flex items-center justify-between gap-6 mt-1.5 font-mono text-xs">
@@ -734,7 +923,87 @@ export function CanvasPieChart({
       </div>
       <div class="flex items-center justify-between gap-6 mt-0.5 font-mono text-xs">
         <span class="text-[10px] text-muted-foreground uppercase">Ratio:</span>
-        <span class="font-bold text-primary">${pct}%</span>
+        <span class="font-bold text-purple-600 dark:text-purple-400">${pct}%</span>
+      </div>`;
+
+      tooltip.style.display = "block";
+      const tipWidth = tooltip.offsetWidth || 140;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(10, my - 50) + "px";
+      draw(matchedIdx);
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      const W = rect.width;
+      const H = rect.height;
+
+      const cx = W / 2;
+      const cy = H / 2;
+      const dx = mx - cx;
+      const dy = my - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      const radius = Math.min(cx, cy) * 0.75;
+      const innerRadius = radius * 0.55;
+
+      if (dist < innerRadius || dist > radius + 15) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      let angle = Math.atan2(dy, dx);
+      if (angle < -Math.PI / 2) angle += Math.PI * 2;
+      else if (angle < 0) angle += Math.PI * 2;
+
+      let startAngle = -Math.PI / 2;
+      let matchedIdx = -1;
+
+      for (let i = 0; i < data.length; i++) {
+        const val = Number(data[i][valueKey]) || 0;
+        if (val === 0) continue;
+        const sliceAngle = (val / totalVal) * Math.PI * 2;
+        const endAngle = startAngle + sliceAngle;
+
+        let adjustedAngle = angle;
+        if (angle >= -Math.PI / 2 && angle < startAngle) {
+          adjustedAngle += Math.PI * 2;
+        }
+
+        if (adjustedAngle >= startAngle && adjustedAngle < endAngle) {
+          matchedIdx = i;
+          break;
+        }
+        startAngle = endAngle;
+      }
+
+      if (matchedIdx < 0 || matchedIdx >= data.length) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[matchedIdx];
+      const val = Number(d[valueKey]) || 0;
+      const pct = ((val / totalVal) * 100).toFixed(1);
+
+      tooltip.innerHTML = `<div class="font-bold text-xs pb-1 border-b border-border/40 flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${palette[matchedIdx % palette.length]}"></span>
+        ${d[nameKey]}
+      </div>
+      <div class="flex items-center justify-between gap-6 mt-1.5 font-mono text-xs">
+        <span class="text-[10px] text-muted-foreground uppercase">Value:</span>
+        <span class="font-bold">${val.toLocaleString()}</span>
+      </div>
+      <div class="flex items-center justify-between gap-6 mt-0.5 font-mono text-xs">
+        <span class="text-[10px] text-muted-foreground uppercase">Ratio:</span>
+        <span class="font-bold text-purple-600 dark:text-purple-400">${pct}%</span>
       </div>`;
 
       tooltip.style.display = "block";
@@ -752,39 +1021,93 @@ export function CanvasPieChart({
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    setTimeout(resize, 60);
     resize();
 
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
-  }, [data, colors, nameKey, valueKey, isDark]);
+  }, [data, palette, nameKey, valueKey, isDark]);
+
+  const totalVal = data ? data.reduce((sum, item) => sum + (Number(item[valueKey]) || 0), 0) : 0;
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
-      <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
-      <div
-        ref={tooltipRef}
-        className={cn(
-          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
-        )}
-      ></div>
+    <div className="w-full flex flex-col items-center">
+      <div ref={containerRef} className="w-full min-h-[220px] h-[220px] relative">
+        <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
+        <div
+          ref={tooltipRef}
+          className={cn(
+            "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-md",
+            isDark
+              ? "bg-[#161616]/95 border-[#272727] text-white shadow-2xl"
+              : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
+          )}
+        ></div>
+      </div>
+
+      {showLegend && data && data.length > 0 && (
+        <div className="mt-3 w-full flex flex-col gap-1.5 font-mono text-xs">
+          {data.map((item, idx) => {
+            const val = Number(item[valueKey]) || 0;
+            const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(1) : "0.0";
+            const color = palette[idx % palette.length];
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  "flex items-center justify-between py-1 px-2 border rounded-none transition-colors",
+                  isDark
+                    ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#202020]"
+                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100"
+                )}
+              >
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-none flex-shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="truncate">{item[nameKey]}</span>
+                </div>
+                <div className="flex items-center gap-2 font-mono flex-shrink-0">
+                  <span className="text-muted-foreground">{formatShortVal(val)}</span>
+                  <span
+                    className="px-1.5 py-0.2 rounded text-[10px] font-bold"
+                    style={{
+                      backgroundColor: `${color}20`,
+                      color: color,
+                      border: `1px solid ${color}40`,
+                    }}
+                  >
+                    {pct}%
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── 4. CANVAS COMPOSED CHART (BARS + OVERLAY LINE) ──
+// ── 4. CANVAS COMPOSED CHART (BARS + OVERLAY TREND LINE) ──
 export function CanvasComposedChart({
   data,
   xAxisKey,
   barSeries,
   lineSeries,
-  isDark = true,
+  isDark: propIsDark,
 }: {
   data: any[];
   xAxisKey: string;
@@ -792,6 +1115,9 @@ export function CanvasComposedChart({
   lineSeries: SeriesConfig;
   isDark?: boolean;
 }) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -806,15 +1132,17 @@ export function CanvasComposedChart({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const PAD = { top: 25, right: 45, bottom: 35, left: 45 };
+    const PAD = { top: 28, right: 48, bottom: 35, left: 48 };
 
-    // Max values for left Y-axis (bars) and right Y-axis (line)
-    const maxBarVal = Math.max(...data.flatMap((d) => barSeries.map((s) => Number(d[s.key]) || 0)), 10);
+    const maxBarVal = Math.max(
+      ...data.flatMap((d) => barSeries.map((s) => Number(d[s.key]) || 0)),
+      10
+    );
     const maxLineVal = Math.max(...data.map((d) => Number(d[lineSeries.key]) || 0), 10);
 
     const stepBar = Math.pow(10, Math.floor(Math.log10(maxBarVal)) - 1) * 2 || 2;
     const yBarMax = Math.ceil(maxBarVal / stepBar) * stepBar;
-    
+
     const stepLine = Math.pow(10, Math.floor(Math.log10(maxLineVal)) - 1) * 2 || 2;
     const yLineMax = Math.ceil(maxLineVal / stepLine) * stepLine;
 
@@ -846,13 +1174,12 @@ export function CanvasComposedChart({
       const cW = cR - cL,
         cH = cB - cT;
 
-      ctx.font = '9px "Roboto Mono", monospace';
-      ctx.fillStyle = isDark ? "#888" : "#555";
+      ctx.font = '10px "Roboto Mono", monospace';
 
       // Draw gridlines and tick labels (left Y-axis and right Y-axis)
       yTicks.forEach((ratio) => {
         const y = cB - ratio * cH;
-        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(cL, y);
@@ -862,22 +1189,24 @@ export function CanvasComposedChart({
         // Left ticks (bars)
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = isDark ? "#888" : "#555";
+        ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
         ctx.fillText(formatShortVal(ratio * yBarMax), cL - 10, y);
 
         // Right ticks (line)
         ctx.textAlign = "left";
-        ctx.fillStyle = lineSeries.color;
+        ctx.fillStyle = lineSeries.color || "#f59e0b";
         ctx.fillText(formatShortVal(ratio * yLineMax), cR + 10, y);
       });
 
       // Draw X axis values
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillStyle = isDark ? "#888" : "#555";
+      ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
       data.forEach((d, i) => {
         const x = cL + (i + 0.5) * (cW / data.length);
-        ctx.fillText(String(d[xAxisKey]), x, cB + 10);
+        const name = String(d[xAxisKey]);
+        const dispName = name.length > 12 ? name.substring(0, 10) + ".." : name;
+        ctx.fillText(dispName, x, cB + 10);
       });
 
       // Draw vertical segmented brick bars
@@ -894,7 +1223,7 @@ export function CanvasComposedChart({
         const isSelected = highlightIdx === i;
 
         if (isSelected) {
-          ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+          ctx.fillStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
           ctx.fillRect(cL + i * groupW, cT, groupW, cH);
         }
 
@@ -907,20 +1236,26 @@ export function CanvasComposedChart({
 
           for (let b = 0; b < totalBricks; b++) {
             const by = cB - (b + 1) * unitH + bG;
-            let brickColor = isSelected ? "#ffffff" : "#d4d4d8";
-
-            if (!isSelected && totalBricks > 6) {
-              const rel = b / totalBricks;
-              if (rel >= 0.72 && rel <= 0.86) {
-                brickColor = "#52525b";
-              } else if (b % 7 === 4 && totalBricks > 10) {
-                brickColor = "#52525b";
-              }
-            }
-
-            ctx.fillStyle = brickColor;
-            ctx.fillRect(Math.round(bx), Math.round(by), Math.max(1, Math.round(singleBarW - 1)), Math.round(bH));
+            ctx.fillStyle = getBrickFill(s.color, isDark, isSelected, b, totalBricks);
+            ctx.fillRect(
+              Math.round(bx),
+              Math.round(by),
+              Math.max(1, Math.round(singleBarW - 1)),
+              Math.round(bH)
+            );
           }
+
+          // Numeric value directly above each bar so user can read directly
+          const barTopY = cB - totalBricks * unitH;
+          ctx.save();
+          ctx.font = 'bold 9px "Roboto Mono", monospace';
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = isSelected
+            ? (isDark ? "#ffffff" : "#0f172a")
+            : (isDark ? "#f2f2f2" : "#1e293b");
+          ctx.fillText(formatShortVal(val), bx + singleBarW / 2, barTopY - 3);
+          ctx.restore();
         });
       });
 
@@ -932,11 +1267,11 @@ export function CanvasComposedChart({
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
-      ctx.strokeStyle = lineSeries.color;
+      ctx.strokeStyle = lineSeries.color || "#f59e0b";
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Draw line dots
+      // Draw line dots with amber glow / crisp border
       data.forEach((d, i) => {
         const x = cL + (i + 0.5) * (cW / data.length);
         const y = cB - ((Number(d[lineSeries.key]) || 0) / yLineMax) * cH;
@@ -944,10 +1279,10 @@ export function CanvasComposedChart({
 
         ctx.beginPath();
         ctx.arc(x, y, isSelected ? 5.5 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = isDark ? "#000" : "#fff";
+        ctx.fillStyle = isDark ? (isSelected ? "#ffffff" : "#09090b") : "#ffffff";
         ctx.fill();
-        ctx.strokeStyle = lineSeries.color;
-        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = lineSeries.color || "#f59e0b";
+        ctx.lineWidth = isSelected ? 3 : 2.5;
         ctx.stroke();
       });
     }
@@ -975,30 +1310,89 @@ export function CanvasComposedChart({
       }
 
       const d = data[idx];
-      let tooltipContent = `<div class="font-bold text-foreground text-xs border-b border-border/40 pb-1 mb-1">${d[xAxisKey]}</div>`;
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
+
       barSeries.forEach((s) => {
         const val = d[s.key] || 0;
         tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
           <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${s.color}"></span>
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${s.color}"></span>
             ${s.name}
           </span>
-          <span class="font-sans tabular-nums font-semibold text-foreground text-xs">${val.toLocaleString()}</span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
         </div>`;
       });
+
       const lineVal = d[lineSeries.key] || 0;
-      tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1 border-t border-border/20 pt-1">
+      tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1.5 pt-1 border-t border-border/40">
         <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${lineSeries.color}"></span>
           ${lineSeries.name}
         </span>
-        <span class="font-sans tabular-nums font-semibold text-foreground text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
+        <span class="font-sans tabular-nums font-bold text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
       </div>`;
 
       tooltip.innerHTML = tooltipContent;
       tooltip.style.display = "block";
 
-      const tipWidth = tooltip.offsetWidth || 145;
+      const tipWidth = tooltip.offsetWidth || 150;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(10, my - 60) + "px";
+      draw(idx);
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const idx = Math.floor(((mx - cL) / cW) * data.length);
+      if (idx < 0 || idx >= data.length) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[idx];
+      let tooltipContent = `<div class="font-bold text-xs pb-1 mb-1 border-b border-border/40">${d[xAxisKey]}</div>`;
+
+      barSeries.forEach((s) => {
+        const val = d[s.key] || 0;
+        tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1">
+          <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: ${s.color}"></span>
+            ${s.name}
+          </span>
+          <span class="font-sans tabular-nums font-semibold text-xs">${val.toLocaleString()}</span>
+        </div>`;
+      });
+
+      const lineVal = d[lineSeries.key] || 0;
+      tooltipContent += `<div class="flex items-center justify-between gap-4 mt-1.5 pt-1 border-t border-border/40">
+        <span class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${lineSeries.color}"></span>
+          ${lineSeries.name}
+        </span>
+        <span class="font-sans tabular-nums font-bold text-xs" style="color: ${lineSeries.color}">${lineVal.toLocaleString()}</span>
+      </div>`;
+
+      tooltip.innerHTML = tooltipContent;
+      tooltip.style.display = "block";
+
+      const tipWidth = tooltip.offsetWidth || 150;
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(10, my - 60) + "px";
@@ -1012,14 +1406,20 @@ export function CanvasComposedChart({
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    setTimeout(resize, 60);
     resize();
 
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [data, barSeries, lineSeries, xAxisKey, isDark]);
@@ -1030,8 +1430,10 @@ export function CanvasComposedChart({
       <div
         ref={tooltipRef}
         className={cn(
-          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-sm",
-          isDark ? "bg-black/95 border-border text-white" : "bg-white/95 border-border text-foreground"
+          "absolute pointer-events-none p-3 border font-mono text-[10px] shadow-lg rounded-none hidden z-10 backdrop-blur-md",
+          isDark
+            ? "bg-black/95 border-zinc-800 text-white shadow-2xl"
+            : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
         )}
       ></div>
     </div>

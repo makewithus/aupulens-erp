@@ -10,6 +10,7 @@
  * Best-effort per tenant — a gated/failed AI call for one tenant is recorded
  * as skipped and never throws the whole cron run.
  */
+import { hasBusinessHealthActivity } from "@/lib/admin/businessHealthActivity";
 import { resolveTenantAiSettings, callClaudeForTenant } from "@/lib/ai/tenantAi";
 import { AI_MAX_TOKENS } from "@/lib/ai/featureLimits";
 import { fetchAdminFinanceData, fetchAdminSalesData } from "@/lib/ai/adminDataFetcher";
@@ -36,14 +37,6 @@ export interface HealthSummaryOutcome {
  * NOTE: the fetchers return a summary OBJECT even for an empty tenant (all
  * zeros), so mere presence isn't enough — we check the actual activity numbers.
  */
-function hasMeaningfulData(metrics: { finance: any; sales: any; totalPipeline: number }, openOppsCount: number): boolean {
-  const f = metrics.finance;
-  const s = metrics.sales;
-  const financeActivity = !!f && ((f.totalRevenue ?? 0) > 0 || (f.totalTransactions ?? 0) > 0);
-  const salesActivity = !!s && ((s.totalOrders ?? 0) > 0 || (s.totalRevenue ?? 0) > 0);
-  return financeActivity || salesActivity || metrics.totalPipeline > 0 || openOppsCount > 0;
-}
-
 export async function generateBusinessHealthSummary(tenantId: string): Promise<HealthSummaryOutcome> {
   try {
     await dbConnect();
@@ -64,7 +57,7 @@ export async function generateBusinessHealthSummary(tenantId: string): Promise<H
 
     // Low/no-data tenant: don't spend an AI call on empty input. Persist a
     // deterministic placeholder summary so the dashboard shows something honest.
-    if (!hasMeaningfulData(metrics, (openOpps as any[]).length)) {
+    if (!hasBusinessHealthActivity(metrics, (openOpps as any[]).length)) {
       const period = todayPeriod();
       await BusinessHealthSummary.findOneAndUpdate(
         { tenantId, period },

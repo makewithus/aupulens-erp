@@ -101,9 +101,9 @@ export default function CampaignDashboardPage() {
             <div className="h-64 bg-accent animate-pulse rounded"></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[420px] whitespace-nowrap">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground">
+                  <tr className="border-b border-border text-muted-foreground whitespace-nowrap">
                     <th className="pb-2 font-medium">Channel</th>
                     <th className="pb-2 font-medium text-right">Attributed Leads</th>
                     <th className="pb-2 font-medium text-right">Attributed Revenue</th>
@@ -113,8 +113,8 @@ export default function CampaignDashboardPage() {
                   {reports?.channelAttribution?.sort((a: any, b: any) => b.revenue - a.revenue).map((c: any) => (
                     <tr key={c.channel} className="border-b border-border/50 hover:bg-accent/20">
                       <td className="py-3 font-medium text-foreground">{c.channel}</td>
-                      <td className="py-3 text-right text-blue-400">{c.leads.toLocaleString()}</td>
-                      <td className="py-3 text-right font-sans tabular-nums font-bold text-green-400">₹{c.revenue.toLocaleString()}</td>
+                      <td className="py-3 text-right text-blue-600 dark:text-blue-400 font-medium">{c.leads.toLocaleString()}</td>
+                      <td className="py-3 text-right font-sans tabular-nums font-bold text-emerald-600 dark:text-emerald-400">₹{c.revenue.toLocaleString()}</td>
                     </tr>
                   ))}
                   {reports?.channelAttribution?.length === 0 && (

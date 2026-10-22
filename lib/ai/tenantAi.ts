@@ -418,8 +418,10 @@ export async function callClaudeForTenantStream(
           usage = part.value;
           break;
         }
-        if (regionalTranslation) translatedAnswer += part.value;
-        else yield part.value;
+        if (typeof part.value === "string") {
+          if (regionalTranslation) translatedAnswer += part.value;
+          else yield part.value;
+        }
       }
       providerCompleted = true;
       if (regionalTranslation && language && langTrace) {

@@ -1865,19 +1865,28 @@
                                     const unitH = bH + bG;
                                     const totalBricks = Math.max(1, Math.round(barH / unitH));
 
-                                    for (let b = 0; b < totalBricks; b++) {
-                                        const by = cB - (b + 1) * unitH + bG;
-                                        let brickColor = isHighlight ? '#ffffff' : '#d4d4d8';
-                                        if (!isHighlight && totalBricks > 6) {
-                                            const rel = b / totalBricks;
-                                            if (rel >= 0.72 && rel <= 0.86) {
-                                                brickColor = '#52525b';
-                                            } else if (b % 7 === 4 && totalBricks > 10) {
-                                                brickColor = '#52525b';
-                                            }
-                                        }
-                                        ctx.fillStyle = brickColor;
-                                        ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
+                                    const barY = cB - barH;
+                                    const grad = ctx.createLinearGradient(x, barY, x, cB);
+                                    grad.addColorStop(0, isHighlight ? '#e9d5ff' : '#c084fc');
+                                    grad.addColorStop(0.35, isHighlight ? '#c084fc' : '#a855f7');
+                                    grad.addColorStop(1, isHighlight ? '#9333ea' : '#7e22ce');
+                                    ctx.fillStyle = grad;
+
+                                    const r = Math.min(4, barWidth / 2);
+                                    ctx.beginPath();
+                                    ctx.moveTo(x, cB);
+                                    ctx.lineTo(x, barY + r);
+                                    ctx.quadraticCurveTo(x, barY, x + r, barY);
+                                    ctx.lineTo(x + barWidth - r, barY);
+                                    ctx.quadraticCurveTo(x + barWidth, barY, x + barWidth, barY + r);
+                                    ctx.lineTo(x + barWidth, cB);
+                                    ctx.closePath();
+                                    ctx.fill();
+
+                                    if (isHighlight) {
+                                        ctx.strokeStyle = '#ffffff';
+                                        ctx.lineWidth = 1.5;
+                                        ctx.stroke();
                                     }
 
                                     // X label (rotated)

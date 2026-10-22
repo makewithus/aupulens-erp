@@ -19,9 +19,9 @@ export const inventorySidebarConfig = [
     title: "Overview",
     items: [
       {
-        title: "Summary",
-        href: "/inventory/summary",
-        icon: BarChart3,
+        title: "Dashboard",
+        href: "/inventory/dashboard",
+        icon: LayoutDashboard,
       },
       {
         title: "Analytics",

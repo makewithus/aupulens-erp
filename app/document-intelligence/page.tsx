@@ -233,8 +233,8 @@ export default function DocIntelPage() {
               <div>
                 <h3 className="font-medium text-sm mb-2">Line items ({active.ext.lineItems.length})</h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1 pr-3">Description</th><th className="py-1 pr-3">Qty</th><th className="py-1 pr-3">Unit</th><th className="py-1">Amount</th></tr></thead>
+                  <table className="w-full text-sm min-w-[420px] whitespace-nowrap">
+                    <thead><tr className="text-left text-xs text-muted-foreground whitespace-nowrap"><th className="py-1 pr-3">Description</th><th className="py-1 pr-3">Qty</th><th className="py-1 pr-3">Unit</th><th className="py-1">Amount</th></tr></thead>
                     <tbody>
                       {active.ext.lineItems.map((l, i) => (
                         <tr key={i} className="border-t">

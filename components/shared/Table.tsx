@@ -20,7 +20,7 @@ export function TableHead({ children, className = "", ...props }: React.HTMLAttr
 
 export function TableHeaderCell({ children, className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th className={`px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground ${className}`} {...props}>
+    <th className={`px-4 sm:px-6 lg:px-8 py-4 sm:py-5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground whitespace-nowrap ${className}`} {...props}>
       {children}
     </th>
   );
@@ -28,7 +28,7 @@ export function TableHeaderCell({ children, className = "", ...props }: React.Th
 
 export function TableRow({ children, className = "", ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`group transition-colors duration-300 hover:bg-white/[0.015] ${className}`} {...props}>
+    <tr className={`group transition-colors duration-200 hover:bg-muted/40 dark:hover:bg-white/[0.02] ${className}`} {...props}>
       {children}
     </tr>
   );
@@ -44,7 +44,7 @@ export function TableBody({ children, className = "", ...props }: React.HTMLAttr
 
 export function TableCell({ children, className = "", ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 sm:px-6 lg:px-8 py-4 sm:py-6 ${className}`} {...props}>
+    <td className={`px-4 sm:px-6 lg:px-8 py-4 sm:py-6 whitespace-nowrap text-foreground ${className}`} {...props}>
       {children}
     </td>
   );

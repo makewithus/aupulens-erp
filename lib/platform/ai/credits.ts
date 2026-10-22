@@ -170,6 +170,6 @@ export async function getAiCreditBalance(tenantId: string, period: string, now =
     windows: Object.fromEntries(windows.map((window, index) => [window.kind, {
       ...summarize(windowBalances[index], window.limit),
       startsAt: window.start.toISOString(), resetsAt: window.end.toISOString(), unit: "credits" as const,
-    }])),
+    }])) as Record<string, { used: number; reserved: number; limit: number; remaining: number; startsAt: string; resetsAt: string; unit: "credits" }>,
   };
 }

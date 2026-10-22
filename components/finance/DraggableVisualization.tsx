@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { DailyBrickBarChart } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
+import { useThemeStore } from '@/store/themeStore';
 
 interface DraggableVisualizationProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export function DraggableVisualization({
   xAxisKey = 'date',
   dataKeys = [],
 }: DraggableVisualizationProps) {
+  const isDark = useThemeStore((state) => state.theme) !== 'light';
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [size, setSize] = useState({ width: 600, height: 400 });
   const [isMaximized, setIsMaximized] = useState(false);
@@ -117,8 +119,8 @@ export function DraggableVisualization({
     <div
       ref={containerRef}
       className={cn(
-        'fixed bg-background border-2 border-border rounded-none shadow-2xl z-50 flex flex-col overflow-hidden',
-        'transition-all duration-200',
+        'fixed border rounded-none shadow-2xl z-50 flex flex-col overflow-hidden transition-colors duration-200',
+        isDark ? 'bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]' : 'bg-white border-[#e5e5e5] text-slate-900',
         isDragging && 'select-none cursor-move',
         isResizing && 'select-none',
         isMaximized && 'inset-4'
@@ -138,21 +140,22 @@ export function DraggableVisualization({
       {/* Header */}
       <div
         className={cn(
-          'flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border select-none',
+          'flex items-center justify-between px-4 py-3 border-b select-none transition-colors',
+          isDark ? 'bg-[#161616] border-[#272727]' : 'bg-slate-50 border-slate-200',
           !isMaximized && 'cursor-move'
         )}
         onMouseDown={handleDragStart}
         style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
       >
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-none bg-primary/10">
+          <div className="p-1.5 rounded-none bg-[#A77DFF]/15 text-[#A77DFF]">
             {chartType === 'bar' ? (
-              <BarChart3 className="h-4 w-4 text-primary" />
+              <BarChart3 className="h-4 w-4" />
             ) : (
-              <LineChart className="h-4 w-4 text-primary" />
+              <LineChart className="h-4 w-4" />
             )}
           </div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold">{title}</h3>
         </div>
 
         <div className="flex items-center gap-1">
@@ -180,7 +183,7 @@ export function DraggableVisualization({
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-auto bg-background flex flex-col justify-center" style={{ minHeight: '320px' }}>
+      <div className={cn("flex-1 p-4 overflow-auto flex flex-col justify-center", isDark ? "bg-[#0A0A0A]" : "bg-white")} style={{ minHeight: '320px' }}>
         {chartType === 'bar' ? (
           <div className="w-full h-full min-h-[300px]">
             <DailyBrickBarChart
@@ -188,6 +191,8 @@ export function DraggableVisualization({
               dateKey={xAxisKey}
               valueKey={dataKeys[0]?.key || 'value'}
               metricLabel={dataKeys[0]?.name || 'Amount'}
+              colorTheme="purple"
+              isDark={isDark}
               yAxisFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
               tooltipValueFormatter={(v) => '₹' + v.toLocaleString('en-IN')}
               seedDemonstration={!data || data.length === 0}
@@ -203,6 +208,8 @@ export function DraggableVisualization({
               metricLabel={dataKeys[0]?.name || 'Amount'}
               title={title}
               currencyPrefix="₹"
+              colorTheme="white"
+              isDark={isDark}
               height="100%"
             />
           </div>

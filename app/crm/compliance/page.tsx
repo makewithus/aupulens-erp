@@ -48,9 +48,9 @@ export default function ComplianceCenterPage() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden mt-6">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-background text-muted-foreground">
+      <div className="bg-card border border-border rounded-lg overflow-x-auto mt-6">
+        <table className="w-full text-sm text-left min-w-[500px] whitespace-nowrap">
+          <thead className="bg-background text-muted-foreground whitespace-nowrap">
             <tr>
               <th className="px-4 py-3">Module Requirement</th>
               <th className="px-4 py-3">Category</th>

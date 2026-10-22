@@ -2,51 +2,87 @@ import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
 import Transaction from "@/models/finance/Transaction";
 import Invoice from "@/models/finance/Invoice";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import Payment from "@/models/sales/Payment";
 import User from "@/models/auth/User";
 import Shipment from "@/models/manufacturing/Shipment";
 
 export async function fetchAdminFinanceData(tenantId: string) {
-  const [transactions, invoices] = await Promise.all([
+  const [transactions, payments, invoices, salesInvoices] = await Promise.all([
     (Transaction as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
+    (Payment as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
     (Invoice as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
+    (SalesInvoice as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
   ]);
 
-  const totalRevenue = invoices.reduce(
-    (sum: number, inv: any) => sum + (inv.totalAmount || 0),
+  const salesRevenue = salesInvoices.reduce(
+    (sum: number, inv: any) => sum + (inv.totalAmount || inv.amountTotal || 0),
     0
   );
+  const invoiceRevenue = invoices.reduce(
+    (sum: number, inv: any) => sum + (inv.amountTotal || inv.totalAmount || 0),
+    0
+  );
+  const totalRevenue = salesRevenue > 0 ? salesRevenue : invoiceRevenue;
+  const totalTransactions = payments.length > 0 ? payments.length : transactions.length;
+
+  const combinedInvoices = salesInvoices.length > 0 ? salesInvoices : invoices;
+  const combinedTransactions = payments.length > 0 ? payments : transactions;
 
   return {
     summary: {
       totalRevenue,
-      totalTransactions: transactions.length,
-      recentInvoices: invoices.length,
+      totalTransactions,
+      recentInvoices: combinedInvoices.length,
     },
-    recentTransactions: transactions.slice(0, 5),
-    recentInvoices: invoices.slice(0, 5),
+    recentTransactions: combinedTransactions.slice(0, 5),
+    recentInvoices: combinedInvoices.slice(0, 5),
   };
 }
 
 export async function fetchAdminSalesData(tenantId: string) {
-  const orders = await (SaleOrder as any)
-    .find({ tenantId })
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
+  const [orders, salesInvoices] = await Promise.all([
+    (SaleOrder as any)
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean(),
+    (SalesInvoice as any)
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean(),
+  ]);
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce(
+  const ordersCount = orders.length;
+  const totalOrders = ordersCount > 0 ? ordersCount : salesInvoices.length;
+
+  const ordersRevenue = orders.reduce(
     (sum: number, order: any) => sum + (order.totals?.amountTotal || 0),
     0
   );
+  const invoicesRevenue = salesInvoices.reduce(
+    (sum: number, inv: any) => sum + (inv.totalAmount || inv.amountTotal || 0),
+    0
+  );
+  const totalRevenue = ordersRevenue > 0 ? ordersRevenue : invoicesRevenue;
 
   const productCounts: Record<string, number> = {};
-  orders.forEach((order: any) => {
-    order.orderLines?.forEach((item: any) => {
-      const name = item.name || "Unknown";
-      productCounts[name] = (productCounts[name] || 0) + (item.productQty || 1);
+  if (orders.length > 0) {
+    orders.forEach((order: any) => {
+      order.orderLines?.forEach((item: any) => {
+        const name = item.name || "Unknown";
+        productCounts[name] = (productCounts[name] || 0) + (item.productQty || 1);
+      });
     });
-  });
+  } else {
+    salesInvoices.forEach((inv: any) => {
+      inv.lineItems?.forEach((item: any) => {
+        const name = item.name || "Unknown";
+        productCounts[name] = (productCounts[name] || 0) + (item.qty || 1);
+      });
+    });
+  }
 
   const topProducts = Object.entries(productCounts)
     .sort(([, a], [, b]) => b - a)
@@ -56,16 +92,18 @@ export async function fetchAdminSalesData(tenantId: string) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  const monthlyAgg = await SaleOrder.aggregate([
-    { $match: { tenantId, createdAt: { $gte: start } } },
-    {
-      $group: {
-        _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-        total: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
-      },
-    },
-    { $sort: { "_id.year": 1, "_id.month": 1 } },
-  ]).exec();
+  const monthlyAgg = orders.length > 0
+    ? await SaleOrder.aggregate([
+        { $match: { tenantId, createdAt: { $gte: start } } },
+        {
+          $group: {
+            _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+            total: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]).exec()
+    : [];
 
   const monthlyMap: Record<string, number> = {};
   monthlyAgg.forEach((m: any) => {
@@ -92,7 +130,7 @@ export async function fetchAdminSalesData(tenantId: string) {
       averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     },
     topProducts,
-    recentOrders: orders.slice(0, 5),
+    recentOrders: (orders.length > 0 ? orders : salesInvoices).slice(0, 5),
     monthlyTotals,
   };
 }

@@ -34,7 +34,7 @@ export function DashboardStats({
   return (
     <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
       {has("finance") && <StatCard
-        title="Revenue"
+        title="Revenue · Posted"
         value={formatCurrency(summary.finance.totalRevenue)}
         subtitle={`${formatCurrency(summary.finance.revenueCurrentMonth)} this month`}
         rightContent={
@@ -53,7 +53,7 @@ export function DashboardStats({
                   ? `⚠ ${summary.finance.draftInvoices} draft invoices need posting`
                   : summary.sales.totalOrders > 0
                     ? `⚠ ${summary.sales.totalOrders} orders pending invoicing`
-                    : "⚠ No revenue data"}
+                    : "⚠ No posted revenue"}
               </p>
             </div>
           ) : null

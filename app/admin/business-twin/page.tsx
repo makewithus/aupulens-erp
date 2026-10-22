@@ -126,8 +126,8 @@ export default function BusinessTwinPage() {
           <div className="space-y-2">
             <p className="text-sm">{sim.summary}</p>
             <div className="overflow-x-auto">
-              <table className="text-xs w-full">
-                <thead><tr className="text-muted-foreground text-left"><th className="pr-4 py-1">Week</th><th className="pr-4">Baseline cash</th><th className="pr-4">If late</th><th>Δ</th></tr></thead>
+              <table className="text-xs w-full min-w-[400px] whitespace-nowrap">
+                <thead><tr className="text-muted-foreground text-left whitespace-nowrap"><th className="pr-4 py-1">Week</th><th className="pr-4">Baseline cash</th><th className="pr-4">If late</th><th>Δ</th></tr></thead>
                 <tbody>
                   {sim.baseline.map((b: any, i: number) => (
                     <tr key={b.weekStart} className={sim.delta[i].delta < 0 ? "text-amber-500" : ""}>

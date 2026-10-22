@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "lucide-react";
+import { useThemeStore } from "@/store/themeStore";
 
 export interface DailyDataPoint {
   date?: string | Date;
@@ -34,7 +35,7 @@ export interface DailyBrickBarChartProps {
   onHover?: (point: DailyDataPoint | null) => void;
   year?: number;
   initialDays?: number;
-  colorTheme?: "white" | "silver-mono" | "emerald" | "violet" | "blue" | "amber";
+  colorTheme?: "purple" | "brand-purple" | "white" | "silver-mono" | "emerald" | "violet" | "blue" | "amber";
 }
 
 // ── Seeded PRNG for authentic deterministic generation ──
@@ -156,7 +157,7 @@ export function DailyBrickBarChart({
   showYAxis = true,
   showXAxis = true,
   showToolbar = true,
-  isDark = true,
+  isDark: propIsDark,
   brickHeight = 3.5,
   brickGap = 1.2,
   className,
@@ -164,8 +165,10 @@ export function DailyBrickBarChart({
   onHover,
   year = 2026,
   initialDays = 90,
-  colorTheme = "white",
+  colorTheme = "purple",
 }: DailyBrickBarChartProps) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -253,69 +256,135 @@ export function DailyBrickBarChart({
     point: null,
   });
 
-  // ERP Color System Definitions (Theme-aware, enterprise styling)
+  // ERP Color System Definitions (Theme-aware, enterprise styling with brand colors)
   const themeColors = useMemo(() => {
     switch (colorTheme) {
-      case "emerald":
-        return {
-          primaryBrick: "#10b981",
-          secondaryBrick: "#047857",
-          accentBrick: "#34d399",
-          hoverGlow: "#6ee7b7",
-          borderBadge: "rgba(16, 185, 129, 0.3)",
-          textBadge: "#10b981",
-          btnActive: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
-          btnApply: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30",
-        };
+      case "purple":
+      case "brand-purple":
       case "violet":
-        return {
-          primaryBrick: "#8b5cf6",
-          secondaryBrick: "#5b21b6",
-          accentBrick: "#a78bfa",
-          hoverGlow: "#c4b5fd",
-          borderBadge: "rgba(139, 92, 246, 0.3)",
-          textBadge: "#8b5cf6",
-          btnActive: "bg-violet-500/20 text-violet-400 border-violet-500/40",
-          btnApply: "bg-violet-500/20 text-violet-400 border-violet-500/40 hover:bg-violet-500/30",
-        };
+        if (isDark) {
+          return {
+            primaryBrick: "#a855f7",
+            secondaryBrick: "#6b21a8",
+            accentBrick: "#d8b4fe",
+            hoverGlow: "#f5d0fe",
+            borderBadge: "rgba(168, 85, 247, 0.4)",
+            textBadge: "#c084fc",
+            btnActive: "bg-purple-500/25 text-purple-200 border-purple-400/50 shadow-sm",
+            btnApply: "bg-purple-500/25 text-purple-200 border-purple-400/50 hover:bg-purple-500/35",
+          };
+        } else {
+          return {
+            primaryBrick: "#9333ea",
+            secondaryBrick: "#c084fc",
+            accentBrick: "#6b21a8",
+            hoverGlow: "#581c87",
+            borderBadge: "rgba(147, 51, 234, 0.3)",
+            textBadge: "#7c3aed",
+            btnActive: "bg-purple-600 text-white border-purple-700 shadow-sm",
+            btnApply: "bg-purple-600 text-white hover:bg-purple-700 border-purple-700",
+          };
+        }
+      case "emerald":
+        if (isDark) {
+          return {
+            primaryBrick: "#10b981",
+            secondaryBrick: "#047857",
+            accentBrick: "#34d399",
+            hoverGlow: "#6ee7b7",
+            borderBadge: "rgba(16, 185, 129, 0.3)",
+            textBadge: "#10b981",
+            btnActive: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+            btnApply: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30",
+          };
+        } else {
+          return {
+            primaryBrick: "#059669",
+            secondaryBrick: "#34d399",
+            accentBrick: "#065f46",
+            hoverGlow: "#047857",
+            borderBadge: "rgba(16, 185, 129, 0.3)",
+            textBadge: "#059669",
+            btnActive: "bg-emerald-600 text-white border-emerald-700 shadow-sm",
+            btnApply: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700",
+          };
+        }
       case "blue":
-        return {
-          primaryBrick: "#3b82f6",
-          secondaryBrick: "#1d4ed8",
-          accentBrick: "#60a5fa",
-          hoverGlow: "#93c5fd",
-          borderBadge: "rgba(59, 130, 246, 0.3)",
-          textBadge: "#3b82f6",
-          btnActive: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-          btnApply: "bg-blue-500/20 text-blue-400 border-blue-500/40 hover:bg-blue-500/30",
-        };
+        if (isDark) {
+          return {
+            primaryBrick: "#3b82f6",
+            secondaryBrick: "#1d4ed8",
+            accentBrick: "#60a5fa",
+            hoverGlow: "#93c5fd",
+            borderBadge: "rgba(59, 130, 246, 0.3)",
+            textBadge: "#3b82f6",
+            btnActive: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+            btnApply: "bg-blue-500/20 text-blue-400 border-blue-500/40 hover:bg-blue-500/30",
+          };
+        } else {
+          return {
+            primaryBrick: "#2563eb",
+            secondaryBrick: "#60a5fa",
+            accentBrick: "#1e40af",
+            hoverGlow: "#1d4ed8",
+            borderBadge: "rgba(37, 99, 235, 0.3)",
+            textBadge: "#2563eb",
+            btnActive: "bg-blue-600 text-white border-blue-700 shadow-sm",
+            btnApply: "bg-blue-600 text-white hover:bg-blue-700 border-blue-700",
+          };
+        }
       case "amber":
-        return {
-          primaryBrick: "#f59e0b",
-          secondaryBrick: "#b45309",
-          accentBrick: "#fbbf24",
-          hoverGlow: "#fde68a",
-          borderBadge: "rgba(245, 158, 11, 0.3)",
-          textBadge: "#f59e0b",
-          btnActive: "bg-amber-400/20 text-amber-400 border-amber-400/40",
-          btnApply: "bg-amber-400/20 text-amber-400 border-amber-400/40 hover:bg-amber-400/30",
-        };
+        if (isDark) {
+          return {
+            primaryBrick: "#f59e0b",
+            secondaryBrick: "#b45309",
+            accentBrick: "#fbbf24",
+            hoverGlow: "#fde68a",
+            borderBadge: "rgba(245, 158, 11, 0.3)",
+            textBadge: "#f59e0b",
+            btnActive: "bg-amber-400/20 text-amber-400 border-amber-400/40",
+            btnApply: "bg-amber-400/20 text-amber-400 border-amber-400/40 hover:bg-amber-400/30",
+          };
+        } else {
+          return {
+            primaryBrick: "#d97706",
+            secondaryBrick: "#fbbf24",
+            accentBrick: "#92400e",
+            hoverGlow: "#b45309",
+            borderBadge: "rgba(217, 119, 6, 0.3)",
+            textBadge: "#d97706",
+            btnActive: "bg-amber-600 text-white border-amber-700 shadow-sm",
+            btnApply: "bg-amber-600 text-white hover:bg-amber-700 border-amber-700",
+          };
+        }
       case "white":
       case "silver-mono":
       default:
-        // Clean white / silver monochrome palette (default)
-        return {
-          primaryBrick: "#e4e4e7",
-          secondaryBrick: "#71717a",
-          accentBrick: "#ffffff",
-          hoverGlow: "#ffffff",
-          borderBadge: "rgba(255, 255, 255, 0.35)",
-          textBadge: "#ffffff",
-          btnActive: "bg-white/20 text-white border-white/50 shadow-sm",
-          btnApply: "bg-white/15 text-white border-white/40 hover:bg-white/25",
-        };
+        if (isDark) {
+          return {
+            primaryBrick: "#e4e4e7",
+            secondaryBrick: "#71717a",
+            accentBrick: "#ffffff",
+            hoverGlow: "#ffffff",
+            borderBadge: "rgba(255, 255, 255, 0.35)",
+            textBadge: "#ffffff",
+            btnActive: "bg-white/20 text-white border-white/50 shadow-sm",
+            btnApply: "bg-white/15 text-white border-white/40 hover:bg-white/25",
+          };
+        } else {
+          return {
+            primaryBrick: "#334155",
+            secondaryBrick: "#94a3b8",
+            accentBrick: "#0f172a",
+            hoverGlow: "#0f172a",
+            borderBadge: "rgba(15, 23, 42, 0.3)",
+            textBadge: "#0f172a",
+            btnActive: "bg-slate-900 text-white border-slate-900 shadow-sm",
+            btnApply: "bg-slate-900 text-white hover:bg-slate-800 border-slate-900",
+          };
+        }
     }
-  }, [colorTheme]);
+  }, [colorTheme, isDark]);
 
   // Scale calculations for visible data
   const { maxVal, yMax, yTicks } = useMemo(() => {
@@ -360,7 +429,7 @@ export function DailyBrickBarChart({
       ctx.clearRect(0, 0, W, H);
 
       const PAD = {
-        top: 16,
+        top: 28,
         right: showYAxis ? 56 : 14,
         bottom: showXAxis ? 30 : 10,
         left: 14,
@@ -382,20 +451,20 @@ export function DailyBrickBarChart({
         yTicks.forEach((tickVal) => {
           const y = cB - (tickVal / yMax) * cH;
 
-          ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.06)";
+          ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.09)";
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(cL, Math.round(y) + 0.5);
           ctx.lineTo(cR, Math.round(y) + 0.5);
           ctx.stroke();
 
-          ctx.fillStyle = isDark ? "#71717a" : "#71717a";
+          ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
           ctx.fillText(yAxisFormatter(tickVal), cR + 8, y);
         });
       }
 
       // ── 2. X-axis Baseline ──
-      ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.12)";
+      ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(15, 23, 42, 0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(cL, Math.round(cB) + 0.5);
@@ -413,6 +482,13 @@ export function DailyBrickBarChart({
       const slotHeight = dynamicBrickHeight + dynamicBrickGap;
       const totalPossibleBricks = Math.floor(cH / slotHeight);
 
+      const fmtBarVal = (v: number) => {
+        if (v >= 10000000) return (v / 10000000).toFixed(1) + "Cr";
+        if (v >= 100000) return (v / 100000).toFixed(0) + "L";
+        if (v >= 1000) return (v / 1000).toFixed(0) + "K";
+        return v.toString();
+      };
+
       for (let i = 0; i < n; i++) {
         const item = visibleData[i];
         const val = item.value ?? 0;
@@ -427,11 +503,16 @@ export function DailyBrickBarChart({
           if (brickY < cT - 2) break;
 
           const brickProgress = b / totalPossibleBricks;
+          const rel = b / numBricks;
 
           if (isHovered) {
             ctx.fillStyle = themeColors.hoverGlow;
             ctx.shadowColor = themeColors.hoverGlow;
             ctx.shadowBlur = 4;
+          } else if (numBricks > 6 && rel >= 0.72 && rel <= 0.86) {
+            // Image 2 contrast white/dark brick mixture band
+            ctx.fillStyle = isDark ? "#FFFFFF" : "#1E293B";
+            ctx.shadowBlur = 0;
           } else if (brickProgress > 0.65) {
             ctx.fillStyle = themeColors.accentBrick;
             ctx.shadowBlur = 0;
@@ -445,6 +526,35 @@ export function DailyBrickBarChart({
 
           ctx.fillRect(Math.round(x), Math.round(brickY), Math.max(1, Math.round(barWidth)), Math.round(dynamicBrickHeight));
           ctx.shadowBlur = 0;
+        }
+
+        // Numeric value directly above each bar so user can read directly
+        const barTopY = cB - numBricks * slotHeight;
+        const shouldDrawValue =
+          isHovered ||
+          n <= 35 ||
+          (n <= 55 && i % 2 === 0) ||
+          (n > 55 && (i % Math.ceil(n / 20) === 0 || (i > 0 && i < n - 1 && val > (visibleData[i - 1]?.value ?? 0) * 1.3 && val > (visibleData[i + 1]?.value ?? 0))));
+
+        if (shouldDrawValue && barTopY > cT - 22) {
+          ctx.save();
+          ctx.font = isHovered ? 'bold 10px "Roboto Mono", monospace' : 'bold 9px "Roboto Mono", monospace';
+          ctx.fillStyle = isHovered
+            ? (isDark ? "#FFFFFF" : "#0F172A")
+            : (isDark ? "#F2F2F2" : "#1E293B");
+
+          if (n > 25 && !isHovered && colWidth < 22) {
+            ctx.translate(x + barWidth / 2, barTopY - 4);
+            ctx.rotate(-Math.PI / 4);
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(fmtBarVal(val), 0, 0);
+          } else {
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillText(fmtBarVal(val), x + barWidth / 2, barTopY - 3);
+          }
+          ctx.restore();
         }
 
         // Active Column Hover Guide
@@ -673,6 +783,78 @@ export function DailyBrickBarChart({
     onHover?.(null);
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragStartXRef.current = e.touches[0].clientX;
+      dragStartRangeRef.current = [...viewRange];
+      handleTouchMove(e);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas || visibleData.length === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const PAD_LEFT = 14;
+    const PAD_RIGHT = showYAxis ? 56 : 14;
+    const cW = Math.max(10, rect.width - PAD_LEFT - PAD_RIGHT);
+
+    // Pan across history if dragging
+    if (isDraggingRef.current) {
+      const deltaX = touch.clientX - dragStartXRef.current;
+      const [initStart, initEnd] = dragStartRangeRef.current;
+      const span = initEnd - initStart;
+      const shift = Math.round((deltaX / cW) * span);
+
+      let newStart = initStart - shift;
+      let newEnd = initEnd - shift;
+
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = span;
+      }
+      if (newEnd > chartData.length) {
+        newEnd = chartData.length;
+        newStart = Math.max(0, chartData.length - span);
+      }
+
+      setViewRange([newStart, newEnd]);
+    }
+
+    const mx = touch.clientX - rect.left;
+    const my = touch.clientY - rect.top;
+
+    if (mx < PAD_LEFT || mx > rect.width - PAD_RIGHT) {
+      setTooltipState((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+      renderChart();
+      onHover?.(null);
+      return;
+    }
+
+    const n = visibleData.length;
+    const colWidth = cW / n;
+    const idx = Math.min(n - 1, Math.max(0, Math.floor((mx - PAD_LEFT) / colWidth)));
+    const point = visibleData[idx];
+
+    setTooltipState({
+      visible: true,
+      x: Math.min(rect.width - 180, Math.max(10, mx + 16)),
+      y: Math.max(10, my - 50),
+      point,
+    });
+
+    renderChart(idx);
+    onHover?.(point);
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+  };
+
   const handleDoubleClick = () => {
     const total = chartData.length;
     const start = Math.max(0, total - initialDays);
@@ -702,24 +884,41 @@ export function DailyBrickBarChart({
   return (
     <div
       className={cn(
-        "relative flex flex-col w-full border font-mono select-none overflow-hidden rounded-lg",
-        isDark ? "bg-[#0b0e11] border-border text-white" : "bg-white border-border text-foreground",
+        "relative flex flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
+        isDark ? "bg-[#0b0e11] border-border text-white shadow-lg" : "bg-white border-slate-200 text-slate-900 shadow-sm",
         className
       )}
       style={{ height: typeof height === "number" ? `${height}px` : height }}
     >
       {/* ── Top Header Strip ── */}
       {(title || subtitle) && (
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/60 text-xs">
+        <div className={cn(
+          "flex items-center justify-between px-4 py-2.5 border-b text-xs",
+          isDark ? "border-border/60" : "border-slate-200 bg-slate-50/50"
+        )}>
           <div className="flex items-center gap-2">
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
+              className="w-2.5 h-2.5 rounded-full animate-pulse shadow-sm"
               style={{ backgroundColor: themeColors.primaryBrick }}
             />
-            {title && <span className="font-semibold uppercase tracking-wider">{title}</span>}
-            {subtitle && <span className="text-muted-foreground">({subtitle})</span>}
+            {title && (
+              <span className={cn(
+                "font-semibold uppercase tracking-wider",
+                isDark ? "text-slate-100" : "text-slate-900 font-bold"
+              )}>
+                {title}
+              </span>
+            )}
+            {subtitle && (
+              <span className={isDark ? "text-muted-foreground" : "text-slate-500 font-medium"}>
+                ({subtitle})
+              </span>
+            )}
           </div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-widest hidden sm:block">
+          <div className={cn(
+            "text-[10px] uppercase tracking-widest hidden sm:block",
+            isDark ? "text-muted-foreground" : "text-slate-500 font-medium"
+          )}>
             {visibleData.length} Visible Days • Mouse Wheel to Zoom
           </div>
         </div>
@@ -727,10 +926,16 @@ export function DailyBrickBarChart({
 
       {/* ── Timeframe & Custom Days Filter Bar ── */}
       {showToolbar && (
-        <div className="flex flex-wrap items-center justify-between px-4 py-2 border-b border-border/40 text-xs gap-2">
+        <div className={cn(
+          "flex flex-wrap items-center justify-between px-4 py-2 border-b text-xs gap-2",
+          isDark ? "border-border/40 bg-transparent" : "border-slate-200 bg-slate-50/80"
+        )}>
           {/* Preset Buttons */}
           <div className="flex items-center gap-1.5 overflow-x-auto">
-            <span className="text-[10px] text-muted-foreground uppercase mr-1">Time:</span>
+            <span className={cn(
+              "text-[10px] uppercase mr-1",
+              isDark ? "text-muted-foreground" : "text-slate-600 font-semibold"
+            )}>Time:</span>
             {PRESET_DAYS.map((preset) => {
               const isActive = activePreset === preset.label;
               return (
@@ -739,10 +944,12 @@ export function DailyBrickBarChart({
                   type="button"
                   onClick={() => handleSelectPreset(preset)}
                   className={cn(
-                    "px-2.5 py-0.5 text-xs rounded transition-colors font-medium cursor-pointer border",
+                    "px-2.5 py-0.5 text-xs rounded transition-all font-medium cursor-pointer border",
                     isActive
                       ? themeColors.btnActive
-                      : "bg-transparent text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
+                      : isDark
+                      ? "bg-transparent text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
+                      : "bg-white text-slate-700 border-slate-200 hover:text-slate-900 hover:bg-slate-100 shadow-2xs"
                   )}
                 >
                   {preset.label}
@@ -753,8 +960,13 @@ export function DailyBrickBarChart({
 
           {/* User Custom Days Input Box */}
           <form onSubmit={handleCustomDaysApply} className="flex items-center gap-1.5 ml-auto">
-            <div className="flex items-center gap-1 bg-[#14181d] border border-border/60 px-2 py-0.5 rounded text-xs">
-              <Calendar className="h-3 w-3 text-muted-foreground" />
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs border transition-colors",
+              isDark
+                ? "bg-[#14181d] border-border/60 text-white"
+                : "bg-white border-slate-300 text-slate-900 focus-within:border-purple-500 shadow-2xs"
+            )}>
+              <Calendar className={cn("h-3 w-3", isDark ? "text-muted-foreground" : "text-slate-400")} />
               <input
                 type="number"
                 min="2"
@@ -762,13 +974,16 @@ export function DailyBrickBarChart({
                 value={customDaysInput}
                 onChange={(e) => setCustomDaysInput(e.target.value)}
                 placeholder="Days..."
-                className="w-16 bg-transparent text-xs font-mono text-white placeholder:text-muted-foreground focus:outline-none"
+                className={cn(
+                  "w-16 bg-transparent text-xs font-mono focus:outline-none",
+                  isDark ? "text-white placeholder:text-muted-foreground" : "text-slate-900 placeholder:text-slate-400"
+                )}
               />
             </div>
             <button
               type="submit"
               className={cn(
-                "px-2.5 py-0.5 text-xs border rounded transition-colors cursor-pointer",
+                "px-2.5 py-0.5 text-xs border rounded transition-colors cursor-pointer font-medium shadow-xs",
                 themeColors.btnApply
               )}
             >
@@ -790,6 +1005,10 @@ export function DailyBrickBarChart({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           onDoubleClick={handleDoubleClick}
           className="block w-full h-full cursor-crosshair touch-none"
           style={{ touchAction: "none", overscrollBehavior: "contain" }}
@@ -799,21 +1018,26 @@ export function DailyBrickBarChart({
         {/* Floating Tooltip */}
         {tooltipState.visible && tooltipState.point && (
           <div
-            className="absolute pointer-events-none z-30 transition-transform duration-75 ease-out shadow-2xl backdrop-blur-md px-3 py-2 border rounded text-[11px]"
+            className="absolute pointer-events-none z-30 transition-transform duration-75 ease-out shadow-2xl backdrop-blur-md px-3.5 py-2.5 border rounded-none text-xs font-mono"
             style={{
               left: `${tooltipState.x}px`,
               top: `${tooltipState.y}px`,
-              backgroundColor: isDark ? "rgba(13, 16, 23, 0.96)" : "rgba(255, 255, 255, 0.96)",
-              borderColor: isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)",
-              color: isDark ? "#ffffff" : "#09090b",
+              backgroundColor: isDark ? "#161616" : "#ffffff",
+              borderColor: isDark ? "#272727" : "#cbd5e1",
+              color: isDark ? "#F2F2F2" : "#0f172a",
+              boxShadow: isDark ? "0 10px 25px -5px rgba(0, 0, 0, 0.8)" : "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
             }}
           >
-            <div className="text-[10px] text-muted-foreground font-medium pb-1 mb-1 border-b border-border/40">
-              {tooltipState.point.label || String(tooltipState.point.date)}
+            <div className={cn(
+              "text-[11px] font-semibold pb-1.5 mb-1.5 border-b flex items-center justify-between gap-4",
+              isDark ? "text-muted-foreground border-border/40" : "text-slate-600 border-slate-200"
+            )}>
+              <span>{tooltipState.point.label || String(tooltipState.point.date)}</span>
+              <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-muted/30 font-medium">Daily Telemetry</span>
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">{metricLabel}:</span>
-              <span className="font-semibold" style={{ color: themeColors.primaryBrick }}>
+            <div className="flex items-center justify-between gap-6">
+              <span className={isDark ? "text-[#757575]" : "text-slate-500"}>{metricLabel}:</span>
+              <span className="font-bold tabular-nums text-sm" style={{ color: themeColors.primaryBrick }}>
                 {tooltipValueFormatter(tooltipState.point.value ?? 0)}
               </span>
             </div>

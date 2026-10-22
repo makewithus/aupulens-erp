@@ -106,4 +106,5 @@ PaymentSchema.index({ tenantId: 1, paymentDate: -1 });
 const Payment: Model<IPayment> =
   (mongoose.models.Payment as Model<IPayment>) || mongoose.model<IPayment>("Payment", PaymentSchema);
 
+export { Payment };
 export default Payment;

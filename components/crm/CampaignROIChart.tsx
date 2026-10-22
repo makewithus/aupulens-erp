@@ -81,31 +81,31 @@ export function CampaignROIChart() {
     <div
       className={cn(
         "rounded-lg border font-mono w-full relative transition-colors duration-200",
-        isDark ? "bg-[#0b0e11] border-border text-white" : "bg-white border-border text-foreground"
+        isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"
       )}
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-border/60">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-[#272727]/60">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse"></span>
             <h2 className="text-base font-semibold uppercase tracking-wider">
               Campaign ROI Trend
             </h2>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#8AE06C]/15 text-[#8AE06C] border border-[#8AE06C]/30">
               Daily Cumulative
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-[#757575] mt-0.5">
             Cumulative Return on Investment percentage · Continuous historical telemetry
           </p>
         </div>
 
         <div className="flex items-center gap-4 text-xs">
           <div className="text-right">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+            <span className="text-[10px] text-[#757575] uppercase tracking-wider block">
               Current ROI
             </span>
-            <span className={cn("text-base font-bold", latestRoi >= 0 ? "text-emerald-400" : "text-rose-400")}>
+            <span className={cn("text-base font-bold", latestRoi >= 0 ? (isDark ? "text-[#8AE06C]" : "text-[#16A34A]") : "text-[#F56868]")}>
               {latestRoi.toFixed(1)}%
             </span>
           </div>
@@ -114,8 +114,8 @@ export function CampaignROIChart() {
 
       <div className="p-3">
         {loading ? (
-          <div className="flex items-center justify-center min-h-[420px] gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+          <div className="flex items-center justify-center min-h-[420px] gap-2 text-[#757575] text-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-[#8AE06C]" />
             Loading ROI trend…
           </div>
         ) : (
@@ -126,7 +126,7 @@ export function CampaignROIChart() {
             metricLabel="ROI Percentage"
             title="CAMPAIGN ROI"
             currencyPrefix=""
-            colorTheme="emerald"
+            colorTheme="white"
             height={440}
             showTopStats={true}
             showToolbar={true}

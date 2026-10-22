@@ -23,7 +23,8 @@ export function DashboardCharts({
   const expenses = summary.finance.totalExpenses;
   const net = summary.finance.netIncome;
 
-  const ratio = revenue > 0 ? Math.min(100, (expenses / revenue) * 100) : 0;
+  const profitAvailable = summary.finance.profitAvailable === true;
+  const margin = profitAvailable && revenue > 0 ? (net / revenue) * 100 : null;
   const chartData = summary.chartData || [];
   const hasFinance = enabledModules.includes("finance");
   const hasSales = enabledModules.includes("sales");
@@ -34,7 +35,7 @@ export function DashboardCharts({
     <div className="grid grid-cols-1 gap-1 lg:grid-cols-3">
       {hasFinance && <ChartCard
         title="Financial Health"
-        subtitle="Revenue · Expenses · Net Income"
+        subtitle="All time · Posted revenue, costs & net income"
       >
         <div className="flex h-[320px] flex-col justify-between font-mono">
           <div className="flex items-start justify-between gap-8">
@@ -66,22 +67,22 @@ export function DashboardCharts({
               <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 Net Income
               </span>
-              <span className={cn("text-lg font-semibold", net >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                {formatCurrency(net)}
+              <span className={cn("text-lg font-semibold", !profitAvailable ? "text-muted-foreground" : net >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                {profitAvailable ? formatCurrency(net) : "Unavailable"}
               </span>
             </div>
 
             <div className={cn("h-1.5 overflow-hidden rounded", isDark ? "bg-accent" : "bg-accent")}>
               <div
                 className="h-full bg-emerald-500 transition-all duration-1000"
-                style={{ width: `${Math.max(0, Math.min(100, 100 - ratio))}%` }}
+                style={{ width: `${Math.max(0, Math.min(100, margin ?? 0))}%` }}
               />
             </div>
 
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Profit Margin</span>
               <span className="font-semibold text-foreground">
-                {(100 - ratio).toFixed(1)}%
+                {margin === null ? "Unavailable" : `${margin.toFixed(1)}%`}
               </span>
             </div>
           </div>
@@ -140,7 +141,9 @@ function RevenueCanvas({
     const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
 
     const PAD = { top: 15, right: 10, bottom: 25, left: 10 };
-    const color = "#10b981"; // Emerald green for Revenue
+    const lineColor = isDark ? "#FFFFFF" : "#0F172A";
+    const areaFillTop = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(15, 23, 42, 0.12)";
+    const areaFillBottom = isDark ? "rgba(255, 255, 255, 0.01)" : "rgba(15, 23, 42, 0.01)";
 
     function resize() {
       if (!canvas || !container) return;
@@ -198,7 +201,7 @@ function RevenueCanvas({
         ctx.fillText(d.month, x, cB + 8);
       });
 
-      // Draw Line
+      // Draw Line (Image 1 crisp white / dark slate)
       ctx.beginPath();
       data.forEach((d, i) => {
         const x = cL + (i / (data.length - 1)) * cW;
@@ -206,17 +209,20 @@ function RevenueCanvas({
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2.2;
+      ctx.shadowColor = isDark ? "rgba(255, 255, 255, 0.4)" : "rgba(15, 23, 42, 0.2)";
+      ctx.shadowBlur = 6;
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
       // Area fill
       ctx.lineTo(cR, cB);
       ctx.lineTo(cL, cB);
       ctx.closePath();
       const grad = ctx.createLinearGradient(0, cT, 0, cB);
-      grad.addColorStop(0, "rgba(16, 185, 129, 0.08)");
-      grad.addColorStop(1, "rgba(16, 185, 129, 0)");
+      grad.addColorStop(0, areaFillTop);
+      grad.addColorStop(1, areaFillBottom);
       ctx.fillStyle = grad;
       ctx.fill();
 
@@ -238,9 +244,9 @@ function RevenueCanvas({
         // Interactive Dot
         ctx.beginPath();
         ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
         ctx.fill();
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = isDark ? "#ffffff" : "#0f172a";
         ctx.lineWidth = 2.5;
         ctx.stroke();
       }
@@ -276,7 +282,7 @@ function RevenueCanvas({
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
         d.revenue
       )}</span>`;
 
@@ -288,6 +294,44 @@ function RevenueCanvas({
       draw(idx);
     };
 
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const n = data.length;
+      const ratio = (mx - cL) / cW;
+      const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
+      if (idx < 0 || idx >= n) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[idx];
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Revenue</span><span class="font-semibold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums text-xs mt-0.5 block">${formatCurrency(
+        d.revenue
+      )}</span>`;
+
+      tooltip.style.display = "block";
+      const tipWidth = tooltip.offsetWidth || 120;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(0, touch.clientY - rect.top - 45) + "px";
+      draw(idx);
+    };
+
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
       draw();
@@ -295,6 +339,9 @@ function RevenueCanvas({
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
     setTimeout(resize, 100);
@@ -303,6 +350,9 @@ function RevenueCanvas({
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [data, isDark, formatCurrency]);
@@ -342,8 +392,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     const yMax = Math.ceil(maxVal / roundStep) * roundStep || 10;
     const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
 
-    const PAD = { top: 15, right: 10, bottom: 25, left: 10 };
-    const barColors = ["#a78bfa", "#8b5cf6"]; // Purple theme
+    const PAD = { top: 28, right: 10, bottom: 25, left: 10 };
 
     function resize() {
       if (!canvas || !container) return;
@@ -402,12 +451,42 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         const barH = (d.orders / yMax) * cH;
         const y = cB - barH;
 
-        // Gradient
+        // Image 3 dual-tone rich purple gradient
         const grad = ctx.createLinearGradient(x, y, x, cB);
-        grad.addColorStop(0, highlightIdx === i ? "#c4b5fd" : barColors[i % 2]);
-        grad.addColorStop(1, highlightIdx === i ? "#7c3aed" : i % 2 === 0 ? "#6d28d9" : "#4c1d95");
+        if (isDark) {
+          grad.addColorStop(0, highlightIdx === i ? "#FFFFFF" : "#D3BDFF");
+          grad.addColorStop(0.3, highlightIdx === i ? "#D3BDFF" : "#B595FF");
+          grad.addColorStop(0.7, highlightIdx === i ? "#B595FF" : "#A77DFF");
+          grad.addColorStop(1, highlightIdx === i ? "#A77DFF" : "#7C3AED");
+        } else {
+          grad.addColorStop(0, highlightIdx === i ? "#B595FF" : "#9353E8");
+          grad.addColorStop(0.5, highlightIdx === i ? "#9353E8" : "#7C3AED");
+          grad.addColorStop(1, highlightIdx === i ? "#6E38D9" : "#5B21B6");
+        }
         ctx.fillStyle = grad;
-        ctx.fillRect(x, y, barWidth, barH);
+
+        // Draw rounded top corners matching Image 3
+        const r = Math.min(3, barWidth / 2);
+        ctx.beginPath();
+        ctx.moveTo(x, cB);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.lineTo(x + barWidth - r, y);
+        ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + r);
+        ctx.lineTo(x + barWidth, cB);
+        ctx.closePath();
+        ctx.fill();
+
+        // Numeric value directly on top of each bar so user can read directly
+        ctx.save();
+        ctx.font = 'bold 10px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = highlightIdx === i
+          ? (isDark ? "#ffffff" : "#0f172a")
+          : (isDark ? "#f2f2f2" : "#1e293b");
+        ctx.fillText(d.orders.toString(), x + barWidth / 2, y - 3);
+        ctx.restore();
 
         // Month text below
         ctx.font = '9px "Roboto Mono", monospace';
@@ -442,13 +521,49 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       }
 
       const d = data[idx];
-      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-600 dark:text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
 
       tooltip.style.display = "block";
       const tipWidth = tooltip.offsetWidth || 110;
       const tipX = mx + 16;
       tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
       tooltip.style.top = Math.max(0, e.clientY - rect.top - 45) + "px";
+      draw(idx);
+    };
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+      const n = data.length;
+      const groupWidth = cW / n;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const idx = Math.floor((mx - cL) / groupWidth);
+      if (idx < 0 || idx >= n) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const d = data[idx];
+      tooltip.innerHTML = `<span class="text-muted-foreground font-mono text-[9px] uppercase tracking-wider block">${d.month} Orders</span><span class="font-semibold text-purple-600 dark:text-purple-400 font-mono text-xs mt-0.5 block"><span class="font-sans tabular-nums">${d.orders}</span> orders</span>`;
+
+      tooltip.style.display = "block";
+      const tipWidth = tooltip.offsetWidth || 110;
+      const tipX = mx + 16;
+      tooltip.style.left = (tipX + tipWidth > W ? mx - tipWidth - 16 : tipX) + "px";
+      tooltip.style.top = Math.max(0, touch.clientY - rect.top - 45) + "px";
       draw(idx);
     };
 
@@ -459,6 +574,9 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
     setTimeout(resize, 100);
@@ -467,6 +585,9 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [data, isDark]);

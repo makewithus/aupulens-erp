@@ -1,7 +1,5 @@
 "use client";
 
-import { Wallet } from "lucide-react";
-
 import { Card, CardContent } from "@/components/ui/card";
 
 interface NetProfitCardProps {
@@ -13,21 +11,22 @@ export function NetProfitCard({
   summary,
   formatCurrency,
 }: NetProfitCardProps) {
-  const isProfit = summary.finance.netIncome >= 0;
+  const profitAvailable = summary.finance.profitAvailable === true;
+  const isProfit = profitAvailable && summary.finance.netIncome >= 0;
 
   const revenue = summary.finance.totalRevenue;
   const expenses = summary.finance.totalExpenses;
   const netIncome = summary.finance.netIncome;
 
   const margin =
-    revenue > 0 ? ((netIncome / revenue) * 100).toFixed(1) : null;
+    profitAvailable && revenue > 0 ? ((netIncome / revenue) * 100).toFixed(1) : null;
 
   return (
     <Card className="overflow-hidden border-0 shadow-none">
       {/* Header */}
       <div
         className={`border-b border-border/40 px-8 py-6 ${
-          isProfit ? "bg-emerald-500/5" : "bg-rose-500/5"
+          !profitAvailable ? "bg-muted/20" : isProfit ? "bg-emerald-500/5" : "bg-rose-500/5"
         }`}
       >
         <div className="flex items-center gap-3">
@@ -40,18 +39,21 @@ export function NetProfitCard({
         </div>
       </div>
 
-      <CardContent className="p-10">
+      <CardContent className="p-4 sm:p-10">
+        <p className="mb-6 text-center text-sm text-muted-foreground">
+          All time · Posted accounting entries · Same basis as Finance P&amp;L
+        </p>
         <div className="text-center">
           <p
-            className={`font-sans tabular-nums text-[64px] font-bold leading-none tracking-tighter ${
-              isProfit ? "text-emerald-500" : "text-rose-500"
+            className={`font-sans tabular-nums text-3xl sm:text-[64px] font-bold leading-none tracking-tighter ${
+              !profitAvailable ? "text-muted-foreground" : isProfit ? "text-emerald-500" : "text-rose-500"
             }`}
           >
-            {formatCurrency(netIncome)}
+            {profitAvailable ? formatCurrency(netIncome) : "Unavailable"}
           </p>
 
           <p className="mt-3 text-sm uppercase tracking-[0.18em] text-muted-foreground">
-            {isProfit ? "Profit" : "Loss"} this period
+            {profitAvailable ? `${isProfit ? "Profit" : "Loss"} · All time` : "Costs need review"}
           </p>
 
           {margin && (
@@ -83,29 +85,10 @@ export function NetProfitCard({
           </div>
         </div>
 
-        {/* Empty State */}
-        {revenue === 0 && expenses === 0 && (
+        {!profitAvailable && (
           <div className="mt-8 border border-amber-500/20 bg-amber-500/10 px-4 py-3">
             <p className="text-sm text-amber-600">
-              No financial activity has been recorded yet.
-            </p>
-          </div>
-        )}
-
-        {/* Revenue Missing */}
-        {revenue === 0 && expenses > 0 && (
-          <div className="mt-8 border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm text-amber-600">
-              Expenses exist, but no revenue has been recorded.
-            </p>
-          </div>
-        )}
-
-        {/* Expense Missing */}
-        {expenses === 0 && revenue > 0 && (
-          <div className="mt-8 border border-blue-500/20 bg-blue-500/10 px-4 py-3">
-            <p className="text-sm text-blue-600">
-              Revenue has been generated. No expenses have been recorded yet.
+              {summary.finance.profitUnavailableReason || "Profit and margin are unavailable until costs are posted."}
             </p>
           </div>
         )}

@@ -38,7 +38,7 @@ export interface AiUsageSummary {
   credits?: {
     planKey?: string;
     used: number; reserved: number; limit: number; remaining: number; resetsAt: string;
-    windows?: Record<"session" | "weekly", { used: number; reserved: number; limit: number; remaining: number; startsAt: string; resetsAt: string; unit: "credits" }>;
+    windows?: Record<string, { used: number; reserved: number; limit: number; remaining: number; startsAt: string; resetsAt: string; unit: "credits" }>;
   };
 }
 export interface UsageWindow { period: string; start: Date; end: Date; limit: number | null }

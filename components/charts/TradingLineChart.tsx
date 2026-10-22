@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "lucide-react";
+import { useThemeStore } from "@/store/themeStore";
 
 export interface LineDataPoint {
   date: string | Date;
@@ -30,7 +31,7 @@ export interface TradingLineChartProps {
   showMA?: boolean; // Kept for interface backward compatibility
   isDark?: boolean;
   className?: string;
-  colorTheme?: "white" | "silver-mono" | "amber" | "emerald" | "electric-blue" | "violet" | "binance-gold";
+  colorTheme?: "purple" | "brand-purple" | "white" | "silver-mono" | "amber" | "emerald" | "electric-blue" | "violet" | "binance-gold" | "green" | "blue" | "yellow" | "red";
   onHoverPoint?: (point: LineDataPoint | null) => void;
 }
 
@@ -261,11 +262,13 @@ export function TradingLineChart({
   initialDays = 30,
   showToolbar = true,
   showTopStats = true,
-  isDark = true,
+  isDark: propIsDark,
   className,
   colorTheme = "white",
   onHoverPoint,
 }: TradingLineChartProps) {
+  const storeTheme = useThemeStore((state) => state.theme);
+  const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -302,6 +305,7 @@ export function TradingLineChart({
   }, [viewRange]);
 
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number } | null>(null);
 
   const [startIdx, endIdx] = viewRange;
   const visibleData = useMemo(() => {
@@ -354,70 +358,163 @@ export function TradingLineChart({
     }
   };
 
-  // ERP Color System Definitions (Theme-aware, enterprise grade)
+  // ERP Color System Definitions (Theme-aware, enterprise grade with branding colors)
   const themeColors = useMemo(() => {
     switch (colorTheme) {
-      case "emerald":
-        return {
-          main: "#10b981",
-          mainGlow: "rgba(16, 185, 129, 0.28)",
-          gradientStart: "rgba(16, 185, 129, 0.20)",
-          gradientEnd: "rgba(16, 185, 129, 0.0)",
-          pillBorder: "#10b981",
-          pillBg: "#059669",
-          btnActive: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
-          btnApply: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30",
-        };
-      case "electric-blue":
-        return {
-          main: "#3b82f6",
-          mainGlow: "rgba(59, 130, 246, 0.28)",
-          gradientStart: "rgba(59, 130, 246, 0.20)",
-          gradientEnd: "rgba(59, 130, 246, 0.0)",
-          pillBorder: "#3b82f6",
-          pillBg: "#2563eb",
-          btnActive: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-          btnApply: "bg-blue-500/20 text-blue-400 border-blue-500/40 hover:bg-blue-500/30",
-        };
+      case "purple":
+      case "brand-purple":
       case "violet":
-        return {
-          main: "#8b5cf6",
-          mainGlow: "rgba(139, 92, 246, 0.28)",
-          gradientStart: "rgba(139, 92, 246, 0.20)",
-          gradientEnd: "rgba(139, 92, 246, 0.0)",
-          pillBorder: "#8b5cf6",
-          pillBg: "#7c3aed",
-          btnActive: "bg-violet-500/20 text-violet-400 border-violet-500/40",
-          btnApply: "bg-violet-500/20 text-violet-400 border-violet-500/40 hover:bg-violet-500/30",
-        };
+        if (isDark) {
+          return {
+            main: "#A77DFF",
+            mainGlow: "rgba(167, 125, 255, 0.40)",
+            gradientStart: "rgba(167, 125, 255, 0.28)",
+            gradientEnd: "rgba(167, 125, 255, 0.0)",
+            pillBorder: "#A77DFF",
+            pillBg: "#7C3AED",
+            btnActive: "bg-[#A77DFF]/25 text-[#F2F2F2] border-[#A77DFF]/50 shadow-sm",
+            btnApply: "bg-[#A77DFF]/25 text-[#F2F2F2] border-[#A77DFF]/50 hover:bg-[#A77DFF]/35",
+          };
+        } else {
+          return {
+            main: "#7C3AED",
+            mainGlow: "rgba(124, 58, 237, 0.25)",
+            gradientStart: "rgba(124, 58, 237, 0.22)",
+            gradientEnd: "rgba(124, 58, 237, 0.02)",
+            pillBorder: "#7C3AED",
+            pillBg: "#f3e8ff",
+            btnActive: "bg-purple-600 text-white border-purple-700 shadow-sm",
+            btnApply: "bg-purple-600 text-white hover:bg-purple-700 border-purple-700",
+          };
+        }
+      case "emerald":
+      case "green":
+        if (isDark) {
+          return {
+            main: "#8AE06C",
+            mainGlow: "rgba(138, 224, 108, 0.35)",
+            gradientStart: "rgba(138, 224, 108, 0.24)",
+            gradientEnd: "rgba(138, 224, 108, 0.0)",
+            pillBorder: "#8AE06C",
+            pillBg: "#16A34A",
+            btnActive: "bg-[#8AE06C]/20 text-[#8AE06C] border-[#8AE06C]/50 shadow-sm",
+            btnApply: "bg-[#8AE06C]/20 text-[#8AE06C] border-[#8AE06C]/50 hover:bg-[#8AE06C]/30",
+          };
+        } else {
+          return {
+            main: "#16A34A",
+            mainGlow: "rgba(22, 163, 74, 0.25)",
+            gradientStart: "rgba(22, 163, 74, 0.22)",
+            gradientEnd: "rgba(22, 163, 74, 0.02)",
+            pillBorder: "#16A34A",
+            pillBg: "#dcfce7",
+            btnActive: "bg-emerald-600 text-white border-emerald-700 shadow-sm",
+            btnApply: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-700",
+          };
+        }
+      case "electric-blue":
+      case "blue":
+        if (isDark) {
+          return {
+            main: "#6CADF5",
+            mainGlow: "rgba(108, 173, 245, 0.35)",
+            gradientStart: "rgba(108, 173, 245, 0.24)",
+            gradientEnd: "rgba(108, 173, 245, 0.0)",
+            pillBorder: "#6CADF5",
+            pillBg: "#2563EB",
+            btnActive: "bg-[#6CADF5]/20 text-[#6CADF5] border-[#6CADF5]/50 shadow-sm",
+            btnApply: "bg-[#6CADF5]/20 text-[#6CADF5] border-[#6CADF5]/50 hover:bg-[#6CADF5]/30",
+          };
+        } else {
+          return {
+            main: "#2563EB",
+            mainGlow: "rgba(37, 99, 235, 0.25)",
+            gradientStart: "rgba(37, 99, 235, 0.22)",
+            gradientEnd: "rgba(37, 99, 235, 0.02)",
+            pillBorder: "#2563EB",
+            pillBg: "#dbeafe",
+            btnActive: "bg-blue-600 text-white border-blue-700 shadow-sm",
+            btnApply: "bg-blue-600 text-white hover:bg-blue-700 border-blue-700",
+          };
+        }
       case "amber":
       case "binance-gold":
-        return {
-          main: "#f59e0b",
-          mainGlow: "rgba(245, 158, 11, 0.30)",
-          gradientStart: "rgba(245, 158, 11, 0.22)",
-          gradientEnd: "rgba(245, 158, 11, 0.0)",
-          pillBorder: "#f59e0b",
-          pillBg: "#d97706",
-          btnActive: "bg-amber-400/20 text-amber-400 border-amber-400/40",
-          btnApply: "bg-amber-400/20 text-amber-400 border-amber-400/40 hover:bg-amber-400/30",
-        };
+      case "yellow":
+        if (isDark) {
+          return {
+            main: "#F1DF38",
+            mainGlow: "rgba(241, 223, 56, 0.35)",
+            gradientStart: "rgba(241, 223, 56, 0.24)",
+            gradientEnd: "rgba(241, 223, 56, 0.0)",
+            pillBorder: "#F1DF38",
+            pillBg: "#D97706",
+            btnActive: "bg-[#F1DF38]/20 text-[#F1DF38] border-[#F1DF38]/50 shadow-sm",
+            btnApply: "bg-[#F1DF38]/20 text-[#F1DF38] border-[#F1DF38]/50 hover:bg-[#F1DF38]/30",
+          };
+        } else {
+          return {
+            main: "#CA8A04",
+            mainGlow: "rgba(202, 138, 4, 0.25)",
+            gradientStart: "rgba(202, 138, 4, 0.22)",
+            gradientEnd: "rgba(202, 138, 4, 0.02)",
+            pillBorder: "#CA8A04",
+            pillBg: "#fef3c7",
+            btnActive: "bg-amber-600 text-white border-amber-700 shadow-sm",
+            btnApply: "bg-amber-600 text-white hover:bg-amber-700 border-amber-700",
+          };
+        }
+      case "red":
+        if (isDark) {
+          return {
+            main: "#F56868",
+            mainGlow: "rgba(245, 104, 104, 0.35)",
+            gradientStart: "rgba(245, 104, 104, 0.24)",
+            gradientEnd: "rgba(245, 104, 104, 0.0)",
+            pillBorder: "#F56868",
+            pillBg: "#DC2626",
+            btnActive: "bg-[#F56868]/20 text-[#F56868] border-[#F56868]/50 shadow-sm",
+            btnApply: "bg-[#F56868]/20 text-[#F56868] border-[#F56868]/50 hover:bg-[#F56868]/30",
+          };
+        } else {
+          return {
+            main: "#DC2626",
+            mainGlow: "rgba(220, 38, 38, 0.25)",
+            gradientStart: "rgba(220, 38, 38, 0.22)",
+            gradientEnd: "rgba(220, 38, 38, 0.02)",
+            pillBorder: "#DC2626",
+            pillBg: "#fee2e2",
+            btnActive: "bg-red-600 text-white border-red-700 shadow-sm",
+            btnApply: "bg-red-600 text-white hover:bg-red-700 border-red-700",
+          };
+        }
       case "white":
       case "silver-mono":
       default:
-        // Clean white / silver monochrome palette (default)
-        return {
-          main: "#ffffff",
-          mainGlow: "rgba(255, 255, 255, 0.35)",
-          gradientStart: "rgba(255, 255, 255, 0.20)",
-          gradientEnd: "rgba(255, 255, 255, 0.0)",
-          pillBorder: "rgba(255, 255, 255, 0.4)",
-          pillBg: "rgba(255, 255, 255, 0.15)",
-          btnActive: "bg-white/20 text-white border-white/50 shadow-sm",
-          btnApply: "bg-white/15 text-white border-white/40 hover:bg-white/25",
-        };
+        if (isDark) {
+          return {
+            main: "#FFFFFF",
+            mainGlow: "rgba(255, 255, 255, 0.45)",
+            gradientStart: "rgba(255, 255, 255, 0.28)",
+            gradientEnd: "rgba(255, 255, 255, 0.0)",
+            pillBorder: "rgba(255, 255, 255, 0.45)",
+            pillBg: "rgba(255, 255, 255, 0.12)",
+            btnActive: "bg-white/20 text-white border-white/50 shadow-sm",
+            btnApply: "bg-white/15 text-white border-white/40 hover:bg-white/25",
+          };
+        } else {
+          return {
+            main: "#0f172a",
+            mainGlow: "rgba(15, 23, 42, 0.25)",
+            gradientStart: "rgba(15, 23, 42, 0.15)",
+            gradientEnd: "rgba(15, 23, 42, 0.02)",
+            pillBorder: "#0f172a",
+            pillBg: "#f1f5f9",
+            btnActive: "bg-slate-900 text-white border-slate-900 shadow-sm",
+            btnApply: "bg-slate-900 text-white hover:bg-slate-800 border-slate-900",
+          };
+        }
     }
-  }, [colorTheme]);
+  }, [colorTheme, isDark]);
 
   // Padding definitions
   const PAD = {
@@ -489,14 +586,14 @@ export function TradingLineChart({
         const val = yMin + (yRange * k) / yTickCount;
         const y = getY(val);
 
-        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.06)";
+        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.09)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(cL, y);
         ctx.lineTo(cR, y);
         ctx.stroke();
 
-        ctx.fillStyle = isDark ? "#71717a" : "#71717a";
+        ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
         let formattedStr = "";
         if (val >= 10000000) formattedStr = currencyPrefix + (val / 10000000).toFixed(1) + "Cr";
         else if (val >= 100000) formattedStr = currencyPrefix + (val / 100000).toFixed(1) + "L";
@@ -507,7 +604,7 @@ export function TradingLineChart({
       }
 
       // ── 2. X-axis Baseline & Date Ticks ──
-      ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.12)";
+      ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(15, 23, 42, 0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(cL, cB);
@@ -516,7 +613,7 @@ export function TradingLineChart({
 
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillStyle = isDark ? "#888888" : "#666666";
+      ctx.fillStyle = isDark ? "#94a3b8" : "#334155";
 
       const targetTicks = Math.min(n, Math.max(4, Math.floor(cW / 90)));
       const step = Math.max(1, Math.floor(n / targetTicks));
@@ -713,6 +810,7 @@ export function TradingLineChart({
     // Hover detection
     if (mx < cL || mx > cR) {
       setHoveredIdx(null);
+      setMouseCoords(null);
       if (onHoverPoint) onHoverPoint(null);
       return;
     }
@@ -723,6 +821,7 @@ export function TradingLineChart({
     const ratio = Math.max(0, Math.min(1, (mx - cL) / cW));
     const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
     setHoveredIdx(idx);
+    setMouseCoords({ x: mx, y: e.clientY - rect.top });
     if (onHoverPoint) onHoverPoint(visibleData[idx]);
   };
 
@@ -733,7 +832,72 @@ export function TradingLineChart({
   const handleMouseLeave = () => {
     isDraggingRef.current = false;
     setHoveredIdx(null);
+    setMouseCoords(null);
     if (onHoverPoint) onHoverPoint(null);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragStartXRef.current = e.touches[0].clientX;
+      dragStartRangeRef.current = [...viewRange];
+      handleTouchMove(e);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = touch.clientX - rect.left;
+    const cL = PAD.left;
+    const cR = rect.width - PAD.right;
+    const cW = cR - cL;
+
+    if (isDraggingRef.current) {
+      const deltaX = touch.clientX - dragStartXRef.current;
+      const n = fullDataset.length;
+      const [initStart, initEnd] = dragStartRangeRef.current;
+      const currentSpan = initEnd - initStart;
+      const pointsShift = Math.round((deltaX / cW) * currentSpan);
+
+      let newStart = initStart - pointsShift;
+      let newEnd = initEnd - pointsShift;
+
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = currentSpan;
+      }
+      if (newEnd > n) {
+        newEnd = n;
+        newStart = Math.max(0, n - currentSpan);
+      }
+
+      setViewRange([newStart, newEnd]);
+    }
+
+    if (mx < cL || mx > cR) {
+      setHoveredIdx(null);
+      setMouseCoords(null);
+      if (onHoverPoint) onHoverPoint(null);
+      return;
+    }
+
+    const n = visibleData.length;
+    if (n === 0) return;
+
+    const ratio = Math.max(0, Math.min(1, (mx - cL) / cW));
+    const idx = Math.min(n - 1, Math.max(0, Math.round(ratio * (n - 1))));
+    setHoveredIdx(idx);
+    setMouseCoords({ x: mx, y: touch.clientY - rect.top });
+    if (onHoverPoint) onHoverPoint(visibleData[idx]);
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
   };
 
   // ── Native Non-Passive Mouse-Wheel Zoom In & Zoom Out Handler ──
@@ -834,30 +998,36 @@ export function TradingLineChart({
     <div
       className={cn(
         "flex flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
-        isDark ? "bg-[#0b0e11] border-border text-white" : "bg-white border-border text-foreground",
+        isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-lg" : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm",
         className
       )}
       style={{ minHeight: typeof height === "number" ? `${height}px` : height }}
     >
       {/* ── ERP Top Header & Live Telemetry Strip ── */}
       {showTopStats && (
-        <div className="flex flex-wrap items-center justify-between px-4 py-2.5 border-b border-border/60 text-xs gap-3">
+        <div className={cn(
+          "flex flex-wrap items-center justify-between px-4 py-2.5 border-b text-xs gap-3",
+          isDark ? "border-border/60" : "border-slate-200 bg-slate-50/50"
+        )}>
           <div className="flex items-center gap-2">
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
+              className="w-2.5 h-2.5 rounded-full animate-pulse shadow-sm"
               style={{ backgroundColor: themeColors.main }}
             />
             {title && (
-              <span className="font-semibold uppercase tracking-wider text-foreground">
+              <span className={cn(
+                "font-semibold uppercase tracking-wider text-xs",
+                isDark ? "text-slate-100" : "text-slate-900 font-bold"
+              )}>
                 {title}
               </span>
             )}
             <span
-              className="text-[10px] font-mono px-2 py-0.5 rounded font-bold border"
+              className="text-[10px] font-mono px-2 py-0.5 rounded font-bold border shadow-xs"
               style={{
-                backgroundColor: themeColors.gradientStart,
+                backgroundColor: themeColors.pillBg,
                 borderColor: themeColors.pillBorder,
-                color: themeColors.main,
+                color: isDark ? themeColors.main : themeColors.main,
               }}
             >
               {currencyPrefix}
@@ -868,7 +1038,7 @@ export function TradingLineChart({
               <span
                 className={cn(
                   "text-[10px] font-semibold",
-                  pointChange.pct > 0 ? "text-emerald-400" : "text-rose-400"
+                  pointChange.pct > 0 ? (isDark ? "text-emerald-400" : "text-emerald-600 font-bold") : (isDark ? "text-rose-400" : "text-rose-600 font-bold")
                 )}
               >
                 {pointChange.pct > 0 ? "↑" : "↓"} {Math.abs(pointChange.pct).toFixed(1)}%
@@ -877,24 +1047,39 @@ export function TradingLineChart({
           </div>
 
           {/* ERP Summary Statistics */}
-          <div className="flex items-center gap-4 text-[11px] text-muted-foreground ml-auto">
+          <div className={cn(
+            "flex items-center gap-4 text-[11px] ml-auto",
+            isDark ? "text-muted-foreground" : "text-slate-600"
+          )}>
             <div>
-              <span className="uppercase text-[9px] tracking-wider block">Period Avg</span>
-              <span className="font-semibold text-foreground">
+              <span className={cn(
+                "uppercase text-[9px] tracking-wider block",
+                isDark ? "text-slate-400" : "text-slate-500 font-medium"
+              )}>Period Avg</span>
+              <span className={cn(
+                "font-semibold",
+                isDark ? "text-foreground" : "text-slate-900 font-bold"
+              )}>
                 {currencyPrefix}
                 {periodStats.avg.toLocaleString("en-IN")}
               </span>
             </div>
-            <div className="w-px h-4 bg-border/60" />
+            <div className={cn("w-px h-4", isDark ? "bg-border/60" : "bg-slate-300")} />
             <div>
-              <span className="uppercase text-[9px] tracking-wider block">Peak</span>
-              <span className="font-semibold text-foreground">
+              <span className={cn(
+                "uppercase text-[9px] tracking-wider block",
+                isDark ? "text-slate-400" : "text-slate-500 font-medium"
+              )}>Peak</span>
+              <span className={cn(
+                "font-semibold",
+                isDark ? "text-foreground" : "text-slate-900 font-bold"
+              )}>
                 {currencyPrefix}
                 {periodStats.peak.toLocaleString("en-IN")}
               </span>
             </div>
-            <div className="w-px h-4 bg-border/60" />
-            <div className="text-[10px] text-muted-foreground hidden sm:block">
+            <div className={cn("w-px h-4", isDark ? "bg-border/60" : "bg-slate-300")} />
+            <div className={cn("text-[10px] hidden sm:block", isDark ? "text-muted-foreground" : "text-slate-500 font-medium")}>
               {visibleData.length} Days Visible
             </div>
           </div>
@@ -903,10 +1088,16 @@ export function TradingLineChart({
 
       {/* ── Timeframe & Custom Days Filter Bar ── */}
       {showToolbar && (
-        <div className="flex flex-wrap items-center justify-between px-4 py-2 border-b border-border/40 text-xs gap-2">
+        <div className={cn(
+          "flex flex-wrap items-center justify-between px-4 py-2 border-b text-xs gap-2",
+          isDark ? "border-border/40 bg-transparent" : "border-slate-200 bg-slate-50/80"
+        )}>
           {/* Preset Buttons */}
           <div className="flex items-center gap-1.5 overflow-x-auto">
-            <span className="text-[10px] text-muted-foreground uppercase mr-1">Time:</span>
+            <span className={cn(
+              "text-[10px] uppercase mr-1",
+              isDark ? "text-muted-foreground" : "text-slate-600 font-semibold"
+            )}>Time:</span>
             {PRESET_DAYS.map((preset) => {
               const isActive = activePreset === preset.label;
               return (
@@ -915,10 +1106,12 @@ export function TradingLineChart({
                   type="button"
                   onClick={() => handleSelectPreset(preset)}
                   className={cn(
-                    "px-2.5 py-0.5 text-xs rounded transition-colors font-medium cursor-pointer border",
+                    "px-2.5 py-0.5 text-xs rounded transition-all font-medium cursor-pointer border",
                     isActive
                       ? themeColors.btnActive
-                      : "bg-transparent text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
+                      : isDark
+                      ? "bg-transparent text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
+                      : "bg-white text-slate-700 border-slate-200 hover:text-slate-900 hover:bg-slate-100 shadow-2xs"
                   )}
                 >
                   {preset.label}
@@ -929,8 +1122,13 @@ export function TradingLineChart({
 
           {/* User Custom Days Input Box */}
           <form onSubmit={handleCustomDaysApply} className="flex items-center gap-1.5 ml-auto">
-            <div className="flex items-center gap-1 bg-[#14181d] border border-border/60 px-2 py-0.5 rounded text-xs">
-              <Calendar className="h-3 w-3 text-muted-foreground" />
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs border transition-colors",
+              isDark
+                ? "bg-[#14181d] border-border/60 text-white"
+                : "bg-white border-slate-300 text-slate-900 focus-within:border-purple-500 shadow-2xs"
+            )}>
+              <Calendar className={cn("h-3 w-3", isDark ? "text-muted-foreground" : "text-slate-400")} />
               <input
                 type="number"
                 min="2"
@@ -938,13 +1136,16 @@ export function TradingLineChart({
                 value={customDaysInput}
                 onChange={(e) => setCustomDaysInput(e.target.value)}
                 placeholder="Days..."
-                className="w-16 bg-transparent text-xs font-mono text-white placeholder:text-muted-foreground focus:outline-none"
+                className={cn(
+                  "w-16 bg-transparent text-xs font-mono focus:outline-none",
+                  isDark ? "text-white placeholder:text-muted-foreground" : "text-slate-900 placeholder:text-slate-400"
+                )}
               />
             </div>
             <button
               type="submit"
               className={cn(
-                "px-2.5 py-0.5 text-xs border rounded transition-colors cursor-pointer",
+                "px-2.5 py-0.5 text-xs border rounded transition-colors cursor-pointer font-medium shadow-xs",
                 themeColors.btnApply
               )}
             >
@@ -966,11 +1167,44 @@ export function TradingLineChart({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           onDoubleClick={handleDoubleClick}
           className="block w-full h-full cursor-crosshair touch-none"
           style={{ touchAction: "none", overscrollBehavior: "contain" }}
           title="Mouse wheel to zoom in/out • Click and drag to pan • Double-click to reset"
         />
+
+        {/* Floating Tooltip */}
+        {hoveredIdx !== null && visibleData[hoveredIdx] && mouseCoords && (
+          <div
+            className="absolute pointer-events-none z-30 transition-transform duration-75 ease-out shadow-2xl backdrop-blur-md px-3.5 py-2.5 border rounded-none text-xs font-mono"
+            style={{
+              left: `${Math.min((containerRef.current?.getBoundingClientRect().width || 600) - 200, Math.max(10, mouseCoords.x + 16))}px`,
+              top: `${Math.max(10, mouseCoords.y - 65)}px`,
+              backgroundColor: isDark ? "#161616" : "#ffffff",
+              borderColor: isDark ? "#272727" : "#cbd5e1",
+              color: isDark ? "#F2F2F2" : "#0f172a",
+              boxShadow: isDark ? "0 10px 25px -5px rgba(0, 0, 0, 0.8)" : "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
+            }}
+          >
+            <div className={cn(
+              "text-[11px] font-semibold pb-1.5 mb-1.5 border-b flex items-center justify-between gap-4",
+              isDark ? "text-muted-foreground border-border/40" : "text-slate-600 border-slate-200"
+            )}>
+              <span>{String(visibleData[hoveredIdx].date)}</span>
+              <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-muted/30 font-medium">Record</span>
+            </div>
+            <div className="flex items-center justify-between gap-6">
+              <span className={isDark ? "text-[#757575]" : "text-slate-500"}>{title || "Value"}:</span>
+              <span className="font-bold tabular-nums text-sm" style={{ color: themeColors.main }}>
+                {currencyPrefix}{visibleData[hoveredIdx].value.toLocaleString("en-IN")}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { DailyBrickBarChart, generate365DailyData } from "@/components/charts/DailyBrickBarChart";
+import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { TradingLineChart } from "@/components/charts/TradingLineChart";
-import { CanvasBarChart, CanvasComposedChart, CanvasPieChart } from "@/components/inventory/CanvasCharts";
+import { CanvasBarChart, CanvasComposedChart } from "@/components/inventory/CanvasCharts";
+import { TopModulesShowcase } from "@/components/charts/TopModulesBarChart";
+import { SubsystemTransactionVolumeChart } from "@/components/crm/SubsystemTransactionVolumeChart";
 import { PipelineTrendChart } from "@/components/crm/PipelineTrendChart";
 import { RevenueTrendChart } from "@/components/crm/RevenueTrendChart";
 import { CampaignROIChart } from "@/components/crm/CampaignROIChart";
@@ -14,8 +16,9 @@ import { FinanceVisualization } from "@/components/finance/FinanceVisualization"
 import { DraggableVisualization } from "@/components/finance/DraggableVisualization";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, LineChart as LineChartIcon, PieChart, Layers, ExternalLink, Sparkles, Moon, Sun } from "lucide-react";
+import { BarChart3, LineChart as LineChartIcon, Layers, Sparkles, Moon, Sun, Activity } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
+import { cn } from "@/lib/utils";
 
 export default function ChartsDemoPage() {
   const { theme, toggleTheme } = useThemeStore();
@@ -52,23 +55,28 @@ export default function ChartsDemoPage() {
   ];
 
   return (
-    <div className={`min-h-screen font-mono p-4 md:p-8 transition-colors ${isDark ? "bg-[#09090b] text-[#f4f4f5]" : "bg-[#f8fafc] text-[#0f172a]"}`}>
+    <div
+      className={cn(
+        "min-h-screen font-mono p-4 md:p-8 transition-colors duration-200",
+        isDark ? "bg-[#0A0A0A] text-[#F2F2F2]" : "bg-[#f8fafc] text-[#0f172a]"
+      )}
+    >
       {/* Top Banner Header */}
-      <header className="max-w-7xl mx-auto mb-8 border-b border-border/60 pb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <header className="max-w-7xl mx-auto mb-8 border-b border-[#272727]/60 pb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Styling Verification Suite
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-[#A77DFF]/15 text-[#A77DFF] border border-[#A77DFF]/30">
+              Aupulens Brand Color System
             </span>
-            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-primary/10 text-primary border border-primary/20">
-              Interactive Live Testing
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-[#8AE06C]/15 text-[#8AE06C] border border-[#8AE06C]/30">
+              High-Contrast Readability
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
             Aupulens ERP — Complete Charts Showcase
           </h1>
-          <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
-            Inspect all daily 365-day discrete segmented brick bar charts and Binance/TradingView interactive line charts across all ERP modules with temporary high-fidelity demonstration seed data.
+          <p className="text-xs text-[#757575] mt-1 max-w-3xl">
+            Inspecting interactive Binance/TradingView line charts, discrete segmented brick bars, and branded architecture visualizations with 100% readability in both light &amp; dark mode.
           </p>
         </div>
 
@@ -77,9 +85,14 @@ export default function ChartsDemoPage() {
             variant="outline"
             size="sm"
             onClick={toggleTheme}
-            className="text-xs font-mono h-9 gap-1.5"
+            className={cn(
+              "text-xs font-mono h-9 gap-1.5 border shadow-sm transition-colors",
+              isDark
+                ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#272727]"
+                : "bg-white border-[#e5e5e5] text-slate-800 hover:bg-slate-100"
+            )}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
+            {isDark ? <Sun className="w-3.5 h-3.5 text-[#F1DF38]" /> : <Moon className="w-3.5 h-3.5 text-[#A77DFF]" />}
             {isDark ? "Light Mode" : "Dark Mode"}
           </Button>
 
@@ -89,7 +102,7 @@ export default function ChartsDemoPage() {
               setDraggableChartType("bar");
               setShowDraggable(true);
             }}
-            className="text-xs font-mono h-9 gap-1.5 bg-primary hover:bg-primary/90"
+            className="text-xs font-mono h-9 gap-1.5 bg-[#A77DFF] hover:bg-[#9260ff] text-white shadow-sm"
           >
             <Layers className="w-3.5 h-3.5" />
             Open Draggable Modal
@@ -97,33 +110,37 @@ export default function ChartsDemoPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto space-y-10">
+      <main className="max-w-7xl mx-auto space-y-12">
         {/* ========================================================================= */}
         {/* 1. ENTERPRISE INTERACTIVE LINE CHART SHOWCASE                             */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-l-4 border-white pl-3">
+          <div className="flex items-center justify-between border-l-4 border-[#A77DFF] pl-3">
             <div>
               <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-                <LineChartIcon className="w-4 h-4 text-white" />
+                <LineChartIcon className="w-4 h-4 text-[#A77DFF]" />
                 1. Enterprise Interactive Line Chart
               </h2>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-[#757575]">
                 Features: <b>Mouse-wheel zoom in/out</b>, <b>drag-to-pan</b>, timeframe buttons (<b>7D, 14D, 30D, 90D, 180D, 1Y, ALL</b>), <b>custom days input</b>, double-click to reset, and real-time hover crosshairs.
               </p>
             </div>
-            <span className="text-[10px] font-mono text-white bg-white/10 px-2 py-1 border border-white/20">
+            <span className="text-[10px] font-mono text-[#A77DFF] bg-[#A77DFF]/10 px-2 py-1 border border-[#A77DFF]/20">
               730-Day Historical Range
             </span>
           </div>
 
-          <Card className="rounded-none border-border/40 shadow-none overflow-hidden">
+          <Card className={cn(
+            "rounded-none border shadow-none overflow-hidden transition-colors",
+            isDark ? "bg-[#0A0A0A] border-[#272727]" : "bg-white border-[#e5e5e5]"
+          )}>
             <CardContent className="p-0">
               <TradingLineChart
                 title="CONSOLIDATED REVENUE & CASHFLOW (2-YEAR TIMELINE)"
                 metricLabel="Net Revenue"
                 currencyPrefix="₹"
                 colorTheme="white"
+                isDark={isDark}
                 height={460}
               />
             </CardContent>
@@ -134,52 +151,87 @@ export default function ChartsDemoPage() {
         {/* 2. 365-DAY DISCRETE SEGMENTED BRICK BAR CHART SHOWCASE                    */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-l-4 border-slate-300 pl-3">
+          <div className="flex items-center justify-between border-l-4 border-[#A77DFF] pl-3">
             <div>
               <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-white" />
+                <BarChart3 className="w-4 h-4 text-[#A77DFF]" />
                 2. 365-Day Daily Segmented Brick Bar Chart
               </h2>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-[#757575]">
                 Tracks each of the 365 days individually. Features <b>mouse-wheel zoom in/out</b>, <b>drag-to-pan</b>, discrete horizontal brick slices, hover tooltips showing date and value, and ERP theme markers.
               </p>
             </div>
-            <span className="text-[10px] font-mono text-white bg-white/10 px-2 py-1 border border-white/20">
+            <span className="text-[10px] font-mono text-[#A77DFF] bg-[#A77DFF]/10 px-2 py-1 border border-[#A77DFF]/20">
               365 Individual Daily Bricks
             </span>
           </div>
 
-          <Card className="rounded-none border-border/40 shadow-none p-4">
+          <Card className={cn(
+            "rounded-none border shadow-none p-4 transition-colors",
+            isDark ? "bg-[#0A0A0A] border-[#272727]" : "bg-white border-[#e5e5e5]"
+          )}>
             <DailyBrickBarChart
               metricLabel="Daily Throughput Units"
               valueKey="value"
-              colorTheme="white"
-              yAxisFormatter={(v) => `${v} units`}
+              colorTheme="purple"
+              isDark={isDark}
+              yAxisFormatter={(v) => `${v.toLocaleString()} units`}
               tooltipValueFormatter={(v) => `${v.toLocaleString()} units`}
-              height={280}
+              height={300}
             />
           </Card>
         </section>
 
         {/* ========================================================================= */}
-        {/* 3. INVENTORY CANVAS CHARTS (SEGMENTED BRICKS + COMPOSED)                  */}
+        {/* 3. BRAND ARCHITECTURE & WORKFLOW VOLUME (IMAGES 4 & 5 SHOWCASE)           */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="border-l-4 border-blue-500 pl-3">
+          <div className="flex items-center justify-between border-l-4 border-[#A77DFF] pl-3">
+            <div>
+              <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#A77DFF]" />
+                3. Brand Enterprise Subsystems &amp; Workflow Metrics (Images 4 &amp; 5)
+              </h2>
+              <p className="text-[11px] text-[#757575]">
+                Branded Purple Module Visualizations (Image 4 Top 10 Source/Target Modules) &amp; Subsystem Workflows Donut (Image 5).
+              </p>
+            </div>
+            <span className="text-[10px] font-mono text-[#A77DFF] bg-[#A77DFF]/10 px-2 py-1 border border-[#A77DFF]/20">
+              Exact Brand Specification
+            </span>
+          </div>
+
+          {/* Image 4: Top 10 Source Modules & Top 10 Target Modules */}
+          <TopModulesShowcase />
+
+          {/* Image 5: Subsystem Transaction Volume Donut */}
+          <div className="grid grid-cols-1 gap-6">
+            <SubsystemTransactionVolumeChart />
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 4. INVENTORY CANVAS CHARTS (SEGMENTED BRICKS + COMPOSED)                  */}
+        {/* ========================================================================= */}
+        <section className="space-y-4">
+          <div className="border-l-4 border-[#6CADF5] pl-3">
             <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-400" />
-              3. Inventory Canvas Charts (Vertical & Horizontal Segmented Bricks)
+              <Layers className="w-4 h-4 text-[#6CADF5]" />
+              4. Inventory Canvas Charts (Vertical &amp; Horizontal Segmented Bricks)
             </h2>
-            <p className="text-[11px] text-muted-foreground">
-              Used on <code>/inventory/analytics</code> for warehouse utilization, top items, and composed stock levels.
+            <p className="text-[11px] text-[#757575]">
+              Used on <code>/inventory/analytics</code> for warehouse utilization, top stock items, and composed stock levels.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Warehouse Utilization - Vertical Segmented Brick Bar */}
-            <Card className="rounded-none border-border/40 shadow-none">
+            <Card className={cn(
+              "rounded-none border shadow-sm transition-colors",
+              isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-slate-900"
+            )}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#757575]">
                   Warehouse Utilization (%) — Vertical Segmented Brick Bar
                 </CardTitle>
               </CardHeader>
@@ -187,7 +239,7 @@ export default function ChartsDemoPage() {
                 <CanvasBarChart
                   data={warehouseUtilizationData}
                   xAxisKey="warehouse"
-                  series={[{ key: "utilization", name: "Utilization %", color: "#3b82f6" }]}
+                  series={[{ key: "utilization", name: "Utilization %", color: "#A77DFF" }]}
                   layout="vertical"
                   isDark={isDark}
                 />
@@ -195,9 +247,12 @@ export default function ChartsDemoPage() {
             </Card>
 
             {/* Top Items by Quantity - Horizontal Segmented Brick Bar */}
-            <Card className="rounded-none border-border/40 shadow-none">
+            <Card className={cn(
+              "rounded-none border shadow-sm transition-colors",
+              isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-slate-900"
+            )}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#757575]">
                   Top Stock Items — Horizontal Segmented Brick Bar
                 </CardTitle>
               </CardHeader>
@@ -206,8 +261,8 @@ export default function ChartsDemoPage() {
                   data={topItemsData}
                   xAxisKey="name"
                   series={[
-                    { key: "quantity", name: "Quantity", color: "#3b82f6" },
-                    { key: "value", name: "Value (₹K)", color: "#10b981" },
+                    { key: "quantity", name: "Quantity", color: "#A77DFF" },
+                    { key: "value", name: "Value (₹K)", color: "#8AE06C" },
                   ]}
                   layout="horizontal"
                   isDark={isDark}
@@ -217,9 +272,12 @@ export default function ChartsDemoPage() {
           </div>
 
           {/* Stock Levels by Warehouse - Composed Segmented Bricks + Line */}
-          <Card className="rounded-none border-border/40 shadow-none">
+          <Card className={cn(
+            "rounded-none border shadow-sm transition-colors",
+            isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-slate-900"
+          )}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-[#757575]">
                 Stock Levels by Warehouse — Composed Brick Stack + Trend Line
               </CardTitle>
             </CardHeader>
@@ -228,10 +286,10 @@ export default function ChartsDemoPage() {
                 data={stockByWarehouseData}
                 xAxisKey="warehouse"
                 barSeries={[
-                  { key: "totalItems", name: "Total Items", color: "#3b82f6" },
-                  { key: "totalQuantity", name: "Total Quantity", color: "#10b981" },
+                  { key: "totalItems", name: "Total Items", color: "#A77DFF" },
+                  { key: "totalQuantity", name: "Total Quantity", color: "#6CADF5" },
                 ]}
-                lineSeries={{ key: "totalValue", name: "Value (₹K)", color: "#f59e0b" }}
+                lineSeries={{ key: "totalValue", name: "Value (₹K)", color: "#F1DF38" }}
                 isDark={isDark}
               />
             </CardContent>
@@ -239,15 +297,15 @@ export default function ChartsDemoPage() {
         </section>
 
         {/* ========================================================================= */}
-        {/* 4. CRM REPORTS CHARTS SHOWCASE                                            */}
+        {/* 5. CRM REPORTS CHARTS SHOWCASE                                            */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="border-l-4 border-violet-500 pl-3">
+          <div className="border-l-4 border-[#A77DFF] pl-3">
             <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-400" />
-              4. CRM Intelligence & Analytics Reports Charts
+              <Activity className="w-4 h-4 text-[#A77DFF]" />
+              5. CRM Intelligence &amp; Analytics Reports Charts
             </h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-[#757575]">
               Used on <code>/crm/reports</code>: Sales Pipeline Trend, Cumulative Revenue, Campaign ROI, Renewals, Support, Churn.
             </p>
           </div>
@@ -264,10 +322,13 @@ export default function ChartsDemoPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SupportPerformanceChart />
-            <div className="border border-border/40 p-6 flex flex-col justify-center items-center">
+            <div className={cn(
+              "border p-6 flex flex-col justify-center items-center rounded-none shadow-sm transition-colors",
+              isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-slate-900"
+            )}>
               <div className="w-full mb-3 text-left">
-                <h3 className="text-lg font-normal uppercase">Customer Churn Risk Distribution</h3>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Account health risk cohorts breakdown</p>
+                <h3 className="text-lg font-bold uppercase">Customer Churn Risk Distribution</h3>
+                <p className="text-[10px] text-[#757575] mt-0.5">Account health risk cohorts breakdown</p>
               </div>
               <ChurnRiskChart />
             </div>
@@ -275,15 +336,15 @@ export default function ChartsDemoPage() {
         </section>
 
         {/* ========================================================================= */}
-        {/* 5. FINANCE DATA VISUALIZATION COMPONENT                                   */}
+        {/* 6. FINANCE DATA VISUALIZATION COMPONENT                                   */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="border-l-4 border-emerald-500 pl-3">
+          <div className="border-l-4 border-[#8AE06C] pl-3">
             <h2 className="text-lg font-bold tracking-wide uppercase flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-400" />
-              5. Finance Multi-Mode Visualization (Switch Between Brick Bar, Line, Pie)
+              <BarChart3 className="w-4 h-4 text-[#8AE06C]" />
+              6. Finance Multi-Mode Visualization (Switch Between Brick Bar, Line, Pie)
             </h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-[#757575]">
               Select any data source and switch between Bar Chart (Discrete Bricks), Line Chart (Binance Style), or Pie Chart.
             </p>
           </div>
@@ -311,7 +372,7 @@ export default function ChartsDemoPage() {
           title="Draggable Chart Inspection Modal"
           chartType={draggableChartType}
           xAxisKey="date"
-          dataKeys={[{ key: "value", name: "Movement Volume", color: "#3b82f6" }]}
+          dataKeys={[{ key: "value", name: "Movement Volume", color: "#7c3aed" }]}
         />
       )}
     </div>

@@ -22,6 +22,9 @@ import {
 import { DailyBrickBarChart } from '@/components/charts/DailyBrickBarChart';
 import { TradingLineChart } from '@/components/charts/TradingLineChart';
 
+import { useThemeStore } from '@/store/themeStore';
+import { cn } from '@/lib/utils';
+
 interface VisualizationDataPoint {
   date?: string;
   name?: string;
@@ -45,9 +48,14 @@ interface FinanceVisualizationProps {
 }
 
 const COLORS = [
-  '#10b981', '#64748b', '#3b82f6', 
-  '#f59e0b', '#8b5cf6', '#ec4899',
-  '#06b6d4', '#84cc16', '#f97316'
+  '#A77DFF', // Brand Purple
+  '#8AE06C', // Brand Green
+  '#6CADF5', // Brand Blue
+  '#F1DF38', // Brand Yellow
+  '#F56868', // Brand Red
+  '#757575', // Brand Grey
+  '#B595FF', // Lavender
+  '#88C2FF', // Light Blue
 ];
 
 function getDemoFinanceData(type: string, rangeDays: number): VisualizationDataPoint[] {
@@ -82,6 +90,9 @@ export function FinanceVisualization({
   title = 'Data Visualization',
   className = '',
 }: FinanceVisualizationProps) {
+  const { theme } = useThemeStore();
+  const isDark = theme !== 'light';
+
   const [selectedDataType, setSelectedDataType] = useState(defaultDataType || availableDataTypes[0]?.value || '');
   const [selectedChartType, setSelectedChartType] = useState<'bar' | 'line' | 'pie'>(defaultChartType);
   const [dateRange, setDateRange] = useState('30');
@@ -131,7 +142,11 @@ export function FinanceVisualization({
     : getDemoFinanceData(selectedDataType, parseInt(dateRange) || 30);
 
   return (
-    <Card className={`border-2 border-slate-200 dark:border-slate-700 ${className}`}>
+    <Card className={cn(
+      "border font-mono transition-colors duration-200",
+      isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-md" : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm",
+      className
+    )}>
       <CardHeader className="space-y-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl flex items-center gap-2">
@@ -273,9 +288,13 @@ export function FinanceVisualization({
                     <Tooltip 
                       formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
                       contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #ccc',
-                        borderRadius: '8px',
+                        backgroundColor: isDark ? '#161616' : '#ffffff',
+                        borderColor: isDark ? '#272727' : '#e5e5e5',
+                        color: isDark ? '#F2F2F2' : '#0f172a',
+                        borderRadius: '0px',
+                        fontFamily: 'monospace',
+                        fontSize: '11px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)',
                       }}
                     />
                     <Legend />
@@ -292,6 +311,8 @@ export function FinanceVisualization({
                   title={title}
                   currencyPrefix="₹"
                   height={440}
+                  colorTheme="white"
+                  isDark={isDark}
                 />
               </div>
             ) : (
@@ -301,6 +322,8 @@ export function FinanceVisualization({
                   dateKey={isPieChartData ? "name" : "date"}
                   valueKey="value"
                   metricLabel="Amount"
+                  colorTheme="purple"
+                  isDark={isDark}
                   yAxisFormatter={(v) => "₹" + (v >= 100000 ? (v / 100000).toFixed(1) + "L" : v >= 1000 ? (v / 1000).toFixed(0) + "K" : v)}
                   tooltipValueFormatter={(v) => "₹" + v.toLocaleString("en-IN")}
                   height={340}

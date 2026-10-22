@@ -41,6 +41,15 @@ vi.mock("@/models/finance/Invoice", () => ({
   default: { find: mockFind },
 }));
 
+vi.mock("@/models/sales/SalesInvoice", () => ({
+  SalesInvoice: { find: mockFind },
+}));
+
+vi.mock("@/models/sales/Payment", () => ({
+  default: { find: mockFind },
+  Payment: { find: mockFind },
+}));
+
 vi.mock("@/models/sales/SaleOrder", () => ({
   default: {
     find: mockFind,
@@ -120,6 +129,8 @@ describe("adminDataFetcher — tenant isolation regression", () => {
     });
 
     it("scopes aggregate $match to tenantId", async () => {
+      // Aggregation is only needed when this tenant has sales orders.
+      mockFind.mockReturnValueOnce(buildChain([{ totals: { amountTotal: 100 } }]));
       await fetchAdminSalesData(TENANT_A);
 
       expect(mockAggregate).toHaveBeenCalled();

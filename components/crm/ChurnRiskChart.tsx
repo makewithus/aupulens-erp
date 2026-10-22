@@ -5,15 +5,15 @@ import { Loader2 } from "lucide-react";
 import { useThemeStore } from "@/store/themeStore";
 
 const DEMO_CHURN_COHORTS = [
-  { name: "Low Risk", value: 142, color: "#22c55e" },
-  { name: "Medium Risk", value: 58, color: "#facc15" },
-  { name: "High Risk", value: 24, color: "#f59e0b" },
-  { name: "Critical Risk", value: 9, color: "#e11d48" },
+  { name: "Low Risk", value: 142, color: "#8AE06C" },
+  { name: "Medium Risk", value: 58, color: "#F1DF38" },
+  { name: "High Risk", value: 24, color: "#6CADF5" },
+  { name: "Critical Risk", value: 9, color: "#F56868" },
 ];
 
 export function ChurnRiskChart() {
   const theme = useThemeStore((state) => state.theme);
-  const isDark = theme === "dark";
+  const isDark = theme !== "light";
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(false);
@@ -29,10 +29,10 @@ export function ChurnRiskChart() {
         if (d.success) {
           const s = d.data;
           const built = [
-            { name: "Low Risk", value: s.low || 0, color: "#22c55e" },
-            { name: "Medium Risk", value: s.medium || 0, color: "#facc15" },
-            { name: "High Risk", value: s.high || 0, color: "#f59e0b" },
-            { name: "Critical Risk", value: s.critical || 0, color: "#e11d48" },
+            { name: "Low Risk", value: s.low || 0, color: "#8AE06C" },
+            { name: "Medium Risk", value: s.medium || 0, color: "#F1DF38" },
+            { name: "High Risk", value: s.high || 0, color: "#6CADF5" },
+            { name: "Critical Risk", value: s.critical || 0, color: "#F56868" },
           ];
           const totalAccounts = built.reduce((sum, c) => sum + c.value, 0);
           if (totalAccounts > 0) {
@@ -187,51 +187,52 @@ export function ChurnRiskChart() {
 
   return (
     <div className={`rounded-lg p-6 font-mono w-full relative flex flex-col border ${
-      isDark ? "bg-card border-border text-white" : "bg-white border-border text-foreground"
+      isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"
     }`}>
       <div className="flex justify-between items-center gap-4 mb-4">
         <div>
-          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-white" : "text-foreground"}`}>
+          <h3 className={`text-lg font-normal uppercase mt-0.5 ${isDark ? "text-[#F2F2F2]" : "text-foreground"}`}>
             Churn Risk Segments
           </h3>
+          <p className="text-[10px] text-[#757575] mt-0.5">Account health risk cohorts breakdown</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center flex-1 min-h-[340px] gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading churn data…</div>
+        <div className="flex items-center justify-center flex-1 min-h-[340px] gap-2 text-[#757575] text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading churn data…</div>
       ) : total <= 1 && cohorts.every((c) => c.value === 0) ? (
-        <div className="flex items-center justify-center flex-1 min-h-[340px] text-sm text-muted-foreground">No accounts scored for churn risk yet.</div>
+        <div className="flex items-center justify-center flex-1 min-h-[340px] text-sm text-[#757575]">No accounts scored for churn risk yet.</div>
       ) : (
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 flex-1 min-h-[340px]">
         {/* Canvas container with absolute-centered value */}
         <div className="relative w-[340px] h-[340px] flex-shrink-0 mx-auto">
           <canvas ref={canvasRef} className="block"></canvas>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none font-mono">
-            <div className={`text-2xl md:text-3xl font-medium tracking-tighter ${isDark ? "text-white" : "text-foreground"}`}>
+            <div className={`text-2xl md:text-3xl font-medium tracking-tighter ${isDark ? "text-[#F2F2F2]" : "text-foreground"}`}>
               {centerVal}
             </div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-widest mt-1">
+            <div className="text-[9px] text-[#757575] uppercase tracking-widest mt-1">
               Active Accounts
             </div>
           </div>
         </div>
 
         {/* Dynamic Legend */}
-        <div className="flex flex-col gap-1.5 text-[10px] text-muted-foreground max-w-xs w-full mx-auto">
+        <div className="flex flex-col gap-2 text-xs text-[#757575] max-w-sm w-full mx-auto">
           {cohorts.map((c, i) => {
             const pct = ((c.value / total) * 100).toFixed(1);
             const isHovered = hoveredIdx === i;
             return (
               <div
                 key={c.name}
-                className={`flex items-center justify-between py-0.5 px-2 transition-colors cursor-pointer rounded-[2px] ${
+                className={`flex items-center justify-between py-1.5 px-2.5 transition-colors cursor-pointer rounded border ${
                   isHovered
                     ? isDark
-                      ? "bg-accent text-white"
-                      : "bg-accent text-foreground font-semibold"
+                      ? "bg-[#161616] border-[#525252] text-[#F2F2F2]"
+                      : "bg-[#f4f4f5] border-[#d4d4d8] text-foreground font-semibold"
                     : isDark
-                    ? "hover:bg-accent/40 hover:text-foreground"
-                    : "hover:bg-accent/50 hover:text-muted-foreground"
+                    ? "bg-[#161616]/40 border-[#272727]/60 hover:border-[#525252]"
+                    : "bg-white border-[#e5e5e5] hover:bg-slate-50"
                 }`}
                 onMouseEnter={() => {
                   setHoveredIdx(i);
@@ -249,9 +250,12 @@ export function ChurnRiskChart() {
                     className="w-2.5 h-2.5 rounded-[1px] inline-block flex-shrink-0"
                     style={{ backgroundColor: c.color }}
                   ></span>
-                  <span className={isDark ? "text-muted-foreground" : "text-muted-foreground"}>{c.name}</span>
+                  <span className={isDark ? "text-[#F2F2F2]" : "text-[#1F2937]"}>{c.name}</span>
                 </div>
-                <span className={`font-semibold ${isDark ? "text-white" : "text-foreground"}`}>{pct}%</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#757575] font-mono text-[11px]">{c.value} accts</span>
+                  <span className={`font-semibold tabular-nums text-xs ${isDark ? "text-[#F2F2F2]" : "text-[#111827]"}`}>{pct}%</span>
+                </div>
               </div>
             );
           })}

@@ -81,29 +81,29 @@ export function RevenueTrendChart() {
     <div
       className={cn(
         "rounded-lg border font-mono w-full relative transition-colors duration-200",
-        isDark ? "bg-[#0b0e11] border-border text-white" : "bg-white border-border text-foreground"
+        isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"
       )}
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-border/60">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-[#272727]/60">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse"></span>
             <h2 className="text-base font-semibold uppercase tracking-wider">
               Cumulative Revenue Trend
             </h2>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#8AE06C]/15 text-[#8AE06C] border border-[#8AE06C]/30">
               Closed Won
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-[#757575] mt-0.5">
             Closed Won deals accumulation over time · Continuous daily telemetry
           </p>
         </div>
         <div className="text-right">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+          <span className="text-[10px] text-[#757575] uppercase tracking-wider block">
             Revenue (12 mo)
           </span>
-          <span className="text-base font-bold text-emerald-400">
+          <span className={`text-base font-bold ${isDark ? "text-[#8AE06C]" : "text-[#16A34A]"}`}>
             {fmtHeader(totalRevenue)}
           </span>
         </div>
@@ -111,8 +111,8 @@ export function RevenueTrendChart() {
 
       <div className="p-3">
         {loading ? (
-          <div className="flex items-center justify-center min-h-[440px] gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+          <div className="flex items-center justify-center min-h-[440px] gap-2 text-[#757575] text-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-[#8AE06C]" />
             Loading revenue telemetry…
           </div>
         ) : (
@@ -123,7 +123,7 @@ export function RevenueTrendChart() {
             metricLabel="Cumulative Revenue"
             title="REVENUE TREND"
             currencyPrefix="₹"
-            colorTheme="emerald"
+            colorTheme="white"
             height={440}
             showTopStats={true}
             showToolbar={true}

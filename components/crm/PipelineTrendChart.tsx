@@ -23,17 +23,17 @@ interface DailyPipelinePoint {
 }
 
 const STAGE_COLORS: Record<string, string> = {
-  "Prospecting": "#6366f1",
-  "Discovery": "#3b82f6",
-  "Requirement Gathering": "#f59e0b",
-  "Solution Fit": "#facc15",
-  "Proposal Sent": "#ec4899",
-  "Negotiation": "#f97316",
-  "Approval": "#8b5cf6",
-  "Closed Won": "#10b981",
-  "Closed Lost": "#6b7280",
+  "Prospecting": "#6CADF5", // Brand Blue
+  "Discovery": "#88C2FF", // Sky
+  "Requirement Gathering": "#F1DF38", // Brand Yellow
+  "Solution Fit": "#F6E668", // Gold
+  "Proposal Sent": "#A77DFF", // Brand Purple
+  "Negotiation": "#B595FF", // Lavender
+  "Approval": "#F1DF38", // Warm Yellow
+  "Closed Won": "#8AE06C", // Brand Green
+  "Closed Lost": "#757575", // Secondary Grey
 };
-const FALLBACK_COLORS = ["#f59e0b", "#6366f1", "#3b82f6", "#10b981", "#ec4899", "#8b5cf6", "#f97316", "#06b6d4"];
+const FALLBACK_COLORS = ["#A77DFF", "#6CADF5", "#8AE06C", "#F1DF38", "#F56868", "#B595FF", "#88C2FF", "#757575"];
 const stageColor = (stage: string, idx: number) => STAGE_COLORS[stage] || FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
 
 const DEMO_STAGES = [
@@ -426,10 +426,16 @@ export function PipelineTrendChart() {
         year: "numeric",
       });
 
+      const headerBorder = isDark ? "border-[#272727]" : "border-[#e5e5e5]";
+      const headerDate = isDark ? "text-[#757575]" : "text-[#6B7280]";
+      const headerVal = isDark ? "text-[#F2F2F2]" : "text-[#111827]";
+      const stageNameCol = isDark ? "text-[#F2F2F2]" : "text-[#374151]";
+      const stageValCol = isDark ? "text-[#F2F2F2]" : "text-[#111827]";
+
       let tooltipHtml = `
-        <div class="text-[10px] text-muted-foreground uppercase font-mono pb-1 border-b border-white/10 mb-1.5 flex justify-between">
-          <span>${fullDateStr}</span>
-          <span class="text-white font-bold">${formatCurrencyINR(point.value)}</span>
+        <div class="text-[10px] uppercase font-mono pb-1 border-b ${headerBorder} mb-1.5 flex justify-between gap-4">
+          <span class="${headerDate}">${fullDateStr}</span>
+          <span class="${headerVal} font-bold">${formatCurrencyINR(point.value)}</span>
         </div>
         <div class="space-y-1">
       `;
@@ -439,11 +445,11 @@ export function PipelineTrendChart() {
         const color = stageColor(st, sIdx);
         tooltipHtml += `
           <div class="flex items-center justify-between gap-3 text-[11px]">
-            <span class="flex items-center gap-1.5 text-zinc-300">
+            <span class="flex items-center gap-1.5 ${stageNameCol}">
               <span class="w-2 h-2 rounded-[1px] inline-block" style="background:${color}"></span>
               ${st}
             </span>
-            <span class="font-mono text-zinc-100 font-semibold">${formatCurrencyINR(val)}</span>
+            <span class="font-mono ${stageValCol} font-semibold">${formatCurrencyINR(val)}</span>
           </div>
         `;
       });
@@ -560,35 +566,37 @@ export function PipelineTrendChart() {
     <div
       className={cn(
         "rounded-lg border font-mono w-full relative transition-colors duration-200",
-        isDark ? "bg-[#0b0e11] border-border text-white" : "bg-white border-border text-foreground"
+        isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2]" : "bg-white border-[#e5e5e5] text-foreground"
       )}
     >
       {/* ── Top Header Strip ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-border/60">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 border-b border-[#272727]/60">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse"></span>
             <h2 className="text-base font-semibold uppercase tracking-wider">
               Sales Pipeline Trend
             </h2>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-white border border-white/20">
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#A77DFF]/15 text-[#A77DFF] border border-[#A77DFF]/30">
               Live Daily
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-[#757575] mt-0.5">
             Continuous daily pipeline value created · Real-time opportunity velocity
           </p>
         </div>
 
         {/* ── Mode Toggle: Overview vs By Stage ── */}
-        <div className="flex items-center gap-2 bg-[#14181d] p-1 rounded-md border border-border/60 text-xs">
+        <div className={cn("flex items-center gap-2 p-1 rounded-md border text-xs", isDark ? "bg-[#161616] border-[#272727]" : "bg-[#f4f4f5] border-[#e5e5e5]")}>
           <button
             onClick={() => setIsAdvanced(false)}
             className={cn(
               "px-3 py-1 rounded transition-all font-medium cursor-pointer",
               !isAdvanced
-                ? "bg-white/20 text-white border border-white/40 shadow-sm"
-                : "text-muted-foreground hover:text-white"
+                ? isDark
+                  ? "bg-[#272727] text-[#F2F2F2] border border-[#525252] shadow-sm"
+                  : "bg-white text-foreground border-[#d4d4d8] shadow-sm font-semibold"
+                : "text-[#757575] hover:text-[#F2F2F2]"
             )}
           >
             Overview Line
@@ -598,8 +606,10 @@ export function PipelineTrendChart() {
             className={cn(
               "px-3 py-1 rounded transition-all font-medium cursor-pointer",
               isAdvanced
-                ? "bg-white/20 text-white border border-white/40 shadow-sm"
-                : "text-muted-foreground hover:text-white"
+                ? isDark
+                  ? "bg-[#272727] text-[#F2F2F2] border border-[#525252] shadow-sm"
+                  : "bg-white text-foreground border-[#d4d4d8] shadow-sm font-semibold"
+                : "text-[#757575] hover:text-[#F2F2F2]"
             )}
           >
             By Stage Breakdown
@@ -665,11 +675,19 @@ export function PipelineTrendChart() {
                   placeholder="Custom days..."
                   value={stageCustomDays}
                   onChange={(e) => setStageCustomDays(e.target.value)}
-                  className="w-24 px-2 py-0.5 text-xs bg-[#181a20] border border-border/80 rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-white"
+                  className={cn(
+                    "w-24 px-2 py-0.5 text-xs rounded placeholder:text-[#757575] focus:outline-none focus:border-[#A77DFF]",
+                    isDark ? "bg-[#161616] border border-[#272727] text-[#F2F2F2]" : "bg-white border border-[#d4d4d8] text-foreground"
+                  )}
                 />
                 <button
                   type="submit"
-                  className="px-2 py-0.5 text-xs bg-white/15 text-white border border-white/40 rounded hover:bg-white/25 transition-colors cursor-pointer"
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded transition-colors cursor-pointer border",
+                    isDark
+                      ? "bg-[#272727] text-[#F2F2F2] border-[#525252] hover:bg-[#333333]"
+                      : "bg-[#f4f4f5] text-foreground border-[#d4d4d8] hover:bg-[#e4e4e7]"
+                  )}
                 >
                   Apply
                 </button>
@@ -733,7 +751,7 @@ export function PipelineTrendChart() {
               ref={tooltipRef}
               className={cn(
                 "absolute pointer-events-none p-3 font-mono text-[11px] shadow-2xl rounded-md hidden z-20 border backdrop-blur-md",
-                isDark ? "bg-[#14181d]/95 border-border text-white" : "bg-white/95 border-border text-foreground"
+                isDark ? "bg-[#161616]/95 border-[#272727] text-[#F2F2F2]" : "bg-white/95 border-[#e5e5e5] text-foreground"
               )}
             ></div>
           </div>

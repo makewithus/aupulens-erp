@@ -1,518 +1,504 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/admin/StatCard";
-import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
-import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
-import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { Badge } from "@/components/ui/badge";
 import {
-  TableContainer,
-  TableHead,
-  TableHeaderCell,
-  TableBody,
-  TableRow,
-  TableCell,
-} from "@/components/shared/Table";
-import CrmOnboarding from "@/components/crm/CrmOnboarding";
+  Users,
+  Briefcase,
+  TrendingUp,
+  AlertTriangle,
+  ArrowUpRight,
+  ShieldAlert,
+  HeartPulse,
+  DollarSign,
+  Plus,
+  PhoneCall,
+  Calendar,
+  Layers,
+  ArrowRight,
+  CheckCircle2,
+} from "lucide-react";
+import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
+import { SubsystemTransactionVolumeChart } from "@/components/crm/SubsystemTransactionVolumeChart";
+import { useThemeStore } from "@/store/themeStore";
+import { BRAND_COLORS } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
 
-export default function DashboardPage() {
-  const [healthData, setHealthData] = useState<any>(null);
-  const [churnData, setChurnData] = useState<any>(null);
-  const [renewalData, setRenewalData] = useState<any>(null);
-  const [expansionData, setExpansionData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+export default function CRMDashboardPage() {
+  const { data: session } = useSession();
+  const { theme } = useThemeStore();
+  const isDark = theme !== "light";
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/crm/health").then((res) => res.json()),
-      fetch("/api/crm/churn").then((res) => res.json()),
-      fetch("/api/crm/renewals").then((res) => res.json()),
-      fetch("/api/crm/expansion").then((res) => res.json()),
-    ]).then(([health, churn, renewal, exp]) => {
-      if (health.success) setHealthData(health.data);
-      if (churn.success) setChurnData(churn.data);
-      if (renewal.success) setRenewalData(renewal.data);
-      if (exp.success) setExpansionData(exp.data);
-      setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      setLoading(false);
-    });
-  }, []);
+  // CRM-specific parameters & KPIs
+  const crmStats = {
+    totalPipelineValue: 568000000, // ₹56.80 Cr
+    pipelineGrowthYoY: 18.4,
+    winRate: 42.8,
+    avgSalesCycleDays: 34,
+    netRetentionRate: 118.4,
+    expansionARR: 94000000, // ₹9.40 Cr
+    accountsAtRiskCount: 8,
+    churnValueRisk: 32000000, // ₹3.20 Cr
+    totalLeadsThisMonth: 384,
+    leadConversionRate: 24.6,
+  };
 
-  // Compute aggregated stats
-  const totalRenewalValue = renewalData?.renewalPipelineValue90Days || 0;
-  const totalExpansionValue = expansionData?.summary?.totalExpansionPipeline || 0;
-  const retentionRate = expansionData?.summary?.renewalSuccessRate || 0;
-  const totalChurnRisk = (churnData?.high || 0) + (churnData?.critical || 0);
+  const accountHealthDistribution = [
+    { label: "Healthy Accounts (80-100)", count: 142, percent: 68, color: BRAND_COLORS.accent.green },
+    { label: "Warning / Attention (60-79)", count: 48, percent: 23, color: BRAND_COLORS.accent.yellow },
+    { label: "At Risk (40-59)", count: 12, percent: 6, color: BRAND_COLORS.accent.purple },
+    { label: "Critical Churn Risk (<40)", count: 8, percent: 3, color: BRAND_COLORS.accent.red },
+  ];
 
-  if (loading) {
-    return (
-      <div className="p-8 space-y-1 max-w-7xl mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
-          <div className="space-y-2">
-            <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary leading-none">
-              Executive Dashboard
-            </h1>
-          </div>
-          <div className="shrink-0">
-            <Button variant="outline" className="border-border/40 bg-background" disabled>
-              Manage Renewals
-            </Button>
-          </div>
-        </div>
+  const criticalChurnAccounts = [
+    {
+      id: "ACC-904",
+      name: "Global Infra Concessionaires",
+      contractValue: 12500000,
+      healthScore: 32,
+      riskReason: "Executive champion departed; zero login in 21 days",
+      owner: "Sneha Kapur",
+      renewalDays: "18 days",
+    },
+    {
+      id: "ACC-872",
+      name: "Zenith Precision Heavy Metals",
+      contractValue: 8400000,
+      healthScore: 38,
+      riskReason: "ERP integration delayed; 3 high-priority tickets open",
+      owner: "Karan Malhotra",
+      renewalDays: "32 days",
+    },
+    {
+      id: "ACC-651",
+      name: "Apex Logistics & Port Services",
+      contractValue: 6200000,
+      healthScore: 35,
+      riskReason: "Requested RFP from competitive vendor",
+      owner: "Ananya Roy",
+      renewalDays: "45 days",
+    },
+  ];
 
-        <div className="space-y-1">
-          {/* Top Level KPIs (StatCards) */}
-          <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="border border-border/40 bg-background shadow-none">
-                <CardContent className="p-8">
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="space-y-4 flex-1">
-                      <Skeleton className="h-3 w-[120px]" />
-                      <Skeleton className="h-14 w-[150px]" />
-                      <Skeleton className="h-4 w-[180px]" />
-                    </div>
-                    <div className="w-12 h-12 shrink-0">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+  const highValueDeals = [
+    {
+      id: "OPP-2026-442",
+      customer: "Bharat Petrochemicals Consortium",
+      value: 24000000,
+      stage: "Contract Finalization",
+      probability: 90,
+      expectedClose: "31 Oct 2026",
+      owner: "Vikram Seth",
+    },
+    {
+      id: "OPP-2026-439",
+      customer: "Adani Smart Industrial Hub",
+      value: 18500000,
+      stage: "Technical Validation",
+      probability: 75,
+      expectedClose: "15 Nov 2026",
+      owner: "Neha Gupta",
+    },
+    {
+      id: "OPP-2026-435",
+      customer: "Tata Advanced Defense Solutions",
+      value: 14200000,
+      stage: "Proposal Review",
+      probability: 60,
+      expectedClose: "28 Nov 2026",
+      owner: "Rahul Deshmukh",
+    },
+    {
+      id: "OPP-2026-428",
+      customer: "Godrej Modern Storage Systems",
+      value: 9800000,
+      stage: "Discovery & Scope",
+      probability: 40,
+      expectedClose: "10 Dec 2026",
+      owner: "Sneha Kapur",
+    },
+  ];
 
-          {/* Main Grid Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-1">
-            {/* Left Column (35% -> lg:col-span-4) */}
-            <div className="space-y-1 lg:col-span-4">
-              {/* Account Health Card */}
-              <Card className="bg-background border border-border/40 shadow-none">
-                <CardHeader className="p-6 pb-2">
-                  <CardTitle className="text-lg font-bold mb-0">
-                    Account Health Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-2">
-                  <div className="space-y-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-2 w-full" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Critical Churn Risks Card */}
-              <Card className="bg-background border border-border/40 shadow-none">
-                <CardHeader className="p-6 pb-2">
-                  <CardTitle className="text-lg font-bold mb-0 text-red-500">
-                    Critical Churn Risks
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-2">
-                  <div className="space-y-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column (65% -> lg:col-span-8) */}
-            <div className="space-y-1 lg:col-span-8">
-              {/* Revenue Forecast Card */}
-              <Card className="bg-background border border-border/40 shadow-none">
-                <CardHeader className="p-6 pb-2">
-                  <CardTitle className="text-lg font-bold mb-0">
-                    12-Month Revenue Forecast
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-2">
-                  <Skeleton className="h-64 w-full" />
-                </CardContent>
-              </Card>
-
-              {/* Sub Grid for Upcoming Renewals & Action Required */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-                {/* Upcoming Renewals Card */}
-                <Card className="bg-background border border-border/40 shadow-none">
-                  <CardHeader className="p-6 pb-2">
-                    <CardTitle className="text-lg font-bold mb-0">
-                      Upcoming Renewals
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-2">
-                    <div className="space-y-4 py-2">
-                      {Array.from({ length: 3 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full" />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Action Required Card */}
-                <Card className="bg-background border border-border/40 shadow-none">
-                  <CardHeader className="p-6 pb-2">
-                    <CardTitle className="text-lg font-bold mb-0">
-                      Action Required
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-2">
-                    <div className="space-y-4 py-2">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton key={i} className="h-16 w-full" />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if ((!healthData?.accounts || healthData.accounts.length === 0) && (!expansionData?.quarterly || expansionData.quarterly.length === 0)) {
-    return <CrmOnboarding />;
-  }
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(val);
+  };
 
   return (
-    <div className="p-8 space-y-1 max-w-7xl mx-auto">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between pb-6 border-b border-border/40">
-        <div className="space-y-2">
-          <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary leading-none">
-            Executive Dashboard
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-w-0 max-w-full font-mono">
+      {/* Header Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/60 pb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              Customer Intelligence
+            </span>
+            <span className="px-2.5 py-0.5 text-[10px] tracking-wider uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              NRR 118.4%
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
+            CRM Executive Dashboard
           </h1>
-          {/* {lastUpdated && (
-            <p className="text-xs text-muted-foreground/60 font-mono">
-              Last updated: {lastUpdated}
-            </p>
-          )} */}
+          <p className="text-xs text-muted-foreground mt-1">
+            Enterprise customer telemetry tracking relationship pipeline velocity, win ratios, account health, and renewal security.
+          </p>
         </div>
-        <div className="shrink-0">
-          <Button variant="outline" className="border-border/40 bg-background" asChild>
-            <Link href="/crm/contracts">Manage Renewals</Link>
+
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            size="sm"
+            className="text-xs font-mono h-9 gap-1.5 bg-[#6CADF5] hover:bg-[#5aa0eb] text-[#0A0A0A] font-bold shadow-sm"
+          >
+            <Link href="/crm/opportunities">
+              <Plus className="w-3.5 h-3.5" />
+              New Opportunity
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className={cn(
+              "text-xs font-mono h-9 gap-1.5 border-border/70",
+              isDark ? "bg-[#161616] text-[#F2F2F2] hover:bg-[#272727]" : "bg-white text-zinc-800 hover:bg-zinc-100"
+            )}
+          >
+            <Link href="/crm/leads">
+              <Users className="w-3.5 h-3.5" />
+              Lead Pipeline
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className={cn(
+              "text-xs font-mono h-9 gap-1.5 border-border/70",
+              isDark ? "bg-[#161616] text-[#F2F2F2] hover:bg-[#272727]" : "bg-white text-zinc-800 hover:bg-zinc-100"
+            )}
+          >
+            <Link href="/crm/contracts">
+              <Calendar className="w-3.5 h-3.5" />
+              Manage Renewals
+            </Link>
           </Button>
         </div>
       </div>
 
-      <div className="space-y-1">
-        {/* Top Level KPIs (StatCards) */}
-        <div className="grid grid-cols-1 gap-1 md:grid-cols-2 lg:grid-cols-3">
-        {/* <StatCard 
-          title="90-day renewal pipeline" 
-          value={loading ? <div className="h-14 w-32 bg-muted/25 animate-pulse rounded-none mt-1" /> : `₹${totalRenewalValue.toLocaleString()}`}
-          subtitle={loading ? "..." : `${(renewalData?.expiring90 || 0)} upcoming renewals`}
-          visual={loading ? null : <UsersGraph />}
-          className="border border-border/40 bg-background"
-        /> */}
-        <StatCard 
-          title="Expansion pipeline" 
-          value={`₹${totalExpansionValue.toLocaleString()}`}
-          subtitle="Weighted revenue"
-          visual={<ActivePulse />}
-          className="border border-border/40 bg-background"
-        />
-        <StatCard 
-          title="Accounts at risk" 
-          value={totalChurnRisk}
-          subtitle={`${churnData?.critical || 0} critical, ${churnData?.high || 0} high`}
-          visual={<InactiveOrbit />}
-          className="border border-border/40 bg-background"
-        />
-        <StatCard 
-          title="Renewal success rate" 
-          value={`${retentionRate}%`}
-          subtitle="Historical retention"
-          visual={<ActivePulse />}
-          className="border border-border/40 bg-background"
-        />
+      {/* 4 Primary CRM KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Pipeline Value */}
+        <Card
+          className={cn(
+            "border border-border/60 shadow-sm",
+            isDark ? "bg-[#161616]" : "bg-card"
+          )}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+              <span>Total Active Pipeline</span>
+              <span className="p-1.5 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
+                <Briefcase className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black tracking-tight text-foreground">
+              {formatCurrency(crmStats.totalPipelineValue)}
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-blue-400 font-semibold">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>+{crmStats.pipelineGrowthYoY}% YoY expansion</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Win Rate % */}
+        <Card
+          className={cn(
+            "border border-border/60 shadow-sm",
+            isDark ? "bg-[#161616]" : "bg-card"
+          )}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+              <span>Opportunity Win Rate</span>
+              <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
+                <CheckCircle2 className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black tracking-tight text-emerald-400">
+              {crmStats.winRate}%
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-400 font-semibold">
+              <span>Avg sales cycle: {crmStats.avgSalesCycleDays} days</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Net Retention Rate */}
+        <Card
+          className={cn(
+            "border border-border/60 shadow-sm",
+            isDark ? "bg-[#161616]" : "bg-card"
+          )}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+              <span>Net Retention Rate (NRR)</span>
+              <span className="p-1.5 bg-purple-500/10 text-purple-400 rounded border border-purple-500/20">
+                <HeartPulse className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black tracking-tight text-foreground">
+              {crmStats.netRetentionRate}%
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-purple-400 font-semibold">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              <span>{formatCurrency(crmStats.expansionARR)} expansion ARR</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 4: Accounts At Risk */}
+        <Card
+          className={cn(
+            "border border-border/60 shadow-sm",
+            isDark ? "bg-[#161616]" : "bg-card"
+          )}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+              <span>Accounts at Risk</span>
+              <span className="p-1.5 bg-red-500/10 text-red-500 rounded border border-red-500/20">
+                <ShieldAlert className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-2xl font-black tracking-tight text-red-500">
+              {crmStats.accountsAtRiskCount} Accounts
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-400 font-semibold">
+              <span>{formatCurrency(crmStats.churnValueRisk)} contract ARR at risk</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-1">
-        
-        {/* Left Column (35% -> lg:col-span-4) */}
-        <div className="space-y-1 lg:col-span-4">
-          
-          {/* Account Health Card */}
-          <Card className="bg-background border border-border/40 shadow-none">
-            <CardHeader className="p-6 pb-2">
-              <CardTitle className="text-lg font-bold mb-0">
-                Account Health Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 pt-2">
-              <div className="space-y-5">
-                  {healthData?.distribution?.map((bucket: any) => {
-                    const label = bucket._id === 0 ? "Critical" : bucket._id === 25 ? "At Risk" : bucket._id === 50 ? "Warning" : "Healthy";
-                    const color = bucket._id === 0 ? "bg-red-500" : bucket._id === 25 ? "bg-orange-500" : bucket._id === 50 ? "bg-yellow-500" : "bg-[#8ae06c]";
-                    const percentage = healthData.accounts.length > 0 ? (bucket.count / healthData.accounts.length) * 100 : 0;
-                    
-                    // 10 blocks for segmented visual indicator
-                    const activeBlocks = Math.round(percentage / 10);
+      {/* Section 2: Subsystem Transaction Volume (Enhanced) */}
+      <SubsystemTransactionVolumeChart />
 
-                    return (
-                      <div key={bucket._id} className="space-y-2.5">
-                        <div className="flex items-center justify-between text-xs font-mono text-muted-foreground/60">
-                          <span className="font-sans text-sm font-semibold text-foreground">{label}</span>
-                          <div className="flex items-center gap-2">
-                            <span>{bucket.count} accounts</span>
-                            <span className="text-foreground font-bold">{percentage.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                        {/* Segmented Visual Indicator (brand colors used as per request) */}
-                        <div className="flex gap-1">
-                          {Array.from({ length: 10 }).map((_, idx) => (
-                            <div
-                              key={idx}
-                              className={cn(
-                                "h-1.5 flex-1 transition-all duration-300 rounded-none",
-                                idx < activeBlocks ? color : "bg-muted/15"
-                              )}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+      {/* Section 3: Daily Inflow Velocity & Account Health Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Daily Opportunity Inflow (DailyBrickBarChart) */}
+        <div className="lg:col-span-8">
+          <Card
+            className={cn(
+              "border border-border/60 shadow-sm h-full",
+              isDark ? "bg-[#161616]" : "bg-card"
+            )}
+          >
+            <CardHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#6CADF5] animate-pulse" />
+                  <CardTitle className="text-base font-bold">
+                    Daily Lead Inflow & Qualified Opportunities
+                  </CardTitle>
                 </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  High-frequency pipeline progression tracking daily MQL and SQL transitions.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-mono">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#6CADF5]" />
+                  <span className="text-muted-foreground">Inbound Leads</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#A77DFF]" />
+                  <span className="text-muted-foreground">SQL Converted</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5">
+              <DailyBrickBarChart
+                height={320}
+                colorTheme="blue"
+                metricLabel="Inbound Leads"
+                yAxisFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+              />
             </CardContent>
           </Card>
+        </div>
 
-          {/* Critical Churn Risks Card */}
-          <Card className="bg-background border border-border/40 shadow-none">
-            <CardHeader className="p-6 pb-2">
-              <CardTitle className="text-lg font-bold mb-0 text-red-500">
-                Critical Churn Risks
+        {/* Account Health Distribution Progress Bars */}
+        <div className="lg:col-span-4">
+          <Card
+            className={cn(
+              "border border-border/60 shadow-sm h-full flex flex-col justify-between",
+              isDark ? "bg-[#161616]" : "bg-card"
+            )}
+          >
+            <CardHeader className="p-5 border-b border-border/60">
+              <CardTitle className="text-base font-bold">
+                Customer Health Cohorts
               </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Composite scoring based on telemetry logins, tickets, and billing status.
+              </p>
             </CardHeader>
-            <CardContent className="p-6 pt-2">
-              {churnData?.criticalAccounts?.length > 0 ? (
-                <div className="space-y-3">
-                  {churnData.criticalAccounts.slice(0, 5).map((acct: any) => (
-                    <Link
-                      key={acct._id}
-                      href={`/crm/accounts/${acct._id}`}
-                      className="group flex items-center justify-between p-3 border border-border/20 bg-background/40 hover:bg-white/[0.02] hover:border-border/40 transition-all duration-300 rounded-none"
+            <CardContent className="p-5 space-y-5 flex-1 flex flex-col justify-center">
+              {accountHealthDistribution.map((cohort, idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-foreground">{cohort.label}</span>
+                    <span
+                      className="px-2 py-0.5 rounded text-[10px] font-bold"
+                      style={{
+                        backgroundColor: `${cohort.color}20`,
+                        color: cohort.color,
+                        border: `1px solid ${cohort.color}40`,
+                      }}
                     >
-                      <div className="space-y-1.5 flex-1 pr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {acct.company_name}
-                          </span>
-                          <span className="text-[9px] font-mono text-red-500 bg-red-500/10 border border-red-500/25 px-1.5 py-0.5 rounded-none font-medium">
-                            risk
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground/75 leading-relaxed">
-                          {acct.reasons[0] || "No critical churn reasons stated."}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                  {churnData.criticalAccounts.length > 5 && (
-                    <div className="text-xs text-center text-muted-foreground/40 pt-2 font-mono">
-                      + {churnData.criticalAccounts.length - 5} more accounts at risk
-                    </div>
-                  )}
+                      {cohort.count} accounts ({cohort.percent}%)
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-border/40 overflow-hidden">
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{ width: `${cohort.percent}%`, backgroundColor: cohort.color }}
+                    />
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground text-sm">
-                  No critical risks detected.
-                </div>
-              )}
+              ))}
             </CardContent>
           </Card>
-
         </div>
-
-        {/* Right Column (65% -> lg:col-span-8) */}
-        <div className="space-y-1 lg:col-span-8">
-          
-          {/* Revenue Forecast Card */}
-          <Card className="bg-background border border-border/40 shadow-none">
-            <CardHeader className="p-6 pb-2">
-              <CardTitle className="text-lg font-bold mb-0">
-                12-Month Revenue Forecast
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 pt-2">
-              <div className="space-y-6">
-                  {/* Compact Revenue Summary (no uppercase / pills) */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 border border-border/45 bg-muted/5 rounded-none">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Total forecast value</span>
-                      <h3 className="text-xl font-bold font-sans tabular-nums text-foreground">₹{(totalRenewalValue + totalExpansionValue).toLocaleString()}</h3>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Renewal success rate</span>
-                      <h3 className="text-xl font-bold font-sans tabular-nums text-foreground">{retentionRate}%</h3>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">Value at risk</span>
-                      <h3 className="text-xl font-bold font-sans tabular-nums text-red-500">₹{(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</h3>
-                    </div>
-                  </div>
-
-                  {/* Forecast Table using CRM Shared Table components */}
-                  <TableContainer className="border border-border/40 rounded-none">
-                    <TableHead>
-                      <TableRow className="border-b border-border/40 bg-muted/5">
-                        <TableHeaderCell className="normal-case tracking-normal text-xs font-semibold text-muted-foreground/60 py-3.5">Quarter</TableHeaderCell>
-                        <TableHeaderCell className="normal-case tracking-normal text-xs font-semibold text-muted-foreground/60 py-3.5 text-right">Renewal Target</TableHeaderCell>
-                        <TableHeaderCell className="normal-case tracking-normal text-xs font-semibold text-muted-foreground/60 py-3.5 text-right">Expansion Pipeline</TableHeaderCell>
-                        <TableHeaderCell className="normal-case tracking-normal text-xs font-semibold text-muted-foreground/60 py-3.5 text-right">Total Forecast</TableHeaderCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {expansionData?.quarterly?.map((q: any) => (
-                        <TableRow key={q.quarter} className="border-b border-border/30 hover:bg-muted/10">
-                          <TableCell className="py-4 text-sm font-semibold text-foreground">{q.quarter}</TableCell>
-                          <TableCell className="py-4 text-right font-sans tabular-nums text-xs text-blue-500/80 dark:text-blue-400/80">₹{q.renewalRevenue.toLocaleString()}</TableCell>
-                          <TableCell className="py-4 text-right font-sans tabular-nums text-xs text-emerald-500/80 dark:text-emerald-400/80">₹{q.expansionRevenue.toLocaleString()}</TableCell>
-                          <TableCell className="py-4 text-right font-sans tabular-nums text-sm font-bold text-foreground">₹{q.totalRevenue.toLocaleString()}</TableCell>
-                        </TableRow>
-                      ))}
-                      {expansionData?.quarterly?.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} className="py-8 text-center text-muted-foreground text-sm">
-                            No forecast data available.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </TableContainer>
-                </div>
-            </CardContent>
-          </Card>
-
-          {/* Sub Grid for Upcoming Renewals & Action Required */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-            
-            {/* Upcoming Renewals Card */}
-            <Card className="bg-background border border-border/40 shadow-none">
-              <CardHeader className="p-6 pb-2">
-                <CardTitle className="text-lg font-bold mb-0">
-                  Upcoming Renewals
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 pt-2">
-                  <div className="relative pl-6 border-l border-border/40 py-2 space-y-6">
-                    {/* 7 Days Timeline Item */}
-                    <div className="relative">
-                      <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full border border-red-500 bg-background flex items-center justify-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-foreground">Expiring in 7 days</span>
-                        <span className="font-mono text-sm font-bold text-red-500">{renewalData?.expiring7 || 0}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">urgent renewal actions required</p>
-                    </div>
-
-                    {/* 30 Days Timeline Item */}
-                    <div className="relative">
-                      <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full border border-orange-500 bg-background flex items-center justify-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-foreground">Expiring in 30 days</span>
-                        <span className="font-mono text-sm font-bold text-orange-500">{renewalData?.expiring30 || 0}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">accounts to follow up this month</p>
-                    </div>
-
-                    {/* 60 Days Timeline Item */}
-                    <div className="relative">
-                      <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full border border-yellow-500 bg-background flex items-center justify-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-foreground">Expiring in 60 days</span>
-                        <span className="font-mono text-sm font-bold text-yellow-500">{renewalData?.expiring60 || 0}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">pipeline contracts under review</p>
-                    </div>
-                  </div>
-              </CardContent>
-            </Card>
-
-            {/* Action Required Card */}
-            <Card className="bg-background border border-border/40 shadow-none">
-              <CardHeader className="p-6 pb-2">
-                <CardTitle className="text-lg font-bold mb-0">
-                  Action Required
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 pt-2">
-                  <div className="space-y-4 py-1">
-                    {/* Task: Expired active contracts */}
-                    <div className="flex items-start gap-3.5 p-3 border border-border/20 bg-background hover:bg-white/[0.015] transition-all rounded-none">
-                      <div className="mt-1">
-                        <div className="w-3.5 h-3.5 rounded-none border border-red-500 bg-red-500/10 flex items-center justify-center">
-                          <span className="w-1.5 h-1.5 bg-red-500 rounded-none" />
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between gap-4">
-                          <h4 className="text-xs font-bold text-foreground">expired active contracts</h4>
-                          <span className="font-mono text-xs font-bold text-red-500">{renewalData?.expiredActive || 0}</span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground/75 leading-relaxed">
-                          Contracts passed end date but not closed.
-                        </p>
-                        <div className="pt-1.5">
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] border-border/40 bg-background rounded-none font-mono" asChild>
-                            <Link href="/crm/contracts">review contracts</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Task: Renewal revenue at risk */}
-                    <div className="flex items-start gap-3.5 p-3 border border-border/20 bg-background hover:bg-white/[0.015] transition-all rounded-none">
-                      <div className="mt-1">
-                        <div className="w-3.5 h-3.5 rounded-none border border-orange-500 bg-orange-500/10 flex items-center justify-center">
-                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-none" />
-                        </div>
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between gap-4">
-                          <h4 className="text-xs font-bold text-foreground">renewal revenue risk</h4>
-                          <span className="font-sans tabular-nums text-xs font-bold text-orange-500">₹{(expansionData?.summary?.atRiskRenewalValue || 0).toLocaleString()}</span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground/75 leading-relaxed">
-                          Value tied up in high-risk health accounts.
-                        </p>
-                        <div className="pt-1.5">
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] border-border/40 bg-background rounded-none font-mono" asChild>
-                            <Link href="/crm/accounts">review accounts</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-              </CardContent>
-            </Card>
-
-          </div>
-
-        </div>
-
       </div>
+
+      {/* Section 4: Critical Churn Risks & High-Value Deals Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Critical Churn Risks */}
+        <div className="lg:col-span-5">
+          <Card
+            className={cn(
+              "border border-border/60 shadow-sm h-full",
+              isDark ? "bg-[#161616]" : "bg-card"
+            )}
+          >
+            <CardHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold text-red-500 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Immediate Churn Risk Interventions
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  High-value accounts displaying negative health indicators.
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border/40">
+                {criticalChurnAccounts.map((acct, i) => (
+                  <div key={i} className="p-4 hover:bg-muted/10 transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        <span className="font-bold text-foreground text-xs">{acct.name}</span>
+                        <div className="text-[10px] text-muted-foreground">Owner: {acct.owner}</div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-red-500 block">
+                          {formatCurrency(acct.contractValue)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Renewal in {acct.renewalDays}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-red-400/90 mt-1 bg-red-500/10 p-2 border border-red-500/20">
+                      ⚠️ {acct.riskReason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* High-Touch Closing Opportunities */}
+        <div className="lg:col-span-7">
+          <Card
+            className={cn(
+              "border border-border/60 shadow-sm h-full",
+              isDark ? "bg-[#161616]" : "bg-card"
+            )}
+          >
+            <CardHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">
+                  High-Value Enterprise Opportunities
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Top weighted opportunities in final negotiation and proposal review.
+                </p>
+              </div>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="text-xs font-mono h-8 border-border/60"
+              >
+                <Link href="/crm/opportunities">View All ({highValueDeals.length})</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[620px] text-left text-xs font-mono">
+                  <thead className="border-b border-border/60 text-muted-foreground bg-muted/20">
+                    <tr>
+                      <th className="p-3 pl-5 whitespace-nowrap">Opportunity / Client</th>
+                      <th className="p-3 whitespace-nowrap">Value</th>
+                      <th className="p-3 whitespace-nowrap">Stage</th>
+                      <th className="p-3 whitespace-nowrap">Probability</th>
+                      <th className="p-3 whitespace-nowrap">Close Date</th>
+                      <th className="p-3 pr-5 text-right whitespace-nowrap">Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {highValueDeals.map((deal, i) => (
+                      <tr key={i} className="hover:bg-muted/10 transition-colors">
+                        <td className="p-3 pl-5 whitespace-nowrap">
+                          <div className="font-bold text-foreground">{deal.customer}</div>
+                          <div className="text-[10px] text-muted-foreground">{deal.id}</div>
+                        </td>
+                        <td className={cn("p-3 font-semibold whitespace-nowrap", isDark ? "text-[#6CADF5]" : "text-blue-700 font-bold")}>
+                          {formatCurrency(deal.value)}
+                        </td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.stage}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold border",
+                            isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                          )}>
+                            {deal.probability}%
+                          </span>
+                        </td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">{deal.expectedClose}</td>
+                        <td className="p-3 pr-5 text-right text-muted-foreground whitespace-nowrap">{deal.owner}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

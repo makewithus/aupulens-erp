@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { hasBusinessHealthActivity } from "@/lib/admin/businessHealthActivity";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function BusinessHealthCardSkeleton() {
@@ -59,25 +60,27 @@ export function BusinessHealthCardSkeleton() {
  * Renders nothing until a summary exists (the scheduled cron populates it) —
  * so it never shows an empty/placeholder card.
  */
-export function BusinessHealthCard() {
+export function BusinessHealthCard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsLoading(true);
-    fetch("/api/admin/business-health")
+    fetch("/api/admin/business-health", { cache: "no-store" })
       .then((res) => res.json())
       .then((d) => {
-        if (d.success) setData(d.data);
+        setData(d.success ? d.data : null);
       })
-      .catch(() => {})
+      .catch(() => setData(null))
       .finally(() => {
         setIsLoading(false);
       });
-  }, []);
+  }, [refreshKey]);
 
   if (isLoading) return <BusinessHealthCardSkeleton />;
   if (!data) return null;
+
+  const insufficientSnapshot = data.metrics && !hasBusinessHealthActivity(data.metrics);
 
   return (
     <Card className="group overflow-hidden border-0 shadow-none transition-all duration-500">
@@ -93,7 +96,7 @@ export function BusinessHealthCard() {
 
       <CardContent className="p-8 sm:p-10">
         <p className="text-sm text-foreground/90 leading-relaxed mb-6">
-          {data.summary}
+          {insufficientSnapshot ? "The last scheduled summary had insufficient activity. Current figures are shown below; the AI summary will update after the next successful scheduled analysis." : data.summary}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

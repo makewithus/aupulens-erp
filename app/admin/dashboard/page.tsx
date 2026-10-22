@@ -28,7 +28,10 @@ interface DashboardSummary {
     revenueChange: number;
     totalExpenses: number;
     expensesCurrentMonth: number;
-    netIncome: number;
+    netIncome: number | null;
+    profitAvailable: boolean;
+    profitUnavailableReason: string | null;
+    totalPayments: number;
     totalTransactions: number;
     draftInvoices: number;
   };
@@ -64,6 +67,7 @@ export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [healthRefreshKey, setHealthRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { enabledModules, loaded: enabledModulesLoaded } = useEnabledModules(session?.user?.role === "admin");
   const visibleModules = enabledModulesLoaded ? (enabledModules ?? ["admin"]) : ["admin"];
@@ -86,7 +90,7 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const res = await cachedFetch("/api/admin/dashboard", undefined, { ttl: 15_000 });
+      const res = await cachedFetch("/api/admin/dashboard", { cache: "no-store" }, { noCache: true });
       // A 401/403 here means the session is actually invalid even if the client
       // session state hasn't flipped yet — go to login instead of showing stale
       // dashboard chrome.
@@ -97,8 +101,12 @@ export default function AdminDashboard() {
       if (res.ok) {
         const data = await res.json();
         setSummary(data.summary);
+        setHealthRefreshKey((key) => key + 1);
+      } else {
+        setSummary(null);
       }
     } catch (error) {
+      setSummary(null);
       console.error("Error fetching dashboard data:", error);
     } finally {
       setIsLoading(false);
@@ -241,7 +249,7 @@ export default function AdminDashboard() {
         <div className="h-[60vh] flex flex-col items-center justify-center opacity-20">
           <Activity className="h-24 w-24 mb-4" />
           <p className="text-xl font-black uppercase tracking-widest">
-            No Data Available
+            Dashboard could not be loaded. Use refresh to retry.
           </p>
         </div>
       </DashboardLayout>
@@ -276,7 +284,7 @@ export default function AdminDashboard() {
           </h1>
         </div>
 
-        <BusinessHealthCard />
+        <BusinessHealthCard refreshKey={healthRefreshKey} />
 
         <DashboardStats
           summary={summary}

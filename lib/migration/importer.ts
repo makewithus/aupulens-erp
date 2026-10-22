@@ -23,7 +23,7 @@ import Account from "@/models/finance/Account";
 import JournalEntry from "@/models/finance/JournalEntry";
 import Employee from "@/models/hr/Employee";
 import { MIGRATION_ENTITY } from "@/lib/migration/constants";
-import { ENTITY_STATUS, PRODUCT_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS, ENTITY_STATUS, PRODUCT_STATUS } from "@/lib/constants/statuses";
 import { getEntitySchema } from "@/lib/migration/entitySchemas";
 import {
   toCanonicalRecord,
@@ -553,6 +553,7 @@ const HANDLERS: Record<string, EntityHandler> = {
         invoiceDate: rec.invoiceDate ? new Date(rec.invoiceDate) : new Date(),
         amountTotal: num(rec.totalAmount) ?? 0,
         amountUntaxed: num(rec.totalAmount) ?? 0,
+        state: DOCUMENT_STATUS.POSTED,
         invoiceLines: [],
         createdBy: new mongoose.Types.ObjectId(ctx.userId),
       };

@@ -21,8 +21,8 @@ export default function InventoryPage() {
         session?.user?.role === "inventory" ||
         session?.user?.role === "admin"
       ) {
-        // Redirect to summary (Dashboard) but show skeleton meanwhile
-        router.push("/inventory/summary");
+        // Redirect to executive Dashboard
+        router.push("/inventory/dashboard");
       } else {
         router.push("/auth/inventory");
       }

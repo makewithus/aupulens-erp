@@ -5,7 +5,7 @@ import { useThemeStore } from "@/store/themeStore";
 
 export function SupportPerformanceChart() {
   const theme = useThemeStore((state) => state.theme);
-  const isDark = theme === "dark";
+  const isDark = theme !== "light";
 
   const [metricType, setMetricType] = useState<"tickets" | "time">("tickets");
 
@@ -65,7 +65,7 @@ export function SupportPerformanceChart() {
     const yTicks: number[] = [];
     for (let v = 0; v <= yMax; v += step) yTicks.push(v);
 
-    const PAD = { top: 16, right: 50, bottom: 80, left: 10 };
+    const PAD = { top: 28, right: 50, bottom: 80, left: 10 };
     const barColors = ["#a78bfa", "#8b5cf6"];
 
     function resize() {
@@ -133,14 +133,17 @@ export function SupportPerformanceChart() {
 
         for (let b = 0; b < totalBricks; b++) {
           const by = cB - (b + 1) * unitH + bG;
-          let brickColor = isHighlight ? "#ffffff" : "#d4d4d8";
+          let brickColor = isDark
+            ? isHighlight ? "#FFFFFF" : "#A77DFF"
+            : isHighlight ? "#6E38D9" : "#8C5CE6";
 
           if (!isHighlight && totalBricks > 6) {
             const rel = b / totalBricks;
             if (rel >= 0.72 && rel <= 0.86) {
-              brickColor = "#52525b";
-            } else if (b % 7 === 4 && totalBricks > 10) {
-              brickColor = "#52525b";
+              // Image 2 white brick mixture band in dark mode, dark band in light mode
+              brickColor = isDark ? "#FFFFFF" : "#1E293B";
+            } else if (b % 4 === 0) {
+              brickColor = isDark ? "#8AE06C" : "#16A34A";
             }
           }
 
@@ -148,14 +151,26 @@ export function SupportPerformanceChart() {
           ctx.fillRect(Math.round(x), Math.round(by), Math.max(1, Math.round(barWidth)), Math.round(bH));
         }
 
+        // Numeric value directly above each bar so user can read directly
+        const barTopY = cB - totalBricks * unitH;
+        ctx.save();
+        ctx.font = 'bold 10px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = isHighlight
+          ? (isDark ? "#ffffff" : "#0f172a")
+          : (isDark ? "#f2f2f2" : "#1e293b");
+        ctx.fillText(fmtValue(values[i]), x + barWidth / 2, barTopY - 3);
+        ctx.restore();
+
         // X label (rotated)
         ctx.save();
         ctx.translate(x + barWidth / 2, cB + 8);
         ctx.rotate(-Math.PI / 4);
-        ctx.font = '9px "Roboto Mono", monospace';
+        ctx.font = '10px "Roboto Mono", monospace';
         ctx.textAlign = "right";
         ctx.textBaseline = "top";
-        ctx.fillStyle = highlightIdx === i ? (isDark ? "#fff" : "#000") : "#757575";
+        ctx.fillStyle = highlightIdx === i ? (isDark ? "#ffffff" : "#0f172a") : (isDark ? "#a1a1aa" : "#334155");
         ctx.fillText(channels[i], 0, 0);
         ctx.restore();
       }
@@ -193,6 +208,38 @@ export function SupportPerformanceChart() {
       draw(idx);
     };
 
+    const handleTouch = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const W = rect.width;
+      const cL = PAD.left,
+        cR = W - PAD.right;
+      const cW = cR - cL;
+      const n = channels.length;
+      const slot = cW / n;
+
+      if (mx < cL || mx > cR) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      const idx = Math.floor((mx - cL) / slot);
+      if (idx < 0 || idx >= n) {
+        tooltip.style.display = "none";
+        draw();
+        return;
+      }
+
+      tooltip.textContent = channels[idx] + ": " + values[idx].toLocaleString() + suffix;
+      tooltip.style.display = "block";
+      tooltip.style.left = mx + 16 + "px";
+      tooltip.style.top = Math.max(0, touch.clientY - rect.top - 30) + "px";
+      draw(idx);
+    };
+
     const handleMouseLeave = () => {
       tooltip.style.display = "none";
       draw();
@@ -200,6 +247,9 @@ export function SupportPerformanceChart() {
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
+    canvas.addEventListener("touchstart", handleTouch, { passive: true });
+    canvas.addEventListener("touchmove", handleTouch, { passive: true });
+    canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
     setTimeout(resize, 140);
@@ -208,6 +258,9 @@ export function SupportPerformanceChart() {
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("touchstart", handleTouch);
+      canvas.removeEventListener("touchmove", handleTouch);
+      canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
     };
   }, [metricType, isDark]);
@@ -231,25 +284,25 @@ export function SupportPerformanceChart() {
               metricType === "tickets"
                 ? isDark
                   ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
-                  : "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-card font-semibold"
+                  : "text-slate-900 font-bold after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1.5px] after:bg-slate-900"
                 : isDark
-                ? "text-muted-foreground hover:text-foreground"
-                : "text-muted-foreground hover:text-muted-foreground"
+                ? "text-muted-foreground hover:text-white"
+                : "text-slate-500 hover:text-slate-900"
             }`}
           >
             Resolved Tickets
           </button>
-          <span className={`select-none ${isDark ? "text-foreground" : "text-foreground"}`}>|</span>
+          <span className={`select-none ${isDark ? "text-zinc-600" : "text-zinc-300"}`}>|</span>
           <button
             onClick={() => setMetricType("time")}
             className={`cursor-pointer pb-0.5 relative transition-colors ${
               metricType === "time"
                 ? isDark
                   ? "text-white after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-white"
-                  : "text-foreground after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1px] after:bg-card font-semibold"
+                  : "text-slate-900 font-bold after:content-[''] after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[1.5px] after:bg-slate-900"
                 : isDark
-                ? "text-muted-foreground hover:text-foreground"
-                : "text-muted-foreground hover:text-muted-foreground"
+                ? "text-muted-foreground hover:text-white"
+                : "text-slate-500 hover:text-slate-900"
             }`}
           >
             Resolution Time

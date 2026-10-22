@@ -22,6 +22,16 @@ import { SidebarSection } from "@/components/dashboard/DashboardSidebar";
 
 export const salesSidebarConfig: SidebarSection[] = [
   {
+    title: "Overview",
+    items: [
+      {
+        title: "Dashboard",
+        href: "/sales/dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
     title: "Pipeline",
     items: [
       {
