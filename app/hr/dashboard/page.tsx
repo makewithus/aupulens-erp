@@ -237,7 +237,7 @@ export default function HRDashboardPage() {
         >
           <CardContent className="p-5">
             <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
-              <span>Today's Attendance Rate</span>
+              <span>Today&apos;s Attendance Rate</span>
               <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
                 <CalendarCheck className="w-4 h-4" />
               </span>
