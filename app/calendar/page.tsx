@@ -57,13 +57,13 @@ export default function CalendarPage() {
       userRole={role}
       onSignOut={() => signOut({ callbackUrl: cfg.authPath })}
     >
-      <div className="mb-6 flex flex-col gap-3 border-b border-border/50 pb-5 md:flex-row md:items-end md:justify-between">
+      <div className="mb-4 flex flex-col gap-2 border-b border-border/40 pb-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="flex items-center gap-3 text-4xl !font-semibold !tracking-normal text-primary md:text-[48px]">
-            <CalendarDays className="h-8 w-8 text-primary" /> Enterprise Calendar
+          <h1 className="flex items-center gap-3 text-3xl !font-bold !tracking-tight text-foreground md:text-4xl">
+            <CalendarDays className="h-7 w-7 text-purple-500" /> Enterprise Calendar
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Everything with a date, in one place — with AI conflict detection.
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Unified schedule for CRM tasks, HR attendance & leave, payroll disbursements, vendor payments, and team events.
           </p>
         </div>
       </div>

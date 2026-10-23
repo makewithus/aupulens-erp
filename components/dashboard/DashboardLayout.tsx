@@ -82,7 +82,7 @@ export function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   // AI panel open-state lives in a module-level store so it (and the chat inside)
   // survives client-side navigation instead of resetting on every page change.
-  const aiWorking = useAiChatStore((s) => s.messages.some((m) => m.isLoading));
+
   const isAiSidebarOpen = useAiChatStore((s) => s.isOpen);
   const toggleAiSidebar = useAiChatStore((s) => s.toggle);
   const closeAiSidebar = useAiChatStore((s) => s.close);
@@ -231,7 +231,6 @@ export function DashboardLayout({
         )}
 
         <main
-          aria-busy={aiWorking}
           ref={mainScrollRef}
           className={cn(
             "relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain youtube-scrollbar bg-linear-to-br from-background via-background to-muted/10",
@@ -239,12 +238,7 @@ export function DashboardLayout({
             className,
           )}
         >
-          {aiWorking && (
-            <div role="status" aria-live="polite" className="sticky top-0 z-40 flex items-center justify-center gap-3 bg-background/95 p-4 border-b shadow-sm">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true" />
-              Working on your request…
-            </div>
-          )}
+
           <div
             ref={contentRef}
             className="min-w-0 w-full p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6 lg:p-8"

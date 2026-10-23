@@ -55,7 +55,7 @@ export async function getCalendarEvents(
   // User-created calendar events — visible to everyone in the tenant.
   tasks.push(
     CalendarEvent.find({ tenantId, start: { $gte: from, $lte: to } }).sort({ start: 1 }).limit(5000).lean().then((rows: any[]) => {
-      for (const e of rows) events.push({ id: String(e._id), source: "calendar", type: e.type, title: e.title, start: iso(e.start), end: e.end ? iso(e.end) : undefined, allDay: !!e.allDay, url: "/calendar", meta: {} });
+      for (const e of rows) events.push({ id: String(e._id), source: "calendar", type: e.type, title: e.title, start: iso(e.start), end: e.end ? iso(e.end) : undefined, allDay: !!e.allDay, url: "/calendar", meta: { description: e.description } });
     }),
   );
 
