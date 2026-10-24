@@ -32,6 +32,9 @@ export async function GET(req: NextRequest) {
       totalOpportunities: stats.total_opportunities,
       totalPipelineValue: stats.total_pipeline_value,
       weightedPipeline: stats.weighted_pipeline,
+      activeDeals: Math.max(0, stats.total_opportunities - stats.total_closed),
+      wonDeals: stats.closed_won_count,
+      lostDeals: stats.closed_lost_count,
       averageDealSize: stats.total_opportunities > 0 ? stats.total_pipeline_value / stats.total_opportunities : 0,
       winRate: stats.total_closed > 0 ? (stats.closed_won_count / stats.total_closed) * 100 : 0,
       lossRate: stats.total_closed > 0 ? (stats.closed_lost_count / stats.total_closed) * 100 : 0

@@ -33,6 +33,11 @@ export const financeSidebarConfig: SidebarSection[] = [
         href: "/finance/summary",
         icon: LayoutDashboard,
       },
+      {
+        title: "Financial Analytics",
+        href: "/finance/analytics",
+        icon: BarChart3,
+      },
     ],
   },
   {

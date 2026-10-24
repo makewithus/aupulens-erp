@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   CalendarCheck,
 } from "lucide-react";
-import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
@@ -295,54 +294,10 @@ export default function HRDashboardPage() {
         </Card>
       </div>
 
-      {/* Section 2: Visual Charts Grid */}
+      {/* Section 2: Operational Flow & Headcount by Department */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Attendance & Shift Execution Timeline (DailyBrickBarChart) */}
-        <div className="lg:col-span-8">
-          <Card
-            className={cn(
-              "border border-border/60 shadow-sm h-full",
-              isDark ? "bg-[#161616]" : "bg-card"
-            )}
-          >
-            <CardHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse" />
-                  <CardTitle className="text-base font-bold">
-                    Daily Shift Attendance & Active Check-In Velocity
-                  </CardTitle>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  High-frequency time-clock tracking employee attendance consistency across factory & corporate divisions.
-                </p>
-              </div>
-              <div className="flex items-center gap-3 text-[11px] font-mono">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-[#8AE06C]" />
-                  <span className="text-muted-foreground">Present Check-In</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-[#F1DF38]" />
-                  <span className="text-muted-foreground">Overtime Shift</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5">
-              <DailyBrickBarChart
-                data={dailyAttendance}
-                valueKey="count"
-                height={340}
-                colorTheme="emerald"
-                metricLabel="Checked-In Staff"
-                yAxisFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toString()}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Headcount by Department Donut (CanvasPieChart) */}
-        <div className="lg:col-span-4">
+        {/* Quick Actions & Operational Controls */}
+        <div className="lg:col-span-7">
           <Card
             className={cn(
               "border border-border/60 shadow-sm h-full flex flex-col justify-between",
@@ -350,18 +305,124 @@ export default function HRDashboardPage() {
             )}
           >
             <CardHeader className="p-5 border-b border-border/60">
-              <CardTitle className="text-base font-bold">
-                Headcount by Department
-              </CardTitle>
+              <CardTitle className="text-base font-bold">Quick Operations & Actions</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Staff allocation across core engineering, operations, and business teams.
+                Core employee lifecycles, attendance logging, leave approvals, and analytics.
               </p>
+            </CardHeader>
+            <CardContent className="p-5 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Link
+                  href="/hr/onboarding"
+                  className="p-3 border border-border/40 hover:bg-muted/30 transition-colors group flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-none bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                      <UserPlus className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs text-foreground">Onboard Staff</div>
+                      <div className="text-[10px] text-muted-foreground">New employee profile</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </Link>
+
+                <Link
+                  href="/hr/attendance"
+                  className="p-3 border border-border/40 hover:bg-muted/30 transition-colors group flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-none bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                      <CalendarCheck className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs text-foreground">Attendance</div>
+                      <div className="text-[10px] text-muted-foreground">Shifts & time clock</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </Link>
+
+                <Link
+                  href="/hr/leave"
+                  className="p-3 border border-border/40 hover:bg-muted/30 transition-colors group flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-none bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-yellow-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs text-foreground">Leave Requests</div>
+                      <div className="text-[10px] text-muted-foreground">{hrStats.pendingLeavesCount} pending sign-off</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </Link>
+
+                <Link
+                  href="/hr/payroll"
+                  className="p-3 border border-border/40 hover:bg-muted/30 transition-colors group flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-none bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs text-foreground">Payroll Runs</div>
+                      <div className="text-[10px] text-muted-foreground">Salary disbursements</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+
+              {/* Attendance Velocity Banner linking to HR Reports */}
+              <div className="p-3.5 border border-border/40 bg-muted/10 flex items-center justify-between gap-3 mt-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse shrink-0" />
+                  <div className="text-xs">
+                    <span className="font-semibold text-foreground">Shift Attendance Velocity: </span>
+                    <span className="text-muted-foreground">Daily check-ins & overtime metrics visualized.</span>
+                  </div>
+                </div>
+                <Button asChild size="sm" variant="outline" className="text-xs font-mono h-8 border-border/60 shrink-0">
+                  <Link href="/hr/reports">
+                    View in Reports <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Headcount by Department Donut (CanvasPieChart with Top 5 Pagination) */}
+        <div className="lg:col-span-5">
+          <Card
+            className={cn(
+              "border border-border/60 shadow-sm h-full flex flex-col justify-between",
+              isDark ? "bg-[#161616]" : "bg-card"
+            )}
+          >
+            <CardHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">
+                  Headcount by Department
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Top 5 teams displayed by default with pagination.
+                </p>
+              </div>
+              <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5">
+                {departmentDistribution.length} Depts
+              </Badge>
             </CardHeader>
             <CardContent className="p-5 flex-1 flex flex-col justify-center items-center">
               {departmentDistribution.length > 0 ? (
                 <CanvasPieChart
                   data={departmentDistribution}
                   title="Staff"
+                  pageSize={5}
                   colors={BRAND_ACCENT_PALETTE}
                 />
               ) : (

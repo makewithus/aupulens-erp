@@ -48,9 +48,6 @@ import {
 import { StatCard } from "@/components/admin/StatCard";
 import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
 import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
-import { TradingLineChart } from "@/components/charts/TradingLineChart";
-import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
-import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 
@@ -348,6 +345,20 @@ export default function FinanceSummaryPage() {
               </Link>
             </Button>
             <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className={cn(
+                "text-xs font-mono h-9 gap-1.5 border shadow-sm",
+                isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#272727]" : "bg-white border-slate-300 text-slate-800"
+              )}
+            >
+              <Link href="/finance/analytics">
+                <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+                Financial Analytics
+              </Link>
+            </Button>
+            <Button
               onClick={fetchSummary}
               variant="outline"
               size="sm"
@@ -421,142 +432,31 @@ export default function FinanceSummaryPage() {
           )}
         </div>
 
-        {/* ── 3. PRIMARY VISUAL: 2-YEAR FINANCIAL RUN-RATE & CASH VELOCITY ── */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        {/* ── 3. VISUAL TELEMETRY & ANALYTICS BANNER ── */}
+        <div className="p-4 border border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <BarChart3 className="h-4 w-4 text-emerald-400" />
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <h2 className="text-base sm:text-lg font-bold tracking-tight uppercase">
-                  Consolidated Financial Velocity & Runway (2-Year Interactive Timeline)
-                </h2>
+              <div className="text-sm font-bold text-foreground">
+                Consolidated Financial Velocity & Timeline Analytics
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Interactive historical timeline with mouse-wheel zoom, drag-to-pan, candle/line toggles, and timeframe presets.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                Net Collections
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />
-                Ledger Run-Rate
-              </span>
+              <div className="text-xs text-muted-foreground">
+                Interactive 2-year run-rate, monthly brick throughput, and OpEx allocation charts.
+              </div>
             </div>
           </div>
-
-          <Card
-            className={cn(
-              "rounded-none border shadow-none overflow-hidden transition-colors",
-              isDark ? "bg-[#0A0A0A] border-[#272727]" : "bg-white border-[#e5e5e5]"
-            )}
+          <Button
+            asChild
+            size="sm"
+            className="text-xs font-mono h-9 gap-1.5 shrink-0"
           >
-            <CardContent className="p-0">
-              <TradingLineChart
-                title="CONSOLIDATED FINANCIAL RUN-RATE & CASH VELOCITY (2-YEAR TIMELINE)"
-                metricLabel="Financial Inflow"
-                currencyPrefix="₹"
-                colorTheme="emerald"
-                isDark={isDark}
-                height={420}
-                data={summary?.revenueTimeline}
-                valueKey="value"
-                dateKey="date"
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── 4. TWO-COLUMN: MONTHLY REVENUE/EXPENSE BRICKS & EXPENSE BREAKDOWN DONUT ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Monthly Velocity (Discrete Segmented Bricks) */}
-          <div className="lg:col-span-7 xl:col-span-8">
-            <Card
-              className={cn(
-                "rounded-none border shadow-sm transition-colors h-full flex flex-col",
-                isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-              )}
-            >
-              <CardHeader className="pb-3 border-b border-border/40">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-emerald-400" />
-                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Monthly Revenue Velocity & Ledger Throughput
-                      </CardTitle>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Discrete segmented brick bars visualizing periodic billing intake and cash realization.
-                    </p>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                    Monthly Vol
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 flex-1">
-                <DailyBrickBarChart
-                  metricLabel="Monthly Net Revenue"
-                  valueKey="value"
-                  dateKey="date"
-                  colorTheme="emerald"
-                  isDark={isDark}
-                  height={320}
-                  data={summary?.monthlyPerformance}
-                  yAxisFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
-                  tooltipValueFormatter={(v) => formatCurrency(v)}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Operating Expense Breakdown (Donut Chart) */}
-          <div className="lg:col-span-5 xl:col-span-4">
-            <Card
-              className={cn(
-                "rounded-none border shadow-sm transition-colors flex flex-col h-full",
-                isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-              )}
-            >
-              <CardHeader className="pb-3 border-b border-border/40">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <PieChartIcon className="h-4 w-4 text-purple-400" />
-                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Operating Expense Allocation
-                      </CardTitle>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Capital allocation across posted accounts & overheads.
-                    </p>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
-                    OpEx Share
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 flex-1 flex flex-col justify-center items-center min-h-[320px]">
-                {summary?.expenseBreakdown && summary.expenseBreakdown.length > 0 ? (
-                  <CanvasPieChart
-                    data={summary.expenseBreakdown}
-                    nameKey="name"
-                    valueKey="value"
-                    colors={BRAND_ACCENT_PALETTE}
-                    isDark={isDark}
-                    title="TOTAL OPEX"
-                  />
-                ) : (
-                  <div className="text-center py-12 text-xs text-muted-foreground">
-                    No posted expense accounts found for current period
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+            <Link href="/finance/analytics">
+              View Analytics & Charts
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </Button>
         </div>
 
         {/* ── 5. SOLVENCY, LIQUIDITY & CAPITAL HEALTH MATRIX ── */}

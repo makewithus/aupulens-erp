@@ -6,6 +6,8 @@ import ManufacturingOrder from "@/models/manufacturing/ManufacturingOrder";
 import BillOfMaterial from "@/models/manufacturing/BillOfMaterial";
 import Shipment from "@/models/manufacturing/Shipment";
 
+import Product from "@/models/inventory/Product";
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -25,38 +27,70 @@ export async function GET(req: NextRequest) {
 
     const [
       totalOrders,
-      activeOrders,
-      qcPendingOrders,
+      demandForecast,
+      inProduction,
+      qcPending,
+      rework,
+      finished,
       finishedThisMonth,
       totalBoms,
+      totalProducts,
       statusBreakdown,
-      recentOrders,
+      recentOrdersRaw,
       dailyOutputAgg,
       totalShipments,
     ] = await Promise.all([
       ManufacturingOrder.countDocuments({ tenantId }),
       ManufacturingOrder.countDocuments({
         tenantId,
-        status: { $in: ["confirmed", "in_progress", "to_close", "in_production"] },
+        $or: [
+          { productionStatus: { $in: ["demand_forecast", "production_order"] } },
+          { status: { $in: ["draft", "confirmed"] } },
+        ],
       }),
       ManufacturingOrder.countDocuments({
         tenantId,
-        status: "to_close",
+        $or: [
+          { productionStatus: { $in: ["material_reserved", "material_issued", "in_production"] } },
+          { status: "in_progress" },
+        ],
       }),
       ManufacturingOrder.countDocuments({
         tenantId,
-        status: "done",
+        $or: [
+          { productionStatus: "qc_pending" },
+          { status: "to_close" },
+        ],
+      }),
+      ManufacturingOrder.countDocuments({
+        tenantId,
+        productionStatus: { $in: ["rework", "qc_failed"] },
+      }),
+      ManufacturingOrder.countDocuments({
+        tenantId,
+        $or: [
+          { productionStatus: "finished" },
+          { status: "done" },
+        ],
+      }),
+      ManufacturingOrder.countDocuments({
+        tenantId,
+        $or: [
+          { productionStatus: "finished" },
+          { status: "done" },
+        ],
         updatedAt: { $gte: startOfMonth },
       }),
       BillOfMaterial.countDocuments({ tenantId }),
+      Product.countDocuments({ tenantId }),
       ManufacturingOrder.aggregate([
         { $match: { tenantId } },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
       ManufacturingOrder.find({ tenantId })
-        .select("header status productionStatus createdAt updatedAt")
+        .populate("header.productId", "header.name")
         .sort({ createdAt: -1 })
-        .limit(5)
+        .limit(10)
         .lean(),
       ManufacturingOrder.aggregate([
         {
@@ -97,28 +131,69 @@ export async function GET(req: NextRequest) {
       count: d.quantity || d.count,
     }));
 
-    return NextResponse.json({
-      stats: {
-        totalOrders,
-        activeWorkOrders: activeOrders,
-        qcPending: qcPendingOrders,
-        finishedThisMonth,
-        totalBoms,
-        totalShipments,
-        oee: totalOrders > 0 ? 87.5 : 0,
-      },
-      productionStages,
-      recentOrders: recentOrders.map((o: any) => ({
+    const recentOrders = recentOrdersRaw.map((o: any) => {
+      const prodName =
+        (typeof o.header?.productId === "object" && o.header?.productId?.header?.name) ||
+        o.header?.name ||
+        "Manufacturing Unit";
+      return {
+        _id: String(o._id),
         id: o.header?.name || `MO-${String(o._id).slice(-6)}`,
-        product: o.header?.name || "Manufacturing Unit",
+        name: o.header?.name || `MO-${String(o._id).slice(-6)}`,
+        product: prodName,
         quantity: o.header?.quantity || 1,
         status: o.status || "confirmed",
-        date: o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
-      })),
+        productionStatus: o.productionStatus || (o.status === "done" ? "finished" : "in_production"),
+        createdAt: o.createdAt || new Date(),
+        date: o.createdAt
+          ? new Date(o.createdAt).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+            })
+          : "Recent",
+      };
+    });
+
+    const activeWorkOrders = inProduction + qcPending;
+    const oee = totalOrders > 0 ? (finished / totalOrders) * 100 : 0;
+    const qualityRate = (finished + qcPending) > 0 ? Math.round((finished / (finished + rework + 0.001)) * 100) : 100;
+
+    const statsPayload = {
+      totalOrders,
+      activeWorkOrders,
+      demandForecast,
+      inProduction,
+      qcPending,
+      rework,
+      finished,
+      finishedThisMonth,
+      totalBoms,
+      totalProducts,
+      totalShipments,
+      oee: Number(oee.toFixed(1)),
+      qualityRate: Math.min(100, Math.max(0, qualityRate)),
+    };
+
+    return NextResponse.json({
+      success: true,
+      stats: statsPayload,
+      summary: {
+        demandForecast,
+        inProduction,
+        qcPending,
+        rework,
+        finished,
+        totalBoms,
+        totalProducts,
+        totalOrders,
+        recentOrders,
+      },
+      productionStages,
+      recentOrders,
       dailyOutput,
     });
   } catch (error: any) {
     console.error("Manufacturing summary error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

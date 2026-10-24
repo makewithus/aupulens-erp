@@ -25,9 +25,10 @@ import {
   BarChart3,
   GitBranch,
 } from "lucide-react";
-import { TradingLineChart } from "@/components/charts/TradingLineChart";
-import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
-import { CanvasPieChart } from "@/components/inventory/CanvasCharts";
+import { StatCard } from "@/components/admin/StatCard";
+import { UsersGraph } from "@/components/admin/graphics/UsersGraph";
+import { ActivePulse } from "@/components/admin/graphics/ActivePulse";
+import { InactiveOrbit } from "@/components/admin/graphics/InactiveOrbit";
 import { useThemeStore } from "@/store/themeStore";
 import { BRAND_COLORS, BRAND_ACCENT_PALETTE } from "@/lib/constants/brandColors";
 import { cn } from "@/lib/utils";
@@ -207,223 +208,84 @@ export default function SalesDashboardPage() {
                 View Orders
               </Link>
             </Button>
-          </div>
-        </div>
-
-        {/* ── 1. MODULE-SPECIFIC PARAMETERS: 4 CORE KPI STAT CARDS ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Net Sales Bookings */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-xs transition-colors p-5 relative overflow-hidden",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Net Sales Revenue (MTD)
-              </span>
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: BRAND_COLORS.accent.green }}
-              />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2">
-              {salesKPIs.netRevenue >= 10000000
-                ? `₹${(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr`
-                : `₹${salesKPIs.netRevenue.toLocaleString("en-IN")}`}
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              <span className="flex items-center gap-1 font-bold text-emerald-500">
-                <TrendingUp className="w-3.5 h-3.5" />
-                +{salesKPIs.revenueGrowthMoM}%
-              </span>
-              <span className="text-[11px] text-muted-foreground">vs previous month</span>
-            </div>
-          </Card>
-
-          {/* Active Q2C Pipeline Value */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-xs transition-colors p-5 relative overflow-hidden",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Active Q2C Pipeline
-              </span>
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: BRAND_COLORS.accent.purple }}
-              />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2 text-purple-500">
-              {salesKPIs.openPipelineValue >= 10000000
-                ? `₹${(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr`
-                : `₹${salesKPIs.openPipelineValue.toLocaleString("en-IN")}`}
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              <span className="font-semibold text-muted-foreground">
-                {salesKPIs.openQuotesCount} active quotations pending
-              </span>
-            </div>
-          </Card>
-
-          {/* Average Order Value (AOV) */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-xs transition-colors p-5 relative overflow-hidden",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Average Order Value (AOV)
-              </span>
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: BRAND_COLORS.accent.blue }}
-              />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2">
-              ₹{salesKPIs.averageOrderValue.toLocaleString("en-IN")}
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              <span className="flex items-center gap-1 font-bold text-blue-400">
-                <TrendingUp className="w-3.5 h-3.5" />
-                +{salesKPIs.aovChange}%
-              </span>
-              <span className="text-[11px] text-muted-foreground">basket expansion</span>
-            </div>
-          </Card>
-
-          {/* Quote-to-Cash Win Rate */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-xs transition-colors p-5 relative overflow-hidden",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Q2C Conversion Rate
-              </span>
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: BRAND_COLORS.accent.yellow }}
-              />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold tracking-tight mt-2 text-yellow-500">
-              {salesKPIs.q2cConversionRate}%
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              <span className="font-semibold text-emerald-500">Industry Leader</span>
-              <span className="text-[11px] text-muted-foreground">top decile</span>
-            </div>
-          </Card>
-        </div>
-
-        {/* ── 2. INTERACTIVE TIMELINE & CHARTS SECTION ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-l-4 border-purple-500 pl-3">
-            <div>
-              <h2 className="text-base font-bold tracking-wide uppercase flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-purple-500" />
-                Sales Velocity &amp; Revenue Timeline
-              </h2>
-              <p className="text-[11px] text-muted-foreground">
-                Interactive historical timeline with mouse-wheel zoom, drag-to-pan, and timeframe filters.
-              </p>
-            </div>
-          </div>
-
-          <Card
-            className={cn(
-              "rounded-none border shadow-none overflow-hidden transition-colors",
-              isDark ? "bg-[#0A0A0A] border-[#272727]" : "bg-white border-[#e5e5e5]"
-            )}
-          >
-            <CardContent className="p-0">
-              <TradingLineChart
-                data={tradingLineData}
-                title="CONSOLIDATED SALES REVENUE"
-                metricLabel="Gross Sales"
-                currencyPrefix="₹"
-                colorTheme="white"
-                isDark={isDark}
-                height={420}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── 3. TWO-COLUMN: CHANNEL DISTRIBUTION & DAILY ORDER UNITS ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Daily Sales Order Units (Segmented Bricks) */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-sm transition-colors",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <CardHeader className="pb-2 border-b border-border/40">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Daily Order Throughput (Discrete Segmented Bricks)
-                </CardTitle>
-                <span className="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  Daily Units
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <DailyBrickBarChart
-                data={dailyOrders}
-                metricLabel="Sales Order Units"
-                valueKey="count"
-                colorTheme="purple"
-                isDark={isDark}
-                yAxisFormatter={(v) => `${v} units`}
-                tooltipValueFormatter={(v) => `${v.toLocaleString()} units`}
-                height={280}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Revenue by Channel / Product Line (Donut Chart) */}
-          <Card
-            className={cn(
-              "rounded-none border shadow-sm transition-colors flex flex-col",
-              isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2]" : "bg-white border-slate-200 text-slate-900"
-            )}
-          >
-            <CardHeader className="pb-2 border-b border-border/40">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Revenue Breakdown by Channel
-                </CardTitle>
-                <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  Channel Share
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 flex-1 h-[280px]">
-              {channelDistribution.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-muted-foreground font-mono">
-                  No product sales recorded yet for this organization.
-                </div>
-              ) : (
-                <CanvasPieChart
-                  data={channelDistribution}
-                  nameKey="name"
-                  valueKey="value"
-                  colors={BRAND_ACCENT_PALETTE}
-                  isDark={isDark}
-                />
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className={cn(
+                "text-xs font-mono h-9 gap-1.5 border shadow-sm",
+                isDark ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#272727]" : "bg-white border-slate-300 text-slate-800"
               )}
-            </CardContent>
-          </Card>
+            >
+              <Link href="/sales/visualization">
+                <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
+                Visualizations
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* ── 1. CORE KPI STAT CARDS (Image 4 / PipelineStats Styling) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+          <StatCard
+            title="Net Sales Revenue"
+            value={
+              salesKPIs.netRevenue >= 10000000
+                ? `₹${(salesKPIs.netRevenue / 10000000).toFixed(2)} Cr`
+                : `₹${salesKPIs.netRevenue.toLocaleString("en-IN")}`
+            }
+            visual={<UsersGraph />}
+            subtitle="MTD realized volume"
+          />
+          <StatCard
+            title="Active Q2C Pipeline"
+            value={
+              salesKPIs.openPipelineValue >= 10000000
+                ? `₹${(salesKPIs.openPipelineValue / 10000000).toFixed(2)} Cr`
+                : `₹${salesKPIs.openPipelineValue.toLocaleString("en-IN")}`
+            }
+            visual={<ActivePulse />}
+            subtitle={`${salesKPIs.openQuotesCount} active quotations`}
+          />
+          <StatCard
+            title="Average Order Value"
+            value={`₹${salesKPIs.averageOrderValue.toLocaleString("en-IN")}`}
+            visual={<UsersGraph />}
+            subtitle="Basket size expansion"
+          />
+          <StatCard
+            title="Q2C Conversion Rate"
+            value={`${salesKPIs.q2cConversionRate}%`}
+            visual={<InactiveOrbit />}
+            subtitle="Quote-to-cash win rate"
+          />
+        </div>
+
+        {/* ── 2. VISUAL TELEMETRY & ANALYTICS BANNER ── */}
+        <div className="p-4 border border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+              <BarChart3 className="h-4 w-4 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-foreground">
+                Consolidated Sales Velocity & Revenue Analytics
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Interactive timeline, daily order throughput bricks, and channel distribution charts.
+              </div>
+            </div>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            className="text-xs font-mono h-9 gap-1.5 shrink-0"
+          >
+            <Link href="/sales/visualization">
+              View Visualizations
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </Button>
         </div>
 
         {/* ── 4. PIPELINE STAGE CONVERSION FUNNEL & RECENT ORDERS TABLE ── */}

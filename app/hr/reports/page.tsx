@@ -20,6 +20,7 @@ import {
   Download,
   IndianRupee,
 } from "lucide-react";
+import { DailyBrickBarChart } from "@/components/charts/DailyBrickBarChart";
 
 export default function HRReportsPage() {
   const { status } = useSession();
@@ -132,6 +133,33 @@ export default function HRReportsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Attendance & Shift Velocity Chart */}
+            {data?.dailyAttendance && data.dailyAttendance.length > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3 border-b border-border/40 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#8AE06C] animate-pulse" />
+                      Daily Shift Attendance & Active Check-In Velocity
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      High-frequency time-clock tracking employee attendance consistency across factory & corporate divisions.
+                    </p>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-5">
+                  <DailyBrickBarChart
+                    data={data.dailyAttendance}
+                    valueKey="count"
+                    height={320}
+                    colorTheme="emerald"
+                    metricLabel="Checked-In Staff"
+                    yAxisFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toString())}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Department Distribution */}
             {data?.departmentDistribution && data.departmentDistribution.length > 0 && (

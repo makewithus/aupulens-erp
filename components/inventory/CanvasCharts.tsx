@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/themeStore";
 
@@ -784,6 +784,7 @@ export function CanvasPieChart({
   title = "TOTAL",
   colors,
   showLegend = true,
+  pageSize = 5,
   isDark: propIsDark,
 }: {
   data: any[];
@@ -792,11 +793,17 @@ export function CanvasPieChart({
   title?: string;
   colors?: string[];
   showLegend?: boolean;
+  pageSize?: number;
   isDark?: boolean;
 }) {
   const storeTheme = useThemeStore((state) => state.theme);
   const isDark = propIsDark !== undefined ? propIsDark : storeTheme !== "light";
   const palette = colors && colors.length > 0 ? colors : BRAND_MODULE_PALETTE;
+
+  const [legendPage, setLegendPage] = useState(1);
+  useEffect(() => {
+    setLegendPage(1);
+  }, [data]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1101,43 +1108,94 @@ export function CanvasPieChart({
 
       {showLegend && data && data.length > 0 && (
         <div className="mt-3 w-full flex flex-col gap-1.5 font-mono text-xs">
-          {data.map((item, idx) => {
-            const val = Number(item[valueKey]) || 0;
-            const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(1) : "0.0";
-            const color = palette[idx % palette.length];
+          {(() => {
+            const effectivePageSize = pageSize || 5;
+            const totalPages = Math.ceil(data.length / effectivePageSize);
+            const startIndex = (legendPage - 1) * effectivePageSize;
+            const currentSlice = data.slice(startIndex, startIndex + effectivePageSize);
+
             return (
-              <div
-                key={idx}
-                className={cn(
-                  "flex items-center justify-between py-1 px-2 border rounded-none transition-colors",
-                  isDark
-                    ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#202020]"
-                    : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100"
+              <>
+                {currentSlice.map((item, sliceIdx) => {
+                  const originalIdx = startIndex + sliceIdx;
+                  const val = Number(item[valueKey]) || 0;
+                  const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(1) : "0.0";
+                  const color = palette[originalIdx % palette.length];
+                  return (
+                    <div
+                      key={originalIdx}
+                      className={cn(
+                        "flex items-center justify-between py-1 px-2 border rounded-none transition-colors",
+                        isDark
+                          ? "bg-[#161616] border-[#272727] text-[#F2F2F2] hover:bg-[#202020]"
+                          : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-none flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="truncate">{item[nameKey]}</span>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono flex-shrink-0">
+                        <span className="text-muted-foreground">{formatShortVal(val)}</span>
+                        <span
+                          className="px-1.5 py-0.2 rounded text-[10px] font-bold"
+                          style={{
+                            backgroundColor: `${color}20`,
+                            color: color,
+                            border: `1px solid ${color}40`,
+                          }}
+                        >
+                          {pct}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {data.length > effectivePageSize && (
+                  <div className="flex items-center justify-between pt-2 px-1 text-[11px] font-mono text-muted-foreground w-full">
+                    <span>
+                      {startIndex + 1}–{Math.min(startIndex + effectivePageSize, data.length)} of {data.length}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={legendPage <= 1}
+                        onClick={() => setLegendPage((p) => Math.max(1, p - 1))}
+                        className={cn(
+                          "px-2 py-0.5 border text-[10px] uppercase font-bold transition-colors",
+                          legendPage <= 1
+                            ? "opacity-40 cursor-not-allowed border-border/40"
+                            : "hover:bg-muted/30 border-border/60 text-foreground cursor-pointer"
+                        )}
+                      >
+                        Prev
+                      </button>
+                      <span>
+                        {legendPage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={legendPage >= totalPages}
+                        onClick={() => setLegendPage((p) => Math.min(totalPages, p + 1))}
+                        className={cn(
+                          "px-2 py-0.5 border text-[10px] uppercase font-bold transition-colors",
+                          legendPage >= totalPages
+                            ? "opacity-40 cursor-not-allowed border-border/40"
+                            : "hover:bg-muted/30 border-border/60 text-foreground cursor-pointer"
+                        )}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 )}
-              >
-                <div className="flex items-center gap-2 truncate pr-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-none flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="truncate">{item[nameKey]}</span>
-                </div>
-                <div className="flex items-center gap-2 font-mono flex-shrink-0">
-                  <span className="text-muted-foreground">{formatShortVal(val)}</span>
-                  <span
-                    className="px-1.5 py-0.2 rounded text-[10px] font-bold"
-                    style={{
-                      backgroundColor: `${color}20`,
-                      color: color,
-                      border: `1px solid ${color}40`,
-                    }}
-                  >
-                    {pct}%
-                  </span>
-                </div>
-              </div>
+              </>
             );
-          })}
+          })()}
         </div>
       )}
     </div>
