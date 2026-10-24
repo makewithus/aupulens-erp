@@ -13,6 +13,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
  * thread (attachment image data is stripped from the persisted copy to stay well
  * under the storage quota — thumbnails remain for the live session).
  */
+import type { ErpStructuredResponse } from "@/lib/ai/erpTypes";
+
 export interface AiChatMessage {
   role: string;
   text: string;
@@ -21,6 +23,7 @@ export interface AiChatMessage {
   attachments?: { name: string; type: string; dataUrl: string }[];
   /** One-tap replies (guided flow choices/actions) rendered as buttons under this message. */
   quickReplies?: { label: string; value: string; kind: "choice" | "action" }[];
+  structured?: ErpStructuredResponse;
 }
 
 type Updater = AiChatMessage[] | ((prev: AiChatMessage[]) => AiChatMessage[]);

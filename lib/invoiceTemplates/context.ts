@@ -87,7 +87,7 @@ export async function buildTemplateContext(input: BuildContextInput): Promise<Te
     tcsRate: invoice.taxes?.tcs || 0,
   });
 
-  const hsnSummary = computeHsnSummary(totals.computedLines, totals.isInterState);
+  const hsnSummary = computeHsnSummary(totals.computedLines, totals.isInterState, totals.extraDiscountAmount);
   const amountInWords = numberToWords(totals.totalAmount);
 
   const customerDoc = invoice.customerId || {};

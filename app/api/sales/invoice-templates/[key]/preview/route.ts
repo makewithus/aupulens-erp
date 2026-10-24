@@ -8,22 +8,23 @@ import { getTemplateDefinition, renderInvoiceTemplateFragment, buildTemplateCont
 // Sample data only — no real customer/tenant business data. Used to render a
 // live preview of a template in the "Awesome Templates" gallery.
 const SAMPLE_INVOICE = {
-  number: "INV-0001",
+  number: "SAMPLE-INV-0001",
   invoiceDate: new Date(),
   dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  reference: "PO-4521",
+  reference: "SAMPLE-PO-4521",
   type: "Regular",
   placeOfSupply: "Maharashtra",
   eWaybill: true,
   eInvoice: false,
-  notes: "Thank you for your business.",
+  notes: "Thank you for your business. (SAMPLE PREVIEW — NOT A REAL TAX INVOICE)",
   terms: "Payment due within 7 days of invoice date.",
   status: "saved",
   markedFullyPaid: false,
   payments: [],
   itemLevelDiscountPercent: 0,
-  additionalCharges: [{ name: "Shipping", amount: 150, isTaxable: false }],
+  additionalCharges: [{ name: "Adjustment / Delivery", amount: 150, isTaxable: false }],
   extraDiscount: 100,
+  extraDiscountMode: "amount",
   roundOff: true,
   taxes: { tds: 0, tcs: 0 },
   lineItems: [
@@ -32,7 +33,7 @@ const SAMPLE_INVOICE = {
     { name: "Support Plan (Annual)", description: "24x7 priority support", qty: 1, unitPrice: 12000, discount: 500, discountMode: "amount", taxRate: 18, hsn: "9984" },
   ],
   customerId: {
-    header: { name: "Coastal Retail Traders" },
+    header: { name: "Coastal Retail Traders (Sample Customer)" },
     gstin: "27AAAAA0000A1Z5",
     contact_details: { email: "billing@samplecustomer.example", phone: "+91 98765 43210" },
     address_tab: { street: "42 MG Road", city: "Pune", state_name: "Maharashtra", zip: "411001" },

@@ -23,3 +23,52 @@ export function sanitizeProductPayload(body: any) {
   }
   return body;
 }
+
+export const ACCOUNTING_ARTIFACT_NAME_REGEX =
+  /^(payment received|customer payment|vendor payment|advance payment|payment receipt|receipt voucher|journal entry|contra voucher|(?:payment|receipt)\s+against)\b/i;
+export const ACCOUNTING_ARTIFACT_CODE_REGEX = /^(PAY|REC|RCPT|PMT|JE|JV)-/i;
+
+/**
+ * Checks whether a product record is a confirmed non-product accounting artifact
+ * (such as a payment or receipt imported as a product).
+ * Preserves legitimate products (even if priced at ₹1).
+ */
+export function isAccountingArtifact(product: any): boolean {
+  if (!product) return false;
+  const name = String(product.header?.name || product.name || "").trim();
+  const code = String(product.tab_general_information?.default_code || product.sku || "").trim();
+
+  const nameMatches = ACCOUNTING_ARTIFACT_NAME_REGEX.test(name);
+  const codeMatches = ACCOUNTING_ARTIFACT_CODE_REGEX.test(code);
+
+  return nameMatches || codeMatches;
+}
+
+/**
+ * Safe, dry-run diagnostic utility to inspect a product catalog without mutating records.
+ */
+export function dryRunAuditProductArtifacts(products: any[]) {
+  const artifacts: any[] = [];
+  const legitimateProducts: any[] = [];
+
+  for (const p of products) {
+    if (isAccountingArtifact(p)) {
+      artifacts.push({
+        id: p._id,
+        name: p.header?.name || p.name,
+        code: p.tab_general_information?.default_code || p.sku,
+        price: p.tab_general_information?.list_price || p.price,
+        reason: "Matches accounting transaction pattern rather than catalog product",
+      });
+    } else {
+      legitimateProducts.push(p);
+    }
+  }
+
+  return {
+    totalScanned: products.length,
+    artifactCount: artifacts.length,
+    legitimateCount: legitimateProducts.length,
+    artifacts,
+  };
+}

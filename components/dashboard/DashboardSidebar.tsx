@@ -73,7 +73,7 @@ export function DashboardSidebar({
   return (
     <aside
       className={cn(
-        "hidden lg:flex shrink-0 flex-col border-r border-border/50 bg-background py-8 transition-all duration-300",
+        "hidden lg:flex shrink-0 flex-col border-r border-border/50 bg-background py-6 transition-all duration-300",
         isCollapsed ? "w-20" : "w-72",
         className
       )}
@@ -101,7 +101,7 @@ export function DashboardSidebar({
         </Button>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-2">
+      <div ref={scrollContainerRef} className="flex-1 w-full overflow-y-auto youtube-scrollbar flex flex-col gap-2 pr-1">
         {isLoading ? (
           <div aria-label="Loading navigation" aria-busy="true" className="w-full px-2 animate-pulse">
             {[0, 1, 2].map((group) => (
@@ -119,7 +119,7 @@ export function DashboardSidebar({
         ) : sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="w-full flex flex-col gap-1 px-2">
             {section.title && !isCollapsed && (
-              <div className="mb-6 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-muted-foreground">
+              <div className="mb-3 mt-4 first:mt-1 px-6 font-mono text-[10px] uppercase leading-none tracking-[0.32em] text-muted-foreground">
                 {section.title}
               </div>
             )}

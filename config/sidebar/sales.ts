@@ -51,7 +51,7 @@ export const salesSidebarConfig: SidebarSection[] = [
       },
       {
         title: "Orders",
-        href: "/sales/orders",
+        href: "/sales/sales-orders",
         icon: Package,
       },
       {

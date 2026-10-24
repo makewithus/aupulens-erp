@@ -1,3 +1,6 @@
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
+import { tryErpAssistant, safeErpError, providerFailure } from "@/lib/ai/erpAssistant";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -6,6 +9,8 @@ import { randomUUID } from 'crypto';
 import SaleOrder from '@/models/sales/SaleOrder';
 import SalesQuotation from '@/models/sales/SalesQuotation';
 import DeliveryChallan from '@/models/sales/DeliveryChallan';
+import Organization from '@/models/admin/Organization';
+import mongoose from 'mongoose';
 import { type ChatTurn } from '@/lib/ai/claude';
 import { resolveTenantAiSettings, callClaudeForTenant, callClaudeForTenantStream } from '@/lib/ai/tenantAi';
 import { safeContextJson } from '@/lib/ai/sanitizeContext';
@@ -41,6 +46,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
+    if (typeof message !== "string" || message.length > 8000 || (body.conversationId !== undefined && (typeof body.conversationId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(body.conversationId))) || (body.chatId != null && (typeof body.chatId !== "string" || !/^[a-f\d]{24}$/i.test(body.chatId)))) {
+      return NextResponse.json({ error: "The message or conversation identifier is invalid.", code: "INVALID_INPUT" }, { status: 400 });
+    }
+
     await connectDB();
 
     let conversationId: string = incomingConversationId || randomUUID();
@@ -56,6 +65,14 @@ export async function POST(request: NextRequest) {
     if (completedRetry) {
       if (body.stream) return new Response(completedRetry, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
       return NextResponse.json({ response: completedRetry, conversationId });
+    }
+
+    if (!body.attachments?.length && !body.attachment) {
+      const erp = await tryErpAssistant({ text: message, tenantId, userId, role: session.user.role, module: "sales", conversationId, requestId });
+      if (erp) {
+        if (body.stream) return new Response(erp.message, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": erp.conversationId } });
+        return NextResponse.json(erp);
+      }
     }
 
     const data = await fetchSalesData(tenantId);
@@ -92,8 +109,7 @@ export async function POST(request: NextRequest) {
             }
             await saveCompletedExchange({ tenantId, userId, conversationId, module: "sales", message, response: full, requestId });
           } catch {
-            // Model errored mid-stream — fall back to a deterministic summary.
-            if (!full) controller.enqueue(encoder.encode(generateSimpleResponse(message, data)));
+            controller.enqueue(encoder.encode("\n\nThe AI response was interrupted. Please retry."));
           } finally {
             controller.close();
           }
@@ -108,7 +124,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts, requestId);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
     // instead works either way (see lib/ai/claude.ts migration notes).
@@ -133,8 +149,8 @@ export async function POST(request: NextRequest) {
       console.error('[sales-ai] MongoDB Atlas storage quota reached; request could not be completed.');
       return NextResponse.json({ error: MONGO_STORAGE_LIMIT_MESSAGE, code: 'MONGODB_STORAGE_LIMIT' }, { status: 503 });
     }
-    console.error('Sales AI Error:', error);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+    const failure = safeErpError(error, randomUUID());
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }
 
@@ -145,12 +161,20 @@ async function fetchSalesData(tenantId: string) {
     .limit(20)
     .lean();
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce(
-    (sum: number, order: any) => sum + (order.totals?.amountTotal || 0),
-    0
-  );
-
+  const [totalOrders, issued, org] = await Promise.all([
+    SaleOrder.countDocuments({ tenantId }),
+    SalesInvoice.aggregate([
+      { $match: { tenantId, ...issuedInvoiceFilter() } },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]).exec(),
+    (Organization as any).findOne({
+      $or: [
+        { subdomain: tenantId },
+        ...(mongoose.isValidObjectId(tenantId) ? [{ _id: tenantId }] : []),
+      ],
+    }).select("name subdomain tier subscriptionStatus").lean(),
+  ]);
+  const totalRevenue = issued[0]?.total || 0;
   const productCounts: { [key: string]: number } = {};
   orders.forEach((order: any) => {
     order.orderLines?.forEach((item: any) => {
@@ -167,16 +191,16 @@ async function fetchSalesData(tenantId: string) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  const monthlyAgg = await (SaleOrder as any)
+  const monthlyAgg = await (SalesInvoice as any)
     .aggregate([
-      { $match: { tenantId, createdAt: { $gte: start } } },
+      { $match: { tenantId, ...issuedInvoiceFilter(), invoiceDate: { $gte: start } } },
       {
         $group: {
           _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
+            year: { $year: '$invoiceDate' },
+            month: { $month: '$invoiceDate' },
           },
-          total: { $sum: { $ifNull: ['$totals.amountTotal', 0] } },
+          total: { $sum: { $ifNull: ['$totalAmount', 0] } },
         },
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } },
@@ -184,9 +208,11 @@ async function fetchSalesData(tenantId: string) {
     .exec();
 
   return {
+    organization: org ? { name: org.name, subdomain: org.subdomain } : null,
     summary: {
       totalOrders,
       totalRevenue,
+      revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
       averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     },
     topProducts,
@@ -207,15 +233,15 @@ function buildSalesPrompt(message: string, data: any) {
 
 User Question: "${message}"
 
-Available Sales Data:
+Available Sales and Workspace Data:
 ${safeContextJson(data, { maxArray: 6 })}
 
 Instructions:
-1. Answer using the provided data only. Do not invent numbers.
+1. Answer using the provided data only. Do not invent numbers. If the user asks for their organization/company name and it is present in the workspace data, state it clearly.
 2. Format currency values with ₹ (Indian ERP).
 3. If the user asks for forecasts or predictions, analyze monthly trends and extrapolate.
 4. Use bullet points for clarity. Be concise but complete.
-5. If data is missing or insufficient, say so clearly.`;
+5. If data is missing or insufficient, state so naturally without using internal jargon like "snapshot", "data snapshot", or "context payload". Guide the user on where in the app to find or enter it.`;
 
   return {
     prompt,
@@ -233,7 +259,8 @@ async function generateResponse(
   tier: string,
   aiSettings: Parameters<typeof callClaudeForTenant>[2],
   imageDataUrls: string[] = [],
-  docTexts: string[] = []
+  docTexts: string[] = [],
+  requestId?: string,
 ): Promise<GenerateResult> {
   const built = buildSalesPrompt(message, data);
   const prompt = built.prompt + attachmentsPromptBlock(imageDataUrls, docTexts);
@@ -245,6 +272,7 @@ async function generateResponse(
       systemPrompt,
       maxTokens,
       history: priorTurns,
+      idempotencyKey: requestId,
       imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
     });
     if ("text" in result) {
@@ -257,8 +285,8 @@ async function generateResponse(
       currentTier: result.currentTier,
       requiredAction: result.requiredAction,
     };
-  } catch {
-    return { gated: false, text: generateSimpleResponse(message, data) };
+  } catch (error) {
+    throw providerFailure(error);
   }
 }
 

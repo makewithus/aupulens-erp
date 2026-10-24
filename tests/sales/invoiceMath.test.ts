@@ -71,12 +71,20 @@ describe("computeInvoiceTotals", () => {
   });
 
   it("adds taxable additional charges into the taxable amount and non-taxable ones only into the total", () => {
-    const totals = computeInvoiceTotals({
+    const nonTaxable = computeInvoiceTotals({
       lineItems: baseLines,
       additionalCharges: [{ name: "Shipping", amount: 100, isTaxable: false }],
     });
-    expect(totals.additionalChargesTotal).toBe(100);
-    expect(totals.taxableAmount).toBe(1400 + 100);
+    expect(nonTaxable.additionalChargesTotal).toBe(100);
+    expect(nonTaxable.taxableAmount).toBe(1400); // Excluded from taxableAmount
+    expect(nonTaxable.totalAmount).toBeCloseTo(1400 + 100 + 228);
+
+    const taxable = computeInvoiceTotals({
+      lineItems: baseLines,
+      additionalCharges: [{ name: "Handling Fee", amount: 100, isTaxable: true }],
+    });
+    expect(taxable.additionalChargesTotal).toBe(100);
+    expect(taxable.taxableAmount).toBe(1400 + 100); // Included in taxableAmount
   });
 
   it("rounds off the total only when roundOff is true", () => {

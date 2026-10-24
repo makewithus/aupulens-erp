@@ -1,7 +1,9 @@
 "use client";
+import { runErpAssistant } from "@/lib/ai/erpAssistantClient";
 import { VoiceActivity } from "@/components/ai/VoiceActivity";
-import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { AiUsageIndicator, ErpUsageNotice } from "@/components/ai/AiUsageIndicator";
 import { AiMarkdown } from "@/components/ai/AiMarkdown";
+import type { ErpStructuredResponse } from "@/lib/ai/erpTypes";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
@@ -49,7 +51,9 @@ interface Message {
   timestamp: Date;
   isLoading?: boolean;
   quickReplies?: QuickReply[];
+  erpCreditsUsed?: number;
   attachments?: { name: string; type: string; dataUrl: string }[];
+  structured?: ErpStructuredResponse;
 }
 
 interface ChatHistoryItem {
@@ -166,22 +170,28 @@ export default function AIAssistant() {
     }
   }, [status, session, router]);
 
+  const hasLoadedHistoryRef = useRef(false);
+
   // Fetch chat history
   useEffect(() => {
     if (session?.user?.id) {
-      fetchChatHistory();
+      const isInitial = !hasLoadedHistoryRef.current;
+      fetchChatHistory(isInitial);
+      hasLoadedHistoryRef.current = true;
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
-  const fetchChatHistory = async () => {
+  const fetchChatHistory = async (showLoading = false) => {
     try {
-      setLoadingHistory(true);
+      if (showLoading) {
+        setLoadingHistory(true);
+      }
       const response = await fetch(
         "/api/admin/chat-history?includeArchived=true"
       );
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data?.chats) {
         const active = data.chats.filter(
           (chat: ChatHistoryItem) => !chat.isArchived
         );
@@ -321,11 +331,15 @@ export default function AIAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const sendInFlight = useRef(false);
+  useEffect(() => { if (!isLoading) sendInFlight.current = false; }, [isLoading]);
   const handleSubmit = async (e: React.FormEvent, overrideInput?: string) => {
     e.preventDefault();
     const textToSend = overrideInput || input;
     if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
 
+    if (sendInFlight.current) return;
+    sendInFlight.current = true;
     const isFirstMessage = messages.length === 0;
     const activeConversationId = currentConversationId || crypto.randomUUID();
     setCurrentConversationId(activeConversationId);
@@ -354,6 +368,18 @@ export default function AIAssistant() {
 
     const sentAttachments = attachments;
     setAttachments([]); // consumed by this send
+
+    if (!sentAttachments.length) {
+      const erp = await runErpAssistant({ text: userInputText, module: "admin", chatId: currentChatId || undefined, conversationId: currentConversationId, requestId: crypto.randomUUID() });
+      if (erp.handled) {
+        setMessages(prev => prev.filter(m => !m.isLoading).concat({ id: crypto.randomUUID(), role: "assistant", content: erp.message || "", structured: erp.structured, erpCreditsUsed: erp.usage?.creditsUsed, timestamp: new Date(), quickReplies: erp.actions?.map(a => ({ label: a.label, value: a.value, kind: "action" as const })) }));
+        if (erp.chatId) setCurrentChatId(erp.chatId);
+        if (erp.conversationId) setCurrentConversationId(erp.conversationId);
+        setIsLoading(false);
+        await fetchChatHistory();
+        return;
+      }
+    }
 
     // AI-native create: try this FIRST. If the message is a create request —
     // for THIS module's forms or any OTHER module's — extract the fields and
@@ -407,7 +433,16 @@ export default function AIAssistant() {
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok || contentType.includes("application/json")) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to get response");
+        const errMessage = data.error || "Failed to get response";
+        const isCreditError = data.code === "AI_CREDITS_EXHAUSTED" || data.code === "AI_LIMIT_REACHED" || /credit|usage limit|exhausted/i.test(errMessage);
+        if (isCreditError) {
+          toast.error(errMessage, { duration: 6000 });
+          setMessages((prev) => prev.filter((m) => m.id !== loadingMessage.id));
+          refreshAiUsage();
+          setIsLoading(false);
+          return;
+        }
+        throw new Error(errMessage);
       }
 
       // Read the stream and append deltas to the assistant message as they arrive.
@@ -479,21 +514,29 @@ export default function AIAssistant() {
         // The assistant route already persisted this completed exchange.
         await fetchChatHistory();
       }
-    } catch (error) {
-      console.error("Error:", error);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === loadingMessage.id
-            ? {
-                ...msg,
-                content: "Sorry, I encountered an error. Please try again.",
-                isLoading: false,
-              }
-            : msg
-        )
-      );
+    } catch (error: any) {
+      const msg = error?.message || "";
+      const isCreditError = /credit|usage limit|exhausted/i.test(msg);
+      if (isCreditError) {
+        toast.error(msg, { duration: 6000 });
+        setMessages((prev) => prev.filter((m) => m.id !== loadingMessage.id));
+      } else {
+        console.error("Error:", error);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === loadingMessage.id
+              ? {
+                  ...msg,
+                  content: "Sorry, I encountered an error. Please try again.",
+                  isLoading: false,
+                }
+              : msg
+          )
+        );
+      }
     } finally {
       setIsLoading(false);
+      refreshAiUsage();
     }
   };
 
@@ -564,6 +607,7 @@ export default function AIAssistant() {
           {/* New Chat Button */}
           <div className="p-4 border-b border-border/50 flex items-center justify-between">
             <Button
+              type="button"
               onClick={startNewChat}
               className="flex-1 bg-accent hover:bg-accent text-foreground gap-2"
               size="sm"
@@ -572,6 +616,7 @@ export default function AIAssistant() {
               New Chat
             </Button>
             <button
+              type="button"
               onClick={() => setShowHistory(false)}
               className="md:hidden p-2 text-muted-foreground hover:text-foreground"
             >
@@ -603,6 +648,7 @@ export default function AIAssistant() {
                           }`}
                         >
                           <button
+                            type="button"
                             onClick={() => loadChat(chat)}
                             className="flex-1 text-left truncate"
                             title={chat.title}
@@ -611,6 +657,7 @@ export default function AIAssistant() {
                           </button>
                           <div className="hidden group-hover:flex items-center gap-1">
                             <button
+                              type="button"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 toggleArchive(chat._id, chat.isArchived);
@@ -621,6 +668,7 @@ export default function AIAssistant() {
                               <Archive className="h-3 w-3" />
                             </button>
                             <button
+                              type="button"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 if (
@@ -793,7 +841,7 @@ export default function AIAssistant() {
                           </div>
                         ) : (
                           message.role === "assistant"
-                            ? <AiMarkdown content={message.content} className="text-[15px] leading-7" />
+                            ? <><AiMarkdown content={message.content} structured={message.structured} onAction={(v) => handleSubmit({ preventDefault() {} } as React.FormEvent, v)} className="text-[15px] leading-7" /><ErpUsageNotice creditsUsed={message.erpCreditsUsed} /></>
                             : <div className="whitespace-pre-wrap">{message.content}</div>
                         )}
                       </div>

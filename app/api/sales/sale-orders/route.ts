@@ -11,6 +11,7 @@ import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 // Map client legacy status to DB DocumentStatus
 function toDbStatus(status: string): string {
+  if (status === "draft") return DOCUMENT_STATUS.DRAFT;
   if (status === "sale") return DOCUMENT_STATUS.APPROVED;
   if (status === "sent") return DOCUMENT_STATUS.PENDING_APPROVAL;
   if (status === "cancel") return DOCUMENT_STATUS.CANCELLED;
@@ -20,6 +21,7 @@ function toDbStatus(status: string): string {
 
 // Map DB DocumentStatus to client legacy status
 function toClientStatus(status: string): string {
+  if (status === DOCUMENT_STATUS.DRAFT) return "draft";
   if (status === DOCUMENT_STATUS.APPROVED) return "sale";
   if (status === DOCUMENT_STATUS.PENDING_APPROVAL) return "sent";
   if (status === DOCUMENT_STATUS.CANCELLED) return "cancel";
@@ -59,7 +61,11 @@ export async function GET(request: Request) {
 
     if (status) {
       const statuses = status.split(",").map(toDbStatus);
-      query.status = { $in: statuses };
+      const rawStatuses = status.split(",");
+      query.$or = [
+        { status: { $in: [...statuses, ...rawStatuses] } },
+        { salesOrderStatus: { $in: rawStatuses } },
+      ];
     }
 
     if (q2cStatus) {

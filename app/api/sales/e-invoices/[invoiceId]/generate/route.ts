@@ -36,6 +36,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const existing = await EInvoice.findOne({ tenantId, invoiceId });
+    if (existing?.status === EINVOICE_STATUS.SUCCESS && existing?.irn) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: "E-invoice IRN already generated for this invoice",
+          data: existing,
+          alreadyGenerated: true,
+        },
+        { status: 200 },
+      );
+    }
 
     const result = await getGspService().generateEinvoice(
       { provider: credential.provider, username: credential.username, password: decrypt(credential.encryptedPassword) },

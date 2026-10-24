@@ -1,3 +1,4 @@
+import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
 import SaleOrder from "@/models/sales/SaleOrder";
 import InventoryItem from "@/models/inventory/InventoryItem";
 import Transaction from "@/models/finance/Transaction";
@@ -6,6 +7,8 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import Payment from "@/models/sales/Payment";
 import User from "@/models/auth/User";
 import Shipment from "@/models/manufacturing/Shipment";
+import Organization from "@/models/admin/Organization";
+import mongoose from "mongoose";
 
 export async function fetchAdminFinanceData(tenantId: string) {
   const [transactions, payments, invoices, salesInvoices] = await Promise.all([
@@ -15,15 +18,11 @@ export async function fetchAdminFinanceData(tenantId: string) {
     (SalesInvoice as any).find({ tenantId }).sort({ createdAt: -1 }).limit(10).lean(),
   ]);
 
-  const salesRevenue = salesInvoices.reduce(
-    (sum: number, inv: any) => sum + (inv.totalAmount || inv.amountTotal || 0),
-    0
-  );
-  const invoiceRevenue = invoices.reduce(
-    (sum: number, inv: any) => sum + (inv.amountTotal || inv.totalAmount || 0),
-    0
-  );
-  const totalRevenue = salesRevenue > 0 ? salesRevenue : invoiceRevenue;
+  const issued = await SalesInvoice.aggregate([
+    { $match: { tenantId, ...issuedInvoiceFilter() } },
+    { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+  ]).exec();
+  const totalRevenue = issued[0]?.total || 0;
   const totalTransactions = payments.length > 0 ? payments.length : transactions.length;
 
   const combinedInvoices = salesInvoices.length > 0 ? salesInvoices : invoices;
@@ -32,6 +31,7 @@ export async function fetchAdminFinanceData(tenantId: string) {
   return {
     summary: {
       totalRevenue,
+      revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
       totalTransactions,
       recentInvoices: combinedInvoices.length,
     },
@@ -54,19 +54,14 @@ export async function fetchAdminSalesData(tenantId: string) {
       .lean(),
   ]);
 
-  const ordersCount = orders.length;
-  const totalOrders = ordersCount > 0 ? ordersCount : salesInvoices.length;
-
-  const ordersRevenue = orders.reduce(
-    (sum: number, order: any) => sum + (order.totals?.amountTotal || 0),
-    0
-  );
-  const invoicesRevenue = salesInvoices.reduce(
-    (sum: number, inv: any) => sum + (inv.totalAmount || inv.amountTotal || 0),
-    0
-  );
-  const totalRevenue = ordersRevenue > 0 ? ordersRevenue : invoicesRevenue;
-
+  const [totalOrders, issued] = await Promise.all([
+    SaleOrder.countDocuments({ tenantId }),
+    SalesInvoice.aggregate([
+      { $match: { tenantId, ...issuedInvoiceFilter() } },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]).exec(),
+  ]);
+  const totalRevenue = issued[0]?.total || 0;
   const productCounts: Record<string, number> = {};
   if (orders.length > 0) {
     orders.forEach((order: any) => {
@@ -92,18 +87,16 @@ export async function fetchAdminSalesData(tenantId: string) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  const monthlyAgg = orders.length > 0
-    ? await SaleOrder.aggregate([
-        { $match: { tenantId, createdAt: { $gte: start } } },
+  const monthlyAgg = await SalesInvoice.aggregate([
+        { $match: { tenantId, ...issuedInvoiceFilter(), invoiceDate: { $gte: start } } },
         {
           $group: {
-            _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-            total: { $sum: { $ifNull: ["$totals.amountTotal", 0] } },
+            _id: { year: { $year: "$invoiceDate" }, month: { $month: "$invoiceDate" } },
+            total: { $sum: { $ifNull: ["$totalAmount", 0] } },
           },
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } },
-      ]).exec()
-    : [];
+      ]).exec();
 
   const monthlyMap: Record<string, number> = {};
   monthlyAgg.forEach((m: any) => {
@@ -127,6 +120,7 @@ export async function fetchAdminSalesData(tenantId: string) {
     summary: {
       totalOrders,
       totalRevenue,
+      revenueBasis: "Issued invoice gross value including tax, excluding drafts/cancellations",
       averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
     },
     topProducts,
@@ -195,11 +189,20 @@ export async function fetchAdminUsersData(tenantId: string) {
 }
 
 export async function fetchAdminGeneralData(tenantId: string) {
-  const [users, orders, items] = await Promise.all([
+  const [users, orders, items, org] = await Promise.all([
     User.countDocuments({ tenantId }),
     SaleOrder.countDocuments({ tenantId }),
     InventoryItem.countDocuments({ tenantId }),
+    (Organization as any).findOne({
+      $or: [
+        { subdomain: tenantId },
+        ...(mongoose.isValidObjectId(tenantId) ? [{ _id: tenantId }] : []),
+      ],
+    }).select("name subdomain tier subscriptionStatus").lean(),
   ]);
 
-  return { summary: { totalUsers: users, totalOrders: orders, totalInventoryItems: items } };
+  return {
+    organization: org ? { name: org.name, subdomain: org.subdomain, tier: org.tier, subscriptionStatus: org.subscriptionStatus } : null,
+    summary: { totalUsers: users, totalOrders: orders, totalInventoryItems: items },
+  };
 }

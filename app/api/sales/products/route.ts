@@ -6,9 +6,14 @@ import connectDB from "@/lib/db";
 import Product from "@/models/inventory/Product";
 import InventoryItem from "@/models/inventory/InventoryItem";
 import { escapeRegex } from "@/lib/utils/regex";
-import { sanitizeProductPayload } from "@/lib/sales/productSanitize";
 import { STOCK_LEVEL_STATUS } from "@/lib/constants/statuses";
 import { dedupeProductsForTenant } from "@/lib/migration/productDedupe";
+import {
+  sanitizeProductPayload,
+  isAccountingArtifact,
+  ACCOUNTING_ARTIFACT_NAME_REGEX,
+  ACCOUNTING_ARTIFACT_CODE_REGEX,
+} from "@/lib/sales/productSanitize";
 
 function productIdentityFilter(body: any, tenantId: string, excludeId?: string) {
   const code = String(body.tab_general_information?.default_code || "").trim();
@@ -46,6 +51,17 @@ export async function GET(req: any) {
     const filter: any = {
       tenantId,
     };
+
+    // Exclude confirmed non-product accounting artifacts (receipt/payment legacy entries)
+    // unless explicitly requested via includeArtifacts=true
+    if (searchParams.get("includeArtifacts") !== "true") {
+      filter["header.name"] = {
+        $not: ACCOUNTING_ARTIFACT_NAME_REGEX,
+      };
+      filter["tab_general_information.default_code"] = {
+        $not: ACCOUNTING_ARTIFACT_CODE_REGEX,
+      };
+    }
 
     const status = searchParams.get("status");
     if (status) {
@@ -178,6 +194,13 @@ export async function POST(request: Request) {
     if (!body.header?.name) {
       return NextResponse.json(
         { error: "Product name is required" },
+        { status: 400 },
+      );
+    }
+
+    if (isAccountingArtifact(body)) {
+      return NextResponse.json(
+        { error: "Cannot create product: name or code matches an accounting transaction artifact." },
         { status: 400 },
       );
     }

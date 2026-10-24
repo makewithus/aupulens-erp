@@ -112,7 +112,7 @@ export async function tryAiCreateFlow(input: {
     }
     return {
       handled: true,
-      message: data.message || `I couldn't prepare the ${targetDef.label} form. Please add a bit more detail and try again.`,
+      message: data.message || (targetDef.target === "sales_quote" || targetDef.target === "quote" ? "Which customer should this quote be for?" : `Which customer or details should I use for the ${targetDef.label}?`),
     };
   } catch {
     return { handled: true, message: "Something went wrong preparing the form. Please try again." };

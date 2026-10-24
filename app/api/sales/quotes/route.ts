@@ -3,11 +3,11 @@ import connectDB from "@/lib/db";
 import { auth } from "@/auth";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import SalesView from "@/models/sales/SalesView";
-import { computeInvoiceTotals } from "@/lib/sales/invoiceMath";
-import { generateQuoteNumber } from "@/lib/sales/quoteNumbering";
+import { createSalesQuote } from "@/lib/sales/createQuote";
+import { ErpToolError } from "@/lib/ai/erpQuery";
 import { buildMongoFilterFromCriteria } from "@/lib/sales/quoteViews";
-import { QUOTE_STATUS, QUOTE_STATUS_VALUES } from "@/lib/constants/statuses";
-import "@/models/sales/Customer"; // side-effect import: registers "Customer" for .populate("customerId") below
+import { QUOTE_STATUS_VALUES } from "@/lib/constants/statuses";
+import Customer from "@/models/sales/Customer";
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +39,22 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim();
     if (search) {
       const words = search.trim().split(/\s+/).map(w => w.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\$&"));
+      const customerMatches = await Customer.find({
+        tenantId,
+        $and: words.map(word => ({
+          $or: [
+            { "header.name": { $regex: word, $options: "i" } },
+            { "header.displayName": { $regex: word, $options: "i" } },
+          ],
+        })),
+      }, { _id: 1 }).lean();
+      const customerIds = customerMatches.map(c => c._id);
+
       query.$and = words.map(word => ({
         $or: [
           { "quoteNumber": { $regex: word, $options: "i" } },
-          { "subject": { $regex: word, $options: "i" } }
+          { "subject": { $regex: word, $options: "i" } },
+          ...(customerIds.length > 0 ? [{ customerId: { $in: customerIds } }] : []),
         ]
       }));
     }
@@ -115,43 +127,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "At least one line item is required" }, { status: 400 });
     }
 
-    const taxMode = body.taxes?.mode || "none";
-    const taxRate = taxMode !== "none" ? Number(body.taxes?.rate) || 0 : 0;
-
-    const totals = computeInvoiceTotals({
-      lineItems: body.lineItems,
-      itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,
-      extraDiscount: body.extraDiscount || 0,
-      extraDiscountMode: body.extraDiscountMode || "amount",
-      tdsRate: taxMode === "tds" ? taxRate : 0,
-      tcsRate: taxMode === "tcs" ? taxRate : 0,
-    });
-
-    const adjustment = Number(body.adjustment) || 0;
-    const totalAmount = totals.totalAmount + adjustment;
-
-    let quoteNumber = body.quoteNumber;
-    if (!quoteNumber) {
-      const generated = await generateQuoteNumber(tenantId, body.prefix);
-      quoteNumber = generated.number;
-    }
-
-    const quote = await SalesQuotation.create({
-      ...body,
-      lineItems: totals.computedLines,
-      tenantId,
-      quoteNumber,
-      taxes: { mode: taxMode, taxId: body.taxes?.taxId || undefined, rate: taxRate, amount: taxMode === "tds" ? totals.tdsAmount : totals.tcsAmount },
-      adjustment,
-      taxableAmount: totals.taxableAmount,
-      totalDiscount: totals.totalDiscount,
-      totalAmount,
-      status: QUOTE_STATUS_VALUES.includes(body.status) ? body.status : QUOTE_STATUS.DRAFT,
-      createdBy: session.user.id,
-    });
+    const quote = await createSalesQuote(tenantId, session.user.id, body);
 
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof ErpToolError) return NextResponse.json({ success: false, message: error.message, code: error.code }, { status: error.status });
     if (error?.code === 11000) {
       return NextResponse.json(
         { success: false, message: "That quote number is already in use. Please choose another." },

@@ -5,7 +5,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { friendlyError } from "@/lib/errors/friendlyError";
+import { friendlyError, isAbortError } from "@/lib/errors/friendlyError";
 
 // App-wide safety net: every toast.error(...) in the app passes through
 // friendlyError so raw backend text (Mongoose paths, BSON casts, driver
@@ -14,8 +14,15 @@ import { friendlyError } from "@/lib/errors/friendlyError";
 const patched = toast as typeof toast & { __friendly?: boolean };
 if (typeof window !== "undefined" && !patched.__friendly) {
   const original = toast.error.bind(toast);
-  patched.error = ((message: any, data?: any) =>
-    original(typeof message === "string" ? friendlyError(message) : message, data)) as typeof toast.error;
+  patched.error = ((message: any, data?: any) => {
+    if (isAbortError(message) || (data && isAbortError(data))) {
+      return;
+    }
+    const raw = typeof message === "string" ? message : message?.message || message;
+    const friendly = friendlyError(raw);
+    if (!friendly) return;
+    return original(friendly, data);
+  }) as typeof toast.error;
   patched.__friendly = true;
 }
 

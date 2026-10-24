@@ -100,7 +100,7 @@ export async function prepareLanguageInput(input: PrepareInput): Promise<Languag
       if (m.changed && placeholdersIntact(m.text, prep.entities)) {
         const restored = unprotectEntities(m.text, prep.entities).replace(/[ ]{2,}/g, " ").trim();
         if (detectLanguage(restored).kind === "english") {
-          return finish({ ...trace, translated: restored, modelText: restored, changedMaterially: true, interpretation: restored, rewrites: [...prep.rewrites, "mapped common Hindi words locally (no translation call)"] });
+          return finish({ ...trace, locallyMapped: true, translated: restored, modelText: restored, changedMaterially: true, interpretation: restored, rewrites: [...prep.rewrites, "mapped common Hindi words locally (no translation call)"] });
         }
       }
     }

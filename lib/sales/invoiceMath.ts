@@ -4,6 +4,7 @@ import { normalizeIndianState } from "@/lib/constants/indianStates";
 export interface InvoiceLineInput {
   qty: number;
   unitPrice: number;
+  unit?: string;
   discount: number;
   discountMode: "percent" | "amount";
   taxRate: number;
@@ -86,6 +87,9 @@ export interface InvoiceTotalsResult {
   roundOffAmount: number;
   totalAmount: number;
   gstBreakup: { label: string; amount: number }[];
+  taxableAdditionalCharges?: number;
+  nonTaxableAdditionalCharges?: number;
+  additionalCharges?: { name: string; amount: number; isTaxable?: boolean }[];
 }
 
 function normalizeState(s?: string) {
@@ -120,9 +124,10 @@ export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotalsRe
   const taxableAdditionalCharges = additionalCharges
     .filter((c) => c.isTaxable)
     .reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const nonTaxableAdditionalCharges = additionalChargesTotal - taxableAdditionalCharges;
 
   const netTaxableBase = Math.max(0, sumTaxableBeforeExtra - extraDiscountAmount);
-  const taxableAmount = round2(netTaxableBase + additionalChargesTotal);
+  const taxableAmount = round2(netTaxableBase + taxableAdditionalCharges);
 
   // Weighted-average effective tax rate carried over proportionally after
   // extra discount is applied, then charged on the taxable portion of
@@ -140,7 +145,7 @@ export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotalsRe
   const tdsAmount = tdsRate ? round2((taxableAmount * tdsRate) / 100) : 0;
   const tcsAmount = tcsRate ? round2(((taxableAmount + totalTax) * tcsRate) / 100) : 0;
 
-  const totalBeforeRound = taxableAmount + totalTax + tcsAmount - tdsAmount;
+  const totalBeforeRound = taxableAmount + nonTaxableAdditionalCharges + totalTax + tcsAmount - tdsAmount;
   const roundOffAmount = roundOff ? Math.round(totalBeforeRound) - totalBeforeRound : 0;
   const totalAmount = totalBeforeRound + roundOffAmount;
 
@@ -171,6 +176,13 @@ export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotalsRe
     roundOffAmount: round2(roundOffAmount),
     totalAmount: round2(totalAmount),
     gstBreakup,
+    taxableAdditionalCharges: round2(taxableAdditionalCharges),
+    nonTaxableAdditionalCharges: round2(nonTaxableAdditionalCharges),
+    additionalCharges: additionalCharges.map((c) => ({
+      name: c.name || "Adjustment",
+      amount: round2(Number(c.amount) || 0),
+      isTaxable: !!c.isTaxable,
+    })),
   };
 }
 
@@ -184,22 +196,30 @@ export interface HsnSummaryRow {
   total: number;
 }
 
-export function computeHsnSummary(computedLines: ComputedLine[], isInterState: boolean): HsnSummaryRow[] {
+export function computeHsnSummary(
+  computedLines: ComputedLine[],
+  isInterState: boolean,
+  extraDiscountAmount = 0,
+): HsnSummaryRow[] {
+  const sumTaxable = computedLines.reduce((acc, l) => acc + l.taxableValue, 0);
+  const factor = sumTaxable > 0 && extraDiscountAmount > 0 ? Math.max(0, (sumTaxable - extraDiscountAmount) / sumTaxable) : 1;
   const map = new Map<string, HsnSummaryRow>();
   for (const line of computedLines) {
     const hsn = line.hsn || "-";
     const row =
       map.get(hsn) ||
       ({ hsn, taxableValue: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalTax: 0, total: 0 } as HsnSummaryRow);
-    row.taxableValue += line.taxableValue;
+    const lineTaxable = line.taxableValue * factor;
+    const lineTax = line.taxAmount * factor;
+    row.taxableValue += lineTaxable;
     if (isInterState) {
-      row.igstAmount += line.taxAmount;
+      row.igstAmount += lineTax;
     } else {
-      row.cgstAmount += line.taxAmount / 2;
-      row.sgstAmount += line.taxAmount / 2;
+      row.cgstAmount += lineTax / 2;
+      row.sgstAmount += lineTax / 2;
     }
-    row.totalTax += line.taxAmount;
-    row.total += line.lineTotal;
+    row.totalTax += lineTax;
+    row.total += lineTaxable + lineTax;
     map.set(hsn, row);
   }
   return Array.from(map.values()).map((r) => ({

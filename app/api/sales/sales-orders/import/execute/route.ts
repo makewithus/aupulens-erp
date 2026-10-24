@@ -88,10 +88,14 @@ export async function POST(request: Request) {
           name: String(get(row, "itemName")),
           qty: Number(get(row, "quantity")) || 1,
           unitPrice: Number(get(row, "rate")) || 0,
-          discount: 0,
+          discount: Number(get(row, "discount")) || 0,
           discountMode: "percent" as const,
-          taxRate: 0,
+          taxRate: Number(get(row, "taxRate")) || 0,
+          hsn: get(row, "hsn") ? String(get(row, "hsn")) : undefined,
         })),
+        sellerState: customer.addresses?.[0]?.state_name || "Maharashtra",
+        placeOfSupply: customer.addresses?.[0]?.state_name || "Maharashtra",
+        roundOff: true,
       });
 
       let number = autoGenerateNumbers ? undefined : get(first, "salesOrderNumber");
@@ -115,9 +119,9 @@ export async function POST(request: Request) {
             name: line.name,
             productQty: line.qty,
             priceUnit: line.unitPrice,
-            taxIds: [],
+            taxIds: line.taxRate ? [{ name: `GST ${line.taxRate}%`, rate: line.taxRate }] : [],
             discount: line.discount,
-            priceSubtotal: line.lineTotal,
+            priceSubtotal: line.taxableValue,
           })),
           otherInfo: { clientOrderRef: get(first, "reference") },
           totals: {

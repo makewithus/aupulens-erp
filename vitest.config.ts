@@ -6,7 +6,8 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    include: ["tests/**/*.test.ts"],
+    setupFiles: process.env.QA_DISPOSABLE_MONGO_PORT ? ["tests/setup/disposableMongo.ts"] : [],
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     // Mongo-backed suites run a heavy beforeAll (connect + dozens of Model.init() + dynamic imports of
     // large module graphs — the first DB call in a file pulls in every registered model, lib/dbModels.ts)
     // that all funnel through Vite's single transform server. Under load those sat right at the old 10 s

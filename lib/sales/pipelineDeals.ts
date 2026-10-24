@@ -147,7 +147,14 @@ export async function listDeals(tenantId: string, userId?: string) {
   }
 
   const deals: any[] = orders.map((o: any) => {
-    const stage: Q2CStatus = o.q2cStatus || Q2C_STATUS.LEAD;
+    let stage: Q2CStatus = o.q2cStatus || Q2C_STATUS.LEAD;
+    if (o.salesOrderStatus === "void" || o.salesOrderStatus === "cancelled" || o.status === "cancel" || o.status === "cancelled") {
+      stage = Q2C_STATUS.CANCELLED;
+    } else if (o.salesOrderStatus === "closed" || o.status === "closed") {
+      if (stage !== Q2C_STATUS.REVENUE_RECOGNIZED && stage !== Q2C_STATUS.INVOICE_POSTED) {
+        stage = Q2C_STATUS.REVENUE_RECOGNIZED;
+      }
+    }
     const type = docTypeForStage(stage, o);
     const ref = refFor(o, type);
     return {
@@ -274,74 +281,126 @@ export async function createOrderFromQuote(params: { tenantId: string; userId: s
   if (quote.saleOrderId) {
     const existing: any = await (SaleOrder as any).findOne({ _id: quote.saleOrderId, tenantId }).lean();
     if (existing) {
-      throw new DealError(`This quote has already been moved to sales order ${existing.header?.name}.`, 409);
+      throw new DealError(`This quote has already been moved to sales order ${existing.header?.name || existing._id}.`, 409);
     }
   }
+
+  const existingByQuote: any = await (SaleOrder as any).findOne({ tenantId, quoteId: quote._id }).lean();
+  if (existingByQuote) {
+    throw new DealError(`This quote has already been moved to sales order ${existingByQuote.header?.name || existingByQuote._id}.`, 409);
+  }
+
   if (quote.status === QUOTE_STATUS.REJECTED) {
     throw new DealError("A rejected quote cannot be moved to a sales order. Re-open the quote first.", 409);
   }
 
-  const totals = computeInvoiceTotals({
-    lineItems: quote.lineItems as any,
-    itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
-    extraDiscount: quote.extraDiscount,
-    extraDiscountMode: quote.extraDiscountMode,
-    tdsRate: quote.taxes?.mode === "tds" ? quote.taxes.rate : 0,
-    tcsRate: quote.taxes?.mode === "tcs" ? quote.taxes.rate : 0,
-  });
-  const { number } = await generateSaleOrderNumber(tenantId);
-  const now = new Date();
-
-  const order: any = await (SaleOrder as any).create({
-    tenantId,
-    header: { name: number, partnerId: quote.customerId, dateOrder: now },
-    orderLines: (quote.lineItems as any[]).map((li, i) => ({
-      productId: li.itemId || undefined,
-      name: li.name,
-      productQty: Number(li.qty) || 1,
-      priceUnit: Number(li.unitPrice) || 0,
-      taxIds: [],
-      discount: Number(li.discount) || 0,
-      discountMode: li.discountMode || "percent",
-      taxRate: Number(li.taxRate) || 0,
-      hsn: li.hsn,
-      priceSubtotal: totals.computedLines[i]?.lineTotal ?? 0,
-    })),
-    otherInfo: { clientOrderRef: quote.reference },
-    totals: {
-      amountUntaxed: totals.taxableAmount,
-      amountTax: totals.totalTax,
-      amountTotal: quote.totalAmount ?? totals.totalAmount,
+  const lock = await (SalesQuotation as any).findOneAndUpdate(
+    {
+      _id: quote._id,
+      tenantId,
+      saleOrderId: null,
+      $or: [
+        { isConvertingToOrder: { $ne: true } },
+        { orderConversionStartedAt: { $lt: new Date(Date.now() - 60000) } },
+      ],
     },
-    status: DOCUMENT_STATUS.APPROVED,
-    q2cStatus: Q2C_STATUS.SALES_ORDER,
-    salesOrderStatus: SALES_ORDER_STATUS.CONFIRMED,
-    shipmentStatus: SALES_ORDER_SHIPMENT_STATUS.NOT_SHIPPED,
-    invoicingStatus: SALES_ORDER_INVOICING_STATUS.NOT_INVOICED,
-    extraDiscount: quote.extraDiscount || 0,
-    extraDiscountMode: quote.extraDiscountMode || "amount",
-    taxMode: quote.taxes?.mode || "none",
-    taxRate: quote.taxes?.rate || 0,
-    adjustment: quote.adjustment || 0,
-    subTotal: totals.subtotal,
-    taxAmount: totals.totalTax,
-    customerNotes: quote.customerNotes,
-    termsAndConditions: quote.terms,
-    attachments: quote.attachments || [],
-    quoteId: quote._id,
-    quoteNumber: quote.quoteNumber,
-    refHistory: [
-      { docType: "QT", ref: quote.quoteNumber, docId: quote._id, stage: Q2C_STATUS.QUOTE_GENERATED, at: quote.createdAt || now },
-      { docType: "SO", ref: number, stage: Q2C_STATUS.SALES_ORDER, at: now },
-    ],
-    chatter: [],
-  });
+    {
+      $set: {
+        isConvertingToOrder: true,
+        orderConversionStartedAt: new Date(),
+      },
+    },
+    { new: true }
+  );
 
-  quote.saleOrderId = order._id;
-  if (quote.status !== QUOTE_STATUS.INVOICED) quote.status = QUOTE_STATUS.ACCEPTED;
-  quote.pipelineStage = undefined;
-  await quote.save();
-  return order;
+  if (!lock) {
+    const existingAfterRace: any = await (SaleOrder as any).findOne({ tenantId, quoteId: quote._id }).lean();
+    if (existingAfterRace) {
+      throw new DealError(`This quote has already been moved to sales order ${existingAfterRace.header?.name || existingAfterRace._id}.`, 409);
+    }
+    throw new DealError("This quote is currently being converted to a sales order. Please refresh before retrying.", 409);
+  }
+
+  try {
+    const totals = computeInvoiceTotals({
+      lineItems: quote.lineItems as any,
+      itemLevelDiscountPercent: quote.itemLevelDiscountPercent,
+      extraDiscount: quote.extraDiscount,
+      extraDiscountMode: quote.extraDiscountMode,
+      tdsRate: quote.taxes?.mode === "tds" ? quote.taxes.rate : 0,
+      tcsRate: quote.taxes?.mode === "tcs" ? quote.taxes.rate : 0,
+    });
+    const { number } = await generateSaleOrderNumber(tenantId);
+    const now = new Date();
+
+    let order: any;
+    try {
+      order = await (SaleOrder as any).create({
+        tenantId,
+        header: { name: number, partnerId: quote.customerId, dateOrder: now },
+        orderLines: (quote.lineItems as any[]).map((li, i) => ({
+          productId: li.itemId || undefined,
+          name: li.name,
+          productQty: Number(li.qty) || 1,
+          priceUnit: Number(li.unitPrice) || 0,
+          taxIds: [],
+          discount: Number(li.discount) || 0,
+          discountMode: li.discountMode || "percent",
+          taxRate: Number(li.taxRate) || 0,
+          hsn: li.hsn,
+          priceSubtotal: totals.computedLines[i]?.lineTotal ?? 0,
+        })),
+        otherInfo: { clientOrderRef: quote.reference },
+        totals: {
+          amountUntaxed: totals.taxableAmount,
+          amountTax: totals.totalTax,
+          amountTotal: quote.totalAmount ?? totals.totalAmount,
+        },
+        status: DOCUMENT_STATUS.APPROVED,
+        q2cStatus: Q2C_STATUS.SALES_ORDER,
+        salesOrderStatus: SALES_ORDER_STATUS.CONFIRMED,
+        shipmentStatus: SALES_ORDER_SHIPMENT_STATUS.NOT_SHIPPED,
+        invoicingStatus: SALES_ORDER_INVOICING_STATUS.NOT_INVOICED,
+        extraDiscount: quote.extraDiscount || 0,
+        extraDiscountMode: quote.extraDiscountMode || "amount",
+        taxMode: quote.taxes?.mode || "none",
+        taxRate: quote.taxes?.rate || 0,
+        adjustment: quote.adjustment || 0,
+        subTotal: totals.subtotal,
+        taxAmount: totals.totalTax,
+        customerNotes: quote.customerNotes,
+        termsAndConditions: quote.terms,
+        attachments: quote.attachments || [],
+        quoteId: quote._id,
+        quoteNumber: quote.quoteNumber,
+        refHistory: [
+          { docType: "QT", ref: quote.quoteNumber, docId: quote._id, stage: Q2C_STATUS.QUOTE_GENERATED, at: quote.createdAt || now },
+          { docType: "SO", ref: number, stage: Q2C_STATUS.SALES_ORDER, at: now },
+        ],
+        chatter: [],
+      });
+    } catch (createErr: any) {
+      if (createErr.code === 11000) {
+        const existing = await (SaleOrder as any).findOne({ tenantId, quoteId: quote._id }).lean();
+        throw new DealError(`This quote has already been moved to sales order ${existing?.header?.name || existing?._id}.`, 409);
+      }
+      throw createErr;
+    }
+
+    quote.saleOrderId = order._id;
+    if (quote.status !== QUOTE_STATUS.INVOICED) quote.status = QUOTE_STATUS.ACCEPTED;
+    quote.pipelineStage = undefined;
+    quote.isConvertingToOrder = false;
+    quote.orderConversionStartedAt = undefined;
+    await quote.save();
+    return order;
+  } catch (err) {
+    await (SalesQuotation as any).updateOne(
+      { _id: quote._id, tenantId },
+      { $set: { isConvertingToOrder: false }, $unset: { orderConversionStartedAt: 1 } }
+    );
+    throw err;
+  }
 }
 
 /** Posts an invoice for a sales order deal (idempotent: reuses an existing one). */
@@ -466,6 +525,16 @@ async function transitionOrderDeal(tenantId: string, userId: string, id: string,
   const order: any = await (SaleOrder as any).findOne({ _id: id, tenantId });
   if (!order) throw new DealError("This deal no longer exists.", 404);
   const current: Q2CStatus = order.q2cStatus || Q2C_STATUS.LEAD;
+
+  // Re-open a lost order deal back into the pipeline.
+  if (current === Q2C_STATUS.LOST && (to === Q2C_STATUS.LEAD || to === Q2C_STATUS.OPPORTUNITY)) {
+    order.status = DOCUMENT_STATUS.DRAFT;
+    order.salesOrderStatus = SALES_ORDER_STATUS.DRAFT;
+    order.q2cStatus = to;
+    pushRef(order, "SO", order.header?.name, order._id, to);
+    await order.save();
+    return { kind: "order", id, q2cStatus: to };
+  }
   assertValid(current, to);
 
   const now = new Date();
@@ -473,6 +542,12 @@ async function transitionOrderDeal(tenantId: string, userId: string, id: string,
   if (!(order.refHistory || []).length) pushRef(order, "SO", order.header?.name, order._id, current);
 
   switch (to) {
+    case Q2C_STATUS.LEAD:
+      order.status = DOCUMENT_STATUS.DRAFT;
+      if (order.salesOrderStatus === SALES_ORDER_STATUS.VOID || (order.salesOrderStatus as string) === "cancelled") {
+        order.salesOrderStatus = SALES_ORDER_STATUS.DRAFT;
+      }
+      break;
     case Q2C_STATUS.QUOTE_GENERATED: {
       const quote = await ensureQuoteForOrder(tenantId, userId, order);
       if (quote.status === QUOTE_STATUS.DRAFT) quote.status = QUOTE_STATUS.SENT;
@@ -513,6 +588,9 @@ async function transitionOrderDeal(tenantId: string, userId: string, id: string,
         recognizedBy: userId,
         amount: order.totals?.amountTotal || 0,
       };
+      break;
+    case Q2C_STATUS.LOST:
+      order.status = DOCUMENT_STATUS.REJECTED;
       break;
     case Q2C_STATUS.CANCELLED:
       order.status = DOCUMENT_STATUS.CANCELLED;

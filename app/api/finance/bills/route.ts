@@ -76,7 +76,13 @@ export async function GET(req: NextRequest) {
       ];
     }
     if (state === "pending") {
-      query.state = DOCUMENT_STATUS.PENDING_APPROVAL;
+      query.state = { $in: [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.PENDING_APPROVAL, DOCUMENT_STATUS.POSTED] };
+      query.paymentState = { $ne: PAYMENT_STATE.PAID };
+    } else if (state === "draft") {
+      query.state = DOCUMENT_STATUS.DRAFT;
+    } else if (state === "posted") {
+      query.state = DOCUMENT_STATUS.POSTED;
+      query.paymentState = { $ne: PAYMENT_STATE.PAID };
     } else if (state === "paid" || state === "overdue") {
       if (state === "paid") {
         query.paymentState = PAYMENT_STATE.PAID;
@@ -105,10 +111,14 @@ export async function GET(req: NextRequest) {
     }
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get("limit") || "25")));
     const skip = (page - 1) * limit;
 
-    const [total, items] = await Promise.all([
+    const statsMatch: any = { tenantId, moveType: "in_invoice" };
+    if (query.invoiceDate) statsMatch.invoiceDate = query.invoiceDate;
+    const now = new Date();
+
+    const [total, items, statsAgg] = await Promise.all([
       Invoice.countDocuments(query),
       Invoice.find(query)
         .populate("partnerId", "header.name contact_details.email")
@@ -117,7 +127,86 @@ export async function GET(req: NextRequest) {
         .skip(skip)
         .limit(limit)
         .lean(),
+      Invoice.aggregate([
+        { $match: statsMatch },
+        {
+          $group: {
+            _id: null,
+            totalPayable: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ["$paymentState", PAYMENT_STATE.PAID] },
+                      { $ne: ["$state", DOCUMENT_STATUS.CANCELLED] },
+                      { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
+                    ],
+                  },
+                  { $ifNull: ["$amountTotal", 0] },
+                  0,
+                ],
+              },
+            },
+            paidCount: {
+              $sum: {
+                $cond: [{ $eq: ["$paymentState", PAYMENT_STATE.PAID] }, 1, 0],
+              },
+            },
+            pendingCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ["$paymentState", PAYMENT_STATE.PAID] },
+                      { $ne: ["$state", DOCUMENT_STATUS.CANCELLED] },
+                      { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
+                      {
+                        $or: [
+                          { $eq: ["$paymentState", PAYMENT_STATE.NOT_PAID] },
+                          { $eq: ["$paymentState", PAYMENT_STATE.PARTIAL] },
+                          { $eq: ["$paymentState", PAYMENT_STATE.IN_PAYMENT] },
+                          { $in: ["$state", [DOCUMENT_STATUS.DRAFT, DOCUMENT_STATUS.PENDING_APPROVAL, DOCUMENT_STATUS.POSTED]] },
+                        ],
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            overdueCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ["$paymentState", PAYMENT_STATE.PAID] },
+                      { $ne: ["$state", DOCUMENT_STATUS.CANCELLED] },
+                      { $ne: ["$state", DOCUMENT_STATUS.REJECTED] },
+                      {
+                        $or: [
+                          { $eq: ["$paymentState", PAYMENT_STATE.OVERDUE] },
+                          {
+                            $and: [
+                              { $eq: ["$state", DOCUMENT_STATUS.POSTED] },
+                              { $lt: ["$dueDate", now] },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
     ]);
+
+    const stats = statsAgg[0] || { totalPayable: 0, pendingCount: 0, paidCount: 0, overdueCount: 0 };
 
     return NextResponse.json({
       items: items.map(serializeBill),
@@ -125,6 +214,12 @@ export async function GET(req: NextRequest) {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      stats: {
+        totalPayable: Number(stats.totalPayable) || 0,
+        pendingCount: Number(stats.pendingCount) || 0,
+        paidCount: Number(stats.paidCount) || 0,
+        overdueCount: Number(stats.overdueCount) || 0,
+      },
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

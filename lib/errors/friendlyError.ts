@@ -38,9 +38,21 @@ function unique<T>(xs: T[]): T[] {
   return Array.from(new Set(xs));
 }
 
-const TECHNICAL = /(at path|BSONError|ObjectId|Cast to|validation failed|MongoServerError|MongooseError|E11000|ECONN|ETIMEDOUT|ENOTFOUND|TypeError|ReferenceError|SyntaxError|undefined|is not a function|Unexpected token|stack|\bat\s+\S+\s+\(|JSON\.parse|Internal server error|status code \d{3}|fetch failed|Failed to fetch|NetworkError|Load failed)/i;
+const TECHNICAL = /(at path|BSONError|ObjectId|Cast to|validation failed|MongoServerError|MongooseError|E11000|ECONN|ETIMEDOUT|ENOTFOUND|TypeError|ReferenceError|SyntaxError|undefined|is not a function|Unexpected token|stack|\bat\s+\S+\s+\(|JSON\.parse|Internal server error|status code \d{3}|fetch failed|^Failed to fetch$|NetworkError|Load failed)/i;
+
+export function isAbortError(raw: unknown): boolean {
+  if (!raw) return false;
+  if (typeof raw === "object" && ((raw as any)?.name === "AbortError" || (raw as any)?.code === 20)) return true;
+  const msg = typeof raw === "string" ? raw : (raw as any)?.message;
+  if (typeof msg === "string") {
+    return /aborted|signal is aborted|user aborted|The user aborted a request|Fetch is aborted|operation was aborted|cancelled|canceled/i.test(msg);
+  }
+  return false;
+}
 
 export function friendlyError(raw: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (isAbortError(raw)) return "";
+
   let msg = "";
   if (typeof raw === "string") msg = raw;
   else if (raw instanceof Error) msg = raw.message;
@@ -48,10 +60,12 @@ export function friendlyError(raw: unknown, fallback = "Something went wrong. Pl
   msg = (msg || "").trim();
   if (!msg) return fallback;
 
+  if (isAbortError(msg)) return "";
+
   if (/\b413\b|payload too large|request entity too large|content too large/i.test(msg)) {
     return "This upload is too large for a single request. Aupulens will upload migration files in smaller parts.";
   }
-  if (/Failed to fetch|NetworkError|Load failed|fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(msg)) {
+  if (/(^(TypeError:\s*)?Failed to fetch$|^fetch failed$|NetworkError|Load failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT)/i.test(msg) || msg === "Failed to fetch") {
     return "We couldn't reach the server. Please check your internet connection and try again.";
   }
   if (/unauthori[sz]ed|not authenticated|jwt expired|session (has )?expired/i.test(msg)) {

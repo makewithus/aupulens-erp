@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi } from "vitest";
 
 const m = vi.hoisted(() => ({ hook: vi.fn() }));
-vi.mock("@/lib/hooks/useAiUsageSummary", () => ({ useAiUsageSummary: m.hook }));
-import { AiUsageIndicator, CreditWindowCard } from "@/components/ai/AiUsageIndicator";
+vi.mock("@/lib/hooks/useAiUsageSummary", () => ({ useAiUsageSummary: m.hook, refreshAiUsage: vi.fn() }));
+import { AiUsageIndicator, CreditWindowCard, ErpUsageNotice } from "@/components/ai/AiUsageIndicator";
 
 const now = Date.parse("2026-10-19T13:42:00.000Z");
 const reset = "2026-10-19T15:00:00.000Z";
@@ -57,5 +57,13 @@ describe("AI usage indicator", () => {
       label: "Session", cadence: "5 hours", metric: { ...session, used: 20, reserved: 0, remaining: 0 }, now,
     }));
     expect(exhausted).toContain("100% used");
+  });
+});
+
+ describe("free ERP response label", () => {
+  it("shows the explicit zero cost only for a server-confirmed free ERP answer", () => {
+    expect(renderToStaticMarkup(React.createElement(ErpUsageNotice, { creditsUsed: 0 }))).toContain("0 credits used · ERP lookup");
+    expect(renderToStaticMarkup(React.createElement(ErpUsageNotice, {}))).toBe("");
+    expect(renderToStaticMarkup(React.createElement(ErpUsageNotice, { creditsUsed: 1 }))).toBe("");
   });
 });

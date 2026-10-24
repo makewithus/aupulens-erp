@@ -40,20 +40,21 @@ export async function POST(request: NextRequest) {
 
     let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
+    const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
 
     // Restore prior turns for multi-turn context
     const conversationContext = await loadConversationContext({
       tenantId, userId, role: session.user.role, module: "hr", conversationId,
-      chatId: body.chatId, history: body.history, message, requestId: body.requestId,
+      chatId: body.chatId, history: body.history, message, requestId,
     });
     const priorTurns = conversationContext.history;
     conversationId = conversationContext.conversationId;
-    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "hr", conversationId, requestId: body.requestId });
+    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "hr", conversationId, requestId });
     if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
     const data = await fetchHRData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts, requestId, userId);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` — narrowing on `"text" in genResult`
     // instead works either way (see lib/ai/claude.ts migration notes).
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    await saveCompletedExchange({ tenantId, userId, conversationId, module: "hr", message, response, requestId: body.requestId });
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "hr", message, response, requestId });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
@@ -137,7 +138,9 @@ async function generateResponse(
   tier: string,
   aiSettings: Parameters<typeof callClaudeForTenant>[2],
   imageDataUrls: string[] = [],
-  docTexts: string[] = []
+  docTexts: string[] = [],
+  requestId?: string,
+  userId?: string
 ): Promise<GenerateResult> {
   const prompt = `You are an expert HR AI assistant for an ERP system.
 
@@ -163,6 +166,9 @@ Instructions:
       language: { rawText: message, showInterpretation: false },
       ...opts,
       history: priorTurns,
+      idempotencyKey: requestId,
+      userId,
+      feature: "hr",
     });
     if ("text" in result) {
       return { gated: false, text: result.text };

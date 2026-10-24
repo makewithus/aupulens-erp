@@ -10,8 +10,8 @@ export function refreshAiUsage() { window.dispatchEvent(new Event(AI_USAGE_CHANG
  * completions that occur while a summary is already being read. No usage is persisted client-side. */
 let pending: Promise<AiUsageSummary> | null = null;
 let pendingScope: string | null = null;
-function readSummary(scope: string): Promise<AiUsageSummary> {
-  if (pending && pendingScope === scope) return pending;
+function readSummary(scope: string, force = false): Promise<AiUsageSummary> {
+  if (!force && pending && pendingScope === scope) return pending;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   const request = fetch("/api/ai/usage", { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -40,13 +40,13 @@ export function useAiUsageSummary() {
     let retryAfter = 0;
     let lastReadAt = 0;
     const now = () => serverOrigin + (performance.now() - clockOrigin);
-    const refresh = async () => {
-      if (!active || document.visibilityState === "hidden") return;
+    const refresh = async (force = false) => {
+      if (!active || (typeof document !== "undefined" && document.visibilityState === "hidden")) return;
       if (running) { dirty = true; return; }
       running = true;
       lastReadAt = performance.now();
       try {
-        const result = await readSummary(scope);
+        const result = await readSummary(scope, force);
         if (!active) return;
         retryAfter = 0;
         data = result;
@@ -59,26 +59,46 @@ export function useAiUsageSummary() {
         if (active) setState({ scope, unavailable: true, now: 0 });
       } finally {
         running = false;
-        if (dirty && active) { dirty = false; void refresh(); }
+        if (dirty && active) { dirty = false; void refresh(true); }
       }
     };
-    const invalidate = () => { void refresh(); };
+    const invalidate = () => {
+      pending = null;
+      pendingScope = null;
+      void refresh(true);
+    };
     const tick = () => {
-      if (!active || document.visibilityState === "hidden") return;
+      if (!active || (typeof document !== "undefined" && document.visibilityState === "hidden")) return;
       if (data) setState({ scope, data, unavailable: false, now: now() });
-      const expired = data && ([data.session, data.weekly, data.monthly].some(m => m.resetsAt && Date.parse(m.resetsAt) <= now()) || (data.credits && Date.parse(data.credits.resetsAt) <= now()));
-      if (performance.now() >= retryAfter && (expired || !data || performance.now() - lastReadAt >= 60000)) void refresh();
+      const creditWindowExpired = Boolean(
+        data?.credits?.windows && (
+          (data.credits.windows.session?.resetsAt && Date.parse(data.credits.windows.session.resetsAt) <= now()) ||
+          (data.credits.windows.weekly?.resetsAt && Date.parse(data.credits.windows.weekly.resetsAt) <= now())
+        )
+      );
+      const expired = Boolean(
+        data && (
+          [data.session, data.weekly, data.monthly].some(m => m?.resetsAt && Date.parse(m.resetsAt) <= now()) ||
+          (data.credits?.resetsAt && Date.parse(data.credits.resetsAt) <= now()) ||
+          creditWindowExpired
+        )
+      );
+      if (performance.now() >= retryAfter && (expired || !data || performance.now() - lastReadAt >= 60000)) {
+        void refresh(expired);
+      }
     };
     void refresh();
     const timer = window.setInterval(tick, 15000);
     window.addEventListener(AI_USAGE_CHANGED, invalidate);
     window.addEventListener("online", invalidate);
+    window.addEventListener("focus", invalidate);
     document.addEventListener("visibilitychange", invalidate);
     return () => {
       active = false;
       window.clearInterval(timer);
       window.removeEventListener(AI_USAGE_CHANGED, invalidate);
       window.removeEventListener("online", invalidate);
+      window.removeEventListener("focus", invalidate);
       document.removeEventListener("visibilitychange", invalidate);
     };
   }, [scope, status]);

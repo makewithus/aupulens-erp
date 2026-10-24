@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+import { tryErpAssistant, safeErpError } from "@/lib/ai/erpAssistant";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
@@ -132,6 +134,7 @@ interface Extracted {
  * the chat.
  */
 export async function POST(request: NextRequest) {
+  const requestId = randomUUID();
   try {
     const session = await auth();
     if (!session) {
@@ -152,6 +155,12 @@ export async function POST(request: NextRequest) {
     const message: string = String(body.text || body.message || "").trim();
     if (!message) return NextResponse.json({ success: true, handled: false });
 
+    const erp = await tryErpAssistant({ text: message, tenantId, userId: session.user.id, role: session.user.role,
+      module: body.module, chatId: body.chatId, conversationId: body.conversationId,
+      requestId: typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : requestId,
+      toolQuery: body.toolQuery });
+    if (erp) return NextResponse.json({ success: true, ...erp }, { headers: { "Cache-Control": "private, no-store" } });
+    if (body.authoritativeOnly) return NextResponse.json({ success: true, handled: false });
     await connectDB();
 
     const today = new Date();
@@ -1557,7 +1566,7 @@ Rules:
 
     return NextResponse.json({ success: true, handled: false });
   } catch (error) {
-    console.error("Sales AI memory-query error:", error);
-    return NextResponse.json({ success: false, handled: false }, { status: 500 });
+    const failure = safeErpError(error, requestId);
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }

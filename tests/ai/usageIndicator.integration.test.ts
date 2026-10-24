@@ -18,6 +18,7 @@ import AiCreditLedger from "@/models/platform/AiCreditLedger";
 import { callClaudeForTenant, callClaudeForTenantStream } from "@/lib/ai/tenantAi";
 import { GET } from "@/app/api/ai/usage/route";
 import { getWindowUsage } from "@/lib/ai/windowUsage";
+import { seedPlans } from "@/lib/platform/entitlements/planCatalog";
 import { quotaWindow } from "@/lib/ai/usagePolicy";
 
 const suiteId = randomUUID().slice(0, 8);
@@ -27,6 +28,7 @@ const settings = { usagePolicy: { startsAt: new Date(Date.now() - 60000).toISOSt
 const usage = { promptTokens: 21, completionTokens: 13, totalTokens: 34 };
 beforeAll(async () => {
   await mongoose.connect(`mongodb://127.0.0.1:27017/aupulens_test_usage_indicator_${suiteId}`, { serverSelectionTimeoutMS: 3000 });
+  await seedPlans();
   await Promise.all([AiUsage.init(), Organization.init(), AiUsageRecord.init(), AiCostRate.init(), AiCreditBalance.init(), AiCreditLedger.init()]);
 });
 beforeEach(async () => {

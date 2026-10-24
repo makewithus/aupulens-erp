@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
+import { validateCustomerInput } from "@/lib/sales/customerValidation";
 
 export async function GET(
   request: Request,
@@ -59,6 +60,14 @@ export async function PATCH(
     const tenantIdGuard = requireTenantId(session);
     if (tenantIdGuard) return tenantIdGuard;
     const tenantId = session.user.tenantId;
+
+    const validation = validateCustomerInput(body);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.errors.join("; ") },
+        { status: 400 },
+      );
+    }
 
     // Sanitize body to remove empty strings or "default" for ObjectId fields
     if (

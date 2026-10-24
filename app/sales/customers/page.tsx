@@ -44,6 +44,7 @@ import { ExportCurrentViewDialog } from "@/components/sales/customers/ExportCurr
 import { AVAILABLE_CUSTOMER_COLUMNS } from "@/lib/sales/customerViews";
 import { AuthSplash } from "@/components/dashboard/AuthSplash";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { formatSalesCurrency } from "@/lib/sales/formatters";
 
 const SORT_FIELDS = [
   { key: "header.displayName", label: "Display Name" },
@@ -206,6 +207,10 @@ function CustomersPageInner() {
   const getPath = (obj: any, path: string) => {
     if (path === "contact_details.phone") {
       return obj.contact_details?.phone || obj.contact_details?.mobile;
+    }
+    if (path === "openingBalance" || path === "receivables") {
+      const rec = obj.outstandingReceivables ?? obj.receivables ?? obj.openingBalance ?? 0;
+      return formatSalesCurrency(rec);
     }
     return path.split(".").reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
   };

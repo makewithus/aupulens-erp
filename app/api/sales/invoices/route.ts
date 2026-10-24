@@ -1,3 +1,4 @@
+import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -56,6 +57,16 @@ export async function GET(request: NextRequest) {
       query.status = {
         $in: [SALES_INVOICE_STATUS.SAVED, SALES_INVOICE_STATUS.OVERDUE, SALES_INVOICE_STATUS.PARTIALLY_PAID],
       };
+    } else if (status === "overdue") {
+      const now = new Date();
+      query.$or = [
+        { status: SALES_INVOICE_STATUS.OVERDUE },
+        {
+          status: { $in: [SALES_INVOICE_STATUS.SAVED, SALES_INVOICE_STATUS.PARTIALLY_PAID] },
+          dueDate: { $lt: now },
+          markedFullyPaid: { $ne: true },
+        },
+      ];
     } else if (status && status !== "all") {
       query.status = status;
     }
@@ -104,9 +115,20 @@ export async function GET(request: NextRequest) {
         .lean(),
     ]);
 
+    const enriched = invoices.map((inv: any) => ({
+      ...inv,
+      status: resolveInvoiceStatus({
+        requestedStatus: inv.status,
+        totalAmount: inv.totalAmount,
+        payments: inv.payments,
+        markedFullyPaid: inv.markedFullyPaid,
+        dueDate: inv.dueDate,
+      }),
+    }));
+
     return NextResponse.json({
       success: true,
-      data: invoices,
+      data: enriched,
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -146,6 +168,8 @@ export async function POST(request: NextRequest) {
     const org = await Organization.findOne({ subdomain: tenantId }).lean();
     const sellerState = (org as any)?.settings?.state;
 
+    const financialIssues = body.lineItems?.length ? validateQuoteInput({ ...body, lineItems: body.lineItems }) : [];
+    if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
     const totals = computeInvoiceTotals({
       lineItems: body.lineItems || [],
       itemLevelDiscountPercent: body.itemLevelDiscountPercent || 0,

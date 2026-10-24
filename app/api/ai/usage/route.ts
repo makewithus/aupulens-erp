@@ -17,8 +17,10 @@ export async function GET() {
     const session = await auth();
     const tenantId = session?.user?.tenantId;
     if (!session?.user?.id || !tenantId) return NextResponse.json({ success: false }, { status: 401, headers });
-    await connectDB();
-    const org = await Organization.findOne({ subdomain: tenantId }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, "settings.ai.usagePolicy": 1 }).lean();
+    let org = await Organization.findOne({ subdomain: tenantId }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, "settings.ai.usagePolicy": 1 }).lean();
+    if (!org && (tenantId === "default" || tenantId === "default-tenant")) {
+      org = await Organization.findOne({ subdomain: { $in: ["default", "default-tenant"] } }, { tier: 1, isActive: 1, subscriptionStatus: 1, trialEndDate: 1, "settings.ai.usagePolicy": 1 }).lean();
+    }
     if (!org || org.isActive === false) return NextResponse.json({ success: false }, { status: 403, headers });
     if (isSubscriptionBlocked({ tier: org.tier, enabledModules: [], subscriptionStatus: org.subscriptionStatus, trialEndDate: org.trialEndDate?.toISOString() })) {
       return NextResponse.json({ success: false, message: "Subscription inactive" }, { status: 402, headers });
@@ -35,11 +37,11 @@ export async function GET() {
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
         new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))),
       scope: "workspace", serverTime: new Date().toISOString(),
-      credits: { ...credits, resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString() },
+      credits: { ...credits, resetsAt: credits.resetsAt ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString() },
     };
     return NextResponse.json({ success: true, data }, { headers });
   } catch (error) {
-    console.error("[ai-usage-summary] read failed", { error: error instanceof Error ? error.message : String(error) });
+    console.error("[ai-usage-summary] read failed", { category: "USAGE_UNAVAILABLE", errorType: error instanceof Error ? error.name : "unknown" });
     return NextResponse.json({ success: false, message: "Usage unavailable" }, { status: 503, headers });
   }
 }

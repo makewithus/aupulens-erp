@@ -1,6 +1,7 @@
 'use client';
+import { runErpAssistant } from "@/lib/ai/erpAssistantClient";
 import { VoiceActivity } from "@/components/ai/VoiceActivity";
-import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
+import { AiUsageIndicator, ErpUsageNotice } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
 import { confirmDialog } from "@/components/providers/ConfirmRoot";
 
@@ -23,6 +24,7 @@ import { ShimmerSkeleton } from '@/components/ui/loading-skeletons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { AiMarkdown } from '@/components/ai/AiMarkdown';
+import type { ErpStructuredResponse } from '@/lib/ai/erpTypes';
 import { toast } from 'sonner';
 import { useSpeechToText } from '@/lib/hooks/useSpeechToText';
 import { cachedFetch } from "@/lib/api/cachedFetch";
@@ -34,6 +36,8 @@ interface Message {
   timestamp: Date;
   isLoading?: boolean;
   quickReplies?: QuickReply[];
+  erpCreditsUsed?: number;
+  structured?: ErpStructuredResponse;
 }
 
 interface ChatHistoryItem {
@@ -45,6 +49,7 @@ interface ChatHistoryItem {
   messages: {
     role: 'user' | 'assistant';
     content: string;
+    erpCreditsUsed?: number;
     timestamp: Date;
   }[];
 }
@@ -101,20 +106,24 @@ export default function SalesAIAssistant() {
     }
   }, [messages]);
 
+  const hasLoadedHistoryRef = useRef(false);
+
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchChatHistory();
+      const isInitial = !hasLoadedHistoryRef.current;
+      fetchChatHistory(isInitial);
+      hasLoadedHistoryRef.current = true;
     }
   }, [status]);
 
-  const fetchChatHistory = async () => {
+  const fetchChatHistory = async (showLoading = false) => {
     try {
-      setLoadingHistory(true);
-      const response = await cachedFetch('/api/sales/chat-history?includeArchived=true');
+      if (showLoading) setLoadingHistory(true);
+      const response = await cachedFetch('/api/sales/chat-history?includeArchived=true', { cache: 'no-store' }, { noCache: true });
       if (response.ok) {
         const data = await response.json();
-        const active = data.chats.filter((chat: ChatHistoryItem) => !chat.isArchived);
-        const archived = data.chats.filter((chat: ChatHistoryItem) => chat.isArchived);
+        const active = (data.chats || []).filter((chat: ChatHistoryItem) => !chat.isArchived);
+        const archived = (data.chats || []).filter((chat: ChatHistoryItem) => chat.isArchived);
         setChatHistory(active);
         setArchivedChats(archived);
       }
@@ -133,6 +142,7 @@ export default function SalesAIAssistant() {
         id: `${chat._id}-${idx}`,
         role: msg.role,
         content: msg.content,
+        erpCreditsUsed: msg.erpCreditsUsed,
         timestamp: new Date(msg.timestamp)
       }));
       setMessages(loadedMessages);
@@ -208,10 +218,14 @@ export default function SalesAIAssistant() {
     });
   };
 
+  const sendInFlight = useRef(false);
+  useEffect(() => { if (!isLoading) sendInFlight.current = false; }, [isLoading]);
   const handleSubmit = async (e: React.FormEvent, overrideInput?: string) => {
     e.preventDefault();
     if ((!(overrideInput ?? input).trim() && attachments.length === 0) || isLoading) return;
 
+    if (sendInFlight.current) return;
+    sendInFlight.current = true;
     const isFirstMessage = messages.length === 0;
     const sentAttachments = attachments;
     const userInputText = (overrideInput ?? input).trim() || (sentAttachments.length ? 'Please read the attached file(s) and help accordingly.' : '');
@@ -234,6 +248,17 @@ export default function SalesAIAssistant() {
     setInput('');
     clearAttachments();
     setIsLoading(true);
+
+    if (!sentAttachments.length) {
+      const erp = await runErpAssistant({ text: userInputText, module: "sales", chatId: currentChatId || undefined, conversationId: undefined, requestId: crypto.randomUUID() });
+      if (erp.handled) {
+        setMessages(prev => prev.filter(m => !m.isLoading).concat({ id: crypto.randomUUID(), role: "assistant", content: erp.message || "", structured: erp.structured, erpCreditsUsed: erp.usage?.creditsUsed, timestamp: new Date(), quickReplies: erp.actions?.map(a => ({ label: a.label, value: a.value, kind: "action" as const })) }));
+        if (erp.chatId) setCurrentChatId(erp.chatId);
+        setIsLoading(false);
+        await fetchChatHistory();
+        return;
+      }
+    }
 
     // AI-native create: try this FIRST. If the message is a create request —
     // for THIS module's forms or any OTHER module's — extract the fields and
@@ -370,11 +395,27 @@ export default function SalesAIAssistant() {
       // Gated / error — surface the server's message instead of a blank reply.
       if (!response.ok || !response.body) {
         let msg = 'I apologize, but I encountered an error processing your request.';
-        try { const j = await response.json(); if (j?.error) msg = j.error; } catch { /* not json */ }
+        let isCredit = false;
+        try {
+          const j = await response.json();
+          if (j?.error) msg = j.error;
+          if (j?.code === 'AI_CREDITS_EXHAUSTED' || j?.code === 'AI_LIMIT_REACHED' || /credit|usage limit|exhausted/i.test(msg)) {
+            isCredit = true;
+          }
+        } catch { /* not json */ }
+
+        if (isCredit) {
+          toast.error(msg, { duration: 6000 });
+          setMessages(prev => prev.filter(m => !m.isLoading));
+          refreshAiUsage();
+          setIsLoading(false);
+          return;
+        }
+
         setMessages(prev => prev.filter(m => !m.isLoading).concat({
           id: (Date.now() + 1).toString(), role: 'assistant', content: msg, timestamp: new Date(),
         }));
-        toast.error('Failed to get response. Please try again.');
+        toast.error(msg);
         return;
       }
 
@@ -415,17 +456,25 @@ export default function SalesAIAssistant() {
           await fetchChatHistory();
         }
       } else if (currentChatId) await fetchChatHistory(); // Server saved the completed exchange.
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => prev.filter(msg => !msg.isLoading).concat({
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try again.',
-        timestamp: new Date()
-      }));
-      toast.error('Failed to get response. Please try again.');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isCreditError = /credit|usage limit|exhausted/i.test(msg);
+      if (isCreditError) {
+        toast.error(msg, { duration: 6000 });
+        setMessages(prev => prev.filter(m => !m.isLoading));
+      } else {
+        console.error('Error:', error);
+        setMessages(prev => prev.filter(msg => !msg.isLoading).concat({
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'I apologize, but I encountered an error. Please try again.',
+          timestamp: new Date()
+        }));
+        toast.error('Failed to get response. Please try again.');
+      }
     } finally {
       setIsLoading(false);
+      refreshAiUsage();
     }
   };
 
@@ -659,7 +708,7 @@ export default function SalesAIAssistant() {
                         <span className="text-sm">Thinking...</span>
                       </div>
                     ) : message.role === 'assistant' ? (
-                      <AiMarkdown content={message.content} />
+                      <><AiMarkdown content={message.content} structured={message.structured} onAction={(v) => handleSubmit({ preventDefault() {} } as React.FormEvent, v)} /><ErpUsageNotice creditsUsed={message.erpCreditsUsed} /></>
                     ) : (
                       <p className="whitespace-pre-wrap text-sm leading-relaxed m-0">{message.content}</p>
                     )}

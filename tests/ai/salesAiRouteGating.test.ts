@@ -45,15 +45,33 @@ function buildChain(result: any = []) {
 vi.mock("@/models/sales/SaleOrder", () => ({
   default: {
     find: (...args: any[]) => { mockSaleOrderFind(...args); return buildChain([]); },
+    countDocuments: async () => 0,
     aggregate: (...args: any[]) => { mockSaleOrderAggregate(...args); return { exec: () => Promise.resolve([]) }; },
   },
 }));
+vi.mock("@/models/sales/SalesInvoice", () => ({ SalesInvoice: { aggregate: (...args: any[]) => { mockSaleOrderAggregate(...args); return { exec: async () => [] }; } } }));
 vi.mock("@/models/sales/SalesQuotation", () => ({ default: {} }));
 vi.mock("@/models/sales/DeliveryChallan", () => ({ default: {} }));
 
 vi.mock("@/lib/ai/tenantAi", () => ({
   resolveTenantAiSettings: mockResolveTenantAiSettings,
   callClaudeForTenant: mockCallClaudeForTenant,
+}));
+
+vi.mock("@/models/admin/Organization", () => ({
+  default: {
+    findOne: () => ({
+      select: () => ({
+        lean: () => Promise.resolve({ name: "Alpha Org", tier: "starter" }),
+      }),
+    }),
+  },
+}));
+
+vi.mock("@/models/ai/AiMemoryPreference", () => ({
+  AiMemoryPreference: {
+    findOne: () => ({ lean: () => Promise.resolve(null) }),
+  },
 }));
 
 vi.mock("@/models/ai/ChatHistory", () => ({
@@ -86,6 +104,13 @@ beforeEach(() => {
 });
 
 describe("sales/ai-assistant — tenant AI gating", () => {
+  it("rejects malformed message and conversation selectors before database access", async () => {
+    for (const body of [{ message: { $ne: null } }, { message: "hello", conversationId: { $ne: null } }, { message: "hello", chatId: "not-an-id" }]) {
+      expect((await POST(makeRequest(body))).status).toBe(400);
+    }
+    expect(mockConnectDB).not.toHaveBeenCalled();
+  });
+
   it("returns 200 with a real response when the tenant is not gated", async () => {
     const res = await POST(makeRequest({ message: "how are sales?" }));
     expect(res.status).toBe(200);

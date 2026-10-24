@@ -1,3 +1,6 @@
+import { requireCommandAccess } from "@/lib/ai/commandAccess";
+import { confirmQuoteDraft } from "@/lib/ai/quoteDraft";
+import { safeErpError } from "@/lib/ai/erpAssistant";
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
@@ -51,9 +54,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   await connectDB();
   try {
-    const proposal = await AiCommandProposal.findOne({ _id: id, tenantId: session.user.tenantId });
+    const proposal = await AiCommandProposal.findOne({ _id: id, tenantId: session.user.tenantId, userId: session.user.id });
     if (!proposal) return NextResponse.json({ success: false, message: "Proposal not found" }, { status: 404 });
 
+    if (proposal.actionType === "create_quote") {
+      const quote = await confirmQuoteDraft({ tenantId: session.user.tenantId, userId: session.user.id, role: session.user.role, conversationId: String(proposal.params.conversationId) }, id);
+      return NextResponse.json({ success: true, message: `Saved quote ${quote.quoteNumber}`, redirectUrl: `/sales/quotes/${quote._id}`, data: { id: quote._id, quoteNumber: quote.quoteNumber, status: quote.status } });
+    }
     if (proposal.status !== AI_ACTION_STATUS.PROPOSED) {
       return NextResponse.json({ success: false, message: `This action is already ${proposal.status}` }, { status: 409 });
     }
@@ -62,6 +69,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       await proposal.save();
       return NextResponse.json({ success: false, message: "This proposal has expired. Please ask again." }, { status: 410 });
     }
+    // Validate every native step before claiming the proposal. The runtime retains
+    // its own workflow policy gates; native actions mirror their real module routes.
+    const actionTypes = proposal.actionType === "batch" ? ((proposal.params as any)?.steps || []).map((step: any) => step.actionType) : [proposal.actionType];
+    for (const actionType of actionTypes) {
+      if (isCommandAction(actionType)) await requireCommandAccess(COMMAND_ACTIONS[actionType].module, session.user.role, session.user.tenantId);
+      else if (proposal.module !== "ai-workflow") return NextResponse.json({ success: false, message: "Unknown action type" }, { status: 400 });
+    }
+    const claimed = await AiCommandProposal.findOneAndUpdate({ _id: id, tenantId: session.user.tenantId, userId: session.user.id, status: AI_ACTION_STATUS.PROPOSED, expiresAt: { $gt: new Date() } }, { $set: { status: AI_ACTION_STATUS.CONFIRMED } });
+    if (!claimed) return NextResponse.json({ success: false, message: "This confirmation is already being processed or is no longer available." }, { status: 409 });
+    // On an operational error leave the claim confirmed: an uncertain mutation
+    // must be reviewed, never automatically replayed as a fresh action.
+    proposal.status = AI_ACTION_STATUS.CONFIRMED;
     // ── Batch: run each confirmed step in order (partial progress reported) ──
     if (proposal.actionType === "batch") {
       const steps = ((proposal.params as any)?.steps || []) as { actionType: string; params: any }[];
@@ -123,6 +142,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (error instanceof CommandActionError) {
       return NextResponse.json({ success: false, message: error.message }, { status: 400 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const failure = safeErpError(error, "quote-confirm");
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }

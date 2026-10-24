@@ -1,3 +1,4 @@
+import { issuedInvoiceFilter } from "@/lib/sales/invoiceEligibility";
 import { NextResponse } from "next/server";
 import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
@@ -6,7 +7,7 @@ import SaleOrder from "@/models/sales/SaleOrder";
 import SalesQuotation from "@/models/sales/SalesQuotation";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import DeliveryChallan from "@/models/sales/DeliveryChallan";
-import { DOCUMENT_STATUS, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
+import { DOCUMENT_STATUS } from "@/lib/constants/statuses";
 
 function calculateTrend(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : 0;
@@ -67,11 +68,11 @@ export async function GET() {
       SalesQuotation.countDocuments({ tenantId, createdAt: { $gte: last30Days } }),
       SalesQuotation.countDocuments({ tenantId, createdAt: { $gte: prev30Days, $lt: last30Days } }),
       (SalesInvoice as any).aggregate([
-        { $match: { tenantId, createdAt: { $gte: last30Days }, status: { $ne: SALES_INVOICE_STATUS.CANCELLED } } },
+        { $match: { tenantId, invoiceDate: { $gte: last30Days, $lte: now }, ...issuedInvoiceFilter() } },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ]),
       (SalesInvoice as any).aggregate([
-        { $match: { tenantId, createdAt: { $gte: prev30Days, $lt: last30Days }, status: { $ne: SALES_INVOICE_STATUS.CANCELLED } } },
+        { $match: { tenantId, invoiceDate: { $gte: prev30Days, $lt: last30Days }, ...issuedInvoiceFilter() } },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ]),
       DeliveryChallan.countDocuments({ status: DOCUMENT_STATUS.DRAFT, tenantId }),

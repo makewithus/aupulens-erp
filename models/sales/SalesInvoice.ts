@@ -6,6 +6,7 @@ export interface ISalesInvoiceLineItem {
   name: string;
   description?: string;
   qty: number;
+  unit?: string;
   unitPrice: number;
   discount: number;
   discountMode: "percent" | "amount";
@@ -116,6 +117,7 @@ const SalesInvoiceSchema = new Schema<ISalesInvoice>(
         name: { type: String, required: true },
         description: { type: String },
         qty: { type: Number, required: true, min: 1 },
+        unit: { type: String, trim: true },
         unitPrice: { type: Number, required: true, min: 0 },
         discount: { type: Number, default: 0 },
         discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
@@ -221,6 +223,8 @@ SalesInvoiceSchema.index({ tenantId: 1, status: 1 });
 // {invoiceDate,createdAt} — the plain {tenantId,status} index above doesn't
 // cover that sort.
 SalesInvoiceSchema.index({ tenantId: 1, status: 1, invoiceDate: -1, createdAt: -1 });
+SalesInvoiceSchema.index({ tenantId: 1, status: 1, totalAmount: -1 });
+SalesInvoiceSchema.index({ tenantId: 1, status: 1, dueDate: 1 });
 
 export const SalesInvoice =
   (mongoose.models.SalesInvoice as Model<ISalesInvoice>) || mongoose.model<ISalesInvoice>("SalesInvoice", SalesInvoiceSchema);

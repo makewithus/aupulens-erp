@@ -47,6 +47,7 @@ import { ExportSalesOrdersDialog } from "@/components/sales/salesOrders/ExportSa
 import { ExportCurrentViewDialog } from "@/components/sales/salesOrders/ExportCurrentViewDialog";
 import { AVAILABLE_SALE_ORDER_COLUMNS } from "@/lib/sales/saleOrderViews";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
 
 const SORT_FIELDS = [
   { key: "createdAt", label: "Created Time" },
@@ -404,7 +405,7 @@ function SalesOrdersPageInner() {
                         onClick={() => router.push(`/sales/sales-orders/${o._id}`)}
                       >
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
-                          {o.header?.dateOrder ? new Date(o.header.dateOrder).toLocaleDateString("en-IN") : "—"}
+                          {formatSalesDate(o.header?.dateOrder)}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 font-mono text-sm font-semibold text-primary whitespace-nowrap">
                           {o.header?.name}
@@ -418,7 +419,7 @@ function SalesOrdersPageInner() {
                           </Badge>
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right font-mono text-sm text-foreground whitespace-nowrap">
-                          ₹{Number(o.totals?.amountTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          {formatSalesCurrency(o.totals?.amountTotal)}
                         </TableCell>
                         {extraColumns.map((key) => {
                           const value = getPath(o, key);

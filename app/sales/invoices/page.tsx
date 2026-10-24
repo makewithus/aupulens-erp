@@ -20,7 +20,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter";
 import { useSyncStateFromSearchParams } from "@/lib/hooks/useSyncStateFromSearchParams";
+import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
 import { toast } from "sonner";
+import { PosBillingDialog } from "@/components/sales/invoices/PosBillingDialog";
 
 export default function SalesInvoicesLandingPage() {
   return (
@@ -38,6 +40,7 @@ function SalesInvoicesLandingPageInner() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [posOpen, setPosOpen] = useState(false);
   // AI-native "redirect with filters" — when the AI assistant sends the user
   // here with ?search=/&status=/&dateFrom=/&dateTo=/&customerId=/&amountMin=/
   // &amountMax=, seed the filter state from the URL synchronously (lazy
@@ -86,9 +89,10 @@ function SalesInvoicesLandingPageInner() {
         setInvoiceTotal(Number.isFinite(Number(data.total)) ? Number(data.total) : data.data.length);
         setTotalPages(Math.max(1, Number(data.totalPages) || 1));
       } else {
-        toast.error(data.message || "Failed to fetch invoices");
+        toast.error(data.message || "Failed to load invoices");
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.name === "AbortError" || e?.message?.includes("abort") || e?.message?.includes("Failed to fetch")) return;
       if (requestId === invoiceRequest.current) toast.error("Failed to load invoices");
     } finally {
       if (requestId === invoiceRequest.current) setLoading(false);
@@ -182,6 +186,7 @@ function SalesInvoicesLandingPageInner() {
             </Link>
             <Button
               variant="outline"
+              onClick={() => setPosOpen(true)}
               className="h-11 rounded-none border-border/40 text-foreground font-mono text-[12px] uppercase tracking-wider"
             >
               <LayoutGrid className="w-4 h-4 mr-2" /> POS Billing
@@ -283,10 +288,10 @@ function SalesInvoicesLandingPageInner() {
                           <Link href={`/sales/invoices/${inv._id}`}>{inv.number}</Link>
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
-                          {new Date(inv.invoiceDate).toLocaleDateString()}
+                          {formatSalesDate(inv.invoiceDate)}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
-                          {new Date(inv.dueDate).toLocaleDateString()}
+                          {formatSalesDate(inv.dueDate)}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/80 whitespace-nowrap">
                           {inv.customerId?.header?.name || "Unknown"}
@@ -297,7 +302,7 @@ function SalesInvoicesLandingPageInner() {
                           </Badge>
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right border-r last:border-0 border-border/10 font-mono text-sm text-foreground whitespace-nowrap">
-                          ₹{inv.totalAmount?.toFixed(2)}
+                          {formatSalesCurrency(inv.totalAmount)}
                         </TableCell>
                         <TableCell className="px-3 sm:px-4 py-4 sm:py-7">
                           <DropdownMenu>
@@ -347,6 +352,7 @@ function SalesInvoicesLandingPageInner() {
             </CardContent>
           </Card>
         )}
+        <PosBillingDialog open={posOpen} onOpenChange={setPosOpen} onSuccess={fetchInvoices} />
       </div>
     </DashboardLayout>
   );

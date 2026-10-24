@@ -56,6 +56,7 @@ import type { LanguageTrace, ProviderCall } from "@/lib/ai/language/types";
 const loadLanguageBridge = () => import("@/lib/ai/language/tenantBridge");
 import { resolveAtLimitDecision, checkAiUsageThresholdCrossing } from "@/lib/platform/ai/limitBehavior";
 import { reserveAiCredits, settleAiCredits } from "@/lib/platform/ai/credits";
+import { isSubscriptionBlocked } from "@/lib/middleware/moduleGate";
 import { randomUUID } from "crypto";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -100,12 +101,18 @@ export type TenantAiResult =
 export async function resolveTenantAiSettings(tenantId: string): Promise<{
   tier: string;
   aiSettings: TenantAiSettings;
+  subscriptionBlocked?: boolean;
 }> {
-  await connectDB();
-  const org = await Organization.findOne(
+  let org = await Organization.findOne(
     { subdomain: tenantId },
-    { tier: 1, "settings.ai": 1 }
-  ).lean<{ tier?: string; settings?: { ai?: TenantAiSettings } }>();
+    { tier: 1, "settings.ai": 1, subscriptionStatus: 1, trialEndDate: 1, status: 1 }
+  ).lean<{ tier?: string; settings?: { ai?: TenantAiSettings }; subscriptionStatus?: string; trialEndDate?: Date | string; status?: string }>();
+  if (!org && (tenantId === "default" || tenantId === "default-tenant")) {
+    org = await Organization.findOne(
+      { subdomain: { $in: ["default", "default-tenant"] } },
+      { tier: 1, "settings.ai": 1, subscriptionStatus: 1, trialEndDate: 1, status: 1 }
+    ).lean<{ tier?: string; settings?: { ai?: TenantAiSettings }; subscriptionStatus?: string; trialEndDate?: Date | string; status?: string }>();
+  }
 
   const aiSettings: TenantAiSettings = { ...(org?.settings?.ai ?? {}) };
 
@@ -120,9 +127,17 @@ export async function resolveTenantAiSettings(tenantId: string): Promise<{
     delete aiSettings.model;
   }
 
+  const subscriptionBlocked = org ? isSubscriptionBlocked({
+    tier: org.tier ?? "starter",
+    enabledModules: [],
+    subscriptionStatus: org.subscriptionStatus,
+    trialEndDate: org.trialEndDate ? String(org.trialEndDate) : null,
+  }) : false;
+
   return {
     tier: org?.tier ?? "starter",
     aiSettings,
+    subscriptionBlocked,
   };
 }
 
@@ -152,8 +167,30 @@ export async function callClaudeForTenant(
   // an AiFeature key (lib/ai/featureLimits.ts) identifying which usage
   // bucket this call meters against. Every existing call site that omits it
   // keeps working unchanged; it defaults to "chat" for metering purposes.
-  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string; language?: LanguageOptions; idempotencyKey?: string; countUsage?: boolean; estimatedToolCalls?: number; toolCalls?: number } = {}
+  opts: ClaudeCallOptions & {
+    history?: ChatTurn[];
+    feature?: string;
+    language?: LanguageOptions;
+    idempotencyKey?: string;
+    countUsage?: boolean;
+    chargeCredits?: boolean;
+    userId?: string;
+    subscriptionBlocked?: boolean;
+    estimatedToolCalls?: number;
+    toolCalls?: number;
+  } = {}
 ): Promise<TenantAiResult> {
+  // (a0) Subscription status gating
+  if (opts.subscriptionBlocked === true) {
+    return {
+      gated: true,
+      code: "AI_LIMIT_REACHED",
+      error: "Subscription is inactive or trial has expired. Please upgrade or renew your subscription.",
+      currentTier: tier,
+      requiredAction: "upgrade",
+    };
+  }
+
   // (a) Workspace AI kill-switch
   if (aiSettings.disabled === true) {
     return {
@@ -218,7 +255,21 @@ export async function callClaudeForTenant(
 
   // (c)+(d) Resolve model and token limit.
   // Tenant settings take priority; caller opts are the fallback; defaults are last resort.
-  const { history, feature, language, idempotencyKey, countUsage = true, estimatedToolCalls, toolCalls = 0, ...restOpts } = opts;
+  const {
+    history,
+    feature,
+    language,
+    idempotencyKey,
+    countUsage = true,
+    chargeCredits = true,
+    userId,
+    subscriptionBlocked,
+    estimatedToolCalls,
+    toolCalls = 0,
+    ...restOpts
+  } = opts;
+  const shouldBill = countUsage !== false && chargeCredits !== false;
+
   const resolvedOpts: ClaudeCallOptions = {
     model:        aiSettings.model           ?? restOpts.model     ?? CLAUDE_DEFAULT_MODEL,
     maxTokens:    aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -229,8 +280,33 @@ export async function callClaudeForTenant(
 
   const requestId = idempotencyKey || randomUUID();
   const estimatedInputTokens = Math.ceil((userMessage.length + (resolvedOpts.systemPrompt?.length ?? 0) + (history ?? []).reduce((n, turn) => n + turn.content.length, 0)) / 4) + ((resolvedOpts.imageDataUrls?.length ?? 0) + (resolvedOpts.imageDataUrl ? 1 : 0)) * 1000;
-  const creditReservation = await reserveAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", estimatedInputTokens, estimatedOutputTokens: resolvedOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS, estimatedToolCalls, admittedAt });
-  if ("reason" in creditReservation) return { gated: true, code: "AI_CREDITS_EXHAUSTED", error: creditReservation.reason === "exhausted" ? `${creditReservation.window === "session" ? "Session" : creditReservation.window === "weekly" ? "Weekly" : "Monthly"} AI credits are exhausted. Check the usage indicator for the next reset time.` : creditReservation.reason === "duplicate" ? "This AI request is already being processed or has already completed. Please wait for its response." : "AI usage pricing is not configured for this model. Please contact your administrator." };
+  
+  if (shouldBill) {
+    const creditReservation = await reserveAiCredits({
+      tenantId,
+      period,
+      requestId,
+      modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+      feature: feature ?? "chat",
+      estimatedInputTokens,
+      estimatedOutputTokens: resolvedOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+      estimatedToolCalls,
+      admittedAt,
+      userId,
+    });
+    if ("reason" in creditReservation) {
+      return {
+        gated: true,
+        code: "AI_CREDITS_EXHAUSTED",
+        error:
+          creditReservation.reason === "exhausted"
+            ? `${creditReservation.window === "session" ? "Session" : creditReservation.window === "weekly" ? "Weekly" : "Monthly"} AI credits are exhausted. Check the usage indicator for the next reset time.`
+            : creditReservation.reason === "duplicate"
+            ? "This AI request is already being processed or has already completed. Please wait for its response."
+            : "AI usage pricing is not configured for this model. Please contact your administrator.",
+      };
+    }
+  }
 
   // Call Azure OpenAI — throws on API failure so increment is skipped on
   // error (usage metering still records the failed attempt, at 0 tokens,
@@ -251,7 +327,9 @@ export async function callClaudeForTenant(
         resolvedOpts.systemPrompt = `${resolvedOpts.systemPrompt ?? ""}\n\nRESPONSE LANGUAGE AND STYLE: Answer the user's actual request in ${langTrace.detectedLanguage}, using ${script}. ${style} Do not begin by translating or restating the question, do not add an interpretation preamble, and do not force a heading or bullet summary when a direct conversational answer is more suitable. Explicit language or format requests in the latest user message take precedence.`;
       }
     } catch (err) {
-      await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+      if (shouldBill) {
+        await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+      }
       throw err;
     }
   }
@@ -266,7 +344,9 @@ export async function callClaudeForTenant(
       ({ text, usage } = await callClaudeWithUsage(effectiveMessage, resolvedOpts));
     }
   } catch (err) {
-    await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+    if (shouldBill) {
+      await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+    }
     if (language && langTrace) await (await loadLanguageBridge()).finaliseLanguage(tenantId, feature ?? "chat", langTrace, [], language.userId);
     await recordAiUsage({
       requestId,
@@ -298,7 +378,9 @@ export async function callClaudeForTenant(
     latencyMs: Date.now() - startedAt,
     status: "success",
   });
-  await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
+  if (shouldBill) {
+    await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
+  }
   if (countUsage) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
 
   if (language && langTrace) {
@@ -330,8 +412,30 @@ export async function callClaudeForTenantStream(
   tier: string,
   aiSettings: TenantAiSettings,
   userMessage: string,
-  opts: ClaudeCallOptions & { history?: ChatTurn[]; feature?: string; language?: LanguageOptions; idempotencyKey?: string; estimatedToolCalls?: number; toolCalls?: number } = {}
+  opts: ClaudeCallOptions & {
+    history?: ChatTurn[];
+    feature?: string;
+    language?: LanguageOptions;
+    idempotencyKey?: string;
+    countUsage?: boolean;
+    chargeCredits?: boolean;
+    userId?: string;
+    subscriptionBlocked?: boolean;
+    estimatedToolCalls?: number;
+    toolCalls?: number;
+  } = {}
 ): Promise<TenantAiStreamResult> {
+  // (a0) Subscription status gating
+  if (opts.subscriptionBlocked === true) {
+    return {
+      gated: true,
+      code: "AI_LIMIT_REACHED",
+      error: "Subscription is inactive or trial has expired. Please upgrade or renew your subscription.",
+      currentTier: tier,
+      requiredAction: "upgrade",
+    };
+  }
+
   if (aiSettings.disabled === true) {
     return { gated: true, code: "AI_DISABLED", error: "AI features are disabled for this workspace. Contact your workspace admin to re-enable them." };
   }
@@ -369,7 +473,21 @@ export async function callClaudeForTenantStream(
     if (exhausted) return { gated: true, code: "AI_LIMIT_REACHED", error: `${exhausted[0] === "session" ? "Session" : "Weekly"} workspace AI call limit reached. Resets at ${exhausted[1].resetsAt}.`, currentTier: tier, requiredAction: "wait_for_reset" };
   }
 
-  const { history, feature, language, idempotencyKey, estimatedToolCalls, toolCalls = 0, ...restOpts } = opts;
+  const {
+    history,
+    feature,
+    language,
+    idempotencyKey,
+    countUsage = true,
+    chargeCredits = true,
+    userId,
+    subscriptionBlocked,
+    estimatedToolCalls,
+    toolCalls = 0,
+    ...restOpts
+  } = opts;
+  const shouldBill = countUsage !== false && chargeCredits !== false;
+
   const resolvedOpts: ClaudeCallOptions = {
     model: aiSettings.model ?? restOpts.model ?? CLAUDE_DEFAULT_MODEL,
     maxTokens: aiSettings.maxTokensPerCall ?? restOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
@@ -380,8 +498,33 @@ export async function callClaudeForTenantStream(
 
   const requestId = idempotencyKey || randomUUID();
   const estimatedInputTokens = Math.ceil((userMessage.length + (resolvedOpts.systemPrompt?.length ?? 0) + (history ?? []).reduce((n, turn) => n + turn.content.length, 0)) / 4) + ((resolvedOpts.imageDataUrls?.length ?? 0) + (resolvedOpts.imageDataUrl ? 1 : 0)) * 1000;
-  const creditReservation = await reserveAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", estimatedInputTokens, estimatedOutputTokens: resolvedOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS, estimatedToolCalls, admittedAt });
-  if ("reason" in creditReservation) return { gated: true, code: "AI_CREDITS_EXHAUSTED", error: creditReservation.reason === "exhausted" ? `${creditReservation.window === "session" ? "Session" : creditReservation.window === "weekly" ? "Weekly" : "Monthly"} AI credits are exhausted. Check the usage indicator for the next reset time.` : creditReservation.reason === "duplicate" ? "This AI request is already being processed or has already completed. Please wait for its response." : "AI usage pricing is not configured for this model. Please contact your administrator." };
+  
+  if (shouldBill) {
+    const creditReservation = await reserveAiCredits({
+      tenantId,
+      period,
+      requestId,
+      modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL,
+      feature: feature ?? "chat",
+      estimatedInputTokens,
+      estimatedOutputTokens: resolvedOpts.maxTokens ?? CLAUDE_DEFAULT_MAX_TOKENS,
+      estimatedToolCalls,
+      admittedAt,
+      userId,
+    });
+    if ("reason" in creditReservation) {
+      return {
+        gated: true,
+        code: "AI_CREDITS_EXHAUSTED",
+        error:
+          creditReservation.reason === "exhausted"
+            ? `${creditReservation.window === "session" ? "Session" : creditReservation.window === "weekly" ? "Weekly" : "Monthly"} AI credits are exhausted. Check the usage indicator for the next reset time.`
+            : creditReservation.reason === "duplicate"
+            ? "This AI request is already being processed or has already completed. Please wait for its response."
+            : "AI usage pricing is not configured for this model. Please contact your administrator.",
+      };
+    }
+  }
 
   // Wrap the raw stream so usage is incremented exactly once, after a clean
   // finish, and the run is metered (Phase 4) with the usage totals the inner
@@ -432,12 +575,16 @@ export async function callClaudeForTenantStream(
     } catch (err) {
       throw err;
     } finally {
-      if (!providerCompleted) await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+      if (shouldBill && !providerCompleted) {
+        await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: 0, outputTokens: 0, success: false });
+      }
       if (language && langTrace) await (await loadLanguageBridge()).finaliseLanguage(tenantId, feature ?? "chat", langTrace, extraLanguageCalls, language.userId);
     }
-    await incrementAiUsage(tenantId, period);
-    await incrementGlobalAiUsage(period);
-    await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
+    if (countUsage) {
+      await incrementAiUsage(tenantId, period);
+      await incrementGlobalAiUsage(period);
+      await checkAiUsageThresholdCrossing(tenantId, currentCount, currentCount + 1, cap);
+    }
     await recordAiUsage({
       requestId,
       tenantId,
@@ -448,8 +595,10 @@ export async function callClaudeForTenantStream(
       latencyMs: Date.now() - startedAt,
       status: "success",
     });
-    await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
-    await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
+    if (shouldBill) {
+      await settleAiCredits({ tenantId, period, requestId, modelName: resolvedOpts.model ?? CLAUDE_DEFAULT_MODEL, feature: feature ?? "chat", inputTokens: usage.promptTokens, outputTokens: usage.completionTokens, success: true, toolCalls });
+    }
+    if (countUsage) await incrementWindowUsage(tenantId, aiSettings.usagePolicy, admittedAt);
   }
 
   return { gated: false, stream: gatedStream() };

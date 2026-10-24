@@ -26,6 +26,9 @@ const SALES_ORDER_FIELDS = [
   { key: "itemName", label: "Item Name", required: true },
   { key: "quantity", label: "Quantity" },
   { key: "rate", label: "Rate" },
+  { key: "discount", label: "Discount" },
+  { key: "taxRate", label: "Tax Rate (%)" },
+  { key: "hsn", label: "HSN/SAC" },
 ];
 
 function autoMap(columns: string[]) {

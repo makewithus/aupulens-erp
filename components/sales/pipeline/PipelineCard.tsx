@@ -9,6 +9,7 @@ import {
   type Q2CStatus,
 } from "@/lib/constants/statuses";
 import { PipelineProgress } from "./PipelineProgress";
+import { formatSalesDate } from "@/lib/sales/formatters";
 
 interface PipelineCardProps {
   order: any;
@@ -70,7 +71,7 @@ export function PipelineCard({
             {formatCurrency(order.totals?.amountTotal || 0)}
           </span>
           <span className="font-mono text-[10px] text-muted-foreground/60">
-            {new Date(order.createdAt).toLocaleDateString()}
+            {formatSalesDate(order.createdAt)}
           </span>
         </div>
 

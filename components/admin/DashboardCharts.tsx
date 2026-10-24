@@ -37,7 +37,7 @@ export function DashboardCharts({
         title="Financial Health"
         subtitle="All time · Posted revenue, costs & net income"
       >
-        <div className="flex h-[320px] flex-col justify-between font-mono">
+        <div className="flex min-h-[220px] sm:min-h-[260px] lg:h-[300px] flex-col justify-between font-mono">
           <div className="flex items-start justify-between gap-8">
             <div className="flex-1 space-y-6">
               <div>
@@ -93,7 +93,7 @@ export function DashboardCharts({
         title="Revenue Trend"
         subtitle="Last 6 months performance"
       >
-        <div className="h-[320px] relative w-full">
+        <div className="h-[220px] sm:h-[260px] lg:h-[300px] relative w-full">
           <RevenueCanvas data={chartData} formatCurrency={formatCurrency} isDark={isDark} />
         </div>
       </ChartCard>}
@@ -102,7 +102,7 @@ export function DashboardCharts({
         title="Order Activity"
         subtitle="Monthly operational counts"
       >
-        <div className="h-[320px] relative w-full">
+        <div className="h-[220px] sm:h-[260px] lg:h-[300px] relative w-full">
           <OrdersCanvas data={chartData} isDark={isDark} />
         </div>
       </ChartCard>}
@@ -134,13 +134,14 @@ function RevenueCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const maxVal = Math.max(...data.map((d) => d.revenue));
-    // Round to next nice interval
-    const roundStep = Math.max(10000, Math.pow(10, Math.floor(Math.log10(maxVal)) - 1) * 5);
-    const yMax = Math.ceil(maxVal / roundStep) * roundStep || 100000;
-    const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
+    const maxVal = Math.max(0, ...data.map((d) => Number(d.revenue) || 0));
+    const hasData = maxVal > 0;
+    const roundStep = hasData
+      ? Math.max(10000, Math.pow(10, Math.max(1, Math.floor(Math.log10(maxVal))) - 1) * 5)
+      : 10000;
+    const yMax = hasData ? Math.ceil(maxVal / roundStep) * roundStep : 10000;
+    const yTicks = hasData ? [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax] : [0, yMax * 0.5, yMax];
 
-    const PAD = { top: 15, right: 10, bottom: 25, left: 10 };
     const lineColor = isDark ? "#FFFFFF" : "#0F172A";
     const areaFillTop = isDark ? "rgba(255, 255, 255, 0.22)" : "rgba(15, 23, 42, 0.12)";
     const areaFillBottom = isDark ? "rgba(255, 255, 255, 0.01)" : "rgba(15, 23, 42, 0.01)";
@@ -149,6 +150,7 @@ function RevenueCanvas({
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       canvas.style.width = rect.width + "px";
@@ -164,6 +166,14 @@ function RevenueCanvas({
       const H = canvas.height / dpr;
       ctx.clearRect(0, 0, W, H);
 
+      const isMobile = W < 420;
+      const PAD = {
+        top: isMobile ? 18 : 20,
+        right: isMobile ? 12 : 18,
+        bottom: isMobile ? 32 : 36,
+        left: isMobile ? 12 : 16,
+      };
+
       const cL = PAD.left,
         cR = W - PAD.right,
         cT = PAD.top,
@@ -172,7 +182,7 @@ function RevenueCanvas({
         cH = cB - cT;
 
       // Draw gridlines
-      ctx.font = '9px "Roboto Mono", monospace';
+      ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
 
@@ -186,8 +196,7 @@ function RevenueCanvas({
         ctx.stroke();
 
         ctx.fillStyle = isDark ? "#666" : "#888";
-        // Format tick inside grid
-        if (v > 0) {
+        if (v > 0 && hasData) {
           ctx.fillText(formatShortVal(v), cR, y - 6);
         }
       });
@@ -195,13 +204,35 @@ function RevenueCanvas({
       // Draw X Axis months
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
+      ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
       data.forEach((d, i) => {
-        const x = cL + (i / (data.length - 1)) * cW;
-        ctx.fillStyle = isDark ? "#757575" : "#666";
-        ctx.fillText(d.month, x, cB + 8);
+        const x = cL + (i / Math.max(1, data.length - 1)) * cW;
+        ctx.fillStyle = isDark ? "#888" : "#666";
+        ctx.fillText(d.month, x, cB + (isMobile ? 8 : 10));
       });
 
-      // Draw Line (Image 1 crisp white / dark slate)
+      if (!hasData) {
+        // Clean zero-activity message when all 6 months have 0 revenue
+        ctx.save();
+        ctx.font = isMobile ? '10px "Roboto Mono", monospace' : '11px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.45)" : "rgba(15, 23, 42, 0.45)";
+        ctx.fillText("No revenue transactions recorded in this period", (cL + cR) / 2, (cT + cB) / 2);
+        ctx.restore();
+
+        // Subtle baseline
+        ctx.beginPath();
+        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(15, 23, 42, 0.2)";
+        ctx.setLineDash([4, 4]);
+        ctx.moveTo(cL, cB);
+        ctx.lineTo(cR, cB);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+      }
+
+      // Draw Line
       ctx.beginPath();
       data.forEach((d, i) => {
         const x = cL + (i / (data.length - 1)) * cW;
@@ -231,7 +262,6 @@ function RevenueCanvas({
         const hx = cL + (highlightIdx / (data.length - 1)) * cW;
         const hy = cB - (data[highlightIdx].revenue / yMax) * cH;
 
-        // Dashed grid overlay
         ctx.strokeStyle = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 3]);
@@ -241,7 +271,6 @@ function RevenueCanvas({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Interactive Dot
         ctx.beginPath();
         ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
@@ -263,8 +292,9 @@ function RevenueCanvas({
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
-      const cL = PAD.left,
-        cR = W - PAD.right;
+      const isMobile = W < 420;
+      const cL = isMobile ? 12 : 16;
+      const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
 
       if (mx < cL || mx > cR) {
@@ -300,8 +330,9 @@ function RevenueCanvas({
       const rect = canvas.getBoundingClientRect();
       const mx = touch.clientX - rect.left;
       const W = rect.width;
-      const cL = PAD.left,
-        cR = W - PAD.right;
+      const isMobile = W < 420;
+      const cL = isMobile ? 12 : 16;
+      const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
 
       if (mx < cL || mx > cR) {
@@ -342,9 +373,13 @@ function RevenueCanvas({
     canvas.addEventListener("touchstart", handleTouch, { passive: true });
     canvas.addEventListener("touchmove", handleTouch, { passive: true });
     canvas.addEventListener("touchend", handleMouseLeave);
-    window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    const ro = new ResizeObserver(() => {
+      resize();
+    });
+    ro.observe(container);
+
+    setTimeout(resize, 60);
     resize();
 
     return () => {
@@ -353,12 +388,12 @@ function RevenueCanvas({
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
-      window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, isDark, formatCurrency]);
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full min-h-[180px]">
       <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
@@ -387,17 +422,17 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const maxVal = Math.max(...data.map((d) => d.orders));
+    const maxVal = Math.max(0, ...data.map((d) => Number(d.orders) || 0));
+    const hasData = maxVal > 0;
     const roundStep = maxVal > 100 ? 50 : maxVal > 20 ? 10 : 5;
-    const yMax = Math.ceil(maxVal / roundStep) * roundStep || 10;
-    const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
-
-    const PAD = { top: 28, right: 10, bottom: 25, left: 10 };
+    const yMax = hasData ? Math.ceil(maxVal / roundStep) * roundStep || 10 : 5;
+    const yTicks = hasData ? [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax] : [0, yMax];
 
     function resize() {
       if (!canvas || !container) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       canvas.style.width = rect.width + "px";
@@ -413,6 +448,14 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const H = canvas.height / dpr;
       ctx.clearRect(0, 0, W, H);
 
+      const isMobile = W < 420;
+      const PAD = {
+        top: isMobile ? 24 : 28,
+        right: isMobile ? 12 : 18,
+        bottom: isMobile ? 32 : 36,
+        left: isMobile ? 12 : 16,
+      };
+
       const cL = PAD.left,
         cR = W - PAD.right,
         cT = PAD.top,
@@ -421,7 +464,7 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         cH = cB - cT;
 
       // Draw gridlines
-      ctx.font = '9px "Roboto Mono", monospace';
+      ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
 
@@ -435,25 +478,37 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         ctx.stroke();
 
         ctx.fillStyle = isDark ? "#666" : "#888";
-        if (v > 0) {
+        if (v > 0 && hasData) {
           ctx.fillText(Math.round(v).toString(), cR, y - 6);
         }
       });
 
+      if (!hasData) {
+        ctx.save();
+        ctx.font = isMobile ? '10px "Roboto Mono", monospace' : '11px "Roboto Mono", monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.45)" : "rgba(15, 23, 42, 0.45)";
+        ctx.fillText("No order activity recorded in this period", (cL + cR) / 2, (cT + cB) / 2 - 10);
+        ctx.restore();
+      }
+
       // Draw bars
       const n = data.length;
       const groupWidth = cW / n;
-      const barWidth = groupWidth * 0.45;
+      const barWidth = groupWidth * 0.48;
       const gap = (groupWidth - barWidth) / 2;
 
       data.forEach((d, i) => {
         const x = cL + i * groupWidth + gap;
-        const barH = (d.orders / yMax) * cH;
+        const barH = d.orders > 0 ? (d.orders / yMax) * cH : 2.5;
         const y = cB - barH;
 
-        // Image 3 dual-tone rich purple gradient
         const grad = ctx.createLinearGradient(x, y, x, cB);
-        if (isDark) {
+        if (d.orders === 0) {
+          grad.addColorStop(0, isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(15, 23, 42, 0.12)");
+          grad.addColorStop(1, isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(15, 23, 42, 0.04)");
+        } else if (isDark) {
           grad.addColorStop(0, highlightIdx === i ? "#FFFFFF" : "#D3BDFF");
           grad.addColorStop(0.3, highlightIdx === i ? "#D3BDFF" : "#B595FF");
           grad.addColorStop(0.7, highlightIdx === i ? "#B595FF" : "#A77DFF");
@@ -465,7 +520,6 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         }
         ctx.fillStyle = grad;
 
-        // Draw rounded top corners matching Image 3
         const r = Math.min(3, barWidth / 2);
         ctx.beginPath();
         ctx.moveTo(x, cB);
@@ -477,23 +531,23 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
         ctx.closePath();
         ctx.fill();
 
-        // Numeric value directly on top of each bar so user can read directly
+        // Numeric value directly on top of each bar
         ctx.save();
-        ctx.font = 'bold 10px "Roboto Mono", monospace';
+        ctx.font = isMobile ? 'bold 9px "Roboto Mono", monospace' : 'bold 10px "Roboto Mono", monospace';
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         ctx.fillStyle = highlightIdx === i
           ? (isDark ? "#ffffff" : "#0f172a")
-          : (isDark ? "#f2f2f2" : "#1e293b");
+          : (isDark ? (d.orders > 0 ? "#f2f2f2" : "#71717a") : (d.orders > 0 ? "#1e293b" : "#94a3b8"));
         ctx.fillText(d.orders.toString(), x + barWidth / 2, y - 3);
         ctx.restore();
 
         // Month text below
-        ctx.font = '9px "Roboto Mono", monospace';
+        ctx.font = isMobile ? '8.5px "Roboto Mono", monospace' : '9px "Roboto Mono", monospace';
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = highlightIdx === i ? (isDark ? "#fff" : "#000") : "#757575";
-        ctx.fillText(d.month, x + barWidth / 2, cB + 8);
+        ctx.fillStyle = highlightIdx === i ? (isDark ? "#fff" : "#000") : isDark ? "#888" : "#666";
+        ctx.fillText(d.month, x + barWidth / 2, cB + (isMobile ? 8 : 10));
       });
     }
 
@@ -501,8 +555,9 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const W = rect.width;
-      const cL = PAD.left,
-        cR = W - PAD.right;
+      const isMobile = W < 420;
+      const cL = isMobile ? 12 : 16;
+      const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
       const n = data.length;
       const groupWidth = cW / n;
@@ -537,8 +592,9 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       const rect = canvas.getBoundingClientRect();
       const mx = touch.clientX - rect.left;
       const W = rect.width;
-      const cL = PAD.left,
-        cR = W - PAD.right;
+      const isMobile = W < 420;
+      const cL = isMobile ? 12 : 16;
+      const cR = W - (isMobile ? 12 : 18);
       const cW = cR - cL;
       const n = data.length;
       const groupWidth = cW / n;
@@ -577,9 +633,13 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
     canvas.addEventListener("touchstart", handleTouch, { passive: true });
     canvas.addEventListener("touchmove", handleTouch, { passive: true });
     canvas.addEventListener("touchend", handleMouseLeave);
-    window.addEventListener("resize", resize);
 
-    setTimeout(resize, 100);
+    const ro = new ResizeObserver(() => {
+      resize();
+    });
+    ro.observe(container);
+
+    setTimeout(resize, 60);
     resize();
 
     return () => {
@@ -588,12 +648,12 @@ function OrdersCanvas({ data, isDark }: { data: any[]; isDark: boolean }) {
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
-      window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full min-h-[180px]">
       <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}

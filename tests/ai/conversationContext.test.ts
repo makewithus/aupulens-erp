@@ -19,6 +19,7 @@ describe("active conversation context", () => {
   it("removes a current question accidentally included by a caller from prior history", () => {
     const prior = [{ role: "user", content: "Earlier" }, { role: "assistant", content: "Context" }];
     expect(historyBeforeCurrentQuestion([...prior, { role: "user", content: "Follow up" }], "Follow up")).toEqual(prior);
+    expect(historyBeforeCurrentQuestion([...prior, { role: "user", content: "Follow up" }, { role: "assistant", content: "", isLoading: true }], "Follow up")).toEqual(prior);
     expect(historyBeforeCurrentQuestion(prior, "Follow up")).toEqual(prior);
   });
   it("retains relevant older facts and recent dialogue when a thread exceeds its budget", () => {

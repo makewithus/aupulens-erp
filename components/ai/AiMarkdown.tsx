@@ -1,21 +1,48 @@
 "use client";
 
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+import type { ErpStructuredResponse } from "@/lib/ai/erpTypes";
+import { parseStructuredErpText } from "@/lib/ai/erpPresentation";
+import { StructuredErpView } from "./StructuredErpView";
+
+interface AiMarkdownProps {
+  content: string;
+  structured?: ErpStructuredResponse;
+  onAction?: (actionText: string) => void;
+  className?: string;
+  isDark?: boolean;
+}
 
 /**
  * Shared assistant-message renderer used by every AI surface (module assistant
- * pages + the global AI sidebar). Turns the model's markdown into clean,
- * ChatGPT/Claude-style output — no raw `**`, `###`, or `-` bullets leaking to
- * the user — and is fully theme-aware (uses design tokens, so it reads well in
- * both light and dark without an `isDark` prop).
+ * pages + the global AI sidebar).
+ * Supports typed structured ERP payloads, automatic fallback parsing for legacy/saved text,
+ * and standard Claude/ChatGPT-style markdown rendering.
  */
-export function AiMarkdown({ content, className }: { content: string; className?: string }) {
+export function AiMarkdown({
+  content,
+  structured,
+  onAction,
+  className,
+}: AiMarkdownProps) {
+  // If structured data is directly provided OR can be safely parsed from authoritative ERP text patterns,
+  // render the dedicated ERP component with cards, status badges, and highlighted financial totals.
+  const structuredData = structured || (content ? parseStructuredErpText(content) : null);
+  if (structuredData) {
+    return (
+      <div className={cn("w-full my-1", className)}>
+        <StructuredErpView data={structuredData} onAction={onAction} />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "text-sm leading-relaxed text-foreground break-words",
+        "text-sm leading-relaxed text-foreground break-words font-sans",
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className,
       )}
@@ -23,7 +50,7 @@ export function AiMarkdown({ content, className }: { content: string; className?
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({ children }) => <p className="my-2 leading-relaxed">{children}</p>,
+          p: ({ children }) => <p className="my-2 leading-relaxed whitespace-pre-wrap">{children}</p>,
           strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           h1: ({ children }) => <h1 className="mt-4 mb-2 text-base font-bold text-foreground">{children}</h1>,
@@ -46,8 +73,8 @@ export function AiMarkdown({ content, className }: { content: string; className?
             const isBlock = /language-(\w+)/.test(cls || "");
             if (isBlock) {
               return (
-                <pre className="my-3 overflow-x-auto rounded-md border border-border bg-muted/60 p-3 text-xs leading-relaxed">
-                  <code className="font-mono" {...props}>{children}</code>
+                <pre className="my-3 overflow-x-auto rounded-md border border-border bg-muted/60 p-3 text-xs leading-relaxed font-mono">
+                  <code {...props}>{children}</code>
                 </pre>
               );
             }

@@ -43,6 +43,21 @@ export function fmtNum(n: number, decimals = 2): string {
   });
 }
 
+export function fmtQty(n: number, force3Decimals = false): string {
+  const num = Number(n) || 0;
+  if (force3Decimals) {
+    return num.toLocaleString("en-IN", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
+  }
+  return num.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
+}
+
+
 // A plain space between the currency symbol and the amount is a break
 // opportunity — in a narrow table column the browser will wrap "₹" onto its
 // own line, orphaned above the number. &nbsp; keeps them glued together.

@@ -4,7 +4,13 @@ import mongoose from "mongoose";
 process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/aupulens_test_admin_dashboard_perf";
 
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
+// This integration suite owns the real disposable connection, including ledger fixtures.
+vi.mock("@/lib/db", () => ({ default: async () => {} }));
 
+import Account from "@/models/finance/Account";
+import JournalEntry from "@/models/finance/JournalEntry";
+import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
+import { createPostedJournalEntry } from "@/lib/accounting/posting";
 import { auth } from "@/auth";
 import { DOCUMENT_STATUS, ENTITY_STATUS, PAYMENT_STATE, SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import { SalesInvoice } from "@/models/sales/SalesInvoice";
@@ -200,6 +206,8 @@ describe("Admin dashboard summary performance route", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
     await Promise.all([
+      Account,
+      JournalEntry,
       SalesInvoice,
       Invoice,
       SaleOrder,
@@ -215,6 +223,8 @@ describe("Admin dashboard summary performance route", () => {
 
   afterEach(async () => {
     await Promise.all([
+      Account,
+      JournalEntry,
       SalesInvoice,
       Invoice,
       SaleOrder,
@@ -237,6 +247,21 @@ describe("Admin dashboard summary performance route", () => {
 
   it("uses aggregate-backed tenant summaries without loading whole invoice collections", async () => {
     await seedDashboardData();
+    // The dashboard reports posted GL revenue/expense, not document totals.
+    // Preserve all original numeric assertions while providing the actual source of truth.
+    await ensureChartOfAccounts(tenantId, String(userId));
+    const accounts = await Account.find({ tenantId }).lean();
+    const account = (code: string) => accounts.find(a => a.code === code)!._id;
+    for (const [name, amount, date, expense] of [
+      ["QA-REV-CURRENT", 100, monthDate(0), false],
+      ["QA-REV-PREVIOUS", 50, monthDate(-1), false],
+      ["QA-EXP-CURRENT", 50, monthDate(0), true],
+    ] as const) {
+      await createPostedJournalEntry({ tenantId, createdBy: String(userId), header: { name, date, journalType: "general" }, voucherType: "journal",
+        lineIds: expense ? [{ accountId: account("5100"), label: name, debit: amount, credit: 0 }, { accountId: account("1120"), label: name, debit: 0, credit: amount }]
+          : [{ accountId: account("1120"), label: name, debit: amount, credit: 0 }, { accountId: account("4100"), label: name, debit: 0, credit: amount }],
+      });
+    }
     vi.mocked(auth).mockResolvedValue({ user: { id: String(userId), tenantId, role: "admin" } } as any);
 
     const salesFindSpy = vi.spyOn(SalesInvoice as any, "find");
@@ -249,12 +274,17 @@ describe("Admin dashboard summary performance route", () => {
 
     expect(salesFindSpy).not.toHaveBeenCalled();
     expect(purchaseFindSpy).not.toHaveBeenCalled();
+    expect(body.summary.finance.accountingBasis).toBe("posted_journal_entries");
     expect(body.summary.finance.totalRevenue).toBe(150);
     expect(body.summary.finance.revenueCurrentMonth).toBe(100);
     expect(body.summary.finance.totalExpenses).toBe(50);
     expect(body.summary.finance.expensesCurrentMonth).toBe(50);
     expect(body.summary.finance.draftInvoices).toBe(1);
-    expect(body.summary.finance.totalExpenseRecords).toBe(70);
+    // Unposted expense document totals (70 in this fixture) are not ledger costs.
+    expect(body.summary.finance).not.toHaveProperty("totalExpenseRecords");
+    expect(body.summary.finance.hasExpenseActivity).toBe(true);
+    expect(body.summary.finance.profitAvailable).toBe(true);
+    expect(body.summary.finance.netIncome).toBe(100);
     expect(body.summary.inventory.publishedProducts).toBe(1);
     expect(body.summary.sales.totalOrders).toBe(1);
     expect(body.summary.users.totalUsers).toBe(2);

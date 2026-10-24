@@ -4,10 +4,13 @@ import { requireTenantId } from "@/lib/auth/requireTenantId";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Customer from "@/models/sales/Customer";
+import { SalesInvoice } from "@/models/sales/SalesInvoice";
+import { SALES_INVOICE_STATUS } from "@/lib/constants/statuses";
 import SalesView from "@/models/sales/SalesView";
 import { safeEmitEvent } from "@/lib/aiRuntime/runtime/safeEmit";
 import { SYSTEM_VIEW_DEFINITIONS, buildMongoFilterFromCriteria } from "@/lib/sales/customerViews";
 import { resolveSpecialFilter } from "@/lib/sales/customerViews.server";
+import { validateCustomerInput } from "@/lib/sales/customerValidation";
 
 async function ensureSystemViews(tenantId: string) {
   const existing = await SalesView.countDocuments({ tenantId, entityType: "customers", isSystem: true });
@@ -117,8 +120,41 @@ export async function GET(request: Request) {
 
     const [customers, total] = await Promise.all([cursor.lean(), Customer.countDocuments(query)]);
 
+    const customerIds = customers.map((c: any) => c._id);
+    const unpaidInvoices = customerIds.length
+      ? await (SalesInvoice as any)
+          .find({
+            tenantId,
+            customerId: { $in: customerIds },
+            status: { $in: [SALES_INVOICE_STATUS.SAVED, SALES_INVOICE_STATUS.PARTIALLY_PAID, SALES_INVOICE_STATUS.OVERDUE] },
+            markedFullyPaid: { $ne: true },
+          })
+          .select("customerId totalAmount payments")
+          .lean()
+      : [];
+
+    const receivablesByCust = new Map<string, number>();
+    for (const inv of unpaidInvoices) {
+      const cId = String(inv.customerId);
+      const paid = (inv.payments || []).reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+      const outstanding = Math.max(0, (Number(inv.totalAmount) || 0) - paid);
+      receivablesByCust.set(cId, (receivablesByCust.get(cId) || 0) + outstanding);
+    }
+
+    const enrichedCustomers = customers.map((c: any) => {
+      const invoiceReceivables = receivablesByCust.get(String(c._id)) || 0;
+      const totalReceivables = (Number(c.openingBalance) || 0) + invoiceReceivables;
+      return {
+        ...c,
+        outstandingReceivables: totalReceivables,
+        receivables: totalReceivables,
+        // Also update openingBalance so column key "openingBalance" shows real current receivables
+        currentReceivables: totalReceivables,
+      };
+    });
+
     return NextResponse.json({
-      items: customers,
+      items: enrichedCustomers,
       total,
       page: page || 1,
       totalPages: limit ? Math.ceil(total / limit) : 1,
@@ -149,6 +185,14 @@ export async function POST(request: Request) {
     if (!body.header?.name && !body.header?.displayName) {
       return NextResponse.json(
         { error: "Display Name is required" },
+        { status: 400 },
+      );
+    }
+
+    const validation = validateCustomerInput(body);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.errors.join("; ") },
         { status: 400 },
       );
     }

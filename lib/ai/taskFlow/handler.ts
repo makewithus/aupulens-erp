@@ -90,7 +90,10 @@ export async function handleTaskFlow(inp: TaskFlowInput, deps: TaskFlowDeps): Pr
   const english = correction ? correction[1].trim() : trace.modelText;
 
   const respond = async (reply: FlowReply, extra: Partial<TaskFlowResponse> = {}): Promise<TaskFlowResponse> => {
-    const r = reply.kind === "not_handled" ? { text: "", calls: [] } : await respondInLanguage(reply.message, trace);
+    // Cached replies remain free. Locally mapped continuations stay free;
+    // an initial regional reply may translate only within the allowance.
+    const allowReplyProvider = (!trace.locallyMapped || !session) && (!wantsRegionalReply(trace) || await providerAllowed());
+    const r = reply.kind === "not_handled" ? { text: "", calls: [] } : await respondInLanguage(reply.message, trace, { allowProvider: allowReplyProvider });
     const calls = r.calls;
     if (trace.providerCalls.length || calls.length) await deps.chargeTranslation(inp.tenantId);
     await finaliseLanguage(inp.tenantId, "task_flow", trace, calls, inp.userId);

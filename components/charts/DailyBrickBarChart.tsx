@@ -884,7 +884,7 @@ export function DailyBrickBarChart({
   return (
     <div
       className={cn(
-        "relative flex flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
+        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
         isDark ? "bg-[#0b0e11] border-border text-white shadow-lg" : "bg-white border-slate-200 text-slate-900 shadow-sm",
         className
       )}
@@ -927,11 +927,11 @@ export function DailyBrickBarChart({
       {/* ── Timeframe & Custom Days Filter Bar ── */}
       {showToolbar && (
         <div className={cn(
-          "flex flex-wrap items-center justify-between px-4 py-2 border-b text-xs gap-2",
+          "flex shrink-0 flex-wrap items-center justify-between px-3 sm:px-4 py-2 border-b text-xs gap-2",
           isDark ? "border-border/40 bg-transparent" : "border-slate-200 bg-slate-50/80"
         )}>
           {/* Preset Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1 sm:gap-1.5">
             <span className={cn(
               "text-[10px] uppercase mr-1",
               isDark ? "text-muted-foreground" : "text-slate-600 font-semibold"
@@ -974,6 +974,7 @@ export function DailyBrickBarChart({
                 value={customDaysInput}
                 onChange={(e) => setCustomDaysInput(e.target.value)}
                 placeholder="Days..."
+                aria-label="Custom number of days"
                 className={cn(
                   "w-16 bg-transparent text-xs font-mono focus:outline-none",
                   isDark ? "text-white placeholder:text-muted-foreground" : "text-slate-900 placeholder:text-slate-400"
@@ -996,7 +997,7 @@ export function DailyBrickBarChart({
       {/* ── Canvas Wrap with Mouse Wheel Zoom & Pan ── */}
       <div
         ref={containerRef}
-        className="relative flex-1 w-full h-full min-h-[160px] touch-none"
+        className="relative flex-1 min-h-0 min-w-0 w-full touch-none"
         style={{ touchAction: "none", overscrollBehavior: "contain" }}
       >
         <canvas
@@ -1010,7 +1011,7 @@ export function DailyBrickBarChart({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onDoubleClick={handleDoubleClick}
-          className="block w-full h-full cursor-crosshair touch-none"
+          className="absolute inset-0 block w-full h-full cursor-crosshair touch-none"
           style={{ touchAction: "none", overscrollBehavior: "contain" }}
           title="Mouse wheel to zoom in/out • Click and drag to pan • Double-click to reset"
         />

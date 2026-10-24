@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Settings, X, AlertTriangle, Loader2 } from "lucide-react";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { cachedFetch } from "@/lib/api/cachedFetch";
+import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
 
 interface InvoiceRow {
   _id: string;
@@ -112,6 +113,20 @@ export function PaymentForm() {
   }, []);
 
   useEffect(() => {
+    if (prefillInvoiceId && !customerId) {
+      cachedFetch(`/api/sales/invoices/${prefillInvoiceId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            const cId = d.data.customerId?._id || d.data.customerId;
+            if (cId) setCustomerId(String(cId));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [prefillInvoiceId, customerId]);
+
+  useEffect(() => {
     if (!customerId) {
       setInvoices([]);
       setApplied({});
@@ -135,36 +150,54 @@ export function PaymentForm() {
   // hand-editing row amounts yet, distribute it across unpaid invoices in
   // date order up to each row's amount due — still fully overridable per row.
   const [touchedManually, setTouchedManually] = useState(false);
+  const [prefillHandled, setPrefillHandled] = useState(false);
 
   // Arriving from an invoice's "Record Payment" action (row action or detail
   // page button): once that invoice's row is in the loaded list, apply its
   // whole due amount to it specifically rather than letting the generic
-  // date-order auto-apply above possibly spread the received amount across
-  // an earlier invoice instead.
+  // date-order auto-apply spread the received amount across an earlier invoice.
   useEffect(() => {
-    if (!prefillInvoiceId || !invoices.length) return;
+    if (!prefillInvoiceId || !invoices.length || prefillHandled) return;
     const target = invoices.find((inv) => inv._id === prefillInvoiceId);
     if (!target) return;
     const due = amountDue(target);
-    setAmountReceived(due.toFixed(2));
-    setApplied({ [prefillInvoiceId]: due.toFixed(2) });
+    const dueStr = due.toFixed(2);
+    setAmountReceived(dueStr);
+    setApplied({ [prefillInvoiceId]: dueStr });
     setTaxDeducted(false);
     setTdsAmount("");
     setTouchedManually(true);
-  }, [prefillInvoiceId, invoices]);
+    setPrefillHandled(true);
+  }, [prefillInvoiceId, invoices, prefillHandled]);
+
+  // Auto-apply effect: runs only when not manually touched and after prefill is handled
   useEffect(() => {
     if (touchedManually || !invoices.length) return;
+    if (prefillInvoiceId && !prefillHandled) return;
+
     const received = Number(amountReceived) || 0;
     let remaining = received;
     const next: Record<string, string> = {};
+
+    if (prefillInvoiceId) {
+      const target = invoices.find((inv) => inv._id === prefillInvoiceId);
+      if (target) {
+        const due = amountDue(target);
+        const take = Math.min(due, remaining);
+        if (take > 0) next[target._id] = take.toFixed(2);
+        remaining -= take;
+      }
+    }
+
     for (const inv of invoices) {
+      if (inv._id === prefillInvoiceId) continue;
       const due = amountDue(inv);
       const take = Math.min(due, remaining);
       if (take > 0) next[inv._id] = take.toFixed(2);
       remaining -= take;
     }
     setApplied(next);
-  }, [amountReceived, invoices]);
+  }, [amountReceived, invoices, touchedManually, prefillInvoiceId, prefillHandled]);
 
   const totalApplied = useMemo(
     () => Object.values(applied).reduce((acc, v) => acc + (Number(v) || 0), 0),
@@ -229,10 +262,22 @@ export function PaymentForm() {
       if (def.required && !customFieldValues[def.label]) return `${def.label} is required`;
     }
     if (overApplied) return "Total applied payment cannot exceed the amount received";
+    for (const [invId, amtStr] of Object.entries(applied)) {
+      const amt = Number(amtStr) || 0;
+      if (amt <= 0) continue;
+      const inv = invoices.find((i) => i._id === invId);
+      if (inv) {
+        const due = amountDue(inv);
+        if (amt > due + 0.005) {
+          return `Allocation of ₹${amt.toFixed(2)} to invoice ${inv.number} exceeds outstanding due of ₹${due.toFixed(2)}`;
+        }
+      }
+    }
     return null;
   };
 
   const handleSave = async (status: "draft" | "paid") => {
+    if (saving !== null) return;
     const error = validate();
     if (error) {
       toast.error(error);
@@ -490,10 +535,10 @@ export function PaymentForm() {
             ) : (
               invoices.map((inv) => (
                 <TableRow key={inv._id}>
-                  <TableCell>{new Date(inv.invoiceDate).toLocaleDateString("en-IN")}</TableCell>
+                  <TableCell>{formatSalesDate(inv.invoiceDate)}</TableCell>
                   <TableCell className="font-medium">{inv.number}</TableCell>
-                  <TableCell className="text-right">₹{inv.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right">₹{amountDue(inv).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right">{formatSalesCurrency(inv.totalAmount)}</TableCell>
+                  <TableCell className="text-right">{formatSalesCurrency(amountDue(inv))}</TableCell>
                   <TableCell className="text-right">
                     <Input
                       type="number"

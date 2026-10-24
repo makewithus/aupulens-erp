@@ -46,14 +46,15 @@ export async function POST(request: NextRequest) {
 
     let conversationId: string = incomingConversationId || randomUUID();
     const userId = (session.user as any).id as string;
+    const requestId = typeof body.requestId === "string" && body.requestId.length <= 100 ? body.requestId : randomUUID();
 
     const conversationContext = await loadConversationContext({
       tenantId, userId, role: session.user.role, module: "finance", conversationId,
-      chatId: body.chatId, history: body.history, message, requestId: body.requestId,
+      chatId: body.chatId, history: body.history, message, requestId,
     });
     const priorTurns = conversationContext.history;
     conversationId = conversationContext.conversationId;
-    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "finance", conversationId, requestId: body.requestId });
+    const completedRetry = await getCompletedExchange({ tenantId, userId, module: "finance", conversationId, requestId });
     if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
     // AI never auto-commits financial actions: if the message matches a known
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Fetch finance-specific data
     const data = await fetchFinanceData(tenantId);
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
-    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts);
+    const genResult = await generateResponse(message, data, priorTurns, tenantId, tier, aiSettings, imageDataUrls, docTexts, requestId, userId);
     // strictNullChecks is off project-wide, which breaks discriminated-union
     // narrowing on `genResult.gated` (see lib/ai/claude.ts migration notes) —
     // narrowing on `"text" in genResult` instead works either way.
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
     const response = genResult.text;
 
-    await saveCompletedExchange({ tenantId, userId, conversationId, module: "finance", message, response, requestId: body.requestId });
+    await saveCompletedExchange({ tenantId, userId, conversationId, module: "finance", message, response, requestId });
 
     return NextResponse.json({ response, conversationId });
   } catch (error) {
@@ -185,7 +186,9 @@ async function generateResponse(
   tier: string,
   aiSettings: Parameters<typeof callClaudeForTenant>[2],
   imageDataUrls: string[] = [],
-  docTexts: string[] = []
+  docTexts: string[] = [],
+  requestId?: string,
+  userId?: string
 ): Promise<GenerateResult> {
   const prompt = `You are an expert finance AI assistant for an ERP system.
 
@@ -221,6 +224,9 @@ Instructions:
       language: { rawText: message, showInterpretation: false },
       ...opts,
       history: priorTurns,
+      idempotencyKey: requestId,
+      userId,
+      feature: "finance",
     });
     if ("text" in result) {
       return { gated: false, text: result.text };

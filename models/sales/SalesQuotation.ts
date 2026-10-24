@@ -6,6 +6,7 @@ export interface IQuoteLineItem {
   name: string;
   description?: string;
   qty: number;
+  unit?: string;
   unitPrice: number;
   discount: number;
   discountMode: "percent" | "amount";
@@ -21,6 +22,7 @@ export interface IQuoteLineItem {
 }
 
 export interface ISalesQuotation extends Document {
+  sourceAiProposalId?: mongoose.Types.ObjectId;
   tenantId: string;
   quoteNumber: string;
   customerId: mongoose.Types.ObjectId;
@@ -60,6 +62,8 @@ export interface ISalesQuotation extends Document {
   pipelineStage?: string;
   isConverting?: boolean;
   conversionStartedAt?: Date;
+  isConvertingToOrder?: boolean;
+  orderConversionStartedAt?: Date;
   createdBy: mongoose.Types.ObjectId;
 
   createdAt: Date;
@@ -68,6 +72,7 @@ export interface ISalesQuotation extends Document {
 
 const SalesQuotationSchema = new Schema<ISalesQuotation>(
   {
+    sourceAiProposalId: { type: Schema.Types.ObjectId },
     tenantId: { type: String, required: true },
     quoteNumber: { type: String, required: true },
     customerId: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
@@ -83,7 +88,8 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
         itemId: { type: Schema.Types.ObjectId, ref: "Product" },
         name: { type: String, required: true },
         description: { type: String },
-        qty: { type: Number, required: true, min: 0, default: 1 },
+        qty: { type: Number, required: true, min: Number.MIN_VALUE, default: 1 },
+        unit: { type: String, trim: true },
         unitPrice: { type: Number, required: true, min: 0, default: 0 },
         discount: { type: Number, default: 0 },
         discountMode: { type: String, enum: ["percent", "amount"], default: "percent" },
@@ -128,11 +134,14 @@ const SalesQuotationSchema = new Schema<ISalesQuotation>(
     pipelineStage: { type: String },
     isConverting: { type: Boolean, default: false },
     conversionStartedAt: Date,
+    isConvertingToOrder: { type: Boolean, default: false },
+    orderConversionStartedAt: Date,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true },
 );
 
+SalesQuotationSchema.index({ tenantId: 1, sourceAiProposalId: 1 }, { unique: true, partialFilterExpression: { sourceAiProposalId: { $type: "objectId" } } });
 SalesQuotationSchema.index({ tenantId: 1, quoteNumber: 1 }, { unique: true });
 SalesQuotationSchema.index({ tenantId: 1, status: 1 });
 SalesQuotationSchema.index({ tenantId: 1, customerId: 1 });

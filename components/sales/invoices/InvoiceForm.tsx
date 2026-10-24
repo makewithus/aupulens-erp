@@ -27,6 +27,7 @@ import { DateField } from "@/components/finance/accounting/DateField";
 import { toast } from "sonner";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
 import { computeInvoiceTotals, numberToWords, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
+import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { INDIAN_STATES } from "@/lib/constants/indianStates";
 
 import { CustomerPicker, type PickerCustomer } from "./CustomerPicker";
@@ -503,6 +504,13 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
     setSaving(true);
     try {
       const payload = buildPayload(status);
+      if (status !== "draft" && payload.lineItems?.length) {
+        const issues = validateQuoteInput(payload);
+        if (issues.length) {
+          toast.error(issues[0]);
+          return;
+        }
+      }
       const url = mode === "create" ? "/api/sales/invoices" : `/api/sales/invoices/${invoiceId}`;
       const method = mode === "create" ? "POST" : "PATCH";
       const res = await cachedFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -870,6 +878,15 @@ export function InvoiceForm({ mode, invoiceId, initialInvoice }: { mode: "create
             {totals.gstBreakup.map((g) => (
               <div key={g.label} className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>{g.label}</span><span className="font-sans tabular-nums">₹ {g.amount.toFixed(decimals)}</span>
+              </div>
+            ))}
+
+            {additionalCharges.filter(c => Number(c.amount) !== 0).map((c, idx) => (
+              <div key={c.id || idx} className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>{c.name || "Adjustment"}</span>
+                <span className="font-sans tabular-nums">
+                  {Number(c.amount) < 0 ? "- " : "+ "}₹ {Math.abs(Number(c.amount)).toFixed(decimals)}
+                </span>
               </div>
             ))}
 

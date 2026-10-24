@@ -1,3 +1,5 @@
+import { requireCommandAccess } from "@/lib/ai/commandAccess";
+import { safeErpError } from "@/lib/ai/erpAssistant";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -21,6 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const def = COMMAND_ACTIONS[actionType];
+    await requireCommandAccess(def.module, session.user.role, session.user.tenantId);
     const { summary, preview } = await def.buildPreview(params || {}, session.user.tenantId);
 
     const proposal = await AiCommandProposal.create({
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof CommandActionError) {
       return NextResponse.json({ success: false, message: error.message }, { status: 400 });
     }
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const failure = safeErpError(error, "command-propose");
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }

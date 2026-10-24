@@ -1,8 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/themeStore";
+
+// Keep category labels inside their allocated space at every viewport width.
+function fitLabel(ctx: CanvasRenderingContext2D, value: unknown, maxWidth: number) {
+  const text = String(value ?? '');
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let shortened = text;
+  while (shortened.length && ctx.measureText(shortened + '…').width > maxWidth) {
+    shortened = shortened.slice(0, -1);
+  }
+  return shortened ? shortened + '…' : '';
+}
 
 // Helper to format values
 function formatShortVal(v: number) {
@@ -188,10 +199,12 @@ export function CanvasAreaChart({
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillStyle = isDark ? "#94a3b8" : "#475569";
+      const denom = Math.max(1, data.length - 1);
+      const getX = (i: number) => (data.length <= 1 ? cL + cW / 2 : cL + (i / denom) * cW);
       const step = Math.ceil(data.length / 7);
       data.forEach((d, i) => {
         if (i % step === 0 || i === data.length - 1) {
-          const x = cL + (i / (data.length - 1)) * cW;
+          const x = getX(i);
           ctx.fillText(String(d[xAxisKey]), x, cB + 10);
         }
       });
@@ -200,7 +213,7 @@ export function CanvasAreaChart({
       series.forEach((s) => {
         ctx.beginPath();
         data.forEach((d, i) => {
-          const x = cL + (i / (data.length - 1)) * cW;
+          const x = getX(i);
           const y = cB - ((Number(d[s.key]) || 0) / yMax) * cH;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -218,7 +231,7 @@ export function CanvasAreaChart({
         // Line stroke
         ctx.beginPath();
         data.forEach((d, i) => {
-          const x = cL + (i / (data.length - 1)) * cW;
+          const x = getX(i);
           const y = cB - ((Number(d[s.key]) || 0) / yMax) * cH;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -230,7 +243,7 @@ export function CanvasAreaChart({
 
       // Interactive crosshair
       if (highlightIdx !== undefined && highlightIdx >= 0 && highlightIdx < data.length) {
-        const hx = cL + (highlightIdx / (data.length - 1)) * cW;
+        const hx = getX(highlightIdx);
         ctx.strokeStyle = isDark ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.2)";
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
@@ -257,7 +270,8 @@ export function CanvasAreaChart({
         return;
       }
 
-      const idx = Math.round(((mx - cL) / cW) * (data.length - 1));
+      const denom = Math.max(1, data.length - 1);
+      const idx = data.length <= 1 ? 0 : Math.max(0, Math.min(data.length - 1, Math.round(((mx - cL) / cW) * denom)));
       if (idx < 0 || idx >= data.length) {
         tooltip.style.display = "none";
         draw();
@@ -346,22 +360,27 @@ export function CanvasAreaChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 60);
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+
+    const resizeTimer = window.setTimeout(resize, 60);
     resize();
 
     return () => {
+      window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, series, xAxisKey, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
-      <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
+    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative">
+      <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
         className={cn(
@@ -469,7 +488,7 @@ export function CanvasBarChart({
         data.forEach((d, i) => {
           const x = cL + (i + 0.5) * (cW / data.length);
           const name = String(d[xAxisKey]);
-          const dispName = name.length > 12 ? name.substring(0, 10) + ".." : name;
+          const dispName = fitLabel(ctx, name, Math.max(0, cW / data.length - 8));
           ctx.fillText(dispName, x, cB + 10);
         });
 
@@ -547,7 +566,7 @@ export function CanvasBarChart({
         data.forEach((d, i) => {
           const y = cT + (i + 0.5) * (cH / data.length);
           const name = String(d[xAxisKey]);
-          const dispName = name.length > 16 ? name.substring(0, 14) + ".." : name;
+          const dispName = fitLabel(ctx, name, PAD.left - 18);
           ctx.fillText(dispName, cL - 10, y);
         });
 
@@ -723,22 +742,27 @@ export function CanvasBarChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 60);
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+
+    const resizeTimer = window.setTimeout(resize, 60);
     resize();
 
     return () => {
+      window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, series, xAxisKey, layout, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
-      <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
+    <div ref={containerRef} className="w-full h-full min-w-0 min-h-0 relative">
+      <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
         className={cn(
@@ -813,6 +837,20 @@ export function CanvasPieChart({
       const cy = H / 2;
       const radius = Math.min(cx, cy) * 0.75;
       const innerRadius = radius * 0.55;
+
+      if (totalVal <= 0) {
+        ctx.strokeStyle = isDark ? "#27272a" : "#e4e4e7";
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (radius + innerRadius) / 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = isDark ? "#71717a" : "#a1a1aa";
+        ctx.font = 'bold 11px "Roboto Mono", monospace';
+        ctx.fillText("NO DATA", cx, cy);
+        return;
+      }
 
       let startAngle = -Math.PI / 2;
 
@@ -1026,16 +1064,21 @@ export function CanvasPieChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 60);
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+
+    const resizeTimer = window.setTimeout(resize, 60);
     resize();
 
     return () => {
+      window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, palette, nameKey, valueKey, isDark]);
 
@@ -1044,7 +1087,7 @@ export function CanvasPieChart({
   return (
     <div className="w-full flex flex-col items-center">
       <div ref={containerRef} className="w-full min-h-[220px] h-[220px] relative">
-        <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
+        <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
         <div
           ref={tooltipRef}
           className={cn(
@@ -1205,7 +1248,7 @@ export function CanvasComposedChart({
       data.forEach((d, i) => {
         const x = cL + (i + 0.5) * (cW / data.length);
         const name = String(d[xAxisKey]);
-        const dispName = name.length > 12 ? name.substring(0, 10) + ".." : name;
+        const dispName = fitLabel(ctx, name, Math.max(0, cW / data.length - 8));
         ctx.fillText(dispName, x, cB + 10);
       });
 
@@ -1411,22 +1454,36 @@ export function CanvasComposedChart({
     canvas.addEventListener("touchend", handleMouseLeave);
     window.addEventListener("resize", resize);
 
-    setTimeout(resize, 60);
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+
+    const resizeTimer = window.setTimeout(resize, 60);
     resize();
 
     return () => {
+      window.clearTimeout(resizeTimer);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("touchstart", handleTouch);
       canvas.removeEventListener("touchmove", handleTouch);
       canvas.removeEventListener("touchend", handleMouseLeave);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
     };
   }, [data, barSeries, lineSeries, xAxisKey, isDark]);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
-      <canvas ref={canvasRef} className="block cursor-crosshair w-full h-full"></canvas>
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label="Chart legend">
+        {[...barSeries, lineSeries].map((series) => (
+          <span key={series.key} className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0" style={{ backgroundColor: series.color }} />
+            {series.name}
+          </span>
+        ))}
+      </div>
+      <div ref={containerRef} className="w-full flex-1 min-w-0 min-h-0 relative">
+      <canvas ref={canvasRef} className="absolute inset-0 block cursor-crosshair w-full h-full"></canvas>
       <div
         ref={tooltipRef}
         className={cn(
@@ -1436,6 +1493,7 @@ export function CanvasComposedChart({
             : "bg-white/95 border-slate-300 text-slate-900 shadow-xl"
         )}
       ></div>
+      </div>
     </div>
   );
 }

@@ -2223,7 +2223,7 @@ export const PLAN_KEY_VALUES = Object.values(PLAN_KEY);
 export type PlanKeyType = (typeof PLAN_KEY)[keyof typeof PLAN_KEY];
 
 export const PLAN_KEY_LABELS: Record<PlanKeyType, string> = {
-  [PLAN_KEY.FREE]: "Free",
+  [PLAN_KEY.FREE]: "Free / Trial",
   [PLAN_KEY.STARTER]: "Starter",
   [PLAN_KEY.GROWTH]: "Growth",
   [PLAN_KEY.PRO]: "Pro",

@@ -12,6 +12,7 @@ import {
   SALES_ORDER_SHIPMENT_STATUS,
   SALES_ORDER_INVOICING_STATUS,
 } from "@/lib/constants/statuses";
+import { normalizeSalesOrderStatus, getEquivalentSalesOrderStatuses } from "@/lib/sales/salesOrderDiagnostics";
 import "@/models/sales/Customer";
 import "@/models/auth/User";
 
@@ -34,10 +35,8 @@ export async function GET(request: NextRequest) {
     const viewId = searchParams.get("viewId");
     const search = searchParams.get("search")?.trim();
 
-    // Only ever touches orders created by the new Zoho-style form (salesOrderStatus
-    // is set on create); the legacy Odoo /sales/orders page never sets it, so this
-    // tab and that page never show each other's rows.
-    let query: Record<string, any> = { tenantId, salesOrderStatus: { $ne: null } };
+    // Supports both modern and legacy/imported orders, mapping status appropriately
+    let query: Record<string, any> = { tenantId };
 
     if (viewId) {
       const view = await SalesView.findOne({ _id: viewId, tenantId, entityType: "sales-orders" }).lean();
@@ -61,7 +60,13 @@ export async function GET(request: NextRequest) {
     // AI-native "redirect with filters" support — additive: omitting these
     // params leaves every existing caller's behavior unchanged.
     const status = searchParams.get("status");
-    if (status && status !== "all") query.salesOrderStatus = status;
+    if (status && status !== "all") {
+      const equiv = getEquivalentSalesOrderStatuses(status);
+      query.$or = [
+        { salesOrderStatus: { $in: [...equiv.salesOrderStatuses, status] } },
+        { status: { $in: [...equiv.legacyStatuses, status] } },
+      ];
+    }
 
     const customerId = searchParams.get("customerId");
     if (customerId) query["header.partnerId"] = customerId;
@@ -99,7 +104,12 @@ export async function GET(request: NextRequest) {
         .lean(),
     ]);
 
-    return NextResponse.json({ success: true, data: orders, total, page, totalPages: Math.ceil(total / limit) });
+    const mappedOrders = orders.map((o: any) => ({
+      ...o,
+      salesOrderStatus: o.salesOrderStatus || (o.status === "sale" ? "confirmed" : o.status === "done" ? "closed" : o.status === "cancel" ? "void" : "draft"),
+    }));
+
+    return NextResponse.json({ success: true, data: mappedOrders, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     console.error("Sales Orders GET error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

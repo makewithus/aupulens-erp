@@ -1,3 +1,5 @@
+import { requireCommandAccess } from "@/lib/ai/commandAccess";
+import { safeErpError } from "@/lib/ai/erpAssistant";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDB from "@/lib/db";
@@ -182,8 +184,13 @@ Return ONLY JSON (no markdown):
       try {
         const data = await response.json();
         if (data.message) {
-          const { applyLanguageReply } = await import("@/lib/ai/language/tenantBridge");
+          const { applyLanguageReply, finaliseLanguage } = await import("@/lib/ai/language/tenantBridge");
           const r = await applyLanguageReply(data.message, langTrace, { rawText: command, replyInUserLanguage: true, showInterpretation: false });
+          if (r.calls.length) {
+            // Input translation was already metered by tenantAi. Record only this
+            // separately translated confirmation, never replay the input calls.
+            await finaliseLanguage(tenantId, "command_reply", { ...langTrace, providerCalls: [] }, r.calls, session.user.id);
+          }
           data.message = r.text;
           return NextResponse.json(data, { status: response.status });
         }
@@ -194,8 +201,8 @@ Return ONLY JSON (no markdown):
 
     return response;
   } catch (error: any) {
-    console.error("AI Command processing error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const failure = safeErpError(error, "command-request");
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }
 
@@ -254,15 +261,16 @@ async function resolveActionParams(actionType: string, actionParams: any, tenant
   return params;
 }
 
-async function proposeAction(tenantId: string, userId: string, _role: string, actionType: string, actionParams: any) {
+async function proposeAction(tenantId: string, userId: string, role: string, actionType: string, actionParams: any) {
   if (!actionType || !isCommandAction(actionType)) {
     return NextResponse.json({ action: "unknown", message: `I can't perform that action. I can: ${COMMAND_ACTION_TYPES.join(", ")}.` });
   }
   await connectDB();
 
   try {
-    const params = await resolveActionParams(actionType, actionParams, tenantId);
     const def = COMMAND_ACTIONS[actionType];
+    await requireCommandAccess(def.module, role, tenantId);
+    const params = await resolveActionParams(actionType, actionParams, tenantId);
     const { summary, preview } = await def.buildPreview(params, tenantId);
     const proposal = await AiCommandProposal.create({
       tenantId, userId, module: def.module, actionType, destructive: def.destructive,
@@ -290,7 +298,7 @@ async function proposeAction(tenantId: string, userId: string, _role: string, ac
  * execute time), stores ONE proposal, and returns a single confirm card listing
  * every step. Execution (sequential, in order) happens only on confirm.
  */
-async function proposeBatch(tenantId: string, userId: string, _role: string, actions: any[]) {
+async function proposeBatch(tenantId: string, userId: string, role: string, actions: any[]) {
   if (!Array.isArray(actions) || actions.length === 0) {
     return NextResponse.json({ action: "unknown", message: "I couldn't find any actions to perform." });
   }
@@ -302,6 +310,7 @@ async function proposeBatch(tenantId: string, userId: string, _role: string, act
       if (!actionType || !isCommandAction(actionType)) {
         return NextResponse.json({ action: "unknown", message: `I can't perform "${actionType}". I can: ${COMMAND_ACTION_TYPES.join(", ")}.` });
       }
+      await requireCommandAccess(COMMAND_ACTIONS[actionType].module, role, tenantId);
       const params = await resolveActionParams(actionType, a.actionParams || {}, tenantId);
       const def = COMMAND_ACTIONS[actionType];
       let summary: string;

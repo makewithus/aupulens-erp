@@ -9,15 +9,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // vi.hoisted ensures these variables are available when vi.mock factories run
-const { mockFind, mockCountDocuments, mockAggregate } = vi.hoisted(() => ({
+const { mockFind, mockFindOne, mockCountDocuments, mockAggregate } = vi.hoisted(() => ({
   mockFind: vi.fn(),
+  mockFindOne: vi.fn(),
   mockCountDocuments: vi.fn(),
   mockAggregate: vi.fn(),
 }));
 
 // ─── Chain helpers (returned by mocked model methods) ─────────────────────────
 
-function buildChain(returnValue: any[] = []) {
+function buildChain(returnValue: any = []) {
   const chain: any = {
     sort: () => chain,
     limit: () => chain,
@@ -42,7 +43,7 @@ vi.mock("@/models/finance/Invoice", () => ({
 }));
 
 vi.mock("@/models/sales/SalesInvoice", () => ({
-  SalesInvoice: { find: mockFind },
+  SalesInvoice: { find: mockFind, aggregate: mockAggregate },
 }));
 
 vi.mock("@/models/sales/Payment", () => ({
@@ -76,6 +77,12 @@ vi.mock("@/models/auth/User", () => ({
   },
 }));
 
+vi.mock("@/models/admin/Organization", () => ({
+  default: {
+    findOne: mockFindOne,
+  },
+}));
+
 // ─── Import the module under test (after mocks are registered) ────────────────
 
 import {
@@ -93,6 +100,7 @@ const TENANT_B = "tenant-beta";
 beforeEach(() => {
   vi.clearAllMocks();
   mockFind.mockReturnValue(buildChain([]));
+  mockFindOne.mockReturnValue(buildChain({ name: "Alpha Corp", subdomain: TENANT_A }));
   mockCountDocuments.mockResolvedValue(0);
   mockAggregate.mockReturnValue(buildAggregateChain([]));
 });

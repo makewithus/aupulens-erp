@@ -1,3 +1,4 @@
+import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 /**
  * Generalized AI Command Center action registry.
  *
@@ -211,6 +212,7 @@ export const COMMAND_ACTIONS: Record<string, CommandActionDef> = {
       const isCompany = params?.is_company ?? Boolean(params?.companyName && !params?.firstName);
       const doc = await Customer.create({
         tenantId,
+        createdBy: userId,
         header: {
           name,
           is_company: !!isCompany,
@@ -468,12 +470,11 @@ async function resolveCustomer(params: any, tenantId: string): Promise<Record<st
 
 function normalizeInvoiceLines(params: any): { name: string; qty: number; unitPrice: number; discount: number; discountMode: "percent" | "amount"; taxRate: number; hsn?: string }[] {
   const raw = Array.isArray(params?.lineItems) ? params.lineItems : Array.isArray(params?.items) ? params.items : [];
-  return raw
+  const lines = raw
     .map((li: any) => {
       const name = String(li?.name || li?.item || li?.description || "").trim();
       const qty = Number(li?.qty ?? li?.quantity ?? 1);
       const unitPrice = Number(li?.unitPrice ?? li?.price ?? li?.rate ?? 0);
-      if (!name || !(qty > 0) || !(unitPrice >= 0)) return null;
       return {
         name, qty, unitPrice,
         discount: Number(li?.discount ?? 0),
@@ -481,8 +482,11 @@ function normalizeInvoiceLines(params: any): { name: string; qty: number; unitPr
         taxRate: Number(li?.taxRate ?? li?.gst ?? 0),
         hsn: li?.hsn ? String(li.hsn) : undefined,
       };
-    })
-    .filter(Boolean) as any[];
+    });
+  const issues = validateQuoteInput({ lineItems: lines });
+  if (issues.length) throw new CommandActionError(issues.join(" "));
+  if (lines.some(line => line.qty < 1)) throw new CommandActionError("Invoice quantity must be at least 1.");
+  return lines;
 }
 
 // ── Journal-entry helpers ────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import {
   Users,
   Menu,
   ChevronLeft,
+  FolderKanban,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { manufacturingSidebarConfig } from "@/config/sidebar/manufacturing";
 import { adminSidebarConfig } from "@/config/sidebar/admin";
 import { hrSidebarConfig } from "@/config/sidebar/hr";
 import { crmSidebarConfig } from "@/config/sidebar/crm";
+import { projectsSidebarConfig } from "@/config/sidebar/projects";
 import { useAuthStore, clearAllStores } from "@/store/authStore";
 import { signOut } from "next-auth/react";
 import { HeaderActions } from "./HeaderActions";
@@ -85,6 +87,13 @@ const MASTER_MODULES = [
     title: "CRM",
     icon: Users,
     config: crmSidebarConfig,
+  },
+  {
+    id: "projects",
+    moduleKey: "project",
+    title: "Projects",
+    icon: FolderKanban,
+    config: projectsSidebarConfig,
   },
 ];
 
@@ -252,6 +261,19 @@ export function DashboardHeader({
     }
   };
 
+  const handleBack = () => {
+    try {
+      if (typeof window !== "undefined" && window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
+        router.back();
+      } else {
+        const activeMod = MODULES.find((m) => pathname.startsWith(`/${m.id}`))?.id;
+        router.push(activeMod ? `/${activeMod}/dashboard` : "/admin/dashboard");
+      }
+    } catch {
+      router.push("/admin/dashboard");
+    }
+  };
+
   // Simplified header left content: Logo, Module dropdown, and top-level links
   const [isModuleOpen, setIsModuleOpen] = useState(false);
   const moduleRef = useRef<HTMLDivElement | null>(null);
@@ -364,9 +386,10 @@ export function DashboardHeader({
 
             {/* Back — so users don't have to return to a dashboard to move around. */}
             <Button
+              type="button"
               size="icon"
               variant="ghost"
-              onClick={() => router.back()}
+              onClick={handleBack}
               title="Go back"
               className="hidden h-9 w-9 shrink-0 rounded-none sm:inline-flex"
             >

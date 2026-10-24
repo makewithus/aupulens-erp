@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-*/**", // Supported NEXT_DIST_DIR build artifacts, not application source.
     "out/**",
     "build/**",
     "next-env.d.ts",

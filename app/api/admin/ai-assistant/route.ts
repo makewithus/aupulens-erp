@@ -1,3 +1,4 @@
+import { tryErpAssistant, safeErpError, providerFailure } from "@/lib/ai/erpAssistant";
 import { getCompletedExchange, loadConversationContext, saveCompletedExchange } from "@/lib/ai/conversationContext";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof message !== "string" || message.length > 8000 || (body.conversationId !== undefined && (typeof body.conversationId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(body.conversationId))) || (body.chatId != null && (typeof body.chatId !== "string" || !/^[a-f\d]{24}$/i.test(body.chatId)))) {
+      return NextResponse.json({ error: "The message or conversation identifier is invalid.", code: "INVALID_INPUT" }, { status: 400 });
+    }
+
     await connectDB();
 
     // Resolve or create a conversationId
@@ -73,6 +78,14 @@ export async function POST(request: NextRequest) {
     if (completedRetry) {
       if (body.stream) return new Response(completedRetry, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": conversationId } });
       return NextResponse.json({ response: completedRetry, conversationId });
+    }
+
+    if (!body.attachments?.length && !body.attachment) {
+      const erp = await tryErpAssistant({ text: message, tenantId, userId, role: session.user.role, module: "admin", conversationId, requestId });
+      if (erp) {
+        if (body.stream) return new Response(erp.message, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "x-conversation-id": erp.conversationId } });
+        return NextResponse.json(erp);
+      }
     }
 
     // ── Attachment path (one or more PDFs / DOCX / images) ───────────────────
@@ -220,8 +233,7 @@ export async function POST(request: NextRequest) {
             }
             await saveCompletedExchange({ tenantId, userId, module: "admin", conversationId, message, response: full, requestId });
           } catch {
-            // If the model errors mid-stream, end gracefully with what we have.
-            if (!full) controller.enqueue(encoder.encode("Sorry — I couldn't complete that response. Please try again."));
+            controller.enqueue(encoder.encode("\n\nThe AI response was interrupted. Please retry."));
           } finally {
             controller.close();
             // Completed turns are persisted before closing the stream.
@@ -267,11 +279,8 @@ export async function POST(request: NextRequest) {
       console.error("[ai-assistant] MongoDB Atlas storage quota reached; request could not be completed.");
       return NextResponse.json({ error: MONGO_STORAGE_LIMIT_MESSAGE, code: "MONGODB_STORAGE_LIMIT" }, { status: 503 });
     }
-    console.error("AI Assistant Error:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
+    const failure = safeErpError(error, randomUUID());
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }
 
@@ -411,24 +420,26 @@ function buildAdminPrompt(
   const simulationSection = simulationResult
     ? `\nFINANCIAL SIMULATION RESULT (already computed — explain it):\n${safeContextJson(simulationResult)}\n`
     : "";
-  const summaryOnly = (data && typeof data === "object" && "summary" in data) ? { summary: (data as any).summary } : data;
+  const summaryOnly =
+    data && typeof data === "object" && "summary" in data
+      ? { summary: (data as any).summary, ...((data as any).organization ? { organization: (data as any).organization } : {}) }
+      : data;
   const safeData = safeContextJson(summaryOnly, { maxArray: 6 });
 
   const prompt = `USER QUESTION: "${message}"
 
-WORKSPACE SNAPSHOT (aggregate figures only — for answering data questions):
+WORKSPACE RECORDS AND METRICS (for answering data questions):
 ${safeData}
 ${simulationSection}
 Decide what kind of question this is and answer accordingly:
 
 • If it's a DATA / ANALYTICS question ("how many…", "what's my revenue…",
-  "show me…"): answer using ONLY the figures in the snapshot above. Never invent
-  numbers. Format money with ₹.
+  "show me…", "what is my organization name…"): answer using the figures and details above. Never invent
+  numbers. Format money with ₹. If the organization name or workspace is present, provide it clearly.
 
 • If it's a HOW-TO / HELP question ("how do I create a lead", "where do I…"):
   give clear, numbered, step-by-step guidance for using the Aupulens ERP app —
-  which page/menu to open and what to fill in. Do NOT reference the snapshot data
-  and do NOT show any record values or codes for this type of question.
+  which page/menu to open and what to fill in. Do NOT reference internal system jargon and do NOT show raw record codes.
 
 Rules for EVERY answer:
 1. Answer directly — do NOT announce which type of question it is.
@@ -436,7 +447,7 @@ Rules for EVERY answer:
    refer to things by their human name/number instead.
 3. Be well-organised: a one-line summary, then tight bullet points or numbered
    steps. No rambling, no raw JSON.
-4. If the snapshot lacks what's needed, say so briefly and suggest where to look.`;
+4. If the requested information is not available in the ERP records, say so naturally in plain English. NEVER use internal technical terms like "snapshot", "data snapshot", or "context payload". State what is missing and suggest where in the ERP to find or configure it.`;
 
   return {
     prompt,
@@ -479,8 +490,8 @@ async function generateResponseWithClaude(
       currentTier: result.currentTier,
       requiredAction: result.requiredAction,
     };
-  } catch {
-    return { gated: false, text: generateSimpleFallback(data, intent) };
+  } catch (error) {
+    throw providerFailure(error);
   }
 }
 

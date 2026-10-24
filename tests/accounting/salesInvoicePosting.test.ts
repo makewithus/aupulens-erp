@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest";
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import Account from "@/models/finance/Account";
@@ -7,6 +7,10 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import JournalEntry from "@/models/finance/JournalEntry";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postSalesInvoiceJournal } from "@/lib/accounting/salesInvoicePosting";
+
+// The suite owns the real Mongoose connection. Runtime events must reuse it,
+// rather than opening the environment default database during journal posting.
+vi.mock("@/lib/db", () => ({ default: async () => {} }));
 
 const tenantId = "t-sales-invoice-posting";
 const createdBy = new mongoose.Types.ObjectId().toString();
@@ -45,7 +49,7 @@ function sumByAccount(lines: any[], accountId: mongoose.Types.ObjectId, field: "
 describe("postSalesInvoiceJournal (Issue #9 — Sales never posted revenue to the GL)", () => {
   beforeAll(async () => {
     // Isolate this destructive test suite's cleanup from other concurrent runs.
-    const databaseName = `aupulens_test_sales_invoice_posting_${randomUUID().replaceAll("-", "")}`;
+    const databaseName = `aupulens_test_sales_invoice_posting_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
     await mongoose.connect(`mongodb://localhost:27017/${databaseName}`);
     await Account.init();
     await Customer.init();

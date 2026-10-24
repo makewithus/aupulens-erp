@@ -36,7 +36,7 @@ export function wantsRegionalReply(trace: LanguageTrace): boolean {
   return !trace.degraded && (trace.kind === "native" || trace.kind === "romanised" || trace.kind === "mixed") && trace.detectedLanguage !== "en-IN" && trace.detectedLanguage !== "und";
 }
 
-export async function respondInLanguage(reply: string, trace: LanguageTrace | undefined, opts: { showInterpretation?: boolean } = {}): Promise<RespondResult> {
+export async function respondInLanguage(reply: string, trace: LanguageTrace | undefined, opts: { showInterpretation?: boolean; allowProvider?: boolean } = {}): Promise<RespondResult> {
   if (!trace) return { text: reply, translated: false, calls: [] };
   const prefix = opts.showInterpretation === false ? "" : interpretationLine(trace);
   if (!wantsRegionalReply(trace) || !reply.trim() || !isSarvamUsable(getSarvamConfig())) {
@@ -49,6 +49,7 @@ export async function respondInLanguage(reply: string, trace: LanguageTrace | un
     if (cached && placeholdersIntact(cached, entities)) {
       return { text: prefix + unprotectEntities(cached, entities), translated: true, calls: [] };
     }
+    if (opts.allowProvider === false) return { text: prefix + reply, translated: false, calls: [] };
     const r = await translateFromEnglish(masked, trace.detectedLanguage, trace.script === "Latn");
     if (r.ok === false) return { text: prefix + reply, translated: false, calls: r.calls, degradedReason: r.reason };
     if (!numbersPreserved(masked, r.text) || !placeholdersIntact(r.text, entities)) {

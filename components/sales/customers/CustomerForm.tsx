@@ -362,20 +362,20 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
     <div className="max-w-5xl mx-auto space-y-6">
       <h1 className="text-4xl md:text-[56px] font-black tracking-tighter text-primary">{customerId ? "Edit Customer" : "New Customer"}</h1>
 
-      <div className="border border-border/40 bg-card text-sm px-4 py-3 rounded-none flex items-center gap-3">
+      <div className="border border-border/40 bg-card text-sm px-4 py-3 rounded-none flex flex-col sm:flex-row sm:items-center gap-3">
         <span className="text-foreground/80">Prefill Customer details from the GST portal using the Customer&apos;s GSTIN.</span>
         <Input
           value={gstinInput}
           onChange={(e) => setGstinInput(e.target.value.toUpperCase())}
           placeholder="15-digit GSTIN"
-          className="h-8 w-48 rounded-none border-border/40 bg-background"
+          className="h-8 w-full sm:w-48 rounded-none border-border/40 bg-background"
         />
         <button onClick={handlePrefill} disabled={prefilling} className="font-mono text-[11px] uppercase tracking-wider text-primary underline flex items-center">
           {prefilling ? "Prefilling..." : "Prefill"} <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-[180px_1fr] gap-y-5 gap-x-4 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-y-5 gap-x-4 items-start">
         <Label className="pt-2">Customer Type</Label>
         <RadioGroup
           value={form.header.customerType}
@@ -391,7 +391,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </RadioGroup>
 
         <Label className="pt-2">Primary Contact</Label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Select
             value={form.header.salutation || ""}
             onValueChange={(v) => updateNested("header", { salutation: v })}
@@ -455,7 +455,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </div>
 
         <Label className="pt-2">Phone</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <span className="text-xs text-muted-foreground">Work Phone</span>
             <div className="flex">
@@ -497,27 +497,29 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
       </div>
 
       <Tabs defaultValue="other">
-        <TabsList className="flex w-full justify-start bg-transparent border-b rounded-none h-auto p-0 gap-4">
-          {[
-            ["other", "Other Details"],
-            ["address", "Address"],
-            ["contacts", "Contact Persons"],
-            ["custom", "Custom Fields"],
-            ["tags", "Reporting Tags"],
-            ["remarks", "Remarks"],
-          ].map(([value, label]) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-1 pb-2 font-mono text-[11px] uppercase tracking-wider"
-            >
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="overflow-x-auto w-full">
+          <TabsList className="flex w-full justify-start bg-transparent border-b rounded-none h-auto p-0 gap-4 min-w-max">
+            {[
+              ["other", "Other Details"],
+              ["address", "Address"],
+              ["contacts", "Contact Persons"],
+              ["custom", "Custom Fields"],
+              ["tags", "Reporting Tags"],
+              ["remarks", "Remarks"],
+            ].map(([value, label]) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-1 pb-2 font-mono text-[11px] uppercase tracking-wider"
+              >
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value="other" className="pt-4 space-y-4">
-          <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
+          <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
             <Label>PAN</Label>
             <Input value={form.pan || ""} onChange={(e) => update({ pan: e.target.value.toUpperCase() })} />
 
@@ -586,7 +588,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
 
         <TabsContent value="address" className="pt-4">
-          <div className="grid grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
             <div className="space-y-3">
               <h3 className="font-semibold">Billing Address</h3>
               <AddressFields addr={billing} onChange={(patch) => updateAddress("billing", patch)} />
@@ -704,7 +706,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
               also refine the address format of your Customers and Vendors from there.
             </p>
           ) : (
-            <div className="grid grid-cols-[180px_1fr] gap-y-3 gap-x-4 items-center max-w-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-y-3 gap-x-4 items-center max-w-2xl">
               {customFieldDefs.map((def: any) => (
                 <div key={def._id} className="contents">
                   <Label>{def.label}</Label>
@@ -716,7 +718,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
               ))}
             </div>
           )}
-          <div className="flex gap-2 max-w-md items-center">
+          <div className="flex flex-col sm:flex-row gap-2 max-w-md sm:items-center">
             <Input
               placeholder="New custom field label"
               value={newFieldLabel}
@@ -756,7 +758,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
               })}
             </div>
           )}
-          <div className="flex gap-2 max-w-sm items-center">
+          <div className="flex flex-col sm:flex-row gap-2 max-w-sm sm:items-center">
             <Input
               placeholder="New reporting tag"
               value={newTagName}
@@ -780,7 +782,7 @@ export function CustomerForm({ initialValue, customerId }: CustomerFormProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex flex-wrap items-center justify-end gap-3 z-50">
         <Button variant="outline" className="rounded-none border-border/40 font-mono text-[11px] uppercase tracking-wider" onClick={() => router.push("/sales/customers")}>
           Cancel
         </Button>
@@ -800,7 +802,7 @@ function AddressFields({
   onChange: (patch: Record<string, any>) => void;
 }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] gap-y-3 gap-x-3 items-center">
+    <div className="grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-y-3 gap-x-3 items-center">
       <Label className="text-xs">Attention</Label>
       <Input className="h-9" value={addr.attention || ""} onChange={(e) => onChange({ attention: e.target.value })} />
 

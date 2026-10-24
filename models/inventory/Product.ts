@@ -36,6 +36,9 @@ export interface IProduct extends Document {
       effectiveDate?: string;
       description?: string;
     };
+    uom?: string;
+    unit?: string;
+    allowFractional?: boolean;
   };
   tab_sales: {
     upsell_cross_sell: {
@@ -102,6 +105,9 @@ const ProductSchema: Schema<IProduct> = new Schema(
         effectiveDate: { type: String },
         description: { type: String },
       },
+      uom: { type: String, trim: true },
+      unit: { type: String, trim: true },
+      allowFractional: { type: Boolean, default: true },
     },
     tab_sales: {
       upsell_cross_sell: {

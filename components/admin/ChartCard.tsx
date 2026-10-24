@@ -26,14 +26,14 @@ export function ChartCard({
     >
       {/* Header — matches the CRM Reports chart cards: uppercase title,
           small muted subtitle, monospace throughout. */}
-      <div className="px-6 pt-6">
+      <div className="px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="space-y-0.5">
-          <h2 className="text-lg font-normal uppercase text-foreground">
+          <h2 className="text-base sm:text-lg font-normal uppercase text-foreground tracking-wide">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="text-[10px] text-muted-foreground/60">
+            <p className="text-[10px] sm:text-xs text-muted-foreground/70">
               {subtitle}
             </p>
           )}
@@ -41,7 +41,7 @@ export function ChartCard({
       </div>
 
       {/* Chart */}
-      <CardContent className="p-6 pt-2">
+      <CardContent className="p-3 sm:p-6 pt-2">
         {children}
       </CardContent>
     </Card>

@@ -466,7 +466,7 @@ User instruction: "${message}"${docsBlock}${historyBlock}`;
       const m = result.text.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(m ? m[0] : result.text);
     } catch {
-      return NextResponse.json({ success: false, message: "I couldn't read those details clearly. Please add a bit more detail and try again." }, { status: 422 });
+      return NextResponse.json({ success: false, message: (target === "sales_quote" || target === "quote") ? "Which customer should this quote be for?" : "Which customer or details should I use?" }, { status: 422 });
     }
 
     const data = parsed?.data && typeof parsed.data === "object" ? parsed.data : {};

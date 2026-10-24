@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatSalesDate } from "@/lib/sales/formatters";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-[#F1DF38]",
@@ -62,9 +63,7 @@ export function DeliveryChallanTable({
 
             {/* Date */}
             <TableCell className="text-sm text-muted-foreground">
-              {dc.deliveryDate
-                ? new Date(dc.deliveryDate).toLocaleDateString()
-                : "—"}
+              {formatSalesDate(dc.deliveryDate)}
             </TableCell>
 
             {/* Status */}

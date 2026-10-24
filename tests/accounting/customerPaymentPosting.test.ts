@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import Account from "@/models/finance/Account";
@@ -7,6 +7,10 @@ import Payment from "@/models/sales/Payment";
 import JournalEntry from "@/models/finance/JournalEntry";
 import { ensureChartOfAccounts } from "@/lib/accounting/coa-seeder";
 import { postCustomerPaymentJournal } from "@/lib/accounting/payments";
+
+// The suite owns the real Mongoose connection. Runtime events must reuse it,
+// rather than opening the environment default database during journal posting.
+vi.mock("@/lib/db", () => ({ default: async () => {} }));
 
 const tenantId = "t-customer-payment-posting";
 const createdBy = new mongoose.Types.ObjectId().toString();
@@ -48,7 +52,7 @@ describe("postCustomerPaymentJournal", () => {
   beforeAll(async () => {
     // Each invocation owns a disposable database. A fixed DB name allowed
     // concurrent local/CI runs to drop one another's chart-of-accounts fixture.
-    const databaseName = `aupulens_test_customer_payment_posting_${randomUUID().replaceAll("-", "")}`;
+    const databaseName = `aupulens_test_customer_payment_posting_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
     await mongoose.connect(`mongodb://localhost:27017/${databaseName}`);
     await Account.init();
     await Customer.init();

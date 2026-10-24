@@ -58,3 +58,7 @@ docs/_planning/
 amastermds/
 .claude/
 *.claude
+
+# Scratch testing & evidence
+scratch/
+

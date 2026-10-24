@@ -56,6 +56,7 @@ export default function PayablesPage() {
   // Visualization state
   const [isVizOpen, setIsVizOpen] = useState(false);
   const [vizData, setVizData] = useState<Record<string, string | number>[]>([]);
+  const [statsData, setStatsData] = useState<{ totalPayable: number; pendingCount: number; paidCount: number; overdueCount: number } | null>(null);
   
   const [newBill, setNewBill] = useState({
     billNumber: '',
@@ -89,6 +90,7 @@ export default function PayablesPage() {
       setBills(data.bills);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
+      if (data.stats) setStatsData(data.stats);
     } catch (err) {
       console.error('Error fetching bills:', err);
       setError('Failed to load bills');
@@ -97,16 +99,17 @@ export default function PayablesPage() {
     }
   }, []);
 
-  const fetchAllBillsForStats = useCallback(async (statusF: string, from: string, to: string) => {
+  const fetchAllBillsForStats = useCallback(async (from: string, to: string) => {
     try {
       const params = new URLSearchParams({ page: '1', limit: '1000' });
-      if (statusF && statusF !== 'all') params.append('status', statusF);
+      // KPI cards reflect overall tenant payables for the selected date range, NOT filtered by table status
       if (from) params.append('dateFrom', from);
       if (to) params.append('dateTo', to);
       const res = await cachedFetch(`/api/finance/bills?${params.toString()}`);
       if (!res.ok) return;
       const data = await res.json();
       setAllBills(data.bills || []);
+      if (data.stats) setStatsData(data.stats);
     } catch (err) {
       console.error('Error fetching bill stats:', err);
     }
@@ -132,8 +135,8 @@ export default function PayablesPage() {
   }, [status, router, session, fetchBills, page, debouncedQuery, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (status === "authenticated") fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
-  }, [status, fetchAllBillsForStats, statusFilter, dateFrom, dateTo]);
+    if (status === "authenticated") fetchAllBillsForStats(dateFrom, dateTo);
+  }, [status, fetchAllBillsForStats, dateFrom, dateTo]);
 
   const handleAddItem = () => {
     setNewBill({
@@ -199,7 +202,7 @@ export default function PayablesPage() {
         dueDate: '',
       });
       fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
-      fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
+      fetchAllBillsForStats(dateFrom, dateTo);
     } catch (err) {
       console.error('Error creating bill:', err);
       setError('Failed to create bill');
@@ -220,7 +223,7 @@ export default function PayablesPage() {
       if (!res.ok) throw new Error('Failed to update bill');
 
       fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo);
-      fetchAllBillsForStats(statusFilter, dateFrom, dateTo);
+      fetchAllBillsForStats(dateFrom, dateTo);
     } catch (err) {
       console.error('Error updating bill:', err);
       setError('Failed to mark bill as paid');
@@ -292,7 +295,7 @@ export default function PayablesPage() {
       userEmail={session?.user?.email || ''}
       userRole={session?.user?.role}
       onSignOut={() => signOut({ callbackUrl: '/auth/finance' })}
-      onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllBillsForStats(statusFilter, dateFrom, dateTo); }}
+      onRefresh={() => { fetchBills(page, debouncedQuery, statusFilter, dateFrom, dateTo); fetchAllBillsForStats(dateFrom, dateTo); }}
     >
       <div className="p-0 sm:p-2 lg:p-6 w-full max-w-full min-w-0 space-y-4 sm:space-y-6">
         <FinancePageHeader
@@ -304,12 +307,12 @@ export default function PayablesPage() {
                 variant="outline"
                 onClick={() => {
                   const paidTotal = allBills.filter(b => b.status === 'paid').reduce((sum, b) => sum + b.total, 0);
-                  const unpaidTotal = allBills.filter(b => b.status === 'pending' || b.status === 'draft').reduce((sum, b) => sum + b.total, 0);
+                  const unpaidTotal = allBills.filter(b => b.status === 'pending' || b.status === 'draft' || b.status === 'posted' || b.status === 'pending_approval').reduce((sum, b) => sum + b.total, 0);
                   const overdueTotal = allBills.filter(b => b.status === 'overdue').reduce((sum, b) => sum + b.total, 0);
 
                   setVizData([
                     { category: 'Paid', amount: paidTotal, count: allBills.filter(b => b.status === 'paid').length },
-                    { category: 'Unpaid', amount: unpaidTotal, count: allBills.filter(b => b.status === 'pending' || b.status === 'draft').length },
+                    { category: 'Unpaid', amount: unpaidTotal, count: allBills.filter(b => b.status === 'pending' || b.status === 'draft' || b.status === 'posted' || b.status === 'pending_approval').length },
                     { category: 'Overdue', amount: overdueTotal, count: allBills.filter(b => b.status === 'overdue').length },
                   ]);
                   setIsVizOpen(true);
@@ -458,44 +461,57 @@ export default function PayablesPage() {
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Payable</CardTitle>
-              <DollarSign className="h-4 w-4 text-foreground/70" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-sans tabular-nums">₹{allBills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString('en-IN')}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{allBills.filter(b => b.status === 'pending').length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Paid</CardTitle>
-              <CheckCircle className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{allBills.filter(b => b.status === 'paid').length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{allBills.filter(b => b.status === 'overdue').length}</div>
-            </CardContent>
-          </Card>
-        </div>
+        {(() => {
+          const computedTotalPayable = statsData?.totalPayable ?? allBills
+            .filter(b => b.status !== 'paid' && b.status !== 'cancelled' && b.status !== 'rejected')
+            .reduce((sum, bill) => sum + (bill.total || 0), 0);
+          const computedPending = statsData?.pendingCount ?? allBills
+            .filter(b => b.status === 'pending' || b.status === 'draft' || b.status === 'posted' || b.status === 'pending_approval')
+            .length;
+          const computedPaid = statsData?.paidCount ?? allBills.filter(b => b.status === 'paid').length;
+          const computedOverdue = statsData?.overdueCount ?? allBills.filter(b => b.status === 'overdue').length;
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Total Payable</CardTitle>
+                  <DollarSign className="h-4 w-4 text-foreground/70" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold font-sans tabular-nums">₹{computedTotalPayable.toLocaleString('en-IN')}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                  <Clock className="h-4 w-4 text-yellow-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-600">{computedPending}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Paid</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{computedPaid}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{computedOverdue}</div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
 
         {error && (
           <div className="p-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-none">
@@ -529,6 +545,8 @@ export default function PayablesPage() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="posted">Posted</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
                   </SelectContent>

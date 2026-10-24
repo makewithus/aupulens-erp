@@ -42,6 +42,7 @@ import { SalesInvoice } from "@/models/sales/SalesInvoice";
 import AiCommandProposal from "@/models/ai/AiCommandProposal";
 import CrmAuditLog from "@/models/crm/CrmAuditLog";
 import Counter from "@/models/shared/Counter";
+import { seedPlans } from "@/lib/platform/entitlements/planCatalog";
 import AiCostRate from "@/models/platform/AiCostRate";
 import { AI_ACTION_STATUS, LANGUAGE_CODE } from "@/lib/constants/statuses";
 import { setSarvamClientForTests } from "@/lib/ai/language/sarvam/client";
@@ -94,6 +95,8 @@ const regionalInvoiceCommands = [
 describe("Sarvam regional commands reach native Aupulens automation", () => {
   beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_URI!);
+    await mongoose.connection.dropDatabase();
+    await seedPlans();
     await Promise.all([Organization, Customer, SalesInvoice, AiCommandProposal, CrmAuditLog, Counter].map((model: any) => model.init()));
   });
 
@@ -194,10 +197,16 @@ describe("Sarvam regional commands reach native Aupulens automation", () => {
     const command = regionalInvoiceCommands.find(([code]) => code === LANGUAGE_CODE.TAMIL)![1];
 
     await POST(req(command));
+    // The route translates both the incoming Tamil command and its confirmation reply.
+    // Verify each direction once, then prove the repeat makes no additional billable translation.
+    expect(client.translateSpy).toHaveBeenCalledTimes(2);
+    expect(client.translateSpy.mock.calls.filter(([r]) => r.target === "en-IN")).toHaveLength(1);
+    expect(client.translateSpy.mock.calls.filter(([r]) => r.target === "ta-IN")).toHaveLength(1);
+    expect(mockRecordSarvamUsage).toHaveBeenCalledTimes(2);
     await POST(req(command));
 
     expect(mockAzure).toHaveBeenCalledTimes(2);
-    expect(client.translateSpy).toHaveBeenCalledTimes(1);
-    expect(mockRecordSarvamUsage).toHaveBeenCalledTimes(1);
+    expect(client.translateSpy).toHaveBeenCalledTimes(2);
+    expect(mockRecordSarvamUsage).toHaveBeenCalledTimes(2);
   });
 });

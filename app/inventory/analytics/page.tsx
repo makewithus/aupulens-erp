@@ -8,10 +8,8 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { inventorySidebarConfig } from '@/config/sidebar/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart3, TrendingUp, Package, Warehouse } from 'lucide-react';
 import { AnalyticsPageSkeleton } from '@/components/ui/loading-skeletons';
 import {
-  CanvasAreaChart,
   CanvasBarChart,
   CanvasPieChart,
   CanvasComposedChart,
@@ -263,9 +261,15 @@ export default function InventoryAnalyticsPage() {
       date.setDate(date.getDate() - (89 - i));
       const dateStr = date.toISOString().split('T')[0];
       
-      const dayOrders = filteredOrders.filter(o => 
-        o.orderDate && o.orderDate.split('T')[0] === dateStr
-      );
+      const dayOrders = filteredOrders.filter(o => {
+        if (!o.orderDate) return false;
+        try {
+          const od = typeof o.orderDate === 'string' ? o.orderDate.split('T')[0] : new Date(o.orderDate).toISOString().split('T')[0];
+          return od === dateStr;
+        } catch {
+          return false;
+        }
+      });
       
       // Calculate realistic quantity with organic wave pattern for demonstration
       const organicBaseline = Math.round(28 + 14 * Math.sin(i / 6.5) + ((i * 13) % 19));
@@ -273,7 +277,8 @@ export default function InventoryAnalyticsPage() {
       const quantity = realQty > 0 ? realQty : organicBaseline;
 
       return {
-        date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' }),
+        date: dateStr,
+        label: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' }),
         orders: dayOrders.length > 0 ? dayOrders.length : Math.max(1, Math.round(quantity / 8)),
         quantity: quantity,
       };
@@ -346,13 +351,13 @@ export default function InventoryAnalyticsPage() {
       onRefresh={fetchAllData}
       profilePath="/inventory/profile"
     >
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 max-w-full">
+      <div className="space-y-6 min-w-0 w-full max-w-full">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white break-words">Inventory Analytics</h1>
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
             <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
               <SelectTrigger className="w-full sm:w-[200px] rounded-none">
                 <SelectValue placeholder="Select warehouse" />
@@ -380,7 +385,7 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             title="Total Warehouses"
             value={warehouses.length}
@@ -411,10 +416,10 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Daily Inventory & Throughput Timeline (365 Days) */}
-        <Card className="rounded-none shadow-none border-border/40">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
             <div>
-              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">
+              <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">
                 Daily Throughput & Inventory Flow (365 Days)
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
@@ -426,28 +431,27 @@ export default function InventoryAnalyticsPage() {
               <span className="text-[11px] font-mono text-muted-foreground">Daily Movements</span>
             </div>
           </CardHeader>
-          <CardContent className="h-[280px]">
+          <CardContent className="h-[320px] sm:h-[280px] px-3 sm:px-6">
             <DailyBrickBarChart
               metricLabel="Movements"
               valueKey="count"
-              height={240}
+              height="100%"
             />
           </CardContent>
         </Card>
 
         {/* Warehouse Utilization Canvas Bar Chart */}
-        <Card className="rounded-none shadow-none border-border/40">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
-            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Warehouse Utilization Overview</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Warehouse Utilization Overview</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent className="h-[350px] min-w-0 px-3 sm:px-6">
             {warehouseUtilizationData.length > 0 ? (
               <CanvasBarChart
                 data={warehouseUtilizationData}
                 xAxisKey="warehouse"
                 series={[{ key: "utilization", name: "Utilization %", color: "#3b82f6" }]}
                 layout="vertical"
-                isDark={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Utilization Data</div>
@@ -456,11 +460,11 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Stock Levels by Warehouse - Composed Canvas Chart */}
-        <Card className="rounded-none shadow-none border-border/40">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
-            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Stock Levels by Warehouse</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Stock Levels by Warehouse</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent className="h-[350px] min-w-0 px-3 sm:px-6">
             {stockByWarehouseData.length > 0 ? (
               <CanvasComposedChart
                 data={stockByWarehouseData}
@@ -470,7 +474,6 @@ export default function InventoryAnalyticsPage() {
                   { key: "totalQuantity", name: "Total Quantity", color: "#10b981" }
                 ]}
                 lineSeries={{ key: "totalValue", name: "Value (₹K)", color: "#f59e0b" }}
-                isDark={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Stock Levels Data</div>
@@ -480,18 +483,17 @@ export default function InventoryAnalyticsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Stock by Category - Canvas Pie Chart */}
-          <Card className="rounded-none shadow-none border-border/40">
+          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
-              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Stock Distribution by Category</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Stock Distribution by Category</CardTitle>
             </CardHeader>
-            <CardContent className="h-[350px]">
+            <CardContent className="min-w-0 px-3 sm:px-6">
               {categoryData.length > 0 ? (
                 <CanvasPieChart
                   data={categoryData}
                   nameKey="name"
                   valueKey="value"
                   colors={COLORS}
-                  isDark={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Category Distribution Data</div>
@@ -500,18 +502,17 @@ export default function InventoryAnalyticsPage() {
           </Card>
 
           {/* Inventory Value Distribution - Canvas Pie Chart */}
-          <Card className="rounded-none shadow-none border-border/40">
+          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
-              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Inventory Value Distribution</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Inventory Value Distribution</CardTitle>
             </CardHeader>
-            <CardContent className="h-[350px]">
+            <CardContent className="min-w-0 px-3 sm:px-6">
               {valueDistributionData.length > 0 ? (
                 <CanvasPieChart
                   data={valueDistributionData}
                   nameKey="name"
                   valueKey="value"
                   colors={COLORS}
-                  isDark={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Value Distribution Data</div>
@@ -521,12 +522,14 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Order Trends - Trading Line Chart with Zoom & Pan */}
-        <Card className="rounded-none shadow-none border-border/40">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
-            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Order Trends & Throughput Timeline</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Order Trends & Throughput Timeline</CardTitle>
           </CardHeader>
-          <CardContent className="h-[440px] p-0">
+          <CardContent className="h-[480px] sm:h-[440px] min-h-0 min-w-0 p-0">
             <TradingLineChart
+              key={dateRange}
+              initialDays={Number(dateRange)}
               data={orderTrendsData}
               xAxisKey="date"
               valueKey="quantity"
@@ -539,21 +542,19 @@ export default function InventoryAnalyticsPage() {
         </Card>
 
         {/* Top Items by Quantity - Horizontal Canvas Bar Chart */}
-        <Card className="rounded-none shadow-none border-border/40">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
-            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Top 10 Items by Quantity</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Top 10 Items by Quantity</CardTitle>
           </CardHeader>
-          <CardContent className="h-[380px]">
+          <CardContent className="h-[420px] min-w-0 px-3 sm:px-6">
             {topItemsData.length > 0 ? (
               <CanvasBarChart
                 data={topItemsData}
                 xAxisKey="name"
                 series={[
-                  { key: "quantity", name: "Quantity", color: "#3b82f6" },
-                  { key: "value", name: "Value (₹K)", color: "#10b981" }
+                  { key: "quantity", name: "Quantity (units)", color: "#3b82f6" }
                 ]}
                 layout="horizontal"
-                isDark={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Top Items Data</div>
@@ -563,18 +564,17 @@ export default function InventoryAnalyticsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Order Status Distribution - Canvas Bar Chart */}
-          <Card className="rounded-none shadow-none border-border/40">
+          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
-              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Order Status Distribution</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Order Status Distribution</CardTitle>
             </CardHeader>
-            <CardContent className="h-[320px]">
+            <CardContent className="h-[320px] min-w-0 px-3 sm:px-6">
               {orderStatusData.length > 0 ? (
                 <CanvasBarChart
                   data={orderStatusData}
                   xAxisKey="status"
                   series={[{ key: "count", name: "Orders", color: "#3b82f6" }]}
                   layout="vertical"
-                  isDark={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Order Status Data</div>
@@ -583,18 +583,17 @@ export default function InventoryAnalyticsPage() {
           </Card>
 
           {/* Batch Status Distribution - Canvas Bar Chart */}
-          <Card className="rounded-none shadow-none border-border/40">
+          <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
             <CardHeader>
-              <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Batch Status Distribution</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Batch Status Distribution</CardTitle>
             </CardHeader>
-            <CardContent className="h-[320px]">
+            <CardContent className="h-[320px] min-w-0 px-3 sm:px-6">
               {batchStatusData.length > 0 ? (
                 <CanvasBarChart
                   data={batchStatusData}
                   xAxisKey="status"
                   series={[{ key: "count", name: "Batches", color: "#10b981" }]}
                   layout="vertical"
-                  isDark={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Batch Status Data</div>
@@ -604,11 +603,11 @@ export default function InventoryAnalyticsPage() {
         </div>
 
         {/* Warehouse Performance - Composed Canvas Chart */}
-        <Card className="rounded-none shadow-none border-border/40">
+        <Card className="relative min-w-0 rounded-none shadow-none border-border/60">
           <CardHeader>
-            <CardTitle className="text-base font-semibold font-mono uppercase tracking-wider text-foreground">Warehouse Performance Overview</CardTitle>
+            <CardTitle className="text-sm sm:text-base font-semibold font-mono uppercase tracking-wide leading-snug text-foreground">Warehouse Performance Overview</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent className="h-[350px] min-w-0 px-3 sm:px-6">
             {warehousePerformanceData.length > 0 ? (
               <CanvasComposedChart
                 data={warehousePerformanceData}
@@ -618,7 +617,6 @@ export default function InventoryAnalyticsPage() {
                   { key: "batches", name: "Batches", color: "#10b981" }
                 ]}
                 lineSeries={{ key: "utilization", name: "Utilization %", color: "#f59e0b" }}
-                isDark={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm font-mono">No Warehouse Performance Data</div>

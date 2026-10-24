@@ -1,5 +1,7 @@
 "use client";
+import { runErpAssistant } from "@/lib/ai/erpAssistantClient";
 import { VoiceActivity } from "@/components/ai/VoiceActivity";
+import { AiMarkdown } from "@/components/ai/AiMarkdown";
 
 import { AiUsageIndicator } from "@/components/ai/AiUsageIndicator";
 import { refreshAiUsage } from "@/lib/hooks/useAiUsageSummary";
@@ -288,7 +290,15 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok || contentType.includes("application/json")) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to get response");
+        const errMessage = data.error || "Failed to get response";
+        const isCreditError = data.code === "AI_CREDITS_EXHAUSTED" || data.code === "AI_LIMIT_REACHED" || /credit|usage limit|exhausted/i.test(errMessage);
+        if (isCreditError) {
+          toast.error(errMessage, { duration: 6000 });
+          setMessages((prev) => prev.filter((m) => !m.isLoading));
+          refreshAiUsage();
+          return;
+        }
+        throw new Error(errMessage);
       }
 
       let streamed = "";
@@ -323,20 +333,28 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       // Keep the browser thread for rendering, but never overwrite canonical
       // server history with a possibly stale client snapshot.
 
-    } catch (error) {
-      console.error("Error:", error);
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === "assistant") {
-          newMsgs[newMsgs.length - 1] = {
-            role: "assistant",
-            text: "Sorry, I encountered an error. Please try again.",
-          };
-        }
-        return newMsgs;
-      });
+    } catch (error: any) {
+      const msg = error?.message || "";
+      const isCreditError = /credit|usage limit|exhausted/i.test(msg);
+      if (isCreditError) {
+        toast.error(msg, { duration: 6000 });
+        setMessages((prev) => prev.filter((m) => !m.isLoading));
+      } else {
+        console.error("Error:", error);
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === "assistant") {
+            newMsgs[newMsgs.length - 1] = {
+              role: "assistant",
+              text: "Sorry, I encountered an error. Please try again.",
+            };
+          }
+          return newMsgs;
+        });
+      }
     } finally {
       setIsLoading(false);
+      refreshAiUsage();
     }
   };
 
@@ -358,6 +376,29 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
   const ACTION_RX = /\b(create|add|make|new|generate|draft|delete|remove|update|change|set|book|record|raise|issue)\b/i;
   const NAV_RX = NAV_TRIGGER_RX;
 
+  const updatePendingAssistant = (update: Partial<Message>) => {
+    setMessages((prev) => {
+      const next = [...prev];
+      const lastIndex = next.length - 1;
+      if (lastIndex >= 0 && next[lastIndex].role === "assistant" && next[lastIndex].isLoading) {
+        next[lastIndex] = {
+          role: "assistant",
+          text: "",
+          ...update,
+          isLoading: false,
+        };
+      } else {
+        next.push({
+          role: "assistant",
+          text: "",
+          ...update,
+          isLoading: false,
+        });
+      }
+      return next;
+    });
+  };
+
   // Run the prefill flow for a chosen target: extract fields, then either ask
   // (missing dependency) or stash + navigate to the pre-filled form. Shared by
   // the normal path and the "which module?" follow-up so both behave identically.
@@ -365,14 +406,23 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     targetDef: { target: string; route: string; label: string },
     message: string,
     attsToSend: Attachment[],
-    attsForMsg: Attachment[] | undefined,
-    base: Message[],
+    attsForMsg?: Attachment[],
+    base?: Message[],
   ) => {
     setIsLoading(true);
     setAttachments([]);
-    setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: "", isLoading: true }]);
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === "assistant" && last.isLoading) return prev;
+      return [
+        ...prev,
+        { role: "user", text: message, attachments: attsForMsg },
+        { role: "assistant", text: "", isLoading: true },
+      ];
+    });
     try {
-      const history = base.filter((m) => !m.isLoading && m.text).slice(-8).map((m) => ({ role: m.role, content: m.text }));
+      const currentMessages = useAiChatStore.getState().messages;
+      const history = (base || currentMessages).filter((m) => !m.isLoading && m.text).slice(-8).map((m) => ({ role: m.role, content: m.text }));
       const res = await fetch("/api/ai/prefill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -383,7 +433,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         ? Object.values(data.data).some((v) => Array.isArray(v) ? v.length > 0 : v != null && v !== "")
         : false;
       if (res.ok && data.success && !extracted && !data.missingDependency) {
-        setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I couldn't pull enough details to fill the ${targetDef.label} form. Tell me the details in your message (or attach a document/image) and I'll prepare it for you.` }]);
+        updatePendingAssistant({ text: `I couldn't pull enough details to fill the ${targetDef.label} form. Tell me the details in your message (or attach a document/image) and I'll prepare it for you.` });
         setIsLoading(false);
         return;
       }
@@ -394,20 +444,20 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         if (data.missingDependency) {
           const dep = data.missingDependency;
           setPendingCreate({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [], label: targetDef.label, question: dep.name });
-          setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I've got the ${targetDef.label} details ready, but there's **no ${dep.type} named "${dep.name}"** in the system yet.\n\nDo you want me to **open the ${targetDef.label} form anyway** (you can add the ${dep.type} inline with the "+"), or would you rather create the ${dep.type} first? Reply **"yes"** to open it now, or **"no"** to hold off.${sugg}` }]);
+          updatePendingAssistant({ text: `I've got the ${targetDef.label} details ready, but there's **no ${dep.type} named "${dep.name}"** in the system yet.\n\nDo you want me to **open the ${targetDef.label} form anyway** (you can add the ${dep.type} inline with the "+"), or would you rather create the ${dep.type} first? Reply **"yes"** to open it now, or **"no"** to hold off.${sugg}` });
           setIsLoading(false);
           return;
         }
         stashPrefill({ target: data.target, route: data.route, data: data.data || {}, suggestions: data.suggestions || [] });
-        setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${sugg}` }]);
+        updatePendingAssistant({ text: `I've prepared the ${targetDef.label} form with the details I found — review them and click **Create** to save.${sugg}` });
         setIsLoading(false);
         router.push(targetDef.route);
         return;
       }
-      setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: data.message || `I couldn't prepare the ${targetDef.label} form. Please add a bit more detail and try again.` }]);
+      updatePendingAssistant({ text: data.message || (targetDef.target === "sales_quote" || targetDef.target === "quote" ? "Which customer should this quote be for?" : `Which customer or details should I use for the ${targetDef.label}?`) });
       setIsLoading(false);
     } catch {
-      setMessages([...base, { role: "user", text: message, attachments: attsForMsg }, { role: "assistant", text: "Something went wrong preparing the form. Please try again." }]);
+      updatePendingAssistant({ text: "Something went wrong preparing the form. Please try again." });
       setIsLoading(false);
     }
   };
@@ -423,25 +473,56 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
     if (isLoading) return;
     const activeConversationId = ensureConversationId();
 
+    const freshAttachments = attachments;
+    const attForMsg = freshAttachments.length ? freshAttachments : undefined;
+    const sentAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
+
+    // Immediately post the user prompt and the assistant thinking indicator into the thread,
+    // and clear input/attachments so the user receives instant visual feedback that the message was sent and is processing.
+    setIsLoading(true);
+    setInput("");
+    setAttachments([]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: q, attachments: attForMsg },
+      { role: "assistant", text: "", isLoading: true },
+    ]);
+
+    if (!freshAttachments.length && ["sales", "admin", "master-admin"].includes(session?.user?.role || "")) {
+      const erp = await runErpAssistant({ text: q, module: session?.user?.role === "sales" ? "sales" : "admin", conversationId: activeConversationId, requestId: crypto.randomUUID() });
+      if (erp.handled) {
+        setIsLoading(false);
+        updatePendingAssistant({
+          text: erp.message || "",
+          structured: erp.structured,
+          quickReplies: erp.actions?.map((a) => ({ ...a, kind: "action" as const })),
+        });
+        if (erp.conversationId) setConversationId(erp.conversationId);
+        return;
+      }
+    }
+
     // Explicit memory requests are opt-in. Accept a labelled form
     // "Remember project stack: Next.js + MongoDB" or a plain "Remember that …".
     const remember = q.match(/^remember(?:\s+that)?\s+(.+)$/i);
-    if (remember && !attachments.length) {
+    if (remember && !freshAttachments.length) {
       const fact = remember[1].trim();
       const [labelPart, valuePart] = fact.split(/:\s*/, 2);
       const label = valuePart ? labelPart.trim() : fact.split(/\s+/).slice(0, 5).join(" ").slice(0, 80);
       const value = valuePart?.trim() || fact;
-      setIsLoading(true);
       try {
         const res = await fetch("/api/ai/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "user", key: label, value, category: "other", sourceConversationId: activeConversationId }) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Could not save that memory");
         const answer = memoryEnabled ? `Saved **${label}** to your personal AI memory. Relevant saved facts can be used in future chats while cross-chat recall is on.` : `Saved **${label}**. Cross-chat recall is paused, so I won't use it in other chats until you turn memory back on.`;
-        const completed = [...messages, { role: "user" as const, text: q }, { role: "assistant" as const, text: answer }];
-        setMessages(completed);
-        await fetch("/api/admin/chat-history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId, title: q.slice(0, 50), messages: completed.map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })) }) });
+        updatePendingAssistant({ text: answer });
+        fetch("/api/admin/chat-history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId, title: q.slice(0, 50), messages: [
+          ...messages.filter((m) => !m.isLoading && m.text).map((m) => ({ role: m.role, content: m.text, timestamp: new Date() })),
+          { role: "user", content: q, timestamp: new Date() },
+          { role: "assistant", content: answer, timestamp: new Date() },
+        ] }) }).catch(() => {});
       } catch (error: any) {
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: error.message || "I couldn't save that memory." }]);
+        updatePendingAssistant({ text: error.message || "I couldn't save that memory." });
       } finally { setIsLoading(false); }
       return;
     }
@@ -452,7 +533,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       if (opt) {
         const pc = pendingChoice;
         setPendingChoice(null);
-        await executePrefill(opt, pc.message, pc.attachments, pc.attachments.length ? pc.attachments : undefined, messages);
+        await executePrefill(opt, pc.message, pc.attachments, pc.attachments.length ? pc.attachments : undefined);
         return;
       }
       setPendingChoice(null); // unrecognised reply → treat as a fresh instruction
@@ -471,45 +552,36 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         stashPrefill({ target: pc.target, route: pc.route, data: pc.data, suggestions: pc.suggestions });
         const openingText = `Opening the ${pc.label} form now — review the details and click **Create** to save.`;
         const completedText = `The ${pc.label} form is open — review the details and click **Create** to save.`;
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: openingText }]);
+        updatePendingAssistant({ text: openingText });
+        setIsLoading(false);
         navigateWithStatus(pc.route, openingText, completedText);
         return;
       }
       if (no) {
         setPendingCreate(null);
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: `Okay — I won't open the ${pc.label} form. Tell me what you'd like to do instead.` }]);
+        updatePendingAssistant({ text: `Okay — I won't open the ${pc.label} form. Tell me what you'd like to do instead.` });
+        setIsLoading(false);
         return;
       }
       // Neither yes nor no → treat as a fresh instruction; drop the pending one.
       setPendingCreate(null);
     }
 
-    const freshAttachments = attachments;
-    // Files shown on the user's bubble = only the ones freshly attached now; the
-    // files SENT include the most recent prior upload so "create X from that
-    // data" works turns after the paste (memory the user expects).
-    const attForMsg = freshAttachments.length ? freshAttachments : undefined;
-    const sentAttachments = freshAttachments.length ? freshAttachments : carriedAttachments();
-
     // ── Guided create (sales invoice: explain / do / ask, one question at a time) ──
     // Same server flow the per-module assistants get via tryAiCreateFlow. It also hands back the
     // pipeline's ENGLISH for the message, so regional-language create requests reach the routing below.
     let qEnglish = q;
-    if (!attachments.length && shouldConsultTaskFlow(q, false)) {
-      setIsLoading(true);
-      setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
+    if (!freshAttachments.length && shouldConsultTaskFlow(q, false)) {
       const tf = await runTaskFlow(q, { hasAttachments: false });
       if (tf.outcome) {
         const quick = buildQuickReplies(tf.outcome);
         const openingText = quick.length ? stripChoiceText(tf.outcome.message) : tf.outcome.message;
         const completedText = openingText.replace(/\s*Opening it now[.!…]*$/i, " The destination is open.");
-        setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: openingText, quickReplies: quick.length ? quick : undefined }]);
+        updatePendingAssistant({ text: openingText, quickReplies: quick.length ? quick : undefined });
         setIsLoading(false);
         if (tf.outcome.route) navigateWithStatus(tf.outcome.route, openingText, completedText);
         return;
       }
-      setIsLoading(false);
-      setMessages(messages); // not ours: drop the temporary bubble; the normal path below re-renders the turn
       if (tf.english && tf.english.trim()) qEnglish = tf.english.trim();
     }
 
@@ -527,49 +599,21 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             { match: /\b(manufactur\w*|production|factory|2)\b/i, target: "manufacturing_item", route: "/manufacturing/items", label: "manufacturing item" },
           ],
         });
-        setAttachments([]);
-        setMessages([...messages, { role: "user", text: q, attachments: attForMsg }, { role: "assistant", text: `Sure — where should I create this product?\n\n- **Inventory** (the shared product catalogue), or\n- **Manufacturing** (a manufacturing item)\n\nReply **"inventory"** or **"manufacturing"** and I'll prepare the right form with your details.` }]);
+        updatePendingAssistant({ text: `Sure — where should I create this product?\n\n- **Inventory** (the shared product catalogue), or\n- **Manufacturing** (a manufacturing item)\n\nReply **"inventory"** or **"manufacturing"** and I'll prepare the right form with your details.` });
+        setIsLoading(false);
         return;
       }
-      await executePrefill(targetDef, q, sentAttachments, attForMsg, messages);
+      await executePrefill(targetDef, q, sentAttachments, attForMsg);
       return;
     }
 
-    // ── AI "memory": real database lookups for factual Sales questions
-    // ("does this customer exist", "invoices after 15 Aug 2026", "how many
-    // customers this month") — answers from real, tenant-scoped data and, for
-    // browse-style phrasing ("show me", "give me"), also navigates to the
-    // real list page with the same filters already applied. Checked before
-    // the command classifier / generic Q&A fallback below so a factual
-    // question never gets answered with "here's how to find it yourself."
-    // Cheap regex-gated (lib/ai/memoryFlow.ts) — a no-op for anything that
-    // isn't plausibly about a customer or invoice record.
-    if (attachments.length === 0) {
+    // ── AI "memory": real database lookups for factual Sales questions ──────
+    if (freshAttachments.length === 0) {
       const priorTurnsForMemory = messages.filter((m) => !m.isLoading && m.text).map((m) => ({ role: m.role, content: m.text }));
-
-      // Show the user's own message + a "Thinking…" placeholder immediately,
-      // BEFORE awaiting either memory-flow round trip — these two `await`s
-      // used to run first, with the user's message and any loading state
-      // added to the thread only once both had resolved. That left the
-      // panel showing nothing at all (not even the prompt just sent) for the
-      // full round trip, then popped the prompt and the final answer in
-      // together — the "I can't see my own prompt or that it's thinking"
-      // report. Every branch below now replaces this same placeholder
-      // instead of pushing a fresh pair, so there's exactly one user bubble
-      // and one assistant bubble for this turn no matter which flow (memory,
-      // inventory memory, command, or plain Q&A) ends up answering it.
-      setIsLoading(true);
-      setMessages([...messages, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
 
       const memOutcome = await tryAiMemoryFlow({ text: qEnglish, history: priorTurnsForMemory });
       if (memOutcome.handled) {
-        setMessages((prev) => {
-          const next = [...prev];
-          if (next.length > 0 && next[next.length - 1].role === "assistant") {
-            next[next.length - 1] = { role: "assistant", text: memOutcome.message || "" };
-          }
-          return next;
-        });
+        updatePendingAssistant({ text: memOutcome.message || "" });
         setIsLoading(false);
         fetch("/api/admin/chat-history", {
           method: "POST",
@@ -591,13 +635,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
 
       const invMemOutcome = await tryAiInventoryMemoryFlow({ text: qEnglish, history: priorTurnsForMemory });
       if (invMemOutcome.handled) {
-        setMessages((prev) => {
-          const next = [...prev];
-          if (next.length > 0 && next[next.length - 1].role === "assistant") {
-            next[next.length - 1] = { role: "assistant", text: invMemOutcome.message || "" };
-          }
-          return next;
-        });
+        updatePendingAssistant({ text: invMemOutcome.message || "" });
         setIsLoading(false);
         fetch("/api/admin/chat-history", {
           method: "POST",
@@ -616,19 +654,14 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
         if (invMemOutcome.route) router.push(invMemOutcome.route);
         return;
       }
-
-      setIsLoading(false);
     }
 
     const isCommand = ACTION_RX.test(qEnglish) || NAV_RX.test(qEnglish);
-    if (attachments.length > 0 || !isCommand) {
+    if (freshAttachments.length > 0 || !isCommand) {
       sendQuery(q || "Please analyse the attached file(s).");
       return;
     }
 
-    const base = messages;
-    setIsLoading(true);
-    setMessages([...base, { role: "user", text: q }, { role: "assistant", text: "", isLoading: true }]);
     try {
       const res = await fetch("/api/ai/command", {
         method: "POST",
@@ -637,31 +670,29 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.action === "confirm" && data.proposalId) {
-        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.summary || data.message || "Confirm to proceed.", proposal: { proposalId: data.proposalId, destructive: !!data.destructive, status: "pending" } }]);
+        updatePendingAssistant({
+          text: data.summary || data.message || "Confirm to proceed.",
+          proposal: { proposalId: data.proposalId, destructive: !!data.destructive, status: "pending" },
+        });
         setIsLoading(false);
         return;
       }
       if (res.ok && data.action === "navigate" && data.url) {
         const openingText = data.message || "Opening the page…";
         const completedText = openingText.replace(/^Opening\s+/i, "Opened ").replace(/(?:…|\.\.\.)$/, ".");
-        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: openingText }]);
+        updatePendingAssistant({ text: openingText });
         setIsLoading(false);
         navigateWithStatus(data.url, openingText, completedText);
         return;
       }
-      // Asked to go somewhere we can't resolve: say so instead of letting the
-      // chat model invent click-by-click directions.
       if (res.ok && data.action === "unknown" && data.navMiss && data.message) {
-        setMessages([...base, { role: "user", text: q }, { role: "assistant", text: data.message }]);
+        updatePendingAssistant({ text: data.message });
         setIsLoading(false);
         return;
       }
-      // Not an action after all → answer conversationally (sendQuery re-renders
-      // the list from this base + user, replacing the transient bubble).
-      setIsLoading(false);
-      await sendQuery(q, [...base, { role: "user", text: q }]);
+      await sendQuery(q);
     } catch {
-      setMessages([...base, { role: "user", text: q }, { role: "assistant", text: "Sorry, I couldn't process that. Please try again." }]);
+      updatePendingAssistant({ text: "Sorry, I couldn't process that. Please try again." });
       setIsLoading(false);
     }
   };
@@ -781,7 +812,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
       const res = await fetch(`/api/ai/memory?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Could not delete memory");
       setMemoryRecords((items) => items.filter((item) => String(item._id) !== id));
-      toast.success("Memory deleted.");
+      toast.success("Saved memory fact deleted. (Original conversation history is retained separately.)");
     } catch (error: any) { toast.error(error.message || "Could not delete memory"); }
   };
 
@@ -1079,6 +1110,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
             </div>
             <div className="space-y-2">
               <div className="text-[10px] uppercase tracking-wider text-neutral-500">Saved facts ({memoryRecords.length})</div>
+              <p className="text-[10px] text-neutral-500">Deleting a saved fact removes it from explicit recall. Original conversation transcripts remain separately in chat history.</p>
               {memoryRecords.length === 0 ? <p className="text-xs text-neutral-500">No explicitly saved facts yet. Earlier conversation recall can still use relevant chat summaries.</p> : memoryRecords.map((item) => (
                 <div key={String(item._id)} className={cn("rounded border p-3", isDark ? "border-neutral-800 bg-neutral-900/30" : "border-neutral-200 bg-white")}>
                   <div className="flex justify-between gap-2 items-start">
@@ -1143,7 +1175,7 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                       "w-5.5 h-5.5 rounded border flex items-center justify-center select-none shadow-sm",
                       isDark ? "border-neutral-850 bg-neutral-900/40 text-purple-400 shadow-purple-500/5" : "border-neutral-200 bg-purple-50 text-purple-650"
                     )}>
-                      <Sparkles className="w-3 h-3" />
+                      <Sparkles className={cn("w-3 h-3", msg.isLoading && "animate-pulse text-purple-400")} />
                     </div>
                   )}
                 </div>
@@ -1170,18 +1202,29 @@ export function AiSidebar({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                   {msg.isLoading ? (
-                    <div className="flex items-center gap-2 text-neutral-500 font-mono text-xs py-1">
-                      <div className="h-3 w-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
-                      <span>Thinking...</span>
+                    <div className="flex items-center gap-2.5 py-1 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-purple-500 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-2 w-2 rounded-full bg-purple-500/80 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-2 w-2 rounded-full bg-purple-500/60 animate-bounce" />
+                      </div>
+                      <span className={cn(
+                        "font-mono text-xs tracking-wide animate-pulse",
+                        isDark ? "text-neutral-400" : "text-neutral-500"
+                      )}>
+                        Thinking...
+                      </span>
                     </div>
                   ) : (
                     <div className={cn("prose max-w-none text-xs font-sans", isDark ? "prose-invert text-neutral-300" : "text-neutral-700")}>
                       {msg.role === "user" ? (
                         <p className={cn("whitespace-pre-wrap leading-7 text-[14px]", isDark ? "text-neutral-300" : "text-neutral-650")}>{msg.text}</p>
                       ) : (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                          {msg.text}
-                        </ReactMarkdown>
+                        <AiMarkdown
+                          content={msg.text}
+                          structured={msg.structured}
+                          onAction={(v) => handleSend(v)}
+                        />
                       )}
                     </div>
                   )}

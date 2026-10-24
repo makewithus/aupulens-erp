@@ -1,3 +1,4 @@
+import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import { auth } from "@/auth";
@@ -92,6 +93,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const org = await Organization.findOne({ subdomain: tenantId }).lean();
     const sellerState = (org as any)?.settings?.state;
 
+    const financialIssues = merged.lineItems?.length ? validateQuoteInput({ ...merged, lineItems: merged.lineItems }) : [];
+    if (financialIssues.length) return NextResponse.json({ success: false, message: financialIssues.join(" "), code: "BUSINESS_RULE" }, { status: 400 });
     const totals = computeInvoiceTotals({
       lineItems: merged.lineItems || [],
       itemLevelDiscountPercent: merged.itemLevelDiscountPercent || 0,
@@ -201,11 +204,27 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectDB();
     const { id } = await params;
-    const invoice = await (SalesInvoice as any).findOneAndDelete({ _id: id, tenantId: session.user.tenantId });
+    const invoice = await (SalesInvoice as any).findOne({ _id: id, tenantId: session.user.tenantId });
 
     if (!invoice) {
       return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
     }
+
+    const paidSum = (invoice.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+    const isPostedOrPaid = ["paid", "partially_paid", "saved", "posted", "overdue"].includes(invoice.status) || paidSum > 0 || invoice.markedFullyPaid;
+
+    if (isPostedOrPaid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Cannot delete an issued, posted, or paid invoice. Use credit note or void/cancellation workflows.",
+          code: "FINANCIAL_INTEGRITY_VIOLATION",
+        },
+        { status: 409 }
+      );
+    }
+
+    await (SalesInvoice as any).deleteOne({ _id: invoice._id, tenantId: session.user.tenantId });
 
     return NextResponse.json({ success: true, message: "Invoice deleted" });
   } catch (error: any) {

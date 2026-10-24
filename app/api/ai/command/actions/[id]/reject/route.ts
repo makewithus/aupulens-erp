@@ -17,14 +17,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: "Invalid id" }, { status: 400 });
 
   await connectDB();
-  const proposal = await AiCommandProposal.findOne({ _id: id, tenantId: session.user.tenantId });
+  const proposal = await AiCommandProposal.findOne({ _id: id, tenantId: session.user.tenantId, userId: session.user.id });
   if (!proposal) return NextResponse.json({ success: false, message: "Proposal not found" }, { status: 404 });
 
   if (proposal.status !== AI_ACTION_STATUS.PROPOSED) {
     return NextResponse.json({ success: false, message: `This action is already ${proposal.status}` }, { status: 409 });
   }
 
+  const rejected = await AiCommandProposal.findOneAndUpdate({ _id: id, tenantId: session.user.tenantId, userId: session.user.id, status: AI_ACTION_STATUS.PROPOSED }, { $set: { status: AI_ACTION_STATUS.REJECTED } });
+  if (!rejected) return NextResponse.json({ success: false, message: "This action is no longer awaiting confirmation." }, { status: 409 });
   proposal.status = AI_ACTION_STATUS.REJECTED;
-  await proposal.save();
   return NextResponse.json({ success: true, data: { proposalId: proposal._id, status: proposal.status } });
 }

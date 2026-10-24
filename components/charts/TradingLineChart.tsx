@@ -130,27 +130,32 @@ export function expandSparseToDailyTimeline(
       };
     });
 
-    if (formatted.length < 730) {
+    if (formatted.length < 730 && formatted.length > 0) {
       const needed = 730 - formatted.length;
-      const firstDate = new Date(formatted[0].date + "T00:00:00");
+      const rawDate = formatted[0].date;
+      const dateStr = typeof rawDate === "string" ? rawDate : (rawDate instanceof Date ? rawDate.toISOString() : String(rawDate));
+      let parsedFirst = Date.parse(dateStr);
+      if (isNaN(parsedFirst)) parsedFirst = Date.parse(dateStr + "T00:00:00");
+      const firstDate = !isNaN(parsedFirst) ? new Date(parsedFirst) : new Date();
       const firstVal = formatted[0].value || 50000;
       const rng = createRng(42);
       const prepended: LineDataPoint[] = [];
 
       for (let i = needed; i >= 1; i--) {
         const histDate = new Date(firstDate.getTime() - i * 86400000);
+        const validHistDate = !isNaN(histDate.getTime()) ? histDate : new Date();
         const t = (needed - i) / needed;
         const base = firstVal * (0.4 + 0.6 * Math.pow(t, 1.2));
         const noise = (rng() - 0.48) * (firstVal * 0.05);
         const val = Math.max(10, Math.round(base + noise));
         prepended.push({
-          date: histDate.toISOString().split("T")[0],
+          date: validHistDate.toISOString().split("T")[0],
           value: val,
           open: Math.round(val * 0.99),
           high: Math.round(val * 1.015),
           low: Math.round(val * 0.985),
           close: val,
-          label: histDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          label: validHistDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         });
       }
       return [...prepended, ...formatted];
@@ -284,7 +289,7 @@ export function TradingLineChart({
     return [start, total];
   });
 
-  const [activePreset, setActivePreset] = useState<string>("30D");
+  const [activePreset, setActivePreset] = useState<string>(() => PRESET_DAYS.find(preset => preset.days === initialDays)?.label ?? "CUSTOM");
   const [customDaysInput, setCustomDaysInput] = useState<string>("");
 
   useEffect(() => {
@@ -997,16 +1002,16 @@ export function TradingLineChart({
   return (
     <div
       className={cn(
-        "flex flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
+        "relative flex min-h-0 min-w-0 flex-col w-full border font-mono select-none overflow-hidden rounded-lg transition-colors duration-200",
         isDark ? "bg-[#0A0A0A] border-[#272727] text-[#F2F2F2] shadow-lg" : "bg-white border-[#e5e5e5] text-slate-900 shadow-sm",
         className
       )}
-      style={{ minHeight: typeof height === "number" ? `${height}px` : height }}
+      style={{ height: typeof height === "number" ? `${height}px` : height }}
     >
       {/* ── ERP Top Header & Live Telemetry Strip ── */}
       {showTopStats && (
         <div className={cn(
-          "flex flex-wrap items-center justify-between px-4 py-2.5 border-b text-xs gap-3",
+          "flex shrink-0 flex-wrap items-center justify-between px-3 sm:px-4 py-2.5 border-b text-xs gap-3",
           isDark ? "border-border/60" : "border-slate-200 bg-slate-50/50"
         )}>
           <div className="flex items-center gap-2">
@@ -1089,11 +1094,11 @@ export function TradingLineChart({
       {/* ── Timeframe & Custom Days Filter Bar ── */}
       {showToolbar && (
         <div className={cn(
-          "flex flex-wrap items-center justify-between px-4 py-2 border-b text-xs gap-2",
+          "flex shrink-0 flex-wrap items-center justify-between px-3 sm:px-4 py-2 border-b text-xs gap-2",
           isDark ? "border-border/40 bg-transparent" : "border-slate-200 bg-slate-50/80"
         )}>
           {/* Preset Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1 sm:gap-1.5">
             <span className={cn(
               "text-[10px] uppercase mr-1",
               isDark ? "text-muted-foreground" : "text-slate-600 font-semibold"
@@ -1106,7 +1111,7 @@ export function TradingLineChart({
                   type="button"
                   onClick={() => handleSelectPreset(preset)}
                   className={cn(
-                    "px-2.5 py-0.5 text-xs rounded transition-all font-medium cursor-pointer border",
+                    "px-2 sm:px-2.5 py-1 text-xs rounded transition-all font-medium cursor-pointer border",
                     isActive
                       ? themeColors.btnActive
                       : isDark
@@ -1136,6 +1141,7 @@ export function TradingLineChart({
                 value={customDaysInput}
                 onChange={(e) => setCustomDaysInput(e.target.value)}
                 placeholder="Days..."
+                aria-label="Custom number of days"
                 className={cn(
                   "w-16 bg-transparent text-xs font-mono focus:outline-none",
                   isDark ? "text-white placeholder:text-muted-foreground" : "text-slate-900 placeholder:text-slate-400"
@@ -1158,7 +1164,7 @@ export function TradingLineChart({
       {/* ── Canvas Wrap with Mouse Wheel Zoom & Pan ── */}
       <div
         ref={containerRef}
-        className="relative flex-1 w-full h-full min-h-[220px] touch-none"
+        className="relative flex-1 min-h-0 min-w-0 w-full touch-none"
         style={{ touchAction: "none", overscrollBehavior: "contain" }}
       >
         <canvas
@@ -1172,7 +1178,7 @@ export function TradingLineChart({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onDoubleClick={handleDoubleClick}
-          className="block w-full h-full cursor-crosshair touch-none"
+          className="absolute inset-0 block w-full h-full cursor-crosshair touch-none"
           style={{ touchAction: "none", overscrollBehavior: "contain" }}
           title="Mouse wheel to zoom in/out • Click and drag to pan • Double-click to reset"
         />

@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatSalesDate, formatSalesCurrency } from "@/lib/sales/formatters";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -322,7 +323,7 @@ function QuotesPageInner() {
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-40 rounded-none bg-background">
+                <SelectTrigger className="w-full sm:w-40 rounded-none bg-background capitalize">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -385,10 +386,10 @@ function QuotesPageInner() {
                           {q.customerId?.header?.name || "—"}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
-                          {q.quoteDate ? new Date(q.quoteDate).toLocaleDateString("en-IN") : "—"}
+                          {formatSalesDate(q.quoteDate)}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 text-sm text-foreground/85 whitespace-nowrap">
-                          {q.expiryDate ? new Date(q.expiryDate).toLocaleDateString("en-IN") : "—"}
+                          {formatSalesDate(q.expiryDate)}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 border-r last:border-0 border-border/10 whitespace-nowrap">
                           <Badge className={`rounded-none border-0 bg-transparent px-0 font-mono text-[12px] uppercase tracking-[0.12em] hover:bg-transparent shadow-none ${statusColors[q.status] || "text-muted-foreground"}`}>
@@ -396,7 +397,7 @@ function QuotesPageInner() {
                           </Badge>
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 lg:px-8 py-4 sm:py-7 text-right font-mono text-sm text-foreground whitespace-nowrap">
-                          ₹{Number(q.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          {formatSalesCurrency(q.totalAmount)}
                         </TableCell>
                       </TableRow>
                     ))

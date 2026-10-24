@@ -66,6 +66,8 @@ export interface LanguageTrace {
   degraded: boolean;
   degradedReason?: LanguageDegradedReason;
   cacheHit: boolean;
+  /** Input was resolved entirely by free deterministic mappings. */
+  locallyMapped?: boolean;
   /** Meaning may differ from what was typed (translation, typo/number rewrites). */
   changedMaterially: boolean;
   /** Callers that create/change records must ASK, not act, when this is true. */

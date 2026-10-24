@@ -27,7 +27,16 @@ export function Logo({
   // Use a stable default during server rendering and hydration.
   // Since the default theme is dark, use logo-white(1).png.
   const isDark = !mounted || theme === "dark";
-  const logoSrc = isDark ? "/logo-white(1).png" : "/logo-dark.png";
+  const [hasError, setHasError] = useState(false);
+  const logoSrc = isDark ? "/logo-white.png" : "/logo-dark.png";
+
+  if (hasError) {
+    return (
+      <span className={`font-mono font-bold tracking-tight text-lg select-none inline-flex items-center ${isDark ? "text-white" : "text-slate-900"} ${className || ""}`}>
+        aupulens
+      </span>
+    );
+  }
 
   return (
     <Image
@@ -36,6 +45,8 @@ export function Logo({
       width={width}
       height={height}
       priority={priority}
+      unoptimized
+      onError={() => setHasError(true)}
       className={className}
     />
   );

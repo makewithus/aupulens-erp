@@ -99,22 +99,23 @@ export default function Q2CPipelinePage() {
     }
   }
 
-  // Summary stats
-  const totalValue = filtered.reduce(
-    (sum, o) => sum + (o.totals?.amountTotal || 0),
-    0,
-  );
-  const activeDeals = filtered.filter(
+  // Summary stats (active open pipeline excludes lost, cancelled, and won)
+  const activeOrders = filtered.filter(
     (o) =>
       o.q2cStatus !== Q2C_STATUS.LOST &&
       o.q2cStatus !== Q2C_STATUS.CANCELLED &&
       o.q2cStatus !== Q2C_STATUS.REVENUE_RECOGNIZED,
-  ).length;
+  );
+  const totalValue = activeOrders.reduce(
+    (sum, o) => sum + (o.totals?.amountTotal || 0),
+    0,
+  );
+  const activeDeals = activeOrders.length;
   const wonDeals = filtered.filter(
     (o) => o.q2cStatus === Q2C_STATUS.REVENUE_RECOGNIZED,
   ).length;
   const lostDeals = filtered.filter(
-    (o) => o.q2cStatus === Q2C_STATUS.LOST,
+    (o) => o.q2cStatus === Q2C_STATUS.LOST || o.q2cStatus === Q2C_STATUS.CANCELLED,
   ).length;
 
   const formatCurrency = (val: number) =>

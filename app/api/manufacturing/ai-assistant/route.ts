@@ -48,14 +48,15 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const { tier, aiSettings } = await resolveTenantAiSettings(tenantId);
+    const requestId = typeof reqBody.requestId === "string" && reqBody.requestId.length <= 100 ? reqBody.requestId : randomUUID();
     const conversationContext = await loadConversationContext({
       tenantId, userId: session.user.id, role: session.user.role, module: "manufacturing",
       conversationId: reqBody.conversationId || randomUUID(), chatId: reqBody.chatId,
-      history: reqBody.history, message, requestId: reqBody.requestId,
+      history: reqBody.history, message, requestId,
     });
     const priorTurns = conversationContext.history;
     const conversationId = conversationContext.conversationId;
-    const completedRetry = await getCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, requestId: reqBody.requestId });
+    const completedRetry = await getCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, requestId });
     if (completedRetry) return NextResponse.json({ response: completedRetry, conversationId });
 
     // Handle action cancellation
@@ -172,9 +173,9 @@ export async function POST(request: NextRequest) {
       // When files are attached (or on any question), answer with the LLM so it
       // can actually read the documents/images; fall back to the deterministic
       // overview if the AI is gated/unavailable.
-      const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts, priorTurns);
+      const aiResp = await generateAiResponse(message, data, tenantId, tier, aiSettings, imageDataUrls, docTexts, priorTurns, requestId, session.user.id);
       const response = aiResp || (await generateResponse(message, data));
-      await saveCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, message, response, requestId: reqBody.requestId });
+      await saveCompletedExchange({ tenantId, userId: session.user.id, module: "manufacturing", conversationId, message, response, requestId });
       return NextResponse.json({ response, conversationId });
     }
 
@@ -258,7 +259,9 @@ async function generateAiResponse(
   aiSettings: Parameters<typeof callClaudeForTenant>[2],
   imageDataUrls: string[],
   docTexts: string[],
-  history: ChatTurn[]
+  history: ChatTurn[],
+  requestId?: string,
+  userId?: string
 ): Promise<string> {
   const prompt = `You are an expert manufacturing & logistics AI assistant for an ERP system.
 
@@ -278,6 +281,9 @@ Instructions:
       systemPrompt: "You are a precise manufacturing/logistics analytics assistant. For DATA questions use only the figures given; for HOW-TO questions give clear step-by-step app guidance. NEVER print internal database IDs or raw JSON. Reply organised and concise." + AI_ASSISTANT_GUIDANCE,
       maxTokens: 1024,
       imageDataUrls: imageDataUrls.length ? imageDataUrls : undefined,
+      idempotencyKey: requestId,
+      userId,
+      feature: "manufacturing",
     });
     return "text" in result ? result.text : "";
   } catch {
@@ -379,6 +385,8 @@ Query: "${message}"`;
     const result = await callClaudeForTenant(tenantId, tier, aiSettings, prompt, {
       systemPrompt: 'You are a manufacturing ERP task classifier. Reply only with the JSON object — no explanation, no markdown.',
       maxTokens: 512,
+      countUsage: false,
+      chargeCredits: false,
     });
     if (!("text" in result)) {
       return {

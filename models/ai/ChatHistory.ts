@@ -12,6 +12,7 @@ export type AiModule =
 export interface IChatMessage {
   role: "user" | "assistant";
   content: string;
+  erpCreditsUsed?: 0;
   timestamp: Date;
 }
 
@@ -25,6 +26,8 @@ export interface IChatHistory extends Document {
   title: string;
   messages: IChatMessage[];
   messageCount?: number;
+  lastErpQuery?: Record<string, unknown>;
+  pendingQuoteProposalId?: mongoose.Types.ObjectId;
   summary?: string;
   summaryVersion?: number;
   summarySourceCount?: number;
@@ -39,6 +42,7 @@ const ChatMessageSchema = new Schema({
   content: { type: String, required: true },
   timestamp: { type: Date, default: Date.now, required: true },
   requestId: { type: String, maxlength: 100 },
+  erpCreditsUsed: { type: Number, enum: [0] },
   status: { type: String, enum: ["completed", "failed", "pending"], default: "completed" },
 });
 
@@ -55,6 +59,8 @@ const ChatHistorySchema: Schema<IChatHistory> = new Schema(
     title: { type: String, required: true },
     messages: [ChatMessageSchema],
     messageCount: { type: Number, default: 0 },
+    lastErpQuery: { type: Schema.Types.Mixed },
+    pendingQuoteProposalId: { type: Schema.Types.ObjectId },
     summary: { type: String, maxlength: 12000 },
     summaryVersion: { type: Number, default: 0 },
     summarySourceCount: { type: Number, default: 0 },

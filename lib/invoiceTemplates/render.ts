@@ -1,6 +1,6 @@
 import type { ComputedLine, HsnSummaryRow } from "@/lib/sales/invoiceMath";
 import type { TemplateDefinition, TemplateRenderContext } from "./types";
-import { escapeHtml, fmtNum, money, dateStr } from "./helpers";
+import { escapeHtml, fmtNum, fmtQty, money, dateStr } from "./helpers";
 
 const FONT_STACK: Record<string, string> = {
   sans: "'Inter', 'Helvetica Neue', Arial, sans-serif",
@@ -215,7 +215,7 @@ function itemsTable(
       const sellingPricePerUnit = line.qty > 0 ? (line.gross - line.lineDiscountAmount) / line.qty : line.unitPrice;
       if (showMrp) cells.push(td(fmtNum(line.unitPrice, decimals), "right", NOWRAP));
       cells.push(td(fmtNum(showMrp ? sellingPricePerUnit : line.unitPrice, decimals), "right", NOWRAP));
-      if (showQty) cells.push(td(fmtNum(line.qty, qtyDecimals), "right", NOWRAP));
+      if (showQty) cells.push(td(fmtQty(line.qty, !!settings.showQuantity3Decimals), "right", NOWRAP));
       if (showDiscount) {
         cells.push(
           td(
@@ -302,6 +302,17 @@ function totalsCard(ctx: TemplateRenderContext, accent: string, opts: { retail?:
   rows += row("Taxable Amount", money(totals.taxableAmount, decimals), true);
   for (const g of totals.gstBreakup) {
     rows += g.label === "TDS" ? row("TDS", `- ${money(Math.abs(g.amount), decimals)}`) : row(g.label, money(g.amount, decimals));
+  }
+  if (totals.additionalCharges && totals.additionalCharges.length > 0) {
+    for (const c of totals.additionalCharges) {
+      if (c.amount !== 0) {
+        const sign = c.amount < 0 ? "- " : "+ ";
+        rows += row(c.name || "Adjustment", `${sign}${money(Math.abs(c.amount), decimals)}`);
+      }
+    }
+  } else if (totals.additionalChargesTotal) {
+    const sign = totals.additionalChargesTotal < 0 ? "- " : "+ ";
+    rows += row("Adjustment", `${sign}${money(Math.abs(totals.additionalChargesTotal), decimals)}`);
   }
   if (settings.showRoundOff && totals.roundOffAmount) rows += row("Round Off", money(totals.roundOffAmount, decimals));
 

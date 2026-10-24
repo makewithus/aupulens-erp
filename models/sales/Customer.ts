@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import "@/models/finance/Account";
 import { CUSTOMER_TYPE_VALUES, CUSTOMER_TYPE, type CustomerType } from "@/lib/constants/statuses";
+import { isValidEmail, isValidPhone } from "@/lib/sales/customerValidation";
 
 export interface ICustomerAddress {
   label?: string;
@@ -118,9 +119,31 @@ const CustomerSchema: Schema<ICustomer> = new Schema(
       companyName: { type: String, trim: true },
     },
     contact_details: {
-      email: { type: String, trim: true, lowercase: true },
-      phone: { type: String },
-      mobile: { type: String },
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        validate: {
+          validator: (v: string) => isValidEmail(v),
+          message: "Invalid email format",
+        },
+      },
+      phone: {
+        type: String,
+        trim: true,
+        validate: {
+          validator: (v: string) => isValidPhone(v),
+          message: "Invalid phone number format",
+        },
+      },
+      mobile: {
+        type: String,
+        trim: true,
+        validate: {
+          validator: (v: string) => isValidPhone(v),
+          message: "Invalid mobile number format",
+        },
+      },
       website: { type: String },
       image_1920: { type: String }, // Base64 string
       language: { type: String, default: "English" },
@@ -222,6 +245,8 @@ CustomerSchema.index(
   },
 );
 CustomerSchema.index({ tenantId: 1, "header.displayName": 1 });
+CustomerSchema.index({ tenantId: 1, "header.name": 1, _id: 1 });
+CustomerSchema.index({ tenantId: 1, isActive: 1 });
 CustomerSchema.index({ tenantId: 1, createdAt: -1 });
 
 // Keep the legacy header.name populated for any existing consumer (invoice PDFs,

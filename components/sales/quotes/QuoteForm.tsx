@@ -16,6 +16,7 @@ import { Plus, Trash2, GripVertical, X, Settings, Sparkles, Loader2 } from "luci
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { computeInvoiceTotals, type InvoiceLineInput } from "@/lib/sales/invoiceMath";
 import { useAiPrefill } from "@/lib/hooks/useAiPrefill";
+import { validateQuoteInput } from "@/lib/sales/quoteValidation";
 import { cachedFetch } from "@/lib/api/cachedFetch";
 
 interface QuoteLineItem {
@@ -249,6 +250,8 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
       toast.error("Every line item needs a name");
       return;
     }
+    const issues = validateQuoteInput(form);
+    if (issues.length) { toast.error(issues.join(" ")); return; }
     setSaving(true);
     try {
       const url = quoteId ? `/api/sales/quotes/${quoteId}` : "/api/sales/quotes";
@@ -373,7 +376,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         </button>
       </div>
 
-      <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-center max-w-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-y-4 gap-x-4 items-start sm:items-center max-w-2xl">
         <Label>
           Customer Name <span className="text-red-500">*</span>
         </Label>
@@ -458,7 +461,8 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">Item Table</span>
           <button className="font-mono text-[11px] uppercase tracking-wider text-primary underline">Bulk Actions</button>
         </div>
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table className="min-w-[650px]">
           <TableHeader className="border-border/40">
             <TableRow>
               <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Item Details</TableHead>
@@ -527,6 +531,7 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
             })}
           </TableBody>
         </Table>
+        </div>
         <div className="p-3 flex gap-4">
           <Button variant="outline" size="sm" onClick={addLine}>
             <Plus className="w-4 h-4 mr-1" /> Add New Row
@@ -734,8 +739,8 @@ export function QuoteForm({ initialValue, quoteId, quoteNumber }: QuoteFormProps
         Additional Fields: Start adding custom fields for your quotes by going to Settings → Sales → Quotes.
       </p>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-4 flex items-center justify-end gap-3 z-50">
-        <div className="flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 sm:right-(--ai-sidebar-w,0px) transition-[right] duration-200 bg-background border-t border-border/40 p-3 sm:p-4 flex flex-wrap items-center justify-end gap-2 sm:gap-3 z-50">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           {activeTab === "quote" ? (
             <>
               <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>

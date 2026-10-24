@@ -46,7 +46,11 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const challan = await DeliveryChallan.create(body);
+    const challan = await DeliveryChallan.create({
+      ...body,
+      tenantId,
+      createdBy: (session.user as any).id || body.createdBy,
+    });
     
     return NextResponse.json({ challan }, { status: 201 });
   } catch (error) {
